@@ -36,6 +36,8 @@ export interface VisitWizardApi {
   // A clinic-built workflow for this visit, if one resolved (backend 136).
   // null means "use the built-in flow" — the permanent fallback.
   template: WorkflowTemplate | null;
+  /** Pin this visit to a specific workflow (null = back to automatic). */
+  setVisitTemplate: (templateId: string | null) => void;
   templateStages: Record<string, LayoutStage>;
   templateFields: Record<string, FormField>;
   state: WizardPersist;
@@ -91,6 +93,7 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     visitsAPI.getWorkflow(visit.id).then(res => {
       if (!res.success || !res.data?.workflow || hydratedFor.current !== vid) return;
       const w = res.data.workflow;
+      if (w.templateId) setPinnedTemplateId(String(w.templateId));
       const serverAt = new Date(w.updatedAt).getTime();
       let localAt = 0;
       try {
@@ -224,8 +227,19 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
   // null and the wizard renders exactly as it always has — that fallback is
   // the whole reason this can ship before every clinic has built anything.
   const [template, setTemplate] = useState<WorkflowTemplate | null>(null);
+  // A workflow staff explicitly picked for THIS visit (persisted on the
+  // consultation record, 137). It wins over automatic resolution — the whole
+  // point is that a vet can override what the visit's shape implies.
+  const [pinnedTemplateId, setPinnedTemplateId] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
+    // An explicit choice short-circuits resolution entirely.
+    if (pinnedTemplateId) {
+      workflowTemplatesAPI.getById(pinnedTemplateId)
+        .then(res => { if (live) setTemplate(res.success ? (res.data?.template ?? null) : null); })
+        .catch(() => { /* built-in flow stands */ });
+      return () => { live = false; };
+    }
     workflowTemplatesAPI
       .resolve({
         encounterType: visit.encounterType,
@@ -245,7 +259,7 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
       .catch(() => { /* built-in flow stands */ });
     return () => { live = false; };
     // entry.key changes when staff switch workflow — the template must follow.
-  }, [visit.id, visit.encounterType, visit.visitType, species, entry.key]);
+  }, [visit.id, visit.encounterType, visit.visitType, species, entry.key, pinnedTemplateId]);
 
   const templateStages = useMemo(() => {
     const out: Record<string, LayoutStage> = {};
@@ -338,5 +352,20 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
 
   const progress = Math.round((steps.filter(s => state.completed[s]).length / steps.length) * 100);
 
-  return { entry, steps, template, templateStages, templateFields, state, currentStep: steps[idx] ?? steps[0], goTo, next, prev, setStepData, completeStep, isComplete, emit, events, progress, resetWizard, availableEntries, switchEntry };
+  const setVisitTemplate = useCallback((templateId: string | null) => {
+    setPinnedTemplateId(templateId);
+    if (!templateId) setTemplate(null);
+    // Persist alongside the rest of the wizard state so the choice survives a
+    // reload and follows the visit to another machine.
+    visitsAPI.saveWorkflow(visit.id, {
+      entryKey: state.entryKey,
+      startedAt: state.startedAt,
+      currentStep: String(state.currentStep),
+      completed: state.completed,
+      data: state.data,
+      templateId,
+    }).catch(() => { /* offline — the local pin still applies */ });
+  }, [visit.id, state.entryKey, state.startedAt, state.currentStep, state.completed, state.data]);
+
+  return { entry, steps, template, setVisitTemplate, templateStages, templateFields, state, currentStep: steps[idx] ?? steps[0], goTo, next, prev, setStepData, completeStep, isComplete, emit, events, progress, resetWizard, availableEntries, switchEntry };
 }

@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: pick the workflow a visit uses; customised presets finally take effect  —  2026-07-27
+- **What changed:** two halves of the same gap.
+  - **Customising a preset now replaces the default.** Forking produced a copy keyed
+    `custom.<slug>`, while resolution matched on `key === entryKey` — so a clinic's own
+    Vaccination workflow could never win and the visit kept opening ours. A fork now answers
+    to its ORIGIN's key. Customise Vaccination, and every vaccination visit opens your version.
+  - **Per-visit switcher** in the wizard header: *Automatic* plus every workflow, clinic ones
+    marked ★. Choosing one pins it to that visit and persists on the consultation record
+    (`template_id`, unused since 137), so it survives a reload and follows the visit to
+    another machine.
+  - **Visible indicator**: when a visit is running the clinic's own workflow, a
+    `Custom · <name>` chip appears, tooltipped *"Using custom <name> workflow — your clinic's
+    version, not the VetHub default."* Nothing is shown on a shipped preset, where there is
+    nothing to say.
+- **Record impact:** 🟢 None — writes a column that already existed.
+- **Data dependency:** the backend commit carrying `templateId` on GET/PUT `/visits/:id/workflow`
+  and the fork-key matching.
+- **Rollback:** revert; resolution returns to automatic-only.
+- ⚠️ **Watch out:** `templateId` is written **only when the client sends it**, so an ordinary
+  wizard autosave cannot clear a workflow staff deliberately chose. Keep that guard if you
+  touch `saveWorkflow`.
+
 ### fix: visit services now carry their catalog id, so recipe auto-apply is reliable  —  2026-07-27
 - **What changed:** every task the visit-registration screen builds now sends `serviceId`.
   Only **7 of 234** tasks on prod carried one, so the backend was almost always falling back

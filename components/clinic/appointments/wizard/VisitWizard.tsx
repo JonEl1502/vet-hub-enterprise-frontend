@@ -3,10 +3,12 @@ import {
   ChevronLeft, ChevronRight, CheckCircle2, Clock, Receipt,
   PanelRightClose, PanelRightOpen, RefreshCw,
   ExternalLink, AlertTriangle, Loader2, Siren,
+  Workflow,
 } from 'lucide-react';
 import { Visit, Pet, Client, Clinic } from '../../../../types';
 import { STEP_DEFS } from './entryPoints';
 import TemplateStep from './steps/TemplateStep';
+import { workflowTemplatesAPI } from '../../../../services';
 import { StepProps, WizardStepId, StaffOpt } from './types';
 import { VisitWizardApi } from './useVisitWizard';
 import HistoryStep from './steps/HistoryStep';
@@ -114,7 +116,7 @@ const useElapsed = (fromIso: string) => {
 };
 
 const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
-  const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry, templateStages, templateFields } = wiz;
+  const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry, templateStages, templateFields, template, setVisitTemplate } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   // Mobile ⚠ menu holding the Hospitalize / Escalate-to-Emergency actions.
   const [escMenuOpen, setEscMenuOpen] = useState(false);
@@ -136,6 +138,17 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
     if (ro && rootRef.current) ro.observe(rootRef.current);
     return () => { window.removeEventListener('resize', measure); ro?.disconnect(); };
   }, []);
+  // Workflows this clinic can switch the visit onto. Loaded once; a failure
+  // just leaves the picker empty rather than blocking the consultation.
+  const [pickableWorkflows, setPickableWorkflows] = useState<{ id: string; name: string; ownerType: string }[]>([]);
+  useEffect(() => {
+    let live = true;
+    workflowTemplatesAPI.list()
+      .then(r => { if (live && r.success && r.data?.templates) setPickableWorkflows(r.data.templates.map(t => ({ id: t.id, name: t.name, ownerType: t.ownerType }))); })
+      .catch(() => { /* picker stays empty */ });
+    return () => { live = false; };
+  }, []);
+
   const idx = steps.indexOf(currentStep);
   const isLast = idx === steps.length - 1;
   // A clinic-built stage has no STEP_DEFS entry — synthesise one from its
@@ -231,6 +244,31 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
         <span className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${entry.key === 'emergency' ? 'text-red-600 dark:text-red-400' : 'text-pine dark:text-zinc-100'}`}>
           {entry.icon} {entry.label}
         </span>
+        {/* Which FORM is being filled in. Only shown when it is the clinic's
+            own workflow — on a shipped preset there is nothing to say. */}
+        {template && template.ownerType === 'CLINIC' && (
+          <span
+            title={`Using custom ${template.name} workflow — your clinic's version, not the VetHub default. Change it from the workflow menu.`}
+            className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam/10 text-seafoam border border-seafoam/20 cursor-help"
+          >
+            <Workflow size={10} /> Custom · {template.name}
+          </span>
+        )}
+        {pickableWorkflows.length > 0 && (
+          <select
+            title="Which form this visit uses. Automatic picks by visit type; choosing one pins it to this visit only."
+            className="text-[9px] font-black uppercase tracking-widest bg-transparent border border-slate-200 dark:border-zinc-700 rounded-lg px-1.5 py-0.5 text-slate-500 dark:text-zinc-400 cursor-pointer"
+            value={template?.id ?? ''}
+            onChange={e => setVisitTemplate(e.target.value || null)}
+          >
+            <option value="">Automatic</option>
+            {pickableWorkflows.map(w => (
+              <option key={w.id} value={w.id}>
+                {w.ownerType === 'CLINIC' ? '★ ' : ''}{w.name}
+              </option>
+            ))}
+          </select>
+        )}
         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
           Current step · <span className="text-seafoam">{def.short}</span>
         </span>

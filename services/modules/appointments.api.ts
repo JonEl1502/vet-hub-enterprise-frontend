@@ -399,13 +399,13 @@ export const visitsAPI = {
   getWorkflow: async (
     appointmentId: number | string,
     options?: RequestOptions
-  ): Promise<ApiResponse<{ workflow: { entryKey: string; startedAt: string; currentStep: string; completed: any; data: any; updatedAt: string } | null }>> => {
+  ): Promise<ApiResponse<{ workflow: { entryKey: string; startedAt: string; currentStep: string; completed: any; data: any; updatedAt: string; templateId?: string | null } | null }>> => {
     return get(`/appointments/${appointmentId}/workflow`, { cache: false, silent: true, ...options });
   },
 
   saveWorkflow: async (
     appointmentId: number | string,
-    data: { entryKey: string; startedAt: string; currentStep: string; completed: any; data: any },
+    data: { entryKey: string; startedAt: string; currentStep: string; completed: any; data: any; templateId?: string | null },
     options?: RequestOptions
   ): Promise<ApiResponse<{ workflow: { updatedAt: string } }>> => {
     return put(`/appointments/${appointmentId}/workflow`, data, { silent: true, ...options });
