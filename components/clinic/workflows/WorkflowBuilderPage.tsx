@@ -390,6 +390,35 @@ const WorkflowBuilderPage: React.FC<Props> = ({ templateId, onBack, onOpenTempla
             {VISIT_TYPES.map(v => <option key={v} value={v}>{v || 'Any'}</option>)}
           </select>
         </div>
+        {/* "Always use mine" — the whole point of building one. Without it a
+            vet has to pick the workflow on every visit. */}
+        <div className="sm:col-span-2 xl:col-span-4">
+          <button
+            type="button"
+            disabled={readOnly}
+            onClick={() => setDraft(d => ({ ...d, isDefault: !d.isDefault }))}
+            className={`w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-all disabled:opacity-60 ${
+              draft.isDefault
+                ? 'border-seafoam bg-seafoam/5'
+                : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/40'
+            }`}
+          >
+            <span className={`mt-0.5 w-4 h-4 rounded shrink-0 flex items-center justify-center text-[10px] font-black ${
+              draft.isDefault ? 'bg-seafoam text-white' : 'border border-slate-300 dark:border-zinc-700'
+            }`}>{draft.isDefault ? '✓' : ''}</span>
+            <span className="min-w-0">
+              <span className="block text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+                Always use this workflow
+              </span>
+              <span className="block text-[10px] text-slate-500 dark:text-zinc-400 leading-relaxed mt-0.5">
+                {draft.isDefault
+                  ? 'Matching visits open on this automatically — no one has to pick it. It wins over the VetHub default and over your other workflows.'
+                  : 'Off — matching visits fall back to whichever workflow fits best, and staff can still pick this one per visit.'}
+              </span>
+            </span>
+          </button>
+        </div>
+
         <div className="sm:col-span-2 xl:col-span-4">
           <label className="field-label">Description</label>
           <input

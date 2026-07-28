@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a clinic's own workflow now actually replaces the default  —  2026-07-28
+- **What changed:** setting up a custom workflow is meant to replace the built-in one. It
+  didn't, unless the workflow was a *fork*.
+  - **Resolution:** a workflow built from scratch for VACCINATION lost to our shipped preset,
+    because resolution returned a SYSTEM template as soon as no clinic template matched *by
+    key* — before any clinic template that claimed the visit by encounter/visit type was
+    considered. The clinic's templates are now one tier, evaluated first: a clinic workflow
+    qualifies if it answers to the entry point **or** claims the visit.
+  - **New "Always use this workflow" toggle** in the builder (`isDefault`). When on, matching
+    visits open on it automatically — nobody picks it per visit. It outranks entry-key match,
+    specificity and recency, because it is the clinic's explicit instruction.
+- **Record impact:** 🟢 None — resolution and one boolean that already existed on the model.
+- **Data dependency:** the backend ranking commit.
+- **Rollback:** revert; forks still win, scratch-built workflows go back to losing.
+- ⚠️ **Watch out:** a clinic workflow for *another* visit type must not hijack the visit —
+  covered by a check. `npm run check:workflow` is now 35 cases.
+- ⚠️ **Still open:** a custom workflow can ADD to a built-in stage but cannot REMOVE from it —
+  the stage body is still the hardcoded component (`VisitWizard.tsx` Core branch). Deleting
+  the Systemic Examination card from a template does not remove it from the visit. That is
+  ADDITION 3 on the board, routed to another session.
+
 ### feat: tell a forked workflow when the original has moved on  —  2026-07-28
 - **What changed:** a fork whose source has advanced now shows a **`vN available`** badge in
   Visit Workflows. Clicking it opens a review dialog and, if the clinic wants it, takes the
