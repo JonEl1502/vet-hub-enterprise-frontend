@@ -96,8 +96,11 @@ const SubPackagesAdminPage: React.FC = () => {
       // An ADD-ON is tier 0: it layers over any plan rather than sitting at a
       // position in the ladder, which is exactly why it does not belong in the
       // Clinic Plans list next to Manager / Pro / Enterprise.
-      if (audience === 'addon') return Number(p.tier) === 0;
-      if (Number(p.tier) === 0) return false;
+      // Match on EITHER marker. A row where the two disagree is broken, and
+      // hiding it from this tab would put it out of reach of the only screen
+      // that can repair it.
+      if (audience === 'addon') return Number(p.tier) === 0 || !!p.isAddon;
+      if (Number(p.tier) === 0 || p.isAddon) return false;
       const tags = (p.audiences && p.audiences.length > 0) ? p.audiences : (['CLINIC'] as PackageAudience[]);
       return tags.includes(audienceTag);
     });
@@ -185,8 +188,13 @@ const SubPackagesAdminPage: React.FC = () => {
         name: draft.name!,
         price: Number(draft.price),
         billingCycle: (draft.billingCycle as any) || 'MONTHLY',
-        // An add-on has no rung on the ladder — tier 0 is what marks it.
+        // An add-on has no rung on the ladder, so it sits at tier 0 — but tier is
+        // only how this LIST tells them apart. Entitlements resolve the base plan
+        // by `isAddon`, so it has to be set here too. Without it a new add-on is
+        // a tier-0 BASE plan: subscribing to it SUPERSEDES the clinic's real plan
+        // and drops them to the add-on's handful of keys.
         tier: audience === 'addon' ? 0 : Number(draft.tier ?? 1),
+        isAddon: audience === 'addon',
         maxStaff: Number(draft.maxStaff ?? 5),
         storageGb: Number(draft.storageGb ?? 10),
         isActive: draft.isActive ?? true,
@@ -540,10 +548,27 @@ const SubPackagesAdminPage: React.FC = () => {
                       <input type="number" value={selected.storageGb} onChange={e => updateSelectedField('storageGb', Number(e.target.value))} className={inputCls}/>
                     </Field>
                     <Field label="Add-on">
-                      <select value={selected.isAddon ? 'true' : 'false'} onChange={e => updateSelectedField('isAddon', e.target.value === 'true')} className={inputCls}>
+                      {/* Flipping this moves the row between the Clinic Plans and
+                          Add-ons tabs, so tier has to follow: an add-on has no rung
+                          on the ladder (0), and a base plan needs a real one. */}
+                      <select
+                        value={selected.isAddon ? 'true' : 'false'}
+                        onChange={e => {
+                          const addon = e.target.value === 'true';
+                          updateSelectedField('isAddon', addon);
+                          if (addon) updateSelectedField('tier', 0);
+                          else if (Number(selected.tier) === 0) updateSelectedField('tier', 1);
+                        }}
+                        className={inputCls}
+                      >
                         <option value="false">Base plan</option>
                         <option value="true">Add-on (layers over a plan)</option>
                       </select>
+                      {selected.isAddon && (
+                        <p className="mt-1 text-[10px] text-slate-400">
+                          Grants its keys ON TOP of the clinic's plan. It never replaces one.
+                        </p>
+                      )}
                     </Field>
                     <Field label="Active">
                       <select value={selected.isActive ? 'true' : 'false'} onChange={e => updateSelectedField('isActive', e.target.value === 'true')} className={inputCls}>
