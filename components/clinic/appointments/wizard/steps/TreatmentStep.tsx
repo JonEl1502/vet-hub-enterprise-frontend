@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { Pill, Scissors, ClipboardList, Package, Loader2, Plus, ExternalLink, Search } from 'lucide-react';
 import { StepProps } from '../types';
-import { Section, L } from '../fields';
+import { Section, L, showsField } from '../fields';
 import { useData } from '../../../../../contexts/DataContext';
 import { consumablesAPI, toast, procedureTemplatesAPI, ProcedureTemplate } from '../../../../../services';
 
@@ -21,7 +21,8 @@ interface MedRow {
 // duration ride along as the prescription note. Gloves/syringes etc. are
 // added the same way with the Rx fields left blank.
 
-const TreatmentStep: React.FC<StepProps> = ({ visit, data, setData, emit, refreshVisit }) => {
+const TreatmentStep: React.FC<StepProps> = ({ visit, data, setData, emit, refreshVisit, visibleFields  }) => {
+  const show = showsField(visibleFields);
   const d = data || {};
   const meds: MedRow[] = d.medications || [];
   const [draft, setDraft] = React.useState<MedRow & { itemId?: string; price?: number; stock?: number }>({ drug: '', dose: '', route: 'PO', frequency: '', duration: '', qty: 1 });
@@ -137,6 +138,7 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, data, setData, emit, refres
 
   return (
     <div className="space-y-4">
+      {show('medications') && (
       <Section icon={Pill} title="Medications & Items Used (deducts stock · bills)">
         {marCount > 0 && (
           <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">
@@ -212,7 +214,9 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, data, setData, emit, refres
           Adding dispenses from inventory: stock deducts and the charge lands on this visit's bill. Dose/route/frequency/duration are saved as the prescription note. Non-drug items (gloves, syringes…) go through the same search.
         </p>
       </Section>
+      )}
 
+      {show('procedures') && (
       <Section icon={Scissors} title="Procedures Performed">
         {/* Only CREATED procedure recipes (Billable Items → Procedures) are
             selectable — picking one APPLIES the recipe to this visit (fees +
@@ -268,13 +272,16 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, data, setData, emit, refres
         </div>
         {applyingProc && <p className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><Loader2 size={11} className="animate-spin" /> Applying recipe — fees & products landing on the bill…</p>}
       </Section>
+      )}
 
+      {show('plan') && (
       <Section icon={ClipboardList} title="Treatment Plan & Instructions">
         <textarea className="field-textarea" rows={3} placeholder="In-clinic treatment given, plan for the next 24–72h, feeding/rest instructions…" value={d.plan ?? ''} onChange={e => setData({ plan: e.target.value })} />
         <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">
           Hospitalisation or boarding? Use the admit actions on the visit header — the admission is tracked on the journey.
         </p>
       </Section>
+      )}
     </div>
   );
 };

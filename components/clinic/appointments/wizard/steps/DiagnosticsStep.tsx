@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { FlaskConical, FileSearch, Lightbulb, Plus, ExternalLink, FileText, Eye, EyeOff, Loader2, Building2, Trash2 } from 'lucide-react';
 import { StepProps } from '../types';
-import { Section, L } from '../fields';
+import { Section, L, showsField } from '../fields';
 import { labAPI, imagingAPI, LabRecord, ImagingRecord, dialog } from '../../../../../services';
 import { formatDate } from '../../../../../services/utils/dateFormatter';
 import { useAuth } from '../../../../../contexts/AuthContext';
@@ -87,7 +87,8 @@ const ImagingResultInline: React.FC<{ r: ImagingRecord }> = ({ r }) => {
   );
 };
 
-const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices, addService, openModule, deleteTask, emit, currency, staff }) => {
+const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices, addService, openModule, deleteTask, emit, currency, staff, visibleFields  }) => {
+  const show = showsField(visibleFields);
   const d = data || {};
   const requests = (visit.tasks || []).filter(t => isDiagnostic(t.category));
   const { user: currentUser } = useAuth();
@@ -143,6 +144,7 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
 
   return (
     <div className="space-y-4">
+      {show('requests') && (
       <Section icon={FlaskConical} title="Diagnostic Requests">
         {requests.length === 0 ? (
           <div className="text-center py-6 space-y-2">
@@ -229,23 +231,30 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
           </div>
         )}
       </Section>
+      )}
 
+      {show('keyFindings') && (
       <Section icon={FileSearch} title="Key Findings">
         <textarea className="field-textarea" rows={3} placeholder={'One finding per line, e.g.\nMild leukocytosis with neutrophilia.\nFecal exam: coccidia oocysts ++'} value={d.keyFindings ?? ''} onChange={e => setData({ keyFindings: e.target.value })} />
       </Section>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <Section icon={Lightbulb} title="Clinical Interpretation">
+        {show('interpretation') && (
+      <Section icon={Lightbulb} title="Clinical Interpretation">
           <textarea className="field-textarea" rows={3} placeholder="What the results mean for this patient…" value={d.interpretation ?? ''} onChange={e => setData({ interpretation: e.target.value })} />
         </Section>
-        <Section icon={Lightbulb} title="Recommendations">
+      )}
+        {show('recommendations') && (
+      <Section icon={Lightbulb} title="Recommendations">
           <textarea className="field-textarea" rows={3} placeholder="Next steps based on results…" value={d.recommendations ?? ''} onChange={e => setData({ recommendations: e.target.value })} />
         </Section>
+      )}
       </div>
 
-      <L label="Pending / external results">
+      {show('pending') && <L label="Pending / external results">
         <input className="field-input" placeholder="e.g. Giardia antigen test — sent to external lab, ETA tomorrow" value={d.pending ?? ''} onChange={e => setData({ pending: e.target.value })} />
-      </L>
+      </L>}
     </div>
   );
 };

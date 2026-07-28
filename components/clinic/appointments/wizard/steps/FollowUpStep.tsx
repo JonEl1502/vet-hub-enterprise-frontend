@@ -1,7 +1,7 @@
 import React from 'react';
 import { CalendarClock, Bell, HeartPulse, ClipboardCheck } from 'lucide-react';
 import { StepProps } from '../types';
-import { Section, L, Seg, CheckGrid, ListEditor } from '../fields';
+import { Section, L, Seg, CheckGrid, ListEditor, showsField, showsAny } from '../fields';
 
 const OUTCOME = ['Recovered', 'Improved', 'Stable', 'Guarded', 'Deteriorated'];
 const CLOSE_OUTCOME = ['Recovered', 'Improved', 'Stable', 'Hospitalised', 'Referred', 'Lost to follow up', 'Euthanised'];
@@ -18,7 +18,8 @@ interface ReminderRow { title: string; description?: string; dueDate: string; as
 // UI-ONLY phase: reminders staged here are local; the real Reminder flow
 // (FinalizeReminderGate → reminders API) still runs at visit finalize.
 
-const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit }) => {
+const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit, visibleFields  }) => {
+  const show = showsField(visibleFields);
   const d = data || {};
   const reminders: ReminderRow[] = d.reminders || [];
   const [draft, setDraft] = React.useState<ReminderRow>({ title: '', description: '', dueDate: '', assignTo: '' });
@@ -35,22 +36,25 @@ const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit }) => {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <Section icon={HeartPulse} title="Current Outcome">
-          <L label="Outcome at end of consultation">
+        {showsAny(visibleFields, ['currentOutcome','closeOutcome','outcomeNotes']) && (
+      <Section icon={HeartPulse} title="Current Outcome">
+          {show('currentOutcome') && <L label="Outcome at end of consultation">
             <Seg options={OUTCOME} value={d.currentOutcome} onChange={v => setData({ currentOutcome: v })} />
-          </L>
-          <L label="Outcome when visit is closed">
+          </L>}
+          {show('closeOutcome') && <L label="Outcome when visit is closed">
             <Seg options={CLOSE_OUTCOME} value={d.closeOutcome} onChange={v => { setData({ closeOutcome: v }); emit(`Visit outcome — ${v.toLowerCase()}`, 'milestone', true); }} />
-          </L>
-          <L label="Outcome notes">
+          </L>}
+          {show('outcomeNotes') && <L label="Outcome notes">
             <textarea className="field-textarea" rows={2} placeholder="Notes on outcome…" value={d.outcomeNotes ?? ''} onChange={e => setData({ outcomeNotes: e.target.value })} />
-          </L>
+          </L>}
         </Section>
+      )}
 
         {/* Next visit is just another reminder point — no separate card.
             Reception creates the real reminders / books the appointment from
             the Follow-up Plan card in the rail. */}
-        <Section icon={Bell} title="Reminders & Next Visit">
+        {show('reminders') && (
+      <Section icon={Bell} title="Reminders & Next Visit">
         {reminders.length > 0 && (
           <div className="space-y-1">
             {reminders.map((r, i) => (
@@ -83,19 +87,24 @@ const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit }) => {
           Staged points (incl. the next visit) surface in the Follow-up Plan card — reception creates the reminders / books the appointment there.
         </p>
       </Section>
+      )}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        <Section icon={ClipboardCheck} title="Care Plan">
+        {show('carePlan') && (
+      <Section icon={ClipboardCheck} title="Care Plan">
           <ListEditor
             items={d.carePlan || []}
             onChange={items => setData({ carePlan: items })}
             placeholder="e.g. Return for recheck in 1 week"
           />
         </Section>
-        <Section icon={HeartPulse} title="Home Monitoring Parameters">
+      )}
+        {show('monitoring') && (
+      <Section icon={HeartPulse} title="Home Monitoring Parameters">
           <CheckGrid items={MONITORING} value={d.monitoring} onToggle={(k, _l, on) => setData({ monitoring: { ...(d.monitoring || {}), [k]: on } })} />
         </Section>
+      )}
       </div>
     </div>
   );
