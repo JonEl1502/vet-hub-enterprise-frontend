@@ -231,6 +231,21 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
   // consultation record, 137). It wins over automatic resolution — the whole
   // point is that a vet can override what the visit's shape implies.
   const [pinnedTemplateId, setPinnedTemplateId] = useState<string | null>(null);
+
+  // A workflow chosen at REGISTRATION (ADDITION 2). The visit did not exist
+  // when the choice was made, so it was stashed locally against the new id;
+  // the first time the wizard opens we adopt it and persist it properly, then
+  // drop the stash so it can never override a later change.
+  const adoptedPick = useRef(false);
+  useEffect(() => {
+    if (adoptedPick.current) return;
+    let picked: string | null = null;
+    try { picked = localStorage.getItem(`vethub.visitWorkflowPick.v1.${visit.id}`); } catch { /* no-op */ }
+    if (!picked) return;
+    adoptedPick.current = true;
+    setPinnedTemplateId(picked);
+    try { localStorage.removeItem(`vethub.visitWorkflowPick.v1.${visit.id}`); } catch { /* no-op */ }
+  }, [visit.id]);
   useEffect(() => {
     let live = true;
     // An explicit choice short-circuits resolution entirely.

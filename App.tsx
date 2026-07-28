@@ -2299,6 +2299,17 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               console.log('Creating appointment:', appointmentData);
               // Gate check captured at registration prefills the wizard's
               // entry step (same field keys — shared GateCheckForm config).
+              // The workflow chosen at registration (ADDITION 2). Stashed per
+              // visit the same way the gate check is, then pinned by the wizard
+              // on first open — the visit isn't created yet when the choice is
+              // made, so there is nothing to PUT it against here.
+              const stashWorkflowPick = (visitId: any) => {
+                if (!appointmentData.workflowTemplateId || !visitId) return;
+                try {
+                  localStorage.setItem(`vethub.visitWorkflowPick.v1.${visitId}`, String(appointmentData.workflowTemplateId));
+                } catch { /* quota — the visit just resolves automatically */ }
+              };
+
               const stashGateCheck = (visitId: any) => {
                 if (!appointmentData.gateCheck?.data || !visitId) return;
                 try {
@@ -2333,7 +2344,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                   try {
                     const r = await visitsAPI.create({ ...baseData, petId: m.petId, clientId: m.clientId });
                     const vid = (r.data as any)?.appointment?.id ?? (r.data as any)?.visit?.id;
-                    if (r.success && vid) { createdIds.push(String(vid)); stashGateCheck(vid); }
+                    if (r.success && vid) { createdIds.push(String(vid)); stashWorkflowPick(vid); stashGateCheck(vid); }
                     else failed.push(m.petId);
                   } catch { failed.push(m.petId); }
                 }
@@ -2364,7 +2375,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                 }
                 // Refresh appointments list to show the new appointment
                 await refreshAppointments();
-                stashGateCheck(newVisitId);
+                stashWorkflowPick(newVisitId); stashGateCheck(newVisitId);
                 // Book & Start → straight into the new visit's clinical workflow.
                 if (appointmentData.startNow && newVisitId) navigateTo('appointment-detail', { appointmentId: Number(newVisitId) });
                 else navigateTo('appointments');

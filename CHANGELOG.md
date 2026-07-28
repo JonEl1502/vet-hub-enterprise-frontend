@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: pick the workflow when registering a visit  —  2026-07-28
+- **What changed:** the visit-registration screen now offers a **Workflow** picker, so a
+  vaccination visit can be started on a specific workflow (e.g. `Vaccination (copy)`) instead
+  of whatever automatic resolution would pick. The visit then opens on THAT workflow's stages.
+  - The list is filtered by the same rule the server resolves by — a workflow claiming this
+    encounter/visit type, or a general one — so it cannot offer something that would then be
+    ignored. Clinic workflows are marked ★.
+  - It only appears when there is **more than one** option; with nothing to choose between,
+    a picker is noise.
+  - Switching visit type clears a pick that no longer applies.
+- **Record impact:** 🟢 None — the choice lands in `consultation_records.template_id`, which
+  already existed.
+- **Data dependency:** migrations 136/137 and the per-visit pin (both live).
+- **Rollback:** revert; registration stops offering the choice, the wizard picker remains.
+- ⚠️ **Watch out:** the visit does not exist when the choice is made, so it is stashed
+  locally against the new id and adopted by the wizard on first open, which persists it
+  properly and then **drops the stash** — otherwise a stale local value would keep
+  overriding later changes.
+
 ### fix: creating a subscription package 400'd — region and currency were never sent  —  2026-07-28
 - **What changed:** the Plans create form now carries **Region** and **Currency**, and sends
   them. The API requires both (*"name, region, currency, amount (or price) and billingCycle

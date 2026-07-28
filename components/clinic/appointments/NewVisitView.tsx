@@ -9,7 +9,7 @@ import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useStaff } from '../../../contexts/StaffContext';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { computeAfterHours, WorkingHours } from '../shared/workingHours';
-import { inventoryAPI, InventoryItem, clientsAPI, petsAPI, dialog, toast, vaccinePackagesAPI, VaccinePackage } from '../../../services';
+import { inventoryAPI, InventoryItem, clientsAPI, petsAPI, dialog, toast, vaccinePackagesAPI, VaccinePackage, workflowTemplatesAPI } from '../../../services';
 import PhoneInput from '../../shared/common/PhoneInput';
 import StepIndicator from '../../shared/common/StepIndicator';
 import DateTimePicker from '../../shared/common/DateTimePicker';
@@ -358,6 +358,40 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
 
   // Vaccination visit type (077) behaves like the old top-level vaccination
   // encounter at registration: the vaccine picker stages services.
+  // ── Workflow chosen at registration (ADDITION 2) ────────────────────────
+  // The clinic's own workflows for this kind of visit. Picking one here pins
+  // the visit to it, so the wizard opens on THAT workflow's stages instead of
+  // whatever automatic resolution would have chosen.
+  const [pickedTemplateId, setPickedTemplateId] = useState<string | null>(null);
+  const [workflowOptions, setWorkflowOptions] = useState<{ id: string; name: string; ownerType: string; encounterType: string | null; visitType: string | null }[]>([]);
+  useEffect(() => {
+    let live = true;
+    workflowTemplatesAPI.list()
+      .then(r => {
+        if (!live || !r.success || !r.data?.templates) return;
+        setWorkflowOptions(r.data.templates.map(t => ({
+          id: t.id, name: t.name, ownerType: t.ownerType,
+          encounterType: t.encounterType, visitType: t.visitType,
+        })));
+      })
+      .catch(() => { /* picker just doesn't appear */ });
+    return () => { live = false; };
+  }, []);
+
+  // Only workflows that could actually run this visit: one claiming this
+  // encounter/visit type, or a general one. Same rule the server resolves by,
+  // so the list can't offer something that would then be ignored.
+  const relevantWorkflows = useMemo(() => workflowOptions.filter(w => {
+    if (w.encounterType && w.encounterType !== encounterType) return false;
+    if (w.visitType && w.visitType !== (encounterType === 'VET_VISIT' ? visitType : null)) return false;
+    return true;
+  }), [workflowOptions, encounterType, visitType]);
+
+  // A workflow pinned for one visit type must not survive switching to another.
+  useEffect(() => {
+    if (pickedTemplateId && !relevantWorkflows.some(w => w.id === pickedTemplateId)) setPickedTemplateId(null);
+  }, [relevantWorkflows, pickedTemplateId]);
+
   const isVaccinationVisit = encounterType === 'VET_VISIT' && visitType === 'VACCINATION';
   useEffect(() => {
     if (!isVaccinationVisit) return;
@@ -1192,6 +1226,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       encounterType,
       // visitType only applies to vet visits; null for grooming/boarding/etc.
       visitType: encounterType === 'VET_VISIT' ? visitType : null,
+      // Carried to the visit so the wizard opens on the workflow chosen here
+      // rather than re-resolving one. Consumed by App -> VisitDetailView.
+      workflowTemplateId: pickedTemplateId,
       // Escalate to in-patient (vet visits only) — links a hospitalization.
       onboardInpatient: encounterType === 'VET_VISIT' && onboardInpatient,
     });
@@ -1403,7 +1440,33 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
             {/* Hospitalization is NOT a visit type and is NOT offered at
                 registration — a consultation escalates to inpatient from the
                 visit workflow toolbar (next to Escalate to Emergency). */}
+            {/* Which form the vet will fill in. Only offered when the clinic
+                has built something for this kind of visit — with nothing to
+                choose between, a picker is just noise. */}
+            {relevantWorkflows.length > 1 && (
+              <div className="mt-3">
+                <label className="field-label">Workflow</label>
+                <select
+                  className="field-select"
+                  value={pickedTemplateId ?? ''}
+                  onChange={e => setPickedTemplateId(e.target.value || null)}
+                >
+                  <option value="">Automatic — pick the best match</option>
+                  {relevantWorkflows.map(w => (
+                    <option key={w.id} value={w.id}>
+                      {w.ownerType === 'CLINIC' ? '★ ' : ''}{w.name}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[9px] font-bold text-slate-400 mt-1">
+                  {pickedTemplateId
+                    ? 'This visit will open on the workflow you picked.'
+                    : 'Leave on Automatic and the visit opens on whichever workflow fits — your own comes first.'}
+                </p>
+              </div>
+            )}
           </div>
+
         ) : (
           <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-2 font-medium">
             {encounterType === 'BOARDING' ? 'Boarding stay — complete the gate check below (incl. belongings + feeding schedule); a vet check runs in the workflow.'
