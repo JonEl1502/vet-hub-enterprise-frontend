@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the clinic switcher stops calling branches clinics  —  2026-07-28
+- **What changed:** `ClinicContext` hands the switcher a **flat** list — every main clinic
+  and every branch under it, side by side — and `ClinicSearchDropdown` counted that length.
+  One practice with two branches read as **"All clinics (3)"**, and the list showed the three
+  as equals with nothing to say which was a location of which.
+  - Counts now come from mains only, with branches counted separately:
+    `All · 1 clinic · 2 branches`. Same string on the select-all row ("Everywhere · …").
+  - The list is ordered parent-then-its-branches, branches indented with a `BRANCH` tag
+    whose tooltip names the parent. A branch whose parent isn't in the user's own list still
+    renders (unnested) rather than disappearing.
+  - Search keeps a matching parent's branches visible, and finds a branch by name even when
+    the parent doesn't match — previously a branch search returned a bare row with no
+    indication of what it belonged to.
+  - The collapsed trigger already had a tooltip; the expanded one now does too, since the
+    summary can outgrow the sidebar width.
+- **Record impact:** 🟢 None — presentation only. Selection payloads and the
+  `X-Clinic-Ids` header are unchanged, so scope behaviour is identical.
+- **Migration / rollout:** code-only, frontend deploy.
+- **Rollback:** revert the commit.
+- ⚠️ **Watch out:** the dropdown still renders whenever there is more than one row, branches
+  included — that is deliberate. A single clinic with branches genuinely needs a scope
+  switcher; it just shouldn't claim to be three clinics.
+
 ### fix: a workflow can now REMOVE fields from a built-in stage  —  2026-07-28
 - **What changed:** deleting a card or field from a clinic workflow had no effect on the
   visit. Removing *Systemic Examination* from a Vaccination copy still rendered it — plus

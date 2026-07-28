@@ -33,26 +33,68 @@ const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
     if (typeof window !== 'undefined') window.location.reload();
   };
 
+  /**
+   * `clinics` from ClinicContext is a FLAT list — every main clinic and every
+   * branch under it, side by side. Counting that length called a branch a
+   * clinic: one practice with two branches read as "All clinics (3)". A branch
+   * is a location of a clinic, not another clinic, so mains are what get
+   * counted and branches are listed underneath the parent they belong to.
+   */
+  const rows = useMemo(() => {
+    const mains = clinics.filter(c => !c.parentClinicId);
+    const byParent = new Map<string, any[]>();
+    const orphans: any[] = [];
+    clinics
+      .filter(c => c.parentClinicId)
+      .forEach(b => {
+        const pid = String(b.parentClinicId);
+        // A branch whose parent isn't in this user's list still has to be
+        // reachable — it just can't be nested under anything.
+        if (mains.some(m => String(m.id) === pid)) {
+          byParent.set(pid, [...(byParent.get(pid) || []), b]);
+        } else {
+          orphans.push(b);
+        }
+      });
+    const ordered: { clinic: any; isBranch: boolean; parentName?: string }[] = [];
+    mains.forEach(m => {
+      ordered.push({ clinic: m, isBranch: false });
+      (byParent.get(String(m.id)) || []).forEach(b =>
+        ordered.push({ clinic: b, isBranch: true, parentName: m.name }));
+    });
+    orphans.forEach(b => ordered.push({ clinic: b, isBranch: true }));
+    return { ordered, mainCount: mains.length, branchCount: clinics.length - mains.length };
+  }, [clinics]);
+
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return clinics;
-    return clinics.filter(c =>
+    if (!q) return rows.ordered;
+    const hit = (c: any) =>
       c.name?.toLowerCase().includes(q) ||
       (c.subdomain || '').toLowerCase().includes(q) ||
       (c.city || '').toLowerCase().includes(q) ||
-      (c.countryCode || '').toLowerCase().includes(q)
+      (c.countryCode || '').toLowerCase().includes(q);
+    // A parent that matches keeps its branches; a branch that matches is shown
+    // even when its parent doesn't, so searching a branch name always finds it.
+    const matchedMainIds = new Set(
+      rows.ordered.filter(r => !r.isBranch && hit(r.clinic)).map(r => String(r.clinic.id)),
     );
-  }, [clinics, query]);
+    return rows.ordered.filter(r =>
+      hit(r.clinic) || (r.isBranch && matchedMainIds.has(String(r.clinic.parentClinicId))));
+  }, [rows, query]);
 
-  // Don't render if there's only one clinic — nothing to switch between.
+  // Don't render if there's only one place to be — nothing to switch between.
   if (clinics.length <= 1) return null;
 
+  const scopeSummary = rows.branchCount > 0
+    ? `${rows.mainCount} ${rows.mainCount === 1 ? 'clinic' : 'clinics'} · ${rows.branchCount} ${rows.branchCount === 1 ? 'branch' : 'branches'}`
+    : `${rows.mainCount} ${rows.mainCount === 1 ? 'clinic' : 'clinics'}`;
   const isAllSelected = selectedClinicIds.length === clinics.length;
   const triggerLabel = isAllSelected
-    ? `All clinics (${clinics.length})`
+    ? `All · ${scopeSummary}`
     : selectedClinicIds.length === 1
       ? clinics.find(c => c.id === selectedClinicIds[0])?.name || 'Select clinic'
-      : `${selectedClinicIds.length} clinics`;
+      : `${selectedClinicIds.length} selected`;
 
   // Collapsed sidebar: tiny icon-only trigger
   if (isCollapsed) {
@@ -72,6 +114,7 @@ const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
             setQuery={setQuery}
             filtered={filtered}
             allClinics={clinics}
+            scopeSummary={scopeSummary}
             selectedIds={selectedClinicIds}
             canMultiSelect={canMultiSelect}
             onClose={() => setIsOpen(false)}
@@ -87,6 +130,7 @@ const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
     <div ref={ref} className="relative px-3 py-2 border-b border-seafoam/10 dark:border-zinc-800 shrink-0">
       <button
         onClick={() => setIsOpen(!isOpen)}
+        title={triggerLabel}
         className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-seafoam rounded-xl text-left transition-colors"
       >
         <div className="flex items-center gap-2 min-w-0 flex-1">
@@ -104,6 +148,7 @@ const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
           setQuery={setQuery}
           filtered={filtered}
           allClinics={clinics}
+          scopeSummary={scopeSummary}
           selectedIds={selectedClinicIds}
           canMultiSelect={canMultiSelect}
           onClose={() => setIsOpen(false)}
@@ -119,8 +164,11 @@ interface PanelProps {
   anchor: 'expanded' | 'collapsed';
   query: string;
   setQuery: (q: string) => void;
-  filtered: any[];
+  /** Parent-then-branches order, each row tagged with what it is. */
+  filtered: { clinic: any; isBranch: boolean; parentName?: string }[];
   allClinics: any[];
+  /** e.g. "2 clinics · 3 branches" — branches counted as branches, not clinics. */
+  scopeSummary: string;
   selectedIds: string[];
   canMultiSelect: boolean;
   onClose: () => void;
@@ -129,7 +177,7 @@ interface PanelProps {
 }
 
 const DropdownPanel: React.FC<PanelProps> = ({
-  anchor, query, setQuery, filtered, allClinics, selectedIds,
+  anchor, query, setQuery, filtered, allClinics, scopeSummary, selectedIds,
   canMultiSelect, onClose, onApplySingle, onApplyMany,
 }) => {
   // Position absolutely below in expanded mode; floats to the right of
@@ -202,7 +250,7 @@ const DropdownPanel: React.FC<PanelProps> = ({
           }`}
         >
           <CheckBox checked={isAllDrafted} />
-          <span className="text-[10px] font-black uppercase tracking-widest flex-1">All clinics ({allClinics.length})</span>
+          <span className="text-[10px] font-black uppercase tracking-widest flex-1">Everywhere · {scopeSummary}</span>
         </button>
       )}
 
@@ -213,21 +261,25 @@ const DropdownPanel: React.FC<PanelProps> = ({
             No matches
           </p>
         ) : (
-          filtered.map(c => {
+          filtered.map(({ clinic: c, isBranch, parentName }) => {
             const isDrafted = draftSet.has(c.id);
             const isCommitted = selectedIds.includes(c.id);
             return (
               <button
                 key={c.id}
                 onClick={() => canMultiSelect ? toggle(c.id) : onApplySingle(c.id)}
-                className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors border-t border-slate-50 dark:border-zinc-800/50 ${
+                // Branches are indented under the clinic they belong to, so the
+                // list reads as a hierarchy instead of a flat roster of equals.
+                className={`w-full flex items-center gap-2.5 py-2 pr-3 text-left transition-colors border-t border-slate-50 dark:border-zinc-800/50 ${
+                  isBranch ? 'pl-7' : 'pl-3'
+                } ${
                   isDrafted
                     ? 'bg-seafoam/10'
                     : 'hover:bg-slate-50 dark:hover:bg-zinc-800'
                 }`}
               >
                 {canMultiSelect && <CheckBox checked={isDrafted} />}
-                <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-xs shrink-0 overflow-hidden">
+                <div className={`rounded-full bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-xs shrink-0 overflow-hidden ${isBranch ? 'w-5 h-5' : 'w-6 h-6'}`}>
                   <ClinicLogo logo={c.logo} fallback="🐾" />
                 </div>
                 <div className="min-w-0 flex-1">
@@ -236,6 +288,14 @@ const DropdownPanel: React.FC<PanelProps> = ({
                     {[c.city, c.countryCode].filter(Boolean).join(' · ') || c.subdomain || '—'}
                   </p>
                 </div>
+                {isBranch && (
+                  <span
+                    title={parentName ? `Branch of ${parentName}` : 'Branch'}
+                    className="shrink-0 px-1.5 py-0.5 rounded bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[7px] font-black uppercase tracking-widest"
+                  >
+                    Branch
+                  </span>
+                )}
                 {!canMultiSelect && isCommitted && <Check size={12} className="text-seafoam shrink-0" />}
               </button>
             );
