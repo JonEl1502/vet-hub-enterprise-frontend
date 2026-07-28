@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: attending staff wouldn't stick, and services picked their own staff member  —  2026-07-28
+- **What changed:** two separate bugs on the visit service line, reported together.
+  - **Attending staff "didn't save".** It always saved — the UI threw it away. `DataContext`'s
+    task mapper never copied `attendance`, so the visit refresh that fires right after a
+    successful `PUT .../staff` handed the panel back a task with no staff, and the row was
+    gone on the next load. Same class as the field-mapper footgun that has bitten this
+    mapper before. `AttendingStaffEditor` also read `attendance` into state once at mount and
+    never again, so a list that arrived after first paint (the panel opens from the ⋯ menu
+    before the visit has refetched) was ignored; it now resyncs on prop change, and skips the
+    sync while a save is in flight so a slow refresh can't undo an optimistic edit.
+  - **A staff member nobody chose.** Adding a service from the visit — both the Add Services
+    drawer and the "add encounter" transfer — assigned `staffMembers[0]`, whoever happens to
+    sort first in the clinic's staff list. That is an accountability record: the assignee is
+    who the task board credits and the only person (besides the owner) allowed to tick the
+    service complete. New lines are now created **unassigned** and show the amber "Assign…"
+    prompt the select already had for that state.
+- **Record impact:** 🟢 None — client mapper and defaults only.
+- **Data dependency:** pairs with the backend commit that syncs `assigned_staff_id` to the
+  starred (lead) attendee, so the assignee dropdown and the Attending Staff panel stop
+  naming two different people on the same line.
+- **Rollback:** revert; attendance goes back to vanishing on refresh.
+- ⚠️ **Watch out:** unassigned services are now normal rather than impossible — the amber
+  outline will show up on visits where it never used to. The New Visit wizard's
+  `autoAssignStaff` is deliberately untouched: it resolves the chosen lead staff or a
+  role match, not an arbitrary first row.
+
 ### fix: a clinic's own workflow now actually replaces the default  —  2026-07-28
 - **What changed:** setting up a custom workflow is meant to replace the built-in one. It
   didn't, unless the workflow was a *fork*.

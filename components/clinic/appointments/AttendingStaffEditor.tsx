@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Users, Plus, X, Loader2, Star, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { visitsAPI } from '../../../services';
@@ -31,6 +31,26 @@ const AttendingStaffEditor: React.FC<Props> = ({ visitId, taskId, attendance, st
   const [rows, setRows] = useState<TaskAttendee[]>(attendance || []);
   const [saving, setSaving] = useState(false);
   const [adding, setAdding] = useState(false);
+  const savingRef = useRef(false);
+
+  // The parent refetches the visit after every save, and attendance can also
+  // land AFTER first paint (the panel opens from the ⋯ menu before the visit
+  // has refetched). Without this, state seeded once at mount never picks the
+  // server list up.
+  //
+  // Keyed on WHO is on the list, not the whole payload: a fee typed but not yet
+  // blurred lives only in `rows`, and resyncing on every field change would wipe
+  // it mid-edit. Membership changes are the only thing this needs to catch —
+  // `persist` already adopts the server's own response for everything else.
+  const incomingIds = (attendance ?? []).map(a => String(a.userId)).sort().join(',');
+  useEffect(() => {
+    if (savingRef.current) return;
+    setRows(prev => {
+      const same = prev.map(r => String(r.userId)).sort().join(',') === incomingIds;
+      return same ? prev : (attendance ?? []);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [incomingIds]);
 
   const available = useMemo(
     () => staff.filter(s => !rows.some(r => String(r.userId) === String(s.id))),
@@ -39,6 +59,7 @@ const AttendingStaffEditor: React.FC<Props> = ({ visitId, taskId, attendance, st
 
   const persist = async (next: TaskAttendee[]) => {
     setRows(next);
+    savingRef.current = true;
     setSaving(true);
     try {
       const res = await visitsAPI.setTaskAttendance(
@@ -54,6 +75,7 @@ const AttendingStaffEditor: React.FC<Props> = ({ visitId, taskId, attendance, st
     } catch (e: any) {
       toast.error(e?.message || 'Could not save attending staff');
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };

@@ -386,6 +386,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             referralId: t.referralId ? parseInt(t.referralId) : undefined,
             completedAt: t.completedAt,
             medications: t.medications || [],
+            // Multi-staff attendance (106). The server sends it on every task;
+            // dropping it here made AttendingStaffEditor look like it never
+            // saved — the PUT succeeded, then this refresh handed the panel an
+            // empty list back (project_datacontext_field_mapper_footgun).
+            attendance: t.attendance || [],
           })),
           medications: a.medications || [],
           // Settled-transaction link — drives the receipt tab. Was previously

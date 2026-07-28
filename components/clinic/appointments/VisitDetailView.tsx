@@ -497,7 +497,12 @@ const VisitDetailInner: React.FC<Props> = ({
       status: TaskStatus.PENDING,
       price,
       notes: `Transfer reason: ${reason}`,
-      assignedStaffId: staffMembers[0]?.id,
+      // Left UNASSIGNED on purpose. This used to default to `staffMembers[0]`
+      // — whoever happens to sort first in the clinic's staff list — which
+      // silently attributed the work (and the right to tick it complete) to a
+      // person who was never asked. The assignee select renders an amber
+      // "Assign…" prompt when empty; that is the intended state.
+      assignedStaffId: undefined,
       // Same reason as the Add Services drawer: recipe auto-apply matches on
       // the trigger service ID first.
       serviceId: svc?.id,
@@ -5341,7 +5346,10 @@ const VisitDetailInner: React.FC<Props> = ({
                             name: svc.name,
                             category: catName,
                             status: TaskStatus.PENDING,
-                            assignedStaffId: staffMembers[0].id,
+                            // Unassigned — see performTransfer: defaulting to
+                            // the first staff member attributed services to an
+                            // arbitrary person nobody picked.
+                            assignedStaffId: undefined,
                             price,
                             // Lets the backend auto-apply a procedure recipe by
                             // trigger-service ID instead of matching on name.
