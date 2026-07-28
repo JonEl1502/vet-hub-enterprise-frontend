@@ -118,7 +118,7 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
   };
 
   return (
-    <div className="pt-6 pb-20 px-8">
+    <div className="space-y-5 pb-20">
       <div className="mb-4">
         <AdminPageHeader
           title="Users"

@@ -38,7 +38,7 @@ const VerificationQueuePage: React.FC = () => {
   useEffect(() => { load(); }, [load]);
 
   return (
-    <div className="space-y-5 pt-6 pb-20 px-8">
+    <div className="space-y-5 pb-20">
       <AdminPageHeader
         title="Verification"
         subtitle="Review business documents and approve clinics & suppliers"
