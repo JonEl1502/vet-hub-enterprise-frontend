@@ -557,8 +557,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       const view = (e as CustomEvent)?.detail?.view;
       if (typeof view === 'string' && view) navigateTo(view, (e as CustomEvent).detail?.params);
     };
+    const onBackEvt = () => goBack();
     window.addEventListener('vethub:navigate', onNavigate);
-    return () => window.removeEventListener('vethub:navigate', onNavigate);
+    window.addEventListener('vethub:navigate-back', onBackEvt);
+    return () => {
+      window.removeEventListener('vethub:navigate', onNavigate);
+      window.removeEventListener('vethub:navigate-back', onBackEvt);
+    };
   });
 
   const navigateTo = (view: string, params?: any, opts?: { replace?: boolean }) => {
@@ -585,6 +590,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     if (PERSIST_VIEWS.has(view)) localStorage.setItem(VIEW_STORAGE_KEY, view);
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
+
+  // Publish stack depth so shared chrome can hide a back control that would
+  // do nothing (goBack no-ops at depth 1).
+  useEffect(() => {
+    try { (window as any).__vethubCanGoBack = navStack.length > 1; } catch {}
+  }, [navStack.length]);
 
   const goBack = () => {
     if (navStack.length <= 1) return;
@@ -3197,7 +3208,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           {clinicLoading ? (
             <LoadingSpinner contentArea message="Loading..." />
           ) : (
-            <div className="p-4 md:p-6 max-w-screen-2xl mx-auto">
+            // Left-aligned, not mx-auto: centring a 1536px container in the space
+            // left of a fixed sidebar leaves dead space right where the nav ends,
+            // which reads as inconsistent padding. Still capped for line length.
+            <div className="p-4 md:p-6 max-w-[1800px]">
               {renderContent()}
             </div>
           )}

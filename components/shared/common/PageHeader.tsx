@@ -19,10 +19,14 @@ import { ChevronLeft, type LucideIcon } from 'lucide-react';
 export interface PageHeaderProps {
   title: string;
   subtitle?: string;
-  /** Left icon chip. Omit on pages that lead with a back button instead. */
+  /** Left icon chip. Renders alongside the back control when both are set. */
   icon?: LucideIcon;
-  /** Renders the circular back control when provided. */
-  onBack?: () => void;
+  /**
+   * Renders the circular back control. Pass a handler for custom behaviour, or
+   * `true` to use app history — the control then hides itself when there is
+   * nowhere to go back to, rather than sitting there doing nothing.
+   */
+  onBack?: (() => void) | true;
   /** Small status pill beside the title (Active / Draft / Archived …). */
   badge?: { label: string; tone?: 'success' | 'neutral' | 'warning' | 'danger' };
   /** Buttons on the right. */
@@ -37,21 +41,31 @@ const BADGE_TONE: Record<string, string> = {
   neutral: 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700',
 };
 
+/** App-history back, via the same event bus as `vethub:navigate`. */
+const goBackGlobal = () => window.dispatchEvent(new CustomEvent('vethub:navigate-back'));
+
 const PageHeader: React.FC<PageHeaderProps> = ({
   title, subtitle, icon: Icon, onBack, badge, actions, className = '',
-}) => (
+}) => {
+  // `true` = use history, but only if there IS history.
+  const canGoBack = typeof window !== 'undefined' && (window as any).__vethubCanGoBack !== false;
+  const backHandler = onBack === true ? (canGoBack ? goBackGlobal : null) : onBack ?? null;
+
+  return (
   <div className={`flex flex-wrap items-center justify-between gap-3 ${className}`}>
     <div className="flex items-center gap-3 min-w-0">
-      {onBack && (
+      {backHandler && (
         <button
-          onClick={onBack}
+          onClick={backHandler}
           aria-label="Go back"
           className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 transition-colors shrink-0"
         >
           <ChevronLeft size={16} />
         </button>
       )}
-      {Icon && !onBack && (
+      {/* Back AND icon: the admin pages lead with an icon chip that gives
+          them their identity — adding a back control shouldn't strip it. */}
+      {Icon && (
         <div className="w-10 h-10 rounded-xl bg-seafoam/10 flex items-center justify-center shrink-0">
           <Icon size={18} className="text-seafoam" />
         </div>
@@ -72,6 +86,7 @@ const PageHeader: React.FC<PageHeaderProps> = ({
     </div>
     {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
   </div>
-);
+  );
+};
 
 export default PageHeader;

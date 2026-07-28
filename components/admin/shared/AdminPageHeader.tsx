@@ -31,12 +31,18 @@ export const AdminPage: React.FC<{ children: React.ReactNode; className?: string
   </div>
 );
 
+/**
+ * Admin pages get a back control by DEFAULT — they are reached from several
+ * places (sidebar, dashboard tiles, deep links), and every one of them was
+ * previously a dead end. Pass `onBack={undefined}` explicitly to opt out;
+ * the control hides itself anyway when there is no history to return to.
+ */
 const AdminPageHeader: React.FC<{
   title: string;
   subtitle?: string;
   icon?: LucideIcon;
-  onBack?: () => void;
+  onBack?: (() => void) | true;
   actions?: React.ReactNode;
-}> = (props) => <PageHeader {...props} />;
+}> = ({ onBack = true, ...props }) => <PageHeader {...props} onBack={onBack} />;
 
 export default AdminPageHeader;
