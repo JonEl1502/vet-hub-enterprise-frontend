@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Workflow, Plus, Loader2, Copy, Pencil, Trash2, Search, Share2, Globe2, Lock, Star,
+  Workflow, Plus, Loader2, Copy, Pencil, Trash2, Search, Share2, Globe2, Lock, Star, ArrowDownToLine,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { workflowTemplatesAPI, WorkflowTemplate } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import UpgradeGate from '../../shared/common/UpgradeGate';
+import UpgradeForkDialog from './UpgradeForkDialog';
 import { usePlanAccess } from '../../../contexts/PlanAccessContext';
 
 /**
@@ -49,6 +50,10 @@ const WorkflowsView: React.FC<Props> = ({ onOpenBuilder }) => {
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  // Forks whose source has moved on: id -> source version. Checked per fork,
+  // because only a fork can be behind anything.
+  const [upgradable, setUpgradable] = useState<Record<string, number>>({});
+  const [upgradeFor, setUpgradeFor] = useState<{ id: string; name: string } | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -57,7 +62,20 @@ const WorkflowsView: React.FC<Props> = ({ onOpenBuilder }) => {
         workflowTemplatesAPI.list(),
         workflowTemplatesAPI.listShared(),
       ]);
-      if (own.success && own.data?.templates) setMine(own.data.templates);
+      if (own.success && own.data?.templates) {
+        setMine(own.data.templates);
+        // Ask only about forks — everything else has no source to be behind.
+        const forks = own.data.templates.filter(t => t.ownerType === 'CLINIC' && t.basedOnId);
+        Promise.all(forks.map(f =>
+          workflowTemplatesAPI.upgradeInfo(f.id)
+            .then(r => (r.success && r.data?.available ? [f.id, r.data.sourceVersion ?? 0] as const : null))
+            .catch(() => null),
+        )).then(rows => {
+          const map: Record<string, number> = {};
+          for (const row of rows) if (row) map[row[0]] = row[1];
+          setUpgradable(map);
+        });
+      }
       if (lib.success && lib.data?.templates) setShared(lib.data.templates);
     } catch (e) { console.error(e); } finally { setLoading(false); }
   }, []);
@@ -122,6 +140,15 @@ const WorkflowsView: React.FC<Props> = ({ onOpenBuilder }) => {
               {t.isDefault && <Badge tone="amber" title="Chosen first when several workflows match"><Star size={8} className="inline" /> Default</Badge>}
               {t.visibility === 'SHARED' && kind === 'ours' && <Badge tone="amber">Published</Badge>}
               {t.basedOnId && kind === 'ours' && <Badge title={`Copied from version ${t.baseVersion}`}>Copy of v{t.baseVersion}</Badge>}
+              {upgradable[t.id] && (
+                <button
+                  onClick={() => setUpgradeFor({ id: t.id, name: t.name })}
+                  title="The workflow this was copied from has moved on — review what differs"
+                  className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border bg-seafoam/10 text-seafoam border-seafoam/20 hover:bg-seafoam hover:text-white transition-colors"
+                >
+                  v{upgradable[t.id]} available
+                </button>
+              )}
             </div>
             <p className="text-[10px] text-slate-400 mt-0.5 truncate">
               {t.description || `${stageCount} stage${stageCount === 1 ? '' : 's'}`}
@@ -237,6 +264,15 @@ const WorkflowsView: React.FC<Props> = ({ onOpenBuilder }) => {
           {presets.map(t => <Card key={t.id} t={t} kind="preset" />)}
         </div>
       </section>
+
+      {upgradeFor && (
+        <UpgradeForkDialog
+          templateId={upgradeFor.id}
+          templateName={upgradeFor.name}
+          onClose={() => setUpgradeFor(null)}
+          onAdopted={load}
+        />
+      )}
 
       {!!library.length && (
         <section className="space-y-2">

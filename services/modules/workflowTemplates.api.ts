@@ -142,6 +142,31 @@ export const workflowTemplatesAPI = {
   setVisibility: async (id: string | number, visibility: 'PRIVATE' | 'SHARED', options?: RequestOptions): Promise<ApiResponse<{ template: WorkflowTemplate }>> =>
     patch(ENDPOINTS.WORKFLOW_TEMPLATES.VISIBILITY(id), { visibility }, options),
 
+  /**
+   * Is this fork behind the template it was copied from?
+   *
+   * NOTE the diff is "how your copy differs from the source TODAY", not a
+   * version changelog — only the current source layout is stored. Label it
+   * accordingly in the UI.
+   */
+  upgradeInfo: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{
+    available: boolean;
+    reason: 'behind' | 'up-to-date' | 'not-a-fork' | 'source-retired';
+    sourceName?: string;
+    baseVersion?: number;
+    sourceVersion?: number;
+    diff?: {
+      stagesTheyHave: { key: string; label: string }[];
+      stagesYouRemoved: { key: string; label: string }[];
+      fieldsTheyHave: number;
+      fieldsYouChanged: number;
+    };
+  }>> => get(`${ENDPOINTS.WORKFLOW_TEMPLATES.BY_ID(id)}/upgrade`, options),
+
+  /** Take the source's current layout. DISCARDS this clinic's layout edits. */
+  adoptBase: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ template: WorkflowTemplate }>> =>
+    post(`${ENDPOINTS.WORKFLOW_TEMPLATES.BY_ID(id)}/adopt-base`, {}, options),
+
   /** Deactivates — an in-flight visit may still be rendering this layout. */
   remove: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ template: WorkflowTemplate }>> =>
     del(ENDPOINTS.WORKFLOW_TEMPLATES.BY_ID(id), options),

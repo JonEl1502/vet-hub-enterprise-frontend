@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: tell a forked workflow when the original has moved on  —  2026-07-28
+- **What changed:** a fork whose source has advanced now shows a **`vN available`** badge in
+  Visit Workflows. Clicking it opens a review dialog and, if the clinic wants it, takes the
+  source's current layout.
+  - **Never automatic.** Silently rewriting a clinical form under a vet mid-use is exactly
+    what forking exists to prevent, so the clinic is told and chooses.
+  - Taking the update replaces the **layout only** — the workflow's name, plan gating and
+    which visits it opens on are kept, so re-taking a preset cannot silently re-point which
+    visits it claims.
+  - The dialog states both directions: what taking it would **add**, and what you would
+    **lose**, with the losing side highlighted when you have stages of your own.
+- **Record impact:** 🟢 None. Consultations already recorded are untouched — they keep the
+  layout they were captured under.
+- **Data dependency:** backend `GET /workflow-templates/:id/upgrade` and
+  `POST /:id/adopt-base`.
+- **Rollback:** revert; the badge disappears and forks simply never mention their source.
+- ⚠️ **Watch out:** the diff is **not a version changelog.** Only the source's *current*
+  layout is stored, never the historical one at `base_version`, so what is shown is "how your
+  copy differs from the source as it stands today". The dialog says that in as many words —
+  do not shorten it to "what changed in the update", which would be false.
+- ⚠️ **Watch out:** diffing is by **stable key**, not label. A renamed stage is the same
+  stage; comparing labels would report it as removed-plus-added.
+
 ### feat: pick the workflow a visit uses; customised presets finally take effect  —  2026-07-27
 - **What changed:** two halves of the same gap.
   - **Customising a preset now replaces the default.** Forking produced a copy keyed
