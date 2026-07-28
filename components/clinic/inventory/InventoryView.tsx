@@ -12,6 +12,7 @@ import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import InventoryDashboard from './InventoryDashboard';
 import InventoryReports from './InventoryReports';
 import InventoryExpiry from './InventoryExpiry';
+import StockTransfersPanel from './StockTransfersPanel';
 import { useData } from '../../../contexts/DataContext';
 
 
@@ -688,6 +689,11 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       <InventoryReports currency={clinic.currency} />
       {/* Expiry centre (ERP P4) — collapsed by default, lazy-loaded */}
       <InventoryExpiry currency={clinic.currency} />
+      {/* Inter-clinic transfers (129). Lives here rather than in
+          StockManagerView — that component is not routed anywhere. */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+        <StockTransfersPanel clinicId={clinic.id} />
+      </div>
       {/* Filters Card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
         {/* Row 1 — Clinic badge + Search (2-line filter layout) */}
