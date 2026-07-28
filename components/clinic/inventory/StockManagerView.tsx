@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import StockTransfersPanel from './StockTransfersPanel';
 import {
   Search, Plus, Filter, Package, AlertTriangle, Archive,
   Trash2, Edit, X, TrendingDown, TrendingUp, Activity,
-  Calendar, Clock, ChevronRight, History, RefreshCw
+  Calendar, Clock, ChevronRight, History, RefreshCw, ArrowRightLeft
 } from 'lucide-react';
 import {
   inventoryAPI, stockMovementsAPI, suppliersAPI,
@@ -32,7 +33,7 @@ interface Props {
 }
 
 const StockManagerView: React.FC<Props> = ({ clinicId }) => {
-  const [activeTab, setActiveTab] = useState<'inventory' | 'movements' | 'suppliers'>('inventory');
+  const [activeTab, setActiveTab] = useState<'inventory' | 'movements' | 'transfers' | 'suppliers'>('inventory');
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK' | 'EXPIRED'>('ALL');
   const [categoryFilter, setCategoryFilter] = useState<string>('ALL');
@@ -211,6 +212,8 @@ const StockManagerView: React.FC<Props> = ({ clinicId }) => {
         {[
           { id: 'inventory', label: 'Inventory Items', icon: Package },
           { id: 'movements', label: 'Stock Movements', icon: Activity },
+          // Sits next to Movements because a transfer IS two movements.
+          { id: 'transfers', label: 'Transfers', icon: ArrowRightLeft },
           { id: 'suppliers', label: 'Suppliers', icon: TrendingUp },
         ].map((tab) => (
           <button
@@ -440,6 +443,8 @@ const StockManagerView: React.FC<Props> = ({ clinicId }) => {
       )}
 
       {/* Suppliers Tab */}
+      {activeTab === 'transfers' && <StockTransfersPanel clinicId={clinicId} />}
+
       {activeTab === 'suppliers' && (
         <div className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
