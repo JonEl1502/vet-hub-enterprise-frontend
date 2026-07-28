@@ -3,6 +3,7 @@ import { ClipboardList, Plus, Loader2, Trash2, Pencil, Search, Zap, FlaskConical
 import toast from 'react-hot-toast';
 import { procedureTemplatesAPI, ProcedureTemplate } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import BrandMark from '../../shared/common/BrandMark';
 
 interface Props {
   currency?: string;
@@ -25,10 +26,24 @@ const TYPE_META: Record<string, { label: string; icon: React.ReactNode }> = {
  * to a visit.
  */
 const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => {
+  // "New procedure" used to jump straight to a blank editor, so the Spay
+  // example was only reachable from the empty state — i.e. exactly once, and
+  // never again once a clinic had its first recipe. Both starting points are
+  // now offered every time.
+  const [showStart, setShowStart] = useState(false);
   const [templates, setTemplates] = useState<ProcedureTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+
+  // Escape closes the chooser — it is a decision point, not a commitment.
+  useEffect(() => {
+    if (!showStart) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowStart(false); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [showStart]);
+
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -83,7 +98,7 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
             <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">{templates.length} recipe{templates.length === 1 ? '' : 's'} · fees + products + diagnostics + pricing rules in one template</p>
           </div>
         </div>
-        <button onClick={() => onOpenEditor(null)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New procedure</button>
+        <button onClick={() => setShowStart(true)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New procedure</button>
       </div>
 
       <div className="relative max-w-sm">
@@ -158,6 +173,54 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
               </div>
             );
           })}
+        </div>
+      )}
+
+      {showStart && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-pine/40 backdrop-blur-sm"
+          onClick={() => setShowStart(false)}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="New procedure"
+            className="w-full max-w-sm bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 pt-5 pb-4 text-center">
+              {/* currentColor, not a hex — `seafoam` is a runtime CSS variable,
+                  so clinics that rebrand get their own colour here too. */}
+              <div className="text-seafoam">
+                <BrandMark className="w-9 h-9 mx-auto" color="currentColor" title="VetHub Core" />
+              </div>
+              <h3 className="mt-3 text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">New procedure</h3>
+              <p className="mt-1 text-[11px] text-slate-400">
+                A recipe bundles fees, products, diagnostics and pricing rules into one template.
+              </p>
+            </div>
+
+            <div className="px-5 pb-5 space-y-2">
+              <button
+                onClick={() => { setShowStart(false); onOpenEditor(null); }}
+                className="w-full px-4 py-3 rounded-xl bg-seafoam text-white font-black text-[10px] uppercase tracking-widest hover:bg-seafoam/90 active:scale-[0.98] transition"
+              >
+                Build from scratch
+              </button>
+              <button
+                onClick={() => { setShowStart(false); onOpenEditor(null, 'spay-example'); }}
+                className="w-full flex items-center justify-center gap-1.5 px-4 py-3 rounded-xl bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 font-black text-[10px] uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 active:scale-[0.98] transition"
+              >
+                <Wand2 size={12} /> Start from Spay example
+              </button>
+              <button
+                onClick={() => setShowStart(false)}
+                className="w-full px-4 py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
