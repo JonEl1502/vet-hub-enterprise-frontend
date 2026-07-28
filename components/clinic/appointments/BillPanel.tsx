@@ -27,6 +27,12 @@ interface Props {
   onCollect?: () => void;
   /** Re-fetch the visit after the bill changes its billing/lock state. */
   onChanged?: () => void;
+  /**
+   * Publishes the bill this panel is holding, on load and after every edit.
+   * `BillBalanceCard` renders from it so the two never disagree — it used to
+   * quote `visit.totalCost`, which lags every line change.
+   */
+  onBillChange?: (bill: Bill | null) => void;
 }
 
 const money = (n: number, c: string) =>
@@ -47,7 +53,7 @@ const KIND_LABEL: Record<string, string> = {
   SERVICE: 'Service', CONSUMABLE: 'Consumable', MEDICATION: 'Medication', OTHER: 'Other',
 };
 
-const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged }) => {
+const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange }) => {
   const [bill, setBill] = React.useState<Bill | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
@@ -76,6 +82,11 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged }) =
     finally { setLoading(false); }
   }, [visit.id]);
   React.useEffect(() => { load(); }, [load]);
+
+  // Every path that changes the bill funnels through `setBill` (mount load and
+  // `apply` on each mutation response), so one effect keeps subscribers exact
+  // without threading a callback through a dozen handlers.
+  React.useEffect(() => { onBillChange?.(bill); }, [bill, onBillChange]);
 
   React.useEffect(() => {
     if (!adding || catalog.length) return;

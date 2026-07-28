@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronRight, Receipt, User as UserIcon, Stethoscope, Smile, Calendar, Printer, Bell, Loader2, X } from 'lucide-react';
+import { ChevronRight, User as UserIcon, Stethoscope, Smile, Calendar, Bell, Loader2, X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { Visit, Pet, Client, Clinic, ApptStatus } from '../../../types';
+import { Visit, Pet, Client, Clinic } from '../../../types';
 import { petsAPI, remindersAPI, appointmentsAPI } from '../../../services';
 import type { ReminderServiceType } from '../../../services/modules/reminders.api';
 import { formatDate } from '../../../services/utils/dateFormatter';
@@ -72,7 +72,6 @@ interface Props {
   onNavigateToPet?: (petId: number) => void;
   onNavigateToClient?: (clientId: number) => void;
   onBookFollowUp?: () => void;
-  onOpenInvoice?: () => void;
   // The doctor's staged Follow-up plan (wizard follow-up step data) —
   // reception turns it into real reminders / an appointment from here.
   followUpPlan?: { nextDate?: string; nextTime?: string; reminders?: { title: string; description?: string; dueDate: string; assignTo?: string; assignToName?: string }[]; carePlan?: string[] } | null;
@@ -84,11 +83,14 @@ interface Props {
 }
 
 /**
- * The patient context rail — Bill & Balance on top, then Patient & Owner,
- * Behaviour and Clinical Snapshot as collapsible cards. Fed by the pet's
- * Clinical Snapshot API + patient timeline.
+ * The patient context rail — Follow-up Plan, Patient & Owner, Behaviour and
+ * Clinical Snapshot as collapsible cards. Fed by the pet's Clinical Snapshot
+ * API + patient timeline.
+ *
+ * Bill & Balance used to lead this rail; it now lives in the Bill & Invoice tab
+ * (`BillBalanceCard.tsx`) beside the bill it describes.
  */
-const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allAppointments, visitReminder, onNavigateToVisit, onNavigateToPet, onNavigateToClient, onBookFollowUp, onOpenInvoice, followUpPlan, onBookFromPlan, onRemindersCreated, readOnly }) => {
+const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allAppointments, visitReminder, onNavigateToVisit, onNavigateToPet, onNavigateToClient, onBookFollowUp, followUpPlan, onBookFromPlan, onRemindersCreated, readOnly }) => {
   const [petSnapshot, setPetSnapshot] = useState<any | null>(null);
   const [vaccineHistory, setVaccineHistory] = useState<{ name: string; date: string }[]>([]);
   useEffect(() => {
@@ -237,10 +239,6 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
     } finally { setCreatingReminders(false); }
   };
 
-  const unpaid = allAppointments
-    .filter(a => a.clientId === visit.clientId && !a.isPaid && (a.status === ApptStatus.COMPLETED || a.status === ApptStatus.PENDING_PAYMENT))
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  const outstanding = petSnapshot?.finance?.outstandingBalance ?? unpaid.reduce((s, a) => s + (a.totalCost || 0), 0);
   const past = allAppointments
     .filter(a => a.petId === visit.petId && a.id !== visit.id && new Date(a.date) < new Date(visit.date))
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
@@ -250,32 +248,10 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
 
   return (
     <div className="space-y-3">
-      <InfoCard icon={Receipt} title="Bill & Balance"
-        summary={outstanding > 0 ? `${activeClinic.currency} ${Number(outstanding).toLocaleString()} outstanding` : 'No outstanding balance'}>
-        <div className="space-y-1.5">
-          <InfoRow label="This visit" value={`${activeClinic.currency} ${visit.totalCost.toLocaleString()} · ${visit.isPaid ? 'paid' : 'unpaid'}`} />
-          <InfoRow label="Client outstanding" value={outstanding > 0
-            ? <span className="text-amber-600 dark:text-amber-400 font-black">{activeClinic.currency} {Number(outstanding).toLocaleString()}</span>
-            : 'None'} />
-          {unpaid.length > 0 && (
-            <div className="border-t border-slate-100 dark:border-zinc-800 pt-1.5 mt-1.5 space-y-1">
-              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Unpaid visits</p>
-              {unpaid.slice(0, 5).map(a => (
-                <button key={a.id} onClick={() => onNavigateToVisit?.(a.id)}
-                  className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900 hover:border-amber-400 transition-all text-left">
-                  <span className="text-[10px] font-bold text-pine dark:text-zinc-100">#{a.id} · {formatDate(a.date)}</span>
-                  <span className="text-[10px] font-black font-mono text-amber-700 dark:text-amber-400">{(a.totalCost || 0).toLocaleString()}</span>
-                </button>
-              ))}
-            </div>
-          )}
-          {onOpenInvoice && (
-            <button onClick={onOpenInvoice} className="w-full mt-1 px-2 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine transition-all flex items-center justify-center gap-1.5">
-              <Printer size={11} /> Invoice &amp; receipts
-            </button>
-          )}
-        </div>
-      </InfoCard>
+      {/* Bill & Balance used to sit here, at the top of the rail. It moved to
+          the Bill & Invoice tab (BillBalanceCard.tsx) — it is a card about money
+          and it belongs beside the bill it describes, where it can also read the
+          live bill instead of a snapshot taken at mount. */}
 
       {/* Doctor recommends in the workflow → reception schedules it HERE:
           a "super reminder" of several points + the follow-up appointment. */}

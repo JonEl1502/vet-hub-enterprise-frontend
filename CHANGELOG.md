@@ -59,6 +59,30 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: Bill & Balance moves to the Bill & Invoice tab, and goes live  —  2026-07-28
+- **What changed:** two things were asked for and only the second was ever done. The card
+  was collapsed by default, which stopped it misleading people without making it right.
+  - **Moved.** It led the patient rail — a card about money in a column about the patient,
+    and nowhere near the bill it describes. It is now `BillBalanceCard.tsx`, mounted above
+    `BillPanel` in the Bill & Invoice tab. The rail (shared with the visit wizard) loses it.
+  - **Live.** It read `visit.totalCost` and a pet snapshot fetched once at mount, so adding
+    a bill line or fixing a quantity left it quoting a number that was no longer true.
+    `BillPanel` now publishes the `Bill` it holds via `onBillChange` — every mutation
+    already funnels through one `setBill`, so a single effect keeps subscribers exact — and
+    `VisitDetailView` holds it for both. The client's outstanding balance is re-read when
+    the bill's total or status moves, keyed on those values rather than object identity so
+    a no-op save doesn't refetch.
+  - While it was being rebuilt: it now separates **this visit's total**, **paid so far** and
+    **due on this visit**, instead of one "KES 2,000 · unpaid" string that said nothing about
+    part payments. A pre-bill visit is labelled as such rather than quietly showing the task sum.
+- **Record impact:** 🟢 None — UI only, no API or schema change.
+- **Migration / rollout:** code-only, frontend deploy.
+- **Rollback:** revert the commit; the card returns to the rail as a snapshot.
+- ⚠️ **Watch out:** the card is **gone from the visit wizard's rail**, which is what "move"
+  means here — a vet mid-consultation no longer sees the client's outstanding balance in the
+  side column. If that context turns out to be wanted during the clinical workflow, it needs
+  its own decision, not a silent restore of a stale card.
+
 ### fix: the clinic switcher stops calling branches clinics  —  2026-07-28
 - **What changed:** `ClinicContext` hands the switcher a **flat** list — every main clinic
   and every branch under it, side by side — and `ClinicSearchDropdown` counted that length.

@@ -43,6 +43,8 @@ import FinalizeReminderGate, { ReminderDraft } from './FinalizeReminderGate';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import AppliedProcedurePanel from '../shared/AppliedProcedurePanel';
 import BillPanel from './BillPanel';
+import BillBalanceCard from './BillBalanceCard';
+import type { Bill } from '../../../services/modules/bills.api';
 import DewormingAgainst from '../shared/DewormingAgainst';
 import Money from '../../shared/common/Money';
 import { useFx } from '../../../contexts/FxContext';
@@ -194,6 +196,10 @@ const VisitDetailInner: React.FC<Props> = ({
   // lives inside Medical Report; grooming notes inside Grooming Report;
   // the boarding care log inside Boarding Report.
   const [activeBottomTab, setActiveBottomTab] = useState<'report' | 'groomingReport' | 'boardingReport' | 'medications' | 'bill' | 'invoice' | 'receipt'>('report');
+  // The bill BillPanel is holding, published up so BillBalanceCard renders the
+  // same numbers. Lives here rather than in either component because both need
+  // it and neither owns the other.
+  const [liveBill, setLiveBill] = useState<Bill | null>(null);
   // Per-workflow reports (077): a visit that carries grooming/boarding work
   // gets its own report tab — shown even when the data is still sparse.
   const hasGroomingWork = appointment.encounterType === 'GROOMING' || appointment.tasks.some(t => (t.category || '').toLowerCase().includes('groom'));
@@ -534,7 +540,6 @@ const VisitDetailInner: React.FC<Props> = ({
       allAppointments={allAppointments} visitReminder={visitReminder}
       onNavigateToVisit={onNavigateToVisit} onNavigateToPet={onNavigateToPet} onNavigateToClient={onNavigateToClient}
       onBookFollowUp={() => setShowFollowUpAppt(true)}
-      onOpenInvoice={() => { setWorkflowTab('billing'); setActiveBottomTab('invoice'); }}
       followUpPlan={wiz.state.data.followUp}
       onBookFromPlan={(prefill) => { setFollowUpApptPrefill(prefill); setShowFollowUpAppt(true); }}
       onRemindersCreated={(n) => {
@@ -4527,12 +4532,26 @@ const VisitDetailInner: React.FC<Props> = ({
                        here. Approving locks the clinical record; payment no
                        longer does. */}
                    {activeBottomTab === 'bill' && (
-                     <BillPanel
-                       visit={appointment}
-                       currency={activeClinic.currency}
-                       onCollect={openSettleModal}
-                       onChanged={() => onRefreshDashboard?.()}
-                     />
+                     <div className="space-y-3">
+                       {/* Bill & Balance moved off the patient rail to sit beside
+                           the bill it describes, and reads BillPanel's live bill
+                           rather than a snapshot taken when the page mounted. */}
+                       <BillBalanceCard
+                         visit={appointment}
+                         currency={activeClinic.currency}
+                         allAppointments={allAppointments}
+                         bill={liveBill}
+                         onNavigateToVisit={onNavigateToVisit}
+                         onOpenInvoice={() => setActiveBottomTab('invoice')}
+                       />
+                       <BillPanel
+                         visit={appointment}
+                         currency={activeClinic.currency}
+                         onCollect={openSettleModal}
+                         onChanged={() => onRefreshDashboard?.()}
+                         onBillChange={setLiveBill}
+                       />
+                     </div>
                    )}
 
                    {activeBottomTab === 'invoice' && (() => {
