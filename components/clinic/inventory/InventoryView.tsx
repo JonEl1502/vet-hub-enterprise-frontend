@@ -13,6 +13,7 @@ import InventoryDashboard from './InventoryDashboard';
 import InventoryReports from './InventoryReports';
 import InventoryExpiry from './InventoryExpiry';
 import StockTransfersPanel from './StockTransfersPanel';
+import StockTakePanel from './StockTakePanel';
 import { useData } from '../../../contexts/DataContext';
 
 
@@ -693,6 +694,11 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
           StockManagerView — that component is not routed anywhere. */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
         <StockTransfersPanel clinicId={clinic.id} />
+      </div>
+      {/* Physical counts (130) — next to transfers; both reconcile the shelf
+          against the system. */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+        <StockTakePanel />
       </div>
       {/* Filters Card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
