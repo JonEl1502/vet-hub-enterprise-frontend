@@ -15,6 +15,7 @@ import ProduceView from './components/livestock/ProduceView';
 import FarmSettingsView from './components/livestock/FarmSettingsView';
 import FarmVisitsView from './components/livestock/FarmVisitsView';
 import InternalManualPage from './components/admin/manual/InternalManualPage';
+import BillablesPage from './components/clinic/clinic-mgmt/BillablesPage';
 import { VIEW_KEY, featureCopy } from './services/entitlements';
 import { useData } from './contexts/DataContext';
 import { useStaff } from './contexts/StaffContext';
@@ -2615,11 +2616,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onViewClient={(clientId) => navigateTo('client-profile', { clientId })}
           onViewAppointment={(appointmentId) => navigateTo('appointment-detail', { appointmentId })}
         />;
-      // 'clinic-billables' is the same Clinic Settings screen opened straight on
-      // its Billables tab — the sidebar lists it under Billable Items, where a
-      // vet looks for anything that becomes a charge, rather than buried as a
-      // tab under Clinic Management.
+      // Billables is its OWN page now. It used to open Clinic Settings
+      // pre-selected on the Billables tab, which meant arriving wrapped in
+      // eleven tabs you didn't ask for. The tab inside Clinic Settings stays —
+      // someone working through clinic setup still expects it there.
       case 'clinic-billables':
+        return <BillablesPage />;
+
       case 'settings':
         if (!firstActiveClinic) {
           return (
@@ -2639,7 +2642,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onViewStaff={(s) => navigateTo('staff-profile', { staffId: s.id })}
           onEditStaff={(s) => navigateTo('staff-edit', { staffId: s.id })}
           onUpdateBilling={()=>{}}
-          initialTabOverride={currentNav.view === 'clinic-billables' ? 'emergency' : undefined}
         />;
       case 'staff': return <StaffListView staff={allStaff} clinics={store.clinics} onAddStaff={() => navigateTo('staff-new')} onEditStaff={(s) => navigateTo('staff-edit', { staffId: s.id })} onViewStaff={(s) => navigateTo('staff-profile', { staffId: s.id })} onDeleteStaff={()=>{}} currentUserId={user ? Number(user.id) : undefined} onToggleStatus={async (s, next) => { try { await usersAPI.update(s.id, { isActive: next } as any); toast.success(next ? 'Staff activated' : 'Staff deactivated'); await refreshStaff(); } catch (e: any) { toast.error(e?.message || 'Failed to update status'); } }} />;
       case 'staff-new':
