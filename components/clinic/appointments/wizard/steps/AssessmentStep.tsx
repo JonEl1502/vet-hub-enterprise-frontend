@@ -1,13 +1,14 @@
 import React from 'react';
 import { ListChecks, GitBranch, Target } from 'lucide-react';
 import { StepProps } from '../types';
-import { Section, L, ListEditor } from '../fields';
+import { Section, L, ListEditor , showsField } from '../fields';
 
 const LIKELIHOODS = ['High', 'Moderate', 'Low'];
 
 interface Differential { name: string; likelihood: string }
 
-const AssessmentStep: React.FC<StepProps> = ({ data, setData, emit }) => {
+const AssessmentStep: React.FC<StepProps> = ({ data, setData, emit, visibleFields }) => {
+  const show = showsField(visibleFields);
   const d = data || {};
   const problems: string[] = d.problems || [];
   const differentials: Differential[] = d.differentials || [];
@@ -57,14 +58,14 @@ const AssessmentStep: React.FC<StepProps> = ({ data, setData, emit }) => {
 
       <Section icon={Target} title="Tentative Diagnosis">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <L label="Primary problem">
+          {show('tentativePrimary') && <L label="Primary problem">
             <input className="field-input" placeholder="e.g. Gastroenteritis" value={d.tentativePrimary ?? ''}
               onChange={e => setData({ tentativePrimary: e.target.value })}
               onBlur={e => e.target.value && emit(`Tentative diagnosis — ${e.target.value}`, 'milestone', true)} />
-          </L>
-          <L label="Secondary problem(s)">
+          </L>}
+          {show('tentativeSecondary') && <L label="Secondary problem(s)">
             <input className="field-input" placeholder="e.g. Dehydration (mild)" value={d.tentativeSecondary ?? ''} onChange={e => setData({ tentativeSecondary: e.target.value })} />
-          </L>
+          </L>}
         </div>
         <L label="Notes">
           <textarea className="field-textarea" rows={2} placeholder="Reasoning, plan for confirmation…" value={d.tentativeNotes ?? ''} onChange={e => setData({ tentativeNotes: e.target.value })} />

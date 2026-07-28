@@ -193,13 +193,25 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
 
     // A BUILT-IN stage the clinic has extended: render the real step — keeping
     // its medication table, reminder rows and diagnostic pickers — and append
-    // only the questions the clinic added. This is what stops a `native` field
-    // in a mixed stage degrading to a placeholder: the real component is still
-    // rendered above it.
+    // only the questions the clinic added. That is what stops a `native` field
+    // in a mixed stage degrading to a placeholder.
+    //
+    // But the built-in step must also HONOUR DELETIONS. Until this, a template
+    // was purely additive over a built-in: a clinic could add to Examination
+    // yet never remove the Systemic Examination card, because the whole
+    // hardcoded component rendered regardless. We hand the step the set of
+    // field suffixes the template kept, and it renders only those.
     if (Core && stage) {
+      const kept = new Set<string>();
+      for (const sec of stage.sections || []) {
+        for (const f of sec.fields || []) {
+          const k = f.fieldKey;
+          kept.add(k.startsWith(`${stage.key}.`) ? k.slice(stage.key.length + 1) : k);
+        }
+      }
       return (
         <div className="space-y-4">
-          <Core {...stepProps} />
+          <Core {...stepProps} visibleFields={kept} />
           <TemplateStep {...stepProps} stage={stage} fields={templateFields || {}} only="custom" />
         </div>
       );

@@ -90,3 +90,19 @@ export const ListEditor: React.FC<{
     </div>
   );
 };
+
+/**
+ * Should a built-in step render this field?
+ *
+ * `visibleFields` undefined → yes, always: no template governs the stage, so
+ * the built-in flow is unchanged. Otherwise only what the clinic kept.
+ *
+ * Suffixes are relative to the stage (`sys.eyes`, not `examination.sys.eyes`),
+ * so a step never has to know its own stage key.
+ */
+export const showsField = (visibleFields: Set<string> | undefined) =>
+  (suffix: string) => !visibleFields || visibleFields.has(suffix);
+
+/** True when a whole card has nothing left in it and should not render. */
+export const showsAny = (visibleFields: Set<string> | undefined, suffixes: string[]) =>
+  !visibleFields || suffixes.some(k => visibleFields.has(k));

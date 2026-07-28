@@ -65,6 +65,21 @@ export interface StepProps {
   // (anything added is deletable before payment; server enforces the lock).
   deleteTask?: (taskId: number) => void;
   refreshVisit?: () => void; // re-fetch the visit after real writes (consumables…)
+  /**
+   * When a clinic-built workflow governs THIS stage, the set of field
+   * suffixes it kept (`mentation`, `sys.eyes`, `notes`…). A built-in step
+   * must render only these.
+   *
+   * `undefined` means no template governs the stage — show everything. That is
+   * the permanent floor: the built-in flow with no template behaves exactly as
+   * it always has.
+   *
+   * This exists because a template used to be purely ADDITIVE over a built-in
+   * step: a clinic could add questions to Examination but never remove the
+   * Systemic Examination card, because the whole hardcoded component was
+   * rendered and only custom fields appended.
+   */
+  visibleFields?: Set<string>;
   // Emergency triage wiring — the parent owns the stabilize gate + handoff.
   onTriageStatusChange?: (rec: any) => void;
   onTriageDischarged?: () => void;

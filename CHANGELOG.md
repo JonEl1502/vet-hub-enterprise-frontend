@@ -59,6 +59,35 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a workflow can now REMOVE fields from a built-in stage  —  2026-07-28
+- **What changed:** deleting a card or field from a clinic workflow had no effect on the
+  visit. Removing *Systemic Examination* from a Vaccination copy still rendered it — plus
+  body condition, pain score, resp rate, murmur and effort.
+  - **Cause:** for a stage mapping to a built-in step, the wizard rendered the whole
+    hardcoded component and appended only the template's *custom* fields. A template was
+    therefore purely **additive**: you could add to a built-in stage but never remove from
+    it. It looked like it worked because stage names, order and stepper labels *do* come
+    from the template — only the bodies were hardcoded.
+  - **Fix:** the wizard now passes the built-in step the set of field suffixes the template
+    kept (`visibleFields`), and the step renders only those. A card whose fields are all
+    gone disappears entirely.
+  - Covered: Examination, History, Diagnosis and Assessment.
+- **Record impact:** 🟢 None — rendering only. Answers already recorded are untouched and
+  remain readable wherever they are displayed.
+- **Data dependency:** none.
+- **Rollback:** revert; templates go back to being additive-only.
+- ⚠️ **Watch out:** the fix is deliberately NOT "render the template instead of the built-in
+  step". Keeping the `Core` branch is what preserves the real medication table, diagnostic
+  pickers and triage panel — dropping it would look correct in testing (the fields appear)
+  while silently stripping those.
+- ⚠️ **Watch out:** `visibleFields === undefined` means *no template governs this stage*, so
+  everything renders. That is the permanent floor — the built-in flow with no template must
+  behave exactly as it always has.
+- ⚠️ **Watch out:** systemic-exam data stays keyed by **display label**, while visibility is
+  keyed by registry **slug**. Re-keying the data here would orphan every existing record.
+- **Not yet covered:** Diagnostics, Treatment, Communication and Follow-up still render their
+  built-in bodies in full. Same mechanism, mechanical to extend.
+
 ### fix: attending staff wouldn't stick, and services picked their own staff member  —  2026-07-28
 - **What changed:** two separate bugs on the visit service line, reported together.
   - **Attending staff "didn't save".** It always saved — the UI threw it away. `DataContext`'s
