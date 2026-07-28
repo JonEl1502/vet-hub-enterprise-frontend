@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: creating a subscription package 400'd — region and currency were never sent  —  2026-07-28
+- **What changed:** the Plans create form now carries **Region** and **Currency**, and sends
+  them. The API requires both (*"name, region, currency, amount (or price) and billingCycle
+  are required"*) and the payload never included them, so **every** create from this page
+  failed with a 400.
+- **Pre-existing, not a regression:** the payload lacked them before the add-ons/supplier
+  refactor too. It only started being hit once every tab got a New button — before that the
+  action was effectively unreachable on most tabs.
+- **Record impact:** 🟢 None — it makes a create succeed that previously always failed.
+- **Rollback:** revert; creating a package 400s again.
+- ⚠️ **Watch out:** region + currency are half of the uniqueness key
+  (`uq_clinic_packages_name_region_currency`), so two plans may share a name only if they
+  differ on one of them. Defaults are AFRICA / KES, matching every package already on prod.
+
 ### fix: Bill & Balance moves to the Bill & Invoice tab, and goes live  —  2026-07-28
 - **What changed:** two things were asked for and only the second was ever done. The card
   was collapsed by default, which stopped it misleading people without making it right.

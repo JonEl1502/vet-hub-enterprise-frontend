@@ -14,6 +14,7 @@ import {
   type BillingOption,
   type BillingOptionCycle,
   type PackageAudience,
+  type Region,
 } from '../../../services/modules/subscriptionPackages.api';
 import { dialog } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
@@ -21,10 +22,19 @@ import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
 
 type Tab = 'features' | 'limits';
 
+const REGION_OPTIONS: Region[] = ['AFRICA', 'ASIA', 'LATAM', 'MIDDLE_EAST', 'EUROPE', 'OCEANIA', 'NORTH_AMERICA'];
+
 const emptyDraft: Partial<SubscriptionPackagePlan> = {
   name: '',
   price: 0,
   billingCycle: 'MONTHLY',
+  // REQUIRED by the API — it rejects a create without them ("name, region,
+  // currency, amount (or price) and billingCycle are required"). They were
+  // never in the create payload, so creating a package from this page always
+  // 400'd; it only surfaced once every tab got a New button. They are also
+  // half of the uniqueness key (name, region, currency).
+  region: 'AFRICA',
+  currency: 'KES',
   tier: 1,
   maxPatients: 500,
   maxStaff: 5,
@@ -187,6 +197,8 @@ const SubPackagesAdminPage: React.FC = () => {
       const base = {
         name: draft.name!,
         price: Number(draft.price),
+        region: (draft.region || 'AFRICA') as Region,
+        currency: draft.currency || 'KES',
         billingCycle: (draft.billingCycle as any) || 'MONTHLY',
         // An add-on has no rung on the ladder, so it sits at tier 0 — but tier is
         // only how this LIST tells them apart. Entitlements resolve the base plan
@@ -303,6 +315,16 @@ const SubPackagesAdminPage: React.FC = () => {
             </Field>
             <Field label="Price">
               <input type="number" value={Number(draft.price ?? 0)} onChange={e => setDraft(d => ({ ...d, price: Number(e.target.value) }))} className={inputCls}/>
+            </Field>
+            <Field label="Region">
+              <select value={draft.region || 'AFRICA'} onChange={e => setDraft(d => ({ ...d, region: e.target.value as Region }))} className={inputCls}>
+                {REGION_OPTIONS.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
+              </select>
+            </Field>
+            <Field label="Currency">
+              <select value={draft.currency || 'KES'} onChange={e => setDraft(d => ({ ...d, currency: e.target.value }))} className={inputCls}>
+                {CURRENCY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
             </Field>
             <Field label="Billing Cycle">
               <select value={draft.billingCycle || 'MONTHLY'} onChange={e => setDraft(d => ({ ...d, billingCycle: e.target.value as any }))} className={inputCls}>
