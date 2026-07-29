@@ -1,8 +1,8 @@
 import React from 'react';
-import { History, HeartPulse, ClipboardCheck, Bell, Stethoscope, Loader2, Link2Off } from 'lucide-react';
+import { History, HeartPulse, ClipboardCheck, Bell, Stethoscope, Loader2, Link2Off, Syringe } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L, Seg } from '../fields';
-import { visitsAPI } from '../../../../../services';
+import { visitsAPI, vaccinationsAPI } from '../../../../../services';
 
 // FIRST page of a follow-up visit. A follow-up exists because the previous
 // visit ended with a plan — so the wizard opens on THAT plan (the originating
@@ -47,6 +47,10 @@ const Empty: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 const PriorPlanStep: React.FC<StepProps> = ({ visit, data, setData, emit }) => {
   const d = data || {};
   const parentId = visit.parentAppointmentId;
+  // A follow-up to a VACCINATION visit has its outcome in vaccination_records,
+  // not in the wizard blob — so reading the blob alone showed "nothing carried
+  // over" on exactly the visit type this step exists for.
+  const [priorVaccines, setPriorVaccines] = React.useState<any[]>([]);
   const [prior, setPrior] = React.useState<PriorPlan | null>(null);
   const [loading, setLoading] = React.useState(!!parentId);
 
@@ -73,6 +77,10 @@ const PriorPlanStep: React.FC<StepProps> = ({ visit, data, setData, emit }) => {
       }
     }).catch(() => { /* offline — the empty state explains it */ })
       .finally(() => { if (alive) setLoading(false); });
+
+    vaccinationsAPI.getByAppointment(String(parentId))
+      .then(rows => { if (alive) setPriorVaccines(Array.isArray(rows) ? rows : []); })
+      .catch(() => { /* non-fatal — the rest of the step still renders */ });
     return () => { alive = false; };
   }, [parentId]);
 
@@ -85,8 +93,8 @@ const PriorPlanStep: React.FC<StepProps> = ({ visit, data, setData, emit }) => {
   };
 
   const monitoringAsked = Object.entries(prior?.monitoring || {}).filter(([, on]) => on).map(([k]) => MONITORING_LABELS[k] ?? k);
-  const nothingCarried = !prior || (!prior.currentOutcome && !prior.closeOutcome && !prior.outcomeNotes
-    && carePlan.length === 0 && (prior.reminders?.length ?? 0) === 0 && monitoringAsked.length === 0);
+  const nothingCarried = priorVaccines.length === 0 && (!prior || (!prior.currentOutcome && !prior.closeOutcome && !prior.outcomeNotes
+    && carePlan.length === 0 && (prior.reminders?.length ?? 0) === 0 && monitoringAsked.length === 0));
 
   return (
     <div className="space-y-4">
@@ -112,6 +120,30 @@ const PriorPlanStep: React.FC<StepProps> = ({ visit, data, setData, emit }) => {
             The previous visit was linked but its follow-up plan was left empty — nothing to carry over.
           </p>
         </div>
+      )}
+
+      {!loading && priorVaccines.length > 0 && (
+        <Section icon={Syringe} title="Given at the previous visit">
+          <div className="space-y-1.5">
+            {priorVaccines.map((v: any) => (
+              <div key={v.id} className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800">
+                <span className="text-[11px] font-bold text-pine dark:text-zinc-100 truncate">
+                  {v.vaccineName}
+                  {v.status && v.status !== 'ADMINISTERED' && (
+                    <span className="ml-1.5 text-[9px] font-black uppercase tracking-widest text-amber-600">{v.status}</span>
+                  )}
+                </span>
+                <span className="text-[10px] text-slate-400">
+                  {v.administeredAt ? `Given ${new Date(v.administeredAt).toLocaleDateString()}` : 'Not recorded as given'}
+                  {v.nextDueAt ? ` · next due ${new Date(v.nextDueAt).toLocaleDateString()}` : ''}
+                </span>
+              </div>
+            ))}
+          </div>
+          <p className="text-[9px] text-slate-400 mt-1.5">
+            This is what the patient is coming back for — check it before recording today's dose.
+          </p>
+        </Section>
       )}
 
       {!loading && prior && !nothingCarried && (

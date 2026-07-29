@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a vaccination follow-up now shows what was actually given  —  2026-07-29
+- **What changed:** the follow-up step ("Previous Visit — Plan & Outcome") read only the
+  wizard blob, so a follow-up to a **vaccination visit** showed *"nothing carried over"* —
+  on precisely the visit type the step exists for. A vaccination's outcome lives in
+  `vaccination_records`, not in wizard data.
+  - It now also loads the prior visit's vaccinations and leads with them: what was given,
+    when, and what is next due.
+- **Record impact:** 🟢 None — read-only.
+- **Rollback:** revert; the step falls back to wizard data only.
+- ⚠️ **Watch out:** the fetch is **non-fatal** — if it fails the rest of the step still
+  renders. A follow-up must not be blocked because one lookup failed.
+- ⚠️ **Watch out:** vaccinations now count toward "carried over", so the empty state no
+  longer fires when the only thing carried over is a dose.
+
 ### data-shape + component: a receipt is per FILLED BILL, and part payments get a slip  —  2026-07-29
 - **What changed:** the receipts list now reads **final amount / paid / balance** instead of a
   single total, and names the bill a receipt is FOR (`visit #N`). New `ReceiptOrSlip`
