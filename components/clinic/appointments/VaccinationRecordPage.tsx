@@ -1,9 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useMemo} from 'react';
 import SpeciesWarning from '../../shared/common/SpeciesWarning';
 import { ArrowLeft, ChevronRight, Download, PackageCheck, Plus, Search, ShieldCheck, Syringe, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Visit, User, TaskStatus } from '../../../types';
-import { vaccinationsAPI, visitsAPI, inventoryAPI, dialog } from '../../../services';
+import { vaccinationsAPI, visitsAPI, inventoryAPI, dialog, procedureTemplatesAPI } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { InventoryItem } from '../../../services/modules/inventory.api';
 import { useData } from '../../../contexts/DataContext';
@@ -30,6 +30,64 @@ const dateInput = (iso?: string) => (iso ? iso.slice(0, 10) : '');
 
 // Search the clinic's inventory for the vial this dose came from — picking an
 // item deducts one dose from stock and fills the record's batch number.
+/**
+ * Prefill this dose from a PROCEDURE / recipe (ADDITION 1).
+ *
+ * A clinic's vaccination protocol already names the vaccine and the stock item
+ * it draws from. Retyping that per record is how the name drifts from the vial
+ * actually used, so the recipe is offered as a source.
+ *
+ * It sets the vaccine NAME and selects the stock item; it deliberately does NOT
+ * deduct — that stays the explicit act it already is, so nothing leaves
+ * inventory because someone browsed a recipe.
+ */
+const RecipePrefill: React.FC<{
+  petSpecies?: string | null;
+  busy: boolean;
+  onPrefill: (vaccineName: string, inventoryItemId: string | null) => void;
+}> = ({ petSpecies, busy, onPrefill }) => {
+  const [templates, setTemplates] = useState<any[]>([]);
+  useEffect(() => {
+    let live = true;
+    procedureTemplatesAPI.list()
+      .then(r => { if (live && r.success && r.data?.templates) setTemplates(r.data.templates.filter((t: any) => t.isActive)); })
+      .catch(() => { /* control just doesn't render */ });
+    return () => { live = false; };
+  }, []);
+
+  // Vaccination recipes for this patient's species that actually carry a
+  // product to draw from — a recipe with no vaccine line has nothing to give.
+  const options = useMemo(() => templates.filter((t: any) => {
+    const sp = (petSpecies || '').toLowerCase();
+    if (t.species?.length && sp && !t.species.some((x: string) => x.toLowerCase() === sp)) return false;
+    const cat = (t.categoryName || t.name || '').toLowerCase();
+    if (!cat.includes('vaccin') && !cat.includes('immuni')) return false;
+    return (t.items || []).some((i: any) => i.inventoryItemId);
+  }), [templates, petSpecies]);
+
+  if (!options.length) return null;
+
+  return (
+    <div className="mb-1.5">
+      <select
+        className="field-select !h-8 !text-[10px]"
+        disabled={busy}
+        defaultValue=""
+        onChange={e => {
+          const t = options.find((x: any) => String(x.id) === e.target.value);
+          e.target.value = '';
+          if (!t) return;
+          const line = (t.items || []).find((i: any) => i.inventoryItemId);
+          onPrefill(line?.name || t.name, line?.inventoryItemId ? String(line.inventoryItemId) : null);
+        }}
+      >
+        <option value="">Prefill from a procedure…</option>
+        {options.map((t: any) => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
+      </select>
+    </div>
+  );
+};
+
 const StockSearch: React.FC<{ onPick: (item: InventoryItem) => void; busy: boolean; petSpecies?: string | null }> = ({ onPick, busy, petSpecies }) => {
   const [q, setQ] = useState('');
   const [results, setResults] = useState<InventoryItem[]>([]);
@@ -172,6 +230,16 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
   // Deduct one dose of the picked inventory item for this record (server also
   // fills the batch number from the item and stamps stockDeductedAt).
   const [stockBusyId, setStockBusyId] = useState<string | null>(null);
+  /**
+   * Take the vaccine NAME (and the stock item it points at) from a recipe.
+   * Deliberately does not deduct: drawing a dose stays an explicit act, so
+   * browsing recipes can never move inventory.
+   */
+  const prefillFromRecipe = async (recordId: string, vaccineName: string, inventoryItemId: string | null) => {
+    await patch(recordId, { vaccineName, ...(inventoryItemId ? { inventoryItemId } : {}) });
+    toast.success(`Prefilled from procedure — ${vaccineName}`);
+  };
+
   const applyStock = async (recordId: string, item: InventoryItem) => {
     setStockBusyId(recordId);
     try {
@@ -353,7 +421,14 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
                           </p>
                         </div>
                       ) : (
-                        <StockSearch busy={stockBusyId === r.id} petSpecies={pet?.species} onPick={item => applyStock(r.id, item)} />
+                        <>
+                          <RecipePrefill
+                            busy={stockBusyId === r.id}
+                            petSpecies={pet?.species}
+                            onPrefill={(name, invId) => prefillFromRecipe(r.id, name, invId)}
+                          />
+                          <StockSearch busy={stockBusyId === r.id} petSpecies={pet?.species} onPick={item => applyStock(r.id, item)} />
+                        </>
                       )}
                     </div>
                     <div className="col-span-2 flex justify-end pt-1">

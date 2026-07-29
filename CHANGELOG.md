@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: prefill a vaccine from a procedure/recipe  —  2026-07-29 (completes ADDITION 1)
+- **What changed:** the vaccine section of a vaccination record now offers **"Prefill from a
+  procedure…"**. A clinic's protocol already names the vaccine and the stock item it draws
+  from; retyping that per record is how the recorded name drifts from the vial actually used.
+  - Offers only vaccination recipes **for this patient's species** that actually carry a
+    product line — a recipe with no vaccine has nothing to give.
+  - Hidden entirely when there is nothing to offer.
+- **Record impact:** 🟢 None — sets the vaccine name and the stock link on the record.
+- **Rollback:** revert; the control disappears, the stock search is unaffected.
+- ⚠️ **Watch out:** prefill deliberately **does not deduct**. Drawing a dose stays the
+  explicit act it already was, so browsing recipes can never move inventory. Deduction
+  remains the stock-search / settle path.
+
 ### feat: stock before → after on the vaccine picker  —  2026-07-29 (ADDITION 1)
 - **What changed:** each row of the vaccine-stock picker now reads **`12 → 11 doses`** instead
   of just the current count, so the effect on inventory is visible at the point of choosing
