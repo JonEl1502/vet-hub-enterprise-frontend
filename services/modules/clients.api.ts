@@ -159,6 +159,13 @@ export const clientsAPI = {
       discountValue?: number;
       amountTendered?: number;
       allocations?: { visitId: string | number; amount: number }[];
+      /**
+       * Spend the client's existing credit on this collection. `true` draws
+       * whatever it covers; a number caps the draw. Credit REDUCES the cash
+       * needed, so it is not part of `amountTendered` — pass 0 tendered to
+       * settle a bill entirely from credit.
+       */
+      useCredit?: boolean | number;
     },
     options?: RequestOptions,
   ): Promise<ApiResponse<{
@@ -169,6 +176,24 @@ export const clientsAPI = {
     allocations: { visitId: string; invoiceId: string | null; amountApplied: number; outstandingAfter: number }[];
   }>> =>
     post(`/clients/${clientId}/collect`, data, { showError: true, ...options }),
+
+  /**
+   * Unapplied money on the client's account. DERIVED on read — money paid that
+   * no settlement has attached to a receivable. There is no stored balance.
+   */
+  credit: (clientId: string | number): Promise<ApiResponse<{
+    balance: number;
+    sources: { transactionId: string; paidAt: string; amount: number; applied: number; remaining: number }[];
+  }>> => get(`/clients/${clientId}/credit`, { cache: false }),
+
+  /** Chronological account: charges, payments, running balance. */
+  statement: (clientId: string | number): Promise<ApiResponse<{
+    rows: { date: string; kind: 'CHARGE' | 'PAYMENT'; description: string; visitId: string; charge: number; payment: number; balance: number }[];
+    balance: number;
+    credit: number;
+    totalCharged: number;
+    totalPaid: number;
+  }>> => get(`/clients/${clientId}/statement`, { cache: false }),
 
   /**
    * Get all clients with pagination

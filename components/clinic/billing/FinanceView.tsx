@@ -40,6 +40,7 @@ import {
   Legend
 } from 'recharts';
 import { formatDate, formatTime, formatDateTime, localYMD } from '../../../services/utils/dateFormatter';
+import ReceivablesPanel from './ReceivablesPanel';
 
 interface Props {
   onViewTransaction?: (transactionId: string) => void;
@@ -784,6 +785,14 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
             </AreaChart>
           </ResponsiveContainer>
         </div>
+      </div>
+
+      {/* Receivables — who owes the clinic, and who it owes. Sits above the
+          transaction list because "what is outstanding" is the question the
+          finance page is usually opened to answer. */}
+      <div>
+        <h2 className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-3">Receivables</h2>
+        <ReceivablesPanel currency={currency} />
       </div>
 
       {/* Recent Transactions Table */}
