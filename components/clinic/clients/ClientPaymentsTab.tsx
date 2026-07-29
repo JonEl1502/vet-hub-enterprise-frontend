@@ -2,6 +2,7 @@ import React from 'react';
 import toast from 'react-hot-toast';
 import {
   Receipt, FileText, CreditCard, Loader2, CheckCircle2, Ban, AlertTriangle, Link2, Trash2,
+  Search, X,
 } from 'lucide-react';
 import { clientsAPI, transactionsAPI } from '../../../services';
 import { ClientBilling } from '../../../services/modules/clients.api';
@@ -50,6 +51,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   // full", which is what this tab did before there was a choice.
   const [tendered, setTendered] = React.useState('');
   const [allocMode, setAllocMode] = React.useState<'AUTO' | 'MANUAL'>('AUTO');
+  const [search, setSearch] = React.useState('');
   const [manual, setManual] = React.useState<Record<string, string>>({});
 
   const load = React.useCallback(async () => {
@@ -63,9 +65,28 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   React.useEffect(() => { load(); }, [load]);
 
   const invoices = data?.invoices ?? [];
-  const open = invoices.filter(i => !i.isPaid);
+  const allOpen = invoices.filter(i => !i.isPaid);
+
+  // Search the invoice list, because a client with two patients wants to pay
+  // for one of them. Matches the patient's name/species or the invoice number;
+  // a bare number is read as "outstanding at least this much", which is how
+  // someone holding cash actually looks for the bill it covers.
+  const q = search.trim().toLowerCase();
+  const asAmount = q !== '' && !Number.isNaN(Number(q)) ? Number(q) : null;
+  const matches = (i: typeof invoices[number]) => !q
+    || (asAmount != null && (i.outstanding ?? i.total) >= asAmount)
+    || !!i.pet?.name?.toLowerCase().includes(q)
+    || !!i.pet?.species?.toLowerCase().includes(q)
+    || i.visitId.includes(q);
+
+  const visible = invoices.filter(matches);
+  const open = allOpen.filter(matches);
   const selectable = open.filter(i => i.collectable);
-  const selectedTotal = open.filter(i => selected.has(i.visitId)).reduce((s, i) => s + i.total, 0);
+  // OUTSTANDING, not `total`. A part-paid invoice owes its remainder, and
+  // showing face value here overstated what the client had to hand over —
+  // the server has always allocated against the remainder.
+  const selectedTotal = allOpen.filter(i => selected.has(i.visitId))
+    .reduce((s, i) => s + (i.outstanding ?? i.total), 0);
 
   const toggle = (visitId: string) =>
     setSelected(s => { const n = new Set(s); n.has(visitId) ? n.delete(visitId) : n.add(visitId); return n; });
@@ -273,9 +294,40 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
             </div>
           )}
 
+          {/* Find the bill you are holding cash for: by patient (a client with
+              two pets pays for one), or by typing an amount to see everything
+              owing at least that much. */}
+          <div className="relative">
+            <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Search by patient, visit #, or an amount outstanding…"
+              className="w-full pl-8 pr-8 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-[11px] font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30 placeholder:text-slate-400"
+            />
+            {search && (
+              <button type="button" onClick={() => setSearch('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine">
+                <X size={12} />
+              </button>
+            )}
+          </div>
+          {search && (
+            <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400">
+              {visible.length} of {invoices.length} shown
+              {selected.size > 0 && ' · selection kept across the search'}
+            </p>
+          )}
+
           <div className="space-y-1.5">
-            {invoices.map(inv => {
+            {visible.length === 0 && (
+              <p className="px-3 py-6 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">
+                {invoices.length === 0 ? 'No invoices yet' : 'Nothing matches that search'}
+              </p>
+            )}
+            {visible.map(inv => {
               const picked = selected.has(inv.visitId);
+              const partly = !inv.isPaid && (inv.paid ?? 0) > 0;
               return (
                 <div key={inv.visitId}
                   className={`flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${
@@ -309,7 +361,40 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                       Unpaid
                     </span>
                   )}
-                  <span className="shrink-0 w-28 text-right text-sm font-black font-mono text-pine dark:text-zinc-100">{money(inv.total, currency)}</span>
+                  <span className="shrink-0 w-28 text-right">
+                    <span className="block text-sm font-black font-mono text-pine dark:text-zinc-100">
+                      {money(partly ? inv.outstanding : inv.total, currency)}
+                    </span>
+                    {/* Face value stays visible on a part-paid bill — the big
+                        number is what is still owed, which is what you collect. */}
+                    {partly && (
+                      <span className="block text-[8px] font-bold uppercase tracking-wider text-slate-400"
+                        title={`${money(inv.paid, currency)} already paid of ${money(inv.total, currency)}`}>
+                        of {money(inv.total, currency)}
+                      </span>
+                    )}
+                  </span>
+
+                  {/* Every payment that went against THIS invoice. `settlements`
+                      is many-to-many, so an invoice cleared by three payments
+                      lists three — a single payment reference would be a lie. */}
+                  {(inv.payments?.length ?? 0) > 0 && (
+                    <div className="w-full pl-6 pt-1.5 mt-0.5 border-t border-slate-100 dark:border-zinc-800 space-y-0.5">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">
+                        Paid by {inv.payments.length} payment{inv.payments.length === 1 ? '' : 's'}
+                      </p>
+                      {inv.payments.map(p => (
+                        <div key={`${inv.visitId}-${p.id}`} className="flex items-center justify-between gap-2">
+                          <span className="text-[9px] font-bold text-slate-500 dark:text-zinc-400 truncate">
+                            #{p.id} · {String(p.method || '').replace('_', ' ')} · {fmt(p.date)}
+                          </span>
+                          <span className="text-[9px] font-black font-mono text-emerald-600 dark:text-emerald-400 shrink-0">
+                            {money(p.amountApplied, currency)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
 
                   {/* What this invoice gets out of the payment being taken. */}
                   {picked && isShort && (

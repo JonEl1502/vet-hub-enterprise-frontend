@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: settling a bill — search the invoices, and see what is actually owed  —  2026-07-29
+- **What changed:** a clinic reported it is hard to settle a bill. Three things in the
+  Payments tab:
+  - **The selected total was wrong on part-paid invoices.** It summed each invoice's face
+    value, not its remainder, so the figure staff read out to the client overstated what
+    was due. The server had always allocated against the remainder — only the display
+    disagreed. Now sums `outstanding`.
+  - **A search box.** By patient (a client with two pets pays for one), by visit number, or
+    type an amount to see everything owing at least that much — how someone holding cash
+    actually looks for the bill it covers. The selection survives the search.
+  - **Each invoice lists the payments that cleared it**, with amount applied per payment.
+    An invoice fulfilled by three payments shows three; a part-paid one shows what is still
+    owed with its face value underneath.
+- **Record impact:** 🟢 None — display + a filter.
+- **Migration / rollout:** code-only, needs the backend commit for `outstanding`/`payments`.
+- **Rollback:** revert the commit.
+- ⚠️ **Watch out:** this does NOT address the likeliest cause of "hard to settle" — an
+  invoice is only collectable once the visit is finalized (`status` COMPLETED or
+  PENDING_PAYMENT). Money cannot be taken against an open visit at all; that is what the
+  pay-first flow is for. Confirm with the clinic which wall they hit before building more.
+
 ### feat: pick a procedure when registering a visit  —  2026-07-29
 - **What changed:** the registration screen now offers **Procedure / recipe** alongside
   Workflow, completing ADDITION 2 ("pick a procedure OR a workflow"). Choosing one stages the

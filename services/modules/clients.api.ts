@@ -81,6 +81,16 @@ export interface ClientInvoice {
   isPaid: boolean;
   prepaid: boolean;
   total: number;
+  /** Applied so far across every live (non-voided) payment. */
+  paid: number;
+  /** `total - paid` — what settling this invoice actually costs today. */
+  outstanding: number;
+  /**
+   * Every payment that went against THIS invoice, newest first. An invoice
+   * fulfilled by three payments lists three — `settlements` is a genuine
+   * many-to-many, so a single "payment reference" would be a lie.
+   */
+  payments: { id: string; amountApplied: number; method: string; status: string; date: string }[];
   encounterType?: string;
   visitType?: string | null;
   pet: { id: string; name: string; species: string } | null;
