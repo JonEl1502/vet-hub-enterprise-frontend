@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: the reconciliation slip is now a real, printable document  —  2026-07-29
+- **What changed:** new `components/clinic/receipts/ReconciliationDocument.tsx` — one document
+  that renders as a **RECEIPT** when the bill is filled and a **PAYMENT RECONCILIATION** slip
+  when it is not, decided by the server, not by the UI. Full document: header + reference,
+  patient/client, billed lines, final amount / paid / balance, every payment that landed, and
+  a "this is not a receipt" notice on the slip. Prints via the house `printElementAsPdf`.
+  Used by the visit's Receipt tab and the client-profile receipt modal (whose Print button
+  previously did nothing). Replaces the interim `ReceiptOrSlip` panel, now deleted.
+- **Record impact:** 🟢 None — read-only.
+- **Data dependency:** **Requires migration 157** (`GET /visits/:id/reconciliation`).
+  **Graceful fallback:** on any failure it renders "Payment record unavailable" rather than
+  breaking the visit or the modal.
+- **Rollback:** revert the commit and rebuild.
+- 🐞 **Fixes two real bugs in the old receipt tab:**
+  1. it was **disabled unless `isPaid`**, so a part-paid bill could never reach the very
+     document the slip exists for;
+  2. it printed **"Amount Paid = `visit.totalCost`"** — the visit's face value, not what was
+     actually paid. Wrong whenever a bill is part paid, or filled for less than face value
+     via a discount or write-off. Every figure now comes from the settlement rows.
+- ⚠️ **Watch out:** the tab's label and its enabled state come from
+  `GET /visits/:id/reconciliation`, fetched once per visit in `VisitDetailView` and passed
+  into the document via `data` so the two don't both request it.
+
 ### fix: a vaccination follow-up now shows what was actually given  —  2026-07-29
 - **What changed:** the follow-up step ("Previous Visit — Plan & Outcome") read only the
   wizard blob, so a follow-up to a **vaccination visit** showed *"nothing carried over"* —

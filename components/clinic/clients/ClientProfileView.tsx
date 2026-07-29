@@ -5,7 +5,9 @@ import { CLIENT_TYPES, COUNTRIES } from '../../../constants';
 
 const TITLE_OPTIONS = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Hon'];
 import { Transaction } from '../../../services/modules/transactions.api';
-import ReceiptOrSlip from '../receipts/ReceiptOrSlip';
+import ReconciliationDocument from '../receipts/ReconciliationDocument';
+import { printElementAsPdf } from '../shared/printPdf';
+import { useClinic } from '../../../contexts/ClinicContext';
 import { clientDiscountsAPI, clientsAPI, messagingAPI, toast, PlatformMessage } from '../../../services';
 import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell } from 'lucide-react';
 import RemindersApptsTab from '../shared/RemindersApptsTab';
@@ -34,6 +36,11 @@ interface Props {
 }
 
 const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onOpenMedicalRecord, onManageWorkflow, onScheduleAppointment, onAddPet }) => {
+  // This view has no `activeClinic` prop; the printed document still needs a
+  // clinic name on it. With a multi-clinic scope the first selected one is the
+  // right answer here — the client is being viewed within that scope.
+  const { selectedClinics } = useClinic();
+  const receiptClinicName = selectedClinics[0]?.name ?? '';
   const [activeTab, setActiveTab] = useState(initialTab);
   // "Collect payment" deep-links here with the visits list pre-filtered to unpaid.
   const [unpaidOnly, setUnpaidOnly] = useState(appointmentsUnpaidOnly);
@@ -1436,7 +1443,33 @@ const renderOverview = () => (
               <button onClick={() => setDocModal(null)} className="text-slate-400 hover:text-pine"><X size={18} /></button>
             </div>
 
-            {(docModal.type === 'invoice' || docModal.type === 'receipt') && (
+            {docModal.type === 'receipt' && (
+              <div className="space-y-4">
+                {/* 157: receipt when the bill is filled, reconciliation slip when
+                    it is not. Replaces a block that showed the visit total as
+                    though it were the amount paid, plus a "Paid via X" chip that
+                    only rendered when `isPaid` — so a part-paid bill showed
+                    nothing at all. */}
+                <ReconciliationDocument
+                  domId="client-receipt-doc"
+                  visitId={docModal.appt.id}
+                  clinicName={receiptClinicName}
+                  sourceCurrency={client.currency}
+                  targetCurrency={client.currency}
+                  visitRef={String(getVisitNumber(docModal.appt))}
+                  visitDate={formatDate(docModal.appt.date)}
+                  client={{ name: client.name, phone: client.phone }}
+                  lines={docModal.appt.tasks.map(t => ({ id: t.id, name: t.name, amount: t.price ?? null }))}
+                />
+                <button
+                  onClick={() => printElementAsPdf('client-receipt-doc', `Visit ${getVisitNumber(docModal.appt)} payment`, false)}
+                  className="w-full flex items-center justify-center gap-2 py-3 bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
+                  <Printer size={14} /> Print
+                </button>
+              </div>
+            )}
+
+            {docModal.type === 'invoice' && (
               <div className="space-y-4">
                 <div className="bg-slate-50 dark:bg-zinc-800 rounded-xl p-4">
                   <div className="flex justify-between items-center mb-2">
@@ -1461,16 +1494,8 @@ const renderOverview = () => (
                     <span className="text-lg font-black text-seafoam">{client.currency} {docModal.appt.totalCost.toLocaleString()}</span>
                   </div>
                 </div>
-                {/* 157: the real state of this visit's money. A FILLED bill shows
-                    its receipt; a PART-PAID one shows a reconciliation slip that
-                    says outright it is not a receipt. Replaces a "Paid via X" chip
-                    that only ever appeared when `isPaid`, so a part-paid bill
-                    showed nothing at all. */}
-                {docModal.type === 'receipt' && (
-                  <ReceiptOrSlip visitId={docModal.appt.id} currency={client.currency} />
-                )}
                 <button className="w-full flex items-center justify-center gap-2 py-3 bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
-                  <Printer size={14} /> Print {docModal.type === 'invoice' ? 'Invoice' : 'Receipt'}
+                  <Printer size={14} /> Print Invoice
                 </button>
               </div>
             )}

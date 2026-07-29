@@ -17,6 +17,9 @@ import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { vaccinationsAPI, visitsAPI, petsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID, remindersAPI, triageAPI, surgeryAPI, dewormingAPI, DewormingRecord } from '../../../services';
 import { notifyTriageChanged } from '../triage/triageEvents';
 import { printElementAsPdf } from '../shared/printPdf';
+import ReconciliationDocument from '../receipts/ReconciliationDocument';
+import invoicesAPI from '../../../services/modules/invoices.api';
+import type { VisitReconciliation } from '../../../services/modules/clients.api';
 import { subscribePendingRequests } from '../../../services/api/client';
 import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
@@ -294,6 +297,24 @@ const VisitDetailInner: React.FC<Props> = ({
     toast.success('Discount added to the invoice');
   };
   const [printMenuFor, setPrintMenuFor] = useState<null | 'invoice' | 'receipt'>(null);
+  // 157: what the server says this visit's money document IS. Drives the tab's
+  // label and whether the tab is reachable at all — a PART-PAID bill has no
+  // receipt but does have a reconciliation slip, which is the document the
+  // front desk hands over.
+  const [reconciliationState, setReconciliationState] = useState<VisitReconciliation | null>(null);
+  const hasMoneyActivity = !!reconciliationState && reconciliationState.paidSoFar > 0.005;
+
+  // Fetched once per visit: the tab needs it to decide its label and whether it
+  // is reachable at all, and the document reuses it rather than asking again.
+  // Silent + non-fatal — a payment panel must degrade, never take the visit down.
+  useEffect(() => {
+    let alive = true;
+    if (!appointment?.id) return;
+    invoicesAPI.reconciliationForVisit(appointment.id)
+      .then(res => { if (alive) setReconciliationState(res?.data?.reconciliation ?? null); })
+      .catch(() => { if (alive) setReconciliationState(null); });
+    return () => { alive = false; };
+  }, [appointment?.id, appointment?.isPaid, appointment?.totalCost]);
   const printMenuRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!printMenuFor) return;
@@ -4130,7 +4151,9 @@ const VisitDetailInner: React.FC<Props> = ({
                      ? [
                          { id: 'bill', label: 'Bill', icon: ReceiptText },
                          { id: 'invoice', label: 'Invoice', icon: Printer },
-                         { id: 'receipt', label: 'Receipt', icon: Receipt },
+                         // Label follows the document the server will return:
+                         // a filled bill has a Receipt, a part-paid one a slip.
+                         { id: 'receipt', label: reconciliationState && !reconciliationState.settled ? 'Reconciliation' : 'Receipt', icon: Receipt },
                        ]
                      : [
                          // The compiled clinical document from the workflow's data.
@@ -4147,7 +4170,7 @@ const VisitDetailInner: React.FC<Props> = ({
                      <button
                        key={tab.id}
                        onClick={() => setActiveBottomTab(tab.id as any)}
-                       disabled={tab.id === 'receipt' && !appointment.isPaid}
+                       disabled={tab.id === 'receipt' && !appointment.isPaid && !hasMoneyActivity}
                        className={`shrink-0 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeBottomTab === tab.id ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-md border border-seafoam/20 dark:border-seafoam/10' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300 hover:bg-white/50 dark:hover:bg-zinc-900/50 disabled:opacity-20 disabled:cursor-not-allowed'}`}
                      >
                         <tab.icon size={12} className={activeBottomTab === tab.id ? 'text-seafoam' : ''} /> {tab.label}
@@ -5025,7 +5048,7 @@ const VisitDetailInner: React.FC<Props> = ({
                      </div>
                      );
                    })()}
-                   {activeBottomTab === 'receipt' && appointment.isPaid && (() => {
+                   {activeBottomTab === 'receipt' && (appointment.isPaid || hasMoneyActivity) && (() => {
                      // Same per-document currency override as the invoice.
                      const printCurrency = (invoiceCurrency || activeClinic.currency || 'KES').toUpperCase();
                      const sourceCurrency = (activeClinic.currency || 'KES').toUpperCase();
@@ -5106,7 +5129,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                  <button
                                    onClick={() => {
                                      setPrintMenuFor(null);
-                                     printElementAsPdf('receipt-content', 'Receipt #' + appointment.id, false);
+                                     printElementAsPdf('receipt-content', (reconciliationState && !reconciliationState.settled ? 'Payment Reconciliation #' : 'Receipt #') + appointment.id, false);
                                    }}
                                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800"
                                  >
@@ -5116,7 +5139,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                  <button
                                    onClick={() => {
                                      setPrintMenuFor(null);
-                                     printElementAsPdf('receipt-content', 'Receipt #' + appointment.id, true);
+                                     printElementAsPdf('receipt-content', (reconciliationState && !reconciliationState.settled ? 'Payment Reconciliation #' : 'Receipt #') + appointment.id, true);
                                    }}
                                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 border-t border-slate-100 dark:border-zinc-800"
                                  >
@@ -5127,72 +5150,36 @@ const VisitDetailInner: React.FC<Props> = ({
                              )}
                            </div>
                         </div>
-                        <div id="receipt-content" className="bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-800/40 rounded-xl overflow-hidden shadow-sm">
-                           {/* Header */}
-                           <div className="bg-emerald-600 text-white px-5 py-4 flex items-start justify-between">
-                             <div>
-                               <div className="flex items-center gap-2">
-                                 <CheckCircle2 size={16} />
-                                 <p className="text-lg font-black uppercase tracking-tighter">Receipt</p>
-                               </div>
-                               <p className="text-[9px] text-white/60 font-bold mt-1 tracking-wider">REF #{appointment.id} · {formatDate(appointment.date)}</p>
-                             </div>
-                             <div className="text-right">
-                               <p className="text-sm font-black uppercase tracking-tight">{activeClinic.name}</p>
-                               <p className="text-[9px] text-white/60 mt-0.5 uppercase tracking-wider">PAID{appointment.paymentMethod ? ` · ${appointment.paymentMethod}` : ''}</p>
-                             </div>
-                           </div>
-
-                           {/* Patient & Client */}
-                           <div className="grid grid-cols-2 divide-x divide-emerald-100 dark:divide-emerald-900/30 border-b border-emerald-100 dark:border-emerald-900/30 bg-emerald-50/50 dark:bg-emerald-900/10">
-                             <div className="px-4 py-3">
-                               <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Patient</p>
-                               {onNavigateToPet ? (
-                                 <button onClick={() => onNavigateToPet(pet.id)} className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight hover:text-seafoam transition-colors text-left print:text-pine print:hover:text-pine">
-                                   {pet.name}
-                                 </button>
-                               ) : (
-                                 <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{pet.name}</p>
-                               )}
-                               <p className="text-[9px] text-slate-400 leading-tight">{pet.species}{pet.breed ? ` · ${pet.breed}` : ''}</p>
-                             </div>
-                             <div className="px-4 py-3">
-                               <p className="text-[8px] font-black text-emerald-600 uppercase tracking-widest mb-1">Client</p>
-                               {client && onNavigateToClient ? (
-                                 <button onClick={() => onNavigateToClient(client.id)} className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight hover:text-seafoam transition-colors text-left print:text-pine print:hover:text-pine">
-                                   {client.name}
-                                 </button>
-                               ) : (
-                                 <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{client?.name ?? appointment.client?.name ?? '—'}</p>
-                               )}
-                               <p className="text-[9px] text-slate-400 leading-tight">{client?.phone ?? appointment.client?.phone ?? ''}</p>
-                             </div>
-                           </div>
-
-                           {/* Line items */}
-                           <div className="p-4 space-y-1.5">
-                             {appointment.tasks.map(t => (
-                               <div key={t.id} className="flex justify-between items-baseline py-1 border-b border-slate-100 dark:border-zinc-800 last:border-0">
-                                 <span className="text-sm font-bold text-pine dark:text-zinc-200">{t.name}</span>
-                                 <Money amount={t.price || 0} currency={sourceCurrency} target={printCurrency} hideOriginal showCode primaryClassName="text-sm font-black text-pine dark:text-zinc-100 font-mono tabular-nums" />
-                               </div>
-                             ))}
-                             {apptMedications.length > 0 && apptMedications.map((m, i) => (
-                               <div key={m.id ?? i} className="flex justify-between items-baseline py-1 border-b border-slate-100 dark:border-zinc-800 last:border-0">
-                                 <span className="text-sm font-bold text-slate-500 dark:text-zinc-400">{m.inventoryItem?.name || 'Medication'} <span className="text-[9px] font-normal">× {m.quantity}</span></span>
-                                 {m.inventoryItem?.unitPrice
-                                   ? <Money amount={m.inventoryItem.unitPrice * m.quantity} currency={sourceCurrency} target={printCurrency} hideOriginal showCode primaryClassName="text-sm font-black text-pine dark:text-zinc-100 font-mono tabular-nums" />
-                                   : <span className="text-[9px] text-slate-300">—</span>}
-                               </div>
-                             ))}
-                           </div>
-
-                           {/* Total */}
-                           <div className="flex justify-between items-center px-4 py-3 bg-emerald-600/10 border-t-2 border-emerald-600">
-                             <span className="text-[10px] font-black text-emerald-700 dark:text-emerald-400 uppercase tracking-widest">Amount Paid</span>
-                             <Money amount={appointment.totalCost} currency={sourceCurrency} target={printCurrency} hideOriginal showCode primaryClassName="text-2xl font-black text-emerald-700 dark:text-emerald-400 font-mono tabular-nums tracking-tighter" />
-                           </div>
-                        </div>
+                        {/* 157: the REAL money document, built from the server's
+                            settlement rows. Replaces a block that rendered
+                            "Amount Paid = appointment.totalCost" — wrong the
+                            moment a bill is part paid, or filled for less than
+                            its face value via a discount or write-off. When the
+                            balance is not zero this renders the RECONCILIATION
+                            SLIP instead, which states it is not a receipt. */}
+                        <ReconciliationDocument
+                          visitId={appointment.id}
+                          data={reconciliationState}
+                          clinicName={activeClinic.name}
+                          sourceCurrency={sourceCurrency}
+                          targetCurrency={printCurrency}
+                          visitRef={String(appointment.id)}
+                          visitDate={formatDate(appointment.date)}
+                          patient={{ name: pet.name, species: pet.species, breed: pet.breed }}
+                          client={{
+                            name: client?.name ?? appointment.client?.name ?? '—',
+                            phone: client?.phone ?? appointment.client?.phone ?? '',
+                          }}
+                          lines={[
+                            ...appointment.tasks.map(t => ({ id: t.id, name: t.name, amount: t.price ?? null })),
+                            ...apptMedications.map((m, i) => ({
+                              id: m.id ?? `med-${i}`,
+                              name: m.inventoryItem?.name || 'Medication',
+                              note: `× ${m.quantity}`,
+                              amount: m.inventoryItem?.unitPrice != null ? m.inventoryItem.unitPrice * m.quantity : null,
+                            })),
+                          ]}
+                        />
                      </div>
                      );
                    })()}
