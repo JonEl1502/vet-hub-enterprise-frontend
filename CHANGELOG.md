@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### data-shape + component: a receipt is per FILLED BILL, and part payments get a slip  —  2026-07-29
+- **What changed:** the receipts list now reads **final amount / paid / balance** instead of a
+  single total, and names the bill a receipt is FOR (`visit #N`). New `ReceiptOrSlip`
+  component on the visit's receipt document: a settled bill shows its receipt, a **part-paid
+  one shows a reconciliation slip** that states outright it is not a receipt. Adds
+  `invoicesAPI.receiptsForVisit` / `reconciliationForVisit` / `setDiscount`.
+- **Record impact:** 🟢 None — reads only; the discount call is a new opt-in action.
+- **Data dependency:** **Requires migration 157** for `amountPaid`/`balance`/`visitId` on a
+  receipt. **Graceful fallback** otherwise: `amountPaid` is optional, so a pre-157 receipt
+  renders its total alone, and `ReceiptOrSlip` renders nothing at all if the endpoint fails.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** `receipt` on a collect response is now **nullable** — a collection that
+  only part-pays every bill issues none. `ClientPaymentsTab` already guarded this
+  (`res.data?.receipt?.total ?? selectedTotal`); anything new must null-check.
+- ⚠️ **Watch out:** the slip's `REC-` reference is deliberately **outside the receipt number
+  series**. Don't "tidy" it into one — a receipt means the bill is settled, and the slip
+  exists precisely because it isn't.
+
 ### fix: collect preview allocates against the remainder, not face value  —  2026-07-29
 - **What changed:** the FIFO preview and the manual-split cap still used each invoice's
   **face value**, so on a part-paid invoice the preview offered money to a balance that was

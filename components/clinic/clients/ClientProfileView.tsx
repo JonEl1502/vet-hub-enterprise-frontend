@@ -5,6 +5,7 @@ import { CLIENT_TYPES, COUNTRIES } from '../../../constants';
 
 const TITLE_OPTIONS = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Hon'];
 import { Transaction } from '../../../services/modules/transactions.api';
+import ReceiptOrSlip from '../receipts/ReceiptOrSlip';
 import { clientDiscountsAPI, clientsAPI, messagingAPI, toast, PlatformMessage } from '../../../services';
 import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell } from 'lucide-react';
 import RemindersApptsTab from '../shared/RemindersApptsTab';
@@ -1460,11 +1461,13 @@ const renderOverview = () => (
                     <span className="text-lg font-black text-seafoam">{client.currency} {docModal.appt.totalCost.toLocaleString()}</span>
                   </div>
                 </div>
-                {docModal.type === 'receipt' && docModal.appt.isPaid && (
-                  <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-xl p-3 border border-emerald-200 dark:border-emerald-800 flex items-center gap-2">
-                    <Receipt size={14} className="text-emerald-500" />
-                    <p className="text-xs font-black text-emerald-700 dark:text-emerald-400">Paid via {docModal.appt.paymentMethod}</p>
-                  </div>
+                {/* 157: the real state of this visit's money. A FILLED bill shows
+                    its receipt; a PART-PAID one shows a reconciliation slip that
+                    says outright it is not a receipt. Replaces a "Paid via X" chip
+                    that only ever appeared when `isPaid`, so a part-paid bill
+                    showed nothing at all. */}
+                {docModal.type === 'receipt' && (
+                  <ReceiptOrSlip visitId={docModal.appt.id} currency={client.currency} />
                 )}
                 <button className="w-full flex items-center justify-center gap-2 py-3 bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
                   <Printer size={14} /> Print {docModal.type === 'invoice' ? 'Invoice' : 'Receipt'}

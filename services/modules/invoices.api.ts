@@ -60,6 +60,8 @@ export interface InvoiceRow {
   dueDate?: string | null;
 }
 
+import type { VisitReconciliation } from './clients.api';
+
 export const invoicesAPI = {
   list: (params?: { status?: string; clientId?: string | number }, options?: RequestOptions): Promise<ApiResponse<{ invoices: InvoiceRow[] }>> => {
     const q = new URLSearchParams();
@@ -83,6 +85,51 @@ export const invoicesAPI = {
   /** Void — the bill returns to APPROVED so it can be corrected and re-issued. */
   void: (id: string | number, reason?: string, options?: RequestOptions): Promise<ApiResponse<{ invoice: Invoice }>> =>
     patch(`/invoices/${id}/void`, { reason }, { showError: true, ...options }),
+
+  /**
+   * Apply the discount at the INVOICE step — when the document goes to the
+   * client for approval, rather than at collection time (spec §7.6).
+   * Additive: the collect-time discount still works. Owner/manager only, and
+   * only while the invoice is OPEN with nothing collected against it.
+   */
+  setDiscount: (
+    id: string | number,
+    data: { discountType: 'PERCENTAGE' | 'FIXED'; discountValue: number },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ invoice: Invoice }>> =>
+    patch(`/invoices/${id}/discount`, data, { showError: true, ...options }),
+
+  /**
+   * Receipts raised for a visit's receivable (157). Empty until the bill is
+   * FILLED — a part payment issues none.
+   */
+  receiptsForVisit: (visitId: string | number, options?: RequestOptions): Promise<ApiResponse<{ receipts: VisitReceipt[] }>> =>
+    get(`/visits/${visitId}/receipts`, { cache: false, silent: true, ...options }),
+
+  /**
+   * The reconciliation slip: final amount / paid so far / balance, plus every
+   * payment that has landed. What the front desk hands over while a bill is
+   * still part paid.
+   */
+  reconciliationForVisit: (visitId: string | number, options?: RequestOptions): Promise<ApiResponse<{ reconciliation: VisitReconciliation }>> =>
+    get(`/visits/${visitId}/reconciliation`, { cache: false, silent: true, ...options }),
 };
+
+/** A receipt as returned by `/visits/:id/receipts`. */
+export interface VisitReceipt {
+  id: string;
+  receiptNumber: string;
+  invoiceId: string | null;
+  subtotal: number;
+  discount: number;
+  total: number;
+  amountPaid: number;
+  balance: number;
+  paymentMethod: string;
+  issuedAt: string;
+  voided: boolean;
+  voidedAt: string | null;
+  voidReason: string | null;
+}
 
 export default invoicesAPI;

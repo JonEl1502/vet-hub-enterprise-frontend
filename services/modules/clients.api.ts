@@ -118,13 +118,53 @@ export interface ClientReceipt {
   id: string;
   receiptNumber: string;
   transactionId: string;
+  /**
+   * The receivable this receipt is FOR (migration 157). A receipt is issued when
+   * a bill is FILLED, not when money moves — so one payment clearing three bills
+   * produces three receipts, each naming its own visit.
+   * NULL on pre-157 receipts, which were issued per payment.
+   */
+  visitId?: string | null;
+  invoiceId?: string | null;
+  /** Face value of the receivable, before discount. */
   subtotal: number;
+  /** What was forgiven — a discount or a write-off. */
   discount: number;
+  /** The FINAL AMOUNT = subtotal − discount. */
   total: number;
+  /** What actually arrived: cash and client credit alike. */
+  amountPaid?: number;
+  /** total − amountPaid. Zero on any receipt; present so the doc reads in full. */
+  balance?: number;
   paymentMethod: string;
   createdAt: string;
   voided: boolean;
+  /** Set when the receipt was UN-ISSUED because its payment was reversed. */
+  voidReason?: string | null;
   coveredVisitIds: string[];
+}
+
+/**
+ * The reconciliation slip for a PART-PAID bill (157).
+ *
+ * A part payment deliberately issues no receipt — but the client must not leave
+ * with nothing, so this is what the front desk hands over. Derived from the
+ * settlements, never stored, and its `REC-` reference sits outside the receipt
+ * number series so it can't be mistaken for proof of settlement.
+ */
+export interface VisitReconciliation {
+  kind: 'RECONCILIATION' | 'RECEIPT_ISSUED';
+  reference: string;
+  visitId: string;
+  invoiceId: string | null;
+  invoiceNumber: string | null;
+  finalAmount: number;
+  paidSoFar: number;
+  balance: number;
+  settled: boolean;
+  receipt: { id: string; receiptNumber: string; issuedAt: string } | null;
+  payments: { transactionId: string; amount: number; method: string; paidAt: string }[];
+  generatedAt: string;
 }
 
 export interface ClientBilling {
