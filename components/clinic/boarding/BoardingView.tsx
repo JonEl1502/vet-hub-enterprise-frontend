@@ -122,14 +122,14 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenSt
       </div>
 
       {/* Occupancy cards */}
-      <div className="grid grid-cols-2 gap-3 max-w-md">
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 max-w-md">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 sm:p-4 shadow-sm">
           <div className="flex items-center gap-2 text-slate-400"><BedDouble size={15} /><span className="text-[9px] font-black uppercase tracking-widest">Active stays</span></div>
-          <p className="text-3xl font-black text-pine dark:text-zinc-100 mt-1">{occupancy.activeStays}</p>
+          <p className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 mt-1">{occupancy.activeStays}</p>
         </div>
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
           <div className="flex items-center gap-2 text-slate-400"><CalendarClock size={15} /><span className="text-[9px] font-black uppercase tracking-widest">Pickups today</span></div>
-          <p className="text-3xl font-black text-pine dark:text-zinc-100 mt-1">{occupancy.pickupsDueToday}</p>
+          <p className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 mt-1">{occupancy.pickupsDueToday}</p>
         </div>
       </div>
 
@@ -160,9 +160,12 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenSt
                   ? <span className="shrink-0 px-2 py-0.5 rounded-full bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest">Day {daysIn(s.dropOffAt)}</span>
                   : <span className="shrink-0 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-400 text-[9px] font-black uppercase tracking-widest">{s.status === 'CHECKED_OUT' ? 'Out' : s.status}</span>}
               </div>
-              <div className="flex items-center justify-between text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
-                <span>{s.kennel ? `Kennel ${s.kennel}` : 'No kennel'} · {formatDate(s.dropOffAt)}</span>
-                <span>{s.status === 'CHECKED_OUT' && s.actualPickupAt ? `Out ${formatDate(s.actualPickupAt)}` : s.expectedPickupAt ? `Pickup ${formatDate(s.expectedPickupAt)}` : '—'}</span>
+              {/* Wraps rather than overflowing: on a phone these two lines do
+                  not fit side by side, and justify-between with no wrap pushed
+                  the pickup date off the card. */}
+              <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
+                <span className="truncate max-w-full">{s.kennel ? `Kennel ${s.kennel}` : 'No kennel'} · {formatDate(s.dropOffAt)}</span>
+                <span className="truncate max-w-full">{s.status === 'CHECKED_OUT' && s.actualPickupAt ? `Out ${formatDate(s.actualPickupAt)}` : s.expectedPickupAt ? `Pickup ${formatDate(s.expectedPickupAt)}` : '—'}</span>
               </div>
               {s.status === 'ADMITTED' && !vaccinesOk(s.vaccineChecklist) && (
                 <p className="mt-2 flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400"><ShieldAlert size={11} /> Vaccine check incomplete</p>

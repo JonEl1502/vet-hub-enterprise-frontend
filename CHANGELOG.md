@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: boarding and inpatient lists no longer overflow on a phone  —  2026-07-29
+- **What changed:** the meta row on each stay/admission card wraps instead of overflowing.
+  It was `justify-between` with two fixed spans and no wrap, so on a narrow screen the
+  right-hand value — the **pickup date** on boarding, the **tasks/meds-due counts** on
+  inpatient — was pushed off the card and simply unreadable.
+  - Boarding's occupancy tiles also tighten on small screens (`p-3`/`text-2xl` below `sm`)
+    rather than crowding their labels.
+- **Record impact:** 🟢 None — layout only.
+- **Rollback:** revert; the cards clip again on narrow screens.
+- ⚠️ **Watch out:** the card grids were already responsive (`grid-cols-1 sm:2 lg:3`), which
+  is why this read as "fine on mobile" at a glance. The breakage was *inside* the card, not
+  in the grid.
+
 ### fix: Admin → Plans fits on screen — no scrolling between tabs and editor  —  2026-07-29
 - **What changed:** the create-package form and the package editor were built at full size
   (`rounded-3xl p-6`, `py-2 text-sm` inputs), so the tab bar, the package list and the

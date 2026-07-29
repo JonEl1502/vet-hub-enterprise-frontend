@@ -150,8 +150,11 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
                     ? <span className="shrink-0 px-2 py-0.5 rounded-full bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 text-[9px] font-black uppercase tracking-widest">Day {daysIn(h.admittedAt)}</span>
                     : <span className="shrink-0 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-400 text-[9px] font-black uppercase tracking-widest">Out</span>}
                 </div>
-                <div className="flex items-center justify-between gap-2 text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
-                  <span>{isActive ? `Admitted ${formatDate(h.admittedAt)}` : `Discharged ${h.dischargedAt ? formatDate(h.dischargedAt) : ''}`}{h.cage ? ` · ${h.cage}` : ''}</span>
+                {/* Wraps rather than overflowing — on a phone the admitted date
+                    and the due-counts do not fit on one line, and the counts
+                    were being pushed off the card. */}
+                <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
+                  <span className="truncate max-w-full">{isActive ? `Admitted ${formatDate(h.admittedAt)}` : `Discharged ${h.dischargedAt ? formatDate(h.dischargedAt) : ''}`}{h.cage ? ` · ${h.cage}` : ''}</span>
                   {isActive && counts && (
                     <span className="flex items-center gap-2 shrink-0">
                       {!!counts.tasksDue && <span className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400"><ClipboardCheck size={11} /> {counts.tasksDue}</span>}
