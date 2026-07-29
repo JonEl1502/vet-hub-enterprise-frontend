@@ -173,6 +173,9 @@ export interface Clinic {
   specialties?: string[];
   status?: ClinicStatus;
   isDemo?: boolean;
+  /** FARM org (migration 160): buys the LIVESTOCK plans and lands on the
+   *  livestock audience instead of the clinical one. Same org row either way. */
+  isLivestock?: boolean;
   latitude?: number | null;
   longitude?: number | null;
   countryCode?: string | null;

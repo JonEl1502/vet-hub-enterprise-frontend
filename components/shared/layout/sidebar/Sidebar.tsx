@@ -68,7 +68,11 @@ const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   const { selectedClinics, selectedClinicIds } = useClinic();
   const supplierCtx = useSupplier();
-  const allowed = useMemo(() => audiencesForRole(role), [role]);
+  // A farm business (migration 160) is the same org row as a clinic and signs in
+  // with the same role, so the audience has to come from the ORG, not the role
+  // alone — otherwise a farmer lands on the clinical nav.
+  const org = useMemo(() => ({ isLivestock: !!clinic?.isLivestock }), [clinic?.isLivestock]);
+  const allowed = useMemo(() => audiencesForRole(role, org), [role, org]);
 
   // Epic C: category-scoped staff only see their assigned module pages. Fetch the
   // current user's scope for the active clinic; null = not scoped (see everything).
@@ -88,23 +92,23 @@ const Sidebar: React.FC<SidebarProps> = ({
   // Persist Super Admin's last audience pick across reloads. Other roles
   // don't get a switcher, so this state is effectively static for them.
   const [audience, setAudience] = useState<AudienceId | 'all'>(() => {
-    if (allowed.length <= 1) return defaultAudienceForRole(role);
+    if (allowed.length <= 1) return defaultAudienceForRole(role, org);
     try {
       const stored = localStorage.getItem(AUDIENCE_STORAGE_KEY) as AudienceId | 'all' | null;
       if (stored && (stored === 'all' || allowed.includes(stored as AudienceId))) {
         return stored;
       }
     } catch {}
-    return defaultAudienceForRole(role);
+    return defaultAudienceForRole(role, org);
   });
 
   // If the role's allowed list ever changes (re-login as different user),
   // snap back to a sensible default rather than leaving a stale audience.
   useEffect(() => {
     if (audience !== 'all' && !allowed.includes(audience as AudienceId)) {
-      setAudience(defaultAudienceForRole(role));
+      setAudience(defaultAudienceForRole(role, org));
     }
-  }, [allowed, audience, role]);
+  }, [allowed, audience, role, org]);
 
   const updateAudience = (next: AudienceId | 'all') => {
     setAudience(next);

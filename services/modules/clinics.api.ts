@@ -38,6 +38,8 @@ export interface Clinic {
   inpatientDayRate?: number | null;
   workingHours?: Record<string, { open: string; close: string; closed: boolean }> | null;
   prodTest?: boolean;
+  /** FARM org (160) — drives the plan catalogue and the app audience. */
+  isLivestock?: boolean;
   createdAt?: string;
   updatedAt?: string;
   // Sales-rep attribution (SUPER_ADMIN clinics list only).

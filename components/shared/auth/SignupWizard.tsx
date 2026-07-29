@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload, ChevronDown, Eye, EyeOff, Tag } from 'lucide-react';
+import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload, ChevronDown, Eye, EyeOff, Tag, Sprout } from 'lucide-react';
 import { authAPI } from '../../../services';
 import { salesRepAPI } from '../../../services/modules/salesRep.api';
 import CountrySelect from '../common/CountrySelect';
@@ -27,6 +27,10 @@ interface UserData {
 }
 
 interface ClinicData {
+  // What KIND of org this is. Both are the same org row on the backend
+  // (migration 160) — the difference is which plan catalogue it buys from and
+  // which app it lands in. FARM => `clinics.is_livestock`, LIVESTOCK packages.
+  accountType: 'CLINIC' | 'FARM';
   name: string;
   address: string;
   city: string;
@@ -86,6 +90,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
   });
 
   const [clinicData, setClinicData] = useState<ClinicData>({
+    accountType: 'CLINIC',
     name: '',
     address: '',
     city: '',
@@ -101,6 +106,11 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
     longitude: '',
   });
   const [locating, setLocating] = useState(false);
+
+  // Every "Clinic X" label reads "Farm X" for a farm business. One word, so the
+  // wizard can't half-switch and ask a farmer for their clinic email.
+  const isFarm = clinicData.accountType === 'FARM';
+  const orgWord = isFarm ? 'Farm' : 'Clinic';
 
   // Auto-detect the user's country once on mount and lock it onto state.
   // The user can override via the dropdown.
@@ -216,6 +226,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
           phone: composedUserPhone,
         },
         {
+          accountType: clinicData.accountType,
           name: clinicData.name,
           address: clinicData.address,
           city: clinicData.city,
@@ -257,7 +268,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
 
   const steps = [
     { label: 'Your Info', icon: <User size={14} /> },
-    { label: 'Clinic', icon: <Building2 size={14} /> },
+    { label: orgWord, icon: isFarm ? <Sprout size={14} /> : <Building2 size={14} /> },
     { label: 'Review', icon: <CheckCircle size={14} /> },
   ];
 
@@ -462,19 +473,54 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
         {currentStep === 2 && (
           <div className="space-y-4">
             <div className="flex items-center gap-2 mb-4">
-              <Building2 className="w-5 h-5 text-[#1C7A5B]" />
-              <h3 className="text-xl font-black text-[#144E35]">Clinic Information</h3>
+              {isFarm
+                ? <Sprout className="w-5 h-5 text-[#1C7A5B]" />
+                : <Building2 className="w-5 h-5 text-[#1C7A5B]" />}
+              <h3 className="text-xl font-black text-[#144E35]">{orgWord} Information</h3>
+            </div>
+
+            {/* What kind of business is signing up. This is the only question on
+                the wizard that changes what the account IS — it decides which
+                plan catalogue they are offered and which app they land in — so
+                it is asked first, in plain words, not buried as a checkbox. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {([
+                { id: 'CLINIC' as const, icon: Building2, title: 'Veterinary clinic', blurb: 'Patients, consultations, pharmacy and billing.' },
+                { id: 'FARM' as const, icon: Sprout, title: 'Farm business', blurb: 'Herds, flocks, feeding, crops and produce.' },
+              ]).map((opt) => {
+                const Icon = opt.icon;
+                const selected = clinicData.accountType === opt.id;
+                return (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setClinicData({ ...clinicData, accountType: opt.id })}
+                    className={`text-left rounded-2xl border p-4 transition-all ${
+                      selected
+                        ? 'border-[#1C7A5B] bg-[#1C7A5B]/5 ring-2 ring-[#1C7A5B]/20'
+                        : 'border-[#CFE6D8] bg-[#f4f7f7] hover:border-[#1C7A5B]/40'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Icon className={`w-4 h-4 ${selected ? 'text-[#1C7A5B]' : 'text-[#144E35]/40'}`} />
+                      <span className="text-sm font-black text-[#144E35]">{opt.title}</span>
+                      {selected && <CheckCircle className="w-4 h-4 text-[#1C7A5B] ml-auto" />}
+                    </div>
+                    <p className="mt-1.5 text-[11px] font-bold text-[#144E35]/50 leading-snug">{opt.blurb}</p>
+                  </button>
+                );
+              })}
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Clinic Name *</label>
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">{orgWord} Name *</label>
                 <input
                   type="text"
                   value={clinicData.name}
                   onChange={(e) => setClinicData({ ...clinicData, name: e.target.value })}
                   className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
-                  placeholder="VetHubCore Veterinary Clinic"
+                  placeholder={isFarm ? "Green Acres Farm" : "VetHubCore Veterinary Clinic"}
                 />
               </div>
 
@@ -512,7 +558,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Clinic Phone *</label>
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">{orgWord} Phone *</label>
                 <div className="flex items-stretch bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl focus-within:ring-2 focus-within:ring-[#1C7A5B]/20 transition-all">
                   <span className="px-3 flex items-center gap-1.5 text-sm font-black text-[#144E35] border-r border-[#CFE6D8]">
                     <span className="text-base leading-none">{getCountry(clinicData.countryCode)?.flag ?? '🌍'}</span>
@@ -529,13 +575,13 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
               </div>
 
               <div>
-                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Clinic Email *</label>
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">{orgWord} Email *</label>
                 <input
                   type="email"
                   value={clinicData.email}
                   onChange={(e) => setClinicData({ ...clinicData, email: e.target.value })}
                   className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
-                  placeholder="clinic@example.com"
+                  placeholder={isFarm ? "farm@example.com" : "clinic@example.com"}
                 />
               </div>
 
@@ -573,7 +619,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
               </div>
 
               <div className="md:col-span-2">
-                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">Clinic Logo (Optional)</label>
+                <label className="block text-[10px] font-black text-[#144E35]/40 uppercase tracking-widest mb-2">{orgWord} Logo (Optional)</label>
                 <div className="flex items-center gap-4">
                   {clinicData.logo && (
                     <img src={clinicData.logo} alt="Logo preview" className="w-16 h-16 rounded-2xl object-cover border border-[#CFE6D8]" />
@@ -646,9 +692,9 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
               </div>
 
               <div className="border-t border-[#CFE6D8] pt-4">
-                <h4 className="font-black text-[#144E35] mb-2 text-sm uppercase tracking-widest">Clinic Details</h4>
+                <h4 className="font-black text-[#144E35] mb-2 text-sm uppercase tracking-widest">{orgWord} Details</h4>
                 <div className="text-sm text-[#144E35]/70 font-bold space-y-1">
-                  <p><strong className="text-[#1C7A5B]">Clinic Name:</strong> {clinicData.name}</p>
+                  <p><strong className="text-[#1C7A5B]">{orgWord} Name:</strong> {clinicData.name}</p>
                   <p><strong className="text-[#1C7A5B]">Address:</strong> {clinicData.address}, {clinicData.city}, {getCountry(clinicData.countryCode)?.flag} {clinicData.country}</p>
                   <p><strong className="text-[#1C7A5B]">Phone:</strong> {clinicData.dialCode} {clinicData.phone}</p>
                   <p><strong className="text-[#1C7A5B]">Email:</strong> {clinicData.email}</p>

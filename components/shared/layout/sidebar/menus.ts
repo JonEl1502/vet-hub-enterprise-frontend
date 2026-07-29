@@ -319,11 +319,26 @@ export const getAudience = (id: AudienceId): Audience =>
   AUDIENCES.find(a => a.id === id) ?? AUDIENCES[2]; // default to clinic
 
 /**
+ * What kind of ORG the signed-in user belongs to. A farm business and a vet
+ * clinic are the same org row (`clinics.is_livestock`, migration 160) and both
+ * sign in as CLINIC_OWNER / STAFF — so the role alone can no longer answer
+ * "which app is this?". Pass the org through and it can.
+ */
+export interface OrgContext {
+  isLivestock?: boolean;
+}
+
+/**
  * Returns the audiences a given user role is allowed to view.
  * SUPER_ADMIN gets all of them (and gains the audience switcher).
- * Everyone else is locked to their natural audience.
+ * Everyone else is locked to their natural audience — which for a FARM org is
+ * livestock, not clinic. `org` is optional so every existing caller keeps its
+ * current behaviour.
  */
-export function audiencesForRole(role: string): AudienceId[] {
+export function audiencesForRole(role: string, org?: OrgContext): AudienceId[] {
+  // A farm org has no clinical side at all — no patients, no consultations —
+  // so it gets the livestock nav INSTEAD of the clinic one, not alongside it.
+  if (org?.isLivestock && !isPlatformRole(role)) return ['livestock'];
   switch (role) {
     case 'SUPER_ADMIN':    return ['admin', 'clinic', 'supplier', 'freelancer', 'livestock'];
     case 'MERCHANT_ADMIN': return ['admin', 'clinic', 'supplier', 'freelancer', 'livestock'];
@@ -336,11 +351,18 @@ export function audiencesForRole(role: string): AudienceId[] {
   }
 }
 
+/** Platform staff keep every audience and the switcher, whatever org they view. */
+function isPlatformRole(role: string): boolean {
+  return role === 'SUPER_ADMIN' || role === 'MERCHANT_ADMIN';
+}
+
 /**
  * Default audience to land on when a user logs in.
- * SUPER_ADMIN lands on Super Admin (their primary lens).
+ * SUPER_ADMIN lands on Super Admin (their primary lens); a FARM org lands on
+ * livestock. `org` is optional — omitting it is the pre-160 behaviour.
  */
-export function defaultAudienceForRole(role: string): AudienceId {
+export function defaultAudienceForRole(role: string, org?: OrgContext): AudienceId {
+  if (org?.isLivestock && !isPlatformRole(role)) return 'livestock';
   switch (role) {
     case 'SUPER_ADMIN':    return 'admin';
     case 'MERCHANT_ADMIN': return 'admin';

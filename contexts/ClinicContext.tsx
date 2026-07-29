@@ -40,6 +40,8 @@ interface Clinic {
   boardingDayRate?: number | null;
   inpatientDayRate?: number | null;
   prodTest?: boolean;
+  /** FARM org (160) — drives the app audience. */
+  isLivestock?: boolean;
   catalogScope?: 'ALL' | 'GENERAL' | 'CUSTOM';
   // Per-weekday opening hours { mon: {open,close,closed}, ... } — drives
   // auto after-hours detection at visit registration.
@@ -86,6 +88,9 @@ const transformApiClinic = (clinic: any): Clinic => ({
   boardingDayRate: clinic.boardingDayRate != null ? Number(clinic.boardingDayRate) : null,
   inpatientDayRate: clinic.inpatientDayRate != null ? Number(clinic.inpatientDayRate) : null,
   prodTest: clinic.prodTest === true,
+  // FARM org (160) — the sidebar picks its audience from this. Field-by-field
+  // mapper: omit it and a farm org reads as a clinic no matter what the API says.
+  isLivestock: clinic.isLivestock === true,
   catalogScope: clinic.catalogScope ?? 'ALL',
   workingHours: clinic.workingHours ?? null,
 });

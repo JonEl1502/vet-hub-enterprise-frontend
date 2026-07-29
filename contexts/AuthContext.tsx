@@ -195,6 +195,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           region: c.region ?? null,
           timezone: c.timezone ?? null,
           rating: c.rating ?? 0,
+          // FARM org (160). This mapper copies field by field, so anything not
+          // named here is silently dropped on the cached path — and the sidebar
+          // picks its whole audience from this flag, so a farm org would come
+          // back from a refresh looking like a clinic.
+          isLivestock: c.isLivestock ?? false,
         };
       });
 

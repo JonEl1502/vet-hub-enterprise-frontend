@@ -59,6 +59,30 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: sign up as a FARM business, not just a clinic  —  migration 160 (backend)
+- **What changed:** step 2 of the signup wizard now asks what kind of business is
+  registering — **veterinary clinic** or **farm** — and sends `accountType`. It is the only
+  question in the wizard that changes what the account *is* (which plan catalogue it is
+  offered, which app it lands in), so it is asked in plain words rather than buried as a
+  checkbox. Every "Clinic X" label follows the choice, from one `orgWord`, so the wizard
+  can't half-switch and ask a farmer for their clinic email.
+- **The audience now comes from the ORG, not the role.** A farm business and a clinic are
+  the same org row and both sign in as CLINIC_OWNER / STAFF, so `audiencesForRole` and
+  `defaultAudienceForRole` take an optional org and return **livestock** for a farm —
+  instead of the clinic nav, not alongside it (a farm has no patients or consultations).
+  Both params are optional, so every existing caller is unchanged.
+- **Record impact:** 🟢 None — new signups only. No existing account changes shape, and an
+  org that never sends `accountType` is a clinic exactly as before.
+- **Migration / rollout:** needs backend migration **160** deployed first; the flag is
+  read-only in the UI.
+- **Rollback:** revert; the wizard loses the choice and everyone signs up as a clinic.
+- ⚠️ **Watch out — the field-mapper footgun, hit in FOUR places.** `isLivestock` had to be
+  added to `AuthContext.extractAndCacheClinicData`, `ClinicContext.transformApiClinic` and
+  both local `Clinic` interfaces, on top of the backend's `formatClinic`. Every one of them
+  copies field by field, so any single omission would have left a farm org rendering the
+  clinical sidebar after a refresh — silently, with the API returning the right value the
+  whole time. Same class as the DataContext mapper bug.
+
 ### feat: workflow fields can read a live list  —  migration 141
 - **What changed:** a `select` / `seg` / `checks` field in a clinic workflow can now read a
   **live list** — staff, species, breed, products, clients, suppliers — instead of options
