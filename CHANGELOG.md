@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Admin → Plans — Lipana link toggle fixed, "Offered to" hidden for suppliers  —  2026-07-29
+- **What changed:** two fixes in the package editor.
+  1. 🐞 **The "Add a custom Lipana payment link" checkbox would not stay ticked.** `checked`
+     read the URL VALUE (`!!url`), but ticking the box sets the url to `''` — and `!!''` is
+     false, so the box redrew **unchecked while its own input appeared underneath**. It only
+     ticked itself once you typed something. It now reflects whether the field is *enabled*
+     (`!= null`), which is what the box actually means.
+  2. **"Offered to" is hidden on the Supplier tab.** A supplier package is supplier-only by
+     construction, so the control could only restate what the tab already decided — or set it
+     WRONG, cross-listing a supplier plan onto clinic billing screens. `createPackage`
+     already stamps the audience from the tab, so nothing is lost.
+- **Record impact:** 🟢 None — UI only. No package rows change.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### component: the reconciliation slip is now a real, printable document  —  2026-07-29
 - **What changed:** new `components/clinic/receipts/ReconciliationDocument.tsx` — one document
   that renders as a **RECEIPT** when the bill is filled and a **PAYMENT RECONCILIATION** slip

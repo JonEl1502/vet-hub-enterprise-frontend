@@ -499,7 +499,13 @@ const SubPackagesAdminPage: React.FC = () => {
               ) : (
                 <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
                   {/* Audience chips — which account types see this package.
-                      At least one is required. */}
+                      At least one is required.
+                      HIDDEN on the Supplier tab: a supplier package is supplier-only
+                      by construction, so the control could only ever be set to what
+                      the tab already decided, or set WRONG (cross-listing a supplier
+                      plan onto clinic billing screens). `createPackage` stamps the
+                      audience from the tab, so nothing is lost by not showing it. */}
+                  {!isSupplier && (
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Offered to</p>
                     <div className="flex flex-wrap gap-2">
@@ -532,6 +538,7 @@ const SubPackagesAdminPage: React.FC = () => {
                       Only the chosen audiences see this package on their billing screen.
                     </p>
                   </div>
+                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <Field label="Name">
@@ -614,8 +621,11 @@ const SubPackagesAdminPage: React.FC = () => {
                       <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800">
                         <input
                           type="checkbox"
-                          checked={!!selected.lipanaStaticLinkUrl}
-                          onChange={(e) => updateSelectedField('lipanaStaticLinkUrl', e.target.checked ? (selected.lipanaStaticLinkUrl || '') : null)}
+                          // Enabled = the field EXISTS (even while empty). Reading
+                          // the value here made an empty-but-enabled link render as
+                          // unchecked, with its own input visible underneath.
+                          checked={selected.lipanaStaticLinkUrl != null}
+                          onChange={(e) => updateSelectedField('lipanaStaticLinkUrl', e.target.checked ? (selected.lipanaStaticLinkUrl ?? '') : null)}
                           className="mt-0.5 accent-pine"
                         />
                         <div className="flex-1">
@@ -625,7 +635,7 @@ const SubPackagesAdminPage: React.FC = () => {
                           </p>
                         </div>
                       </label>
-                      {selected.lipanaStaticLinkUrl !== null && selected.lipanaStaticLinkUrl !== undefined && (
+                      {selected.lipanaStaticLinkUrl != null && (
                         <div className="mt-2">
                           <input
                             type="url"
