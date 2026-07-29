@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: stock before → after on the vaccine picker  —  2026-07-29 (ADDITION 1)
+- **What changed:** each row of the vaccine-stock picker now reads **`12 → 11 doses`** instead
+  of just the current count, so the effect on inventory is visible at the point of choosing
+  rather than discovered afterwards. The last dose is called out in amber.
+- **Record impact:** 🟢 None — display only.
+- **Rollback:** revert; the row shows the plain count again.
+- ⚠️ **Watch out:** this is what **will** happen, not what has. A vaccination draws one dose,
+  but the deduction happens when the record is stocked/settled — not at selection. Do not
+  read this chip as proof stock moved.
+
 ### fix: settling a bill — search the invoices, and see what is actually owed  —  2026-07-29
 - **What changed:** a clinic reported it is hard to settle a bill. Three things in the
   Payments tab:

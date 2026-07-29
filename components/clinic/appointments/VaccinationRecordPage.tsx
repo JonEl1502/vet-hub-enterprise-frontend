@@ -74,8 +74,24 @@ const StockSearch: React.FC<{ onPick: (item: InventoryItem) => void; busy: boole
                       not discovered afterwards. Never disables the option. */}
                   <SpeciesWarning itemSpecies={item.species} petSpecies={petSpecies} className="mt-0.5" />
                 </div>
-                <span className={`text-[9px] font-black shrink-0 ${out ? 'text-red-500' : 'text-slate-500 dark:text-zinc-400'}`}>
-                  {out ? 'Out of stock' : `${Number(item.quantity)} ${item.unit}`}
+                {/* Stock BEFORE → AFTER, so the effect on inventory is visible
+                    at the point of choosing rather than discovered later. A
+                    vaccination draws exactly one dose. The dose is not deducted
+                    here — that happens when the record is stocked/settled — so
+                    this is what WILL happen, not what already has. */}
+                <span className={`text-[9px] font-black shrink-0 text-right ${out ? 'text-red-500' : 'text-slate-500 dark:text-zinc-400'}`}>
+                  {out ? 'Out of stock' : (
+                    <>
+                      {Number(item.quantity)} <span className="text-slate-400">→</span>{' '}
+                      <span className={Number(item.quantity) - 1 <= 0 ? 'text-amber-600' : ''}>
+                        {Number(item.quantity) - 1}
+                      </span>{' '}
+                      {item.unit}
+                      {Number(item.quantity) - 1 <= 0 && (
+                        <span className="block text-[8px] font-bold text-amber-600">last dose</span>
+                      )}
+                    </>
+                  )}
                 </span>
               </button>
             );
