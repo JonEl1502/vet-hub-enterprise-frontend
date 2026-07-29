@@ -108,7 +108,9 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
     const out: Record<string, number> = {};
     for (const inv of picked) {
       if (left <= 0.005) break;
-      const apply = round2(Math.min(inv.total, left));
+      // Cap on what is still OWED, not face value — on a part-paid invoice the
+      // preview otherwise allocates money to a balance that is already cleared.
+      const apply = round2(Math.min(inv.outstanding ?? inv.total, left));
       if (apply > 0) { out[inv.visitId] = apply; left = round2(left - apply); }
     }
     return out;
@@ -400,7 +402,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                   {picked && isShort && (
                     allocMode === 'MANUAL' ? (
                       <input
-                        type="number" min={0} max={inv.total} step="0.01" inputMode="decimal"
+                        type="number" min={0} max={inv.outstanding ?? inv.total} step="0.01" inputMode="decimal"
                         value={manual[inv.visitId] ?? ''}
                         onChange={e => setManual(m => ({ ...m, [inv.visitId]: e.target.value }))}
                         placeholder="0.00"
@@ -509,18 +511,37 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                 <p className={`text-xs font-black truncate ${r.voided ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>{r.receiptNumber}</p>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                   {fmt(r.createdAt)} · {r.paymentMethod.replace('_', ' ')}
-                  {r.coveredVisitIds.length > 1 ? ` · ${r.coveredVisitIds.length} invoices` : ''}
+                  {/* 157: a receipt is FOR one filled bill. Pre-157 rows have no
+                      visitId and were issued per payment, so they keep the old
+                      "covers N invoices" wording rather than claiming a bill. */}
+                  {r.visitId
+                    ? ` · visit #${r.visitId}`
+                    : r.coveredVisitIds.length > 1 ? ` · ${r.coveredVisitIds.length} invoices` : ''}
                 </p>
               </div>
               {r.discount > 0 && (
                 <span className="shrink-0 text-[9px] font-black uppercase tracking-wider text-emerald-600">−{money(r.discount, currency)}</span>
               )}
               {r.voided && (
-                <span className="shrink-0 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">Voided</span>
+                <span
+                  title={r.voidReason || undefined}
+                  className="shrink-0 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">
+                  {r.voidReason ? 'Un-issued' : 'Voided'}
+                </span>
               )}
-              <span className={`shrink-0 w-28 text-right text-sm font-black font-mono ${r.voided ? 'text-slate-400' : 'text-pine dark:text-zinc-100'}`}>
-                {money(r.total, currency)}
-              </span>
+              {/* Final amount / paid / balance — all three on the document, so a
+                  discount or write-off is visible rather than implied by a single
+                  number. `amountPaid` is absent on pre-157 receipts; those fall
+                  back to showing the total alone. */}
+              <div className={`shrink-0 w-28 text-right ${r.voided ? 'text-slate-400' : 'text-pine dark:text-zinc-100'}`}>
+                <span className="block text-sm font-black font-mono">{money(r.total, currency)}</span>
+                {r.amountPaid != null && (
+                  <span className="block text-[8px] font-bold uppercase tracking-wider text-slate-400">
+                    Paid {money(r.amountPaid, currency)}
+                    {(r.balance ?? 0) > 0.005 ? ` · Bal ${money(r.balance!, currency)}` : ''}
+                  </span>
+                )}
+              </div>
             </div>
           ))}
         </div>

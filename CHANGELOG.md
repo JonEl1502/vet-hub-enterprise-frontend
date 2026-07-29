@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: collect preview allocates against the remainder, not face value  —  2026-07-29
+- **What changed:** the FIFO preview and the manual-split cap still used each invoice's
+  **face value**, so on a part-paid invoice the preview offered money to a balance that was
+  already cleared — and the manual input let you type more than was owed. Both now use
+  `outstanding`. Completes the same fix already applied to the selected total.
+- **Record impact:** 🟢 None — the server always allocated against the remainder; this was a
+  display and input-bound disagreement.
+- **Migration / rollout:** code-only, frontend deploy.
+- **Rollback:** revert the commit.
+
 ### feat: book the vaccination follow-up, not just remind  —  2026-07-29
 - **What changed:** an administered vaccination with a next-dose date now offers **"Also book
   the appointment"**. The reminder was already raised server-side (095); the booking half
