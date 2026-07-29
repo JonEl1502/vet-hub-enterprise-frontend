@@ -28,6 +28,8 @@ export interface FormField {
   label: string;             // renamable
   fieldType: FieldType;
   options: string[] | { k: string; label: string }[];
+  /** Live list to read instead of `options`. null = use the static list. */
+  optionsSource?: string | null;
   unit: string | null;
   helpText: string | null;
   requiresFeature: string | null;
@@ -80,10 +82,13 @@ export interface WorkflowTemplatePayload {
   isDefault?: boolean;
 }
 
+export type OptionsSource = 'staff' | 'species' | 'breed' | 'product' | 'client' | 'supplier';
+
 export interface FormFieldPayload {
   label: string;
   fieldType: FieldType;
   options?: any;
+  optionsSource?: OptionsSource | null;
   unit?: string | null;
   helpText?: string | null;
 }

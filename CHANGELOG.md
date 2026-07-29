@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: workflow fields can read a live list  —  migration 141
+- **What changed:** a `select` / `seg` / `checks` field in a clinic workflow can now read a
+  **live list** — staff, species, breed, products, clients, suppliers — instead of options
+  typed into the builder. Retyping a list that already exists is how a field drifts from the
+  real data the moment staff or stock change.
+  - The builder offers *"Where the choices come from"*: **Type my own list** (unchanged
+    default) or a live source. Choosing a source hides the free-text list, so there is never
+    a stale copy arguing with the live one.
+  - Species and breed come from the clinic's **own patients**, not a reference table — an
+    equine practice shouldn't scroll past "Hamster".
+- **Record impact:** 🟢 None in the frontend. Migration 141 adds a nullable
+  `form_fields.options_source` (🟢 there too — NULL keeps existing fields exactly as they are).
+- **Data dependency:** migration **141**.
+- **Rollback:** revert; fields fall back to their static `options`.
+- ⚠️ **Watch out:** a live list **degrades to a plain text input** when it cannot resolve — a
+  consultation must never be blocked by a lookup. An *empty* list counts as unresolved for
+  this purpose: showing an empty dropdown a vet can't get past would be worse than free text.
+- ⚠️ **Watch out:** sources are resolved **once per stage**, not per field — hooks can't run
+  in a render loop, and two fields sharing a source shouldn't resolve twice.
+- ⚠️ **Watch out:** `options_source` is a **column**, not new `field_type` values. `field_type`
+  is a closed CHECK set, so every new lookup would otherwise mean a migration.
+
 ### fix: New Visit — clearer client step, baby-blue search, New Client gets its colour back  —  2026-07-29
 - **What changed** on the New Visit screen's client block:
   - **"Add a client & their pet" → "Select client and patient."** It reads as the step it

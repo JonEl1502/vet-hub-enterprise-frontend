@@ -144,8 +144,54 @@ const CatalogPicker: React.FC<{
   );
 };
 
+/**
+ * Resolve every LIVE options source used by this stage (141) — staff, species,
+ * breed, product, client, supplier — instead of lists typed into the builder.
+ *
+ * Resolved once for the stage rather than per field: hooks cannot be called
+ * inside a render loop, and two fields sharing a source should not resolve twice.
+ *
+ * Species and breed come from the clinic's OWN patients rather than a reference
+ * endpoint. There is no species/breed API client on the frontend, and a list
+ * built from the animals this clinic actually treats is the more useful one
+ * anyway — an equine practice should not be scrolling past "Hamster".
+ *
+ * ⚠️ A source maps to `null` when it cannot be resolved, and the caller falls
+ * back to a plain text input. A consultation must never be blocked because a
+ * lookup failed.
+ */
+const useLiveOptions = (
+  staff: { id: any; name: string }[] | undefined,
+): Record<string, string[] | null> => {
+  const { inventory, clients, pets } = useData() as any;
+
+  return useMemo(() => {
+    const uniq = (arr: any[]) =>
+      arr.filter(v => v != null && String(v).trim())
+         .map(v => String(v).trim())
+         .filter((v, i, a) => a.indexOf(v) === i)
+         .sort((a, b) => a.localeCompare(b));
+    const staffNames = (staff || []).map(s => s.name).filter(Boolean);
+    return {
+      // An empty list is NOT the same as an unresolved one: with no staff
+      // loaded yet the field should fall back to text, not show an empty
+      // dropdown a vet cannot get past.
+      staff: staffNames.length ? staffNames : null,
+      product: uniq((inventory || []).map((i: any) => i.name)).length ? uniq((inventory || []).map((i: any) => i.name)) : null,
+      client: uniq((clients || []).map((c: any) => c.name)).length ? uniq((clients || []).map((c: any) => c.name)) : null,
+      supplier: uniq((inventory || []).map((i: any) => i.supplierName)).length ? uniq((inventory || []).map((i: any) => i.supplierName)) : null,
+      species: uniq((pets || []).map((p: any) => p.species)).length ? uniq((pets || []).map((p: any) => p.species)) : null,
+      breed: uniq((pets || []).map((p: any) => p.breed)).length ? uniq((pets || []).map((p: any) => p.breed)) : null,
+    };
+  }, [staff, inventory, clients, pets]);
+};
+
 const TemplateStep: React.FC<Props> = ({ stage, fields, data, setData, staff, emit, pet, only = 'all' }) => {
   const d = data || {};
+
+  // Live lists resolved once for the whole stage.
+  const liveMap = useLiveOptions(staff);
+  const liveFor = (src: string | null | undefined) => (src ? liveMap[src] ?? null : null);
 
   const renderField = (pf: PlacedField) => {
     const def = fields[pf.fieldKey];
@@ -159,6 +205,13 @@ const TemplateStep: React.FC<Props> = ({ stage, fields, data, setData, staff, em
     const set = (v: any) => setData({ [leaf]: v });
     const label = def.label + (def.unit ? ` (${def.unit})` : '');
 
+    // A live list (141) replaces the static one. Null = unavailable, and the
+    // control degrades to free text below rather than rendering an empty
+    // dropdown a vet cannot get past.
+    const live = liveFor(def.optionsSource);
+    const usingLive = !!def.optionsSource;
+    const choices = usingLive ? (live || []) : asStrings(def.options);
+
     let control: React.ReactNode;
     switch (def.fieldType) {
       case 'textarea':
@@ -171,20 +224,24 @@ const TemplateStep: React.FC<Props> = ({ stage, fields, data, setData, staff, em
         control = <input className="field-input" type="date" value={value ?? ''} onChange={e => set(e.target.value)} />;
         break;
       case 'select':
-        control = (
-          <select className="field-select" value={value ?? ''} onChange={e => set(e.target.value)}>
-            <option value="">—</option>
-            {asStrings(def.options).map(o => <option key={o}>{o}</option>)}
-          </select>
-        );
+        control = usingLive && !live
+          ? <input className="field-input" placeholder={def.helpText || ''} value={value ?? ''} onChange={e => set(e.target.value)} />
+          : (
+            <select className="field-select" value={value ?? ''} onChange={e => set(e.target.value)}>
+              <option value="">—</option>
+              {choices.map(o => <option key={o}>{o}</option>)}
+            </select>
+          );
         break;
       case 'seg':
-        control = <Seg options={asStrings(def.options)} value={value} onChange={set} />;
+        control = usingLive && !live
+          ? <input className="field-input" placeholder={def.helpText || ''} value={value ?? ''} onChange={e => set(e.target.value)} />
+          : <Seg options={choices} value={value} onChange={set} />;
         break;
       case 'checks':
         control = (
           <CheckGrid
-            items={asItems(def.options)}
+            items={usingLive ? choices.map(o => ({ k: o, label: o })) : asItems(def.options)}
             value={value}
             onToggle={(k, _l, on) => set({ ...(value || {}), [k]: on })}
           />

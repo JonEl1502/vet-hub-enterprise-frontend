@@ -58,7 +58,7 @@ export type { DewormingRecord, DewormingPayload, DewormingStatus } from './modul
 export { procedureTemplatesAPI } from './modules/procedureTemplates.api';
 export type { ProcedureTemplate, ProcedureTemplateItem, ProcedureTemplatePayload, ProcedureItemPayload, ProcedurePricingRule, ProcedurePreview, ProcedureApplication, ProcedureStage, ProcedureFlags, ProcItemType, ProcQtyBasis } from './modules/procedureTemplates.api';
 export { workflowTemplatesAPI } from './modules/workflowTemplates.api';
-export type { WorkflowTemplate, WorkflowTemplatePayload, FormField, FormFieldPayload, FieldType, LayoutStage, LayoutSection, PlacedField } from './modules/workflowTemplates.api';
+export type { WorkflowTemplate, WorkflowTemplatePayload, FormField, FormFieldPayload, FieldType, OptionsSource, LayoutStage, LayoutSection, PlacedField } from './modules/workflowTemplates.api';
 export { labAPI, imagingAPI } from './modules/diagnostics.api';
 export type { LabRecord, ImagingRecord, ImagingImage, LabMarker, DiagSource, ImagingModality, LabStatus } from './modules/diagnostics.api';
 export { groomingAPI, surgeryAPI } from './modules/moduleRecords.api';

@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Search, Plus, Loader2, X, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { workflowTemplatesAPI, FormField, FieldType } from '../../../services';
+import { workflowTemplatesAPI, FormField, FieldType, OptionsSource } from '../../../services';
 
 /**
  * "Search a field, or create it if it does not exist" — the builder's field
@@ -47,6 +47,9 @@ const FieldPicker: React.FC<Props> = ({ placedKeys, claimedLeaves, onPick, onClo
   const [showCreate, setShowCreate] = useState(false);
   const [newType, setNewType] = useState<FieldType>('text');
   const [newOptions, setNewOptions] = useState('');
+  // A LIVE list instead of a typed-in one (141). Retyping staff or breeds is
+  // how a field drifts from the real data the moment either changes.
+  const [newSource, setNewSource] = useState<OptionsSource | ''>('');
   const [newUnit, setNewUnit] = useState('');
 
   const search = useCallback(async (term: string) => {
@@ -73,9 +76,12 @@ const FieldPicker: React.FC<Props> = ({ placedKeys, claimedLeaves, onPick, onClo
       const res = await workflowTemplatesAPI.createField({
         label,
         fieldType: newType,
-        options: needsOptions
+        // A live source replaces the typed list entirely — sending both would
+        // leave a stale copy behind to argue with.
+        options: needsOptions && !newSource
           ? newOptions.split('\n').map(s => s.trim()).filter(Boolean)
           : [],
+        optionsSource: needsOptions && newSource ? newSource : null,
         unit: newUnit.trim() || null,
       });
       if (res.success && res.data?.field) {
@@ -187,6 +193,30 @@ const FieldPicker: React.FC<Props> = ({ placedKeys, claimedLeaves, onPick, onClo
 
               {needsOptions && (
                 <div>
+                  <label className="field-label">Where the choices come from</label>
+                  <select
+                    className="field-select"
+                    value={newSource}
+                    onChange={e => setNewSource(e.target.value as OptionsSource | '')}
+                  >
+                    <option value="">Type my own list</option>
+                    <option value="staff">Staff — live</option>
+                    <option value="species">Species — live</option>
+                    <option value="breed">Breeds — live</option>
+                    <option value="product">Products / inventory — live</option>
+                    <option value="client">Clients — live</option>
+                    <option value="supplier">Suppliers — live</option>
+                  </select>
+                  <p className="text-[9px] text-slate-400 mt-1 leading-relaxed">
+                    A live list always shows what the clinic actually has, so it can’t drift the way a
+                    typed list does. If it can’t load during a consultation the field falls back to
+                    free text — it never blocks the visit.
+                  </p>
+                </div>
+              )}
+
+              {needsOptions && !newSource && (
+                <div>
                   <label className="field-label">Options — one per line</label>
                   <textarea
                     className="field-textarea"
@@ -209,7 +239,7 @@ const FieldPicker: React.FC<Props> = ({ placedKeys, claimedLeaves, onPick, onClo
                 <button
                   type="button"
                   onClick={create}
-                  disabled={creating || (needsOptions && !newOptions.trim())}
+                  disabled={creating || (needsOptions && !newSource && !newOptions.trim())}
                   className="flex items-center gap-1.5 px-3 py-2 bg-seafoam text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50"
                 >
                   {creating ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Create & add
