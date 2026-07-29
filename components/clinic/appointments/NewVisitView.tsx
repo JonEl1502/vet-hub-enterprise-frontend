@@ -1644,7 +1644,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                 {/* Tell the user what this box is for — search finds an existing
                     client + their pets; New Client adds one on the spot. */}
                 <div className="px-0.5">
-                  <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-wide">Add a client & their pet</p>
+                  <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-wide">Select client and patient</p>
                   <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium leading-tight">Search by name, phone or ID, pick the client, then choose their patient below. New here? Tap “New Client”.</p>
                 </div>
                 <div data-tour="appointment-client" className="flex flex-col sm:flex-row gap-2">
@@ -1657,23 +1657,26 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                       placeholder="Search client: name, phone, ID (2+)…"
                       value={searchQuery}
                       onChange={e => setSearchQuery(e.target.value)}
-                      className="w-full bg-seafoam/5 dark:bg-seafoam/10 border-2 border-seafoam/40 focus:border-seafoam rounded-2xl pl-4 pr-12 py-3.5 text-pine dark:text-zinc-100 placeholder:text-seafoam/70 placeholder:font-bold focus:ring-2 focus:ring-seafoam/20 outline-none font-bold text-[15px] transition-all disabled:opacity-50"
+                      className="w-full bg-sky-50 dark:bg-sky-500/10 border-2 border-sky-300 dark:border-sky-500/50 focus:border-sky-500 rounded-2xl pl-4 pr-12 py-3.5 text-pine dark:text-zinc-100 placeholder:text-sky-600/70 dark:placeholder:text-sky-300/70 placeholder:font-bold focus:ring-2 focus:ring-sky-200 dark:focus:ring-sky-500/30 outline-none font-bold text-[15px] transition-all disabled:opacity-50"
                     />
                     {searchQuery && !initialParentApptId ? (
                       <button type="button" onClick={() => setSearchQuery('')} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors">
                         <X size={16} />
                       </button>
                     ) : (
-                      <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-seafoam pointer-events-none" size={18}/>
+                      <Search className="absolute right-4 top-1/2 -translate-y-1/2 text-sky-500 pointer-events-none" size={18}/>
                     )}
                   </div>
                   {/* New Client: quick-create a client + patient inline.
-                      Secondary to search — outlined, not a loud gradient. */}
+                      Restored to its original seafoam→cyan gradient (was flattened
+                      to an outline in 07ef53a0) — the user asked for that colour
+                      back, and it now reads against the blue search field rather
+                      than competing with a seafoam one. */}
                   {!initialParentApptId && (
                     <button
                       type="button"
                       onClick={() => setShowWalkInModal(true)}
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-white dark:bg-zinc-900 text-seafoam border-2 border-seafoam/40 rounded-2xl font-bold text-xs uppercase tracking-wide hover:border-seafoam hover:bg-seafoam/5 transition-all active:scale-95 whitespace-nowrap shrink-0"
+                      className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-seafoam to-cyan-600 text-white rounded-2xl font-bold text-xs uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95 whitespace-nowrap shrink-0"
                     >
                       <UserPlus size={16} />
                       New Client

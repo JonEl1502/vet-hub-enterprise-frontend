@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: New Visit — clearer client step, baby-blue search, New Client gets its colour back  —  2026-07-29
+- **What changed** on the New Visit screen's client block:
+  - **"Add a client & their pet" → "Select client and patient."** It reads as the step it
+    is — you usually pick an existing client, you don't add one.
+  - **The search field is baby blue** (`sky`) instead of a seafoam tint, so the primary
+    field on the screen is unmistakable; the search icon follows it.
+  - **New Client regains its seafoam→cyan gradient.** It had been flattened to an outline
+    in `07ef53a0` ("secondary to search — not a loud gradient"); with the field now blue
+    the gradient no longer competes with it, so both read at once.
+- **Record impact:** 🟢 None — copy and styling only.
+- **Migration / rollout:** code-only, frontend deploy.
+- **Rollback:** revert the commit.
+- ⚠️ **Watch out:** the `WORKFLOW` picker on the same screen was **left alone** — see the
+  session board. It is S4's "ADDITION 2", shipped days ago at the user's request, and the
+  instruction to "comment Workflow" was too ambiguous to act on by deleting a live feature
+  from another lane.
+
 ### ui: boarding and inpatient lists no longer overflow on a phone  —  2026-07-29
 - **What changed:** the meta row on each stay/admission card wraps instead of overflowing.
   It was `justify-between` with two fixed spans and no wrap, so on a narrow screen the
