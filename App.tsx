@@ -106,6 +106,7 @@ import SubPackagesAdminPage from './components/admin/subscriptions/SubPackagesAd
 import SupplierPackagesAdminPage from './components/admin/subscriptions/SupplierPackagesAdminPage';
 import SubscriptionPaymentsAdminPage from './components/admin/subscriptions/SubscriptionPaymentsAdminPage';
 import SupportTicketsAdminPage from './components/admin/support/SupportTicketsAdminPage';
+import DemoRequestsAdminPage from './components/admin/support/DemoRequestsAdminPage';
 import SalesRepsAdminPage from './components/admin/sales-reps/SalesRepsAdminPage';
 import PlatformSettingsPage from './components/admin/platform/PlatformSettingsPage';
 import PartnerTypesPage from './components/admin/partners/PartnerTypesPage';
@@ -2974,6 +2975,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <SubscriptionPaymentsAdminPage />;
       case 'support-tickets':
         return <SupportTicketsAdminPage />;
+      case 'demo-requests':
+        return <DemoRequestsAdminPage />;
       case 'sales-reps':
         return <SalesRepsAdminPage />;
       case 'platform-settings':

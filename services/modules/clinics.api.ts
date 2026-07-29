@@ -53,6 +53,20 @@ export interface Clinic {
  */
 export const clinicsAPI = {
   /**
+   * Clinic email verification (backend 145). Proves `clinics.email` is real.
+   * ⚠️ INFORMATIONAL — nothing gates on it; an unverified clinic works normally.
+   */
+  sendEmailOtp: (clinicId: string | number, options?: RequestOptions): Promise<ApiResponse<{ sent: boolean; email: string | null; reason?: string }>> =>
+    post(`/clinics/${clinicId}/verify-email/send`, {}, { showError: true, ...options }),
+
+  verifyEmailOtp: (clinicId: string | number, otp: string, options?: RequestOptions): Promise<ApiResponse<{ verified: boolean; email: string | null }>> =>
+    post(`/clinics/${clinicId}/verify-email`, { otp }, { showError: true, ...options }),
+
+  /** Admin vouches out of band (support phoned the practice). */
+  adminSetEmailVerified: (clinicId: string | number, verified: boolean, options?: RequestOptions): Promise<ApiResponse<{ emailVerified: boolean }>> =>
+    post(`/clinics/${clinicId}/email-verified`, { verified }, { showError: true, ...options }),
+
+  /**
    * Get user's accessible clinics with full details
    */
   getUserClinics: async (

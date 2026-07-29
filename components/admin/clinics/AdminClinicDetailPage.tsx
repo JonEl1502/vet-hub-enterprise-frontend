@@ -4,6 +4,7 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { clinicsAPI, Clinic, toast, cache } from '../../../services';
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { useAuth } from '../../../contexts/AuthContext';
+import ClinicEmailVerify from './ClinicEmailVerify';
 
 // Full-page admin clinic detail — converted from the tabbed modal on the
 // Clinics management page so the drill-down is a real navigable page
@@ -72,7 +73,15 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
   const c: any = clinic;
   const rows: Array<[string, React.ReactNode]> = [
     ['Status', c.isActive ? 'Active' : 'Inactive'],
-    ['Email', c.email || '—'],
+    ['Email', c.email
+      ? <ClinicEmailVerify
+          clinicId={String(c.id)}
+          email={c.email}
+          verified={!!c.emailVerified}
+          verifiedAt={c.emailVerifiedAt}
+          onChanged={(verified) => setClinic(cl => (cl ? ({ ...cl, emailVerified: verified, emailVerifiedAt: verified ? new Date().toISOString() : null } as any) : cl))}
+        />
+      : '—'],
     ['Phone', c.phone || '—'],
     ['Address', c.address || '—'],
     ['City', c.city || '—'],

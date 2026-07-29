@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Demo Requests page, and clinic email verification in admin  —  2026-07-29
+- **Demo Requests** (Platform → Demo Requests). Leads from the public form, which previously
+  went only to an inbox. Status tabs with counts (New / Contacted / Converted / Dismissed),
+  search across name, email, clinic and phone, click-to-mail and click-to-call, an internal
+  note per lead, and a stamp of **who** marked it contacted and **when** — the thing an
+  inbox could never tell you.
+- **Clinic email verification** on the admin clinic card. The email row now carries a
+  **Verified / Unverified** badge with two ways to settle it: *Send code* (to the clinic's
+  own address, then enter the 6 digits) or *Vouch* when support has phoned the practice —
+  mirroring the bypass that already exists for user accounts. Verified rows can be cleared.
+- **Record impact:** 🟢 None — new page + one control.
+- **Migration / rollout:** needs backend 145 (clinic email) and 146 (demo requests).
+- **Rollback:** revert the commit.
+- ⚠️ **Watch out:** the Unverified badge is **not** a warning that anything is restricted.
+  Nothing gates on it; its tooltip says so. It is distinct from the clinic's
+  `verificationStatus` (business-document approval), which DOES gate portal visibility.
+
 ### feat: feeding times you can name — "Evening still owed", not "1 of 2"  —  migration 161
 - **What changed:** a feeding plan can now define named slots (Morning 06:00, Evening 17:00).
   The plan card shows a chip per slot — green fed, red overdue, grey not due yet — and each
