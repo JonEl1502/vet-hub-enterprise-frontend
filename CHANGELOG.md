@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: use a deworming protocol on the deworming step  —  2026-07-29
+- **What changed:** the deworming step now offers **"Use a deworming protocol…"**, filling
+  the product and its stock link from a procedure recipe instead of retyping them. Mirrors
+  the vaccination prefill shipped alongside it.
+  - Lists only deworming recipes **for this patient's species**, and hides entirely when
+    there are none — an empty picker is worse than no picker.
+- **Record impact:** 🟢 None — fills the form; the record is still created explicitly.
+- **Rollback:** revert; the control disappears, the inventory search is unaffected.
+- ⚠️ **Watch out:** like the vaccination equivalent, taking a protocol **does not deduct**.
+  Drawing stock stays the explicit act it already was on this step.
+
 ### fix: double-clicking Book created two visits  —  2026-07-29
 - **What changed:** the visit-registration submit is now guarded. Both submit buttons were
   disabled only by `!isFormValid`, so a second click before the create resolved raised a

@@ -3,7 +3,7 @@ import { Bug, Plus, Loader2, Check, Search, Package, CalendarClock, Printer, Tra
 import { StepProps } from '../types';
 import { Section, L } from '../fields';
 import { useData } from '../../../../../contexts/DataContext';
-import { dewormingAPI, DewormingRecord, toast } from '../../../../../services';
+import { dewormingAPI, DewormingRecord, toast, procedureTemplatesAPI } from '../../../../../services';
 import { printElementAsPdf } from '../../../shared/printPdf';
 
 const WORM_TYPES = ['Broad-spectrum', 'Roundworm', 'Tapeworm', 'Hookworm', 'Whipworm', 'Heartworm'];
@@ -43,6 +43,40 @@ const DewormingStep: React.FC<StepProps> = ({ visit, pet, emit, refreshVisit }) 
     nextDueAt: addDays(91),
   });
   const [productSearch, setProductSearch] = useState('');
+  // Deworming PROTOCOLS (procedure recipes). A clinic's protocol already names
+  // the product and its stock item; retyping it per record is how the recorded
+  // name drifts from what was actually given. Mirrors the vaccination page.
+  const [protocols, setProtocols] = useState<any[]>([]);
+  useEffect(() => {
+    let live = true;
+    procedureTemplatesAPI.list()
+      .then(r => { if (live && r.success && r.data?.templates) setProtocols(r.data.templates.filter((t: any) => t.isActive)); })
+      .catch(() => { /* control just doesn't render */ });
+    return () => { live = false; };
+  }, []);
+
+  const dewormProtocols = useMemo(() => {
+    const sp = String((pet as any)?.species || '').toLowerCase();
+    return protocols.filter((t: any) => {
+      if (t.species?.length && sp && !t.species.some((x: string) => x.toLowerCase() === sp)) return false;
+      const hay = `${t.categoryName || ''} ${t.name || ''}`.toLowerCase();
+      return /deworm|anthelmintic|wormer/.test(hay);
+    });
+  }, [protocols, pet]);
+
+  // Taking a protocol fills the product and its stock link, and its own
+  // interval when it carries one. It does NOT deduct — that stays the explicit
+  // act it already is on this step.
+  const applyProtocol = (t: any) => {
+    const line = (t.items || []).find((i: any) => i.inventoryItemId) || (t.items || [])[0];
+    if (!line) return;
+    setDraft(d => ({
+      ...d,
+      productName: line.name || t.name,
+      itemId: line.inventoryItemId ? String(line.inventoryItemId) : d.itemId,
+    }));
+    setProductSearch(line.name || t.name);
+  };
   const [searchFocus, setSearchFocus] = useState(false);
   const [adding, setAdding] = useState(false);
 
@@ -128,6 +162,23 @@ const DewormingStep: React.FC<StepProps> = ({ visit, pet, emit, refreshVisit }) 
       <Section icon={Bug} title="Deworming Protocol">
         {/* Add-deworming form */}
         <div className="bg-slate-50 dark:bg-zinc-950 border border-dashed border-slate-300 dark:border-zinc-700 rounded-xl p-3 space-y-2">
+          {/* Take the whole thing from a protocol rather than retyping it.
+              Hidden when the clinic has no deworming recipe for this species —
+              an empty picker is worse than none. */}
+          {dewormProtocols.length > 0 && (
+            <select
+              className="field-select !h-8 !text-[10px]"
+              defaultValue=""
+              onChange={e => {
+                const t = dewormProtocols.find((x: any) => String(x.id) === e.target.value);
+                e.target.value = '';
+                if (t) applyProtocol(t);
+              }}
+            >
+              <option value="">Use a deworming protocol…</option>
+              {dewormProtocols.map((t: any) => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
+            </select>
+          )}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
             <L label="Dewormer" className="col-span-2">
               <div className="relative">
