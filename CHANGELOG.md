@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: book the vaccination follow-up, not just remind  —  2026-07-29
+- **What changed:** an administered vaccination with a next-dose date now offers **"Also book
+  the appointment"**. The reminder was already raised server-side (095); the booking half
+  existed in the API (`bookFollowUp`) but nothing ever sent it.
+- **Record impact:** 🔵 Low — creates a reminder and, on click, a booking.
+- **Rollback:** revert; reminders still go out, bookings must be made by hand.
+- ⚠️ **Watch out:** booking is **opt-in on purpose**. Auto-booking every next dose would fill
+  a clinic's diary with appointments no owner has agreed to. `bookFollowUp` is an *action*,
+  not a stored field — it is sent only on that click and must never ride along on unrelated
+  patches.
+- Also: the registration heading now reads *"Search & Select client and patient for this
+  visit"*, which says what the box actually does.
+
 ### feat: sign up as a FARM business, not just a clinic  —  migration 160 (backend)
 - **What changed:** step 2 of the signup wizard now asks what kind of business is
   registering — **veterinary clinic** or **farm** — and sends `accountType`. It is the only

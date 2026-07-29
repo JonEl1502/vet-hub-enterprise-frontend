@@ -1654,7 +1654,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                 {/* Tell the user what this box is for — search finds an existing
                     client + their pets; New Client adds one on the spot. */}
                 <div className="px-0.5">
-                  <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-wide">Select client and patient</p>
+                  <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-wide">Search &amp; Select client and patient for this visit</p>
                   <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium leading-tight">Search by name, phone or ID, pick the client, then choose their patient below. New here? Tap “New Client”.</p>
                 </div>
                 <div data-tour="appointment-client" className="flex flex-col sm:flex-row gap-2">

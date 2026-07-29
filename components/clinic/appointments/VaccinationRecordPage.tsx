@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useMemo} from 'react';
 import SpeciesWarning from '../../shared/common/SpeciesWarning';
-import { ArrowLeft, ChevronRight, Download, PackageCheck, Plus, Search, ShieldCheck, Syringe, Trash2 } from 'lucide-react';
+import { ArrowLeft, CalendarPlus, ChevronRight, Download, PackageCheck, Plus, Search, ShieldCheck, Syringe, Trash2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Visit, User, TaskStatus } from '../../../types';
 import { vaccinationsAPI, visitsAPI, inventoryAPI, dialog, procedureTemplatesAPI } from '../../../services';
@@ -398,9 +398,24 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
                       <label className="field-label">Next dose due</label>
                       <input type="date" className="field-input" defaultValue={dateInput(r.nextDueAt ?? undefined)}
                         onBlur={e => (e.target.value || '') !== dateInput(r.nextDueAt ?? undefined) && patch(r.id, { nextDueAt: e.target.value || null })} />
+                      {/* The reminder always goes out; BOOKING the appointment
+                          is opt-in. A clinic that auto-booked every next dose
+                          would fill its diary with appointments no owner has
+                          agreed to. Sent only on this click — `bookFollowUp` is
+                          an action, not a stored field, so it must not ride
+                          along on unrelated patches. */}
+                      {r.status === 'ADMINISTERED' && r.nextDueAt && (
+                        <button
+                          type="button"
+                          onClick={() => patch(r.id, { nextDueAt: r.nextDueAt, bookFollowUp: true })}
+                          className="mt-1.5 flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-seafoam hover:underline"
+                        >
+                          <CalendarPlus size={11} /> Also book the appointment
+                        </button>
+                      )}
                       <p className="text-[9px] font-bold text-slate-400 mt-1">
                         {r.status === 'ADMINISTERED'
-                          ? 'Schedules the follow-up reminder for the owner.'
+                          ? 'Schedules the follow-up reminder for the owner. Booking the visit is optional.'
                           : 'The reminder is created once this dose is marked administered.'}
                       </p>
                     </div>
