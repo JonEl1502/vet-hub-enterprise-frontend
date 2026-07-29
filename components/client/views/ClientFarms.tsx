@@ -217,6 +217,22 @@ const ClientFarms: React.FC = () => {
                   <p className={`text-[10px] mt-0.5 font-semibold ${fedToday(p.lastFedAt) ? 'text-emerald-600' : 'text-amber-600'}`}>
                     Last fed {fmtWhen(p.lastFedAt)}
                   </p>
+                  {/* Named feeding times (161). A slot only reads overdue once
+                      its time has passed, so the morning chip doesn't shout at
+                      an owner who feeds at six in the evening. */}
+                  {(p as any).today?.windows?.length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-1">
+                      {(p as any).today.windows.map((w: any) => (
+                        <span key={w.key}
+                          className={`px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
+                            w.fed ? 'bg-emerald-50 text-emerald-600'
+                              : w.due ? 'bg-rose-50 text-rose-600'
+                              : 'bg-slate-100 text-slate-400'}`}>
+                          {w.fed ? '✓' : w.due ? '!' : '·'} {w.label}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
                 <button
                   onClick={() => logFeed(p)}

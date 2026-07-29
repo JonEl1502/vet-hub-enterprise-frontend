@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: feeding times you can name — "Evening still owed", not "1 of 2"  —  migration 161
+- **What changed:** a feeding plan can now define named slots (Morning 06:00, Evening 17:00).
+  The plan card shows a chip per slot — green fed, red overdue, grey not due yet — and each
+  chip is a one-tap log for that slot. The owner portal shows the same chips.
+- **A slot only turns red once its time has passed.** An evening chip glowing red all
+  morning is how an alert earns being ignored.
+- **The plain "Log feed" button is unchanged** and still needs no slot picker: the server
+  resolves which slot a ration filled at write time. The editor's "Times per day" becomes
+  read-only once slots exist, because the count is derived from them.
+- **Record impact:** 🟢 None — additive. A plan with no slots looks and behaves exactly as
+  before, including the "1 of 2 fed today" line.
+- **Migration / rollout:** needs backend migration **161**.
+- **Rollback:** revert; plans fall back to the count-only card.
+- ℹ️ Optional by design — a farm that never names its times never sees the feature.
+
 ### page: the mid-visit workflow picker is hidden  —  2026-07-29
 - **What changed:** the workflow dropdown in the visit wizard header (Automatic / every
   preset) is commented out at the user's request. The workflow is already chosen at

@@ -272,7 +272,12 @@ export const livestockAPI = {
   listFeedingLogs: (planId: string): Promise<ApiResponse<{ logs: FeedingLog[] }>> =>
     get(`${BASE}/feeding-plans/${planId}/logs`, { cache: false }),
   /** Omit quantityKg to default to the plan's own ration — the one-tap case. */
-  logFeeding: (planId: string, data: { quantityKg?: number; fedAt?: string; notes?: string } = {}): Promise<ApiResponse<{ log: FeedingLog }>> =>
+  /**
+   * `windowKey` is optional even on a plan WITH slots — the server resolves the
+   * slot at write time (last past-due unfilled one), so one-tap logging keeps
+   * working without a picker. Pass it to log a specific slot deliberately.
+   */
+  logFeeding: (planId: string, data: { quantityKg?: number; fedAt?: string; notes?: string; windowKey?: string } = {}): Promise<ApiResponse<{ log: FeedingLog }>> =>
     post(`${BASE}/feeding-plans/${planId}/logs`, data, { showError: true }),
 
   // ── Produce ──────────────────────────────────────────────────────────────

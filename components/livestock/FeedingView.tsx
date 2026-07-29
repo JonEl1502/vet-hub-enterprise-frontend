@@ -15,7 +15,12 @@ import { LivestockPage, PrimaryButton, EmptyState, Modal, Field, Card, FarmFilte
 const blank = {
   farmId: '', animalGroupId: '', name: '', feedType: '', quantityKg: '' as string | number,
   frequency: 'DAILY', timesPerDay: 2, startsOn: '', endsOn: '', notes: '',
+  // Named slots (161). Empty = count-only, exactly as before.
+  windows: [] as { key?: string; label: string; at: string }[],
 };
+
+/** A sensible pair to start from — most farms feed morning and evening. */
+const DEFAULT_WINDOWS = [{ label: 'Morning', at: '06:00' }, { label: 'Evening', at: '17:00' }];
 
 const FeedingView: React.FC = () => {
   const [farms, setFarms] = useState<Farm[]>([]);
@@ -49,6 +54,7 @@ const FeedingView: React.FC = () => {
     id: p.id, farmId: p.farmId, animalGroupId: p.animalGroupId ?? '', name: p.name,
     feedType: p.feedType ?? '', quantityKg: p.quantityKg ?? '', frequency: p.frequency,
     timesPerDay: p.timesPerDay, startsOn: dateInput(p.startsOn), endsOn: dateInput(p.endsOn), notes: p.notes ?? '',
+    windows: (p.windows ?? []).map((w) => ({ key: w.key, label: w.label, at: w.at })),
   });
 
   const save = async () => {
@@ -64,6 +70,9 @@ const FeedingView: React.FC = () => {
         quantityKg: editing.quantityKg === '' ? null : Number(editing.quantityKg),
         frequency: editing.frequency,
         timesPerDay: Number(editing.timesPerDay ?? 2),
+        // Only slots with both a name and a time are real; the server drops the
+        // rest anyway, and sending them would make the count disagree.
+        windows: editing.windows.filter((w) => w.label.trim() && w.at),
         startsOn: editing.startsOn || null,
         endsOn: editing.endsOn || null,
         notes: editing.notes || null,
@@ -81,17 +90,31 @@ const FeedingView: React.FC = () => {
     } finally { setSaving(false); }
   };
 
-  /** One-tap: log the plan's own ration, now. */
-  const quickLog = async (p: FeedingPlan) => {
-    setLoggingId(p.id);
+  /**
+   * One-tap: log the plan's own ration, now. `windowKey` is optional — without
+   * it the server picks the slot (the last one that's past due and unfilled),
+   * which is what the plain "Log feed" button relies on.
+   */
+  const quickLog = async (p: FeedingPlan, windowKey?: string) => {
+    setLoggingId(windowKey ? `${p.id}:${windowKey}` : p.id);
     try {
-      const res = await livestockAPI.logFeeding(p.id, {});
+      const res = await livestockAPI.logFeeding(p.id, windowKey ? { windowKey } : {});
       if (res.success && res.data?.log) {
-        setPlans((prev) => prev.map((x) => (
-          x.id === p.id
-            ? { ...x, lastFedAt: res.data!.log.fedAt, fedToday: (x.fedToday ?? 0) + 1 }
-            : x
-        )));
+        const log = res.data.log;
+        setPlans((prev) => prev.map((x) => {
+          if (x.id !== p.id) return x;
+          // Mark the slot the SERVER chose, not the one we guessed — an unkeyed
+          // tap still resolves to a real slot and the card must agree with it.
+          const today = x.today
+            ? (() => {
+                const windows = x.today.windows.map((w) => (
+                  w.key === log.windowKey ? { ...w, fed: true, due: false, fedAt: log.fedAt } : w
+                ));
+                return { windows, fedCount: windows.filter((w) => w.fed).length, dueWindows: windows.filter((w) => w.due) };
+              })()
+            : x.today;
+          return { ...x, lastFedAt: log.fedAt, fedToday: (x.fedToday ?? 0) + 1, today };
+        }));
         toast.success(`${p.name} — fed`);
       }
     } finally { setLoggingId(null); }
@@ -153,11 +176,48 @@ const FeedingView: React.FC = () => {
                 {p.feedType || 'Feed'}{p.quantityKg != null ? ` · ${p.quantityKg} kg` : ''}
               </p>
 
+              {/* Named slots (161): say WHICH ration is outstanding, and never
+                  flag one whose time hasn't come — an evening slot showing red
+                  all morning is how an alert gets ignored. */}
+              {p.today && p.today.windows.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1">
+                  {p.today.windows.map((w) => {
+                    const tone = w.fed
+                      ? 'bg-emerald-50 dark:bg-emerald-950/30 text-emerald-600 dark:text-emerald-400 border-emerald-200/60 dark:border-emerald-900/40'
+                      : w.due
+                        ? 'bg-rose-50 dark:bg-rose-950/30 text-rose-600 dark:text-rose-400 border-rose-200/60 dark:border-rose-900/40'
+                        : 'bg-slate-50 dark:bg-zinc-950 text-slate-400 dark:text-zinc-500 border-slate-200/60 dark:border-zinc-800';
+                    const busy = loggingId === `${p.id}:${w.key}`;
+                    return (
+                      <button
+                        key={w.key}
+                        type="button"
+                        onClick={() => !w.fed && quickLog(p, w.key)}
+                        disabled={w.fed || busy}
+                        title={w.fed ? `${w.label} — fed` : w.due ? `${w.label} (${w.at}) — overdue, tap to log` : `${w.label} — due at ${w.at}`}
+                        className={`px-1.5 py-0.5 rounded-md border text-[9px] font-black uppercase tracking-wider transition-all disabled:cursor-default ${tone}`}
+                      >
+                        {busy ? '…' : w.fed ? '✓' : w.due ? '!' : '·'} {w.label}
+                        <span className="ml-1 opacity-60">{w.at}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
               {(() => {
                 const done = p.fedToday ?? 0;
                 const left = rationsLeft(p);
                 const daily = String(p.frequency).toUpperCase() === 'DAILY';
                 const times = Number(p.timesPerDay) || 1;
+                // With slots on the card, the "N of M fed" line is noise.
+                if (p.today && p.today.windows.length > 0) {
+                  return (
+                    <p className="mt-2 text-[11px] font-semibold text-slate-400 dark:text-zinc-500">
+                      {p.lastFedAt ? `Last fed ${fmtDateTime(p.lastFedAt)}` : 'Never logged'}
+                    </p>
+                  );
+                }
                 // Amber for "started but still owed" — the case that used to
                 // read as fully done after a single tap.
                 const tone = left === 0
@@ -235,10 +295,61 @@ const FeedingView: React.FC = () => {
               </select>
             </Field>
             <Field label="Times per day">
-              <input className="field-input" type="number" min="1" value={editing.timesPerDay}
+              <input className="field-input" type="number" min="1"
+                value={editing.windows.length || editing.timesPerDay}
+                disabled={editing.windows.length > 0}
+                title={editing.windows.length > 0 ? 'Set by the feeding times below' : undefined}
                 onChange={(e) => setEditing({ ...editing, timesPerDay: Number(e.target.value) })} />
             </Field>
           </div>
+
+          {/* Named feeding times. Optional — a plan with none behaves exactly as
+              it did before. With them, the card and the alerts can say WHICH
+              ration is outstanding instead of just how many. */}
+          {String(editing.frequency).toUpperCase() === 'DAILY' && (
+            <Field label="Feeding times (optional)">
+              <div className="space-y-2">
+                {editing.windows.length === 0 ? (
+                  <button type="button"
+                    onClick={() => setEditing({ ...editing, windows: DEFAULT_WINDOWS.map((w) => ({ ...w })) })}
+                    className="w-full px-3 py-2 rounded-lg border border-dashed border-slate-300 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-pine hover:border-pine dark:hover:text-seafoam transition-all">
+                    + Name the feeding times (morning, evening…)
+                  </button>
+                ) : (
+                  <>
+                    {editing.windows.map((w, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input className="field-input flex-1" placeholder="e.g. Morning" value={w.label}
+                          onChange={(e) => setEditing({
+                            ...editing,
+                            windows: editing.windows.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)),
+                          })} />
+                        <input className="field-input w-28 shrink-0" type="time" value={w.at}
+                          onChange={(e) => setEditing({
+                            ...editing,
+                            windows: editing.windows.map((x, j) => (j === i ? { ...x, at: e.target.value } : x)),
+                          })} />
+                        <button type="button" title="Remove"
+                          onClick={() => setEditing({ ...editing, windows: editing.windows.filter((_, j) => j !== i) })}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-500 shrink-0"><Trash2 size={13} /></button>
+                      </div>
+                    ))}
+                    {editing.windows.length < 6 && (
+                      <button type="button"
+                        onClick={() => setEditing({ ...editing, windows: [...editing.windows, { label: '', at: '12:00' }] })}
+                        className="text-[10px] font-black uppercase tracking-widest text-seafoam hover:text-pine transition-all">
+                        + Add a time
+                      </button>
+                    )}
+                    <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 leading-snug">
+                      A time is only flagged overdue once it has passed. Logging without picking a
+                      slot fills the last one that's due.
+                    </p>
+                  </>
+                )}
+              </div>
+            </Field>
+          )}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Starts"><input className="field-input" type="date" value={editing.startsOn}
               onChange={(e) => setEditing({ ...editing, startsOn: e.target.value })} /></Field>
