@@ -74,12 +74,43 @@ export interface FeedingPlan {
   lastFedAt: string | null;
   /** Rations logged since local midnight — a DAILY plan owes `timesPerDay`. */
   fedToday: number;
+  /**
+   * Named feeding slots (migration 161), sorted by time. Empty on every plan
+   * that never defined any — the card falls back to the ration count.
+   * `timesPerDay` is derived from this server-side, so don't send both.
+   */
+  windows: FeedingWindow[];
+  /** Today's per-slot state. Null when the plan has no windows. */
+  today: FeedingDayStatus | null;
+}
+
+export interface FeedingWindow {
+  key: string;
+  label: string;
+  /** "HH:MM", 24-hour. */
+  at: string;
+}
+
+export interface FeedingWindowStatus extends FeedingWindow {
+  fed: boolean;
+  fedAt: string | null;
+  /** Unfilled AND its time has passed — the only state worth a red badge. */
+  due: boolean;
+}
+
+export interface FeedingDayStatus {
+  windows: FeedingWindowStatus[];
+  fedCount: number;
+  /** Past-due, unfilled slots. Empty while rations are merely still to come. */
+  dueWindows: FeedingWindowStatus[];
 }
 
 export interface FeedingLog {
   id: string;
   feedingPlanId: string;
   fedAt: string;
+  /** Which slot this ration filled (161). Null = unattributed / no slots. */
+  windowKey: string | null;
   quantityKg: number | null;
   fedByUserId: string | null;
   notes: string | null;
