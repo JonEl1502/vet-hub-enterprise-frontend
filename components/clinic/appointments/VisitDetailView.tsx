@@ -4656,6 +4656,18 @@ const VisitDetailInner: React.FC<Props> = ({
                          onChanged={() => onRefreshDashboard?.()}
                          onBillChange={setLiveBill}
                        />
+                       {/* Procedure recipes applied to this visit — stage
+                           checklist, optional diagnostics, weight/flags re-quote.
+                           It used to live on Categories & Services; retiring that
+                           tab would have hidden applied procedures completely, so
+                           it moved HERE — the recipe is what generated the bill
+                           lines above, so it belongs beside them. */}
+                       <AppliedProcedurePanel
+                         appointmentId={appointment.id}
+                         billLocked={isFinalized || appointment.isPaid}
+                         currency={activeClinic.currency}
+                         onChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); }}
+                       />
                      </div>
                    )}
 
