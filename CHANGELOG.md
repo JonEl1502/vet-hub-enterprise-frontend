@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: the mid-visit workflow picker is hidden  —  2026-07-29
+- **What changed:** the workflow dropdown in the visit wizard header (Automatic / every
+  preset) is commented out at the user's request. The workflow is already chosen at
+  registration and resolved from the entry point, so switching mid-visit let staff re-point a
+  half-filled consultation — and the list offered presets for entirely different encounter
+  types (Grooming, Surgery, Boarding) on a vaccination visit.
+- **Record impact:** 🟢 None — UI only.
+- **Data dependency:** None.
+- **Rollback:** uncomment the block; `setVisitTemplate` and the resolution logic are
+  untouched, so nothing else has to change.
+- ⚠️ **Watch out:** `pickableWorkflows` is deliberately still computed — the "Custom · <name>"
+  chip beside it depends on it. Don't "clean it up".
+
 ### feat: the bill IS the finalize — and Categories & Services becomes Follow-Up & Reminders  —  no migration
 User, 2026-07-29, with a screenshot. Four changes to the visit surface, all one idea:
 **the bill already carries everything the visit produced**, so it should be the thing you

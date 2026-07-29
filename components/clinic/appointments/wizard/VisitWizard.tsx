@@ -266,6 +266,15 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
             <Workflow size={10} /> Custom · {template.name}
           </span>
         )}
+        {/* HIDDEN at the user's request (2026-07-29): the mid-visit workflow
+            picker. The workflow is already chosen at REGISTRATION and resolved
+            from the entry point, so offering a switch here let staff re-point a
+            consultation that was half filled in — and it listed every preset,
+            including ones for entirely different encounter types.
+            Kept rather than deleted: `setVisitTemplate` is still wired and the
+            resolution logic is unchanged, so restoring it is uncommenting this
+            block. Do NOT remove `pickableWorkflows` — it is still what tells the
+            "Custom · <name>" chip above whether a clinic workflow is in use.
         {pickableWorkflows.length > 0 && (
           <select
             title="Which form this visit uses. Automatic picks by visit type; choosing one pins it to this visit only."
@@ -281,6 +290,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
             ))}
           </select>
         )}
+        */}
         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
           Current step · <span className="text-seafoam">{def.short}</span>
         </span>
