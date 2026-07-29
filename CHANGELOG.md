@@ -59,6 +59,40 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the bill IS the finalize — and Categories & Services becomes Follow-Up & Reminders  —  no migration
+User, 2026-07-29, with a screenshot. Four changes to the visit surface, all one idea:
+**the bill already carries everything the visit produced**, so it should be the thing you
+generate, not a thing you unlock.
+- **Categories & Services no longer blocks finalize.** The button was `disabled` until
+  every task was ticked, and clicking it bounced you to that tab with the unfinished ones
+  highlighted. Both are gone. Finalize completes every task server-side in the same
+  transaction anyway — ticking them first only ever changed *who* did the ticking. Staff now
+  get a note ("3 services still open — they'll be completed when the bill is generated")
+  instead of a refusal.
+- **"Finalize → enable billing" is now "Generate bill".** Same action; the label stopped
+  describing a gate and started describing what it does.
+- **The Bill tab runs FULL WIDTH** — no right rail. Line items, quantities and prices are
+  the wrong thing to read in a 70% column. Records & Reports keeps its 7/3 split.
+- **Categories & Services → 🔔 Follow-Up & Reminders.** It now holds the visit's reminder,
+  the follow-up visits created from it, and the doctor's staged follow-up plan.
+- **Record impact:** 🟢 None — UI and gating only. No new writes.
+- **Migration / rollout:** frontend + one backend change (the finalize guard). Deploy together.
+- **Rollback:** revert both commits; the gate and the tab come back.
+- ⚠️ **Watch out:** dropping the rail from the Bill tab would have taken the **Follow-up
+  Plan card** with it — that card is the only place the doctor's staged plan becomes real
+  reminders and a booked appointment. That is why the tab was repurposed rather than
+  deleted: *"move anything reminder related or follow up visit to it"*.
+- ⚠️ **Watch out:** the Follow-up Plan card was NOT copied. `PatientRail` gained an `only`
+  prop (`'followup'` / `'context'`) and renders from **one** implementation — the card
+  carries ~250 lines of plan/reminder/booking state that would have rotted the day it was
+  duplicated. The rail now passes `only="context"`, the tab `only="followup"`.
+- ⚠️ **Watch out:** the ~700-line Categories & Services render block is **kept in the file,
+  dormant**, behind `SHOW_RETIRED_SERVICES_TAB = false`, not deleted. `workflowTab` can no
+  longer be `'services'` — nothing sets it. Flip the flag to see it again.
+- ℹ️ Tabs that used to land on Categories & Services now land on the **Bill**: a finalized
+  visit opens there, service/consumable timeline events jump there, and diagnostic-only
+  visits (which have no clinical wizard) start there.
+
 ### page: Admin → Plans — Lipana link toggle fixed, "Offered to" hidden for suppliers  —  2026-07-29
 - **What changed:** two fixes in the package editor.
   1. 🐞 **The "Add a custom Lipana payment link" checkbox would not stay ticked.** `checked`

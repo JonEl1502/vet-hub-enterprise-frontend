@@ -130,6 +130,14 @@ const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> =
   ]
 };
 
+/**
+ * Categories & Services was retired as a tab (user, 2026-07-29) — the Bill
+ * carries everything the visit produced, and that screen was also what blocked
+ * finalize. Its render block is kept in this file but unreachable; set this to
+ * `true` to bring it back temporarily. See the block itself for the full note.
+ */
+const SHOW_RETIRED_SERVICES_TAB = false;
+
 // Hook-safety guard — the inner view declares dozens of hooks. Returning
 // early from INSIDE it when visit/pet data is briefly missing (e.g. a
 // DataContext refresh swapping lists mid-render) makes React see fewer
@@ -360,8 +368,11 @@ const VisitDetailInner: React.FC<Props> = ({
   // Clinical Workflow · Categories & Services · Records & Billing.
   // Non-finalized visits land on the clinical wizard (entry-point-driven) —
   // emergencies land on Triage; finalized ones on Services.
-  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'services' | 'records' | 'billing' | 'triage'>(
-    isFinalized ? 'services' : appointment.visitType === 'EMERGENCY' ? 'triage' : 'clinical'
+  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'followup' | 'services' | 'records' | 'billing' | 'triage'>(
+    // A finalized visit lands on the BILL — it is the record of what was done
+    // (user, 2026-07-29). It used to land on Categories & Services, which no
+    // longer exists as a tab.
+    isFinalized ? 'billing' : appointment.visitType === 'EMERGENCY' ? 'triage' : 'clinical'
   );
   // Opened from the Emergency board → go straight to the Triage tab.
   useEffect(() => {
@@ -409,7 +420,7 @@ const VisitDetailInner: React.FC<Props> = ({
     if (/triage|stabilized|emergency/.test(label) && (isEmergency || closedTriageExists)) { setWorkflowTab('triage'); return; }
     const stepDef = Object.values(STEP_DEFS).find(sd => label.includes(sd.label.toLowerCase()));
     if (stepDef && wiz.steps.includes(stepDef.id)) { wiz.goTo(stepDef.id); setWorkflowTab('clinical'); return; }
-    if (/service|task|encounter|added|removed|consumable/.test(label)) { setWorkflowTab('services'); return; }
+    if (/service|task|encounter|added|removed|consumable/.test(label)) { setWorkflowTab('billing'); return; }
     setWorkflowTab('clinical');
   };
   // The follow-up reminder for this visit (created at finalize) — shown near the
@@ -570,6 +581,29 @@ const VisitDetailInner: React.FC<Props> = ({
         loadVisitReminder();
       }}
       readOnly={visitClosed}
+      only="context"
+    />
+  );
+
+  // The Follow-Up & Reminders tab (user, 2026-07-29). Same component, same
+  // props — `only="followup"` renders just the Follow-up Plan card, which is
+  // where the doctor's staged plan turns into real reminders and a booked
+  // appointment. Reusing PatientRail rather than copying it keeps ~250 lines of
+  // plan/reminder/booking state in ONE place.
+  const followUpPanel = (
+    <PatientRail
+      visit={appointment} pet={pet} client={client} activeClinic={activeClinic}
+      allAppointments={allAppointments} visitReminder={visitReminder}
+      onNavigateToVisit={onNavigateToVisit} onNavigateToPet={onNavigateToPet} onNavigateToClient={onNavigateToClient}
+      onBookFollowUp={() => setShowFollowUpAppt(true)}
+      followUpPlan={wiz.state.data.followUp}
+      onBookFromPlan={(prefill) => { setFollowUpApptPrefill(prefill); setShowFollowUpAppt(true); }}
+      onRemindersCreated={(n) => {
+        wiz.emit(`${n} follow-up reminder${n === 1 ? '' : 's'} created from the doctor's plan`, 'milestone', true);
+        loadVisitReminder();
+      }}
+      readOnly={visitClosed}
+      only="followup"
     />
   );
 
@@ -682,7 +716,7 @@ const VisitDetailInner: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointment.id, diagnosticOnly]);
   useEffect(() => {
-    if (diagnosticOnly && workflowTab === 'clinical') setWorkflowTab('services');
+    if (diagnosticOnly && workflowTab === 'clinical') setWorkflowTab('billing');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diagnosticOnly]);
   const [triageStabilized, setTriageStabilized] = useState(false);
@@ -781,7 +815,7 @@ const VisitDetailInner: React.FC<Props> = ({
       await visitsAPI.update(appointment.id, { visitType: 'CONSULTATION' } as any);
       setEffectiveVisitType('CONSULTATION');
       setTriageStabilized(false);
-      setWorkflowTab('services');
+      setWorkflowTab('clinical');
       toast.success('Emergency triage removed');
     } catch (e: any) { toast.error(e?.message || 'Failed to remove triage'); }
     finally { setEscalating(false); }
@@ -2206,12 +2240,14 @@ const VisitDetailInner: React.FC<Props> = ({
     }
   };
 
-  // The Finalize button is enabled off the LOCAL task list, which can be stale
-  // or optimistic — the server is the finalize guard's source of truth. Verify
-  // there BEFORE opening the reminder gate. Unfinished services don't error:
-  // staff are taken to the Categories & Services tab with the unfinished ones
-  // highlighted. All complete → the reminder gate opens (the prompt to create
-  // the follow-up reminder, unless one already exists to adjust).
+  // Generating the bill IS finalize (user, 2026-07-29). Unfinished services no
+  // longer stop it — the bill already carries everything the visit produced, and
+  // finalize completes every task server-side in the same transaction, so
+  // ticking them first only ever changed who did the ticking.
+  //
+  // We still resync from the server on the way in: the local task list is
+  // optimistic, and the counts staff see afterwards should be the real ones.
+  // What's gone is the BOUNCE — no redirect to another tab, no blocked action.
   const openFinalizeGate = async () => {
     try {
       const res = await visitsAPI.getById(Number(appointment.id), { cache: false } as any);
@@ -2226,14 +2262,10 @@ const VisitDetailInner: React.FC<Props> = ({
             return s ? { ...t, status: s.status } : t;
           }),
         }));
-        setWorkflowTab('services');
-        setHighlightTaskIds(new Set(pending.map(t => Number(t.id))));
-        toast.warning(`${pending.length} service${pending.length === 1 ? '' : 's'} to finish before finalizing — highlighted below.`);
-        setTimeout(() => document.getElementById(`svc-task-${pending[0].id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 150);
-        setTimeout(() => setHighlightTaskIds(new Set()), 10000);
-        return;
+        // Say what will happen rather than refusing: finalize marks these done.
+        toast.info(`${pending.length} service${pending.length === 1 ? '' : 's'} still open — they'll be completed when the bill is generated.`);
       }
-    } catch { /* offline / fetch error — fall through, the server guard decides */ }
+    } catch { /* offline / fetch error — fall through, the server decides */ }
     setShowFinalizeGate(true);
   };
 
@@ -2866,8 +2898,8 @@ const VisitDetailInner: React.FC<Props> = ({
               </div>
               <div className="flex flex-wrap gap-2 mt-auto">
                 {!isFinalized && !isFinalizing && (
-                  <button onClick={openFinalizeGate} disabled={progress < 100} title={progress < 100 ? 'Complete every service first' : 'Finalize to enable billing'} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                    <CheckCircle2 size={12} /> Finalize → enable billing
+                  <button onClick={openFinalizeGate} title="Generate the bill for this visit — this finalizes it" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+                    <FileText size={12} /> Generate bill
                   </button>
                 )}
                 {!appointment.isPaid && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
@@ -2884,31 +2916,10 @@ const VisitDetailInner: React.FC<Props> = ({
               </div>
             </div>
 
-            {/* Follow-ups & Reminders card — set the reminder; the follow-up visit
-                is created automatically from it, so we only surface the reminder. */}
-            <div className="rounded-xl bg-white/5 border border-white/10 p-3 flex flex-col gap-2">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-black uppercase tracking-widest text-white/60 flex items-center gap-1.5"><Bell size={11} /> Follow-ups &amp; Reminders</span>
-                {visitReminder && (
-                  <span className="px-2 py-0.5 rounded-lg bg-emerald-500/15 text-emerald-200 text-[8px] font-black uppercase tracking-widest" title="Follow-up auto-created from this reminder">Due {formatDate(visitReminder.dueAt)}</span>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2 mt-auto">
-                <button onClick={() => setShowReminderCreate(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
-                  <Bell size={12} /> {visitReminder ? 'Update reminder' : 'Set reminder'}
-                </button>
-                {visitReminder && onNavigateToReminder && (
-                  <button onClick={() => onNavigateToReminder(visitReminder.id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all" title="Open this reminder in Reminders">
-                    <ExternalLink size={12} /> View reminder
-                  </button>
-                )}
-                {childFollowUps.length > 0 && (
-                  <button onClick={() => onNavigateToVisit(childFollowUps[0].id)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all" title="Auto-created follow-up visit">
-                    <ExternalLink size={12} /> Follow-up{childFollowUps.length > 1 ? `s · ${childFollowUps.length}` : ` · ${formatDate(childFollowUps[0].date)}`}
-                  </button>
-                )}
-              </div>
-            </div>
+            {/* The header's Follow-ups & Reminders card MOVED to the
+                Follow-Up & Reminders tab (user, 2026-07-29) — everything
+                reminder / follow-up related now lives in one place instead of
+                being split between a header chip and a rail card. */}
           </div>
         </div>
 
@@ -2961,7 +2972,7 @@ const VisitDetailInner: React.FC<Props> = ({
           {/* On an emergency visit, Triage leads — it IS the workflow's front
               door. Diagnostics-only visits (auto-created from New lab/imaging)
               skip the clinical wizard entirely. */}
-          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), { id: 'services', label: 'Categories & Services' }, { id: 'records', label: 'Records & Reports' }, { id: 'billing', label: 'Bill & Invoice' }].map(t => (
+          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), { id: 'followup', label: '🔔 Follow-Up & Reminders' }, { id: 'records', label: 'Records & Reports' }, { id: 'billing', label: 'Bill & Invoice' }].map(t => (
             <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
           ))}
           {diagnosticOnly && (
@@ -2998,7 +3009,7 @@ const VisitDetailInner: React.FC<Props> = ({
           activeClinic={activeClinic}
           wiz={wiz}
           locked={visitClosed}
-          goServices={() => setWorkflowTab('services')}
+          goServices={() => setWorkflowTab('billing')}
           goBilling={() => { setWorkflowTab('records'); setActiveBottomTab('invoice'); }}
           onAddService={!isFinalized ? () => setShowInjectModal(true) : undefined}
           onOpenModule={onOpenModule ? (category: string) => {
@@ -3115,8 +3126,75 @@ const VisitDetailInner: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Tab 1 — Categories & Services (full width) */}
-      {workflowTab === 'services' && (
+      {/* Tab — Follow-Up & Reminders. Everything reminder / follow-up related
+          lives here now (user, 2026-07-29): the visit's own reminder, the
+          auto-created follow-up visits, and the doctor's staged follow-up plan
+          that used to sit in the right rail — which the full-width Bill tab
+          would otherwise have taken away with it. */}
+      {workflowTab === 'followup' && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start animate-in fade-in slide-in-from-bottom-2">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md p-4 space-y-3">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 flex items-center gap-1.5">
+                <Bell size={12} /> This visit's reminder
+              </span>
+              {visitReminder && (
+                <span className="px-2 py-0.5 rounded-lg bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 text-[8px] font-black uppercase tracking-widest"
+                  title="The follow-up visit is created automatically from this reminder">
+                  Due {formatDate(visitReminder.dueAt)}
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 leading-relaxed">
+              Set the reminder and the follow-up visit is created from it automatically — there is
+              nothing else to book.
+            </p>
+            <div className="flex flex-wrap gap-2">
+              <button onClick={() => setShowReminderCreate(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-pine text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine/90 transition-all">
+                <Bell size={12} /> {visitReminder ? 'Update reminder' : 'Set reminder'}
+              </button>
+              {visitReminder && onNavigateToReminder && (
+                <button onClick={() => onNavigateToReminder(visitReminder.id)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 text-[9px] font-black uppercase tracking-widest hover:text-pine dark:hover:text-white transition-all"
+                  title="Open this reminder in Reminders">
+                  <ExternalLink size={12} /> View reminder
+                </button>
+              )}
+            </div>
+            {childFollowUps.length > 0 && (
+              <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-1.5">
+                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Follow-up visits created</p>
+                {childFollowUps.map((f: any) => (
+                  <button key={f.id} onClick={() => onNavigateToVisit(f.id)}
+                    className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/20 border border-indigo-200/60 dark:border-indigo-900/40 text-left hover:border-indigo-400 transition-all">
+                    <ExternalLink size={10} className="text-indigo-500 shrink-0" />
+                    <span className="flex-1 text-[10px] font-bold text-pine dark:text-zinc-100 truncate">Visit #{f.id}</span>
+                    <span className="text-[8px] font-black uppercase text-indigo-600 shrink-0">{formatDate(f.date)}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {/* The doctor's staged plan → reminders + a booked appointment. */}
+          <div>{followUpPanel}</div>
+        </div>
+      )}
+
+      {/* ─── RETIRED: Categories & Services ──────────────────────────────────
+          Removed as a tab by the user, 2026-07-29: **the Bill carries every
+          service, medication, procedure, item and consumable the visit
+          produced**, so this screen restated what the bill already says — while
+          also being the thing that blocked finalize.
+
+          Kept in the file, dormant, rather than deleted: it is ~700 lines of
+          working UI (applied procedures, per-service consumables, attending
+          staff, the add-services drawer) and some of it may yet be wanted
+          elsewhere. `workflowTab` can no longer BE 'services' — no tab sets it —
+          so this renders never. Flip the flag to bring it back for a look.
+          ────────────────────────────────────────────────────────────────── */}
+      {SHOW_RETIRED_SERVICES_TAB && workflowTab === 'services' && (
         <div className="space-y-5">
           {/* Procedure recipes applied to this visit — stage checklist,
               recommended diagnostics, weight/flags re-quote (M3). */}
@@ -4144,7 +4222,11 @@ const VisitDetailInner: React.FC<Props> = ({
       {/* Tab 2 (cont.) — Record · Meds & Consumables · Invoice · Receipt */}
       {(workflowTab === 'records' || workflowTab === 'billing') && (
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 items-start animate-in fade-in slide-in-from-bottom-2" data-section="receipt-tabs">
-        <div className="lg:col-span-7 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md overflow-hidden">
+        {/* The BILL tab runs FULL WIDTH (user, 2026-07-29): the bill already
+            carries everything the visit produced, and line items, quantities and
+            prices are the wrong thing to read in a 70% column. Records keeps the
+            7/3 split because its rail context is still useful there. */}
+        <div className={`${workflowTab === 'billing' ? 'lg:col-span-10' : 'lg:col-span-7'} bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md overflow-hidden`}>
                 {/* Tab Navigation */}
                 <div data-tour="appt-tabs" className="flex overflow-x-auto scrollbar-none bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 p-1.5 gap-1">
                    {(workflowTab === 'billing'
@@ -5186,10 +5268,15 @@ const VisitDetailInner: React.FC<Props> = ({
                 </div>
              </div>
 
-             {/* Right rail — 30%: shared patient context cards. */}
-             <aside className="lg:col-span-3">
-               {patientRail}
-             </aside>
+             {/* Right rail — 30%: shared patient context cards. Deliberately NOT
+                 rendered on the Bill tab, which is full width. The Follow-up Plan
+                 card that used to live here now has its own tab, so nothing is
+                 lost by dropping the rail. */}
+             {workflowTab !== 'billing' && (
+               <aside className="lg:col-span-3">
+                 {patientRail}
+               </aside>
+             )}
       </div>
       )}
 
@@ -6535,9 +6622,10 @@ const VisitDetailInner: React.FC<Props> = ({
                 </button>
               )}
               {!isFinalized ? (
-                <button onClick={openFinalizeGate} disabled={progress < 100 || isFinalizing} title={progress < 100 ? 'Complete every service first' : 'Finalize to enable billing'}
+                <button onClick={openFinalizeGate} disabled={isFinalizing}
+                  title="Generate the bill for this visit — this finalizes it"
                   className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95">
-                  <CheckCircle2 size={13} /> Finalize → enable billing
+                  <FileText size={13} /> Generate bill
                 </button>
               ) : (
                 <button onClick={openSettleModal} disabled={isSettlingBill}

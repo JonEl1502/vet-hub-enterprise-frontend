@@ -80,6 +80,17 @@ interface Props {
   // Visit closed & billed → rail is view-only: no behaviour edits, no
   // follow-up reminder creation / appointment booking from here.
   readOnly?: boolean;
+  /**
+   * Which cards to render (user, 2026-07-29). The Follow-up Plan card moved out
+   * of the rail and into its own **Follow-Up & Reminders** tab, so the two are
+   * now rendered separately — but from ONE implementation, because the card
+   * carries ~250 lines of plan/reminder/booking state that would rot the moment
+   * it was copied.
+   *   'followup' → only the Follow-up Plan card (the tab)
+   *   'context'  → everything except it (the rail)
+   *   undefined  → all cards, the pre-existing behaviour
+   */
+  only?: 'followup' | 'context';
 }
 
 /**
@@ -90,7 +101,9 @@ interface Props {
  * Bill & Balance used to lead this rail; it now lives in the Bill & Invoice tab
  * (`BillBalanceCard.tsx`) beside the bill it describes.
  */
-const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allAppointments, visitReminder, onNavigateToVisit, onNavigateToPet, onNavigateToClient, onBookFollowUp, followUpPlan, onBookFromPlan, onRemindersCreated, readOnly }) => {
+const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allAppointments, visitReminder, onNavigateToVisit, onNavigateToPet, onNavigateToClient, onBookFollowUp, followUpPlan, onBookFromPlan, onRemindersCreated, readOnly, only }) => {
+  const showFollowUp = only !== 'context';
+  const showContext = only !== 'followup';
   const [petSnapshot, setPetSnapshot] = useState<any | null>(null);
   const [vaccineHistory, setVaccineHistory] = useState<{ name: string; date: string }[]>([]);
   useEffect(() => {
@@ -254,7 +267,9 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
           live bill instead of a snapshot taken at mount. */}
 
       {/* Doctor recommends in the workflow → reception schedules it HERE:
-          a "super reminder" of several points + the follow-up appointment. */}
+          a "super reminder" of several points + the follow-up appointment.
+          Lives in the Follow-Up & Reminders TAB now, not the rail. */}
+      {showFollowUp && (
       <InfoCard icon={Bell} title="Follow-up Plan"
         defaultOpen={(followUpPlan?.reminders || []).length > 0}
         summary={(followUpPlan?.reminders || []).length > 0
@@ -371,7 +386,9 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
           )}
         </div>
       </InfoCard>
+      )}
 
+      {showContext && (<>
       <InfoCard icon={UserIcon} title={`${pet.name} — Patient & Owner`}
         summary={`${pet.breed} ${pet.species}${client ? ` · ${client.name}` : ''}`}>
         <div className="space-y-1.5">
@@ -483,6 +500,7 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
           {/* Follow-up booking lives in the Follow-up Plan card — no duplicate here. */}
         </div>
       </InfoCard>
+      </>)}
 
       {/* View a created reminder / appointment right here — no navigation. */}
       {viewItem && (
