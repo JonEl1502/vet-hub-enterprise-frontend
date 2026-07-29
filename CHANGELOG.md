@@ -93,10 +93,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 - **Record impact:** 🟢 None — copy and styling only.
 - **Migration / rollout:** code-only, frontend deploy.
 - **Rollback:** revert the commit.
-- ⚠️ **Watch out:** the `WORKFLOW` picker on the same screen was **left alone** — see the
-  session board. It is S4's "ADDITION 2", shipped days ago at the user's request, and the
-  instruction to "comment Workflow" was too ambiguous to act on by deleting a live feature
-  from another lane.
+  - **The `WORKFLOW` picker is hidden** (user confirmed "hide it"). **Commented out, not
+    deleted:** the state behind it is still live — `workflowTemplateId: pickedTemplateId`
+    remains in the submit payload, and with nothing setting it a visit resolves its
+    workflow automatically, exactly as it did before the picker existed. Restoring it is
+    uncommenting one block.
+- ⚠️ **Watch out:** that picker is S4's "ADDITION 2", shipped days ago. It is hidden, not
+  removed — if it is not coming back, S4 should delete it properly along with
+  `pickedTemplateId` / `relevantWorkflows`, since they know what else reads them.
 
 ### ui: boarding and inpatient lists no longer overflow on a phone  —  2026-07-29
 - **What changed:** the meta row on each stay/admission card wraps instead of overflowing.

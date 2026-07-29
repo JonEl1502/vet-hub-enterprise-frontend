@@ -1493,6 +1493,15 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
             {/* Which form the vet will fill in. Only offered when the clinic
                 has built something for this kind of visit — with nothing to
                 choose between, a picker is just noise. */}
+            {/* HIDDEN 2026-07-29 at the user's request (S5 asked, user confirmed
+                "hide it"). This is S4's ADDITION 2 — the workflow chosen at
+                registration. It is COMMENTED OUT, not deleted, because the state
+                it drives is still live: `pickedTemplateId` stays wired into
+                submission below, so a visit keeps resolving its workflow
+                automatically exactly as it did before this picker existed.
+                Restoring it is uncommenting this block — nothing else to redo.
+                S4: yours to remove properly if it is not coming back. */}
+            {/*
             {relevantWorkflows.length > 1 && (
               <div className="mt-3">
                 <label className="field-label">Workflow</label>
@@ -1515,6 +1524,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                 </p>
               </div>
             )}
+            */}
 
             {/* A recipe stages its fees, products and diagnostics in one go. */}
             {relevantProcedures.length > 0 && (
