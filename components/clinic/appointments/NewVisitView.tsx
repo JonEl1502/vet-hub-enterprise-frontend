@@ -9,7 +9,7 @@ import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useStaff } from '../../../contexts/StaffContext';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { computeAfterHours, WorkingHours } from '../shared/workingHours';
-import { inventoryAPI, InventoryItem, clientsAPI, petsAPI, dialog, toast, vaccinePackagesAPI, VaccinePackage, workflowTemplatesAPI } from '../../../services';
+import { inventoryAPI, InventoryItem, clientsAPI, petsAPI, dialog, toast, vaccinePackagesAPI, VaccinePackage, workflowTemplatesAPI, procedureTemplatesAPI } from '../../../services';
 import PhoneInput from '../../shared/common/PhoneInput';
 import StepIndicator from '../../shared/common/StepIndicator';
 import DateTimePicker from '../../shared/common/DateTimePicker';
@@ -358,6 +358,39 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
 
   // Vaccination visit type (077) behaves like the old top-level vaccination
   // encounter at registration: the vaccine picker stages services.
+  // ── Procedure chosen at registration (ADDITION 2) ───────────────────────
+  // A recipe stages its fees, products and diagnostics onto the visit in one
+  // go. Applied AFTER creation via the existing apply endpoint, which is the
+  // same path auto-apply uses — so stock, billing and the deferred-deduction
+  // rules behave identically to picking the trigger service by hand.
+  const [pickedProcedureId, setPickedProcedureId] = useState<string | null>(null);
+  const [procedureOptions, setProcedureOptions] = useState<{ id: string; name: string; categoryName: string | null; species: string[] }[]>([]);
+  useEffect(() => {
+    let live = true;
+    procedureTemplatesAPI.list()
+      .then(r => {
+        if (!live || !r.success || !r.data?.templates) return;
+        setProcedureOptions(r.data.templates
+          .filter(t => t.isActive)
+          .map(t => ({ id: t.id, name: t.name, categoryName: t.categoryName, species: t.species || [] })));
+      })
+      .catch(() => { /* picker just doesn't appear */ });
+    return () => { live = false; };
+  }, []);
+
+  // Recipes for the categories this visit actually covers, and for this
+  // patient's species — offering a rabbit protocol for a dog is worse than
+  // offering nothing.
+  const relevantProcedures = useMemo(() => {
+    const cats = workflowCategories.map(c => (c.name || '').toLowerCase());
+    const petSpecies = (pets.find(p => String(p.id) === String(selectedPetId))?.species || '').toLowerCase();
+    return procedureOptions.filter(pr => {
+      if (pr.species.length && petSpecies && !pr.species.some(sp => sp.toLowerCase() === petSpecies)) return false;
+      if (!pr.categoryName) return true;
+      return cats.some(c => c && pr.categoryName!.toLowerCase().includes(c));
+    });
+  }, [procedureOptions, workflowCategories, pets, selectedPetId]);
+
   // ── Workflow chosen at registration (ADDITION 2) ────────────────────────
   // The clinic's own workflows for this kind of visit. Picking one here pins
   // the visit to it, so the wizard opens on THAT workflow's stages instead of
@@ -1229,6 +1262,8 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       // Carried to the visit so the wizard opens on the workflow chosen here
       // rather than re-resolving one. Consumed by App -> VisitDetailView.
       workflowTemplateId: pickedTemplateId,
+      // Applied after the visit exists — see App's create handler.
+      procedureTemplateId: pickedProcedureId,
       // Escalate to in-patient (vet visits only) — links a hospitalization.
       onboardInpatient: encounterType === 'VET_VISIT' && onboardInpatient,
     });
@@ -1462,6 +1497,30 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                   {pickedTemplateId
                     ? 'This visit will open on the workflow you picked.'
                     : 'Leave on Automatic and the visit opens on whichever workflow fits — your own comes first.'}
+                </p>
+              </div>
+            )}
+
+            {/* A recipe stages its fees, products and diagnostics in one go. */}
+            {relevantProcedures.length > 0 && (
+              <div className="mt-3">
+                <label className="field-label">Procedure / recipe (optional)</label>
+                <select
+                  className="field-select"
+                  value={pickedProcedureId ?? ''}
+                  onChange={e => setPickedProcedureId(e.target.value || null)}
+                >
+                  <option value="">None — add services manually</option>
+                  {relevantProcedures.map(pr => (
+                    <option key={pr.id} value={pr.id}>
+                      {pr.name}{pr.categoryName ? ` · ${pr.categoryName}` : ''}
+                    </option>
+                  ))}
+                </select>
+                <p className="text-[9px] font-bold text-slate-400 mt-1">
+                  {pickedProcedureId
+                    ? 'Its fees, products and diagnostics are added to the visit once it is created. Stock is only drawn when the visit settles, so nothing moves yet.'
+                    : 'Pick one to stage a whole protocol instead of adding each line by hand.'}
                 </p>
               </div>
             )}

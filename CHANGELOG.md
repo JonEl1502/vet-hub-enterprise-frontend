@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: pick a procedure when registering a visit  —  2026-07-29
+- **What changed:** the registration screen now offers **Procedure / recipe** alongside
+  Workflow, completing ADDITION 2 ("pick a procedure OR a workflow"). Choosing one stages the
+  whole protocol — fees, products, diagnostics — onto the visit instead of adding each line
+  by hand.
+  - Applied through the **same endpoint auto-apply uses**, so stock, billing and the
+    deferred-deduction rules behave exactly as when the trigger service is added manually.
+  - Filtered to the categories the visit covers **and the patient's species** — offering a
+    rabbit protocol for a dog is worse than offering nothing.
+- **Record impact:** 🔵 Low — applying a recipe creates visit task lines and a
+  `procedure_applications` row. **No stock moves at registration**; deduction stays deferred
+  to settle, as it is for auto-apply.
+- **Data dependency:** none beyond the existing procedure templates.
+- **Rollback:** revert; registration stops offering it, auto-apply is unaffected.
+- ⚠️ **Watch out:** apply runs AFTER the visit exists and is deliberately **non-fatal** — the
+  visit is already created, so a failed recipe must not lose it. Staff get a toast telling
+  them to add it from the visit.
+
 ### feat: pick the workflow when registering a visit  —  2026-07-28
 - **What changed:** the visit-registration screen now offers a **Workflow** picker, so a
   vaccination visit can be started on a specific workflow (e.g. `Vaccination (copy)`) instead

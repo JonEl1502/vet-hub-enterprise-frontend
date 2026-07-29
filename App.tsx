@@ -149,7 +149,7 @@ import DemoRequestModal from './components/shared/marketing/DemoRequestModal';
 import TrialBanner from './components/shared/common/TrialBanner';
 import { ApptStatus, ReferralStatus, ClientRegion, Referral, Visit, TaskStatus, Clinic, Client, User, UserRole, HandshakeStatus, InventoryItem, Permission, FULL_ACCESS_ROLES, RESTRICTED_ROLES } from './types';
 import { generateMedicalSummary, setClinicAIConfig } from './services/geminiService';
-import { usersAPI, visitsAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI, staffScopeAPI, CATEGORY_GATED_MENU_IDS, resolveCategoryMenuId, remindersAPI } from './services';
+import { usersAPI, visitsAPI, appointmentsAPI, inventoryAPI, suppliersAPI, purchaseOrderAPI, clientsAPI, petsAPI, toast, Supplier as APISupplier, PurchaseOrder, clinicSubscriptionAPI, staffScopeAPI, CATEGORY_GATED_MENU_IDS, resolveCategoryMenuId, remindersAPI, procedureTemplatesAPI } from './services';
 import { stripeAPI } from './services/modules/stripe.api';
 import { walletAPI } from './services/modules/wallet.api';
 import { CacheInvalidators } from './services/utils/cache';
@@ -2303,6 +2303,21 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               // visit the same way the gate check is, then pinned by the wizard
               // on first open — the visit isn't created yet when the choice is
               // made, so there is nothing to PUT it against here.
+              // A procedure picked at registration (ADDITION 2). Applied through
+              // the SAME endpoint auto-apply uses, so stock, billing and the
+              // deferred-deduction rules behave exactly as they do when the
+              // trigger service is added by hand. Non-fatal: the visit is
+              // already created, and a failed recipe must not lose it.
+              const applyPickedProcedure = async (visitId: any) => {
+                if (!appointmentData.procedureTemplateId || !visitId) return;
+                try {
+                  await procedureTemplatesAPI.apply(appointmentData.procedureTemplateId, { appointmentId: visitId });
+                } catch (e) {
+                  console.error('Procedure apply failed for visit', visitId, e);
+                  toast.error('Visit created, but the procedure could not be applied — add it from the visit.');
+                }
+              };
+
               const stashWorkflowPick = (visitId: any) => {
                 if (!appointmentData.workflowTemplateId || !visitId) return;
                 try {
@@ -2344,7 +2359,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                   try {
                     const r = await visitsAPI.create({ ...baseData, petId: m.petId, clientId: m.clientId });
                     const vid = (r.data as any)?.appointment?.id ?? (r.data as any)?.visit?.id;
-                    if (r.success && vid) { createdIds.push(String(vid)); stashWorkflowPick(vid); stashGateCheck(vid); }
+                    if (r.success && vid) { createdIds.push(String(vid)); stashWorkflowPick(vid); stashGateCheck(vid); void applyPickedProcedure(vid); }
                     else failed.push(m.petId);
                   } catch { failed.push(m.petId); }
                 }
@@ -2375,7 +2390,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                 }
                 // Refresh appointments list to show the new appointment
                 await refreshAppointments();
-                stashWorkflowPick(newVisitId); stashGateCheck(newVisitId);
+                stashWorkflowPick(newVisitId); stashGateCheck(newVisitId); void applyPickedProcedure(newVisitId);
                 // Book & Start → straight into the new visit's clinical workflow.
                 if (appointmentData.startNow && newVisitId) navigateTo('appointment-detail', { appointmentId: Number(newVisitId) });
                 else navigateTo('appointments');
