@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: Admin → Plans fits on screen — no scrolling between tabs and editor  —  2026-07-29
+- **What changed:** the create-package form and the package editor were built at full size
+  (`rounded-3xl p-6`, `py-2 text-sm` inputs), so the tab bar, the package list and the
+  editor could not be on screen together — picking a plan meant scrolling up and down.
+  ~30% denser: cards `p-6 → p-4` / `rounded-3xl → rounded-2xl`, inputs `py-2 text-sm →
+  py-1.5 text-xs`. One `inputCls` drives both the create form and the editor, so shrinking
+  it shrinks the whole page consistently.
+- **Suppliers too** (per the request): the supplier package grid goes **3-up → 4-up** at
+  `xl` with tighter gaps and card padding, matching the Clinic Plans density.
+- **Record impact:** 🟢 None — spacing and type scale only. No field, value or API touched.
+- **Migration / rollout:** code-only, frontend deploy.
+- **Rollback:** revert the commit.
+- ⚠️ **Watch out:** the Client and Livestock tabs render through the SAME
+  `SubPackagesAdminPage`, so they inherit the new density automatically — check those two
+  as well as Clinic when eyeballing it, not just the tab you opened.
+
 ### feat: use a deworming protocol on the deworming step  —  2026-07-29
 - **What changed:** the deworming step now offers **"Use a deworming protocol…"**, filling
   the product and its stock link from a procedure recipe instead of retyping them. Mirrors

@@ -225,7 +225,7 @@ const SupplierPackagesAdminPage: React.FC<Props> = ({ embedded }) => {
 
       {/* List */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           {[...Array(3)].map((_, i) => (
             <div key={i} className="h-64 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl animate-pulse" />
           ))}
@@ -239,14 +239,14 @@ const SupplierPackagesAdminPage: React.FC<Props> = ({ embedded }) => {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
           {sorted.map(p => (
             <div
               key={p.id}
               className={`relative flex flex-col bg-white dark:bg-zinc-900 border-2 rounded-2xl shadow-sm overflow-hidden ${p.isActive ? 'border-slate-200 dark:border-zinc-800' : 'border-slate-200/60 dark:border-zinc-800/60 opacity-70'}`}
             >
               <div className="h-1 w-full bg-seafoam" />
-              <div className="p-5 flex-1 flex flex-col gap-3">
+              <div className="p-3.5 flex-1 flex flex-col gap-2.5">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">

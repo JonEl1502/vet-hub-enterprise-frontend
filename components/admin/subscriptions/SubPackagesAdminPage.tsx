@@ -304,7 +304,7 @@ const SubPackagesAdminPage: React.FC = () => {
       <>
       {/* New package form */}
       {showNewForm && (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">Create new package</p>
             <button onClick={() => setShowNewForm(false)} className="text-slate-400 hover:text-pine"><X size={16}/></button>
@@ -432,7 +432,7 @@ const SubPackagesAdminPage: React.FC = () => {
           ) : (
             <>
               {/* Detail header */}
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm flex items-center justify-between gap-4">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm flex items-center justify-between gap-4">
                 <div className="min-w-0">
                   <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{selected.name}</h2>
                   <p className="text-seafoam text-[10px] font-black uppercase tracking-widest mt-1">
@@ -497,7 +497,7 @@ const SubPackagesAdminPage: React.FC = () => {
                   />
                 </div>
               ) : (
-                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm space-y-4">
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
                   {/* Audience chips — which account types see this package.
                       At least one is required. */}
                   <div>
@@ -679,7 +679,10 @@ const SubPackagesAdminPage: React.FC = () => {
   );
 };
 
-const inputCls = 'w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl px-3 py-2 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20';
+// Denser by ~30% (2026-07-29, user): the create form and the editor pushed the
+// package list and the tab bar off screen, so picking a plan meant scrolling up
+// and down. Same class drives both, so shrinking here shrinks the whole page.
+const inputCls = 'w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20';
 
 // ISO 4217 codes we currently bill in. Keep the most-used local + regional
 // currencies up top so the admin doesn't scroll.
@@ -751,7 +754,7 @@ const CustomFeatures: React.FC<{ selected: SubscriptionPackagePlan; onAdd: () =>
   const custom = (selected.features || []).filter(f => !allCatalog.has(f));
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-6 shadow-sm">
+    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <div>
           <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Custom Features</p>
