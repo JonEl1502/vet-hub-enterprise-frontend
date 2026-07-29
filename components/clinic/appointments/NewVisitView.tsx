@@ -364,6 +364,13 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // same path auto-apply uses — so stock, billing and the deferred-deduction
   // rules behave identically to picking the trigger service by hand.
   const [pickedProcedureId, setPickedProcedureId] = useState<string | null>(null);
+  // Submit guard. The button was disabled only by !isFormValid, so a second
+  // click before the create resolved raised a SECOND visit — duplicate
+  // clinical records for one patient, each with its own bill. The ref is what
+  // actually blocks it: state updates are async, so two clicks in the same
+  // tick would both pass a state check.
+  const submittingRef = useRef(false);
+  const [submitting, setSubmitting] = useState(false);
   const [procedureOptions, setProcedureOptions] = useState<{ id: string; name: string; categoryName: string | null; species: string[] }[]>([]);
   useEffect(() => {
     let live = true;
@@ -1105,12 +1112,19 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   };
 
   const handleFinalize = (startNow = false) => {
+    if (submittingRef.current) return;
     // A follow-up must pair with the visit it follows — otherwise the chain
     // (reminders, parent linkage, history) has nothing to hang off.
     if (encounterType === 'VET_VISIT' && visitType === 'FOLLOW_UP' && !parentApptId) {
       toast.error('Pick the visit this follow-up pairs with (see "Follow-up to which visit?")');
       return;
     }
+    submittingRef.current = true;
+    setSubmitting(true);
+    // Released only on a validation bail-out below. On a real submit the view
+    // unmounts (the parent navigates away), so it must NOT be cleared in a
+    // finally — that would re-arm the button for the moment before unmount.
+    const releaseSubmit = () => { submittingRef.current = false; setSubmitting(false); };
     const tasks = selectedCategories.flatMap(cat => {
       const catName = categoriesWithIcons.find(c => c.id === cat.categoryId)?.name || 'General';
       return cat.services.map(svc => ({
@@ -1133,6 +1147,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     // Vaccination visit types stage their vaccines manually — no seed.
     let seedCost = 0;
     if (tasks.length === 0 && !isVaccinationVisit && encounterType !== 'VACCINATION' && encounterType !== 'RETAIL') {
+      releaseSubmit();
       let seed;
       if (encounterType === 'GROOMING' || encounterType === 'BOARDING') {
         const want = encounterType === 'GROOMING' ? 'groom' : 'board';
@@ -1321,9 +1336,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     </label>
   );
   const renderBookButton = (extraCls = '') => (
-    <button onClick={() => handleFinalize(startNowPref)} disabled={!isFormValid}
+    <button onClick={() => handleFinalize(startNowPref)} disabled={!isFormValid || submitting}
       className={`bg-pine dark:bg-zinc-100 text-white dark:text-pine py-3 rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 transition-all disabled:opacity-30 flex items-center justify-center gap-1.5 ${extraCls}`}>
-      {startNowPref ? '▶ Book & Start Visit' : 'Book only'}
+      {submitting ? 'Creating…' : (startNowPref ? '▶ Book & Start Visit' : 'Book only')}
     </button>
   );
 
@@ -2348,9 +2363,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
           {startNowToggle}
           <div className="flex-1" />
           <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest hidden sm:block">Estimate {currency} {totalCost.toLocaleString()}</span>
-          <button data-tour="appointment-submit" onClick={() => handleFinalize(startNowPref)} disabled={!isFormValid}
+          <button data-tour="appointment-submit" onClick={() => handleFinalize(startNowPref)} disabled={!isFormValid || submitting}
             className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 disabled:opacity-30 transition-all active:scale-95">
-            {startNowPref ? '▶ Book & Start Visit' : 'Book only'}
+            {submitting ? 'Creating…' : (startNowPref ? '▶ Book & Start Visit' : 'Book only')}
           </button>
         </div>
       </div>

@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: double-clicking Book created two visits  —  2026-07-29
+- **What changed:** the visit-registration submit is now guarded. Both submit buttons were
+  disabled only by `!isFormValid`, so a second click before the create resolved raised a
+  **second visit** — duplicate clinical records for one patient, each with its own bill.
+  Both buttons now disable while in flight and read *Creating…*.
+- **Record impact:** 🟢 None — it prevents rows being created that never should have been.
+- **Rollback:** revert; double-submit returns.
+- ⚠️ **Watch out:** the block is a **ref**, not the state flag. Two clicks in the same tick
+  would both pass a state check, because state updates are async — the ref is what actually
+  stops the second one; the state only drives the label.
+- ⚠️ **Watch out:** the guard is released only on a validation bail-out, deliberately **not**
+  in a `finally`. On a real submit the view unmounts as the parent navigates away, and
+  clearing it there would re-arm the button for the moment before unmount.
+
 ### feat: prefill a vaccine from a procedure/recipe  —  2026-07-29 (completes ADDITION 1)
 - **What changed:** the vaccine section of a vaccination record now offers **"Prefill from a
   procedure…"**. A clinic's protocol already names the vaccine and the stock item it draws
