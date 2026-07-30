@@ -175,6 +175,7 @@ const CLINIC_ITEMS: MenuItem[] = [
       { id: 'vaccine-packages', label: 'Vaccine Packages', icon: Syringe },
       { id: 'service-bundles',  label: 'Service Bundles',  icon: Layers },
       { id: 'purchase-orders',  label: 'Purchase Orders',  icon: ShoppingCart },
+      { id: 'payables',         label: 'Payables',         icon: CircleDollarSign },
       { id: 'suppliers',        label: 'Supplier Hub',     icon: Truck },
     ],
   },
@@ -275,6 +276,7 @@ export const INVENTORY_PROCUREMENT_MENU: MenuItem = {
   icon: Truck,
   subItems: [
     { id: 'purchase-orders', label: 'Purchase Orders', icon: ShoppingCart },
+    { id: 'payables',        label: 'Payables',        icon: CircleDollarSign },
     { id: 'suppliers',       label: 'Supplier Hub',    icon: Truck },
   ],
 };

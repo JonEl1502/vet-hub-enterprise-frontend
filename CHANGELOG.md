@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Payables — the supplier A/P screen  —  2026-07-30
+- **What changed:** new `payables` view (Suppliers & Orders → Payables) plus
+  `services/modules/supplierAp.api.ts`. Completes the front end of the payable chain
+  `PurchaseOrder → SupplierInvoice → SupplierPayment`.
+  - Headline split: **Total owed · Invoiced · Received-not-billed (GRNI) · Overdue**. The
+    GRNI column is the point of the screen — goods are in and we owe for them, but no
+    document has arrived to pay against. Recording the invoice MOVES money between the two
+    columns rather than adding to the total, and the copy says so.
+  - Suppliers-owed list → per-supplier invoices + un-billed orders. Record an invoice
+    (optionally against a received order, which prefills the unbilled amount), pay the
+    supplier, void an invoice.
+  - The pay modal **previews the allocation before the money is taken** — which invoice/order
+    each part clears and what it leaves behind, invoices before GRNI, oldest first.
+- **Record impact:** 🟢 None by itself — reads only. The actions it exposes write payments and
+  invoices, which is their purpose.
+- **Data dependency:** **Requires migration 159** (`supplier_invoices`). The summary tile
+  works without it; per-supplier invoice lists need it.
+- **Rollback:** revert; remove the `payables` menu entry and route.
+- ⚠️ **Watch out:** every figure is derived server-side, so the screen re-reads both the
+  summary and the balance after any write. Don't optimise that into a local mutation — a
+  stale copy is the only way this screen could show a wrong balance.
+- ⚠️ **Watch out:** the allocation shown in the pay modal is a **preview**. The server
+  allocates authoritatively; if the two ever disagree, the server is right.
+- ⚠️ A duplicate supplier-invoice number is refused by the server on purpose (paying one
+  twice is the classic A/P loss). Surface the message — never retry it.
+
 ### feat: edit a procedure's copy on the visit, not your saved template  —  no migration
 - **What changed:** an applied procedure can now be edited **for that visit only** — its name
   and stage labels — from the applied-procedure panel. Previously a vet adapting a protocol

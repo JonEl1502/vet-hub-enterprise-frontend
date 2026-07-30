@@ -99,6 +99,7 @@ import StaffProfileView from './components/clinic/staff/StaffProfileView';
 import StaffRegistrationView from './components/clinic/staff/StaffRegistrationView';
 import SupplierDetailView from './components/shared/marketplace/SupplierDetailView';
 import SuppliersHubView from './components/shared/marketplace/SuppliersHubView';
+import PayablesView from './components/clinic/inventory/PayablesView';
 import ClinicsManagementView from './components/admin/clinics/ClinicsManagementView';
 import PurchaseOrdersView from './components/shared/marketplace/PurchaseOrdersView';
 import SubscriptionManagement from './components/clinic/billing/SubscriptionManagement';
@@ -265,7 +266,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   // Views safe to persist across refresh/login (top-level only, no detail/form views)
   const PERSIST_VIEWS = new Set([
     'dashboard', 'reminders', 'appointment-bookings', 'appointments', 'clients', 'patients', 'inventory', 'procedures', 'workflows', 'clinic-billables', 'packages', 'services-catalog', 'bills',
-    'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders',
+    'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders', 'payables',
     'billing', 'referrals', 'settings', 'import-data', 'broadcasts', 'supplier-dashboard',
     'supplier-products', 'supplier-orders', 'supplier-branches',
     'supplier-staff', 'supplier-management',
@@ -360,7 +361,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     // Load suppliers on first visit to any supplier/inventory view
     if (!suppliersLoaded.current && (
       activeView === 'inventory' || activeView === 'suppliers' ||
-      activeView === 'purchase-orders' || activeView.startsWith('supplier-')
+      activeView === 'purchase-orders' || activeView === 'payables' || activeView.startsWith('supplier-')
     )) {
       suppliersLoaded.current = true;
       suppliersAPI.getAll({ page: 1, limit: 200 })
@@ -2173,7 +2174,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       return hasPerm(Permission.VIEW_CLINIC_MGMT);
 
     // Suppliers hub — full-access roles or users with VIEW_SUPPLIERS permission
-    if (['suppliers', 'supplier-detail'].includes(view))
+    if (['suppliers', 'supplier-detail', 'payables'].includes(view))
       return hasPerm(Permission.VIEW_SUPPLIERS);
 
     // Everything else (platform-admin views, etc.) — full-access roles only
@@ -2853,6 +2854,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <AdminClinicTransfersView />;
       case 'freelancer-categories':
         return <FreelancerCategoriesPage onNavigate={navigateTo} />;
+      case 'payables':
+        return <PayablesView currency={firstActiveClinic?.currency ?? 'KES'} />;
       case 'suppliers':
         return <SuppliersHubView onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} />;
       case 'supplier-detail':
