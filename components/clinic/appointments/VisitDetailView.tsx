@@ -365,6 +365,13 @@ const VisitDetailInner: React.FC<Props> = ({
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [isFinalizing, setIsFinalizing] = useState(false);
   const [showFinalizeGate, setShowFinalizeGate] = useState(false);
+  // Pre-receipt reminder step (user, 2026-07-30). Holds the settle arguments
+  // while the reminder is asked, so the payment resumes with exactly what the
+  // cashier confirmed rather than being re-derived from state that may have moved.
+  const [showPreReceiptReminder, setShowPreReceiptReminder] = useState(false);
+  const [pendingSettle, setPendingSettle] = useState<
+    { paymentMethod: string; discountType?: 'PERCENTAGE' | 'FIXED'; discountValue?: number; walletId: string | null } | null
+  >(null);
   // Full-width workflow tabs: Emergency Triage (leads on emergency visits) ·
   // Clinical Workflow · Categories & Services · Records & Billing.
   // Non-finalized visits land on the clinical wizard (entry-point-driven) —
@@ -2267,7 +2274,13 @@ const VisitDetailInner: React.FC<Props> = ({
         toast.info(`${pending.length} service${pending.length === 1 ? '' : 's'} still open — they'll be completed when the bill is generated.`);
       }
     } catch { /* offline / fetch error — fall through, the server decides */ }
-    setShowFinalizeGate(true);
+    // MOVED (user, 2026-07-30): generating the bill no longer asks for a
+    // follow-up reminder. Finalizing is a BILLING act — the vet is closing the
+    // charges, and being blocked by a clinical question they may not be able to
+    // answer yet is what made settling feel heavy. The reminder is now asked
+    // once, just before the RECEIPT (see `handleSettleBill`), which is the last
+    // moment it can still be captured while the client is in front of you.
+    void handleFinalize(null);
   };
 
   const handleFinalize = async (reminder: ReminderDraft | null) => {
@@ -2317,6 +2330,30 @@ const VisitDetailInner: React.FC<Props> = ({
 
   // Handle "Settle Bill" - called from modal with payment method + optional discount
   // Single API call via processPayment — handles tasks completion, transaction, receipt, status update
+  /**
+   * Take the payment after the pre-receipt reminder step, using the arguments
+   * captured when the cashier confirmed — not re-read from state, which may have
+   * moved while the reminder dialog was open.
+   */
+  const proceedWithSettle = async () => {
+    const args = pendingSettle;
+    setPendingSettle(null);
+    setShowPreReceiptReminder(false);
+    if (!args) return;
+    settlingLockRef.current = true;
+    setIsSettlingBill(true);
+    try {
+      await onProcessPayment(appointment.id, args.paymentMethod, args.discountType, args.discountValue, args.walletId);
+      toast.success('Bill settled successfully.');
+      await onRefreshDashboard?.();
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to settle bill');
+    } finally {
+      settlingLockRef.current = false;
+      setIsSettlingBill(false);
+    }
+  };
+
   const handleSettleBill = async (paymentMethod: string, discountType?: 'PERCENTAGE' | 'FIXED', discountValue?: number, walletId?: string | null) => {
     // Re-entry guard — covers (a) rapid Confirm-button double-clicks, and
     // (b) the gateway path which used to return without setting the React
@@ -2343,6 +2380,22 @@ const VisitDetailInner: React.FC<Props> = ({
     }
 
     setShowSettleModal(false);
+
+    // The reminder question, moved here from the finalize gate. Asked BEFORE the
+    // receipt because that is the last point the client is still present — and
+    // only when the visit has none, so it is asked once per visit rather than at
+    // every part payment.
+    // ⚠️ It does NOT gate the payment. Taking money must never depend on a
+    // clinical follow-up decision; the previous gate did, and that is precisely
+    // what made this flow feel hard. If the vet cancels, the payment proceeds.
+    if (!visitReminder) {
+      setPendingSettle({ paymentMethod, discountType, discountValue, walletId: walletId ?? null });
+      setShowPreReceiptReminder(true);
+      settlingLockRef.current = false;
+      setIsSettlingBill(false);
+      return;
+    }
+
     try {
       // Must await — handleProcessPayment in App.tsx writes via fetch then
       // applies the optimistic isPaid=true. Without await, the dashboard
@@ -2579,18 +2632,33 @@ const VisitDetailInner: React.FC<Props> = ({
       )}
       {/* Finalize / Settle live in the top card's action row now (Epic A). */}
 
-      {/* Strict pre-finalize gate: a visit can't finalize without a follow-up
-          reminder (deceased patient bypasses). */}
+      {/* The strict pre-finalize reminder gate is GONE (user, 2026-07-30):
+          generating the bill no longer asks for a follow-up. `openFinalizeGate`
+          finalizes directly and the reminder is asked once before the RECEIPT
+          instead. The dialog was removed rather than left mounted behind a flag
+          nothing sets — an unreachable component that still type-checks is the
+          dead-code trap this repo keeps paying for. `handleFinalize` still takes
+          a `ReminderDraft | null`, so re-introducing a gate here is passing a
+          reminder again, not rebuilding the path. */}
+
+      {/* PRE-RECEIPT reminder step (user, 2026-07-30). The same gate component,
+          moved off bill generation to here — the last moment the client is still
+          in front of you. Cancelling still takes the payment: money must never
+          wait on a clinical decision. */}
       <FinalizeReminderGate
-        open={showFinalizeGate}
+        open={showPreReceiptReminder}
         petName={appointment.pet?.name ?? 'Patient'}
         clientName={appointment.client?.name ?? 'Client'}
         encounterType={appointment.encounterType}
         petDeceased={pets.find(p => p.id === appointment.petId)?.isAlive === false}
-        submitting={isFinalizing}
+        submitting={isSettlingBill}
         existing={visitReminder}
-        onCancel={() => setShowFinalizeGate(false)}
-        onConfirm={(reminder) => handleFinalize(reminder)}
+        onCancel={() => { void proceedWithSettle(); }}
+        onConfirm={async (reminder) => {
+          // Best-effort: a reminder that fails to save must not block the money.
+          if (reminder) { try { await createVisitReminder(reminder); } catch { /* surfaced by createVisitReminder */ } }
+          await proceedWithSettle();
+        }}
       />
 
       {/* Standalone follow-up reminder creation (when the visit has none). */}
@@ -2906,6 +2974,28 @@ const VisitDetailInner: React.FC<Props> = ({
                 {!appointment.isPaid && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
                   <button onClick={openSettleModal} disabled={isSettlingBill} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50">
                     <CreditCard size={12} /> Settle bill
+                  </button>
+                )}
+                {/* PAY-FIRST signpost (user, 2026-07-30 — the "hard to settle"
+                    complaint). Taking money on an OPEN visit already works
+                    end-to-end: issue the bill for pay-first and a Collect button
+                    appears on it, the visit stays clinically open and no receipt
+                    is issued for a deposit (verified on staging, 3/3). What was
+                    missing was any way to FIND it — "Settle bill" above only
+                    renders once the visit is finalized, so on an open visit the
+                    header offered nothing and the working path was buried behind
+                    a button called "Issue for pay-first" two tabs away.
+                    This navigates rather than acting: it cannot create a bill or
+                    take money by itself, and `billsAPI.get` deliberately is NOT
+                    called here — that endpoint RAISES a draft bill as a side
+                    effect, so probing it just to decide a button's label would
+                    create bills for every visit anyone opened. */}
+                {!appointment.isPaid && !isFinalized && (
+                  <button
+                    onClick={() => { setWorkflowTab('billing'); setActiveBottomTab('bill'); }}
+                    title="Collect before the work is finished. Issue the bill for pay-first on the next screen, then Collect — the visit stays open and editable."
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                    <CreditCard size={12} /> Take payment now
                   </button>
                 )}
                 {isFinalized && !appointment.isPaid && canUnlock && (

@@ -59,6 +59,35 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: the follow-up reminder moves off bill generation to just before the receipt  —  2026-07-30
+- **What changed:** generating the bill no longer asks for a follow-up reminder — it finalizes
+  directly. The reminder is asked ONCE, immediately before the receipt, at settle time.
+- **Record impact:** 🟢 None — same reminder, asked at a different moment.
+- **Data dependency:** None.
+- **Rollback:** revert; `handleFinalize` still accepts `ReminderDraft | null`, so restoring a
+  gate at finalize is passing a reminder again rather than rebuilding the path.
+- ⚠️ **It no longer BLOCKS the payment.** The old gate refused to finalize without a reminder;
+  the new step proceeds with the payment even if the vet cancels. Money must never wait on a
+  clinical decision — that coupling is what made settling feel heavy.
+- ⚠️ Only asked when the visit has no reminder, so a part payment doesn't re-ask every time.
+- The unreachable finalize-gate dialog was **deleted**, not left mounted behind a flag nothing
+  sets — an unreachable component that still type-checks is the dead-code trap this repo keeps
+  paying for.
+
+### page: "Take payment now" on an open visit  —  2026-07-30
+- **What changed:** an open, unpaid visit now shows **Take payment now** in the header, which
+  navigates to the Bill tab where the bill can be issued for pay-first and collected.
+- **Why:** pay-first already worked end-to-end (verified on staging, 3/3 — payment accepted on
+  an `IN_PROGRESS` visit, marked `prepaid`, left clinically open, no receipt for a deposit).
+  It was simply **undiscoverable**: "Settle bill" only appears once the visit is finalized, so
+  an open visit offered nothing and the working path sat behind a button called "Issue for
+  pay-first" two tabs away. This is the missing signpost, not new machinery.
+- **Record impact:** 🟢 None — it navigates; it cannot create a bill or take money by itself.
+- **Data dependency:** None.
+- ⚠️ **`billsAPI.get` is deliberately NOT called to decide the button.** That endpoint RAISES a
+  draft bill as a side effect, so probing it for a label would create bills for every visit
+  anyone opened.
+
 ### page: vaccination visit no longer requires a staged service to create  —  2026-07-30
 - **What changed:** `NewVisitView` `isFormValid` no longer demands ≥1 staged service for a
   VACCINATION visit. The vaccine / package / procedure picker stays on the create form
