@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Records & Reports goes full-width; the patient rail moves to Follow-Up & Reminders  —  2026-07-30
+- **What changed:** Records & Reports now runs full width like the Bill tab, and the
+  patient-context cards (Patient & Owner · Behaviour · Clinical Snapshot) move into the
+  Follow-Up & Reminders tab beside the visit's reminder and the doctor's staged plan.
+- **Why:** a medical report and a line-item table are both worse to read in a 70% column, and
+  the rail was sitting mostly empty next to them. In the Follow-Up tab the same cards have
+  something to sit alongside — patient history and behaviour are exactly what you want in view
+  while deciding a follow-up.
+- **Record impact:** 🟢 None — layout only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit.
+- ⚠️ **`patientRail` is still used by the WIZARD** (`sideRail`) — it is not dead code. Don't
+  "clean it up" after seeing it disappear from Records.
+
 ### config: the repo stops tracking `node_modules` and `dist`  —  2026-07-30
 - **What changed:** this repo had **no `.gitignore`** and tracked **27,410 `node_modules`
   files** plus the built `dist/` and stray `.DS_Store`s. Added a `.gitignore` (mirroring the

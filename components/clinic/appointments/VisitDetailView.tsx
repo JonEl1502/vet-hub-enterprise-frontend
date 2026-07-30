@@ -3290,8 +3290,15 @@ const VisitDetailInner: React.FC<Props> = ({
             )}
           </div>
 
-          {/* The doctor's staged plan → reminders + a booked appointment. */}
-          <div>{followUpPanel}</div>
+          {/* The doctor's staged plan → reminders + a booked appointment, and
+              the patient-context cards moved off the Records rail (user,
+              2026-07-30) — the reminder and the plan are exactly what you want
+              the patient's history and behaviour beside while deciding a
+              follow-up. */}
+          <div className="space-y-4">
+            {followUpPanel}
+            {patientRail}
+          </div>
         </div>
       )}
 
@@ -4335,11 +4342,11 @@ const VisitDetailInner: React.FC<Props> = ({
       {/* Tab 2 (cont.) — Record · Meds & Consumables · Invoice · Receipt */}
       {(workflowTab === 'records' || workflowTab === 'billing') && (
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 items-start animate-in fade-in slide-in-from-bottom-2" data-section="receipt-tabs">
-        {/* The BILL tab runs FULL WIDTH (user, 2026-07-29): the bill already
-            carries everything the visit produced, and line items, quantities and
-            prices are the wrong thing to read in a 70% column. Records keeps the
-            7/3 split because its rail context is still useful there. */}
-        <div className={`${workflowTab === 'billing' ? 'lg:col-span-10' : 'lg:col-span-7'} bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md overflow-hidden`}>
+        {/* BOTH tabs run FULL WIDTH now (Bill: user 2026-07-29; Records: user
+            2026-07-30). Line items, prices and a medical report are all the wrong
+            things to read in a 70% column, and the patient-context rail that used
+            to justify the split has moved to Follow-Up & Reminders. */}
+        <div className="lg:col-span-10 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-md overflow-hidden">
                 {/* Tab Navigation */}
                 <div data-tour="appt-tabs" className="flex overflow-x-auto scrollbar-none bg-slate-50 dark:bg-zinc-800 border-b border-slate-200 dark:border-zinc-700 p-1.5 gap-1">
                    {(workflowTab === 'billing'
@@ -5393,15 +5400,14 @@ const VisitDetailInner: React.FC<Props> = ({
                 </div>
              </div>
 
-             {/* Right rail — 30%: shared patient context cards. Deliberately NOT
-                 rendered on the Bill tab, which is full width. The Follow-up Plan
-                 card that used to live here now has its own tab, so nothing is
-                 lost by dropping the rail. */}
-             {workflowTab !== 'billing' && (
-               <aside className="lg:col-span-3">
-                 {patientRail}
-               </aside>
-             )}
+             {/* RAIL MOVED to Follow-Up & Reminders (user, 2026-07-30). Records
+                 now runs FULL WIDTH like the Bill tab: a medical report and a
+                 line-item table are both worse to read in a 70% column, and the
+                 patient context was sitting mostly empty beside them. The cards
+                 are not lost — they render in the Follow-Up tab, where the
+                 reminder and the doctor's plan give them something to sit
+                 alongside. `patientRail` is still used by the WIZARD (`sideRail`),
+                 so it is not dead. */}
       </div>
       )}
 
