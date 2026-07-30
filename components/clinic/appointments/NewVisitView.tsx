@@ -363,7 +363,6 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // go. Applied AFTER creation via the existing apply endpoint, which is the
   // same path auto-apply uses — so stock, billing and the deferred-deduction
   // rules behave identically to picking the trigger service by hand.
-  const [pickedProcedureId, setPickedProcedureId] = useState<string | null>(null);
   // Submit guard. The button was disabled only by !isFormValid, so a second
   // click before the create resolved raised a SECOND visit — duplicate
   // clinical records for one patient, each with its own bill. The ref is what
@@ -371,32 +370,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // tick would both pass a state check.
   const submittingRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
-  const [procedureOptions, setProcedureOptions] = useState<{ id: string; name: string; categoryName: string | null; species: string[] }[]>([]);
-  useEffect(() => {
-    let live = true;
-    procedureTemplatesAPI.list()
-      .then(r => {
-        if (!live || !r.success || !r.data?.templates) return;
-        setProcedureOptions(r.data.templates
-          .filter(t => t.isActive)
-          .map(t => ({ id: t.id, name: t.name, categoryName: t.categoryName, species: t.species || [] })));
-      })
-      .catch(() => { /* picker just doesn't appear */ });
-    return () => { live = false; };
-  }, []);
-
-  // Recipes for the categories this visit actually covers, and for this
-  // patient's species — offering a rabbit protocol for a dog is worse than
-  // offering nothing.
-  const relevantProcedures = useMemo(() => {
-    const cats = workflowCategories.map(c => (c.name || '').toLowerCase());
-    const petSpecies = (pets.find(p => String(p.id) === String(selectedPetId))?.species || '').toLowerCase();
-    return procedureOptions.filter(pr => {
-      if (pr.species.length && petSpecies && !pr.species.some(sp => sp.toLowerCase() === petSpecies)) return false;
-      if (!pr.categoryName) return true;
-      return cats.some(c => c && pr.categoryName!.toLowerCase().includes(c));
-    });
-  }, [procedureOptions, workflowCategories, pets, selectedPetId]);
+  // The recipe list + its species/category filtering went with the picker
+  // (user, 2026-07-29). Removed rather than left dangling: it was a network
+  // call on every visit-registration mount whose only consumer was that select.
 
   // ── Workflow chosen at registration (ADDITION 2) ────────────────────────
   // The clinic's own workflows for this kind of visit. Picking one here pins
@@ -1277,8 +1253,10 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       // Carried to the visit so the wizard opens on the workflow chosen here
       // rather than re-resolving one. Consumed by App -> VisitDetailView.
       workflowTemplateId: pickedTemplateId,
-      // Applied after the visit exists — see App's create handler.
-      procedureTemplateId: pickedProcedureId,
+      // No recipe is staged at registration any more (user, 2026-07-29) — the
+      // field stays in the payload contract, always null, because App's create
+      // handler and the backend still accept it from other callers.
+      procedureTemplateId: null,
       // Escalate to in-patient (vet visits only) — links a hospitalization.
       onboardInpatient: encounterType === 'VET_VISIT' && onboardInpatient,
     });
@@ -1526,29 +1504,15 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
             )}
             */}
 
-            {/* A recipe stages its fees, products and diagnostics in one go. */}
-            {relevantProcedures.length > 0 && (
-              <div className="mt-3">
-                <label className="field-label">Procedure / recipe (optional)</label>
-                <select
-                  className="field-select"
-                  value={pickedProcedureId ?? ''}
-                  onChange={e => setPickedProcedureId(e.target.value || null)}
-                >
-                  <option value="">None — add services manually</option>
-                  {relevantProcedures.map(pr => (
-                    <option key={pr.id} value={pr.id}>
-                      {pr.name}{pr.categoryName ? ` · ${pr.categoryName}` : ''}
-                    </option>
-                  ))}
-                </select>
-                <p className="text-[9px] font-bold text-slate-400 mt-1">
-                  {pickedProcedureId
-                    ? 'Its fees, products and diagnostics are added to the visit once it is created. Stock is only drawn when the visit settles, so nothing moves yet.'
-                    : 'Pick one to stage a whole protocol instead of adding each line by hand.'}
-                </p>
-              </div>
-            )}
+            {/* The "Procedure / recipe (optional)" picker was REMOVED here by the
+                user, 2026-07-29: registration should capture who is being seen
+                and why, not stage a protocol before anyone has looked at the
+                patient. Recipes are still applied from the visit itself (the
+                applied-procedure panel on the Bill tab), and the backend still
+                auto-applies one whose trigger service is added by name — so
+                nothing is lost, it just happens after the clinical decision
+                rather than before it. */
+            }
           </div>
 
         ) : (

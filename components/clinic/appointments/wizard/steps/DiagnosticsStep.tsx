@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { FlaskConical, FileSearch, Lightbulb, Plus, ExternalLink, FileText, Eye, EyeOff, Loader2, Building2, Trash2 } from 'lucide-react';
 import { StepProps } from '../types';
+import InlineServiceSearch from '../../../shared/InlineServiceSearch';
+import { useServiceInject } from '../../../shared/ServiceInjectContext';
 import { Section, L, showsField } from '../fields';
 import { labAPI, imagingAPI, LabRecord, ImagingRecord, dialog } from '../../../../../services';
 import { formatDate } from '../../../../../services/utils/dateFormatter';
@@ -89,6 +91,8 @@ const ImagingResultInline: React.FC<{ r: ImagingRecord }> = ({ r }) => {
 
 const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices, addService, openModule, deleteTask, emit, currency, staff, visibleFields  }) => {
   const show = showsField(visibleFields);
+  // Inline add, provided by VisitDetailView (see ServiceInjectContext).
+  const { injectService, addedNames } = useServiceInject();
   const d = data || {};
   const requests = (visit.tasks || []).filter(t => isDiagnostic(t.category));
   const { user: currentUser } = useAuth();
@@ -135,7 +139,22 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
     if (opening) loadRecords();
   };
 
-  const addButton = (addService || goServices) && (
+  // A small inline search, not the right-side drawer (user, 2026-07-29):
+  // adding one lab test shouldn't be a full-screen trip through a category
+  // catalogue. Whatever is picked lands in ITS OWN category — imaging adds
+  // imaging, laboratory adds laboratory — and the requests list below (which
+  // the report is built from) picks it up from the same place.
+  const addButton = injectService ? (
+    <div className="max-w-sm mx-auto text-left">
+      <InlineServiceSearch
+        onAdd={injectService}
+        addedNames={addedNames}
+        currency={currency}
+        placeholder="Search a diagnostic service to add…"
+        suggestCategories={['Laboratory', 'Imaging', 'Diagnostic']}
+      />
+    </div>
+  ) : (addService || goServices) && (
     <button type="button" onClick={addService ?? goServices}
       className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
       <Plus size={11} /> Add diagnostic service

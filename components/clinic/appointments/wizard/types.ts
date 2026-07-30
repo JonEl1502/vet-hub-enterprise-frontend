@@ -58,8 +58,15 @@ export interface StepProps {
   data: any; // this step's slice of the wizard data
   setData: (patch: any) => void; // shallow-merges into the slice
   emit: (label: string, kind?: JourneyKind, auto?: boolean) => void;
-  goServices?: () => void; // jump to the Categories & Services tab
-  addService?: () => void; // open the Add Services modal in place
+  goServices?: () => void; // jump to the bill (was: the Categories & Services tab)
+  addService?: () => void; // open the Add Services drawer in place
+  /**
+   * Add a service straight onto the visit, no drawer (user, 2026-07-29).
+   * Powers the small inline search that replaced "Add diagnostic service".
+   * The service lands in ITS OWN category — imaging adds imaging, surgery adds
+   * surgery — so one search box serves every panel.
+   */
+  injectService?: (svc: { id: number; name: string; defaultPrice?: number | null }, categoryName: string) => void;
   openModule?: (category: string) => void; // open the service's module full page for this visit
   // Remove a service line from the visit — available until the bill is paid
   // (anything added is deletable before payment; server enforces the lock).

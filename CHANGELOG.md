@@ -59,6 +59,34 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: a small inline service search, and no recipe picker at registration  —  no migration
+User, 2026-07-29 (screenshots). Two changes, same principle: do the thing where you are.
+- **"Add diagnostic service" is now a search box in the panel**, not the right-side Add
+  Services drawer. Type, click a match, it's on the visit — the panel you were reading never
+  leaves the screen. Whatever is picked lands in **its own category** (imaging adds imaging,
+  laboratory adds laboratory), so one control serves every panel and the requests list the
+  report is built from picks it up unchanged. The drawer still exists for browsing the whole
+  catalogue by category; this is the fast path, not a replacement for browsing.
+- **The "Procedure / recipe (optional)" picker is gone from visit registration.**
+  Registration should capture who is being seen and why, not stage a protocol before anyone
+  has looked at the patient. Recipes are still applied from the visit itself, and the backend
+  still auto-applies one whose trigger service is added by name — so nothing is lost, it just
+  happens after the clinical decision instead of before it.
+- **Record impact:** 🟢 None — UI only. Adding a service goes through the same
+  `onInjectTask` path as the drawer, unassigned on purpose (defaulting to the first staff
+  member credits work to someone nobody picked).
+- **Migration / rollout:** frontend only.
+- **Rollback:** revert; the button and the picker come back.
+- ⚠️ **Watch out — why a context and not a wizard prop.** `StepProps.injectService` is
+  declared, but the plumbing that would forward it lives in `wizard/VisitWizard.tsx`, which
+  another session had **uncommitted changes in**. Staging that file would have swept their
+  in-flight work into this commit — the accident `SESSION_BOARD.md` rule 2 exists to prevent.
+  `ServiceInjectContext` provides the callback from the VisitDetailView side instead. Fold it
+  into `StepProps` when the wizard is next refactored.
+- ℹ️ Removed with the picker: the `procedureTemplatesAPI.list()` call that ran on every
+  registration mount and the species/category filter memo — that select was their only
+  consumer.
+
 ### feat: Demo Requests page, and clinic email verification in admin  —  2026-07-29
 - **Demo Requests** (Platform → Demo Requests). Leads from the public form, which previously
   went only to an inbox. Status tabs with counts (New / Contacted / Converted / Dismissed),

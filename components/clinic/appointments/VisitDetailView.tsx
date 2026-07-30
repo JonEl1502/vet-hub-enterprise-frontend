@@ -45,6 +45,7 @@ import AdmitBoardingModal from '../boarding/AdmitBoardingModal';
 import FinalizeReminderGate, { ReminderDraft } from './FinalizeReminderGate';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import AppliedProcedurePanel from '../shared/AppliedProcedurePanel';
+import { ServiceInjectProvider } from '../shared/ServiceInjectContext';
 import BillPanel from './BillPanel';
 import BillBalanceCard from './BillBalanceCard';
 import type { Bill } from '../../../services/modules/bills.api';
@@ -3001,6 +3002,27 @@ const VisitDetailInner: React.FC<Props> = ({
       {workflowTab === 'clinical' && (
       <div className="relative">
         <div className={isEmergency && !triageStabilized ? 'pointer-events-none select-none blur-[2px] opacity-50' : ''} aria-hidden={isEmergency && !triageStabilized}>
+        {/* Lets panels inside the wizard add a service inline instead of opening
+            the drawer (user, 2026-07-29). A provider rather than a wizard prop —
+            see ServiceInjectContext for why. */}
+        <ServiceInjectProvider
+          currency={activeClinic.currency}
+          addedNames={new Set((appointment.tasks || []).map(t => (t.name || '').trim().toLowerCase()))}
+          injectService={!isFinalized ? (svc, categoryName) => {
+            onInjectTask(appointment.id, {
+              id: Math.floor(Math.random() * 1000000),
+              name: svc.name,
+              category: categoryName,
+              status: TaskStatus.PENDING,
+              // Unassigned on purpose — same rule as the drawer: defaulting to
+              // the first staff member credits work to someone nobody picked.
+              assignedStaffId: undefined,
+              price: Number(svc.defaultPrice ?? 0),
+              serviceId: svc.id,
+            });
+            toast.success(`${svc.name} added`);
+          } : undefined}
+        >
         <VisitWizard
           visit={appointment}
           pet={pet}
@@ -3082,6 +3104,7 @@ const VisitDetailInner: React.FC<Props> = ({
           }}
           sideRail={patientRail}
         />
+        </ServiceInjectProvider>
         </div>
         {isEmergency && !triageStabilized && (
           <div className="absolute inset-0 z-10 flex items-start justify-center pt-14 px-4">
