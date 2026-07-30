@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: the signed-in email shows in the profile dropdown  —  2026-07-31
+- **What changed:** the account menu now shows the signed-in user's email under their name and
+  role.
+- **Why:** display names collide — several accounts read "Admin" — and the name isn't what you
+  log in with. The email is the one unambiguous answer to "who am I signed in as right now",
+  which matters most on the admin and support accounts people switch between.
+- **Record impact:** 🟢 None — display only.
+- **Data dependency:** None. `user.email` already rides on the auth context.
+- **Rollback:** revert the commit.
+- ⚠️ Renders only when an email is present, and carries the full address in `title` — a long
+  address truncates in an 18rem menu.
+
 ### page: Records & Reports goes full-width; the patient rail moves to Follow-Up & Reminders  —  2026-07-30
 - **What changed:** Records & Reports now runs full width like the Bill tab, and the
   patient-context cards (Patient & Owner · Behaviour · Clinical Snapshot) move into the

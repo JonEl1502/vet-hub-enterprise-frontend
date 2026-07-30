@@ -619,6 +619,20 @@ const Navbar: React.FC<NavbarProps> = ({
                 <div className="px-4 py-4 border-b border-slate-100 dark:border-zinc-800">
                   <p className="text-pine dark:text-zinc-100 font-black text-xs">{shortName(userName)}</p>
                   <p className="text-seafoam text-[9px] font-bold uppercase tracking-widest mt-0.5">{roleLabel}</p>
+                  {/* Which account you are actually signed in as. Names collide
+                      ("Admin" on several accounts) and the display name is not
+                      what you log in with — the email is the one unambiguous
+                      answer to "who am I right now", which matters most on the
+                      admin/support accounts people switch between.
+                      `title` carries the full address: a long one truncates. */}
+                  {user?.email && (
+                    <p
+                      title={user.email}
+                      className="text-slate-500 dark:text-zinc-400 text-[10px] font-bold mt-1 truncate normal-case"
+                    >
+                      {user.email}
+                    </p>
+                  )}
                 </div>
 
                 {/* Clinic / Branch section */}
