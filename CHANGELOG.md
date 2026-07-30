@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: inventory import template matches the Add Product form  —  2026-07-30
+- **What changed:** the Import Data → Inventory CSV template (`utils/import/schemas.ts`
+  `INVENTORY_SCHEMA`) grew from 10 to 28 columns so it mirrors the Add Product form:
+  main category, product details (manufacturer / country of origin / storage /
+  prescription-only / species), pack size, billable, reorder controls (max level /
+  reorder qty / barcode), **cost & sale price per selected unit** (`cost_unit` /
+  `sell_unit`), and the four **service charges** (service / administration / injection
+  + injection mL / prescription). Column reference, preview validation and the sample
+  rows all follow from the schema, so they picked the new fields up automatically.
+- **Record impact:** 🟡 **Medium** in the same sense any import is — committing a file
+  creates inventory rows in bulk. The template change itself rewrites nothing.
+- **Data dependency:** backend `import.service.ts` update in the same-day backend commit
+  (code-only, no migration — all columns already exist).
+- **Rollback:** revert; old 10-column files remain valid since every new column is optional.
+- ⚠️ **Watch out:** fees are **blank = not applied, number (incl. 0) = applied** — a
+  column of zeros applies a zero fee to every imported product, it does not skip it.
+
 ### page + data-shape: catalog restructure — one product structure, supplier→clinic  —  2026-07-30
 - **What changed:** the reference catalog, supplier listings and clinic stock now share ONE
   product structure, so a product's category / subcategories / units are set once and
