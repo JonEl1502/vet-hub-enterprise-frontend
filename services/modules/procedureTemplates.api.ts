@@ -184,6 +184,20 @@ export const procedureTemplatesAPI = {
   materializeItem: async (applicationId: string | number, templateItemId: string | number, options?: RequestOptions): Promise<ApiResponse<{ application: ProcedureApplication }>> =>
     post(ENDPOINTS.PROCEDURE_TEMPLATES.APP_ITEMS(applicationId), { templateItemId }, { showError: true, ...options }),
 
+  /**
+   * Edit THE VISIT'S COPY of an applied procedure — its name, stage labels,
+   * discount and per-item quantities. The clinic's saved template is untouched,
+   * which is the point: a protocol adapted for one patient shouldn't change
+   * every future visit. Does not add or remove bill lines — money still moves
+   * through materializeItem / the consumable endpoints.
+   */
+  updateApplication: async (
+    applicationId: string | number,
+    body: { name?: string; discount?: number; stages?: { key?: string; label: string; notes?: string }[]; items?: { id: string; quantity?: number; optional?: boolean; notes?: string }[] },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ application: ProcedureApplication }>> =>
+    patch(ENDPOINTS.PROCEDURE_TEMPLATES.APPLICATION(applicationId), body, { showError: true, ...options }),
+
   removeApplication: async (applicationId: string | number, options?: RequestOptions): Promise<ApiResponse<{ success: boolean }>> =>
     del(ENDPOINTS.PROCEDURE_TEMPLATES.APPLICATION(applicationId), { showError: true, ...options }),
 };

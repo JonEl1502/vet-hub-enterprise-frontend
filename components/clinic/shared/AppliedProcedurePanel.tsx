@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ClipboardList, Loader2, Trash2, Check, Zap, AlertTriangle, Plus, Calculator, ChevronDown, ChevronRight } from 'lucide-react';
+import { ClipboardList, Loader2, Trash2, Check, Zap, AlertTriangle, Plus, Calculator, ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { procedureTemplatesAPI, consumablesAPI, ProcedureApplication, ProcedureTemplate } from '../../../services';
 
@@ -45,6 +45,42 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
   useEffect(() => {
     procedureTemplatesAPI.list().then(r => { if (r.success && r.data?.templates) setTemplates(r.data.templates); }).catch(() => {});
   }, []);
+
+  // ── Editing THE VISIT'S COPY (user, 2026-07-29) ───────────────────────────
+  // A vet adapting a protocol for one patient used to have two bad options:
+  // edit the clinic's master template (changing every future visit) or leave the
+  // checklist wrong. The application's `snapshot` has always been a per-visit
+  // copy; this is the first thing that writes to it.
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [draft, setDraft] = useState<{ name: string; stages: { key?: string; label: string; notes?: string }[] }>({ name: '', stages: [] });
+
+  const startEdit = (app: ProcedureApplication) => {
+    const snap: any = app.snapshot ?? {};
+    setEditingId(app.id);
+    setDraft({
+      name: String(snap.name ?? app.templateName ?? ''),
+      stages: Array.isArray(snap.stages)
+        ? snap.stages.map((st: any, i: number) => ({ key: st?.key ?? `stage-${i + 1}`, label: String(st?.label ?? `Stage ${i + 1}`), notes: st?.notes ?? '' }))
+        : [],
+    });
+  };
+
+  const saveEdit = async (app: ProcedureApplication) => {
+    setBusy(app.id);
+    try {
+      const res = await procedureTemplatesAPI.updateApplication(app.id, {
+        name: draft.name.trim() || undefined,
+        stages: draft.stages.map(st => ({ key: st.key, label: st.label, notes: st.notes || undefined })),
+      });
+      if (res.success) {
+        replaceApp(res.data?.application);
+        setEditingId(null);
+        toast.success("This visit's copy updated — your template is unchanged");
+        onChanged?.();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to save the copy'); }
+    finally { setBusy(null); }
+  };
 
   const replaceApp = (updated: ProcedureApplication | undefined) => {
     if (!updated) { load(); return; }
@@ -200,7 +236,14 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
             <div className="flex items-center gap-2 px-4 py-3 bg-teal-50/60 dark:bg-teal-950/20 border-b border-teal-100 dark:border-teal-900/30">
               <ClipboardList size={15} className="text-teal-600" />
               <div className="min-w-0 flex-1">
-                <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 truncate">{app.templateName ?? 'Procedure'}</p>
+                <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 truncate">
+                  {(app.snapshot as any)?.name ?? app.templateName ?? 'Procedure'}
+                  {/* Says "this visit's version isn't your recipe any more", so
+                      nobody debugs a mismatch that was a deliberate edit. */}
+                  {(app.snapshot as any)?.editedAt && (
+                    <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-teal-100 dark:bg-teal-900/40 text-teal-700 dark:text-teal-300 text-[8px] tracking-wider" title={`Edited for this visit on ${new Date((app.snapshot as any).editedAt).toLocaleString()}`}>edited</span>
+                  )}
+                </p>
                 <p className="text-[9px] text-slate-400 font-medium">
                   Applied {new Date(app.createdAt).toLocaleDateString()}
                   {app.weightKg != null ? ` · ${app.weightKg} kg` : ''}
@@ -208,6 +251,13 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
                 </p>
               </div>
               <span className="text-sm font-black text-pine dark:text-zinc-100 shrink-0">{currency} {total.toLocaleString()}</span>
+              {!billLocked && (
+                <button onClick={() => (editingId === app.id ? setEditingId(null) : startEdit(app))}
+                  className={`p-1.5 rounded-lg transition-all ${editingId === app.id ? 'bg-teal-600 text-white' : 'text-slate-400 hover:bg-teal-50 hover:text-teal-600'}`}
+                  title="Edit this visit's copy — your saved template is not changed">
+                  <Pencil size={13} />
+                </button>
+              )}
               {!billLocked && (
                 <button onClick={() => removeApp(app)} disabled={busy === app.id}
                   className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50" title="Remove procedure + its lines">
@@ -217,6 +267,48 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
             </div>
 
             <div className="p-3.5 space-y-3">
+              {/* Editing this visit's copy. Deliberately narrow: the copy's name
+                  and its stage labels/notes. Quantities and lines are edited on
+                  the lines themselves, so stock and totals keep going through
+                  one set of rules. */}
+              {editingId === app.id && (
+                <div className="bg-teal-50/60 dark:bg-teal-950/20 border border-teal-200 dark:border-teal-900/40 rounded-xl p-3 space-y-2.5">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-teal-700 dark:text-teal-400">
+                    Editing this visit's copy — your saved template is not changed
+                  </p>
+                  <div>
+                    <label className="field-label">Name on this visit</label>
+                    <input className="field-input" value={draft.name}
+                      onChange={e => setDraft(d => ({ ...d, name: e.target.value }))} />
+                  </div>
+                  {draft.stages.length > 0 && (
+                    <div className="space-y-1.5">
+                      <label className="field-label">Stages</label>
+                      {draft.stages.map((st, i) => (
+                        <div key={st.key ?? i} className="flex items-center gap-2">
+                          <span className="text-[9px] font-black text-slate-400 w-4 shrink-0">{i + 1}</span>
+                          <input className="field-input flex-1" value={st.label}
+                            onChange={e => setDraft(d => ({
+                              ...d,
+                              stages: d.stages.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)),
+                            }))} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 pt-0.5">
+                    <button onClick={() => saveEdit(app)} disabled={busy === app.id}
+                      className="px-3 py-1.5 rounded-lg bg-teal-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-teal-700 disabled:opacity-50 flex items-center gap-1.5">
+                      {busy === app.id ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />} Save copy
+                    </button>
+                    <button onClick={() => setEditingId(null)}
+                      className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 text-[9px] font-black uppercase tracking-widest hover:text-pine">
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              )}
+
               {/* Skipped warnings */}
               {(app.skippedItems ?? []).length > 0 && (
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 space-y-0.5">

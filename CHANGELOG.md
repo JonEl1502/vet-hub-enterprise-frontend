@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: edit a procedure's copy on the visit, not your saved template  —  no migration
+- **What changed:** an applied procedure can now be edited **for that visit only** — its name
+  and stage labels — from the applied-procedure panel. Previously a vet adapting a protocol
+  for one patient had two bad options: edit the clinic's master template (changing every
+  future visit) or leave the checklist wrong.
+  `procedure_applications.snapshot` has always frozen a per-visit copy; this is the first
+  thing that writes to it. An edited copy carries an **"edited"** badge with the timestamp,
+  so a mismatch against the clinic's recipe reads as a deliberate change, not a bug.
+- **Record impact:** 🟢 None — writes only to that application's `snapshot`. The template,
+  the bill lines and stock are untouched.
+- **Migration / rollout:** code-only (`PATCH /procedure-templates/applications/:id`).
+- **Rollback:** revert; the copy becomes read-only again.
+- ⚠️ **Watch out — deliberately narrow.** Editing the copy does **not** add or delete bill
+  lines. Money still moves through the existing endpoints (`materializeItem`, the consumable
+  update/remove), so stock and totals stay under one set of rules. Quantities are edited on
+  the line, not in the copy.
+- ⚠️ **Watch out:** `snapshot` is JSONB, so the service function IS its schema — stage
+  labels are trimmed and capped, the list is capped at 20, discount is range-checked, and
+  item identity (id/name/kind/price) is **not** writable so the copy can still be reconciled
+  against the generated lines.
+- ⚠️ **Watch out:** locked once billed, the same gate every other application mutation uses.
+
 ### feat: a small inline service search, and no recipe picker at registration  —  no migration
 User, 2026-07-29 (screenshots). Two changes, same principle: do the thing where you are.
 - **"Add diagnostic service" is now a search box in the panel**, not the right-side Add
