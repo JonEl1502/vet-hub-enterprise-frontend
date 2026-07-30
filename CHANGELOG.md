@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: vaccination visit no longer requires a staged service to create  —  2026-07-30
+- **What changed:** `NewVisitView` `isFormValid` no longer demands ≥1 staged service for a
+  VACCINATION visit. The vaccine / package / procedure picker stays on the create form
+  (now labelled "Optional — can be added in the visit"); the vaccine can instead be added
+  later in the visit workflow. RETAIL keeps its requirement — an item sale with no items
+  is nothing.
+- **Record impact:** 🟢 None — a vaccination visit can now be created with zero tasks,
+  which the backend already accepts (no length validation on `data.tasks`; the retired
+  `assertServicesComplete` gate returns early on 0 tasks).
+- **Data dependency:** none — no API or schema change.
+- **Rollback:** revert the `categoriesValid` line.
+- ⚠️ **Watch out:** a service-less vaccination visit gets NO seed service (vaccination
+  is deliberately excluded from entry-fee seeding), so its bill starts at 0 until a
+  vaccine is added in the workflow.
+
 ### page: inventory import template matches the Add Product form  —  2026-07-30
 - **What changed:** the Import Data → Inventory CSV template (`utils/import/schemas.ts`
   `INVENTORY_SCHEMA`) grew from 10 to 28 columns so it mirrors the Add Product form:

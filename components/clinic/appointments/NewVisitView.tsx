@@ -1267,14 +1267,16 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     // a normal visit needs the selected client + patient.
     const hasContext = isGroupVisit ? groupMembers.length > 0 : (selectedClientId && !!selectedPetId);
     const hasDateTime = formData.apptDate && formData.apptTime;
-    // Only vaccination/retail still stage services at registration (picking
-    // the vaccine/items). Vet visits, grooming, boarding and admissions are
-    // seeded automatically — grooming/boarding/admission run a gate check.
-    const categoriesValid = (isVaccinationVisit || encounterType === 'RETAIL')
+    // Only retail still REQUIRES staged services at registration (an item sale
+    // with no items is nothing). Vaccination keeps its vaccine/package/procedure
+    // picker but staging is optional (user, 2026-07-30) — the vaccine can be
+    // added later in the visit workflow. Vet visits, grooming, boarding and
+    // admissions are seeded automatically.
+    const categoriesValid = encounterType === 'RETAIL'
       ? selectedCategories.some(c => c.services.length > 0)
       : true;
     return hasContext && hasDateTime && categoriesValid;
-  }, [selectedClientId, selectedPetId, isGroupVisit, groupMembers, formData, selectedCategories, encounterType, isVaccinationVisit]);
+  }, [selectedClientId, selectedPetId, isGroupVisit, groupMembers, formData, selectedCategories, encounterType]);
 
   // Pin the action bar FIXED to the viewport bottom (so it never scrolls away).
   // `sticky` is inert here because an ancestor has overflow (same reason the
@@ -2018,6 +2020,11 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
            <div data-tour="appointment-services" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{encounterType === 'GROOMING' ? 'Grooming Services' : encounterType === 'BOARDING' ? 'Boarding Services' : encounterType === 'RETAIL' ? 'Items' : encounterType === 'VET_VISIT' ? 'Staged Services' : 'Visit Workflow'}</h2>
+                 {/* Staging is optional for vaccination (user, 2026-07-30) —
+                     the vaccine can be picked later in the visit workflow. */}
+                 {isVaccinationVisit && (
+                   <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500">Optional — can be added in the visit</span>
+                 )}
               </div>
               {(encounterType !== 'VET_VISIT' || isVaccinationVisit) && (
                 <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-1">
