@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### config: the repo stops tracking `node_modules` and `dist`  —  2026-07-30
+- **What changed:** this repo had **no `.gitignore`** and tracked **27,410 `node_modules`
+  files** plus the built `dist/` and stray `.DS_Store`s. Added a `.gitignore` (mirroring the
+  backend's, plus `.vite/` and `.claude/`) and untracked those paths. Tracked files: 27,915 → **498**.
+- **Record impact:** 🟢 None — index-only, no database and no runtime code touched.
+- **Data dependency:** None.
+- **Rollback:** `git revert` restores the index entries; nothing was deleted from disk.
+- ⚠️ **Nothing consumes the committed `dist/`.** The Dockerfile builds it (`npm run build`) and
+  `.dockerignore` already excluded both paths, so the committed copy was only ever stale. Vercel
+  builds it too. `package-lock.json` stays tracked — `npm ci` needs it.
+- ⚠️ **This is why `git add -A` has eaten work here 3×.** Every `npm install` or build dirtied
+  thousands of paths, so real edits were invisible in `git status`. That noise is now gone.
+- Other sessions with this repo open will see these deletions arrive on their next pull; the
+  files stay on their disk, so no reinstall is needed.
+
 ### flow: the follow-up reminder moves off bill generation to just before the receipt  —  2026-07-30
 - **What changed:** generating the bill no longer asks for a follow-up reminder — it finalizes
   directly. The reminder is asked ONCE, immediately before the receipt, at settle time.

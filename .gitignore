@@ -1,0 +1,48 @@
+# Dependencies
+node_modules/
+yarn.lock
+pnpm-lock.yaml
+
+# Environment variables
+.env
+.env.local
+.env.development
+.env.production
+
+# Build output — the image builds this itself (Dockerfile `npm run build`),
+# and .dockerignore excludes it, so a committed copy is only ever stale.
+dist/
+build/
+*.tsbuildinfo
+
+# Vite
+.vite/
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Testing
+coverage/
+.nyc_output/
+*.lcov
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Agent scratch (worktrees, session state)
+.claude/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
