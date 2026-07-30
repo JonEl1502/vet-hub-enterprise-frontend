@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Search, Pill, ChevronDown, ChevronUp, RefreshCw, X, Check, ArrowLeft,
 } from 'lucide-react';
+import ProductStructureFields, { type MainCategory } from '../../shared/common/ProductStructureFields';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { supplierProductsAPI } from '../../../services/modules/supplierProducts.api';
@@ -80,6 +81,12 @@ interface ProductFormData {
   manufacturer: string;
   countryOfOrigin: string;
   imageUrl: string;
+  // Shared product structure (155) — carried onto clinic stock on PO receive.
+  mainCategory: MainCategory;
+  subcategories: string[];
+  packSize: string;
+  /** What the SUPPLIER suggests clinics resell at. Advisory — they may inherit it. */
+  suggestedSellPrice: string;
 }
 
 const emptyForm = (defaultCurrency = 'KES'): ProductFormData => ({
@@ -96,6 +103,10 @@ const emptyForm = (defaultCurrency = 'KES'): ProductFormData => ({
   lowStockThreshold: '10',
   isAvailable: true,
   manufacturer: '',
+  mainCategory: 'MEDICINE' as MainCategory,
+  subcategories: [] as string[],
+  packSize: '',
+  suggestedSellPrice: '',
   countryOfOrigin: '',
   imageUrl: '',
 });
@@ -167,6 +178,10 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
           lowStockThreshold: String(p.lowStockThreshold ?? 10),
           isAvailable: p.isAvailable,
           manufacturer: p.manufacturer ?? '',
+          mainCategory: ((p as any).metadata?.mainCategory === 'CONSUMABLE' ? 'CONSUMABLE' : 'MEDICINE') as MainCategory,
+          subcategories: (p as any).metadata?.subcategories ?? [],
+          packSize: (p as any).packSize != null ? String((p as any).packSize) : '',
+          suggestedSellPrice: (p as any).suggestedSellPrice != null ? String((p as any).suggestedSellPrice) : '',
           countryOfOrigin: p.countryOfOrigin ?? '',
           imageUrl: p.imageUrl ?? '',
         });
@@ -255,6 +270,16 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
         manufacturer: form.manufacturer.trim() || undefined,
         countryOfOrigin: form.countryOfOrigin.trim() || undefined,
         imageUrl: form.imageUrl || undefined,
+        // The shared structure (155). `sellUnit`/`costUnit` mirror the listing's
+        // unit so the sell/stock bridge starts consistent rather than empty.
+        metadata: {
+          mainCategory: form.mainCategory,
+          subcategories: form.subcategories,
+          sellUnit: form.unit,
+          costUnit: form.unit,
+        },
+        packSize: form.packSize ? Number(form.packSize) : undefined,
+        suggestedSellPrice: form.suggestedSellPrice ? Number(form.suggestedSellPrice) : undefined,
       };
 
       if (editingProduct) {
@@ -422,6 +447,54 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
         <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
           <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">2</span> Pricing
         </p>
+        {/* Shared product structure (155) — the SAME controls the clinic uses, so
+            a listing carries its category and subcategories onto clinic stock on
+            PO receive instead of being retyped there. */}
+        <div className="space-y-3 p-3 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50">
+          <ProductStructureFields
+            idPrefix="supplier-product"
+            value={{ mainCategory: form.mainCategory, subcategories: form.subcategories }}
+            onChange={(next) => setForm({ ...form, mainCategory: next.mainCategory, subcategories: next.subcategories })}
+          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
+                Units per pack
+              </label>
+              <input
+                type="number" min="1" step="1"
+                value={form.packSize}
+                onChange={e => setForm({ ...form, packSize: e.target.value })}
+                placeholder="e.g. 100 tablets in a box"
+                className="w-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
+              />
+              <p className="text-[9px] font-bold text-slate-400 px-1">
+                Leave blank if the product is sold as a single unit. A clinic that resells per
+                tablet needs this to price correctly.
+              </p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
+                Suggested resale price
+              </label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">{getCurrencySymbol(form.currency)}</span>
+                <input
+                  type="number" min="0" step="0.01"
+                  value={form.suggestedSellPrice}
+                  onChange={e => setForm({ ...form, suggestedSellPrice: e.target.value })}
+                  placeholder="0.00"
+                  className="w-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-9 pr-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
+                />
+              </div>
+              <p className="text-[9px] font-bold text-slate-400 px-1">
+                What you suggest clinics charge their clients. Advisory only — a clinic may
+                inherit it when it receives the order, or set its own.
+              </p>
+            </div>
+          </div>
+        </div>
+
         {/* Buy + Sell + Currency */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <div className="space-y-1">

@@ -26,6 +26,17 @@ export interface SupplierProduct {
   lowStockThreshold?: number;
   isAvailable: boolean;
   manufacturer?: string | null;
+  /**
+   * Shared product structure (155) — the SAME contract as
+   * `InventoryItem.metadata`, so a listing carries its category, subcategories
+   * and units onto clinic stock on PO receive instead of being retyped.
+   */
+  metadata?: { mainCategory?: 'MEDICINE' | 'CONSUMABLE'; subcategories?: string[]; sellUnit?: string; costUnit?: string } | null;
+  /** Units in a pack — what lets a clinic reselling per tablet price correctly. */
+  packSize?: number | null;
+  /** What the supplier suggests clinics resell at. Advisory; may be inherited. */
+  suggestedSellPrice?: number | null;
+
   countryOfOrigin?: string | null;
   imageUrl?: string | null;
   createdAt: string;
@@ -56,6 +67,17 @@ export interface CreateSupplierProductData {
   lowStockThreshold?: number;
   isAvailable?: boolean;
   manufacturer?: string;
+  /**
+   * Shared product structure (155) — the SAME contract as
+   * `InventoryItem.metadata`, so a listing carries its category, subcategories
+   * and units onto clinic stock on PO receive instead of being retyped.
+   */
+  metadata?: { mainCategory?: 'MEDICINE' | 'CONSUMABLE'; subcategories?: string[]; sellUnit?: string; costUnit?: string } | null;
+  /** Units in a pack — what lets a clinic reselling per tablet price correctly. */
+  packSize?: number | null;
+  /** What the supplier suggests clinics resell at. Advisory; may be inherited. */
+  suggestedSellPrice?: number | null;
+
   countryOfOrigin?: string;
   imageUrl?: string;
 }
@@ -77,6 +99,17 @@ export interface UpdateSupplierProductData {
   lowStockThreshold?: number;
   isAvailable?: boolean;
   manufacturer?: string | null;
+  /**
+   * Shared product structure (155) — the SAME contract as
+   * `InventoryItem.metadata`, so a listing carries its category, subcategories
+   * and units onto clinic stock on PO receive instead of being retyped.
+   */
+  metadata?: { mainCategory?: 'MEDICINE' | 'CONSUMABLE'; subcategories?: string[]; sellUnit?: string; costUnit?: string } | null;
+  /** Units in a pack — what lets a clinic reselling per tablet price correctly. */
+  packSize?: number | null;
+  /** What the supplier suggests clinics resell at. Advisory; may be inherited. */
+  suggestedSellPrice?: number | null;
+
   countryOfOrigin?: string | null;
   imageUrl?: string | null;
 }

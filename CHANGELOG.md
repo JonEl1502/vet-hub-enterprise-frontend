@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page + data-shape: catalog restructure — one product structure, supplier→clinic  —  2026-07-30
+- **What changed:** the reference catalog, supplier listings and clinic stock now share ONE
+  product structure, so a product's category / subcategories / units are set once and
+  inherited rather than retyped at each hop.
+  - New shared `components/shared/common/ProductStructureFields.tsx` — main category +
+    ordered, drag-reorderable subcategories, the same controls the clinic Add-Stock form uses.
+  - The **supplier product form** now carries that structure, plus **units per pack** and a
+    **suggested resale price** clinics may inherit on PO receive.
+  - `supplierProducts.api` types gained `metadata` / `packSize` / `suggestedSellPrice`.
+- **Record impact:** 🔵 **Low** — a supplier saving a product now also writes its structure.
+  No existing listing is rewritten until it is saved.
+- **Data dependency:** **Requires migration 155**.
+- **Rollback:** revert; the columns are nullable so listings simply carry no structure.
+- ⚠️ **Watch out:** `InventoryView` still has its own INLINE copy of these controls. That is
+  known and deliberate — it is a ~1,900-line component whose Add-Stock flow works, and
+  refactoring it is a separate, testable change. When it moves over, **delete the inline
+  block**; do not leave both live and drifting, which is the exact failure this structure
+  exists to end.
+- ⚠️ **Watch out:** `packSize` is never guessed. Blank means "sold as a single unit" — a wrong
+  pack size is what bills a whole box as one tablet.
+
 ### page: Payables — the supplier A/P screen  —  2026-07-30
 - **What changed:** new `payables` view (Suppliers & Orders → Payables) plus
   `services/modules/supplierAp.api.ts`. Completes the front end of the payable chain
