@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: the visit's reminder opens inline instead of navigating away  —  2026-07-31
+- **What changed:** "View reminder" on Follow-up & Reminders called `onNavigateToReminder`, which
+  left the visit for the Reminders page to read one date. It now expands an inline panel showing
+  title, service type, due date, status, notes, recurrence, and contacted/completed timestamps.
+  If the reminder produced a booking, that visit is linked straight from the panel. "Open in
+  Reminders" stays as a secondary link for anyone who actually wants the full page.
+- **Record impact:** 🟢 None — display only.
+- **Data dependency:** None, and **no extra request**: `visitReminder` is already in state, so
+  the panel renders from data the view had loaded anyway.
+- **Rollback:** revert the commit; the button navigates away again.
+- ⚠️ It renders whatever is in `visitReminder` at that moment. Updating the reminder refreshes
+  that state, so the panel follows — but a reminder changed in ANOTHER tab won't reflect until
+  the visit reloads.
+
 ### component: delete confirms use the branded dialog, not the browser's  —  2026-07-31
 - **What changed:** deleting an appointment booking used `window.confirm`, which renders as
   *"app.vethubcore.com says — Delete this appointment?"* — raw hostname, browser chrome, reads

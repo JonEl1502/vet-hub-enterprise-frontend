@@ -437,6 +437,8 @@ const VisitDetailInner: React.FC<Props> = ({
   // The follow-up reminder for this visit (created at finalize) — shown near the
   // Settle Bill action; if missing after finalize, a button lets staff create one.
   const [visitReminder, setVisitReminder] = useState<any | null>(null);
+  // Reminder detail shown inline on the visit rather than navigating away.
+  const [showReminderDetail, setShowReminderDetail] = useState(false);
   const [showReminderCreate, setShowReminderCreate] = useState(false);
   // Re-callable so a reminder created FROM the visit workflow (Follow-up
   // Plan card, reminder modal) shows in the header box immediately.
@@ -3280,14 +3282,73 @@ const VisitDetailInner: React.FC<Props> = ({
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-pine text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine/90 transition-all">
                 <Bell size={12} /> {visitReminder ? 'Update reminder' : 'Set reminder'}
               </button>
-              {visitReminder && onNavigateToReminder && (
-                <button onClick={() => onNavigateToReminder(visitReminder.id)}
+              {visitReminder && (
+                <button onClick={() => setShowReminderDetail(v => !v)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 text-[9px] font-black uppercase tracking-widest hover:text-pine dark:hover:text-white transition-all"
-                  title="Open this reminder in Reminders">
-                  <ExternalLink size={12} /> View reminder
+                  title="Show this reminder here">
+                  {showReminderDetail ? <ChevronUp size={12} /> : <Bell size={12} />}
+                  {showReminderDetail ? 'Hide reminder' : 'View reminder'}
                 </button>
               )}
             </div>
+
+            {/* Inline, not a trip to the Reminders page. `visitReminder` is
+                already loaded in state, so opening this costs no request — and
+                leaving the visit to read one date was the wrong trade. */}
+            {visitReminder && showReminderDetail && (
+              <div className="mt-2 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950 space-y-2 animate-in fade-in slide-in-from-top-1">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-[12px] font-bold text-pine dark:text-zinc-100 truncate">
+                      {visitReminder.title || visitReminder.serviceType || 'Reminder'}
+                    </p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                      {visitReminder.serviceType}
+                      {visitReminder.dueAt ? ` · due ${formatDate(visitReminder.dueAt)}` : ''}
+                    </p>
+                  </div>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${
+                    visitReminder.status === 'COMPLETED' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
+                    : visitReminder.status === 'CANCELLED' ? 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400'
+                    : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
+                    {visitReminder.status}
+                  </span>
+                </div>
+
+                {visitReminder.notes && (
+                  <p className="text-[11px] text-slate-600 dark:text-zinc-300 whitespace-pre-wrap">{visitReminder.notes}</p>
+                )}
+
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-[9px] font-bold text-slate-400">
+                  {visitReminder.recurrence && <span>Repeats: {visitReminder.recurrence}</span>}
+                  {visitReminder.contactedAt && <span>Contacted {formatDate(visitReminder.contactedAt)}</span>}
+                  {visitReminder.completedAt && <span>Completed {formatDate(visitReminder.completedAt)}</span>}
+                </div>
+
+                {/* The booking this reminder produced — the whole point of the
+                    chain, so it links straight to that visit. */}
+                {visitReminder.bookedAppointment && (
+                  <button
+                    onClick={() => onNavigateToVisit(Number(visitReminder.bookedAppointment.id))}
+                    className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 hover:border-seafoam text-left transition-colors"
+                  >
+                    <span className="text-[10px] font-bold text-pine dark:text-zinc-100">
+                      Booked visit · {formatDate(visitReminder.bookedAppointment.scheduledAt)}
+                    </span>
+                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">
+                      {visitReminder.bookedAppointment.status}
+                    </span>
+                  </button>
+                )}
+
+                {onNavigateToReminder && (
+                  <button onClick={() => onNavigateToReminder(visitReminder.id)}
+                    className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-colors">
+                    <ExternalLink size={11} /> Open in Reminders
+                  </button>
+                )}
+              </div>
+            )}
             {childFollowUps.length > 0 && (
               <div className="pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-1.5">
                 <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Follow-up visits created</p>
