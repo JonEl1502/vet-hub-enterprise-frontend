@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: vaccinations show under Procedures Performed  —  2026-07-31
+- **What changed:** the Treatment step's *Procedures Performed* listed only `ProcedureApplication`
+  rows. A vaccination added on the vaccination page creates a **VaccinationRecord + a visit task**,
+  never a ProcedureApplication — so the panel read as EMPTY while the running bill already carried
+  the charge. Vaccinations on the visit are now listed there, read-only.
+- **Record impact:** 🟢 None — one extra read; nothing written.
+- **Data dependency:** None — `vaccinations.getByAppointment` already existed.
+- **Rollback:** revert the commit.
+- ⚠️ **The asymmetry this fixes:** the SAME vaccine showed or didn't depending on which door it
+  came through — applied as a recipe it appeared, added on the vaccination page it vanished.
+- ⚠️ **Read-only on purpose.** The vaccination page owns editing (batch, administered date,
+  certificate), so these rows carry no × — removing one here would have to delete a clinical
+  record and its certificate from a panel about billing lines.
+- ⚠️ Best-effort fetch: a failure leaves the strip empty rather than blocking the consultation.
+
 ### fix: a client message from the notifications card no longer opens a white page  —  2026-07-31
 - **What changed:** the notifications hover card sent client messages to the `messaging` route,
   whose handler did `if (!mc) return null` — a literal blank screen whenever the client wasn't in

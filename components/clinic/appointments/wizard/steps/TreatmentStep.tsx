@@ -1,9 +1,9 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Pill, Scissors, ClipboardList, Package, Loader2, Plus, ExternalLink, Search } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L, showsField } from '../fields';
 import { useData } from '../../../../../contexts/DataContext';
-import { consumablesAPI, toast, procedureTemplatesAPI, ProcedureTemplate } from '../../../../../services';
+import { consumablesAPI, toast, procedureTemplatesAPI, ProcedureTemplate, vaccinationsAPI } from '../../../../../services';
 
 const ROUTES = ['PO', 'IV', 'IM', 'SC', 'Topical', 'Other'];
 
@@ -30,6 +30,18 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, data, setData, emit, refres
   const [busy, setBusy] = React.useState(false);
   const [removingIdx, setRemovingIdx] = React.useState<number | null>(null);
   const marCount = visit.medications?.length ?? 0;
+
+  // Vaccinations recorded on this visit — see the note in the Procedures
+  // section. Best-effort: a failure leaves the strip empty rather than
+  // blocking the consultation.
+  const [vaccineRows, setVaccineRows] = useState<any[]>([]);
+  useEffect(() => {
+    let live = true;
+    vaccinationsAPI.getByAppointment(String(visit.id))
+      .then((recs: any) => { if (live) setVaccineRows(Array.isArray(recs) ? recs : []); })
+      .catch(() => { /* strip stays empty */ });
+    return () => { live = false; };
+  }, [visit.id]);
   const { inventory, ensureInventory } = useData() as any;
   React.useEffect(() => { ensureInventory?.(); }, [ensureInventory]);
 
@@ -218,6 +230,29 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, data, setData, emit, refres
 
       {show('procedures') && (
       <Section icon={Scissors} title="Procedures Performed">
+        {/* Vaccinations recorded on this visit.
+            A vaccination added on the vaccination page creates a
+            VaccinationRecord + a visit task — NOT a ProcedureApplication — so
+            it never appeared in the list below and this panel read as empty
+            while the bill already carried the charge. Same clinical act showed
+            or didn't depending on which door it came through. Read-only here:
+            the vaccination page owns editing them. */}
+        {vaccineRows.length > 0 && (
+          <div className="space-y-1.5 mb-2">
+            {vaccineRows.map((v: any) => (
+              <div key={`vax-${v.id}`} className="flex items-center justify-between gap-2 px-2.5 py-2 bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 rounded-lg">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{v.vaccineName}</span>
+                  <span className="block text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                    Vaccination · {v.status}
+                  </span>
+                </span>
+                <span className="shrink-0 text-[8px] font-black uppercase tracking-widest text-slate-400">On vaccination page</span>
+              </div>
+            ))}
+          </div>
+        )}
+
         {/* Only CREATED procedure recipes (Billable Items → Procedures) are
             selectable — picking one APPLIES the recipe to this visit (fees +
             products land on the bill). No match → create it on the Procedures
