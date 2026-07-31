@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: delete confirms use the branded dialog, not the browser's  —  2026-07-31
+- **What changed:** deleting an appointment booking used `window.confirm`, which renders as
+  *"app.vethubcore.com says — Delete this appointment?"* — raw hostname, browser chrome, reads
+  like a security warning rather than the product. Now uses the VHC `dialog.confirm` (logo,
+  danger variant) and names the patient and client so it is obvious WHICH booking is going.
+  The bill-line delete confirm added earlier today was switched to the same dialog.
+- **Record impact:** 🟢 None — presentation of an existing confirmation.
+- **Data dependency:** None.
+- **Rollback:** revert the commit.
+- ⚠️ `dialog.confirm` is async and returns a boolean — a caller that forgets to `await` gets a
+  Promise, which is truthy, and the action fires with no confirmation at all.
+
 ### flow: the bill's add-item search covers consumables, not just services  —  2026-07-31
 - **What changed:** the add-line search read the SERVICE catalogue only, so typing "glove" said
   *"No service matches — add glove as an Other line"* and asked for a price from memory, even

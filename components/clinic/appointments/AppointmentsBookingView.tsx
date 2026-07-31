@@ -3,7 +3,7 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { CalendarClock, Plus, Loader2, Trash2, Search, Clock, ArrowRight, BellRing, ExternalLink, Link2, MoreVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
-import { appointmentsAPI, remindersAPI, Appointment } from '../../../services';
+import { appointmentsAPI, remindersAPI, Appointment, dialog } from '../../../services';
 import type { AppointmentStatus } from '../../../services/modules/appointmentBookings.api';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ReasonModal from '../shared/ReasonModal';
@@ -181,7 +181,15 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
   };
 
   const remove = async (a: Appointment) => {
-    if (!confirm('Delete this appointment?')) return;
+    // The branded dialog, not the browser's — a native confirm shows the raw
+    // hostname ("app.vethubcore.com says") and reads like a security prompt.
+    const ok = await dialog.confirm({
+      title: 'Delete this appointment?',
+      message: `${petName(a)}${clientName(a) ? ` · ${clientName(a)}` : ''} — this booking will be removed. This cannot be undone.`,
+      confirmLabel: 'Delete',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setBusyId(a.id);
     try { const res = await appointmentsAPI.remove(a.id); if (res.success) { toast.success('Deleted'); await load(); } }
     catch (e: any) { toast.error(e?.message || 'Failed'); } finally { setBusyId(null); }

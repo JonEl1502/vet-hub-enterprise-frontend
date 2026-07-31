@@ -5,7 +5,7 @@ import {
   CreditCard, CheckCircle2, AlertTriangle, Lock, Unlock, Send,
 } from 'lucide-react';
 import { Visit } from '../../../types';
-import { billsAPI, invoicesAPI } from '../../../services';
+import { billsAPI, invoicesAPI, dialog } from '../../../services';
 import servicesAPI, { CatalogService } from '../../../services/modules/services.api';
 import { useData } from '../../../contexts/DataContext';
 import { Bill, BillLine } from '../../../services/modules/bills.api';
@@ -179,7 +179,13 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
       const msg: string = e?.message || '';
       const needsConfirm = e?.status === 409 || /already has work recorded/i.test(msg);
       if (!needsConfirm) { toast.error(msg || 'Something went wrong'); return; }
-      if (!window.confirm(msg)) return;
+      const ok = await dialog.confirm({
+        title: 'Remove this line?',
+        message: msg,
+        confirmLabel: 'Delete anyway',
+        variant: 'danger',
+      });
+      if (!ok) return;
       try {
         apply(await billsAPI.removeLine(visit.id, l.id, true));
         toast.success('Line removed');
