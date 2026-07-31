@@ -59,6 +59,34 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: systemic exam findings become a titled list  —  2026-07-31
+- **What changed:** each body system had ONE free-text box, so every observation about an eye
+  (retina, cornea, PLR, discharge) was mashed into a single string nothing could search or
+  trend. A system now holds **any number of titled findings**. "Add description" reveals a row
+  of title chips plus a free-text title box; picking one adds an inline row with its own text
+  input. New shared `SystemFindingsCard`, used by BOTH the built-in examination step and the
+  clinic-built workflow renderer, so custom workflows get it too.
+- **Record impact:** 🔵 Low — new exams write an extra `entries` array. Existing records are
+  read, never rewritten.
+- **Data dependency:** **None, deliberately.** `findings` is still written as the flat string
+  (`"Retina: mild degeneration; Cornea: clear"`), derived from the entries on every keystroke.
+  `MedicalReport` and every other reader keep working untouched, and no migration is needed —
+  wizard state is local.
+- **Rollback:** revert. Entries written meanwhile are ignored by the old box, which still shows
+  the flat string, so nothing is lost or unreadable.
+- ⚠️ **Titles carry a stable `key`, not just a label** — `slugifyTitle('Pupils / PLR')` →
+  `pupils-plr`. Free-typed titles would otherwise drift into "Retina" / "retina" / "Retinal
+  exam" as three separate things and every cross-exam query would miss two. Same failure the
+  category stable-keys work fixed in 069.
+- ⚠️ **Chips are seeded per system, not learned.** A fresh clinic needs useful titles on the
+  first exam, not after someone invents vocabulary. Twelve seeded lists (Eyes, Ears, Nose,
+  Oral cavity, CVS, Respiratory, Abdomen, MSK, Skin & coat, Neuro, Reproductive, Lymph nodes);
+  anything unrecognised falls back to a generic list.
+- ⚠️ **Ticking Normal clears the findings** — an abnormal note under a Normal tick is a
+  contradiction in the clinical record. Same as the old behaviour, now applied to the list.
+- A pre-existing record with only the plain string renders as one entry titled **General**, so
+  nothing looks lost and the vet can retitle it.
+
 ### flow: deleting a bill line asks before destroying recorded work  —  2026-07-31
 - **What changed:** the bill's line delete now removes the service from the visit too, so a deleted
   charge stays deleted (it used to reappear on "rebuild from visit"). When the service already has

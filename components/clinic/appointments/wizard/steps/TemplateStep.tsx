@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L, Seg, CheckGrid, ListEditor } from '../fields';
+import SystemFindingsCard from '../SystemFindings';
 import { FormField, LayoutStage, PlacedField, servicesAPI } from '../../../../../services';
 import { useData } from '../../../../../contexts/DataContext';
 
@@ -259,28 +260,18 @@ const TemplateStep: React.FC<Props> = ({ stage, fields, data, setData, staff, em
         );
         break;
       case 'normalAbnormal': {
-        // Same shape the hand-written examination step writes: { normal, findings }.
-        const v = value || {};
-        const abnormal = !!(v.findings && String(v.findings).trim());
+        // Same card and same shape as the hand-written examination step, so a
+        // clinic-built workflow gets titled findings too rather than falling
+        // back to the old single box. The registry key is dotted
+        // (`examination.sys.oralCavity`); its last segment picks the seeded
+        // title list.
         control = (
-          <div className={`border rounded-xl p-2.5 space-y-1.5 transition-all ${abnormal ? 'border-amber-300 dark:border-amber-800 bg-amber-50/40 dark:bg-amber-950/20' : 'border-slate-200 dark:border-zinc-800'}`}>
-            <div className="flex items-center justify-between gap-2">
-              <p className="text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">{def.label}</p>
-              <button
-                type="button"
-                onClick={() => set({ ...v, normal: !v.normal, findings: v.normal ? v.findings : '' })}
-                className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest border transition-all ${v.normal ? 'bg-emerald-500 text-white border-emerald-500' : 'bg-slate-50 dark:bg-zinc-950 text-slate-400 border-slate-200 dark:border-zinc-800'}`}
-              >
-                {v.normal ? '✓ Normal' : 'Normal'}
-              </button>
-            </div>
-            <input
-              className="field-input !h-8 text-xs"
-              placeholder="Enter findings if abnormal"
-              value={v.findings ?? ''}
-              onChange={e => set({ ...v, findings: e.target.value, normal: e.target.value ? false : v.normal })}
-            />
-          </div>
+          <SystemFindingsCard
+            label={def.label}
+            slug={String(def.key || '').split('.').pop() || def.label}
+            value={value || {}}
+            onChange={next => set(next)}
+          />
         );
         // Already carries its own label.
         return <div key={def.key} className={SPAN[pf.span || 1]}>{control}</div>;
