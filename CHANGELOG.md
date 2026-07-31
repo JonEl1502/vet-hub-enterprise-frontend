@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: registering a visit with no service picked no longer invents one  —  2026-07-31
+- **What changed:** a vet visit registered with **nothing picked** seeded a task from the catalog —
+  `services.find(name includes 'consultation') || services[0]` — so the bill opened with a service
+  the user never chose. On prod that was **"Behavioural Consultation" at KES 2,500**, picked purely
+  because it sorts first in the Consultation category. Now the only thing that can seed a line is
+  the clinic's **configured entry fee**; with none configured the visit is created with zero services.
+- **Record impact:** 🔵 Low — new visits stop getting a phantom task. Existing visits are untouched.
+- **Data dependency:** None. Pairs with the backend fix that lets `POST /appointments` accept
+  `tasks: []` — without it, a service-less registration 400s.
+- **Rollback:** revert the commit.
+- ⚠️ **The configured entry fee no longer carries a catalog `serviceId`.** It is a fee, not a
+  catalog service (same treatment as the house-call/walk-in extras), so procedure-recipe auto-apply
+  will not trigger off it. That path only ever fired off a guessed service anyway.
+- ⚠️ **Grooming/boarding still fall back to their category's first catalog service.** Those are
+  gate-check encounters with **no service picker at all**, so removing the fallback would mean they
+  never bill anything. Deliberately left — revisit if they get a picker.
+
 ### component: the signed-in email shows in the profile dropdown  —  2026-07-31
 - **What changed:** the account menu now shows the signed-in user's email under their name and
   role.

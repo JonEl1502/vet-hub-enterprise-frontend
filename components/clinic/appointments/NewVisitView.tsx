@@ -1053,18 +1053,26 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   const catalogServiceId = (id: any): string | undefined =>
     id != null && /^\d+$/.test(String(id)) ? String(id) : undefined;
 
+  // Entry-fee seed for a vet visit registered with NOTHING picked.
+  //
+  // This used to fall back to a catalog service — `services.find(name includes
+  // 'consultation') || services[0]` — which billed a service nobody chose: on
+  // prod that resolved to "Behavioural Consultation" at KES 2,500 simply
+  // because it sorts first in the Consultation category. Picking no service now
+  // means exactly that. The ONLY thing that can seed a line is the clinic's own
+  // configured entry fee, and like the house-call/walk-in extras below it is a
+  // configured fee rather than a catalog service, so it carries no service FK.
   const vetVisitSeed = () => {
+    const configured = entryFeeFor(visitFees, 'VET_VISIT', visitType);
+    if (configured == null) return null;
     const want = visitType === 'EMERGENCY' ? 'emergency' : 'consultation';
     const cat = categoriesWithIcons.find(c => c.name.toLowerCase().includes(want))
       || categoriesWithIcons.find(c => c.name.toLowerCase().includes('consultation'));
-    const services = cat ? getServicesByCategory(parseInt(cat.id)) : [];
-    const svc = services.find(s => s.name.toLowerCase().includes(want)) || services[0];
-    const configured = entryFeeFor(visitFees, 'VET_VISIT', visitType);
     return {
-      name: svc?.name || (visitType === 'EMERGENCY' ? 'Emergency Fee' : 'Consultation'),
+      name: visitType === 'EMERGENCY' ? 'Emergency Fee' : 'Consultation',
       category: cat?.name || 'Consultation',
-      price: configured ?? svc?.defaultPrice ?? 0,
-      serviceId: catalogServiceId(svc?.id),
+      price: configured,
+      serviceId: undefined,
     };
   };
 
@@ -1117,9 +1125,11 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       }));
     });
 
-    // Seed the entry-point service when registered service-less: vet visits
-    // get their consultation/emergency fee; grooming/boarding (gate-check
-    // encounters, no picker) get their category's primary catalog service.
+    // Seed the entry-point service when registered service-less: a vet visit
+    // seeds ONLY its configured consultation/emergency fee (never a guessed
+    // catalog service — see vetVisitSeed); grooming/boarding are gate-check
+    // encounters with no picker at all, so they still fall back to their
+    // category's primary catalog service or nothing would ever bill.
     // Vaccination visit types stage their vaccines manually — no seed.
     let seedCost = 0;
     if (tasks.length === 0 && !isVaccinationVisit && encounterType !== 'VACCINATION' && encounterType !== 'RETAIL') {
@@ -1140,20 +1150,24 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       } else {
         seed = vetVisitSeed();
       }
-      seedCost = seed.price;
-      tasks.push({
-        id: Math.floor(Math.random() * 1000000),
-        name: seed.name,
-        category: seed.category,
-        serviceId: (seed as any).serviceId,
-        status: TaskStatus.PENDING,
-        price: seed.price,
-        notes: '',
-        // Grooming/boarding auto-pick the right staffer (role ↔ category
-        // match: groomers for grooming, nurses/boarding staff for boarding);
-        // lead staff is only the fallback.
-        assignedStaffId: autoAssignStaff(seed.category) || formData.leadStaffId || undefined,
-      });
+      // No configured entry fee ⇒ no seed ⇒ the visit is registered with zero
+      // services, which the API now accepts. Services get added during the visit.
+      if (seed) {
+        seedCost = seed.price;
+        tasks.push({
+          id: Math.floor(Math.random() * 1000000),
+          name: seed.name,
+          category: seed.category,
+          serviceId: (seed as any).serviceId,
+          status: TaskStatus.PENDING,
+          price: seed.price,
+          notes: '',
+          // Grooming/boarding auto-pick the right staffer (role ↔ category
+          // match: groomers for grooming, nurses/boarding staff for boarding);
+          // lead staff is only the fallback.
+          assignedStaffId: autoAssignStaff(seed.category) || formData.leadStaffId || undefined,
+        });
+      }
     }
 
     // Stacked (non-primary) encounters: each adds its entry service so the
