@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: deleting a bill line asks before destroying recorded work  —  2026-07-31
+- **What changed:** the bill's line delete now removes the service from the visit too, so a deleted
+  charge stays deleted (it used to reappear on "rebuild from visit"). When the service already has
+  work recorded, the API's 409 message — which names the records — becomes a `window.confirm`, and
+  the delete is only retried with `force` if the user accepts.
+- **Record impact:** 🔴 High — confirming deletes the visit task and cascades its module record.
+- **Data dependency:** **Requires the matching backend change.** Against an older API the line still
+  deletes but the task survives, i.e. the old resurrect-on-rebuild behaviour.
+- **Rollback:** revert the commit.
+- ⚠️ `billsAPI.removeLine` gained a `force` argument **before** `options` — a positional change. It
+  is the only caller (BillPanel), but check any new call site.
+- ⚠️ It now passes `showError: false`; BillPanel reports failures itself, so the 409 shows as a
+  prompt rather than a toast the user cannot act on.
+
 ### page: "Visit Overview" becomes "Visit Workflow", and gains a Visit Details button  —  2026-07-31
 - **What changed:** the workflow page's heading was **"Visit Overview"** — renamed to **"Visit
   Workflow"**, which is what it actually is. Added a right-aligned **Visit Details** button that

@@ -99,8 +99,17 @@ export const billsAPI = {
   updateLine: (visitId: number | string, lineId: string | number, data: Partial<BillLineInput>, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
     patch(`/visits/${visitId}/bill/lines/${lineId}`, data, { showError: true, ...options }),
 
-  removeLine: (visitId: number | string, lineId: string | number, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
-    del(`/visits/${visitId}/bill/lines/${lineId}`, { showError: true, ...options }),
+  /**
+   * Removing a SERVICE line also removes the visit task behind it — otherwise
+   * the service stays on the visit and "rebuild from visit" brings the line
+   * back. If that task already has work on it (a module record, logged
+   * consumables, a status past PENDING) the API answers **409 with a message
+   * naming what is there**; show it, and retry with `force` to confirm.
+   */
+  removeLine: (visitId: number | string, lineId: string | number, force?: boolean, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
+    // showError:false — the caller turns the 409 into a confirm prompt rather
+    // than a toast, and reports any other failure itself.
+    del(`/visits/${visitId}/bill/lines/${lineId}${force ? '?force=true' : ''}`, { showError: false, ...options }),
 
   /** Header-level discount / notes. */
   updateHeader: (visitId: number | string, data: { discount?: number; notes?: string | null }, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>

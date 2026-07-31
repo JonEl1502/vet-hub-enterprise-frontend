@@ -127,6 +127,36 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
     ).then(() => { setQ(''); setNewPrice(''); setAdding(false); });
   };
 
+  /**
+   * Removing a line also removes the service from the visit — otherwise it
+   * stays listed there and "rebuild from visit" brings the charge straight
+   * back. If the service already has work on it the API refuses with a message
+   * naming exactly what is recorded; we put that in front of the user and only
+   * force the delete if they say yes.
+   */
+  const removeLine = async (l: BillLine) => {
+    setBusy(true);
+    try {
+      apply(await billsAPI.removeLine(visit.id, l.id));
+      toast.success('Line removed');
+      onChanged?.();
+    } catch (e: any) {
+      const msg: string = e?.message || '';
+      const needsConfirm = e?.status === 409 || /already has work recorded/i.test(msg);
+      if (!needsConfirm) { toast.error(msg || 'Something went wrong'); return; }
+      if (!window.confirm(msg)) return;
+      try {
+        apply(await billsAPI.removeLine(visit.id, l.id, true));
+        toast.success('Line removed');
+        onChanged?.();
+      } catch (e2: any) {
+        toast.error(e2?.message || 'Something went wrong');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const saveLine = (l: BillLine, patch: { quantity?: number; unitPrice?: number }) =>
     run(() => billsAPI.updateLine(visit.id, l.id, patch));
 
@@ -225,7 +255,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
                   {editable && (
                     <td className="px-2 py-1.5">
                       <button type="button" disabled={busy} title="Remove this line"
-                        onClick={() => run(() => billsAPI.removeLine(visit.id, l.id), 'Line removed')}
+                        onClick={() => removeLine(l)}
                         className="p-1 rounded text-slate-400 hover:text-red-500 disabled:opacity-40">
                         <Trash2 size={12} />
                       </button>
