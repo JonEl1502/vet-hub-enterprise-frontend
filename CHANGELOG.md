@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: "Visit Overview" becomes "Visit Workflow", and gains a Visit Details button  —  2026-07-31
+- **What changed:** the workflow page's heading was **"Visit Overview"** — renamed to **"Visit
+  Workflow"**, which is what it actually is. Added a right-aligned **Visit Details** button that
+  mirrors the "Open Workflow" button on the details page, so the two views are a round trip instead
+  of a one-way door. The header was already `justify-between` with an empty right slot.
+- **Record impact:** 🟢 None — navigation and labels only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit.
+- New optional prop `onOpenDetails` on `VisitDetailView`, wired in `App.tsx` to
+  `navigateTo('view-appointment')`. Optional, so the button simply doesn't render if unwired.
+- Routes for reference: `appointment-detail` = Visit Workflow, `view-appointment` = Visit Details.
+
 ### flow: registering a visit with no service picked no longer invents one  —  2026-07-31
 - **What changed:** a vet visit registered with **nothing picked** seeded a task from the catalog —
   `services.find(name includes 'consultation') || services[0]` — so the bill opened with a service

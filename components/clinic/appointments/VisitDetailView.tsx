@@ -92,6 +92,9 @@ interface Props {
   // opts.settle jumps to the target visit AND auto-opens its Settle modal —
   // group visits settle each animal individually from the group panel.
   onNavigateToVisit: (visitId: number, opts?: { settle?: boolean }) => void;
+  // The read-only Visit Details page. Mirrors its "Open Workflow" button so the
+  // two views point at each other instead of only one way round.
+  onOpenDetails?: () => void;
   onNavigateToClient?: (clientId: number) => void;
   onNavigateToPet?: (petId: number) => void;
   onNavigateToStaff?: (staffId: number) => void;
@@ -164,7 +167,7 @@ const VisitDetailView: React.FC<Props> = (props) => {
 
 const VisitDetailInner: React.FC<Props> = ({
   appointment, pet, client, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
-  onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit,
+  onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit, onOpenDetails,
   onNavigateToClient, onNavigateToPet, onNavigateToStaff, onNavigateToReminder, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient, onOpenModule, canUnlock, autoSettle, autoOpenTriage
 }) => {
   // Get inventory from DataContext (already loaded and cached)
@@ -2708,7 +2711,7 @@ const VisitDetailInner: React.FC<Props> = ({
           <button onClick={() => handleNavigationWithCheck(onBack)} className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-seafoam hover:text-pine rounded-xl shadow-sm transition-all active:scale-95">←</button>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase leading-none">Visit Overview</h1>
+              <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase leading-none">Visit Workflow</h1>
               {appointment.status === ApptStatus.COMPLETED && <span className="bg-emerald-500/10 text-emerald-500 text-[8px] px-2 py-0.5 rounded-full border border-emerald-500/20 font-black uppercase tracking-widest">Finalized</span>}
               {isFollowUpAppointment && (
                 <span className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[8px] px-2 py-0.5 rounded-full border border-indigo-500/20 font-black uppercase tracking-widest flex items-center gap-1">
@@ -2727,7 +2730,17 @@ const VisitDetailInner: React.FC<Props> = ({
           </div>
         </div>
 
-
+        {/* Mirrors the "Open Workflow" button on Visit Details — same shape and
+            placement, pointing the other way, so the two views are a round trip. */}
+        {onOpenDetails && (
+          <button
+            onClick={() => handleNavigationWithCheck(onOpenDetails)}
+            className="shrink-0 self-start md:self-auto flex items-center gap-2 px-3 py-2 bg-seafoam hover:bg-seafoam/90 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
+          >
+            <ReceiptText size={13} />
+            <span className="hidden sm:inline">Visit Details</span>
+          </button>
+        )}
       </header>
 
       {/* Follow-up Timeline Banner - Show for all appointments in a follow-up chain */}
