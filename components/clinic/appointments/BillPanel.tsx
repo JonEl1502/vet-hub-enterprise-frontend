@@ -7,6 +7,7 @@ import {
 import { Visit } from '../../../types';
 import { billsAPI, invoicesAPI } from '../../../services';
 import servicesAPI, { CatalogService } from '../../../services/modules/services.api';
+import { useData } from '../../../contexts/DataContext';
 import { Bill, BillLine } from '../../../services/modules/bills.api';
 import { Invoice } from '../../../services/modules/invoices.api';
 
@@ -54,6 +55,7 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange }) => {
+  const { inventory } = useData() as any;
   const [bill, setBill] = React.useState<Bill | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [busy, setBusy] = React.useState(false);
@@ -102,6 +104,18 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
       .slice(0, 6);
   }, [catalog, q]);
 
+  // The catalogue is SERVICES only, so searching "glove" found nothing and
+  // offered to add it as a free-text Other line at a price typed from memory —
+  // even though Gloves is a stocked item with a real price. Consumables are
+  // searched alongside services now, as their own group.
+  const stockMatches = React.useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (needle.length < 2) return [];
+    return (inventory || [])
+      .filter((i: any) => `${i.name} ${i.category ?? ''}`.toLowerCase().includes(needle))
+      .slice(0, 6);
+  }, [inventory, q]);
+
   const apply = (res: any) => { if (res?.success && res.data?.bill) setBill(res.data.bill); };
   const run = async (fn: () => Promise<any>, done?: string) => {
     setBusy(true);
@@ -116,6 +130,27 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
       quantity: 1, unitPrice: Number(s.priceEffective ?? s.defaultPrice ?? 0),
     }),
     `${s.name} added`,
+  ).then(() => { setQ(''); setAdding(false); });
+
+  /**
+   * Add a stocked item as a CONSUMABLE line, carrying its `inventoryItemId` and
+   * its real sell price rather than a number typed from memory.
+   *
+   * ⚠️ This bills the item; it does NOT deduct it. Stock moves when a
+   * consumable is logged against the visit (which creates the VisitMedication
+   * finalize reads) — a line added straight onto the bill has no such record.
+   * Log it on the visit if the stock must move.
+   */
+  const addFromStock = (item: any) => run(
+    () => billsAPI.addLine(visit.id, {
+      kind: 'CONSUMABLE',
+      inventoryItemId: String(item.id),
+      name: item.name,
+      category: item.category ?? null,
+      quantity: 1,
+      unitPrice: Number(item.price ?? 0),
+    }),
+    `${item.name} added`,
   ).then(() => { setQ(''); setAdding(false); });
 
   const addFreeText = () => {
@@ -286,9 +321,16 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
           <div className="relative">
             <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
             <input autoFocus value={q} onChange={e => setQ(e.target.value)}
-              placeholder="Search services, or type anything to add it as an Other line…"
+              placeholder="Search services and consumables, or type anything to add it as an Other line…"
               className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg pl-8 pr-2 py-2 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20" />
           </div>
+
+          {/* Two groups, labelled — a service and a stocked item bill differently
+              (the stock line carries its inventory id), so which one you picked
+              should never be a guess. */}
+          {matches.length > 0 && (
+            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 pt-0.5">Services</p>
+          )}
           {matches.map(s => (
             <button key={s.id} type="button" disabled={busy} onClick={() => addFromCatalog(s)}
               className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-100 dark:border-zinc-800 hover:border-seafoam text-left transition-colors disabled:opacity-40">
@@ -298,10 +340,28 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
               <span className="text-[11px] font-black text-pine dark:text-zinc-100 shrink-0">{money(Number(s.priceEffective ?? s.defaultPrice ?? 0), currency)}</span>
             </button>
           ))}
-          {q.trim().length >= 2 && matches.length === 0 && (
+
+          {stockMatches.length > 0 && (
+            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 pt-1">Consumables &amp; stock</p>
+          )}
+          {stockMatches.map((i: any) => (
+            <button key={`inv-${i.id}`} type="button" disabled={busy} onClick={() => addFromStock(i)}
+              className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-100 dark:border-zinc-800 hover:border-seafoam text-left transition-colors disabled:opacity-40">
+              <Plus size={11} className="text-amber-500 shrink-0" />
+              <span className="flex-1 text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{i.name}</span>
+              {/* On-hand shown because billing an item the shelf hasn't got is
+                  worth seeing BEFORE it lands on the client's bill. */}
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 shrink-0">
+                {i.category} · {Number(i.quantity ?? 0)} {i.unit ?? ''}
+              </span>
+              <span className="text-[11px] font-black text-pine dark:text-zinc-100 shrink-0">{money(Number(i.price ?? 0), currency)}</span>
+            </button>
+          ))}
+
+          {q.trim().length >= 2 && matches.length === 0 && stockMatches.length === 0 && (
             <div className="flex items-center gap-2">
               <p className="flex-1 text-[11px] text-slate-500 dark:text-zinc-400">
-                No service matches — add "<strong className="text-pine dark:text-zinc-100">{q.trim()}</strong>" as an Other line.
+                No service or stock item matches — add "<strong className="text-pine dark:text-zinc-100">{q.trim()}</strong>" as an Other line.
               </p>
               <input type="number" min={0} step="0.01" value={newPrice} onChange={e => setNewPrice(e.target.value)}
                 placeholder="Price"

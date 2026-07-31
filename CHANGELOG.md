@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: the bill's add-item search covers consumables, not just services  —  2026-07-31
+- **What changed:** the add-line search read the SERVICE catalogue only, so typing "glove" said
+  *"No service matches — add glove as an Other line"* and asked for a price from memory, even
+  though Gloves is stocked with a real sell price. Results are now two labelled groups —
+  **Services** and **Consumables & stock** — and picking a stock item adds a `CONSUMABLE` line
+  carrying its `inventoryItemId` and catalogue price. The Other-line fallback only appears when
+  BOTH groups are empty.
+- **Record impact:** 🔵 Low — adds a bill line referencing an inventory item.
+- **Data dependency:** None; `BillLineInput.inventoryItemId` already existed.
+- **Rollback:** revert the commit. Lines already added stay valid.
+- ⚠️ **This BILLS the item, it does not DEDUCT it.** Stock moves when a consumable is logged
+  against the visit (that creates the `VisitMedication` finalize reads); a line added straight to
+  the bill has no such record, so the shelf is unchanged. Log it on the visit when the stock
+  must move — otherwise the client is charged and the count still says you have it.
+- ⚠️ On-hand quantity is shown in the result row, deliberately: billing an item the shelf hasn't
+  got is worth seeing before it reaches the client's bill.
+
 ### page (admin): Close action on a subscription payment  —  2026-07-31
 - **What changed:** Sub-Payments rows gain a third action, **Close**, beside Reconcile and
   Activate. It marks an attempt CANCELLED so the clinic stops being prompted to raise a support
