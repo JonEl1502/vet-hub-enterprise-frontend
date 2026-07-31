@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a client message from the notifications card no longer opens a white page  —  2026-07-31
+- **What changed:** the notifications hover card sent client messages to the `messaging` route,
+  whose handler did `if (!mc) return null` — a literal blank screen whenever the client wasn't in
+  the already-loaded list. From a notification that is the COMMON case: the inbox surfaces clients
+  the current page never fetched. The card now opens the **client's details page**, which loads the
+  client itself and carries the Messaging Portal.
+- **Record impact:** 🟢 None — navigation only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit.
+- ⚠️ The `messaging` route's blank render is fixed **at source** too: it now explains the client
+  isn't loaded and offers a button through to their profile. Any other caller that hits that route
+  with an unloaded client gets an explanation instead of a white page.
+
 ### flow: add a vaccination from the vaccination page when none was staged  —  2026-07-31
 - **What changed:** the empty state offered only **"Generate from visit services"**, which
   produces nothing if the visit arrived with no vaccination service on it — a dead end that sent

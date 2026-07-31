@@ -3121,7 +3121,22 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'messaging':
         const mId = currentNav.params?.clientId;
         const mc = getClientById(mId);
-        if (!mc) return null;
+        // `return null` here rendered a WHITE PAGE whenever the client wasn't in
+        // the loaded list. Say so and offer the way out instead of a blank screen.
+        if (!mc) {
+          return (
+            <div className="p-6 space-y-3">
+              <button onClick={goBack} className="px-4 py-2 bg-slate-200 dark:bg-zinc-800 rounded-lg hover:bg-slate-300 dark:hover:bg-zinc-700 text-sm font-bold">← Back</button>
+              <p className="text-sm text-slate-500 dark:text-zinc-400">
+                That client isn't loaded on this screen. Open them from Clients to message them.
+              </p>
+              {mId ? (
+                <button onClick={() => navigateTo('client-profile', { clientId: Number(mId) })}
+                  className="px-4 py-2 bg-seafoam text-white rounded-lg text-sm font-bold">Open client</button>
+              ) : null}
+            </div>
+          );
+        }
         return <CommunicationPortal client={mc} onBack={goBack} onRecordMessage={store.recordMessage} clinic={activeClinic as any} appointments={appointments as any} />;
       case 'broadcasts':
         return <BroadcastView />;

@@ -494,7 +494,12 @@ const Navbar: React.FC<NavbarProps> = ({
                       {inboxMessages.map(m => (
                         <button
                           key={`msg-${m.id}`}
-                          onClick={() => { setShowNotifications(false); onNavigate?.('messaging', { clientId: Number(m.clientId) }); }}
+                          // The client's DETAILS page, not the bare messaging route. That route
+                          // renders nothing when the client isn't in the loaded list — which is
+                          // exactly the case from a notification, since the inbox can surface a
+                          // client the current page never fetched. The profile loads the client
+                          // itself and carries the Messaging Portal.
+                          onClick={() => { setShowNotifications(false); onNavigate?.('client-profile', { clientId: Number(m.clientId) }); }}
                           className={`w-full px-5 py-3 hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors text-left ${!m.isRead ? 'border-l-2 border-seafoam bg-seafoam/5' : ''}`}
                         >
                           <div className="flex items-start justify-between gap-2">
