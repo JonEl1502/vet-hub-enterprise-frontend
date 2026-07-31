@@ -100,6 +100,36 @@ const SubscriptionPaymentsAdminPage: React.FC = () => {
     }
   };
 
+  /**
+   * Close an attempt that is never going to settle.
+   *
+   * A PENDING attempt older than 4h makes the clinic's billing page show a
+   * prominent "raise a ticket" prompt. Once we know the money never arrived,
+   * that prompt is asking them to open a ticket about nothing — and there was
+   * no way to turn it off. Cancelling clears it. It does not touch their
+   * subscription; a clinic on a live plan stays on it.
+   */
+  const doCancelAttempt = async (row: AdminReportRow) => {
+    const ok = await dialog.confirm({
+      title: 'Close this payment attempt?',
+      message: `Mark "${row.packageName}" for ${row.clinicName} as CANCELLED. Use this when the money never arrived — it stops the clinic being prompted to raise a support ticket about it. Their current subscription is not affected.`,
+      confirmLabel: 'Close attempt',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    const key = `${row.channel}-${row.id}`;
+    setActingKey(key);
+    try {
+      const res = await adminSubscriptionReportAPI.cancelAttempt(row.channel, reconcileRefForRow(row));
+      if (res.success) {
+        toast.success('Attempt closed — the ticket prompt is cleared');
+        await load();
+      }
+    } finally {
+      setActingKey(null);
+    }
+  };
+
   const apply = () => load();
   const reset = () => {
     setFrom(''); setTo(''); setPackageId(''); setChannel(''); setStatus('');
@@ -265,6 +295,14 @@ const SubscriptionPaymentsAdminPage: React.FC = () => {
                           className="px-2 py-1 rounded-lg bg-amber-500 text-white text-[10px] font-black uppercase tracking-wider hover:bg-amber-600 disabled:opacity-50"
                         >
                           Activate
+                        </button>
+                        <button
+                          onClick={() => doCancelAttempt(row)}
+                          disabled={actingKey === `${row.channel}-${row.id}` || row.status === 'CANCELLED'}
+                          title="Close this attempt — stops the clinic being prompted to raise a support ticket about it"
+                          className="px-2 py-1 rounded-lg border border-rose-200 dark:border-rose-900 text-rose-600 dark:text-rose-400 text-[10px] font-black uppercase tracking-wider hover:bg-rose-50 dark:hover:bg-rose-950/40 disabled:opacity-40"
+                        >
+                          Close
                         </button>
                       </div>
                     )}

@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page (admin): Close action on a subscription payment  —  2026-07-31
+- **What changed:** Sub-Payments rows gain a third action, **Close**, beside Reconcile and
+  Activate. It marks an attempt CANCELLED so the clinic stops being prompted to raise a support
+  ticket about a payment that is never going to land. Confirms first, and states plainly that the
+  clinic's current subscription is unaffected.
+- **Record impact:** 🔵 Low — sets one attempt to CANCELLED via the API.
+- **Data dependency:** **Requires the backend `/cancel` endpoint.** Without it the button 404s.
+- **Rollback:** revert the commit.
+- ⚠️ Disabled on rows already CANCELLED; the API refuses SUCCESS rows outright.
+
 ### page: the medical report groups systemic findings by title  —  2026-07-31
 - **What changed:** the report printed every abnormality as one run-on sentence —
   `Abnormalities noted — Eyes: Retina: mild degeneration; Cornea: clear; Ears: …` — which

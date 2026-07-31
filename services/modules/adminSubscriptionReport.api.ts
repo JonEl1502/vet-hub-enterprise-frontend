@@ -86,4 +86,10 @@ export const adminSubscriptionReportAPI = {
   // Force-activate an out-of-band payment the provider can't confirm.
   manualActivate: (channel: AdminChannel, reference: string, reason?: string): Promise<ApiResponse<{ status: AdminStatus }>> =>
     post(`/admin/subscriptions/attempts/${channel}/${encodeURIComponent(reference)}/manual-activate`, { reason }, { showError: true }),
+
+  // Close an attempt that will never settle. The clinic's billing page shows a
+  // "raise a ticket" prompt for anything PENDING over 4h; cancelling clears it.
+  // Refused on SUCCESS by the API — that would orphan a paid subscription.
+  cancelAttempt: (channel: AdminChannel, reference: string, reason?: string): Promise<ApiResponse<{ status: AdminStatus }>> =>
+    post(`/admin/subscriptions/attempts/${channel}/${encodeURIComponent(reference)}/cancel`, { reason }, { showError: true }),
 };
