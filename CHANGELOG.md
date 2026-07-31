@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: the medical report groups systemic findings by title  —  2026-07-31
+- **What changed:** the report printed every abnormality as one run-on sentence —
+  `Abnormalities noted — Eyes: Retina: mild degeneration; Cornea: clear; Ears: …` — which
+  nested "title: text" inside "system: findings" and was unreadable by the third system. The
+  narrative now names the systems (*"Abnormalities noted on eyes and ears"*) and a grouped
+  block prints each system with its findings on their own lines.
+- **Record impact:** 🟢 None — rendering only, nothing written.
+- **Data dependency:** None. Reads `entries` when present and falls back to the flat `findings`
+  string otherwise, so it renders correctly against records from before titled findings.
+- **Rollback:** revert the commit.
+- ⚠️ **Detail is no longer duplicated.** The narrative deliberately stops listing the findings
+  text because the block below carries it — reverting only this file while keeping the exam
+  change leaves the report naming systems with no detail.
+- ⚠️ A legacy untitled finding prints **bare, with no invented title.** It reads as one entry
+  keyed `general`; labelling it "General" in print would assert something the vet never wrote.
+- Custom clinic-added `normalAbnormal` fields get the same titled treatment via `factValue`,
+  so a clinic-built system card doesn't print as a flat string beside the built-in ones.
+- Each system block is `break-inside-avoid` so a system doesn't split across printed pages.
+
 ### component: systemic exam findings become a titled list  —  2026-07-31
 - **What changed:** each body system had ONE free-text box, so every observation about an eye
   (retina, cornea, PLR, discharge) was mashed into a single string nothing could search or

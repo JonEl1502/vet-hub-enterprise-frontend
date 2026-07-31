@@ -2,6 +2,7 @@ import React from 'react';
 import { Visit, Pet, Client, Clinic } from '../../../types';
 import { DewormingRecord, FormField, LayoutStage } from '../../../services';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
+import { toEntries, SystemValue } from './wizard/SystemFindings';
 
 interface Props {
   visit: Visit;
@@ -41,10 +42,15 @@ const factValue = (v: any): string | null => {
     // Catalog picks are stored as { id, name } so a later phase can turn the
     // answer into a real order or bill line — the report wants the name.
     if (typeof v.name === 'string' && v.name.trim()) return v.name.trim();
-    // normalAbnormal: { normal, findings }
-    if ('normal' in v || 'findings' in v) {
-      const f = String(v.findings ?? '').trim();
-      if (f) return f;
+    // normalAbnormal: { normal, findings, entries }. A clinic-added system card
+    // gets the same titled treatment as the built-in ones.
+    if ('normal' in v || 'findings' in v || 'entries' in v) {
+      const es = toEntries(v as SystemValue).filter(e => e.text.trim());
+      if (es.length) {
+        return es
+          .map(e => (e.key === 'general' && es.length === 1 ? e.text.trim() : `${e.label} — ${e.text.trim()}`))
+          .join('; ');
+      }
       return v.normal ? 'Normal' : null;
     }
     // checks: { key: boolean }
@@ -83,6 +89,12 @@ const Narrative: React.FC<{ children: React.ReactNode }> = ({ children }) => (
 );
 
 const lc = (s?: string | null) => (s || '').toLowerCase();
+/** "eyes, ears and abdomen" — reads as a sentence, not a CSV. */
+const lcList = (names: string[]): string => {
+  const l = names.map(n => lc(n));
+  if (l.length <= 1) return l[0] || '';
+  return `${l.slice(0, -1).join(', ')} and ${l[l.length - 1]}`;
+};
 // Ensure a fragment ends as a sentence.
 const dot = (s: string) => (/[.!?]$/.test(s.trim()) ? s.trim() : `${s.trim()}.`);
 // Join fragments into a paragraph, skipping empties.
@@ -103,8 +115,18 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
   const tx = data.treatment || {};
   const cm = data.communication || {};
   const fu = data.followUp || {};
-  const systems: Record<string, { normal?: boolean; findings?: string }> = ex.systems || {};
+  const systems: Record<string, SystemValue> = ex.systems || {};
   const abnormalSystems = Object.entries(systems).filter(([, s]) => s.findings && s.findings.trim());
+  // Grouped by title: each abnormal system with its individual findings, so the
+  // report prints "Retina — mild degeneration" as its own line instead of
+  // burying it in a run-on "Eyes: Retina: …; Cornea: …" string.
+  //
+  // A record written before titled findings existed yields a single entry keyed
+  // `general` holding the whole old string — printed bare, with no invented
+  // title, because we do not know what the vet meant it to be called.
+  const groupedSystems = abnormalSystems
+    .map(([name, s]) => ({ name, entries: toEntries(s).filter(e => e.text.trim()) }))
+    .filter(g => g.entries.length > 0);
   const nadSystems = Object.entries(systems).filter(([, s]) => s.normal).map(([n]) => n);
   const staffName = (id: any) => staff.find(s => String(s.id) === String(id))?.name;
   const consentLabels: Record<string, string> = {
@@ -132,7 +154,9 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
   ].filter(Boolean);
   const examText = prose([
     (ex.mentation || vitalsBits.length) && `On physical examination ${pet.name} was ${lc(ex.mentation) || 'assessed'}${vitalsBits.length ? ` — ${vitalsBits.join(', ')}` : ''}`,
-    abnormalSystems.length > 0 && `Abnormalities noted — ${abnormalSystems.map(([n, s]) => `${n}: ${s.findings}`).join('; ')}`,
+    // Names only — the grouped block below carries the detail, so the same
+    // findings are not printed twice in two different shapes.
+    groupedSystems.length > 0 && `Abnormalities noted on ${lcList(groupedSystems.map(g => g.name))}`,
     nadSystems.length > 0 && `${nadSystems.join(', ')} were unremarkable`,
     ex.notes,
   ]);
@@ -258,8 +282,27 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
       </Body>
 
       <SectionTitle>2 · Examination</SectionTitle>
-      <Body has={!!examText || customFacts('examination').length > 0}>
+      <Body has={!!examText || groupedSystems.length > 0 || customFacts('examination').length > 0}>
         {examText && <Narrative>{examText}</Narrative>}
+        {groupedSystems.length > 0 && (
+          <div className="mt-2 space-y-1.5">
+            {groupedSystems.map(g => (
+              <div key={g.name} className="break-inside-avoid">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{g.name}</p>
+                <div className="pl-3 space-y-0.5">
+                  {g.entries.map(e => (
+                    <p key={e.key} className="text-[12px] text-slate-800 dark:text-zinc-200">
+                      {/* A legacy untitled finding prints bare — see groupedSystems. */}
+                      {e.key === 'general' && g.entries.length === 1
+                        ? e.text.trim()
+                        : <><span className="font-bold">{e.label}</span> — {e.text.trim()}</>}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
         <Extras stageKey="examination" />
       </Body>
 
