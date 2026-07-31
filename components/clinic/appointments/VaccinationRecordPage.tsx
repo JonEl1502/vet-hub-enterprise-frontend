@@ -209,6 +209,62 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
     finally { setBusy(false); }
   };
 
+  // The clinic's vaccination recipes, so a visit that arrived with no
+  // vaccination service staged can still have one added from this page.
+  const [vaccineRecipes, setVaccineRecipes] = useState<any[]>([]);
+  const [recipeQ, setRecipeQ] = useState('');
+
+  useEffect(() => {
+    let live = true;
+    procedureTemplatesAPI.list()
+      .then(r => {
+        if (!live || !r.success || !r.data?.templates) return;
+        const sp = (appointment.pet?.species || '').toLowerCase();
+        setVaccineRecipes(r.data.templates.filter((t: any) => {
+          if (!t.isActive) return false;
+          // Species-specific recipes only offer themselves to that species; a
+          // recipe with no species set is general and always offered.
+          if (t.species?.length && sp && !t.species.some((x: string) => x.toLowerCase() === sp)) return false;
+          const cat = `${t.categoryName ?? ''} ${t.name ?? ''}`.toLowerCase();
+          return cat.includes('vaccin') || cat.includes('immuni');
+        }));
+      })
+      .catch(() => { /* the control just doesn't render */ });
+    return () => { live = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointment.id]);
+
+  const matchingRecipes = useMemo(() => {
+    const needle = recipeQ.trim().toLowerCase();
+    const list = needle
+      ? vaccineRecipes.filter((t: any) => `${t.name} ${t.code ?? ''}`.toLowerCase().includes(needle))
+      : vaccineRecipes;
+    return list.slice(0, 8);
+  }, [vaccineRecipes, recipeQ]);
+
+  /**
+   * Apply a vaccination recipe to this visit, then build the records from it.
+   *
+   * Two steps on purpose: `apply` puts the recipe's vaccine, consumables and
+   * fees onto the VISIT (so the bill is right), and `createFromAppointment`
+   * then produces the vaccination records from those services — the same path
+   * the "Generate from visit services" button uses. Doing it in one motion is
+   * what makes this page stop being a dead end.
+   */
+  const applyRecipe = async (t: any) => {
+    setBusy(true);
+    try {
+      const res = await procedureTemplatesAPI.apply(t.id, { appointmentId: String(appointment.id) });
+      if (!res.success) throw new Error('Could not apply that vaccination');
+      const recs = await vaccinationsAPI.createFromAppointment(String(appointment.id));
+      toast.success(`${t.name} added — ${recs.length} record${recs.length !== 1 ? 's' : ''} created`);
+      setRecipeQ('');
+      await load(); onChanged?.();
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to add that vaccination');
+    } finally { setBusy(false); }
+  };
+
   // Marking a record ADMINISTERED completes its vaccination service task on
   // the visit, so the visit's services progress + finalize gate move with it.
   const syncVisitTasks = async (recs: VaccinationRecord[]) => {
@@ -345,6 +401,52 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
               <button onClick={generate} disabled={busy} className="w-full flex items-center justify-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-emerald-300 text-white rounded-lg font-black text-[10px] uppercase tracking-widest shadow-sm transition-all active:scale-95">
                 <Plus size={12} /> {busy ? 'Creating…' : 'Generate from visit services'}
               </button>
+
+              {/* "Generate from visit services" only works if a vaccination
+                  service was staged at registration. When none was, this page
+                  was a dead end — the vet had to leave, add the service, and
+                  come back. Searching the clinic's vaccination RECIPES here
+                  applies one to the visit (its vaccine, consumables and fees),
+                  and the records generate from it straight after. */}
+              {vaccineRecipes.length > 0 && (
+                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 text-left">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">
+                    Or add a vaccination
+                  </p>
+                  <div className="relative mb-1.5">
+                    <Search size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                    <input
+                      value={recipeQ}
+                      onChange={e => setRecipeQ(e.target.value)}
+                      placeholder="Search vaccinations…"
+                      className="w-full pl-7 pr-2 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[11px] font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-emerald-500/30"
+                    />
+                  </div>
+                  <div className="space-y-1 max-h-44 overflow-y-auto">
+                    {matchingRecipes.map((t: any) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        disabled={busy}
+                        onClick={() => applyRecipe(t)}
+                        className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-100 dark:border-zinc-800 hover:border-emerald-400 text-left transition-colors disabled:opacity-40"
+                      >
+                        <Plus size={11} className="text-emerald-500 shrink-0" />
+                        <span className="flex-1 min-w-0">
+                          <span className="block text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{t.name}</span>
+                          <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">
+                            {(t.items || []).length} item{(t.items || []).length !== 1 ? 's' : ''}
+                            {t.species?.length ? ` · ${t.species.join(', ')}` : ''}
+                          </span>
+                        </span>
+                      </button>
+                    ))}
+                    {recipeQ.trim() && matchingRecipes.length === 0 && (
+                      <p className="text-[10px] text-slate-400 py-2 text-center">No vaccination matches “{recipeQ.trim()}”.</p>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           {records.map(r => {

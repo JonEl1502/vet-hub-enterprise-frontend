@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: add a vaccination from the vaccination page when none was staged  —  2026-07-31
+- **What changed:** the empty state offered only **"Generate from visit services"**, which
+  produces nothing if the visit arrived with no vaccination service on it — a dead end that sent
+  the vet back to the visit to add a service and return. The clinic's **vaccination recipes** are
+  now searchable right there; picking one applies it to the visit and generates the records in
+  one motion.
+- **Record impact:** 🔵 Low — applying a recipe adds its tasks/products to the visit (and so to
+  the bill), then creates the vaccination records.
+- **Data dependency:** None new — uses the existing `procedureTemplates.apply` +
+  `vaccinations.createFromAppointment`.
+- **Rollback:** revert the commit; the empty state returns to the single button.
+- ⚠️ **Two writes, not one.** `apply` puts the vaccine, consumables and fees on the VISIT; the
+  record generation reads them back. If the second call fails the recipe is still applied — the
+  page reloads, so the services are visible and "Generate from visit services" will finish the job.
+- ⚠️ Only recipes whose category or name reads as vaccination/immunisation are offered, filtered
+  by the patient's species. A recipe with no species set is treated as general and always offered.
+- ⚠️ The control hides entirely when the clinic has no matching recipe, rather than showing an
+  empty search — nothing to add is not a state worth a search box.
+
 ### flow: the visit's reminder opens inline instead of navigating away  —  2026-07-31
 - **What changed:** "View reminder" on Follow-up & Reminders called `onNavigateToReminder`, which
   left the visit for the Reminders page to read one date. It now expands an inline panel showing
