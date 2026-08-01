@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: stuck-payment banner is dismissible  —  2026-08-01
+- **What changed:** the Billing & Subscription "payment has been pending since…" banner
+  gains a **×**. Dismissal is remembered per payment (localStorage, keyed by the
+  attempt's reference) — that payment stays closed, a NEW stuck payment still shows.
+- **Record impact:** 🟢 None — display state only.
+- **Data dependency:** none.
+- **Rollback:** revert; the banner becomes permanent again.
+
 ### page + data-shape: partner page finished — per-request price negotiation, partner charges, payment measures  —  2026-08-01 (backend 169)
 - **What changed:**
   - **Price is discussed on each request** (user: "each service is price discussed well").

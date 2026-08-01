@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   CreditCard, Calendar, CheckCircle2, Zap, Crown, Building2, Rocket,
   ExternalLink, RefreshCw, AlertTriangle, Package, ArrowUpRight, Settings,
-  Check, FileText, ReceiptText,
+  Check, FileText, ReceiptText, X,
 } from 'lucide-react';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -573,10 +573,24 @@ const BillingView: React.FC = () => {
 
   // A payment stuck PENDING for 4h+ — surface a prominent "raise a ticket"
   // prompt, prefilled with that attempt's provider + reference.
+  // Dismissible (user, 2026-08-01): the × remembers WHICH payment was closed
+  // (localStorage, keyed by reference/id), so this one stays gone but a NEW
+  // stuck payment still shows.
   const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+  const [dismissedPending, setDismissedPending] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('vethub_dismissed_pending') || '[]'); } catch { return []; }
+  });
+  const pendingKey = (r: any): string => String(r.reference || r.id || r.createdAt);
   const stalePending = history.find(
-    (r) => r.status === 'PENDING' && Date.now() - new Date(r.createdAt).getTime() > FOUR_HOURS_MS,
+    (r) => r.status === 'PENDING' && Date.now() - new Date(r.createdAt).getTime() > FOUR_HOURS_MS
+      && !dismissedPending.includes(pendingKey(r)),
   );
+  const dismissPending = () => {
+    if (!stalePending) return;
+    const next = [...dismissedPending, pendingKey(stalePending)].slice(-20); // keep the list bounded
+    setDismissedPending(next);
+    try { localStorage.setItem('vethub_dismissed_pending', JSON.stringify(next)); } catch { /* ignore */ }
+  };
 
   // Every payment attempt is an invoice for a subscription term; only a
   // settled one also has a receipt.
@@ -653,6 +667,14 @@ const BillingView: React.FC = () => {
             className="shrink-0 px-3 py-2 rounded-xl bg-amber-600 text-white text-xs font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-amber-700"
           >
             <LifeBuoy size={14} /> Raise a ticket
+          </button>
+          <button
+            onClick={dismissPending}
+            title="Dismiss — this payment won't be flagged again"
+            aria-label="Dismiss"
+            className="shrink-0 p-2 rounded-lg text-amber-500 hover:text-amber-800 dark:hover:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors self-start sm:self-auto"
+          >
+            <X size={15} />
           </button>
         </div>
       )}
