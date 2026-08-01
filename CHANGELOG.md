@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Running Bill "Add services" opens an inline search  —  2026-08-01
+- **What changed:** on the visit wizard's Running Bill card, **Add services** now toggles
+  an `InlineServiceSearch` right above the Add services / Invoice buttons (same control as
+  the Diagnostics step) instead of jumping to the Add Services panel; the "Opens the Add
+  Services panel" tooltip is gone. Falls back to the old panel when the inject context is
+  absent. Picked services land in their own category on the bill, exactly like the
+  Diagnostics-step search.
+- **Record impact:** 🟢 None — same `injectService` path the wizard already used.
+- **Data dependency:** none.
+- **Rollback:** revert; the button opens the panel again.
+
 ### page: sent diagnostic requests show partner + progress dialog  —  2026-08-01
 - **What changed:** once a Diagnostics-step request is sent to a partner, its "To partner"
   chip becomes **"partner name · status"** (negotiating / received / in progress / result

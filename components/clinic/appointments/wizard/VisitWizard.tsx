@@ -10,6 +10,10 @@ import { STEP_DEFS } from './entryPoints';
 import TemplateStep from './steps/TemplateStep';
 import { workflowTemplatesAPI } from '../../../../services';
 import { StepProps, WizardStepId, StaffOpt } from './types';
+// Inline add-service search on the Running Bill card (user, 2026-08-01) —
+// same control the Diagnostics step uses; context provided by VisitDetailView.
+import InlineServiceSearch from '../../shared/InlineServiceSearch';
+import { useServiceInject } from '../../shared/ServiceInjectContext';
 import { VisitWizardApi } from './useVisitWizard';
 import HistoryStep from './steps/HistoryStep';
 import ExaminationStep from './steps/ExaminationStep';
@@ -118,6 +122,9 @@ const useElapsed = (fromIso: string) => {
 const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry, templateStages, templateFields, template, setVisitTemplate } = wiz;
   const [billOpen, setBillOpen] = useState(true);
+  // Inline add-service search on the Running Bill card (user, 2026-08-01).
+  const [billSearchOpen, setBillSearchOpen] = useState(false);
+  const { injectService, addedNames } = useServiceInject();
   // Mobile ⚠ menu holding the Hospitalize / Escalate-to-Emergency actions.
   const [escMenuOpen, setEscMenuOpen] = useState(false);
   const elapsed = useElapsed(state.startedAt);
@@ -547,12 +554,25 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
                 <span className={`inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${visit.isPaid ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
                   {visit.isPaid ? `Paid · ${visit.paymentMethod}` : 'Unbilled'}
                 </span>
+                {/* Inline add — the search opens right above the buttons (user,
+                    2026-08-01), same control as the Diagnostics step. Falls
+                    back to the Add Services panel when no inject context. */}
+                {billSearchOpen && injectService && !locked && (
+                  <div className="pt-1">
+                    <InlineServiceSearch
+                      onAdd={(svc, categoryName) => injectService(svc, categoryName)}
+                      addedNames={addedNames}
+                      currency={activeClinic.currency}
+                      placeholder="Search a service to add…"
+                    />
+                  </div>
+                )}
                 <div className="flex gap-1.5 pt-1">
-                  {!locked && (onAddService || goServices) && (
-                    <button type="button" onClick={onAddService ?? goServices}
-                      title="Opens the Add Services panel"
-                      className="flex-1 px-2 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
-                      Add services
+                  {!locked && (injectService || onAddService || goServices) && (
+                    <button type="button"
+                      onClick={injectService ? () => setBillSearchOpen(o => !o) : (onAddService ?? goServices)}
+                      className={`flex-1 px-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${billSearchOpen ? 'bg-seafoam text-white' : 'bg-seafoam/10 text-seafoam hover:bg-seafoam hover:text-white'}`}>
+                      {billSearchOpen ? 'Close search' : 'Add services'}
                     </button>
                   )}
                   {goBilling && (
