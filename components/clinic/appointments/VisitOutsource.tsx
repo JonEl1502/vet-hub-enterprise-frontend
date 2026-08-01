@@ -28,7 +28,7 @@ export const OutsourceServiceButton: React.FC<{
   currency?: string;
   onCreated?: (job: VisitJob) => void;
   // 'menu' renders a labeled full-width row for use inside a dropdown menu.
-  variant?: 'icon' | 'menu';
+  variant?: 'icon' | 'menu' | 'chip';
 }> = ({ visitId, taskId, category, serviceName, currency = 'KES', onCreated, variant = 'icon' }) => {
   const [open, setOpen] = useState(false);
   const [partners, setPartners] = useState<EligiblePartner[]>([]);
@@ -62,6 +62,13 @@ export const OutsourceServiceButton: React.FC<{
         <button type="button" onClick={() => setOpen(true)}
           className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors">
           <Send size={12} className="text-seafoam" /> Share to partner
+        </button>
+      ) : variant === 'chip' ? (
+        // Labeled chip matching the visit row buttons (View result / Full page).
+        <button type="button" onClick={() => setOpen(true)}
+          title="Ask a partner clinic to handle this service — they see it as a clinical-transfer visit"
+          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-violet-300 dark:border-violet-800 text-violet-600 dark:text-violet-400 text-[9px] font-black uppercase tracking-widest hover:bg-violet-600 hover:text-white transition-all">
+          <Send size={10} /> To partner
         </button>
       ) : (
         <button type="button" onClick={() => setOpen(true)} title="Outsource to partner clinic"

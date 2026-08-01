@@ -7,6 +7,8 @@ import { Section, L, showsField } from '../fields';
 import { labAPI, imagingAPI, LabRecord, ImagingRecord, dialog } from '../../../../../services';
 import { formatDate } from '../../../../../services/utils/dateFormatter';
 import { useAuth } from '../../../../../contexts/AuthContext';
+// Direct module import (not the services barrel) — same reason as VisitOutsource itself.
+import { OutsourceServiceButton } from '../../VisitOutsource';
 
 // Diagnostics rides on the visit's REAL service line-items: any lab/imaging/
 // dental service added to the visit shows here as a request. This step is
@@ -205,6 +207,13 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
                         className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-seafoam/30 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
                         <ExternalLink size={10} /> Full page
                       </button>
+                    )}
+                    {/* Send this request to a partner clinic (visit jobs, 168):
+                        partners with an agreed price for the category can take
+                        it — they see a clinical-transfer visit on their side. */}
+                    {!visit.isPaid && (
+                      <OutsourceServiceButton variant="chip" visitId={visit.id} taskId={t.id} category={t.category} serviceName={t.name} currency={currency}
+                        onCreated={() => emit(`${t.name} sent to a partner clinic`, 'action', true)} />
                     )}
                     {/* Anything added is deletable before payment — the bill
                         line + its auto-created module record go together. */}

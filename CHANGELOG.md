@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: "To partner" button on each diagnostic request row  —  2026-08-01
+- **What changed:** the Diagnostics step's request rows (CT Scan, CBC, …) gain a violet
+  **To partner** chip next to View result / Full page — opens the existing partner picker
+  (partners with an agreed price for the category) and sends the request as a visit job.
+  New `chip` variant on `OutsourceServiceButton`; hidden once the visit is paid. A journey
+  event is emitted on send.
+- **Record impact:** 🟢 None — same createJob path the Records-tab rows use.
+- **Data dependency:** backend 168 (already live).
+- **Rollback:** revert; the Records & Reports surface still offers the same action.
+
 ### fix + page: clinical workflow no longer vanishes on imaging; partner share re-homed  —  2026-08-01 (backend 168)
 - **What changed:**
   1. **Bug:** `VisitDetailView` guessed "diagnostics-only" from task categories — a real
