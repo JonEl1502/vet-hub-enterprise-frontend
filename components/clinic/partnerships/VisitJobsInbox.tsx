@@ -7,7 +7,8 @@ import type { VisitJob, VisitJobStatus } from '../../../services/modules/visitJo
 import { toast } from '../../../services/utils/toast';
 import ClinicLogo from '../clinic-mgmt/ClinicLogo';
 import VisitJobTracker from './VisitJobTracker';
-import { MapPin } from 'lucide-react';
+import { MapPin, ExternalLink } from 'lucide-react';
+import { resolveCategoryMenuId } from '../../../services/modules/staffScope.api';
 
 const TONE: Record<string, string> = {
   REQUESTED: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
@@ -107,6 +108,21 @@ const VisitJobsInbox: React.FC = () => {
             {mode === 'incoming' && negotiating && (
               <button onClick={() => act(job, 'DECLINED', 'Job declined')} disabled={b} className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-rose-500 transition-all disabled:opacity-50">Decline</button>
             )}
+            {/* Work the job on ITS module page (user, 2026-08-01): accept
+                created a record-only transfer visit + a lab/imaging/surgery
+                record — this opens that page filtered to the transfer visit,
+                where images & findings are entered. */}
+            {mode === 'incoming' && (job.status === 'ACCEPTED' || job.status === 'COMPLETED') && job.providerVisitId && (() => {
+              const menuId = resolveCategoryMenuId(job.category);
+              if (!menuId) return null;
+              return (
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: menuId, params: { openForAppointmentId: String(job.providerVisitId) } } }))}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-violet-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-violet-700 transition-all">
+                  <ExternalLink size={11} /> Open {job.category} page
+                </button>
+              );
+            })()}
             {mode === 'incoming' && job.status === 'ACCEPTED' && (
               <button onClick={() => act(job, 'COMPLETED', 'Job completed')} disabled={b} className="flex items-center gap-1 px-3 py-1.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-50">{b ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />} Mark complete</button>
             )}

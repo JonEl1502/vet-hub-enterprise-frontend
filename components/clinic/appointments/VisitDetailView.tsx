@@ -713,6 +713,23 @@ const VisitDetailInner: React.FC<Props> = ({
   // consultation whose only staged service was imaging.
   const isTransferVisit = appointment.visitType === 'CLINICAL_TRANSFER';
   const diagnosticOnly = appointment.visitType === 'DIAGNOSTICS' || isTransferVisit;
+  // Who sent the transfer — for the "patient shared for this visit" banner.
+  // The patient lives in the REQUESTER's records; it's shared here, not copied.
+  const [transferFrom, setTransferFrom] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isTransferVisit) { setTransferFrom(null); return; }
+    let alive = true;
+    import('../../../services/modules/visitJobs.api').then(({ visitJobsAPI }) =>
+      visitJobsAPI.listForVisit(appointment.id, { silent: true } as any)
+        .then(r => {
+          if (!alive) return;
+          const j = (r.data?.jobs || []).find(x => String(x.providerVisitId ?? '') === String(appointment.id));
+          setTransferFrom(j?.requesterClinic?.name ?? null);
+        })
+        .catch(() => {}));
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTransferVisit, appointment.id]);
   // Badge external diagnostics (sent-out / received from a partner or outside lab).
   const [diagExternal, setDiagExternal] = useState(false);
   useEffect(() => {
@@ -3083,6 +3100,21 @@ const VisitDetailInner: React.FC<Props> = ({
           onNavigateToVisit={onNavigateToVisit}
           onSettled={() => onRefreshDashboard?.()}
         />
+      )}
+
+      {/* Clinical transfer (168): the patient belongs to the REQUESTING clinic
+          — their info is shared for this visit only, never copied into this
+          clinic's patient records. Say so, prominently. */}
+      {isTransferVisit && (
+        <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-900/50 text-violet-800 dark:text-violet-300 text-[12px] font-medium">
+          <span className="text-base leading-none mt-0.5">🔁</span>
+          <span>
+            <b>Clinical transfer{transferFrom ? ` from ${transferFrom}` : ''}.</b>{' '}
+            The patient and owner details are shared for this visit only — they stay in{' '}
+            {transferFrom || 'the requesting clinic'}'s records, not this clinic's patient list.
+            Work the requested service from its module page; billing is handled by the requester's settlement.
+          </span>
+        </div>
       )}
 
       {/* Visit workflow tabs — Clinical Workflow · Triage (emergency) · Categories & Services · Records & Billing */}

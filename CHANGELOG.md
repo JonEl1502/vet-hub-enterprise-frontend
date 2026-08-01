@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: incoming transfer jobs open their module page; shared-patient banner  —  2026-08-01
+- **What changed:**
+  - Partners → Jobs, incoming ACCEPTED/COMPLETED cards gain **"Open <category> page"** —
+    navigates to the Lab / Imaging / Surgery module page filtered to the transfer visit
+    (`openForAppointmentId`), where images and findings are worked. Pairs with the backend
+    change that creates the module record on accept.
+  - The CLINICAL_TRANSFER visit shows a violet banner: *clinical transfer from <clinic> —
+    patient and owner details are shared for this visit only; they stay in the requesting
+    clinic's records, not this clinic's patient list.*
+- **Record impact:** 🟢 None.
+- **Data dependency:** same-day backend deploy (module record on accept); 168/169 live.
+- **Rollback:** revert; jobs are still workable from the transfer visit's Records tab.
+
 ### page: Running Bill "Add services" opens an inline search  —  2026-08-01
 - **What changed:** on the visit wizard's Running Bill card, **Add services** now toggles
   an `InlineServiceSearch` right above the Add services / Invoice buttons (same control as
