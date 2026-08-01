@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: New Transfer crashed the inventory page on open  —  2026-08-01
+- **What changed:** `StockTransfersPanel.openNew` stored the whole `inventoryAPI.getAll`
+  envelope (`{ data, meta }`) in `stock` — it read `.items`, which that API never returns
+  (every other caller reads `response.data.data`). The `sourceStock` useMemo then threw
+  `stock.filter is not a function`, taking down the page the moment "New Transfer" was
+  clicked. Hit live on prod. Now unwraps `.data` (`.items` kept as fallback) and guards
+  with `Array.isArray`.
+- **Record impact:** 🟢 None — read path only; no transfer could even be drafted before.
+- **Data dependency:** none.
+- **Rollback:** revert (restores the crash).
+
 ### fix: vaccinations show under Procedures Performed  —  2026-07-31
 - **What changed:** the Treatment step's *Procedures Performed* listed only `ProcedureApplication`
   rows. A vaccination added on the vaccination page creates a **VaccinationRecord + a visit task**,

@@ -55,7 +55,11 @@ const StockTransfersPanel: React.FC<{ clinicId?: string | number }> = ({ clinicI
     setOpen(true); setToId(''); setNotes(''); setLines([]); setQ('');
     if (stock.length === 0) {
       const res = await inventoryAPI.getAll({ limit: 1000 });
-      if (res.success && res.data) setStock((res.data as any).items ?? (res.data as any) ?? []);
+      // getAll returns { data: items[], meta } — the old `.items ?? res.data`
+      // fallback stored the whole envelope in `stock`, crashing the picker
+      // (`stock.filter is not a function`) the moment the modal opened.
+      const arr = (res.data as any)?.data ?? (res.data as any)?.items;
+      if (res.success) setStock(Array.isArray(arr) ? arr : []);
     }
   };
 
