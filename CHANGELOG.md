@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: clinic-issued pet Birth & Death certificates  —  2026-08-01
+- **What changed:** the pet profile gains **📜 Birth certificate** (always) and **🕊️ Death
+  certificate** (once the patient is marked deceased). Each opens a printable document
+  (`PetCertificates.tsx`, via `printElementAsPdf`) modeled on the civil-registry
+  certificates the user supplied: serial №, boxed field grid (entry no., name, species,
+  breed, sex, dates, place), owner as informant, registering officer, certification
+  paragraph, "given under the seal of", signature/stamp line and a legal note ("not proof
+  of pedigree" / "not a civil-registration document"). Registry-only fields the record
+  can't derive — cause of death, place, dam/sire — are editable inline before printing.
+- **Record impact:** 🟢 None — a document compiled from the pet record; nothing written.
+- **Data dependency:** none (uses existing `dob`, `dateOfDeath`, `isAlive`).
+- **Rollback:** revert.
+
 ### page: real pet avatars everywhere + partner-transfer visits unmistakable in the list  —  2026-08-01
 - **What changed:**
   - New shared **`PetAvatar`** (`components/clinic/shared/PetAvatar.tsx`): the pet's real

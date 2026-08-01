@@ -3,6 +3,7 @@ import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Pet, Visit, ApptStatus, Client, Clinic, Message } from '../../../types';
 import VaccinePassportModal from './VaccinePassportModal';
+import PetCertificateModal from './PetCertificates';
 import ClinicalSnapshotPanel from './ClinicalSnapshotPanel';
 import PatientTimeline from './PatientTimeline';
 import AppointmentCreateModal from '../appointments/AppointmentCreateModal';
@@ -113,6 +114,9 @@ const PetProfileView: React.FC<Props> = ({
   // Create-from-overview modals.
   const [showCreateAppt, setShowCreateAppt] = useState(false);
   const [showCreateReminder, setShowCreateReminder] = useState(false);
+  // Clinic-issued certificates (user, 2026-08-01): birth always available,
+  // death only once the patient is marked deceased.
+  const [certKind, setCertKind] = useState<'BIRTH' | 'DEATH' | null>(null);
   // Reminder being edited from the timeline (null = not editing).
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   // Orphaned-owner reassignment (shown when the pet has no linked owner).
@@ -723,6 +727,24 @@ const PetProfileView: React.FC<Props> = ({
                 Deceased — no new appointments
               </div>
             )}
+            {/* Clinic-issued certificates — printable documents compiled from
+                the clinical register (modeled on civil-registry certs). */}
+            <div className="grid grid-cols-2 gap-2 w-full mt-2">
+              <button
+                onClick={() => setCertKind('BIRTH')}
+                className="flex items-center justify-center gap-1.5 bg-white/10 text-white py-2.5 rounded-2xl font-black text-[8px] uppercase tracking-widest hover:bg-white/20 transition-all"
+              >
+                📜 Birth certificate
+              </button>
+              {pet.isAlive === false && (
+                <button
+                  onClick={() => setCertKind('DEATH')}
+                  className="flex items-center justify-center gap-1.5 bg-white/10 text-white py-2.5 rounded-2xl font-black text-[8px] uppercase tracking-widest hover:bg-white/20 transition-all"
+                >
+                  🕊️ Death certificate
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1544,6 +1566,17 @@ const PetProfileView: React.FC<Props> = ({
           existing={editingReminder ?? undefined}
           onClose={() => { setShowCreateReminder(false); setEditingReminder(null); }}
           onSaved={() => { setShowCreateReminder(false); setEditingReminder(null); loadClinical(); }}
+        />
+      )}
+
+      {/* Birth / Death certificates */}
+      {certKind && (
+        <PetCertificateModal
+          kind={certKind}
+          pet={pet}
+          owner={owner}
+          clinic={activeClinic ?? clinics.find(c => Number(c.id) === Number(pet.clinicId))}
+          onClose={() => setCertKind(null)}
         />
       )}
 
