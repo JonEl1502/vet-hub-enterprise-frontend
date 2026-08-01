@@ -83,6 +83,12 @@ const VisitJobsInbox: React.FC = () => {
               {mode === 'incoming' ? <ArrowDownLeft size={10} className="text-seafoam" /> : <ArrowUpRight size={10} className="text-indigo-500" />}
               {mode === 'incoming' ? 'From' : 'To'} {partner?.name || 'clinic'} · {job.currency} {job.agreedPrice.toLocaleString()}
             </p>
+            {/* The requester's patient — shared for this job, not in our records. */}
+            {job.patientName && (
+              <p className="text-[9px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-widest mt-0.5">
+                🐾 {job.patientName}{job.patientSpecies ? ` · ${job.patientSpecies}` : ''}{mode === 'incoming' ? ' · shared' : ''}
+              </p>
+            )}
           </div>
           {job.paidOut && <span className="text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">{mode === 'incoming' ? 'Paid' : 'Paid B'}</span>}
           <span className={`flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 ${TONE[job.status] || ''}`}><StatusIcon s={job.status} size={10} /> {job.status}</span>
@@ -108,10 +114,31 @@ const VisitJobsInbox: React.FC = () => {
             {mode === 'incoming' && negotiating && (
               <button onClick={() => act(job, 'DECLINED', 'Job declined')} disabled={b} className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-rose-500 transition-all disabled:opacity-50">Decline</button>
             )}
-            {/* Work the job on ITS module page (user, 2026-08-01): accept
-                created a record-only transfer visit + a lab/imaging/surgery
-                record — this opens that page filtered to the transfer visit,
-                where images & findings are entered. */}
+            {/* Work the job (user, 2026-08-01): accept created a record-only
+                transfer visit + a lab/imaging/surgery record. "Start visit"
+                opens that visit (creating it on demand for old accepts);
+                "Open <module> page" jumps to the page where images & findings
+                are entered. */}
+            {mode === 'incoming' && (job.status === 'ACCEPTED' || job.status === 'COMPLETED') && (
+              <button
+                disabled={b}
+                onClick={async () => {
+                  let visitId = job.providerVisitId;
+                  if (!visitId) {
+                    setBusyId(job.id);
+                    try {
+                      const res = await visitJobsAPI.ensureProviderVisit(job.id);
+                      visitId = res.data?.job?.providerVisitId ?? null;
+                      if (visitId) await load();
+                    } catch (e: any) { toast.error(e?.message || 'Failed to create the visit'); }
+                    finally { setBusyId(null); }
+                  }
+                  if (visitId) window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'appointment-detail', params: { appointmentId: Number(visitId) } } }));
+                }}
+                className="flex items-center gap-1 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-pine transition-all disabled:opacity-50">
+                {b ? <Loader2 size={11} className="animate-spin" /> : <ArrowUpRight size={11} />} Start visit
+              </button>
+            )}
             {mode === 'incoming' && (job.status === 'ACCEPTED' || job.status === 'COMPLETED') && job.providerVisitId && (() => {
               const menuId = resolveCategoryMenuId(job.category);
               if (!menuId) return null;

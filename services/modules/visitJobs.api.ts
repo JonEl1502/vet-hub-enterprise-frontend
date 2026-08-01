@@ -28,6 +28,9 @@ export interface VisitJobEvent {
 
 export interface VisitJob {
   id: string;
+  // The requester's patient, shared for display on the job (never copied).
+  patientName?: string | null;
+  patientSpecies?: string | null;
   visitId: string;
   taskId: string | null;
   // The CLINICAL_TRANSFER visit auto-created at the provider on accept (168).
@@ -75,6 +78,10 @@ export const visitJobsAPI = {
   /** Counter the price on an open request — either side, while REQUESTED (169) */
   counterPrice: async (id: string | number, amount: number, options?: RequestOptions): Promise<ApiResponse<{ job: VisitJob }>> =>
     post(`${ENDPOINTS.VISIT_JOBS.BY_ID(id)}/counter`, { amount }, { showError: true, ...options }),
+
+  /** Ensure the provider-side transfer visit exists (backfill for old accepts) */
+  ensureProviderVisit: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ job: VisitJob }>> =>
+    post(`${ENDPOINTS.VISIT_JOBS.BY_ID(id)}/provider-visit`, {}, { showError: true, ...options }),
 
   /** Jobs on one visit */
   listForVisit: async (visitId: string | number, options?: RequestOptions): Promise<ApiResponse<{ jobs: VisitJob[] }>> =>

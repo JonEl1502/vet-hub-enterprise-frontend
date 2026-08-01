@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: incoming jobs show the patient and gain "Start visit"  —  2026-08-01
+- **What changed:** Partners → Jobs cards show the requester's patient
+  (🐾 name · species, tagged "shared" on incoming). Incoming ACCEPTED/COMPLETED cards gain
+  **Start visit** — opens the clinical-transfer visit at this clinic, creating it on demand
+  for jobs accepted before the transfer-visit era (`ensureProviderVisit`).
+- **Record impact:** 🟢 None (the backfill creates the same rows accept now creates).
+- **Data dependency:** same-day backend deploy.
+- **Rollback:** revert; jobs still open via "Open <category> page".
+
 ### page: incoming transfer jobs open their module page; shared-patient banner  —  2026-08-01
 - **What changed:**
   - Partners → Jobs, incoming ACCEPTED/COMPLETED cards gain **"Open <category> page"** —
