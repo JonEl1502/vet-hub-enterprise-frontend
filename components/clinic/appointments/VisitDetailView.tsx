@@ -380,7 +380,7 @@ const VisitDetailInner: React.FC<Props> = ({
   // Clinical Workflow · Categories & Services · Records & Billing.
   // Non-finalized visits land on the clinical wizard (entry-point-driven) —
   // emergencies land on Triage; finalized ones on Services.
-  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'followup' | 'services' | 'records' | 'billing' | 'triage' | 'partnerbill'>(
+  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'followup' | 'services' | 'records' | 'billing' | 'triage' | 'partnerbill' | 'transfer'>(
     // A finalized visit lands on the BILL — it is the record of what was done
     // (user, 2026-07-29). It used to land on Categories & Services, which no
     // longer exists as a tab.
@@ -3151,12 +3151,15 @@ const VisitDetailInner: React.FC<Props> = ({
           {/* On an emergency visit, Triage leads — it IS the workflow's front
               door. Diagnostics-only visits (auto-created from New lab/imaging)
               skip the clinical wizard entirely. */}
-          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), { id: 'followup', label: '🔔 Follow-Up & Reminders' }, { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [{ id: 'partnerbill', label: '🧾 Partner Bill & Receipt' }] : [{ id: 'billing', label: 'Bill & Invoice' }])].map(t => (
+          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), { id: 'followup', label: '🔔 Follow-Up & Reminders' }, { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [{ id: 'partnerbill', label: '🧾 Partner Bill & Receipt' }, { id: 'transfer', label: '🔁 Clinical Transfer' }] : [{ id: 'billing', label: 'Bill & Invoice' }])].map(t => (
             <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
           ))}
-          {diagnosticOnly && (
-            <span className={`self-center ml-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${isTransferVisit ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' : diagExternal ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
-              {isTransferVisit ? '🔁 Clinical transfer' : diagExternal ? '📥 External diagnostics' : '🔬 Diagnostics visit'}
+          {/* Badge only for auto-created diagnostics visits — transfers have a
+              REAL Clinical Transfer tab now (the badge read as an unclickable
+              tab, same trap as the old Diagnostics badge). */}
+          {diagnosticOnly && !isTransferVisit && (
+            <span className={`self-center ml-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${diagExternal ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+              {diagExternal ? '📥 External diagnostics' : '🔬 Diagnostics visit'}
             </span>
           )}
         </div>
@@ -4512,6 +4515,26 @@ const VisitDetailInner: React.FC<Props> = ({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Clinical Transfer tab — the escrow flow for the shared patient:
+          receive → work → send result & return. Movements and completion work
+          WITH OR WITHOUT payment (user, 2026-08-01) — the payout settles
+          separately at the requester's settlement or bundle sweep. */}
+      {workflowTab === 'transfer' && isTransferVisit && (
+        <div className="space-y-3 animate-in fade-in">
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+            <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 mb-2">🔁 Patient escrow — how this works</p>
+            <ol className="text-[11px] text-slate-500 dark:text-zinc-400 space-y-1 list-decimal list-inside">
+              <li><b>Receive</b> the patient / sample — log it on the tracker below.</li>
+              <li><b>Work the service</b> from its module page (images &amp; findings) and mark <b>in progress</b>.</li>
+              <li><b>Send the result</b> — logging <i>result sent</i> (or marking the job complete) copies the report back to {transferFrom || 'the requesting clinic'}'s visit automatically.</li>
+              <li><b>Return the patient</b> — {transferFrom || 'the requester'} logs <i>returned</i> when received back.</li>
+            </ol>
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-2">Every step works <b>with or without payment</b> — the escrow payout arrives on its own when {transferFrom || 'the requesting clinic'} settles (or in the partnership's bundled sweep).</p>
+          </div>
+          <VisitJobsPanel visitId={appointment.id} refreshKey={jobsRefresh} />
         </div>
       )}
 

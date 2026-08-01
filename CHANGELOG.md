@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Clinical Transfer becomes a real tab (patient escrow flow)  —  2026-08-01
+- **What changed:** on CLINICAL_TRANSFER visits the "🔁 Clinical transfer" **badge**
+  (which read as an unclickable tab — same trap as the old Diagnostics badge) becomes a
+  real **🔁 Clinical Transfer tab**: a step-by-step escrow guide (receive patient → work
+  from the module page → send result [auto-copies the report back to the requester] →
+  return patient) plus the jobs panel with the movement tracker. Explicitly states every
+  step works **with or without payment** — the payout settles separately.
+- **Record impact:** 🟢 None.
+- **Data dependency:** same-day backend deploy (result mirror-back on complete/result-sent).
+- **Rollback:** revert; the badge returns.
+
 ### page: clinic-issued pet Birth & Death certificates  —  2026-08-01
 - **What changed:** the pet profile gains **📜 Birth certificate** (always) and **🕊️ Death
   certificate** (once the patient is marked deceased). Each opens a printable document
