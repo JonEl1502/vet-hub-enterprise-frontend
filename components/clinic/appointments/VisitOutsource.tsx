@@ -351,7 +351,7 @@ const JobNegotiationRow: React.FC<{ job: VisitJob; proposedByMe: boolean; onChan
 };
 
 /** Compact list of outsourced services on a visit (status + partner + price). */
-export const VisitJobsPanel: React.FC<{ visitId: string | number; refreshKey?: number }> = ({ visitId, refreshKey }) => {
+export const VisitJobsPanel: React.FC<{ visitId: string | number; refreshKey?: number; frameless?: boolean }> = ({ visitId, refreshKey, frameless }) => {
   const [jobs, setJobs] = useState<VisitJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [openTrack, setOpenTrack] = useState<Record<string, boolean>>({});
@@ -372,11 +372,13 @@ export const VisitJobsPanel: React.FC<{ visitId: string | number; refreshKey?: n
   if (jobs.length === 0) return null;
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2">
+    <div className={frameless ? 'space-y-2' : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2'}>
+      {!frameless && (
       <div className="flex items-center gap-2">
         <Send size={14} className="text-seafoam" />
         <span className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-200">Outsourced services</span>
       </div>
+      )}
       {jobs.map(j => {
         const Icon = j.status === 'COMPLETED' ? CheckCircle2 : j.status === 'DECLINED' || j.status === 'CANCELLED' ? XCircle : Clock;
         const canTrack = j.status === 'ACCEPTED' || j.status === 'COMPLETED';

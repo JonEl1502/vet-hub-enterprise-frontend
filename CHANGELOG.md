@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Continue visit, partnership nav from transfers, Partners theme pass  —  2026-08-01
+- **What changed:**
+  - Incoming job cards say **Continue visit** once the shared transfer visit is going
+    (in progress, or a sibling job already shares it) — "Start visit" only for a fresh one.
+  - Transfer visits gain **"About <clinic> & our partnership"** (banner + Clinical Transfer
+    tab header) → the requester's handshake-detail page.
+  - **Clinical Transfer tab is ONE card**: compact header, step list, labelled section
+    divider, frameless jobs panel inside (`VisitJobsPanel frameless`).
+  - **Partners theme pass** (user: "the theme is old"): HandshakeDetailView, ReferralsView,
+    CreatePartnershipPage — fonts reduced (2xl/3xl → lg/sm), `rounded-3xl/2xl → xl`,
+    paddings tightened.
+- **Record impact:** 🟢 None.
+- **Data dependency:** same-day backend deploy (shared transfer visits, providerVisitStatus).
+- **Rollback:** revert.
+
 ### page: Clinic Today uses the house date-RANGE picker  —  2026-08-01
 - **What changed:** the react-datepicker single-date field (buggy overlap in the header)
   is replaced by the same **DateRangePicker** the Visits list uses — defaults to

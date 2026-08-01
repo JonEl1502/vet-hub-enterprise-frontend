@@ -119,7 +119,13 @@ const VisitJobsInbox: React.FC = () => {
                 opens that visit (creating it on demand for old accepts);
                 "Open <module> page" jumps to the page where images & findings
                 are entered. */}
-            {mode === 'incoming' && (job.status === 'ACCEPTED' || job.status === 'COMPLETED') && (
+            {mode === 'incoming' && (job.status === 'ACCEPTED' || job.status === 'COMPLETED') && (() => {
+              // "Continue visit" once the shared transfer visit is already
+              // going — in progress, or a sibling job shares it (user,
+              // 2026-08-01: same source visit ⇒ same transfer visit).
+              const siblingShares = incoming.some(o => o.id !== job.id && o.providerVisitId && String(o.providerVisitId) === String(job.providerVisitId));
+              const ongoing = !!job.providerVisitId && (job.providerVisitStatus !== 'SCHEDULED' || siblingShares);
+              return (
               <button
                 disabled={b}
                 onClick={async () => {
@@ -136,9 +142,10 @@ const VisitJobsInbox: React.FC = () => {
                   if (visitId) window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'appointment-detail', params: { appointmentId: Number(visitId) } } }));
                 }}
                 className="flex items-center gap-1 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-pine transition-all disabled:opacity-50">
-                {b ? <Loader2 size={11} className="animate-spin" /> : <ArrowUpRight size={11} />} Start visit
+                {b ? <Loader2 size={11} className="animate-spin" /> : <ArrowUpRight size={11} />} {ongoing ? 'Continue visit' : 'Start visit'}
               </button>
-            )}
+              );
+            })()}
             {mode === 'incoming' && (job.status === 'ACCEPTED' || job.status === 'COMPLETED') && job.providerVisitId && (() => {
               const menuId = resolveCategoryMenuId(job.category);
               if (!menuId) return null;

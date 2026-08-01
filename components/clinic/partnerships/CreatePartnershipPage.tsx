@@ -158,14 +158,14 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
           }
           setSelectedId(String(clinic.id));
         }}
-        className={`w-full text-left flex items-center justify-between p-4 rounded-2xl border-2 transition-all ${
+        className={`w-full text-left flex items-center justify-between p-4 rounded-xl border-2 transition-all ${
           isSelected
             ? 'bg-seafoam/5 border-seafoam shadow-md'
             : 'bg-white dark:bg-zinc-950 border-slate-100 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
         }`}
       >
         <div className="flex items-center gap-4 min-w-0">
-          <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 flex items-center justify-center text-2xl shrink-0 overflow-hidden">
+          <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 flex items-center justify-center text-2xl shrink-0 overflow-hidden">
             <ClinicLogo logo={clinic.logo} fallback="🐾" />
           </div>
           <div className="min-w-0">
@@ -225,7 +225,7 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
         </button>
       </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
         {/* Left — clinic search & list */}
         <div className="lg:col-span-7 space-y-6">
           {/* Search + specialty filter */}
@@ -236,7 +236,7 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
                 placeholder="Search clinics by name..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-11 pr-4 py-3 text-sm font-black text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-11 pr-4 py-3 text-sm font-black text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
               />
             </div>
 
@@ -287,7 +287,7 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
                   {external.length > 0
                     ? external.map((c: any) => <ClinicCard key={c.id} clinic={c} />)
                     : (
-                      <div className="py-16 text-center border-2 border-dashed border-slate-100 dark:border-zinc-800 rounded-2xl">
+                      <div className="py-16 text-center border-2 border-dashed border-slate-100 dark:border-zinc-800 rounded-xl">
                         <p className="text-[10px] font-black text-slate-300 dark:text-zinc-600 uppercase tracking-widest">No clinics found</p>
                       </div>
                     )}
@@ -299,11 +299,11 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
 
         {/* Right — configuration panel */}
         <div className="lg:col-span-5">
-          <div className="sticky top-6 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-6 md:p-8 shadow-inner space-y-8">
+          <div className="sticky top-4 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-4 md:p-4 shadow-inner space-y-8">
 
             {/* Selected clinic preview */}
             {selectedClinic ? (
-              <div className="p-4 bg-white dark:bg-zinc-900 rounded-2xl border border-slate-100 dark:border-zinc-800 space-y-3">
+              <div className="p-4 bg-white dark:bg-zinc-900 rounded-xl border border-slate-100 dark:border-zinc-800 space-y-3">
                 <div className="flex items-center gap-4">
                   <div className="w-12 h-12 rounded-xl bg-slate-50 dark:bg-zinc-800 flex items-center justify-center text-2xl shrink-0 overflow-hidden">
                     <ClinicLogo logo={selectedClinic.logo} fallback="🐾" />
@@ -330,7 +330,7 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-3 p-4 bg-white dark:bg-zinc-900 rounded-2xl border-2 border-dashed border-slate-200 dark:border-zinc-700">
+              <div className="flex items-center gap-3 p-4 bg-white dark:bg-zinc-900 rounded-xl border-2 border-dashed border-slate-200 dark:border-zinc-700">
                 <HandshakeIcon className="text-slate-300 dark:text-zinc-600 shrink-0" size={20} />
                 <p className="text-[10px] font-black text-slate-300 dark:text-zinc-600 uppercase tracking-widest">Select a clinic from the list</p>
               </div>
@@ -402,7 +402,7 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
             <button
               onClick={handleSubmit}
               disabled={!selectedId || isSubmitting}
-              className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-4 rounded-2xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl shadow-pine/20 active:scale-95 disabled:opacity-30 transition-all flex items-center justify-center gap-2"
+              className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-4 rounded-xl font-black text-[10px] uppercase tracking-[0.2em] shadow-2xl shadow-pine/20 active:scale-95 disabled:opacity-30 transition-all flex items-center justify-center gap-2"
             >
               {isSubmitting ? <Loader2 className="animate-spin" size={14} /> : <HandshakeIcon size={14} />}
               Send Partnership Request

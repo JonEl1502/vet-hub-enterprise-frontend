@@ -159,11 +159,11 @@ const PartnershipMoney: React.FC<{ handshakeId: string; referralValue: number; c
   const paid = balance?.paidTotal ?? 0;
   return (
     <div className="space-y-5">
-      <div className="bg-pine rounded-2xl p-4 md:p-6 text-white shadow-2xl relative overflow-hidden group">
+      <div className="bg-pine rounded-xl p-4 text-white shadow-2xl relative overflow-hidden group">
         <div className="absolute top-0 right-0 p-5 opacity-10 group-hover:scale-125 transition-transform duration-1000"><Repeat size={64} /></div>
         <p className="text-mist/40 text-[10px] font-black uppercase tracking-[0.4em] mb-3">Partnership Value</p>
         <div className="space-y-2 mb-6">
-          <h2 className="text-2xl sm:text-3xl font-black tracking-tighter">KES {(paid + referralValue).toLocaleString()}</h2>
+          <h2 className="text-xl font-black tracking-tight">KES {(paid + referralValue).toLocaleString()}</h2>
           <p className="text-seafoam text-[10px] font-black uppercase tracking-widest">Settled between the clinics</p>
         </div>
         <div className="grid grid-cols-3 gap-3 border-t border-white/10 pt-5">
@@ -191,7 +191,7 @@ const PartnershipMoney: React.FC<{ handshakeId: string; referralValue: number; c
       </div>
 
       {/* Payment measures — how outsourced work is paid between the clinics. */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 md:p-5 shadow-sm">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
         <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Payment measures</p>
         <p className="text-[10px] text-slate-400 dark:text-zinc-500 mb-3">How outsourced services are paid out between the two clinics. Bundled terms accrue and settle in one sweep.</p>
         <div className="grid grid-cols-2 gap-1.5">
@@ -273,18 +273,18 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
       <div className="lg:col-span-2 space-y-5">
         {/* Requester → Receiver banner */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 md:p-5 shadow-sm">
-          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-5">Partnership Flow</p>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm">
+          <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-4">Partnership Flow</p>
           {/* Stacks vertically on mobile (arrow rotates down) — side-by-side
               squeezed the names to one letter on small screens. */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
             <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0 overflow-hidden">
+              <div className="w-11 h-11 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0 overflow-hidden">
                 <ClinicLogo logo={(requesterDisplay as any)?.logo} fallback="🏥" />
               </div>
               <div className="min-w-0">
                 <p className="text-[9px] font-black text-indigo-500 uppercase tracking-widest mb-0.5">Requester</p>
-                <p className="text-base md:text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{(requesterDisplay as any)?.name}</p>
+                <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{(requesterDisplay as any)?.name}</p>
                 {(requesterDisplay as any)?.subdomain && (
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{(requesterDisplay as any).subdomain}.vethubcore.io</p>
                 )}
@@ -298,12 +298,12 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
             </div>
 
             <div className="flex items-center gap-3 sm:gap-4 min-w-0 flex-1 sm:justify-end text-left sm:text-right">
-              <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0 overflow-hidden sm:order-2">
+              <div className="w-11 h-11 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-2xl shadow-inner shrink-0 overflow-hidden sm:order-2">
                 <ClinicLogo logo={(receiverDisplay as any)?.logo} fallback="🏥" />
               </div>
               <div className="min-w-0 sm:order-1">
                 <p className="text-[9px] font-black text-seafoam uppercase tracking-widest mb-0.5">Receiver</p>
-                <p className="text-base md:text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{(receiverDisplay as any)?.name}</p>
+                <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{(receiverDisplay as any)?.name}</p>
                 {(receiverDisplay as any)?.subdomain && (
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">{(receiverDisplay as any).subdomain}.vethubcore.io</p>
                 )}
@@ -312,20 +312,20 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
           </div>
         </div>
 
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 md:p-6 shadow-sm space-y-4 md:space-y-6">
-          <div className="flex items-center gap-3 md:gap-4 border-b border-slate-50 dark:border-zinc-800 pb-4 md:pb-6">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
+          <div className="flex items-center gap-3 border-b border-slate-50 dark:border-zinc-800 pb-3">
             <Info className="text-seafoam shrink-0" size={18} />
-            <h3 className="text-base md:text-xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Partnership Details</h3>
+            <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Partnership Details</h3>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-6">
+            <div className="space-y-3">
               {[
                 { label: 'Partner Clinic', val: partner.name, icon: Building2 },
                 { label: 'Clinic URL', val: `${partner.subdomain}.vethubcore.io`, icon: Globe },
                 { label: 'Date Created', val: handshake.createdAt, icon: Clock },
               ].map(i => (
                 <div key={i.label} className="flex items-center gap-4">
-                  <div className="p-3 bg-slate-50 dark:bg-zinc-800 rounded-2xl text-slate-400 aspect-square"><i.icon size={18}/></div>
+                  <div className="p-3 bg-slate-50 dark:bg-zinc-800 rounded-xl text-slate-400 aspect-square"><i.icon size={18}/></div>
                   <div>
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{i.label}</p>
                     <p className="text-pine dark:text-zinc-100 font-bold text-base leading-tight uppercase">{i.val}</p>
@@ -333,11 +333,11 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
                 </div>
               ))}
             </div>
-            <div className="space-y-6">
-               <div className="p-6 bg-slate-50 dark:bg-zinc-800 rounded-3xl border border-slate-100 dark:border-zinc-700">
+            <div className="space-y-3">
+               <div className="p-4 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-100 dark:border-zinc-700">
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-4">Traffic Vector</p>
                   <div className="flex items-center gap-4">
-                     <div className={`p-3 rounded-2xl ${direction === 'BOTH_WAYS' ? 'bg-indigo-500 text-white' : 'bg-white dark:bg-zinc-900 text-seafoam'}`}>
+                     <div className={`p-3 rounded-xl ${direction === 'BOTH_WAYS' ? 'bg-indigo-500 text-white' : 'bg-white dark:bg-zinc-900 text-seafoam'}`}>
                         <Repeat size={24} className={direction === 'BOTH_WAYS' ? 'animate-spin-slow' : ''} />
                      </div>
                      <div>
@@ -349,9 +349,9 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
             </div>
           </div>
           {handshake.note && (
-            <div className="pt-6 border-t border-slate-50 dark:border-zinc-800">
+            <div className="pt-4 border-t border-slate-50 dark:border-zinc-800">
               <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Engagement Note</p>
-              <div className="bg-slate-50 dark:bg-zinc-950 p-6 rounded-2xl border border-slate-100 dark:border-zinc-800 italic text-sm text-slate-600 dark:text-zinc-400">
+              <div className="bg-slate-50 dark:bg-zinc-950 p-4 rounded-xl border border-slate-100 dark:border-zinc-800 italic text-sm text-slate-600 dark:text-zinc-400">
                 "{handshake.note}"
               </div>
             </div>
@@ -369,14 +369,14 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
 
   const renderServices = () => (
     <div className="space-y-5 animate-in slide-in-from-right-4 duration-500">
-       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 md:p-6 shadow-sm space-y-4 md:space-y-6">
-          <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
-             <div className="p-3 bg-indigo-500 text-white rounded-2xl shadow-lg"><Package size={24}/></div>
-             <h2 className="text-xl md:text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Authorized Service Matrix</h2>
+       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
+          <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-3">
+             <div className="p-2 bg-indigo-500 text-white rounded-lg shadow"><Package size={16}/></div>
+             <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Authorized Service Matrix</h2>
           </div>
 
           {handshake.allowedServices.includes('OPEN') ? (
-            <div className="p-6 text-center border-2 border-dashed border-seafoam/20 rounded-2xl bg-seafoam/5 group">
+            <div className="p-6 text-center border-2 border-dashed border-seafoam/20 rounded-xl bg-seafoam/5 group">
                <div className="w-14 h-14 bg-seafoam text-white rounded-xl flex items-center justify-center mx-auto mb-3 shadow-xl group-hover:scale-110 transition-transform">
                   <Globe size={26}/>
                </div>
@@ -386,10 +386,10 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                {handshake.allowedServices.map(svc => (
-                 <div key={svc} className="flex items-center gap-4 p-4 bg-slate-50 dark:bg-zinc-800 rounded-xl border border-slate-100 dark:border-zinc-700 shadow-sm">
-                    <div className="w-10 h-10 bg-white dark:bg-zinc-900 rounded-xl flex items-center justify-center text-xl shadow-sm shrink-0">🩺</div>
+                 <div key={svc} className="flex items-center gap-4 p-3 bg-slate-50 dark:bg-zinc-800 rounded-lg border border-slate-100 dark:border-zinc-700">
+                    <div className="w-8 h-8 bg-white dark:bg-zinc-900 rounded-xl flex items-center justify-center text-xl shadow-sm shrink-0">🩺</div>
                     <div className="min-w-0">
-                       <p className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{svc}</p>
+                       <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{svc}</p>
                        <span className="text-[8px] font-black text-seafoam uppercase tracking-widest">Service Active</span>
                     </div>
                  </div>
@@ -399,11 +399,11 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
        </div>
 
        {/* Negotiated per-category pricing (escrow-style) */}
-       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 md:p-6 shadow-sm space-y-6">
-          <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-6">
-             <div className="p-3 bg-seafoam text-white rounded-2xl shadow-lg"><Coins size={24}/></div>
+       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3">
+          <div className="flex items-center gap-4 border-b border-slate-50 dark:border-zinc-800 pb-3">
+             <div className="p-2 bg-seafoam text-white rounded-lg shadow"><Coins size={16}/></div>
              <div>
-               <h2 className="text-xl md:text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Negotiated pricing</h2>
+               <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Negotiated pricing</h2>
                <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">Agree a price per category for services done by your partner. One side proposes, the other agrees or counters.</p>
              </div>
           </div>
@@ -424,11 +424,11 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
              <ArrowLeft size={18}/>
            </button>
            <div className="flex items-center gap-4 min-w-0">
-              <div className="w-12 h-12 md:w-16 md:h-16 rounded-xl md:rounded-2xl bg-indigo-50 dark:bg-indigo-500/10 border-2 border-white dark:border-zinc-900 flex items-center justify-center text-2xl md:text-3xl shadow-lg shrink-0 overflow-hidden">
+              <div className="w-12 h-12 rounded-xl md:rounded-xl bg-indigo-50 dark:bg-indigo-500/10 border-2 border-white dark:border-zinc-900 flex items-center justify-center text-2xl shadow-lg shrink-0 overflow-hidden">
                 <ClinicLogo logo={partner.logo} fallback="🏥" />
               </div>
               <div className="min-w-0">
-                <h1 className="text-xl md:text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{partner.name}</h1>
+                <h1 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{partner.name}</h1>
                 <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 truncate">
                    Partner Profile
                    <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 shrink-0 hidden sm:block"></span>
@@ -454,7 +454,7 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
         </div>
 
         <div className="overflow-x-auto no-scrollbar">
-          <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl inline-flex min-w-max">
+          <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm inline-flex min-w-max">
              {[
                { id: 'overview', label: 'Relationship', icon: Info },
                { id: 'services', label: 'Services', icon: Package },
@@ -463,7 +463,7 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
                <button
                  key={tab.id}
                  onClick={() => setActiveTab(tab.id as any)}
-                 className={`flex items-center gap-2 px-4 md:px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
                    activeTab === tab.id
                      ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg'
                      : 'text-slate-400 dark:text-zinc-500 hover:text-pine'
@@ -481,26 +481,26 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
         {activeTab === 'overview' && renderOverview()}
         {activeTab === 'services' && renderServices()}
         {activeTab === 'ledger' && (
-           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden shadow-sm animate-in slide-in-from-bottom-4">
+           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm animate-in slide-in-from-bottom-4">
               <div className="overflow-x-auto">
                 <table className="w-full text-left min-w-[580px]">
                   <thead className="bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-800">
                     <tr>
-                      <th className="px-4 md:px-10 py-4 md:py-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Case ID</th>
-                      <th className="px-4 md:px-10 py-4 md:py-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Service Sequence</th>
-                      <th className="px-4 md:px-10 py-4 md:py-6 text-[9px] font-black text-slate-400 uppercase tracking-widest">Direction</th>
-                      <th className="px-4 md:px-10 py-4 md:py-6 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Settlement</th>
+                      <th className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Case ID</th>
+                      <th className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Service Sequence</th>
+                      <th className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest">Direction</th>
+                      <th className="px-4 py-2.5 text-[9px] font-black text-slate-400 uppercase tracking-widest text-right">Settlement</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
                      {partnershipReferrals.map(r => (
                        <tr key={r.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-all group">
-                          <td className="px-4 md:px-10 py-4 md:py-8"><span className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight">REF-#{r.id}</span></td>
-                          <td className="px-4 md:px-10 py-4 md:py-8">
-                             <p className="text-pine dark:text-zinc-100 font-black text-sm md:text-base uppercase leading-tight">{r.serviceName}</p>
+                          <td className="px-4 py-3"><span className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight">REF-#{r.id}</span></td>
+                          <td className="px-4 py-3">
+                             <p className="text-pine dark:text-zinc-100 font-black text-xs uppercase leading-tight">{r.serviceName}</p>
                              <p className="text-seafoam dark:text-zinc-500 text-[10px] font-bold mt-1 uppercase">Subject: {r.petName}</p>
                           </td>
-                          <td className="px-4 md:px-10 py-4 md:py-8">
+                          <td className="px-4 py-3">
                              {r.originClinicId === activeClinic.id ? (
                                <div className="flex items-center gap-2 text-indigo-500">
                                   <ArrowUpRight size={14}/>
@@ -513,14 +513,14 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
                                </div>
                              )}
                           </td>
-                          <td className="px-4 md:px-10 py-4 md:py-8 text-right">
-                             <p className="text-base md:text-xl font-black font-mono text-emerald-600">KES {r.payoutAmount.toLocaleString()}</p>
+                          <td className="px-4 py-3 text-right">
+                             <p className="text-sm font-black font-mono text-emerald-600">KES {r.payoutAmount.toLocaleString()}</p>
                              <span className="text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-600 px-2 py-0.5 rounded-lg border border-emerald-500/20">{r.status}</span>
                           </td>
                        </tr>
                      ))}
                      {partnershipReferrals.length === 0 && (
-                       <tr><td colSpan={4} className="py-40 text-center opacity-20 font-black uppercase tracking-[0.4em] text-sm">No Records Found</td></tr>
+                       <tr><td colSpan={4} className="py-16 text-center opacity-20 font-black uppercase tracking-[0.4em] text-sm">No Records Found</td></tr>
                      )}
                   </tbody>
                 </table>

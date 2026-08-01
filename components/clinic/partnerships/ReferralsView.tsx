@@ -144,7 +144,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
       <PetTransfersPanel />
       {/* Page header */}
       <div className="flex items-center gap-3">
-        <div className="w-11 h-11 rounded-2xl bg-seafoam/10 flex items-center justify-center shrink-0"><HandshakeIcon size={20} className="text-seafoam" /></div>
+        <div className="w-11 h-11 rounded-xl bg-seafoam/10 flex items-center justify-center shrink-0"><HandshakeIcon size={20} className="text-seafoam" /></div>
         <div className="min-w-0">
           <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Partners</h1>
           <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">Clinics you collaborate with across the VetHubCore network</p>
@@ -256,7 +256,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
           )}
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
            {activeHandshakes.map(h => {
              const sameId = (a: any, b: any) => String(a) === String(b);
              const isIncoming = sameId(h.receiverClinicId, activeClinic.id);
@@ -289,7 +289,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
              return (
                <div
                  key={h.id}
-                 className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 hover:border-seafoam transition-all shadow-sm flex flex-col gap-3"
+                 className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 hover:border-seafoam transition-all shadow-sm flex flex-col gap-3"
                >
                   {/* Header — partner name leads the card */}
                   <div className="flex items-center gap-3">
@@ -354,32 +354,32 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
             <table className="w-full text-left text-sm min-w-[640px]">
               <thead className="bg-slate-50 dark:bg-zinc-800/50 border-b border-slate-200 dark:border-zinc-800">
                 <tr>
-                  <th className="px-4 md:px-10 py-4 md:py-6 font-black text-pine dark:text-zinc-400 uppercase text-[10px] tracking-widest">Case Details</th>
-                  <th className="px-4 md:px-10 py-4 md:py-6 font-black text-pine dark:text-zinc-400 uppercase text-[10px] tracking-widest">Partner Clinic</th>
-                  <th className="px-4 md:px-10 py-4 md:py-6 font-black text-pine dark:text-zinc-400 uppercase text-[10px] tracking-widest">Progress</th>
-                  <th className="px-4 md:px-10 py-4 md:py-6 font-black text-pine dark:text-zinc-400 uppercase text-[10px] tracking-widest text-right">Settlement</th>
+                  <th className="px-4 md:px-10 py-4 md:py-4 font-black text-pine dark:text-zinc-400 uppercase text-[10px] tracking-widest">Case Details</th>
+                  <th className="px-4 md:px-10 py-4 md:py-4 font-black text-pine dark:text-zinc-400 uppercase text-[10px] tracking-widest">Partner Clinic</th>
+                  <th className="px-4 md:px-10 py-4 md:py-4 font-black text-pine dark:text-zinc-400 uppercase text-[10px] tracking-widest">Progress</th>
+                  <th className="px-4 md:px-10 py-4 md:py-4 font-black text-pine dark:text-zinc-400 uppercase text-[10px] tracking-widest text-right">Settlement</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
                 {filteredReferrals.length > 0 ? filteredReferrals.map((ref) => (
                   <tr key={ref.id} className="hover:bg-slate-50/50 dark:hover:bg-zinc-800/40 transition-colors group">
-                    <td className="px-4 md:px-10 py-4 md:py-8">
+                    <td className="px-4 md:px-10 py-4 md:py-4">
                       <div className="flex items-center gap-3 md:gap-5">
-                        <div className="w-10 h-10 md:w-14 md:h-14 rounded-2xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-xl md:text-2xl shrink-0">🧬</div>
+                        <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-xl md:text-2xl shrink-0">🧬</div>
                         <div>
                           <p className="text-pine dark:text-zinc-100 font-black text-sm md:text-lg leading-tight uppercase tracking-tight">{ref.serviceName}</p>
                           <p className="text-seafoam dark:text-zinc-500 text-[10px] font-black mt-0.5 uppercase tracking-tighter">Subject: {ref.petName}</p>
                         </div>
                       </div>
                     </td>
-                    <td className="px-4 md:px-10 py-4 md:py-8">
+                    <td className="px-4 md:px-10 py-4 md:py-4">
                        <p className="text-pine dark:text-zinc-100 font-bold text-sm md:text-base leading-tight uppercase">{activeTab === 'outgoing' ? ref.destClinicName : ref.originClinicName}</p>
                        <p className="text-seafoam dark:text-zinc-500 text-[10px] font-black uppercase tracking-widest mt-1">{ref.date}</p>
                     </td>
-                    <td className="px-4 md:px-10 py-4 md:py-8">
+                    <td className="px-4 md:px-10 py-4 md:py-4">
                        <span className={getStatusBadge(ref.status)}>{ref.status.replace('_', ' ')}</span>
                     </td>
-                    <td className="px-4 md:px-10 py-4 md:py-8 text-right">
+                    <td className="px-4 md:px-10 py-4 md:py-4 text-right">
                        <p className="text-pine dark:text-zinc-100 font-black text-base md:text-xl font-mono tracking-tighter">KES {ref.payoutAmount.toLocaleString()}</p>
                        <div className="mt-2 flex justify-end gap-2">
                           {activeTab === 'incoming' && ref.status === ReferralStatus.REQUESTED && (
@@ -401,10 +401,10 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
       {/* Edit a partnership request — services + note (before or after accept) */}
       {editing && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-pine/40 dark:bg-black/60 backdrop-blur-sm" onClick={() => !busyId && setEditing(null)}>
-          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden" onClick={e => e.stopPropagation()}>
+          <div className="w-full max-w-md bg-white dark:bg-zinc-900 rounded-xl shadow-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-3 p-5 bg-gradient-to-br from-pine to-seafoam text-white">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center"><Pencil size={18} /></div>
+                <div className="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center"><Pencil size={18} /></div>
                 <div>
                   <h3 className="text-base font-black tracking-tight uppercase">Edit request</h3>
                   <p className="text-[11px] text-white/80 font-medium">Update shared services &amp; note</p>

@@ -717,8 +717,10 @@ const VisitDetailInner: React.FC<Props> = ({
   // Who sent the transfer — for the "patient shared for this visit" banner.
   // The patient lives in the REQUESTER's records; it's shared here, not copied.
   const [transferFrom, setTransferFrom] = useState<string | null>(null);
+  // Handshake behind the transfer — powers "View partnership" (user, 2026-08-01).
+  const [transferHandshakeId, setTransferHandshakeId] = useState<string | null>(null);
   useEffect(() => {
-    if (!isTransferVisit) { setTransferFrom(null); return; }
+    if (!isTransferVisit) { setTransferFrom(null); setTransferHandshakeId(null); return; }
     let alive = true;
     import('../../../services/modules/visitJobs.api').then(({ visitJobsAPI }) =>
       visitJobsAPI.listForVisit(appointment.id, { silent: true } as any)
@@ -726,6 +728,7 @@ const VisitDetailInner: React.FC<Props> = ({
           if (!alive) return;
           const j = (r.data?.jobs || []).find(x => String(x.providerVisitId ?? '') === String(appointment.id));
           setTransferFrom(j?.requesterClinic?.name ?? null);
+          setTransferHandshakeId(j?.handshakeId ?? null);
         })
         .catch(() => {}));
     return () => { alive = false; };
@@ -3139,6 +3142,14 @@ const VisitDetailInner: React.FC<Props> = ({
                     <ExternalLink size={11} /> Open {l.category} page
                   </button>
                 ))}
+                {/* Straight to the partnership page for the REQUESTING clinic —
+                    the relationship, negotiated rates and settlement terms. */}
+                {transferHandshakeId && (
+                  <button onClick={() => window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'handshake-detail', params: { handshakeId: transferHandshakeId } } }))}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-violet-400 dark:border-violet-700 text-violet-700 dark:text-violet-300 text-[9px] font-black uppercase tracking-widest hover:bg-violet-600 hover:text-white transition-all">
+                    🤝 About {transferFrom || 'the partner'} & our partnership
+                  </button>
+                )}
               </div>
             );
           })()}
@@ -4523,18 +4534,34 @@ const VisitDetailInner: React.FC<Props> = ({
           WITH OR WITHOUT payment (user, 2026-08-01) — the payout settles
           separately at the requester's settlement or bundle sweep. */}
       {workflowTab === 'transfer' && isTransferVisit && (
-        <div className="space-y-3 animate-in fade-in">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
-            <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 mb-2">🔁 Patient escrow — how this works</p>
-            <ol className="text-[11px] text-slate-500 dark:text-zinc-400 space-y-1 list-decimal list-inside">
-              <li><b>Receive</b> the patient / sample — log it on the tracker below.</li>
-              <li><b>Work the service</b> from its module page (images &amp; findings) and mark <b>in progress</b>.</li>
-              <li><b>Send the result</b> — logging <i>result sent</i> (or marking the job complete) copies the report back to {transferFrom || 'the requesting clinic'}'s visit automatically.</li>
-              <li><b>Return the patient</b> — {transferFrom || 'the requester'} logs <i>returned</i> when received back.</li>
-            </ol>
-            <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-2">Every step works <b>with or without payment</b> — the escrow payout arrives on its own when {transferFrom || 'the requesting clinic'} settles (or in the partnership's bundled sweep).</p>
+        <div className="animate-in fade-in bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+          {/* Header */}
+          <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 border-b border-slate-100 dark:border-zinc-800">
+            <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200">🔁 Patient escrow{transferFrom ? ` · from ${transferFrom}` : ''}</p>
+            {transferHandshakeId && (
+              <button onClick={() => window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'handshake-detail', params: { handshakeId: transferHandshakeId } } }))}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-violet-300 dark:border-violet-800 text-violet-600 dark:text-violet-400 text-[8px] font-black uppercase tracking-widest hover:bg-violet-600 hover:text-white transition-all">
+                🤝 View partnership
+              </button>
+            )}
           </div>
-          <VisitJobsPanel visitId={appointment.id} refreshKey={jobsRefresh} />
+          {/* Steps */}
+          <div className="px-4 py-3">
+            <ol className="text-[10px] text-slate-500 dark:text-zinc-400 space-y-0.5 list-decimal list-inside">
+              <li><b>Receive</b> the patient / sample — log it on the tracker below.</li>
+              <li><b>Work the service</b> from its module page and mark <b>in progress</b>.</li>
+              <li><b>Send the result</b> — <i>result sent</i> (or completing the job) copies the report back to {transferFrom || 'the requesting clinic'} automatically.</li>
+              <li><b>Return the patient</b> — {transferFrom || 'the requester'} logs <i>returned</i>.</li>
+            </ol>
+            <p className="text-[9px] text-slate-400 dark:text-zinc-500 mt-1.5">Every step works <b>with or without payment</b> — the escrow payout arrives when {transferFrom || 'the requesting clinic'} settles (or in the bundled sweep).</p>
+          </div>
+          {/* Divider + jobs */}
+          <div className="px-4 py-1.5 bg-slate-50 dark:bg-zinc-950/50 border-y border-slate-100 dark:border-zinc-800">
+            <p className="text-[8px] font-black uppercase tracking-[0.25em] text-slate-400">Outsourced services · tracking</p>
+          </div>
+          <div className="p-3">
+            <VisitJobsPanel visitId={appointment.id} refreshKey={jobsRefresh} frameless />
+          </div>
         </div>
       )}
 

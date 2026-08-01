@@ -35,6 +35,8 @@ export interface VisitJob {
   taskId: string | null;
   // The CLINICAL_TRANSFER visit auto-created at the provider on accept (168).
   providerVisitId?: string | null;
+  // Status of that transfer visit (SCHEDULED/IN_PROGRESS/…) — label logic.
+  providerVisitStatus?: string | null;
   category: string;
   serviceName: string | null;
   requesterClinicId: string;
