@@ -5,6 +5,7 @@ import { summariesAPI } from '../../../services/modules/summaries.api';
 import { useData } from '../../../contexts/DataContext';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import DatePicker from 'react-datepicker';
 
 /**
  * Conversion pulse (user, 2026-08-01) — the rich stats band on Clinic Today:
@@ -12,7 +13,7 @@ import { formatDate } from '../../../services/utils/dateFormatter';
  * (e.g. a vet visit that also sold grooming), with a 7-day mini trend. Styled
  * like the visit header card: dark pine gradient, blocks side by side.
  */
-const ConversionPulse: React.FC<{ scopeId: string | number }> = ({ scopeId }) => {
+export const ConversionPulse: React.FC<{ scopeId: string | number }> = ({ scopeId }) => {
   const [data, setData] = useState<Awaited<ReturnType<typeof summariesAPI.conversions>>['data'] | null>(null);
   useEffect(() => {
     let alive = true;
@@ -65,6 +66,10 @@ interface Props {
   onOpenVisit?: (visitId: string) => void;
   onOpenBookings?: () => void;
   onOpenReminders?: () => void;
+  // Operational cards (reminders due · today's appointments · inventory
+  // alerts) — rendered between the date-picker row and the agenda so the tab
+  // reads: pulse band → date picker (defaults to today) → cards → agenda.
+  cards?: React.ReactNode;
 }
 
 type Row = {
@@ -88,7 +93,7 @@ const KIND_META: Record<Row['kind'], { icon: React.ElementType; tone: string; la
  * Clinic Today — reminders, appointments (bookings) and visits for a chosen date
  * (defaults to today), arranged chronologically by time. One operational glance.
  */
-const ClinicTodayView: React.FC<Props> = ({ onOpenVisit, onOpenBookings, onOpenReminders }) => {
+const ClinicTodayView: React.FC<Props> = ({ onOpenVisit, onOpenBookings, onOpenReminders, cards }) => {
   const { appointments: visits, pets, clients } = useData() as any;
   const { selectedClinicIds } = useClinic() as any;
   const scopeId = selectedClinicIds?.[0];
@@ -139,10 +144,12 @@ const ClinicTodayView: React.FC<Props> = ({ onOpenVisit, onOpenBookings, onOpenR
 
   return (
     <div className="space-y-4">
-      {/* Conversion pulse — the day's numbers and how bookings/reminders turn
-          into visits. */}
+      {/* 1 · Conversion pulse — the day's numbers and conversion rates. */}
       {scopeId != null && <ConversionPulse scopeId={scopeId} />}
 
+      {/* 2 · Date picker directly below the card, defaulting to today (user,
+          2026-08-01). House-themed react-datepicker (same as AdvancedFilters)
+          — the native input popped the browser's own white calendar. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-seafoam/10 flex items-center justify-center"><CalendarDays size={22} className="text-seafoam" /></div>
@@ -151,8 +158,16 @@ const ClinicTodayView: React.FC<Props> = ({ onOpenVisit, onOpenBookings, onOpenR
             <p className="text-[11px] text-slate-400">{rows.length} item{rows.length === 1 ? '' : 's'} · reminders · appointments · visits</p>
           </div>
         </div>
-        <input type="date" value={date} onChange={e => setDate(e.target.value)} className="px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam" />
+        <DatePicker
+          selected={new Date(date + 'T00:00:00')}
+          onChange={(d: Date | null) => d && setDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`)}
+          dateFormat="dd/MM/yyyy"
+          className="w-32 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam"
+        />
       </div>
+
+      {/* 3 · Operational cards (reminders · appointments · inventory). */}
+      {cards}
 
       {loading ? (
         <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-seafoam" /></div>

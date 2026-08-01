@@ -2105,12 +2105,15 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           {/* Finance Overview moved into Clinic Finance → Statistics (its first tab). */}
           {dashboardTab === 'today'
             ? (
-              // Owners get the same operational cards staff see (reminders due ·
-              // today's appointments · inventory alerts) + the day agenda below.
-              <div className="space-y-4">
-                <StaffDashboard onNavigate={(view, params) => navigateTo(view, params)} />
-                <ClinicTodayView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenBookings={() => navigateTo('appointment-bookings')} onOpenReminders={() => navigateTo('reminders')} />
-              </div>
+              // Tab order (user, 2026-08-01): conversion-pulse band → date
+              // picker (defaults to today) → operational cards → day agenda.
+              // ClinicTodayView owns the layout; the cards pass through.
+              <ClinicTodayView
+                cards={<StaffDashboard onNavigate={(view, params) => navigateTo(view, params)} />}
+                onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })}
+                onOpenBookings={() => navigateTo('appointment-bookings')}
+                onOpenReminders={() => navigateTo('reminders')}
+              />
             )
             : dashboardTab === 'b2b'
             ? renderB2BStats()

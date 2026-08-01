@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Conversion Pulse placement + themed date picker  —  2026-08-01
+- **What changed:** the Clinic Today tab now reads **pulse band → date picker (defaults
+  to today) → operational cards → day agenda** (`ClinicTodayView` owns the layout; the
+  StaffDashboard cards pass through as children). The agenda's native browser date input
+  became the house-themed `react-datepicker` (same control as AdvancedFilters).
+- **Record impact:** 🟢 None.
+- **Rollback:** revert.
+
 ### page: Conversion Pulse band on the Clinic Today dashboard  —  2026-08-01
 - **What changed:** Clinic Today opens with a dark pine-gradient stats band (styled like
   the visit header card): **Visits today** (done/total), **Appointments → visits** and
