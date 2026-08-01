@@ -31,6 +31,7 @@ import { paymentGatewaysAPI } from '../../../services/modules/paymentGateways.ap
 import { uploadsAPI } from '../../../services/modules/uploads.api';
 import { aiAPI, taskAttachmentsAPI, ChatMessage } from '../../../services/modules/ai.api';
 import { OutsourceServiceButton, VisitJobsPanel, TransferBillPanel } from './VisitOutsource';
+import PetAvatar from '../shared/PetAvatar';
 import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
@@ -2935,9 +2936,10 @@ const VisitDetailInner: React.FC<Props> = ({
           </div>
 
           <div data-tour="appt-patient" className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2">
-            {/* Patient Info */}
+            {/* Patient Info — real profile photo when one exists; the visit's
+                embedded pet covers transfer visits (pet not in local store). */}
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-2xl shrink-0">{pet.species === 'Dog' ? '🐶' : '🐱'}</span>
+              <PetAvatar pet={pet} fallbackPet={appointment.pet} size={36} rounded="rounded-lg" />
               <div className="min-w-0">
                 <p className="text-white/60 text-[8px] font-black uppercase tracking-widest leading-none mb-0.5">Patient</p>
                 <h2 className="text-sm font-black tracking-tight uppercase truncate leading-tight">{pet.name}</h2>

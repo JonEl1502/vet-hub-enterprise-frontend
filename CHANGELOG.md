@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: real pet avatars everywhere + partner-transfer visits unmistakable in the list  —  2026-08-01
+- **What changed:**
+  - New shared **`PetAvatar`** (`components/clinic/shared/PetAvatar.tsx`): the pet's real
+    profile photo wherever one exists (never the dicebear placeholder), species-emoji chip
+    otherwise. Used in the **visits list** (desktop + mobile), the **New Visit patient
+    picker** (both card styles) and the **visit detail header**.
+  - The visit payload's embedded pet now carries `avatarUrl` (backend select + DataContext
+    mapper + `Visit.pet` type) — essential on CLINICAL_TRANSFER visits where the shared
+    patient is NOT in the local pets store.
+  - **Visits list tells partner transfers apart**: violet **🔁 Partner Transfer / Shared
+    patient** chips replace "Normal Visit · In-Clinic", plus a 🔁 corner badge on the avatar.
+- **Record impact:** 🟢 None — display only.
+- **Data dependency:** backend `0455bfa` (avatarUrl on visit pet selects), same deploy.
+- **Rollback:** revert; emojis and identical-looking rows return.
+
 ### page: transfer visits open their module pages + Partner Bill & Receipt  —  2026-08-01
 - **What changed:** on a CLINICAL_TRANSFER visit:
   - the banner gains **"Open <category> page"** buttons — one per module the transferred

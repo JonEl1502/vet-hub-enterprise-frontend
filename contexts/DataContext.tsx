@@ -371,7 +371,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           leadStaffId: a.leadStaffId ? parseInt(a.leadStaffId) : undefined,
           leadStaff: a.leadStaff ? { id: parseInt(a.leadStaff.id), name: a.leadStaff.name, role: a.leadStaff.role } : undefined,
           client: a.client ? { id: parseInt(a.client.id), name: a.client.name, phone: a.client.phone, email: a.client.email } : undefined,
-          pet: a.pet ? { id: parseInt(a.pet.id), name: a.pet.name, species: a.pet.species, breed: a.pet.breed } : undefined,
+          pet: a.pet ? { id: parseInt(a.pet.id), name: a.pet.name, species: a.pet.species, breed: a.pet.breed, avatarUrl: a.pet.avatarUrl ?? null } : undefined,
           tasks: (a.tasks || []).map((t: any) => ({
             id: parseInt(t.id),
             name: t.name,

@@ -617,6 +617,9 @@ export interface Visit {
     name: string;
     species: string;
     breed: string;
+    // Real profile photo — rides on the visit so it survives cross-clinic
+    // transfer visits where the pet isn't in the local pets store.
+    avatarUrl?: string | null;
   };
   medications?: AppointmentMedicationRecord[];
   transactionId?: string | null;

@@ -17,6 +17,7 @@ import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker'
 import { startOfToday } from 'date-fns';
 import ConfirmDialog from '../../shared/common/ConfirmDialog';
 import ScopeClinicBadge from '../../shared/common/ScopeClinicBadge';
+import PetAvatar from '../shared/PetAvatar';
 
 interface Props {
   pets: Pet[];
@@ -428,14 +429,19 @@ const VisitsListView: React.FC<Props> = ({
                             <div className="flex items-center gap-3">
                               <div className="flex flex-col items-center gap-1">
                                 <div className="relative">
-                                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 shadow-sm ${isDog ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30' : 'bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800/30'}`}>
-                                    {isDog ? '🐶' : '🐱'}
-                                  </div>
+                                  {/* Real profile photo when one exists; the visit-embedded
+                                      pet covers transfer visits (pet not in local store). */}
+                                  <PetAvatar pet={pet} fallbackPet={appt.pet} size={40} />
                                   {/* Group-visit member — superscript badge on the avatar. */}
                                   {appt.groupVisitId && (
                                     <span title="Part of a group visit" className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-violet-600 text-white flex items-center justify-center ring-2 ring-white dark:ring-zinc-900">
                                       <Users size={9} strokeWidth={3} />
                                     </span>
+                                  )}
+                                  {/* Partner transfer — the patient is SHARED from the
+                                      requesting clinic (user: "I can't differentiate"). */}
+                                  {appt.visitType === 'CLINICAL_TRANSFER' && (
+                                    <span title="Clinical transfer — shared patient from a partner clinic" className="absolute -bottom-1 -right-1 px-1 rounded-md bg-violet-600 text-white text-[8px] font-black ring-2 ring-white dark:ring-zinc-900">🔁</span>
                                   )}
                                 </div>
                                 <p className="text-slate-400 dark:text-zinc-600 text-[9px] font-bold font-mono leading-none">#{appt.petId || pet?.id}</p>
@@ -449,23 +455,37 @@ const VisitsListView: React.FC<Props> = ({
                             </div>
                           </td>
 
-                          {/* Visit Type */}
+                          {/* Visit Type — a partner transfer is unmistakably NOT one of
+                              this clinic's own visits (user, 2026-08-01). */}
                           <td className="px-5 py-4 whitespace-nowrap">
                             <div className="flex flex-col gap-1.5">
-                              <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider w-fit ${isFollowUp ? 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400'}`}>
-                                {isFollowUp
-                                  ? <RotateCcw size={11} strokeWidth={2.5} />
-                                  : <ClipboardList size={11} strokeWidth={2.5} />
-                                }
-                                {isFollowUp ? 'Follow-up' : 'Normal Visit'}
-                              </span>
-                              <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider w-fit ${appt.isHouseCall ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500'}`}>
-                                {appt.isHouseCall
-                                  ? <Home size={11} strokeWidth={2.5} />
-                                  : <Building2 size={11} strokeWidth={2.5} />
-                                }
-                                {appt.isHouseCall ? 'House Call' : 'In-Clinic'}
-                              </span>
+                              {appt.visitType === 'CLINICAL_TRANSFER' ? (
+                                <>
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider w-fit bg-violet-600 text-white">
+                                    🔁 Partner Transfer
+                                  </span>
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider w-fit bg-violet-500/10 text-violet-600 dark:text-violet-400">
+                                    Shared patient
+                                  </span>
+                                </>
+                              ) : (
+                                <>
+                                  <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider w-fit ${isFollowUp ? 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400'}`}>
+                                    {isFollowUp
+                                      ? <RotateCcw size={11} strokeWidth={2.5} />
+                                      : <ClipboardList size={11} strokeWidth={2.5} />
+                                    }
+                                    {isFollowUp ? 'Follow-up' : 'Normal Visit'}
+                                  </span>
+                                  <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider w-fit ${appt.isHouseCall ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500'}`}>
+                                    {appt.isHouseCall
+                                      ? <Home size={11} strokeWidth={2.5} />
+                                      : <Building2 size={11} strokeWidth={2.5} />
+                                    }
+                                    {appt.isHouseCall ? 'House Call' : 'In-Clinic'}
+                                  </span>
+                                </>
+                              )}
                             </div>
                           </td>
 
@@ -675,13 +695,14 @@ const VisitsListView: React.FC<Props> = ({
                       <div className="flex items-start gap-3">
                         <div className="flex flex-col items-center gap-1 shrink-0">
                           <div className="relative">
-                            <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0 shadow-sm ${isDog ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30' : 'bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800/30'}`}>
-                              {isDog ? '🐶' : '🐱'}
-                            </div>
+                            <PetAvatar pet={pet} fallbackPet={appt.pet} size={40} />
                             {appt.groupVisitId && (
                               <span title="Part of a group visit" className="absolute -top-1.5 -right-1.5 p-0.5 rounded-full bg-violet-600 text-white flex items-center justify-center ring-2 ring-white dark:ring-zinc-900">
                                 <Users size={9} strokeWidth={3} />
                               </span>
+                            )}
+                            {appt.visitType === 'CLINICAL_TRANSFER' && (
+                              <span title="Clinical transfer — shared patient from a partner clinic" className="absolute -bottom-1 -right-1 px-1 rounded-md bg-violet-600 text-white text-[8px] font-black ring-2 ring-white dark:ring-zinc-900">🔁</span>
                             )}
                           </div>
                           <p className="text-slate-400 dark:text-zinc-600 text-[9px] font-bold font-mono leading-none">#{appt.petId || pet?.id}</p>
@@ -706,14 +727,22 @@ const VisitsListView: React.FC<Props> = ({
                       <div className="flex justify-between items-center">
                         <span className="text-pine dark:text-zinc-400 font-black text-[11px] uppercase tracking-widest">Visit Type</span>
                         <div className="flex items-center gap-1.5">
-                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${isFollowUp ? 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400'}`}>
-                            {isFollowUp ? <RotateCcw size={10} strokeWidth={2.5} /> : <ClipboardList size={10} strokeWidth={2.5} />}
-                            {isFollowUp ? 'Follow-up' : 'Normal'}
-                          </span>
-                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${appt.isHouseCall ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500'}`}>
-                            {appt.isHouseCall ? <Home size={10} strokeWidth={2.5} /> : <Building2 size={10} strokeWidth={2.5} />}
-                            {appt.isHouseCall ? 'House Call' : 'In-Clinic'}
-                          </span>
+                          {appt.visitType === 'CLINICAL_TRANSFER' ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-violet-600 text-white">
+                              🔁 Partner Transfer
+                            </span>
+                          ) : (
+                            <>
+                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${isFollowUp ? 'bg-indigo-500/10 text-indigo-500 dark:text-indigo-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400'}`}>
+                                {isFollowUp ? <RotateCcw size={10} strokeWidth={2.5} /> : <ClipboardList size={10} strokeWidth={2.5} />}
+                                {isFollowUp ? 'Follow-up' : 'Normal'}
+                              </span>
+                              <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider ${appt.isHouseCall ? 'bg-teal-500/10 text-teal-600 dark:text-teal-400' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500'}`}>
+                                {appt.isHouseCall ? <Home size={10} strokeWidth={2.5} /> : <Building2 size={10} strokeWidth={2.5} />}
+                                {appt.isHouseCall ? 'House Call' : 'In-Clinic'}
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
 

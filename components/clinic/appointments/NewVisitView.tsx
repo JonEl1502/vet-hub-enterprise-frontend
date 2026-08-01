@@ -15,6 +15,7 @@ import StepIndicator from '../../shared/common/StepIndicator';
 import DateTimePicker from '../../shared/common/DateTimePicker';
 import { GateCheckForm } from './wizard/steps/EntrySteps';
 import { loadVisitFees, entryFeeFor, loadVisitFeeMeta, HOUSE_CALL_DISTANCE_KEY } from '../shared/visitFees';
+import PetAvatar from '../shared/PetAvatar';
 
 interface TaskMedication {
   id: string;
@@ -1721,7 +1722,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                             {filteredPets.map(p => (
                               <button key={`pet-${p.id}`} onClick={() => { setSelectedPetId(p.id); if (p.ownerId) setSelectedClientId(p.ownerId); setSearchQuery(''); }} className={`flex items-center justify-between p-3 rounded-xl border-2 transition-all ${selectedPetId === p.id ? 'border-cyan bg-cyan/5' : 'border-slate-100 dark:border-zinc-800 hover:border-slate-200'}`}>
                                 <div className="flex items-center gap-3 min-w-0">
-                                  <span className="text-lg">{p.species === 'Cat' ? '🐱' : '🐶'}</span>
+                                  <PetAvatar pet={p} size={32} rounded="rounded-lg" />
                                   <div className="text-left min-w-0">
                                     <p className="text-pine dark:text-zinc-100 font-bold text-xs truncate uppercase">{p.name}</p>
                                     <p className="text-slate-400 text-[8px] font-bold uppercase">{p.species}{p.breed ? ` · ${p.breed}` : ''}</p>
@@ -1885,7 +1886,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                           isActive ? (isGroupVisit ? 'border-violet-500 bg-violet-500/5' : 'border-cyan bg-cyan/5') : 'border-slate-100 dark:border-zinc-800 hover:border-cyan/40'
                         } ${petDeceased ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                       >
-                        <div className="text-base">{p.species === 'Dog' ? '🐶' : p.species === 'Cat' ? '🐱' : p.species === 'Bird' ? '🐦' : p.species === 'Rabbit' ? '🐰' : p.species === 'Horse' ? '🐴' : '🐾'}</div>
+                        <PetAvatar pet={p} size={30} rounded="rounded-lg" />
                         <p className="text-pine dark:text-zinc-100 font-bold uppercase text-[8px] truncate w-full text-center">{p.name}</p>
                         <p className={`uppercase text-[7px] font-bold truncate w-full text-center ${petDeceased ? 'text-red-500' : 'text-slate-400'}`}>
                           {petDeceased ? 'Deceased' : p.species}
