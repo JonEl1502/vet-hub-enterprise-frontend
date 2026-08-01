@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Clinic Today uses the house date-RANGE picker  —  2026-08-01
+- **What changed:** the react-datepicker single-date field (buggy overlap in the header)
+  is replaced by the same **DateRangePicker** the Visits list uses — defaults to
+  today → today, clearing snaps back to today, and the agenda filters reminders /
+  appointments / visits across the whole selected range.
+- **Record impact:** 🟢 None.
+- **Rollback:** revert.
+
 ### page: Conversion Pulse placement + themed date picker  —  2026-08-01
 - **What changed:** the Clinic Today tab now reads **pulse band → date picker (defaults
   to today) → operational cards → day agenda** (`ClinicTodayView` owns the layout; the
