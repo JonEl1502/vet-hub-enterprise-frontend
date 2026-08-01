@@ -1,8 +1,65 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, BellRing, CalendarClock, Stethoscope, Loader2, ArrowRight } from 'lucide-react';
+import { CalendarDays, BellRing, CalendarClock, Stethoscope, Loader2, ArrowRight, Repeat } from 'lucide-react';
 import { remindersAPI, appointmentsAPI, Reminder } from '../../../services';
+import { summariesAPI } from '../../../services/modules/summaries.api';
 import { useData } from '../../../contexts/DataContext';
+import { useClinic } from '../../../contexts/ClinicContext';
 import { formatDate } from '../../../services/utils/dateFormatter';
+
+/**
+ * Conversion pulse (user, 2026-08-01) — the rich stats band on Clinic Today:
+ * visits done, appointments→visits, reminders→visits, and encounter cross-sell
+ * (e.g. a vet visit that also sold grooming), with a 7-day mini trend. Styled
+ * like the visit header card: dark pine gradient, blocks side by side.
+ */
+const ConversionPulse: React.FC<{ scopeId: string | number }> = ({ scopeId }) => {
+  const [data, setData] = useState<Awaited<ReturnType<typeof summariesAPI.conversions>>['data'] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    summariesAPI.conversions({ scopeId, days: 7 }, { silent: true } as any)
+      .then(r => { if (alive && r.success && r.data) setData(r.data); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [scopeId]);
+
+  if (!data) return null;
+  const t = data.totals;
+  const today = data.days[data.days.length - 1];
+  const pct = (n: number, d: number) => d > 0 ? `${Math.round((n / d) * 100)}%` : '—';
+  const topPair = Object.entries(data.crossSellPairs || {}).sort((a, b) => b[1] - a[1])[0];
+  const maxDone = Math.max(1, ...data.days.map(d => d.visitsDone));
+
+  const Block: React.FC<{ label: string; big: React.ReactNode; sub: string }> = ({ label, big, sub }) => (
+    <div className="min-w-0">
+      <p className="text-white/50 text-[8px] font-black uppercase tracking-widest leading-none mb-1">{label}</p>
+      <p className="text-white font-black text-lg leading-tight font-mono">{big}</p>
+      <p className="text-seafoam text-[9px] font-bold truncate">{sub}</p>
+    </div>
+  );
+
+  return (
+    <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-pine via-pine to-emerald-950 p-4 md:p-5 shadow-xl">
+      <Repeat size={84} className="absolute -right-3 -top-4 text-white/5" />
+      <div className="relative z-10 grid grid-cols-2 md:grid-cols-5 gap-x-5 gap-y-3 items-end">
+        <Block label="Visits today" big={<>{today?.visitsDone ?? 0}<span className="text-white/40 text-sm"> / {today?.visitsTotal ?? 0}</span></>} sub={`${t.visitsDone} done · 7 days`} />
+        <Block label="Appointments → visits" big={<>{t.bookingsConverted}<span className="text-white/40 text-sm"> / {t.bookings}</span></>} sub={`${pct(t.bookingsConverted, t.bookings)} converted`} />
+        <Block label="Reminders → visits" big={<>{t.remindersConverted}<span className="text-white/40 text-sm"> / {t.remindersDue}</span></>} sub={`${pct(t.remindersConverted, t.remindersDue)} converted`} />
+        <Block label="Cross-sell" big={t.crossSell} sub={topPair ? `${topPair[0]} · ${topPair[1]}×` : 'encounters combined'} />
+        {/* 7-day visits-done trend */}
+        <div className="col-span-2 md:col-span-1">
+          <p className="text-white/50 text-[8px] font-black uppercase tracking-widest leading-none mb-1.5">7-day visits</p>
+          <div className="flex items-end gap-1 h-9">
+            {data.days.map(d => (
+              <div key={d.date} title={`${d.date}: ${d.visitsDone} done / ${d.visitsTotal}`}
+                className="flex-1 rounded-sm bg-seafoam/80 min-h-[3px]"
+                style={{ height: `${Math.max(8, (d.visitsDone / maxDone) * 100)}%` }} />
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
 
 interface Props {
   onOpenVisit?: (visitId: string) => void;
@@ -33,6 +90,8 @@ const KIND_META: Record<Row['kind'], { icon: React.ElementType; tone: string; la
  */
 const ClinicTodayView: React.FC<Props> = ({ onOpenVisit, onOpenBookings, onOpenReminders }) => {
   const { appointments: visits, pets, clients } = useData() as any;
+  const { selectedClinicIds } = useClinic() as any;
+  const scopeId = selectedClinicIds?.[0];
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [bookings, setBookings] = useState<any[]>([]);
@@ -80,6 +139,10 @@ const ClinicTodayView: React.FC<Props> = ({ onOpenVisit, onOpenBookings, onOpenR
 
   return (
     <div className="space-y-4">
+      {/* Conversion pulse — the day's numbers and how bookings/reminders turn
+          into visits. */}
+      {scopeId != null && <ConversionPulse scopeId={scopeId} />}
+
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-11 h-11 rounded-2xl bg-seafoam/10 flex items-center justify-center"><CalendarDays size={22} className="text-seafoam" /></div>

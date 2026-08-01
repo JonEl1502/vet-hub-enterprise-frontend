@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Conversion Pulse band on the Clinic Today dashboard  —  2026-08-01
+- **What changed:** Clinic Today opens with a dark pine-gradient stats band (styled like
+  the visit header card): **Visits today** (done/total), **Appointments → visits** and
+  **Reminders → visits** conversion (x/y + %), **Cross-sell** (visits whose services span
+  encounter families, with the top pair, e.g. "vet → grooming"), and a **7-day visits
+  mini-trend**. Data from the new `GET /summaries/conversions` endpoint.
+- **Record impact:** 🟢 None — read-only aggregation.
+- **Data dependency:** same-day backend deploy (`/summaries/conversions`).
+- **Rollback:** revert; the band disappears, cards unchanged.
+
 ### page: Clinical Transfer becomes a real tab (patient escrow flow)  —  2026-08-01
 - **What changed:** on CLINICAL_TRANSFER visits the "🔁 Clinical transfer" **badge**
   (which read as an unclickable tab — same trap as the old Diagnostics badge) becomes a

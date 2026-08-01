@@ -103,6 +103,20 @@ export const summariesAPI = {
     return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS}?${q.toString()}`, { cache: false, ...options });
   },
 
+  /** Daily conversion pulse — visits done, booking→visit, reminder→visit, cross-sell. */
+  conversions: async (
+    opts: { scopeId: string | number; days?: number },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{
+    days: { date: string; visitsTotal: number; visitsDone: number; bookings: number; bookingsConverted: number; remindersDue: number; remindersConverted: number; crossSell: number }[];
+    totals: { visitsTotal: number; visitsDone: number; bookings: number; bookingsConverted: number; remindersDue: number; remindersConverted: number; crossSell: number };
+    crossSellPairs: Record<string, number>;
+  }>> => {
+    const q = new URLSearchParams({ scopeId: String(opts.scopeId) });
+    if (opts.days) q.set('days', String(opts.days));
+    return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'conversions')}?${q.toString()}`, { cache: false, ...options });
+  },
+
   /** Per-scope rows so the dashboard can render a per-clinic table. */
   getBreakdown: async (
     opts: GetSummariesOptions = {},
