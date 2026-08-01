@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Past requests section on Partners  —  2026-08-02
+- **What changed:** declined partnership requests move out of the main Partnerships grid
+  into a **Past requests** section below it — compact muted rows (partner, direction
+  "They asked us / We asked them", date, Declined chip) — so history stays visible
+  without mixing with live partnerships.
+- **Record impact:** 🟢 None.
+- **Rollback:** revert; declined cards mix back into the grid.
+
 ### page: partner jobs grouped by source visit; sidebar rename  —  2026-08-02
 - **What changed:**
   - Partners → Jobs now shows **one card per requester visit** ("N services · one visit ·

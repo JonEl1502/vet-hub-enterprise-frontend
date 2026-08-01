@@ -130,6 +130,11 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
     });
   }, [handshakes, activeClinic?.id, searchQuery, clinics]);
 
+  // Past requests (user, 2026-08-02): declined handshakes live in their own
+  // section instead of mixing with active/pending partnerships.
+  const liveHandshakes = useMemo(() => activeHandshakes.filter(h => h.status !== HandshakeStatus.DECLINED), [activeHandshakes]);
+  const pastHandshakes = useMemo(() => activeHandshakes.filter(h => h.status === HandshakeStatus.DECLINED), [activeHandshakes]);
+
   const getStatusBadge = (status: string) => {
     const base = "px-3 py-1.5 rounded-full text-[10px] font-black border uppercase tracking-wider flex items-center gap-1.5 ";
     if (status === ReferralStatus.REQUESTED || status === HandshakeStatus.PENDING) return base + "bg-amber-500/10 text-amber-600 border-amber-500/20";
@@ -257,7 +262,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-           {activeHandshakes.map(h => {
+           {liveHandshakes.map(h => {
              const sameId = (a: any, b: any) => String(a) === String(b);
              const isIncoming = sameId(h.receiverClinicId, activeClinic.id);
 
@@ -343,10 +348,40 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
                </div>
              );
            })}
-           {activeHandshakes.length === 0 && (
-             <div className="col-span-full py-40 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-sm tracking-[0.4em]">No Partnerships Found</div>
+           {liveHandshakes.length === 0 && (
+             <div className="col-span-full py-16 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-xl opacity-20 uppercase font-black text-sm tracking-[0.4em]">No Partnerships Found</div>
            )}
         </div>
+
+        {/* Past requests — declined handshakes, kept as history. */}
+        {pastHandshakes.length > 0 && (
+          <div className="mt-6 space-y-2">
+            <div className="flex items-center gap-2 border-t border-slate-200 dark:border-zinc-800 pt-4">
+              <XCircle size={12} className="text-slate-400" />
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Past requests <span className="text-slate-300">· {pastHandshakes.length}</span></p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+              {pastHandshakes.map(h => {
+                const sameId = (a: any, b: any) => String(a) === String(b);
+                const isIncoming = sameId(h.receiverClinicId, activeClinic?.id);
+                const partnerId = isIncoming ? h.requesterClinicId : h.receiverClinicId;
+                const partnerFromApi = isIncoming ? (h as any).requesterClinic : (h as any).receiverClinic;
+                const partnerFromList = clinics.find(c => sameId(c.id, partnerId));
+                const partner: any = partnerFromApi || partnerFromList || { name: 'Unknown clinic' };
+                return (
+                  <div key={h.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 opacity-70 flex items-center gap-3">
+                    <span className="w-9 h-9 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-lg overflow-hidden shrink-0"><ClinicLogo logo={partner?.logo} fallback="🏥" /></span>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-xs font-black text-pine dark:text-zinc-100 truncate">{partner?.name}</p>
+                      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{isIncoming ? 'They asked us' : 'We asked them'}{h.createdAt ? ` · ${new Date(h.createdAt as any).toLocaleDateString('en-GB')}` : ''}</p>
+                    </div>
+                    <span className="px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-500 shrink-0">Declined</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
         </>
       ) : (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2.5rem] overflow-hidden shadow-sm">
