@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: transfer visits open their module pages + Partner Bill & Receipt  —  2026-08-01
+- **What changed:** on a CLINICAL_TRANSFER visit:
+  - the banner gains **"Open <category> page"** buttons — one per module the transferred
+    services belong to (lab, imaging, surgery, …), so multi-service transfers reach each page.
+  - a new **🧾 Partner Bill & Receipt** tab replaces the suppressed Bill & Invoice: an
+    invoice-style document whose **client is the requesting clinic** ("Bill to — client:
+    ShiVets Clinic"), for *their* patient and *their* client (shown as context), itemised
+    at the agreed job prices. Status: "Awaiting settlement" until the escrow payout runs,
+    then "Paid" with the payout transaction as the receipt reference (TX-…). The pet owner
+    is never billed here.
+- **Record impact:** 🟢 None — a projection over visit jobs; nothing written.
+- **Data dependency:** same-day backend deploy (payoutTransactionId on job payloads).
+- **Rollback:** revert; billing stays fully suppressed on transfer visits.
+
 ### page: incoming jobs show the patient and gain "Start visit"  —  2026-08-01
 - **What changed:** Partners → Jobs cards show the requester's patient
   (🐾 name · species, tagged "shared" on incoming). Incoming ACCEPTED/COMPLETED cards gain

@@ -47,6 +47,8 @@ export interface VisitJob {
   status: VisitJobStatus;
   movementStage: MovementStage | null;
   paidOut?: boolean;
+  // Escrow payout transaction — the partner bill's receipt reference (null until settled).
+  payoutTransactionId?: string | null;
   note: string | null;
   createdAt: string;
   updatedAt: string;

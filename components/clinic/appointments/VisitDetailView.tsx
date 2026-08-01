@@ -30,7 +30,7 @@ import { toast } from '../../../services/utils/toast';
 import { paymentGatewaysAPI } from '../../../services/modules/paymentGateways.api';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
 import { aiAPI, taskAttachmentsAPI, ChatMessage } from '../../../services/modules/ai.api';
-import { OutsourceServiceButton, VisitJobsPanel } from './VisitOutsource';
+import { OutsourceServiceButton, VisitJobsPanel, TransferBillPanel } from './VisitOutsource';
 import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
@@ -379,7 +379,7 @@ const VisitDetailInner: React.FC<Props> = ({
   // Clinical Workflow · Categories & Services · Records & Billing.
   // Non-finalized visits land on the clinical wizard (entry-point-driven) —
   // emergencies land on Triage; finalized ones on Services.
-  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'followup' | 'services' | 'records' | 'billing' | 'triage'>(
+  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'followup' | 'services' | 'records' | 'billing' | 'triage' | 'partnerbill'>(
     // A finalized visit lands on the BILL — it is the record of what was done
     // (user, 2026-07-29). It used to land on Categories & Services, which no
     // longer exists as a tab.
@@ -3106,14 +3106,40 @@ const VisitDetailInner: React.FC<Props> = ({
           — their info is shared for this visit only, never copied into this
           clinic's patient records. Say so, prominently. */}
       {isTransferVisit && (
-        <div className="flex items-start gap-2.5 px-4 py-3 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-900/50 text-violet-800 dark:text-violet-300 text-[12px] font-medium">
-          <span className="text-base leading-none mt-0.5">🔁</span>
-          <span>
-            <b>Clinical transfer{transferFrom ? ` from ${transferFrom}` : ''}.</b>{' '}
-            The patient and owner details are shared for this visit only — they stay in{' '}
-            {transferFrom || 'the requesting clinic'}'s records, not this clinic's patient list.
-            Work the requested service from its module page; billing is handled by the requester's settlement.
-          </span>
+        <div className="px-4 py-3 rounded-xl bg-violet-50 dark:bg-violet-950/30 border border-violet-200 dark:border-violet-900/50 text-violet-800 dark:text-violet-300 text-[12px] font-medium space-y-2">
+          <div className="flex items-start gap-2.5">
+            <span className="text-base leading-none mt-0.5">🔁</span>
+            <span>
+              <b>Clinical transfer{transferFrom ? ` from ${transferFrom}` : ''}.</b>{' '}
+              The patient and owner details are shared for this visit only — they stay in{' '}
+              {transferFrom || 'the requesting clinic'}'s records, not this clinic's patient list.
+              Work the requested service from its module page; billing is handled by the requester's settlement.
+            </span>
+          </div>
+          {/* One button per module the transferred services belong to (user,
+              2026-08-01) — lab / imaging / surgery / … open their own pages. */}
+          {onOpenModule && (() => {
+            const seen = new Set<string>();
+            const links: { category: string; moduleId: string }[] = [];
+            for (const t of appointment.tasks || []) {
+              const lc = (t.category || '').toLowerCase();
+              const moduleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
+              if (!moduleId || seen.has(moduleId)) continue;
+              seen.add(moduleId);
+              links.push({ category: t.category, moduleId });
+            }
+            if (!links.length) return null;
+            return (
+              <div className="flex flex-wrap gap-1.5 pl-7">
+                {links.map(l => (
+                  <button key={l.moduleId} onClick={() => onOpenModule(l.moduleId, String(appointment.id))}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-violet-700 transition-all">
+                    <ExternalLink size={11} /> Open {l.category} page
+                  </button>
+                ))}
+              </div>
+            );
+          })()}
         </div>
       )}
 
@@ -3123,7 +3149,7 @@ const VisitDetailInner: React.FC<Props> = ({
           {/* On an emergency visit, Triage leads — it IS the workflow's front
               door. Diagnostics-only visits (auto-created from New lab/imaging)
               skip the clinical wizard entirely. */}
-          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), { id: 'followup', label: '🔔 Follow-Up & Reminders' }, { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [] : [{ id: 'billing', label: 'Bill & Invoice' }])].map(t => (
+          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), { id: 'followup', label: '🔔 Follow-Up & Reminders' }, { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [{ id: 'partnerbill', label: '🧾 Partner Bill & Receipt' }] : [{ id: 'billing', label: 'Bill & Invoice' }])].map(t => (
             <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
           ))}
           {diagnosticOnly && (
@@ -4484,6 +4510,21 @@ const VisitDetailInner: React.FC<Props> = ({
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* Partner Bill & Receipt — CLINICAL_TRANSFER visits only (user,
+          2026-08-01): the invoice's CLIENT is the requesting clinic, for their
+          patient / their client. Receipt = the escrow payout transaction. */}
+      {workflowTab === 'partnerbill' && isTransferVisit && (
+        <div className="animate-in fade-in">
+          <TransferBillPanel
+            visitId={appointment.id}
+            providerName={activeClinic.name}
+            currency={activeClinic.currency}
+            petName={pet?.name}
+            ownerName={client?.name}
+          />
         </div>
       )}
 

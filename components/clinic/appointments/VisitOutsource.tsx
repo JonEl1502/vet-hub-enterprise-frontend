@@ -143,6 +143,90 @@ export const OutsourceServiceButton: React.FC<{
 };
 
 /**
+ * Provider-side partner bill for a CLINICAL_TRANSFER visit (user, 2026-08-01):
+ * an invoice-style document where the CLIENT is the REQUESTING CLINIC — billed
+ * for their patient / their client's work at the agreed job price. The receipt
+ * is the escrow payout transaction; nothing here charges the pet owner.
+ */
+export const TransferBillPanel: React.FC<{
+  visitId: string | number;
+  providerName: string;
+  currency?: string;
+  petName?: string | null;
+  ownerName?: string | null;
+}> = ({ visitId, providerName, currency = 'KES', petName, ownerName }) => {
+  const [jobs, setJobs] = useState<VisitJob[]>([]);
+  const [loading, setLoading] = useState(true);
+  useEffect(() => {
+    let alive = true;
+    visitJobsAPI.listForVisit(visitId)
+      .then(r => { if (alive && r.success && r.data?.jobs) setJobs(r.data.jobs.filter(j => String(j.providerVisitId ?? '') === String(visitId))); })
+      .catch(() => {})
+      .finally(() => alive && setLoading(false));
+    return () => { alive = false; };
+  }, [visitId]);
+
+  if (loading) return <div className="flex items-center justify-center py-10"><Loader2 size={18} className="animate-spin text-seafoam" /></div>;
+  if (jobs.length === 0) return <p className="text-[11px] text-slate-400 text-center py-8">No partner jobs on this visit.</p>;
+
+  const requester = jobs[0].requesterClinic;
+  const total = jobs.reduce((n, j) => n + Number(j.agreedPrice), 0);
+  const allPaid = jobs.every(j => j.paidOut);
+
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden max-w-2xl">
+      <div className="px-5 py-4 bg-gradient-to-br from-pine to-seafoam text-white flex items-start justify-between gap-3">
+        <div>
+          <p className="text-[9px] font-black uppercase tracking-[0.3em] text-white/60">Partner invoice</p>
+          <h3 className="text-lg font-black tracking-tight uppercase">{providerName}</h3>
+          <p className="text-[10px] text-white/80 font-medium">Inter-clinic service — escrow settled</p>
+        </div>
+        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${allPaid ? 'bg-emerald-400/20 text-emerald-100' : 'bg-amber-400/20 text-amber-100'}`}>
+          {allPaid ? 'Paid' : 'Awaiting settlement'}
+        </span>
+      </div>
+      <div className="p-5 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Bill to — client</p>
+            <p className="text-sm font-black text-pine dark:text-zinc-100 flex items-center gap-2">
+              <span className="w-6 h-6 rounded-md overflow-hidden inline-flex items-center justify-center bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700"><ClinicLogo logo={requester?.logo} fallback="🏥" /></span>
+              {requester?.name || 'Requesting clinic'}
+            </p>
+            <p className="text-[10px] text-slate-400 mt-0.5">The requesting clinic is the client on this bill — not the pet owner.</p>
+          </div>
+          <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">For — their patient</p>
+            <p className="text-sm font-black text-pine dark:text-zinc-100">🐾 {petName || jobs[0].patientName || 'Patient'}</p>
+            {ownerName && <p className="text-[10px] text-slate-400 mt-0.5">Owner (their client): {ownerName}</p>}
+          </div>
+        </div>
+        <div className="divide-y divide-slate-100 dark:divide-zinc-800 border-y border-slate-100 dark:border-zinc-800">
+          {jobs.map(j => (
+            <div key={j.id} className="flex items-center justify-between gap-3 py-2">
+              <div className="min-w-0">
+                <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{j.serviceName || j.category}</p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{j.category} · {j.status}{j.paidOut && j.payoutTransactionId ? ` · receipt TX-${j.payoutTransactionId}` : ''}</p>
+              </div>
+              <span className="text-sm font-black font-mono text-pine dark:text-zinc-100 shrink-0">{j.currency} {j.agreedPrice.toLocaleString()}</span>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-baseline justify-between">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total</span>
+          <span className={`text-xl font-black font-mono ${allPaid ? 'text-emerald-600 dark:text-emerald-400' : 'text-pine dark:text-zinc-100'}`}>{currency} {total.toLocaleString()}</span>
+        </div>
+        <p className="text-[10px] text-slate-400 dark:text-zinc-500">
+          {allPaid
+            ? `Settled — ${requester?.name || 'the requesting clinic'} paid via the escrow payout (references above). This is your receipt.`
+            : `Payment arrives automatically when ${requester?.name || 'the requesting clinic'} settles their client's bill (or in the partnership's bundled sweep). The pet owner is never billed here.`}
+        </p>
+      </div>
+    </div>
+  );
+};
+
+/**
  * Chip + dialog for a request ALREADY sent to a partner (user, 2026-08-01).
  * The chip shows who it went to and where it stands; the dialog carries the
  * whole cross-clinic story: negotiation (accept/counter while REQUESTED), the
