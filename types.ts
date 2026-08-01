@@ -532,7 +532,10 @@ export type EncounterType = 'VET_VISIT' | 'GROOMING' | 'BOARDING' | 'RETAIL' | '
 // added VACCINATION (vaccination is now a vet-visit sub-type, not a top-level
 // encounter) and ROUTINE_CHECK. INPATIENT is kept for legacy rows only —
 // hospitalization is an escalation toggle on a vet visit, not a visit type.
-export type VisitType = 'ROUTINE' | 'ROUTINE_CHECK' | 'CONSULTATION' | 'VACCINATION' | 'DEWORMING' | 'EMERGENCY' | 'FOLLOW_UP' | 'INPATIENT';
+// DIAGNOSTICS + CLINICAL_TRANSFER (168) are system-set, never picker options:
+// DIAGNOSTICS = visit auto-created to anchor a lab/imaging record;
+// CLINICAL_TRANSFER = provider-side visit auto-created on visit-job accept.
+export type VisitType = 'ROUTINE' | 'ROUTINE_CHECK' | 'CONSULTATION' | 'VACCINATION' | 'DEWORMING' | 'EMERGENCY' | 'FOLLOW_UP' | 'INPATIENT' | 'DIAGNOSTICS' | 'CLINICAL_TRANSFER';
 
 // Human labels + icons keyed by encounter type (UI display).
 // Exactly THREE top-level encounter types (migration 077 restructure):

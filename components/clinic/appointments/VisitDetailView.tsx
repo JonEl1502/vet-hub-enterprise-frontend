@@ -708,10 +708,11 @@ const VisitDetailInner: React.FC<Props> = ({
   const isEmergency = effectiveVisitType === 'EMERGENCY';
   // A visit auto-created from a "New lab/imaging" record is diagnostics-only:
   // no clinical wizard — just Categories & Services + Records & Billing.
-  const diagnosticOnly = (appointment.tasks || []).length > 0 && (appointment.tasks || []).every(t => {
-    const c = (t.category || '').toLowerCase();
-    return c.includes('lab') || c.includes('imag');
-  });
+  // Keyed on the EXPLICIT visit type (168) — the old category heuristic
+  // ("every task is lab/imaging") hid the clinical workflow on a real
+  // consultation whose only staged service was imaging.
+  const isTransferVisit = appointment.visitType === 'CLINICAL_TRANSFER';
+  const diagnosticOnly = appointment.visitType === 'DIAGNOSTICS' || isTransferVisit;
   // Badge external diagnostics (sent-out / received from a partner or outside lab).
   const [diagExternal, setDiagExternal] = useState(false);
   useEffect(() => {
@@ -729,7 +730,9 @@ const VisitDetailInner: React.FC<Props> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointment.id, diagnosticOnly]);
   useEffect(() => {
-    if (diagnosticOnly && workflowTab === 'clinical') setWorkflowTab('billing');
+    // No clinical wizard on diagnostics/transfer visits; transfers also have
+    // no billing tab (escrow-paid), so they land on Records instead.
+    if (diagnosticOnly && workflowTab === 'clinical') setWorkflowTab(isTransferVisit ? 'records' : 'billing');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diagnosticOnly]);
   const [triageStabilized, setTriageStabilized] = useState(false);
@@ -2972,7 +2975,16 @@ const VisitDetailInner: React.FC<Props> = ({
 
           {/* Action grid — Bill and Follow-up as two cards */}
           <div className="relative z-10 mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-white/10 pt-3">
-            {/* Bill card */}
+            {/* Bill card. On a CLINICAL_TRANSFER visit (168) the whole billing
+                surface is suppressed — the provider is paid via the job's
+                escrow payout at the requester's settlement; billing the
+                client here would charge them twice. */}
+            {isTransferVisit ? (
+              <div className="rounded-xl bg-white/5 border border-white/10 p-3 flex flex-col justify-center gap-1">
+                <span className="text-[9px] font-black uppercase tracking-widest text-white/60 flex items-center gap-1.5"><Receipt size={11} /> Bill</span>
+                <p className="text-[10px] font-bold text-violet-200">🔁 Partner transfer — paid by the requesting clinic at their settlement. No client billing here.</p>
+              </div>
+            ) : (
             <div className="rounded-xl bg-white/5 border border-white/10 p-3 flex flex-col gap-2">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[9px] font-black uppercase tracking-widest text-white/60 flex items-center gap-1.5"><Receipt size={11} /> Bill</span>
@@ -3021,6 +3033,7 @@ const VisitDetailInner: React.FC<Props> = ({
                 {appointment.isPaid && <span className="text-[9px] font-bold text-white/50 uppercase tracking-widest self-center">Bill settled</span>}
               </div>
             </div>
+            )}
 
             {/* The header's Follow-ups & Reminders card MOVED to the
                 Follow-Up & Reminders tab (user, 2026-07-29) — everything
@@ -3078,12 +3091,12 @@ const VisitDetailInner: React.FC<Props> = ({
           {/* On an emergency visit, Triage leads — it IS the workflow's front
               door. Diagnostics-only visits (auto-created from New lab/imaging)
               skip the clinical wizard entirely. */}
-          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), { id: 'followup', label: '🔔 Follow-Up & Reminders' }, { id: 'records', label: 'Records & Reports' }, { id: 'billing', label: 'Bill & Invoice' }].map(t => (
+          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), { id: 'followup', label: '🔔 Follow-Up & Reminders' }, { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [] : [{ id: 'billing', label: 'Bill & Invoice' }])].map(t => (
             <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
           ))}
           {diagnosticOnly && (
-            <span className={`self-center ml-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${diagExternal ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
-              {diagExternal ? '📥 External diagnostics' : '🔬 Diagnostics visit'}
+            <span className={`self-center ml-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${isTransferVisit ? 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400' : diagExternal ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400'}`}>
+              {isTransferVisit ? '🔁 Clinical transfer' : diagExternal ? '📥 External diagnostics' : '🔬 Diagnostics visit'}
             </span>
           )}
         </div>
@@ -4410,6 +4423,35 @@ const VisitDetailInner: React.FC<Props> = ({
               </div>
             );
           })()}
+        </div>
+      )}
+
+      {/* Partner clinics (P1b share-on-visit, 168). Lived in the retired
+          Categories & Services tab, which made the whole outsource surface
+          unreachable — re-homed here on Records & Reports. The jobs panel
+          self-hides when the visit has no jobs; the per-service "send to
+          partner" rows show only while the visit is open (and never on the
+          provider side of a transfer). */}
+      {workflowTab === 'records' && (
+        <div className="space-y-3 animate-in fade-in">
+          <VisitJobsPanel visitId={appointment.id} refreshKey={jobsRefresh} />
+          {!isTransferVisit && !visitClosed && (appointment.tasks || []).length > 0 && (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+              <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 mb-1">Send a service to a partner clinic</p>
+              <p className="text-[10px] text-slate-400 dark:text-zinc-500 mb-2">Partners with an agreed price for the service's category can be asked to handle it — they see it as a clinical-transfer visit on their side.</p>
+              <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+                {(appointment.tasks || []).map(task => (
+                  <div key={task.id} className="flex items-center justify-between gap-2 py-1.5">
+                    <div className="min-w-0">
+                      <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{task.name}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{task.category}</p>
+                    </div>
+                    <OutsourceServiceButton visitId={appointment.id} taskId={task.id} category={task.category} serviceName={task.name} currency={activeClinic.currency} onCreated={() => setJobsRefresh(k => k + 1)} />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       )}
 

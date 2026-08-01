@@ -30,6 +30,8 @@ export interface VisitJob {
   id: string;
   visitId: string;
   taskId: string | null;
+  // The CLINICAL_TRANSFER visit auto-created at the provider on accept (168).
+  providerVisitId?: string | null;
   category: string;
   serviceName: string | null;
   requesterClinicId: string;

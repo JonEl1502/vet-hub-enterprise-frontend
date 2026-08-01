@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix + page: clinical workflow no longer vanishes on imaging; partner share re-homed  —  2026-08-01 (backend 168)
+- **What changed:**
+  1. **Bug:** `VisitDetailView` guessed "diagnostics-only" from task categories — a real
+     consultation whose only staged service was imaging LOST its Clinical Workflow tab
+     (and gained a "🔬 Diagnostics visit" badge that looks like a tab but never was one).
+     Now keyed on the explicit `visitType === 'DIAGNOSTICS'` the backend stamps on visits
+     auto-created from a lab/imaging record.
+  2. **Partner share/request:** the per-service Outsource button + Outsourced-services
+     panel lived in the RETIRED Categories & Services tab — the whole surface was
+     unreachable (`SHOW_RETIRED_SERVICES_TAB = false`). Re-homed on **Records & Reports**:
+     jobs panel + "Send a service to a partner clinic" rows (open visits, requester side).
+  3. **CLINICAL_TRANSFER visits** (provider side, auto-created on job accept): violet
+     "🔁 Clinical transfer" badge, no clinical wizard, **billing surface suppressed** —
+     no Bill & Invoice tab, no Generate-bill/Take-payment (provider is paid via the job's
+     escrow payout; billing the client here would double-charge them).
+- **Record impact:** 🟢 None on existing rows. Legacy auto-created diagnostics visits
+  (CONSULTATION + one lab/imaging task) simply regain the full tab set.
+- **Data dependency:** **backend migration 168** (`DIAGNOSTICS`/`CLINICAL_TRANSFER` enum
+  values + `visit_jobs.provider_visit_id`) and the same-day backend deploy.
+- **Rollback:** revert; the enum values are additive and harmless if unused.
+
 ### fix: New Transfer crashed the inventory page on open  —  2026-08-01
 - **What changed:** `StockTransfersPanel.openNew` stored the whole `inventoryAPI.getAll`
   envelope (`{ data, meta }`) in `stock` — it read `.items`, which that API never returns
