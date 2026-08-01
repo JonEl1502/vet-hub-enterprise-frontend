@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: partnership page opened BLANK when reached from a transfer visit  —  2026-08-02
+- **What changed:** `handshake-detail` resolved the handshake only from the Partners
+  page's loaded store and rendered `null` on a miss — navigating straight from a transfer
+  visit hit exactly that. New `HandshakeDetailPage` wrapper: loose id match against the
+  store, then **fetch by id** on cache miss (spinner + not-found fallback with Back).
+- **Record impact:** 🟢 None.
+- **Rollback:** revert (restores the blank page).
+
 ### page: Continue visit, partnership nav from transfers, Partners theme pass  —  2026-08-01
 - **What changed:**
   - Incoming job cards say **Continue visit** once the shared transfer visit is going

@@ -129,7 +129,7 @@ import PurchaseOrderDetailView from './components/shared/marketplace/PurchaseOrd
 import DateRangePicker from './components/shared/common/DateRangePicker';
 import PurchaseOrderFormView from './components/shared/marketplace/PurchaseOrderFormView';
 import ReceivePurchaseOrderModal from './components/shared/marketplace/ReceivePurchaseOrderModal';
-import HandshakeDetailView from './components/clinic/partnerships/HandshakeDetailView';
+import HandshakeDetailView, { HandshakeDetailPage } from './components/clinic/partnerships/HandshakeDetailView';
 import CreatePartnershipPage from './components/clinic/partnerships/CreatePartnershipPage';
 import DeleteConfirmationDialog from './components/shared/common/DeleteConfirmationDialog';
 import DialogHost from './components/shared/common/DialogHost';
@@ -2624,17 +2624,20 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             if (created) goBack();
           }}
         />;
-      case 'handshake-detail':
+      case 'handshake-detail': {
+        // Loose match + fetch-by-id fallback — arriving straight from a
+        // transfer visit used to render a BLANK page (store not loaded).
         const hId = currentNav.params?.handshakeId;
-        const handshake = store.handshakes.find(h => h.id === hId);
-        if (!handshake) return null;
-        return <HandshakeDetailView 
-          handshake={handshake} 
-          activeClinic={firstActiveClinic} 
-          allClinics={store.clinics} 
-          referrals={store.referrals} 
-          onBack={goBack} 
+        const handshake = store.handshakes.find(h => String(h.id) === String(hId)) ?? null;
+        return <HandshakeDetailPage
+          handshake={handshake}
+          handshakeId={hId}
+          activeClinic={firstActiveClinic}
+          allClinics={store.clinics}
+          referrals={store.referrals}
+          onBack={goBack}
         />;
+      }
       case 'finance':
         return <FinanceView
           clinicId={firstActiveClinic?.id}

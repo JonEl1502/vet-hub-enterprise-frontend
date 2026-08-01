@@ -532,4 +532,42 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
   );
 };
 
+// Direct-navigation wrapper (user hit a BLANK page, 2026-08-02): arriving at
+// handshake-detail from a transfer visit bypasses the Partners page, so the
+// store has no handshakes loaded — fetch by id on cache miss instead of
+// rendering nothing.
+export const HandshakeDetailPage: React.FC<Omit<Props, 'handshake'> & {
+  handshake?: Handshake | null;
+  handshakeId?: string | number | null;
+}> = ({ handshake, handshakeId, ...rest }) => {
+  const [fetched, setFetched] = useState<any | null>(null);
+  const [loading, setLoading] = useState(false);
+  useEffect(() => {
+    if (handshake || !handshakeId) return;
+    let alive = true;
+    setLoading(true);
+    handshakesAPI.getById(handshakeId)
+      .then(r => { if (alive && r.success && r.data?.handshake) setFetched(r.data.handshake); })
+      .catch(() => {})
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [handshakeId, handshake]);
+  const h = (handshake as any) ?? fetched;
+  if (!h) {
+    return (
+      <div className="flex flex-col items-center justify-center py-24 gap-3">
+        {loading ? (
+          <Loader2 size={22} className="animate-spin text-seafoam" />
+        ) : (
+          <>
+            <p className="text-sm font-bold text-slate-400">Partnership not found.</p>
+            <button onClick={rest.onBack} className="px-4 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-100 text-[11px] font-black uppercase tracking-widest">Back</button>
+          </>
+        )}
+      </div>
+    );
+  }
+  return <HandshakeDetailView handshake={h} {...rest} />;
+};
+
 export default HandshakeDetailView;
