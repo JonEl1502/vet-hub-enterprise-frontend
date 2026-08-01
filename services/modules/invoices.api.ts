@@ -23,6 +23,8 @@ export interface InvoiceLine {
 }
 
 export interface Invoice {
+  // Split invoicing (170): FULL (whole bill) | CLINICAL | STAY.
+  scope?: 'FULL' | 'CLINICAL' | 'STAY';
   id: string;
   number?: string | null;
   billId: string;
@@ -79,7 +81,7 @@ export const invoicesAPI = {
     get(`/visits/${visitId}/invoice`, { cache: false, silent: true, ...options }),
 
   /** Generate from the visit's APPROVED bill. */
-  generate: (visitId: string | number, data: { dueDate?: string } = {}, options?: RequestOptions): Promise<ApiResponse<{ invoice: Invoice }>> =>
+  generate: (visitId: string | number, data: { dueDate?: string; scope?: 'FULL' | 'CLINICAL' | 'STAY' } = {}, options?: RequestOptions): Promise<ApiResponse<{ invoice: Invoice }>> =>
     post(`/visits/${visitId}/invoice`, data, { showError: true, ...options }),
 
   /** Void — the bill returns to APPROVED so it can be corrected and re-issued. */

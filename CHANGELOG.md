@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: split-invoice confirm + "Invoice the stay"  —  2026-08-02 (backend 170)
+- **What changed:** on an APPROVED bill whose visit escalated into a boarding/inpatient
+  stay, **Generate invoice** first asks: *"Do you want to split invoices for the
+  encounters of this visit?"* — Split invoices the clinical work now (the stay keeps
+  accruing on the open bill); declining produces one full invoice as before. A violet
+  **Invoice the stay** button issues the stay's own document at discharge. Scope chips
+  (Clinical split / Stay split) mark split documents. Transfer visits and multi-service
+  single-visit referrals never see the prompt.
+- **Record impact:** 🟢 None by itself — documents are generated on click.
+- **Data dependency:** **backend migration 170** + same-day backend deploy.
+- **Rollback:** revert; single full invoices only.
+
 ### fix: partnership page opened BLANK when reached from a transfer visit  —  2026-08-02
 - **What changed:** `handshake-detail` resolved the handshake only from the Partners
   page's loaded store and rendered `null` on a miss — navigating straight from a transfer

@@ -409,7 +409,12 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
               {invoice.outstanding > 0 ? `${money(invoice.outstanding, currency)} outstanding` : 'settled'}
             </strong>
           </span>
-          <span className="ml-auto px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{invoice.status}</span>
+          <span className="ml-auto flex items-center gap-1">
+            {invoice.scope && invoice.scope !== 'FULL' && (
+              <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">{invoice.scope === 'CLINICAL' ? 'Clinical split' : 'Stay split'}</span>
+            )}
+            <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{invoice.status}</span>
+          </span>
         </div>
       )}
 
@@ -417,10 +422,39 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
       <div className="flex flex-wrap items-center gap-2">
         {bill.status === 'APPROVED' && !invoice && (
           <button type="button" disabled={busy}
-            onClick={() => run(async () => { const r = await invoicesAPI.generate(visit.id); setInvoice(r.data?.invoice ?? null); await load(); return null; }, 'Invoice generated')}
+            onClick={async () => {
+              // Auto-split with a user confirm (user, 2026-08-02): only offered
+              // when the visit escalated into an accruing stay — never on
+              // transfer visits, and services from one original-clinic visit
+              // always stay on one invoice.
+              const hasStay = !!((visit as any).boardingStayId || (visit as any).hospitalizationId);
+              const isTransfer = (visit as any).visitType === 'CLINICAL_TRANSFER';
+              let scope: 'FULL' | 'CLINICAL' = 'FULL';
+              if (hasStay && !isTransfer) {
+                const split = await dialog.confirm({
+                  title: 'Split invoices?',
+                  message: 'Do you want to split invoices for the encounters of this visit? The clinical work is invoiced now; the boarding/inpatient stay keeps accruing on the open bill and is invoiced at discharge.',
+                  confirmLabel: 'Split — invoice clinical now',
+                  cancelLabel: 'One invoice for everything',
+                  variant: 'info',
+                });
+                scope = split ? 'CLINICAL' : 'FULL';
+              }
+              await run(async () => { const r = await invoicesAPI.generate(visit.id, { scope }); setInvoice(r.data?.invoice ?? null); await load(); return null; }, scope === 'CLINICAL' ? 'Clinical invoice generated — the stay keeps accruing' : 'Invoice generated');
+            }}
             title="Turn this approved bill into an invoice"
             className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-40">
             <ReceiptText size={11} /> Generate invoice
+          </button>
+        )}
+        {/* The stay's own document — once the clinical split exists. Charges
+            keep accruing until discharge; generate this at the end. */}
+        {bill.status === 'APPROVED' && invoice?.scope === 'CLINICAL' && (
+          <button type="button" disabled={busy}
+            onClick={() => run(async () => { const r = await invoicesAPI.generate(visit.id, { scope: 'STAY' }); setInvoice(r.data?.invoice ?? null); await load(); return null; }, 'Stay invoice generated')}
+            title="Invoice the accrued boarding/inpatient stay (do this at discharge)"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40">
+            <ReceiptText size={11} /> Invoice the stay
           </button>
         )}
         {editable && (
