@@ -32,12 +32,26 @@ export interface HandshakeServicePrice {
   updatedAt: string;
 }
 
+export type SettlementMode = 'PER_SERVICE' | 'WEEKLY' | 'MONTHLY' | 'CUSTOM_DAYS';
+
+/** The money picture of a partnership, both directions (169). */
+export interface OutsourcedBalance {
+  paidTotal: number;   // settled OUTSOURCED_PAYOUT transactions between the pair
+  paidCount: number;
+  owedTotal: number;   // accrued: job's visit is paid, payout not yet run
+  owedCount: number;
+  pendingTotal: number; // accepted/completed jobs whose visit isn't paid yet
+  pendingCount: number;
+}
+
 export interface Handshake {
   id: string;
   requesterClinicId: string;
   receiverClinicId: string;
   status: HandshakeStatusValue;
   allowedServices: string[];
+  settlementMode?: SettlementMode;
+  settlementDays?: number | null;
   note?: string | null;
   servicePrices?: HandshakeServicePrice[];
   createdAt: string;
@@ -103,4 +117,20 @@ export const handshakesAPI = {
   /** Agree to the current proposal for a category (only the other clinic) */
   agreePrice: async (id: string | number, data: { category: string }, options?: RequestOptions): Promise<ApiResponse<{ price: HandshakeServicePrice }>> =>
     post(ENDPOINTS.HANDSHAKES.AGREE_PRICE(id), data, { showError: true, ...options }),
+
+  /** The partner's own catalog charges per shared category — negotiation reference (169) */
+  partnerPrices: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ prices: Record<string, { name: string; price: number }[]> }>> =>
+    get(`${ENDPOINTS.HANDSHAKES.BY_ID(id)}/partner-prices`, { cache: false, ...options }),
+
+  /** Set how outsourced payouts settle between the two clinics (169) */
+  setSettlementTerms: async (id: string | number, data: { mode: SettlementMode; days?: number }, options?: RequestOptions): Promise<ApiResponse<{ terms: { settlementMode: SettlementMode; settlementDays: number | null } }>> =>
+    post(`${ENDPOINTS.HANDSHAKES.BY_ID(id)}/settlement-terms`, data, { showError: true, ...options }),
+
+  /** Paid / owed / pending outsourced money between the pair (169) */
+  outsourcedBalance: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ balance: OutsourcedBalance }>> =>
+    get(`${ENDPOINTS.HANDSHAKES.BY_ID(id)}/outsourced-balance`, { cache: false, ...options }),
+
+  /** Bundled sweep: pay out every accrued job between the pair (169) */
+  settleOutsourced: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ paid: number; total: number }>> =>
+    post(`${ENDPOINTS.HANDSHAKES.BY_ID(id)}/settle-outsourced`, {}, { showError: true, ...options }),
 };

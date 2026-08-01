@@ -39,6 +39,8 @@ export interface VisitJob {
   handshakeId: string | null;
   agreedPrice: number;
   currency: string;
+  // Clinic that proposed the CURRENT price (169); null on legacy rows.
+  priceProposedBy?: string | null;
   status: VisitJobStatus;
   movementStage: MovementStage | null;
   paidOut?: boolean;
@@ -55,7 +57,9 @@ export interface EligiblePartner {
   name: string;
   logo?: string | null;
   subdomain?: string | null;
-  price: number;
+  // Pre-agreed category price = the DEFAULT proposal; null when nothing
+  // pre-agreed — the request then needs a typed price (169).
+  price: number | null;
   currency: string;
 }
 
@@ -64,9 +68,13 @@ export const visitJobsAPI = {
   eligiblePartners: async (category: string, options?: RequestOptions): Promise<ApiResponse<{ partners: EligiblePartner[] }>> =>
     get(`${ENDPOINTS.VISIT_JOBS.ELIGIBLE_PARTNERS}?category=${encodeURIComponent(category)}`, { cache: false, ...options }),
 
-  /** Outsource a visit service to a partner clinic */
-  create: async (data: { visitId: string | number; providerClinicId: string | number; category: string; taskId?: string | number; serviceName?: string; note?: string }, options?: RequestOptions): Promise<ApiResponse<{ job: VisitJob }>> =>
+  /** Outsource a visit service to a partner clinic; `price` = this request's proposal (169) */
+  create: async (data: { visitId: string | number; providerClinicId: string | number; category: string; taskId?: string | number; serviceName?: string; price?: number; note?: string }, options?: RequestOptions): Promise<ApiResponse<{ job: VisitJob }>> =>
     post(ENDPOINTS.VISIT_JOBS.BASE, data, { showError: true, ...options }),
+
+  /** Counter the price on an open request — either side, while REQUESTED (169) */
+  counterPrice: async (id: string | number, amount: number, options?: RequestOptions): Promise<ApiResponse<{ job: VisitJob }>> =>
+    post(`${ENDPOINTS.VISIT_JOBS.BY_ID(id)}/counter`, { amount }, { showError: true, ...options }),
 
   /** Jobs on one visit */
   listForVisit: async (visitId: string | number, options?: RequestOptions): Promise<ApiResponse<{ jobs: VisitJob[] }>> =>

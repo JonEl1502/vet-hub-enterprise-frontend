@@ -17,18 +17,25 @@ import type { HandshakeServicePrice } from '../../../services/modules/handshakes
 // to outsource that category on a visit (later phase).
 const NegotiatedPricing: React.FC<{ handshakeId: string; activeClinicId: string; categories: string[] }> = ({ handshakeId, activeClinicId, categories }) => {
   const [prices, setPrices] = useState<Record<string, HandshakeServicePrice>>({});
+  // The partner's OWN catalog charges per category (169) — the factual
+  // reference a proposal starts from, instead of a blank amount box.
+  const [partnerCharges, setPartnerCharges] = useState<Record<string, { name: string; price: number }[]>>({});
   const [inputs, setInputs] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
 
   const load = async () => {
     try {
-      const res = await handshakesAPI.listPrices(handshakeId);
+      const [res, charges] = await Promise.all([
+        handshakesAPI.listPrices(handshakeId),
+        handshakesAPI.partnerPrices(handshakeId).catch(() => null),
+      ]);
       if (res.success && res.data?.prices) {
         const map: Record<string, HandshakeServicePrice> = {};
         res.data.prices.forEach(p => { map[p.category] = p; });
         setPrices(map);
       }
+      if (charges?.success && charges.data?.prices) setPartnerCharges(charges.data.prices);
     } catch { /* ignore */ } finally { setLoading(false); }
   };
   useEffect(() => { load(); }, [handshakeId]);
@@ -59,34 +66,157 @@ const NegotiatedPricing: React.FC<{ handshakeId: string; activeClinicId: string;
         const mineProposed = p && String(p.proposedById) === String(activeClinicId);
         const theirProposed = p && !p.agreed && !mineProposed;
         const b = busy === cat;
+        // Partner's own charges for this category — case-insensitive key match.
+        const charges = partnerCharges[cat]
+          || partnerCharges[Object.keys(partnerCharges).find(k => k.toLowerCase() === cat.toLowerCase()) || ''] || [];
         return (
-          <div key={cat} className="flex flex-wrap items-center gap-3 p-3 bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-slate-100 dark:border-zinc-700">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{cat}</p>
-              <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5">
-                {!p ? <span className="text-slate-400">No price set</span>
-                  : p.agreed ? <span className="text-emerald-600 dark:text-emerald-400">Agreed · {p.currency} {p.amount.toLocaleString()}</span>
-                  : mineProposed ? <span className="text-amber-600 dark:text-amber-400">You proposed {p.currency} {p.amount.toLocaleString()} · awaiting partner</span>
-                  : <span className="text-indigo-600 dark:text-indigo-400">Partner proposed {p.currency} {p.amount.toLocaleString()}</span>}
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              {theirProposed && (
-                <button onClick={() => agree(cat)} disabled={b} className="flex items-center gap-1 px-3 py-2 bg-emerald-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
-                  {b ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Agree
+          <div key={cat} className="p-3 bg-slate-50 dark:bg-zinc-800/50 rounded-xl border border-slate-100 dark:border-zinc-700 space-y-2">
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{cat}</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest mt-0.5">
+                  {!p ? <span className="text-slate-400">No standing rate — requests propose their own price</span>
+                    : p.agreed ? <span className="text-emerald-600 dark:text-emerald-400">Agreed · {p.currency} {p.amount.toLocaleString()} <span className="text-slate-400 normal-case">(default for requests)</span></span>
+                    : mineProposed ? <span className="text-amber-600 dark:text-amber-400">You proposed {p.currency} {p.amount.toLocaleString()} · awaiting partner</span>
+                    : <span className="text-indigo-600 dark:text-indigo-400">Partner proposed {p.currency} {p.amount.toLocaleString()}</span>}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                {theirProposed && (
+                  <button onClick={() => agree(cat)} disabled={b} className="flex items-center gap-1 px-3 py-2 bg-emerald-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
+                    {b ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Agree
+                  </button>
+                )}
+                <input type="number" min={0} step="0.01" value={inputs[cat] ?? ''} onChange={e => setInputs(i => ({ ...i, [cat]: e.target.value }))}
+                  placeholder={p ? 'Counter' : 'Amount'}
+                  className="w-24 px-2 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+                <button onClick={() => propose(cat)} disabled={b} className="px-3 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
+                  {p ? (mineProposed ? 'Update' : 'Counter') : 'Propose'}
                 </button>
-              )}
-              <input type="number" min={0} step="0.01" value={inputs[cat] ?? ''} onChange={e => setInputs(i => ({ ...i, [cat]: e.target.value }))}
-                placeholder={p ? 'Counter' : 'Amount'}
-                className="w-24 px-2 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
-              <button onClick={() => propose(cat)} disabled={b} className="px-3 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
-                {p ? (mineProposed ? 'Update' : 'Counter') : 'Propose'}
-              </button>
+              </div>
             </div>
+            {/* What the partner actually charges — negotiate from facts. */}
+            {charges.length > 0 && (
+              <div className="flex flex-wrap items-center gap-1.5 pt-1.5 border-t border-slate-100 dark:border-zinc-700/60">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">They charge:</span>
+                {charges.slice(0, 4).map(c => (
+                  <button key={c.name} onClick={() => setInputs(i => ({ ...i, [cat]: String(c.price) }))}
+                    title="Use as your proposal"
+                    className="px-2 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-[9px] font-bold text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam transition-colors">
+                    {c.name} · {c.price.toLocaleString()}
+                  </button>
+                ))}
+                {charges.length > 4 && <span className="text-[9px] text-slate-400">+{charges.length - 4} more</span>}
+              </div>
+            )}
           </div>
         );
       })}
       {categories.length === 0 && <p className="text-[11px] text-slate-400 text-center py-4">No service categories to price.</p>}
+    </div>
+  );
+};
+
+// The partnership's money picture (169): settled cross-clinic payouts, accrued
+// balance awaiting a bundled sweep, in-flight jobs — plus the settlement terms
+// ("payment measures": per service, or bundled weekly/monthly/every N days).
+const PartnershipMoney: React.FC<{ handshakeId: string; referralValue: number; caseCount: number }> = ({ handshakeId, referralValue, caseCount }) => {
+  const [balance, setBalance] = useState<{ paidTotal: number; paidCount: number; owedTotal: number; owedCount: number; pendingTotal: number; pendingCount: number } | null>(null);
+  const [mode, setMode] = useState<string>('PER_SERVICE');
+  const [days, setDays] = useState<string>('14');
+  const [busy, setBusy] = useState(false);
+  const [settling, setSettling] = useState(false);
+
+  const load = async () => {
+    try {
+      const [bal, hs] = await Promise.all([
+        handshakesAPI.outsourcedBalance(handshakeId).catch(() => null),
+        handshakesAPI.getById(handshakeId).catch(() => null),
+      ]);
+      if (bal?.success && bal.data?.balance) setBalance(bal.data.balance);
+      const h: any = hs?.data?.handshake;
+      if (h?.settlementMode) { setMode(h.settlementMode); if (h.settlementDays) setDays(String(h.settlementDays)); }
+    } catch { /* ignore */ }
+  };
+  useEffect(() => { load(); }, [handshakeId]);
+
+  const saveTerms = async (nextMode: string, nextDays?: string) => {
+    setBusy(true);
+    try {
+      const res = await handshakesAPI.setSettlementTerms(handshakeId, { mode: nextMode as any, days: nextMode === 'CUSTOM_DAYS' ? Number(nextDays ?? days) : undefined });
+      if (res.success) { setMode(nextMode); toast.success('Settlement terms updated'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed'); } finally { setBusy(false); }
+  };
+
+  const settleNow = async () => {
+    setSettling(true);
+    try {
+      const res = await handshakesAPI.settleOutsourced(handshakeId);
+      if (res.success && res.data) { toast.success(`${res.data.paid} job${res.data.paid === 1 ? '' : 's'} settled · KES ${res.data.total.toLocaleString()}`); await load(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed'); } finally { setSettling(false); }
+  };
+
+  const paid = balance?.paidTotal ?? 0;
+  return (
+    <div className="space-y-5">
+      <div className="bg-pine rounded-2xl p-4 md:p-6 text-white shadow-2xl relative overflow-hidden group">
+        <div className="absolute top-0 right-0 p-5 opacity-10 group-hover:scale-125 transition-transform duration-1000"><Repeat size={64} /></div>
+        <p className="text-mist/40 text-[10px] font-black uppercase tracking-[0.4em] mb-3">Partnership Value</p>
+        <div className="space-y-2 mb-6">
+          <h2 className="text-2xl sm:text-3xl font-black tracking-tighter">KES {(paid + referralValue).toLocaleString()}</h2>
+          <p className="text-seafoam text-[10px] font-black uppercase tracking-widest">Settled between the clinics</p>
+        </div>
+        <div className="grid grid-cols-3 gap-3 border-t border-white/10 pt-5">
+          <div>
+            <p className="text-mist/40 text-[8px] font-black uppercase">Paid out</p>
+            <p className="text-base font-black">{balance?.paidCount ?? 0}</p>
+          </div>
+          <div>
+            <p className="text-mist/40 text-[8px] font-black uppercase">Owed now</p>
+            <p className="text-base font-black text-amber-300">KES {(balance?.owedTotal ?? 0).toLocaleString()}</p>
+          </div>
+          <div>
+            <p className="text-mist/40 text-[8px] font-black uppercase">In flight</p>
+            <p className="text-base font-black">{balance?.pendingCount ?? 0} · KES {(balance?.pendingTotal ?? 0).toLocaleString()}</p>
+          </div>
+        </div>
+        {caseCount > 0 && <p className="text-mist/40 text-[9px] font-bold uppercase tracking-widest mt-4">+ {caseCount} referral case{caseCount === 1 ? '' : 's'}</p>}
+        {(balance?.owedTotal ?? 0) > 0 && (
+          <button onClick={settleNow} disabled={settling}
+            className="mt-4 w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-white hover:text-pine transition-all disabled:opacity-50">
+            {settling ? <Loader2 size={13} className="animate-spin" /> : <Coins size={13} />}
+            Settle KES {(balance?.owedTotal ?? 0).toLocaleString()} now · {balance?.owedCount} job{(balance?.owedCount ?? 0) === 1 ? '' : 's'}
+          </button>
+        )}
+      </div>
+
+      {/* Payment measures — how outsourced work is paid between the clinics. */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 md:p-5 shadow-sm">
+        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.3em] mb-1">Payment measures</p>
+        <p className="text-[10px] text-slate-400 dark:text-zinc-500 mb-3">How outsourced services are paid out between the two clinics. Bundled terms accrue and settle in one sweep.</p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {[
+            { id: 'PER_SERVICE', label: 'Per service' },
+            { id: 'WEEKLY', label: 'Weekly bundle' },
+            { id: 'MONTHLY', label: 'Monthly bundle' },
+            { id: 'CUSTOM_DAYS', label: 'Every N days' },
+          ].map(m => (
+            <button key={m.id} onClick={() => saveTerms(m.id)} disabled={busy}
+              className={`px-3 py-2 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all disabled:opacity-50 ${mode === m.id ? 'bg-seafoam border-seafoam text-white shadow-sm' : 'bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-400 hover:border-seafoam/50'}`}>
+              {m.label}
+            </button>
+          ))}
+        </div>
+        {mode === 'CUSTOM_DAYS' && (
+          <div className="flex items-center gap-2 mt-2">
+            <input type="number" min={1} value={days} onChange={e => setDays(e.target.value)}
+              className="w-20 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm font-bold text-pine dark:text-zinc-100 text-right" />
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">days</span>
+            <button onClick={() => saveTerms('CUSTOM_DAYS', days)} disabled={busy}
+              className="px-3 py-1.5 rounded-lg bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[9px] font-black uppercase tracking-widest disabled:opacity-50">Save</button>
+          </div>
+        )}
+      </div>
     </div>
   );
 };
@@ -220,7 +350,7 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
           </div>
           {handshake.note && (
             <div className="pt-6 border-t border-slate-50 dark:border-zinc-800">
-              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Engangement Note</p>
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Engagement Note</p>
               <div className="bg-slate-50 dark:bg-zinc-950 p-6 rounded-2xl border border-slate-100 dark:border-zinc-800 italic text-sm text-slate-600 dark:text-zinc-400">
                 "{handshake.note}"
               </div>
@@ -229,26 +359,11 @@ const HandshakeDetailView: React.FC<Props> = ({ handshake, activeClinic, allClin
         </div>
       </div>
 
-      <div className="space-y-5">
-        <div className="bg-pine rounded-2xl p-4 md:p-6 text-white shadow-2xl relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-5 opacity-10 group-hover:scale-125 transition-transform duration-1000"><Repeat size={64} /></div>
-          <p className="text-mist/40 text-[10px] font-black uppercase tracking-[0.4em] mb-3">Partnership Value</p>
-          <div className="space-y-2 mb-10">
-             <h2 className="text-2xl sm:text-3xl font-black tracking-tighter">KES {partnershipReferrals.reduce((acc, r) => acc + r.payoutAmount, 0).toLocaleString()}</h2>
-             <p className="text-seafoam text-[10px] font-black uppercase tracking-widest">Aggregate Settlement</p>
-          </div>
-          <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-8">
-             <div>
-                <p className="text-mist/40 text-[8px] font-black uppercase">Cases Handled</p>
-                <p className="text-xl font-black">{partnershipReferrals.length}</p>
-             </div>
-             <div>
-                <p className="text-mist/40 text-[8px] font-black uppercase">Success Rate</p>
-                <p className="text-xl font-black">100%</p>
-             </div>
-          </div>
-        </div>
-      </div>
+      <PartnershipMoney
+        handshakeId={String(handshake.id)}
+        referralValue={partnershipReferrals.reduce((acc, r) => acc + r.payoutAmount, 0)}
+        caseCount={partnershipReferrals.length}
+      />
     </div>
   );
 

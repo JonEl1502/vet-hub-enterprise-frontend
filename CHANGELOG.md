@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page + data-shape: partner page finished — per-request price negotiation, partner charges, payment measures  —  2026-08-01 (backend 169)
+- **What changed:**
+  - **Price is discussed on each request** (user: "each service is price discussed well").
+    The outsource modal gains an editable price per partner (prefilled from the standing
+    category rate when one exists); the partner **accepts or counters** — Accept/Counter
+    controls on the visit jobs panel (both sides) and the Partners jobs inbox. Whoever
+    didn't propose the current figure accepts it.
+  - **Handshake page (Services):** each category row now shows **what the partner
+    actually charges** (their catalog prices, clickable to use as your proposal); the
+    negotiated category price is labelled as the *default for requests*.
+  - **Handshake page (Relationship):** the Partnership Value card is now REAL money —
+    settled cross-clinic payouts + owed-now accrual + in-flight jobs, with a
+    **Settle now** sweep; plus **Payment measures** (per service / weekly / monthly /
+    every N days). "Engangement Note" typo fixed.
+- **Record impact:** 🟢 None on render; Settle-now writes the same payout transactions
+  the per-service path always wrote, just in one sweep.
+- **Data dependency:** **backend migration 169** + same-day backend deploy.
+- **Rollback:** revert; old flow (pre-agreed category price required) resumes.
+
 ### page: "To partner" button on each diagnostic request row  —  2026-08-01
 - **What changed:** the Diagnostics step's request rows (CT Scan, CBC, …) gain a violet
   **To partner** chip next to View result / Full page — opens the existing partner picker

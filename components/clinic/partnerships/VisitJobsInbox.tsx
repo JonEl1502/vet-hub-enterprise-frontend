@@ -51,9 +51,27 @@ const VisitJobsInbox: React.FC = () => {
     } catch (e: any) { toast.error(e?.message || 'Failed'); } finally { setBusyId(null); }
   };
 
+  // Per-request negotiation (169): counter the price on an open request.
+  const [counterFor, setCounterFor] = useState<string | null>(null);
+  const [counterAmt, setCounterAmt] = useState('');
+  const sendCounter = async (job: VisitJob) => {
+    const amount = Number(counterAmt);
+    if (!(amount >= 0) || counterAmt === '') { toast.error('Enter an amount'); return; }
+    setBusyId(job.id);
+    try {
+      const res = await visitJobsAPI.counterPrice(job.id, amount);
+      if (res.success) { toast.success(`Countered · ${job.currency} ${amount.toLocaleString()}`); setCounterFor(null); setCounterAmt(''); await load(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed'); } finally { setBusyId(null); }
+  };
+
   const Card: React.FC<{ job: VisitJob; mode: 'incoming' | 'outgoing' }> = ({ job, mode }) => {
     const partner = mode === 'incoming' ? job.requesterClinic : job.providerClinic;
     const b = busyId === job.id;
+    // Who proposed the CURRENT price. Legacy rows (null) = requester's figure.
+    const myId = mode === 'incoming' ? job.providerClinicId : job.requesterClinicId;
+    const proposedByMe = job.priceProposedBy != null ? job.priceProposedBy === myId
+      : mode === 'outgoing';
+    const negotiating = job.status === 'REQUESTED';
     return (
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2.5">
         <div className="flex items-center gap-3">
@@ -77,11 +95,17 @@ const VisitJobsInbox: React.FC = () => {
             </button>
           ) : <span />}
           <div className="flex items-center gap-1.5">
-            {mode === 'incoming' && job.status === 'REQUESTED' && (
-              <>
-                <button onClick={() => act(job, 'DECLINED', 'Job declined')} disabled={b} className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-rose-500 transition-all disabled:opacity-50">Decline</button>
-                <button onClick={() => act(job, 'ACCEPTED', 'Job accepted')} disabled={b} className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow disabled:opacity-50">Accept</button>
-              </>
+            {/* Negotiation (169): the side that did NOT propose the current
+                price accepts it — or either side counters. */}
+            {negotiating && !proposedByMe && (
+              <button onClick={() => act(job, 'ACCEPTED', `Accepted · ${job.currency} ${job.agreedPrice.toLocaleString()}`)} disabled={b} className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow disabled:opacity-50">Accept {job.currency} {job.agreedPrice.toLocaleString()}</button>
+            )}
+            {negotiating && (
+              <button onClick={() => { setCounterFor(counterFor === job.id ? null : job.id); setCounterAmt(String(job.agreedPrice)); }} disabled={b}
+                className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-violet-600 dark:text-violet-400 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:border-violet-400 transition-all disabled:opacity-50">Counter</button>
+            )}
+            {mode === 'incoming' && negotiating && (
+              <button onClick={() => act(job, 'DECLINED', 'Job declined')} disabled={b} className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-rose-500 transition-all disabled:opacity-50">Decline</button>
             )}
             {mode === 'incoming' && job.status === 'ACCEPTED' && (
               <button onClick={() => act(job, 'COMPLETED', 'Job completed')} disabled={b} className="flex items-center gap-1 px-3 py-1.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-50">{b ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />} Mark complete</button>
@@ -91,6 +115,18 @@ const VisitJobsInbox: React.FC = () => {
             )}
           </div>
         </div>
+        {negotiating && proposedByMe && (
+          <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400">Your proposal of {job.currency} {job.agreedPrice.toLocaleString()} is with {partner?.name || 'the partner'} — they accept or counter.</p>
+        )}
+        {counterFor === job.id && negotiating && (
+          <div className="flex items-center gap-1.5">
+            <input type="number" min={0} value={counterAmt} onChange={e => setCounterAmt(e.target.value)} autoFocus
+              className="w-28 px-2 py-1.5 rounded-lg border border-violet-300 dark:border-violet-800 bg-white dark:bg-zinc-950 text-sm font-bold text-pine dark:text-zinc-100 text-right" />
+            <button onClick={() => sendCounter(job)} disabled={b}
+              className="px-3 py-1.5 bg-violet-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-50">{b ? <Loader2 size={11} className="animate-spin" /> : 'Send counter'}</button>
+            <button onClick={() => setCounterFor(null)} className="px-2 py-1.5 text-slate-400 text-[9px] font-black uppercase tracking-widest">Cancel</button>
+          </div>
+        )}
         {openTrack[job.id] && (
           <VisitJobTracker jobId={job.id} role={mode === 'incoming' ? 'provider' : 'requester'} stage={job.movementStage} onChanged={load} />
         )}
