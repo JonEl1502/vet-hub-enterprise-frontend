@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: partner jobs grouped by source visit; sidebar rename  —  2026-08-02
+- **What changed:**
+  - Partners → Jobs now shows **one card per requester visit** ("N services · one visit ·
+    total"), with each outsourced service as a row inside (own status, negotiation,
+    tracking, module-page link, complete) and **one Start/Continue-visit action** for the
+    shared transfer visit — no more sibling services looking like unrelated jobs.
+  - Sidebar group **"Billable Items" → "Inventory & Billables"**.
+- **Record impact:** 🟢 None.
+- **Rollback:** revert.
+
 ### page: split-invoice confirm + "Invoice the stay"  —  2026-08-02 (backend 170)
 - **What changed:** on an APPROVED bill whose visit escalated into a boarding/inpatient
   stay, **Generate invoice** first asks: *"Do you want to split invoices for the

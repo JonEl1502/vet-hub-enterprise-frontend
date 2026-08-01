@@ -249,7 +249,7 @@ const FREELANCER_ITEMS: MenuItem[] = [
 // prod_test clinics by applyBillableItemsLayout below.
 export const BILLABLE_ITEMS_MENU: MenuItem = {
   id: 'billable_menu',
-  label: 'Billable Items',
+  label: 'Inventory & Billables',
   icon: CircleDollarSign,
   subItems: [
     { id: 'inventory',        label: 'Products',   icon: Package },

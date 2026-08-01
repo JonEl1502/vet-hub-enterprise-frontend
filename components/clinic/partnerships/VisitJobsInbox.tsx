@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ArrowDownLeft, ArrowUpRight, Loader2, CheckCircle2, Clock, XCircle, Send, RefreshCw } from 'lucide-react';
 // Import straight from the modules (not the services barrel — it's reshuffled by
 // other work streams and a transient state can drop the re-export).
@@ -23,6 +23,11 @@ const StatusIcon: React.FC<{ s: string; size?: number }> = ({ s, size = 11 }) =>
 /**
  * Outsourced-job queues for the active clinic: jobs sent TO us (we provide the
  * service → accept/decline/complete) and jobs WE sent out (cancel + track).
+ *
+ * GROUPED BY SOURCE VISIT (user, 2026-08-02: "this is from one visit, I don't
+ * know why it's treated as separate") — one card per requester visit, its
+ * services as rows inside, one Start/Continue-visit action for the shared
+ * transfer visit.
  */
 const VisitJobsInbox: React.FC = () => {
   const [incoming, setIncoming] = useState<VisitJob[]>([]);
@@ -65,103 +70,56 @@ const VisitJobsInbox: React.FC = () => {
     } catch (e: any) { toast.error(e?.message || 'Failed'); } finally { setBusyId(null); }
   };
 
-  const Card: React.FC<{ job: VisitJob; mode: 'incoming' | 'outgoing' }> = ({ job, mode }) => {
+  /** One SERVICE row inside a visit group. */
+  const JobRow: React.FC<{ job: VisitJob; mode: 'incoming' | 'outgoing' }> = ({ job, mode }) => {
     const partner = mode === 'incoming' ? job.requesterClinic : job.providerClinic;
     const b = busyId === job.id;
-    // Who proposed the CURRENT price. Legacy rows (null) = requester's figure.
     const myId = mode === 'incoming' ? job.providerClinicId : job.requesterClinicId;
-    const proposedByMe = job.priceProposedBy != null ? job.priceProposedBy === myId
-      : mode === 'outgoing';
+    const proposedByMe = job.priceProposedBy != null ? job.priceProposedBy === myId : mode === 'outgoing';
     const negotiating = job.status === 'REQUESTED';
     return (
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2.5">
-        <div className="flex items-center gap-3">
-          <span className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center overflow-hidden text-lg shrink-0"><ClinicLogo logo={partner?.logo} fallback="🏥" /></span>
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{job.serviceName || job.category}</p>
-            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-1.5 mt-0.5">
-              {mode === 'incoming' ? <ArrowDownLeft size={10} className="text-seafoam" /> : <ArrowUpRight size={10} className="text-indigo-500" />}
-              {mode === 'incoming' ? 'From' : 'To'} {partner?.name || 'clinic'} · {job.currency} {job.agreedPrice.toLocaleString()}
-            </p>
-            {/* The requester's patient — shared for this job, not in our records. */}
-            {job.patientName && (
-              <p className="text-[9px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-widest mt-0.5">
-                🐾 {job.patientName}{job.patientSpecies ? ` · ${job.patientSpecies}` : ''}{mode === 'incoming' ? ' · shared' : ''}
-              </p>
-            )}
-          </div>
+      <div className="rounded-lg border border-slate-100 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/40 px-3 py-2 space-y-1.5">
+        <div className="flex items-center gap-2">
+          <p className="text-xs font-black text-pine dark:text-zinc-100 truncate flex-1">{job.serviceName || job.category}
+            <span className="text-slate-400 font-bold"> · {job.currency} {job.agreedPrice.toLocaleString()}</span>
+          </p>
           {job.paidOut && <span className="text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">{mode === 'incoming' ? 'Paid' : 'Paid B'}</span>}
           <span className={`flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 ${TONE[job.status] || ''}`}><StatusIcon s={job.status} size={10} /> {job.status}</span>
         </div>
-        <div className="flex items-center justify-between gap-1.5">
-          {/* Tracking toggle — available once the job is accepted/active. */}
+        <div className="flex flex-wrap items-center justify-between gap-1.5">
           {(job.status === 'ACCEPTED' || job.status === 'COMPLETED') ? (
             <button onClick={() => setOpenTrack(o => ({ ...o, [job.id]: !o[job.id] }))}
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-800 text-seafoam rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700">
+              className="flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-zinc-900 text-seafoam rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700">
               <MapPin size={11} /> {openTrack[job.id] ? 'Hide' : 'Track'}{job.movementStage ? ` · ${job.movementStage.replace('_', ' ').toLowerCase()}` : ''}
             </button>
           ) : <span />}
-          <div className="flex items-center gap-1.5">
-            {/* Negotiation (169): the side that did NOT propose the current
-                price accepts it — or either side counters. */}
+          <div className="flex flex-wrap items-center gap-1.5">
             {negotiating && !proposedByMe && (
-              <button onClick={() => act(job, 'ACCEPTED', `Accepted · ${job.currency} ${job.agreedPrice.toLocaleString()}`)} disabled={b} className="px-3 py-1.5 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow disabled:opacity-50">Accept {job.currency} {job.agreedPrice.toLocaleString()}</button>
+              <button onClick={() => act(job, 'ACCEPTED', `Accepted · ${job.currency} ${job.agreedPrice.toLocaleString()}`)} disabled={b} className="px-3 py-1 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow disabled:opacity-50">Accept {job.currency} {job.agreedPrice.toLocaleString()}</button>
             )}
             {negotiating && (
               <button onClick={() => { setCounterFor(counterFor === job.id ? null : job.id); setCounterAmt(String(job.agreedPrice)); }} disabled={b}
-                className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-violet-600 dark:text-violet-400 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:border-violet-400 transition-all disabled:opacity-50">Counter</button>
+                className="px-3 py-1 bg-white dark:bg-zinc-900 text-violet-600 dark:text-violet-400 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:border-violet-400 transition-all disabled:opacity-50">Counter</button>
             )}
             {mode === 'incoming' && negotiating && (
-              <button onClick={() => act(job, 'DECLINED', 'Job declined')} disabled={b} className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-rose-500 transition-all disabled:opacity-50">Decline</button>
+              <button onClick={() => act(job, 'DECLINED', 'Job declined')} disabled={b} className="px-3 py-1 bg-white dark:bg-zinc-900 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-rose-500 transition-all disabled:opacity-50">Decline</button>
             )}
-            {/* Work the job (user, 2026-08-01): accept created a record-only
-                transfer visit + a lab/imaging/surgery record. "Start visit"
-                opens that visit (creating it on demand for old accepts);
-                "Open <module> page" jumps to the page where images & findings
-                are entered. */}
-            {mode === 'incoming' && (job.status === 'ACCEPTED' || job.status === 'COMPLETED') && (() => {
-              // "Continue visit" once the shared transfer visit is already
-              // going — in progress, or a sibling job shares it (user,
-              // 2026-08-01: same source visit ⇒ same transfer visit).
-              const siblingShares = incoming.some(o => o.id !== job.id && o.providerVisitId && String(o.providerVisitId) === String(job.providerVisitId));
-              const ongoing = !!job.providerVisitId && (job.providerVisitStatus !== 'SCHEDULED' || siblingShares);
-              return (
-              <button
-                disabled={b}
-                onClick={async () => {
-                  let visitId = job.providerVisitId;
-                  if (!visitId) {
-                    setBusyId(job.id);
-                    try {
-                      const res = await visitJobsAPI.ensureProviderVisit(job.id);
-                      visitId = res.data?.job?.providerVisitId ?? null;
-                      if (visitId) await load();
-                    } catch (e: any) { toast.error(e?.message || 'Failed to create the visit'); }
-                    finally { setBusyId(null); }
-                  }
-                  if (visitId) window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'appointment-detail', params: { appointmentId: Number(visitId) } } }));
-                }}
-                className="flex items-center gap-1 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-pine transition-all disabled:opacity-50">
-                {b ? <Loader2 size={11} className="animate-spin" /> : <ArrowUpRight size={11} />} {ongoing ? 'Continue visit' : 'Start visit'}
-              </button>
-              );
-            })()}
             {mode === 'incoming' && (job.status === 'ACCEPTED' || job.status === 'COMPLETED') && job.providerVisitId && (() => {
               const menuId = resolveCategoryMenuId(job.category);
               if (!menuId) return null;
               return (
                 <button
                   onClick={() => window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: menuId, params: { openForAppointmentId: String(job.providerVisitId) } } }))}
-                  className="flex items-center gap-1 px-3 py-1.5 bg-violet-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-violet-700 transition-all">
-                  <ExternalLink size={11} /> Open {job.category} page
+                  className="flex items-center gap-1 px-3 py-1 bg-violet-600 text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-violet-700 transition-all">
+                  <ExternalLink size={11} /> {job.category} page
                 </button>
               );
             })()}
             {mode === 'incoming' && job.status === 'ACCEPTED' && (
-              <button onClick={() => act(job, 'COMPLETED', 'Job completed')} disabled={b} className="flex items-center gap-1 px-3 py-1.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-50">{b ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />} Mark complete</button>
+              <button onClick={() => act(job, 'COMPLETED', 'Job completed')} disabled={b} className="flex items-center gap-1 px-3 py-1 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-50">{b ? <Loader2 size={11} className="animate-spin" /> : <CheckCircle2 size={11} />} Complete</button>
             )}
             {mode === 'outgoing' && (job.status === 'REQUESTED' || job.status === 'ACCEPTED') && (
-              <button onClick={() => act(job, 'CANCELLED', 'Job cancelled')} disabled={b} className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-800 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-rose-500 transition-all disabled:opacity-50">{b ? <Loader2 size={11} className="animate-spin" /> : 'Cancel'}</button>
+              <button onClick={() => act(job, 'CANCELLED', 'Job cancelled')} disabled={b} className="px-3 py-1 bg-white dark:bg-zinc-900 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-rose-500 transition-all disabled:opacity-50">{b ? <Loader2 size={11} className="animate-spin" /> : 'Cancel'}</button>
             )}
           </div>
         </div>
@@ -184,23 +142,94 @@ const VisitJobsInbox: React.FC = () => {
     );
   };
 
-  const Section: React.FC<{ title: string; icon: React.ReactNode; jobs: VisitJob[]; mode: 'incoming' | 'outgoing' }> = ({ title, icon, jobs, mode }) => (
-    <div className="space-y-2">
-      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 flex items-center gap-2">{icon} {title} <span className="text-slate-300">· {jobs.length}</span></p>
-      {jobs.length === 0 ? (
-        <p className="text-[11px] text-slate-400 py-3 px-1">No {mode} jobs.</p>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{jobs.map(j => <Card key={j.id} job={j} mode={mode} />)}</div>
-      )}
-    </div>
-  );
+  /** One card per SOURCE VISIT — its outsourced services as rows. */
+  const GroupCard: React.FC<{ jobs: VisitJob[]; mode: 'incoming' | 'outgoing' }> = ({ jobs, mode }) => {
+    const first = jobs[0];
+    const partner = mode === 'incoming' ? first.requesterClinic : first.providerClinic;
+    const total = jobs.reduce((n, j) => n + Number(j.agreedPrice), 0);
+    // The shared transfer visit for this group (post-shared-visit accepts all
+    // point at one; legacy pairs may differ — take the first available).
+    const withVisit = jobs.find(j => j.providerVisitId);
+    const anyAccepted = jobs.find(j => j.status === 'ACCEPTED' || j.status === 'COMPLETED');
+    const ongoing = !!withVisit && (withVisit.providerVisitStatus !== 'SCHEDULED' || jobs.filter(j => j.providerVisitId).length > 1);
+    const busy = jobs.some(j => busyId === j.id);
+    return (
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 space-y-2.5">
+        <div className="flex items-center gap-3">
+          <span className="w-10 h-10 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center overflow-hidden text-lg shrink-0"><ClinicLogo logo={partner?.logo} fallback="🏥" /></span>
+          <div className="min-w-0 flex-1">
+            <p className="text-sm font-black text-pine dark:text-zinc-100 truncate flex items-center gap-1.5">
+              {mode === 'incoming' ? <ArrowDownLeft size={12} className="text-seafoam shrink-0" /> : <ArrowUpRight size={12} className="text-indigo-500 shrink-0" />}
+              {partner?.name || 'clinic'}
+            </p>
+            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+              {jobs.length} service{jobs.length === 1 ? '' : 's'} · one visit · {first.currency} {total.toLocaleString()}
+            </p>
+            {first.patientName && (
+              <p className="text-[9px] font-bold text-violet-600 dark:text-violet-400 uppercase tracking-widest mt-0.5">
+                🐾 {first.patientName}{first.patientSpecies ? ` · ${first.patientSpecies}` : ''}{mode === 'incoming' ? ' · shared' : ''}
+              </p>
+            )}
+          </div>
+          {/* One visit action for the whole group. */}
+          {mode === 'incoming' && anyAccepted && (
+            <button
+              disabled={busy}
+              onClick={async () => {
+                let visitId = withVisit?.providerVisitId ?? null;
+                if (!visitId && anyAccepted) {
+                  setBusyId(anyAccepted.id);
+                  try {
+                    const res = await visitJobsAPI.ensureProviderVisit(anyAccepted.id);
+                    visitId = res.data?.job?.providerVisitId ?? null;
+                    if (visitId) await load();
+                  } catch (e: any) { toast.error(e?.message || 'Failed to create the visit'); }
+                  finally { setBusyId(null); }
+                }
+                if (visitId) window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'appointment-detail', params: { appointmentId: Number(visitId) } } }));
+              }}
+              className="flex items-center gap-1 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-pine transition-all disabled:opacity-50 shrink-0">
+              {busy ? <Loader2 size={11} className="animate-spin" /> : <ArrowUpRight size={11} />} {ongoing ? 'Continue visit' : 'Start visit'}
+            </button>
+          )}
+        </div>
+        <div className="space-y-1.5">
+          {jobs.map(j => <JobRow key={j.id} job={j} mode={mode} />)}
+        </div>
+      </div>
+    );
+  };
+
+  const Section: React.FC<{ title: string; icon: React.ReactNode; jobs: VisitJob[]; mode: 'incoming' | 'outgoing' }> = ({ title, icon, jobs, mode }) => {
+    // Group by source visit + partner — services requested together stay together.
+    const groups = useMemo(() => {
+      const map = new Map<string, VisitJob[]>();
+      for (const j of jobs) {
+        const partnerId = mode === 'incoming' ? j.requesterClinicId : j.providerClinicId;
+        const k = `${j.visitId}|${partnerId}`;
+        if (!map.has(k)) map.set(k, []);
+        map.get(k)!.push(j);
+      }
+      return Array.from(map.values());
+    }, [jobs, mode]);
+    return (
+      <div className="space-y-2">
+        <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 flex items-center gap-2">{icon} {title} <span className="text-slate-300">· {jobs.length}</span></p>
+        {jobs.length === 0 ? (
+          <p className="text-[11px] text-slate-400 py-3 px-1">No {mode} jobs.</p>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">{groups.map((g, i) => <GroupCard key={`${g[0].visitId}-${i}`} jobs={g} mode={mode} />)}</div>
+        )}
+      </div>
+    );
+  };
 
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={22} className="animate-spin text-seafoam" /></div>;
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">Services other clinics asked you to do, and services you sent out for completion.</p>
+        <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">Services other clinics asked you to do, and services you sent out for completion — grouped by the visit they came from.</p>
         <button onClick={load} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 text-seafoam text-[10px] font-black uppercase tracking-widest hover:border-seafoam/40 transition-all"><RefreshCw size={12} /> Refresh</button>
       </div>
       <Section title="Incoming — for you to complete" icon={<ArrowDownLeft size={12} className="text-seafoam" />} jobs={incoming} mode="incoming" />
