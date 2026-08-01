@@ -142,6 +142,79 @@ export const OutsourceServiceButton: React.FC<{
   );
 };
 
+/**
+ * Chip + dialog for a request ALREADY sent to a partner (user, 2026-08-01).
+ * The chip shows who it went to and where it stands; the dialog carries the
+ * whole cross-clinic story: negotiation (accept/counter while REQUESTED), the
+ * escrow-style movement timeline (received patient/sample → in progress →
+ * result sent → returned) and the payout state.
+ */
+export const OutsourcedJobChip: React.FC<{ job: VisitJob; onChanged: () => void }> = ({ job, onChanged }) => {
+  const [open, setOpen] = useState(false);
+  const partner = job.providerClinic;
+  const proposedByMe = job.priceProposedBy != null ? job.priceProposedBy === job.requesterClinicId : true;
+  const stageLabel = job.movementStage ? job.movementStage.replace(/_/g, ' ').toLowerCase() : null;
+  const chipLabel = job.status === 'REQUESTED' ? 'negotiating'
+    : job.status === 'ACCEPTED' ? (stageLabel || 'accepted')
+    : job.status.toLowerCase();
+
+  return (
+    <>
+      <button type="button" onClick={() => setOpen(true)}
+        title={`Sent to ${partner?.name || 'partner clinic'} — open for progress & tracking`}
+        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all border ${STATUS_TONE[job.status] || 'bg-slate-100 text-slate-500'} border-transparent hover:brightness-95`}>
+        <Send size={10} /> {partner?.name || 'Partner'} · {chipLabel}
+      </button>
+      {open && (
+        <div className="fixed inset-0 z-[400] flex items-center justify-center p-4 bg-pine/40 dark:bg-black/60 backdrop-blur-sm" onClick={() => setOpen(false)}>
+          <div className="w-full max-w-lg bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="flex items-start justify-between gap-3 p-5 bg-gradient-to-br from-pine to-seafoam text-white">
+              <div className="flex items-center gap-3 min-w-0">
+                <span className="w-11 h-11 rounded-2xl bg-white/15 flex items-center justify-center overflow-hidden text-xl shrink-0"><ClinicLogo logo={partner?.logo} fallback="🏥" /></span>
+                <div className="min-w-0">
+                  <h3 className="text-base font-black tracking-tight uppercase truncate">Sent to {partner?.name || 'partner clinic'}</h3>
+                  <p className="text-[11px] text-white/80 font-medium truncate">{job.serviceName || job.category} · {job.currency} {job.agreedPrice.toLocaleString()}</p>
+                </div>
+              </div>
+              <button onClick={() => setOpen(false)} className="p-1.5 rounded-lg hover:bg-white/15"><X size={18} /></button>
+            </div>
+            <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${STATUS_TONE[job.status] || ''}`}>
+                  {job.status === 'COMPLETED' ? <CheckCircle2 size={11} /> : job.status === 'DECLINED' || job.status === 'CANCELLED' ? <XCircle size={11} /> : <Clock size={11} />} {job.status}
+                </span>
+                {job.movementStage && (
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 text-[9px] font-black uppercase tracking-widest"><MapPin size={11} /> {job.movementStage.replace(/_/g, ' ')}</span>
+                )}
+                {job.paidOut && (
+                  <span className="px-2.5 py-1 rounded-lg bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[9px] font-black uppercase tracking-widest">Partner paid</span>
+                )}
+              </div>
+              {job.status === 'REQUESTED' && (
+                <div className="p-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Price negotiation</p>
+                  <JobNegotiationRow job={job} proposedByMe={proposedByMe} onChanged={() => { onChanged(); setOpen(false); }} />
+                </div>
+              )}
+              {(job.status === 'ACCEPTED' || job.status === 'COMPLETED') && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 mb-1.5">Movement tracking — patient / sample / results</p>
+                  <VisitJobTracker jobId={job.id} role="requester" stage={job.movementStage} onChanged={onChanged} />
+                </div>
+              )}
+              <p className="text-[10px] text-slate-400 dark:text-zinc-500">
+                {job.paidOut
+                  ? 'Settled — the partner was credited the agreed amount when this visit\'s bill was paid.'
+                  : 'Escrow: the partner is credited the agreed amount automatically when this visit\'s bill is settled (or in the partnership\'s bundled sweep).'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+};
+
 /** Accept / counter controls for an open request (169) — shared by both sides. */
 const JobNegotiationRow: React.FC<{ job: VisitJob; proposedByMe: boolean; onChanged: () => void }> = ({ job, proposedByMe, onChanged }) => {
   const [countering, setCountering] = useState(false);

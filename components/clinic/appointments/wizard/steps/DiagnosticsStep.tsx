@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FlaskConical, FileSearch, Lightbulb, Plus, ExternalLink, FileText, Eye, EyeOff, Loader2, Building2, Trash2 } from 'lucide-react';
 import { StepProps } from '../types';
 import InlineServiceSearch from '../../../shared/InlineServiceSearch';
@@ -8,7 +8,9 @@ import { labAPI, imagingAPI, LabRecord, ImagingRecord, dialog } from '../../../.
 import { formatDate } from '../../../../../services/utils/dateFormatter';
 import { useAuth } from '../../../../../contexts/AuthContext';
 // Direct module import (not the services barrel) — same reason as VisitOutsource itself.
-import { OutsourceServiceButton } from '../../VisitOutsource';
+import { OutsourceServiceButton, OutsourcedJobChip } from '../../VisitOutsource';
+import { visitJobsAPI } from '../../../../../services/modules/visitJobs.api';
+import type { VisitJob } from '../../../../../services/modules/visitJobs.api';
 
 // Diagnostics rides on the visit's REAL service line-items: any lab/imaging/
 // dental service added to the visit shows here as a request. This step is
@@ -98,6 +100,20 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
   const d = data || {};
   const requests = (visit.tasks || []).filter(t => isDiagnostic(t.category));
   const { user: currentUser } = useAuth();
+
+  // Outsourced jobs on this visit (169) — a request row that already went to a
+  // partner shows a status chip + tracking dialog instead of the send button.
+  const [jobs, setJobs] = useState<VisitJob[]>([]);
+  const loadJobs = React.useCallback(() => {
+    visitJobsAPI.listForVisit(visit.id, { silent: true } as any)
+      .then(r => { if (r.success && r.data?.jobs) setJobs(r.data.jobs); })
+      .catch(() => {});
+  }, [visit.id]);
+  useEffect(() => { loadJobs(); }, [loadJobs]);
+  // Latest job per task, ignoring dead ends so a declined/cancelled request
+  // lets the row offer "To partner" again.
+  const jobForTask = (taskId: number | string): VisitJob | undefined =>
+    jobs.find(j => String(j.taskId ?? '') === String(taskId) && j.status !== 'DECLINED' && j.status !== 'CANCELLED');
 
   // Inline result viewing — lazily load this pet's lab + imaging records and
   // match them to requests (taskId first, visit-level as fallback).
@@ -210,11 +226,17 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
                     )}
                     {/* Send this request to a partner clinic (visit jobs, 168):
                         partners with an agreed price for the category can take
-                        it — they see a clinical-transfer visit on their side. */}
-                    {!visit.isPaid && (
-                      <OutsourceServiceButton variant="chip" visitId={visit.id} taskId={t.id} category={t.category} serviceName={t.name} currency={currency}
-                        onCreated={() => emit(`${t.name} sent to a partner clinic`, 'action', true)} />
-                    )}
+                        it — they see a clinical-transfer visit on their side.
+                        Once SENT the chip becomes the partner + status, opening
+                        the tracking/negotiation dialog (user, 2026-08-01). */}
+                    {(() => {
+                      const job = jobForTask(t.id);
+                      if (job) return <OutsourcedJobChip job={job} onChanged={loadJobs} />;
+                      return !visit.isPaid ? (
+                        <OutsourceServiceButton variant="chip" visitId={visit.id} taskId={t.id} category={t.category} serviceName={t.name} currency={currency}
+                          onCreated={() => { emit(`${t.name} sent to a partner clinic`, 'action', true); loadJobs(); }} />
+                      ) : null;
+                    })()}
                     {/* Anything added is deletable before payment — the bill
                         line + its auto-created module record go together. */}
                     {deleteTask && !visit.isPaid && (

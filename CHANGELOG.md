@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: sent diagnostic requests show partner + progress dialog  —  2026-08-01
+- **What changed:** once a Diagnostics-step request is sent to a partner, its "To partner"
+  chip becomes **"partner name · status"** (negotiating / received / in progress / result
+  sent / returned / completed). Clicking opens a dialog: who it went to, the price
+  negotiation (accept/counter while open), the escrow **movement timeline**
+  (`VisitJobTracker` — patient/sample/results between the clinics), and the payout state
+  ("Partner paid" once the visit settles). Declined/cancelled jobs free the row to send
+  again. New exported `OutsourcedJobChip` in `VisitOutsource.tsx`.
+- **Record impact:** 🟢 None — reads the jobs the send already created.
+- **Data dependency:** backend 168+169 (already live).
+- **Rollback:** revert; the chip stays "To partner" and tracking lives on Records & Reports.
+
 ### page: stuck-payment banner is dismissible  —  2026-08-01
 - **What changed:** the Billing & Subscription "payment has been pending since…" banner
   gains a **×**. Dismissal is remembered per payment (localStorage, keyed by the
