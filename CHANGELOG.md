@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: wizard gate check was behind the admission gates (vaccine list + recommend)  —  2026-08-02
+- **What changed:** (user, S2: "this gate check is behind") the visit wizard's Gate Check
+  carried its **own hardcoded 8 vaccines** while boarding/inpatient/grooming admit modals
+  had long since moved to the canonical 14 in `constants/vaccines`. It now renders from
+  that same list (+ Deworming, which is not a vaccine and stays appended), and gains the
+  shared **`GateVaccineRecommend`** block — "no vaccination on record → recommend, client
+  agreed → transfer to vet visit" — so the four gates cannot drift apart again.
+- **Record impact:** 🟢 None — gate-check answers are wizard state.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the checklist KEYS changed to the canonical ones
+  (`parvo`→`parvovirus`, `bordetella`→`kennelCough`, `lepto`→`leptospirosis`), and
+  `vaccineKeyFor` was rewritten to match — **most-specific-first**, because `dhppl`
+  contains `dhpp` and "feline leukemia" contains `leuk`. A gate check saved under the old
+  keys will show those boxes unticked; re-tick and save.
+
+
 ### flow: Treatment step — 3-way vaccination search + sell price & stock before/after  —  2026-08-02
 - **What changed:** (user, S2) on a **vaccination** visit the Procedures search box now
   searches all three things staff reach for — procedure **recipes**, vaccine **packages**

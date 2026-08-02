@@ -6,6 +6,8 @@ import EmergencyTriagePanel from '../../../triage/EmergencyTriagePanel';
 import GroomingPanel from '../../GroomingPanel';
 import { useData } from '../../../../../contexts/DataContext';
 import { petsAPI } from '../../../../../services';
+import { VACCINES } from '../../../../../constants/vaccines';
+import GateVaccineRecommend from '../../../shared/GateVaccineRecommend';
 
 // Entry steps for the non-consultation Visit Entry Points. They share one
 // config-driven form (fields per step defined below) so adding a new entry
@@ -19,28 +21,39 @@ type FieldDef =
   | { kind: 'food'; key: string; label: string; span?: 2 };
 
 // Vaccine types pickable wherever a gate check records vaccination status.
+//
+// Drawn from the CANONICAL list (`constants/vaccines`) that the boarding,
+// inpatient and grooming admission gates already use. This step used to carry
+// its own hardcoded eight, so the wizard's gate check silently drifted behind
+// the admit modals' fourteen (user, 2026-08-02: "this gate check is behind").
+// Deworming is not a vaccine, so it stays appended here rather than polluting
+// the shared list.
 const VACCINE_TYPES = [
-  { k: 'rabies', label: 'Rabies' },
-  { k: 'dhpp', label: 'DHPP / DHLPP' },
-  { k: 'parvo', label: 'Parvovirus' },
-  { k: 'bordetella', label: 'Bordetella (kennel cough)' },
-  { k: 'lepto', label: 'Leptospirosis' },
-  { k: 'fvrcp', label: 'FVRCP (cats)' },
-  { k: 'felv', label: 'FeLV (cats)' },
+  ...VACCINES.map(v => ({ k: v.key, label: v.label })),
   { k: 'deworm', label: 'Deworming up to date' },
 ];
 
 // Map an administered vaccine's (free-text) name onto the checklist keys so
 // the patient's medical records can auto-tick "Vaccines verified".
+// Keys MUST match `constants/vaccines` — the checklist is rendered from it, so
+// a key that isn't in that list can never tick a box. Most specific first:
+// 'dhppl' contains 'dhpp', and 'feline leukemia' contains 'leuk'.
 const vaccineKeyFor = (name: string): string | null => {
   const s = (name || '').toLowerCase();
   if (s.includes('rab')) return 'rabies';
-  if (s.includes('dhpp') || s.includes('dhlpp') || s.includes('distemper')) return 'dhpp';
-  if (s.includes('parvo')) return 'parvo';
-  if (s.includes('bordetella') || s.includes('kennel')) return 'bordetella';
-  if (s.includes('lepto')) return 'lepto';
+  if (s.includes('dhppl') || s.includes('dhlpp')) return 'dhppl';
+  if (s.includes('dhpp')) return 'dhpp';
+  if (s.includes('distemper')) return 'distemper';
+  if (s.includes('parvo')) return 'parvovirus';
+  if (s.includes('bordetella') || s.includes('kennel')) return 'kennelCough';
+  if (s.includes('lepto')) return 'leptospirosis';
+  if (s.includes('influenza')) return 'canineInfluenza';
+  if (s.includes('corona')) return 'coronavirus';
+  if (s.includes('lyme')) return 'lyme';
   if (s.includes('fvrcp')) return 'fvrcp';
   if (s.includes('felv') || s.includes('leuk')) return 'felv';
+  if (s.includes('fiv') || s.includes('immunodefic')) return 'fiv';
+  if (s.includes('chlamydia')) return 'chlamydia';
   if (s.includes('deworm')) return 'deworm';
   return null;
 };
@@ -297,7 +310,25 @@ export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (pat
                     ? { ...it, label: `${it.label} · given ${new Date(vaccineDates[it.k]).toLocaleDateString()}` }
                     : it)
                 : f.items;
-              return <L key={f.key} label={f.label} className={span}><CheckGrid items={items} value={d[f.key]} onToggle={(k, _l, on) => setData({ [f.key]: { ...(d[f.key] || {}), [k]: on } })} /></L>;
+              const checked = d[f.key] || {};
+              // Nothing on record → RECOMMEND rather than block, exactly as the
+              // boarding/inpatient/grooming admission gates do. Same shared
+              // component, so the three gates cannot drift apart again.
+              const noneRecorded = f.key === 'vaccinesVerified'
+                && !Object.values(checked as Record<string, boolean>).some(Boolean);
+              return (
+                <L key={f.key} label={f.label} className={span}>
+                  <CheckGrid items={items} value={d[f.key]} onToggle={(k, _l, on) => setData({ [f.key]: { ...(d[f.key] || {}), [k]: on } })} />
+                  {noneRecorded && (
+                    <GateVaccineRecommend
+                      recommended={d.vaccinesRecommended || {}}
+                      onToggle={k => setData({ vaccinesRecommended: { ...(d.vaccinesRecommended || {}), [k]: !(d.vaccinesRecommended || {})[k] } })}
+                      clientAgreed={!!d.vaccineClientAgreed}
+                      onAgreed={v => setData({ vaccineClientAgreed: v })}
+                    />
+                  )}
+                </L>
+              );
             }
             case 'food':
               return <L key={f.key} label={f.label} className={span}><FoodField value={d[f.key]} onChange={nv => setData({ [f.key]: nv })} /></L>;
