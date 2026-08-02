@@ -112,4 +112,13 @@ export const boardingAPI = {
     options?: RequestOptions
   ): Promise<ApiResponse<{ log: BoardingDailyLog }>> =>
     post(ENDPOINTS.BOARDING.LOGS(id), data, { showError: true, ...options }),
+
+  // Edit one care-log line (per-day reconciliation / paper back-fill).
+  updateLog: async (
+    id: string | number,
+    logId: string | number,
+    data: Partial<Omit<BoardingDailyLog, 'id' | 'boardingStayId' | 'createdAt'>>,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ log: BoardingDailyLog }>> =>
+    patch(ENDPOINTS.BOARDING.LOG_BY_ID(id, logId), data, { showError: true, ...options }),
 };

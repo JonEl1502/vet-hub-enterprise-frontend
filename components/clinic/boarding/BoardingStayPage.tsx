@@ -92,6 +92,28 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
     finally { setBusy(false); }
   };
 
+  // Per-day line editing (user, 2026-08-02): each care-log day opens a
+  // collapsible editor (same fields as Log today's care) so paper records can
+  // be back-filled — blank day → addLog with that logDate, existing → updateLog.
+  const [editDay, setEditDay] = useState<string | null>(null);
+  const [dayDraft, setDayDraft] = useState<any>({});
+  const [daySaving, setDaySaving] = useState(false);
+  const openDayEditor = (dateKey: string, existing?: any) => {
+    setEditDay(editDay === dateKey ? null : dateKey);
+    setDayDraft(existing ? { id: existing.id, fedAm: !!existing.fedAm, fedPm: !!existing.fedPm, walked: !!existing.walked, medicationGiven: !!existing.medicationGiven, stool: existing.stool || '', appetite: existing.appetite || '', foodNotes: existing.foodNotes || '', notes: existing.notes || '' } : { fedAm: false, fedPm: false, walked: false, medicationGiven: false, stool: '', appetite: '', foodNotes: '', notes: '' });
+  };
+  const saveDayDraft = async (dateKey: string) => {
+    setDaySaving(true);
+    try {
+      const payload: any = { fedAm: dayDraft.fedAm, fedPm: dayDraft.fedPm, walked: dayDraft.walked, medicationGiven: dayDraft.medicationGiven, stool: dayDraft.stool || undefined, appetite: dayDraft.appetite || undefined, foodNotes: dayDraft.foodNotes || undefined, notes: dayDraft.notes || undefined };
+      const res = dayDraft.id
+        ? await boardingAPI.updateLog(stayId, dayDraft.id, payload)
+        : await boardingAPI.addLog(stayId, { ...payload, logDate: `${dateKey}T12:00:00.000Z` } as any);
+      if (res.success) { toast.success('Day updated'); setEditDay(null); await load(); onChanged?.(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to save day'); }
+    finally { setDaySaving(false); }
+  };
+
   // Per-day charges for the reconciliation sheet (user, 2026-08-02): daily
   // boarding rate + billable consumables logged that day. Shown even at 0.
   const [consumables, setConsumables] = useState<any[]>([]);
@@ -275,6 +297,32 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 consumables.forEach(c => { const ck = dayKey(c.createdAt); consByDay.set(ck, [...(consByDay.get(ck) || []), c]); });
                 const rate = Number(stay.dailyRate ?? 0);
                 const fmtK = (n: number) => `KES ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+                const dayEditor = (dateKey: string) => editDay === dateKey && (
+                  <div className="mt-2 pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-2">
+                    <div className="flex flex-wrap gap-2">
+                      <Toggle on={!!dayDraft.fedAm} onClick={() => setDayDraft((d: any) => ({ ...d, fedAm: !d.fedAm }))} icon={Utensils} label="Fed AM" />
+                      <Toggle on={!!dayDraft.fedPm} onClick={() => setDayDraft((d: any) => ({ ...d, fedPm: !d.fedPm }))} icon={Utensils} label="Fed PM" />
+                      <Toggle on={!!dayDraft.walked} onClick={() => setDayDraft((d: any) => ({ ...d, walked: !d.walked }))} icon={Footprints} label="Walked" />
+                      <Toggle on={!!dayDraft.medicationGiven} onClick={() => setDayDraft((d: any) => ({ ...d, medicationGiven: !d.medicationGiven }))} icon={Pill} label="Meds" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <select className="px-2 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" value={dayDraft.stool} onChange={e => setDayDraft((d: any) => ({ ...d, stool: e.target.value }))}>
+                        <option value="">Stool…</option>{STOOL.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                      <select className="px-2 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" value={dayDraft.appetite} onChange={e => setDayDraft((d: any) => ({ ...d, appetite: e.target.value }))}>
+                        <option value="">Appetite…</option>{APPETITE.map(o => <option key={o} value={o}>{o}</option>)}
+                      </select>
+                    </div>
+                    <input className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" placeholder="What did they eat?" value={dayDraft.foodNotes} onChange={e => setDayDraft((d: any) => ({ ...d, foodNotes: e.target.value }))} />
+                    <textarea className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" rows={2} placeholder="Notes for this day (back-filled from the paper sheet?)" value={dayDraft.notes} onChange={e => setDayDraft((d: any) => ({ ...d, notes: e.target.value }))} />
+                    <div className="flex gap-2">
+                      <button onClick={() => saveDayDraft(dateKey)} disabled={daySaving} className="flex-1 py-1.5 bg-seafoam text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
+                        {daySaving ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} {dayDraft.id ? 'Save changes' : 'Save day'}
+                      </button>
+                      <button onClick={() => setEditDay(null)} className="px-3 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">Cancel</button>
+                    </div>
+                  </div>
+                );
                 return (
                   <div className="space-y-2">
                     {days.slice().reverse().map((d, ri) => {
@@ -309,6 +357,10 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                             <span className="font-bold">Fed AM:</span> — · <span className="font-bold">Fed PM:</span> — · <span className="font-bold">Walked:</span> — · <span className="font-bold">Meds:</span> — · <span className="font-bold">Stool:</span> — · <span className="font-bold">Appetite:</span> — · <span className="font-bold">Notes:</span> —
                           </p>
                           {consRows}
+                          <button onClick={() => openDayEditor(k)} className="mt-1.5 px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">
+                            {editDay === k ? 'Close' : '✎ Fill this day'}
+                          </button>
+                          {dayEditor(k)}
                         </div>
                       );
                       return logs.map((l, li) => (
@@ -327,6 +379,10 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                           </p>
                           {l.mealPhoto && <img src={l.mealPhoto} alt="meal" className="mt-2 w-20 h-20 rounded-lg object-cover border border-slate-200 dark:border-zinc-800" />}
                           {li === logs.length - 1 && consRows}
+                          <button onClick={() => openDayEditor(`${k}#${l.id}`, l)} className="mt-1.5 px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">
+                            {editDay === `${k}#${l.id}` ? 'Close' : '✎ Edit'}
+                          </button>
+                          {dayEditor(`${k}#${l.id}`)}
                         </div>
                       ));
                     })}

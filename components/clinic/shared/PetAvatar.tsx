@@ -47,6 +47,9 @@ const PetAvatar: React.FC<{
   rounded?: string;               // tailwind rounding, default rounded-xl
   className?: string;
 }> = ({ pet, fallbackPet, size = 40, rounded = 'rounded-xl', className = '' }) => {
+  // Global +40% (user, 2026-08-02: "avatars are still small") — applied here so
+  // every call site grows together; `size` stays the caller's logical size.
+  const px = Math.round(size * 1.4);
   const [broken, setBroken] = useState(false);
   const src = petPhotoUrl(pet) || petPhotoUrl(fallbackPet);
   const species = pet?.species || fallbackPet?.species;
@@ -59,7 +62,7 @@ const PetAvatar: React.FC<{
       <img
         src={src} alt={name} title={name} loading="lazy"
         onError={() => setBroken(true)}
-        style={{ width: size, height: size }}
+        style={{ width: px, height: px }}
         className={`${box} object-cover border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900`}
       />
     );
@@ -67,7 +70,7 @@ const PetAvatar: React.FC<{
   return (
     <div
       title={name}
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.5) }}
+      style={{ width: px, height: px, fontSize: Math.round(px * 0.5) }}
       className={`${box} ${isDog ? 'bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-800/30' : 'bg-violet-50 dark:bg-violet-900/20 border border-violet-100 dark:border-violet-800/30'}`}
     >
       {petEmoji(species)}

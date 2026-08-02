@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: complete diagnostics in place; avatars +40%  —  2026-08-02
+- **What changed:** (user) Diagnostics request rows gain a **Complete** button — the
+  clinic's plan may not include the full imaging/lab/surgery workflow pages, and a
+  returned partner job left the local task stuck at "requested"; every request is now
+  completable from the row (task → COMPLETED, hidden once paid). `PetAvatar` renders
+  40% larger globally (all call sites scale together). Boarding care log: every day
+  line opens a collapsible editor (same fields as Log today's care) — blank days
+  back-fill via addLog with that logDate, existing lines PATCH in place — for stays
+  recorded on paper.
+- **Record impact:** 🟢 — UI; task status update uses the existing endpoint.
+
 ### frontend: partner requests reach B2B Stats + Clinic Today; staff tallies card  —  2026-08-02
 - **What changed:** (user) The NEW cross-clinic visit-job system now surfaces beyond the
   Partners page: **B2B Stats tab** gains a "Partner Requests" band (total/incoming/

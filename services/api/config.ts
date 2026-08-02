@@ -208,6 +208,7 @@ export const ENDPOINTS = {
     BY_ID: (id: string | number) => `/boarding/${id}`,
     BILL: (id: string | number) => `/boarding/${id}/bill`,
     LOGS: (id: string | number) => `/boarding/${id}/logs`,
+    LOG_BY_ID: (id: string | number, logId: string | number) => `/boarding/${id}/logs/${logId}`,
   },
 
   // Vaccine / bundle packages

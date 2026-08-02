@@ -4,7 +4,7 @@ import { StepProps } from '../types';
 import InlineServiceSearch from '../../../shared/InlineServiceSearch';
 import { useServiceInject } from '../../../shared/ServiceInjectContext';
 import { Section, L, showsField } from '../fields';
-import { labAPI, imagingAPI, LabRecord, ImagingRecord, dialog } from '../../../../../services';
+import { labAPI, imagingAPI, LabRecord, ImagingRecord, dialog, visitsAPI, toast } from '../../../../../services';
 import { formatDate } from '../../../../../services/utils/dateFormatter';
 import { useAuth } from '../../../../../contexts/AuthContext';
 // Direct module import (not the services barrel) — same reason as VisitOutsource itself.
@@ -93,7 +93,7 @@ const ImagingResultInline: React.FC<{ r: ImagingRecord }> = ({ r }) => {
   );
 };
 
-const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices, addService, openModule, deleteTask, emit, currency, staff, visibleFields  }) => {
+const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices, addService, openModule, deleteTask, emit, currency, staff, visibleFields, refreshVisit }) => {
   const show = showsField(visibleFields);
   // Inline add, provided by VisitDetailView (see ServiceInjectContext).
   const { injectService, addedNames } = useServiceInject();
@@ -118,6 +118,7 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
   // Inline result viewing — lazily load this pet's lab + imaging records and
   // match them to requests (taskId first, visit-level as fallback).
   const [viewing, setViewing] = useState<Record<string, boolean>>({});
+  const [completing, setCompleting] = useState<string | null>(null);
   const [recs, setRecs] = useState<ModuleRecs | null>(null);
   const [recsLoading, setRecsLoading] = useState(false);
 
@@ -212,6 +213,25 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
                     {/* Read-only: mirrors the task's real status — the assignee
                         updates it from the services tab / module page. */}
                     <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${STATUS_TONE[status] || STATUS_TONE.PENDING}`}>{STATUS_LABEL[status] || status.toLowerCase()}</span>
+                    {/* Complete right here (user, 2026-08-02): the clinic's plan may
+                        not include the full imaging/lab/surgery workflow pages, and a
+                        returned partner job leaves the local task stuck — every
+                        request must be completable from this row either way. */}
+                    {status !== 'COMPLETED' && !visit.isPaid && (
+                      <button type="button" disabled={completing === String(t.id)}
+                        title="Mark this request completed (no module page needed)"
+                        onClick={async () => {
+                          setCompleting(String(t.id));
+                          try {
+                            const r = await visitsAPI.updateTask(Number(visit.id), Number(t.id), { status: 'COMPLETED' } as any);
+                            if (r.success) { emit(`${t.name} marked completed`, 'milestone', true); refreshVisit?.(); }
+                          } catch (e: any) { toast.error(e?.message || 'Failed to complete'); }
+                          finally { setCompleting(null); }
+                        }}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 disabled:opacity-50 transition-all">
+                        {completing === String(t.id) ? <Loader2 size={10} className="animate-spin" /> : null} Complete
+                      </button>
+                    )}
                     <button type="button" onClick={() => toggleView(t.id)}
                       title="View the result record inline"
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${isViewing ? 'bg-cyan-600 text-white border-cyan-600' : 'border-cyan-300 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-600 hover:text-white'}`}>
