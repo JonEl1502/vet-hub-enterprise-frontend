@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: boarding/inpatient per-day reconciliation sheet + daily costs  —  2026-08-02
+- **What changed:** (user) Boarding care log and inpatient daily sheet now render EVERY
+  calendar day of the stay, check-in→checkout (or today), newest first. A day with
+  nothing logged shows its blank fields ("Fed AM: — · Stool: — …" / vitals/MAR/feeding
+  dashes) with an amber "Nothing recorded" chip. Every day carries its charges — even
+  zero: nights-based stay rate (final calendar day shows stay KES 0, matching the
+  accrual) + that day's billable consumables as itemized rows. Purpose: manual
+  reconciliation of a stay against its bill.
+- **Record impact:** 🟢 — read-path UI; consumables fetched per visit.
+
+### frontend: follow-up data split per encounter kind  —  2026-08-02
+- **What changed:** (board §0f #3) the Follow Up step's professional judgments
+  (currentOutcome, closeOutcome, outcomeNotes, carePlan, monitoring) now write to
+  `data['followUp:<ENCOUNTER_TYPE>']` keyed on the selected encounter — the vet visit's
+  outcome and the groom's outcome no longer stamp each other. Reminders stay SHARED at
+  visit level (one animal, one owner — no double-messaging). Reads fall back to the
+  legacy `data.followUp` slot (mandatory — old records must not look wiped);
+  MedicalReport reads the vet-visit slot with the same fallback.
+- **Record impact:** 🟢 — additive keys in `consultation_records.data`; legacy slot
+  still read everywhere.
+
 ### frontend: boarding-stay page — one care card  —  2026-08-02
 - **What changed:** (board §0f #2) Log Today's Care, the consumables search, and the
   care-log history merged into ONE card with dividers; consumables sit right under the

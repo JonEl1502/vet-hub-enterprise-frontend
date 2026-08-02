@@ -86,12 +86,24 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
 
   const [discharge, setDischarge] = useState({ outcome: 'RECOVERED' as DischargeOutcome, dischargeNotes: '', homeInstructions: '', finalWeight: '' });
 
+  // Per-day charges for the reconciliation sheet (user, 2026-08-02): the
+  // stay's daily rate + billable consumables logged that day. Shown even at 0.
+  const [consumables, setConsumables] = useState<any[]>([]);
   const load = useCallback(async () => {
     setLoading(true);
     try { const res = await inpatientAPI.getById(hospId); if (res.success && res.data?.hospitalization) setH(res.data.hospitalization); }
     catch (e) { console.error(e); } finally { setLoading(false); }
   }, [hospId]);
   useEffect(() => { setH(null); load(); }, [hospId, load]);
+  useEffect(() => {
+    const apptId = h?.billing?.appointmentId;
+    if (!apptId) { setConsumables([]); return; }
+    let alive = true;
+    consumablesAPI.list(apptId, { silent: true } as any)
+      .then(r => { if (alive && r.success && Array.isArray(r.data)) setConsumables(r.data); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [h?.billing?.appointmentId, h?.logs?.length]);
 
   const addVital = async () => {
     setBusy(true);
@@ -322,23 +334,90 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
             {/* Daily sheet timeline */}
             <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
               <NotesFormatToggle className="mb-3" value={h.displayFormat || 'PARAGRAPH'} onChange={(v) => { inpatientAPI.update(hospId, { displayFormat: v }).then(() => { load(); onChanged?.(); }); }} />
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Daily sheet</p>
-              {h.logs && h.logs.length > 0 ? (
-                <div className="space-y-1.5">
-                  {h.logs.map(l => (
-                    <div key={l.id} className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-800/50 rounded-lg px-3 py-2 border border-slate-100 dark:border-zinc-800">
-                      {isTask(l.kind) ? (
-                        <button onClick={() => toggleTask(l.id, l.status)} className="shrink-0">{l.status === 'done' ? <CheckCircle2 size={15} className="text-emerald-500" /> : <Circle size={15} className="text-amber-500" />}</button>
-                      ) : <Activity size={13} className="text-seafoam shrink-0" />}
-                      <div className="min-w-0 flex-1">
-                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 mr-1.5">{LOG_KINDS.find(k => k.value === l.kind)?.label}</span>
-                        <span className="text-[11px] text-pine dark:text-zinc-200">{logSummary(l.kind, l.data)}</span>
-                      </div>
-                      <span className="text-[9px] text-slate-400 shrink-0">{formatTime(l.loggedAt)}</span>
-                    </div>
-                  ))}
-                </div>
-              ) : <p className="text-[10px] text-slate-400">Nothing logged yet.</p>}
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Daily sheet — admission to {h.dischargedAt ? 'discharge' : 'today'}</p>
+              {/* Per-day reconciliation (user, 2026-08-02): EVERY calendar day of the
+                  stay renders, newest first — a day with nothing logged shows its
+                  blank fields, so a missed day is visible instead of silently absent
+                  and the stay can be reconciled by hand against the bill. */}
+              {(() => {
+                const dayKey = (d: string | Date) => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+                const start = new Date(h.admittedAt); start.setHours(0, 0, 0, 0);
+                const end = new Date(h.dischargedAt ?? Date.now()); end.setHours(0, 0, 0, 0);
+                const days: Date[] = [];
+                for (let d = new Date(start); d <= end; d = new Date(d.getTime() + 86_400_000)) days.push(new Date(d));
+                const logsByDay = new Map<string, any[]>();
+                (h.logs || []).forEach(l => { const k = dayKey(l.loggedAt); logsByDay.set(k, [...(logsByDay.get(k) || []), l]); });
+                const vitalsByDay = new Map<string, number>();
+                (h.vitals || []).forEach(v => { const k = dayKey(v.recordedAt); vitalsByDay.set(k, (vitalsByDay.get(k) || 0) + 1); });
+                const BLANK_FIELDS = ['Vitals', 'Medication (MAR)', 'Feeding', 'Fluids', 'Nursing note'];
+                const consByDay = new Map<string, any[]>();
+                consumables.forEach(c => { const ck = dayKey(c.createdAt); consByDay.set(ck, [...(consByDay.get(ck) || []), c]); });
+                const rate = Number(h.dailyRate ?? 0);
+                const fmtK = (n: number) => `KES ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+                return (
+                  <div className="space-y-3">
+                    {days.slice().reverse().map((d, ri) => {
+                      const k = dayKey(d);
+                      const dayNo = days.length - ri;
+                      const logs = logsByDay.get(k) || [];
+                      const vitalsCount = vitalsByDay.get(k) || 0;
+                      const dayCons = consByDay.get(k) || [];
+                      const itemsCost = dayCons.reduce((sum, c) => sum + (c.billable ? Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0)) : 0), 0);
+                      // Stay charges are NIGHTS-based (calendarDaysBetween, min 1): the
+                      // final calendar day of a multi-day stay starts no new night, so it
+                      // shows stay KES 0 — matching what the bill accrues.
+                      const dayRate = (days.length === 1 || dayNo < days.length) ? rate : 0;
+                      const dayTotal = dayRate + itemsCost;
+                      const empty = logs.length === 0 && vitalsCount === 0 && dayCons.length === 0;
+                      return (
+                        <div key={k}>
+                          <div className="flex flex-wrap items-center gap-2 mb-1">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-200">Day {dayNo} · {formatDate(d)}</span>
+                            {empty && <span className="text-[8px] font-black uppercase tracking-widest text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-full">Nothing recorded</span>}
+                            {/* Charges shown for EVERY day, even zero (user) — stay rate + billed items. */}
+                            <span className="ml-auto text-[9px] font-black text-emerald-600 dark:text-emerald-400">{fmtK(dayTotal)}<span className="text-slate-400 font-bold"> · stay {fmtK(dayRate)} + items {fmtK(itemsCost)}</span></span>
+                          </div>
+                          {empty ? (
+                            <div className="flex flex-wrap gap-1.5 px-3 py-2 rounded-lg border border-dashed border-slate-200 dark:border-zinc-800">
+                              {BLANK_FIELDS.map(f => (
+                                <span key={f} className="text-[9px] text-slate-400"><span className="font-bold">{f}:</span> —</span>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="space-y-1.5">
+                              {vitalsCount > 0 && (
+                                <div className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-800/50 rounded-lg px-3 py-1.5 border border-slate-100 dark:border-zinc-800">
+                                  <Thermometer size={12} className="text-seafoam shrink-0" />
+                                  <span className="text-[10px] text-pine dark:text-zinc-200">{vitalsCount} vitals entr{vitalsCount === 1 ? 'y' : 'ies'} (table above)</span>
+                                </div>
+                              )}
+                              {logs.map(l => (
+                                <div key={l.id} className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-800/50 rounded-lg px-3 py-2 border border-slate-100 dark:border-zinc-800">
+                                  {isTask(l.kind) ? (
+                                    <button onClick={() => toggleTask(l.id, l.status)} className="shrink-0">{l.status === 'done' ? <CheckCircle2 size={15} className="text-emerald-500" /> : <Circle size={15} className="text-amber-500" />}</button>
+                                  ) : <Activity size={13} className="text-seafoam shrink-0" />}
+                                  <div className="min-w-0 flex-1">
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 mr-1.5">{LOG_KINDS.find(kk => kk.value === l.kind)?.label}</span>
+                                    <span className="text-[11px] text-pine dark:text-zinc-200">{logSummary(l.kind, l.data)}</span>
+                                  </div>
+                                  <span className="text-[9px] text-slate-400 shrink-0">{formatTime(l.loggedAt)}</span>
+                                </div>
+                              ))}
+                              {dayCons.map(c => (
+                                <div key={`c-${c.id}`} className="flex items-center gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg px-3 py-1.5 border border-emerald-100 dark:border-emerald-900/40">
+                                  <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 shrink-0">Item</span>
+                                  <span className="min-w-0 flex-1 text-[10px] text-pine dark:text-zinc-200 truncate">{c.inventoryItem?.name} × {Number(c.quantity)} {c.inventoryItem?.unit || ''}</span>
+                                  <span className="text-[9px] font-black text-emerald-600 shrink-0">{c.billable ? fmtK(Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0))) : 'no charge'}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
             </section>
 
             {/* Consumables & medication used (deduct stock + billable charge). */}

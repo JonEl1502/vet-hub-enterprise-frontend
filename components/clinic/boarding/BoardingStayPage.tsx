@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2 } from 'lucide-react';
-import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI } from '../../../services';
+import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
 import { formatDate, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
@@ -92,6 +92,9 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
     finally { setBusy(false); }
   };
 
+  // Per-day charges for the reconciliation sheet (user, 2026-08-02): daily
+  // boarding rate + billable consumables logged that day. Shown even at 0.
+  const [consumables, setConsumables] = useState<any[]>([]);
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -102,6 +105,15 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   }, [stayId]);
 
   useEffect(() => { setStay(null); load(); }, [stayId, load]);
+  useEffect(() => {
+    const apptId = stay?.billing?.appointmentId;
+    if (!apptId) { setConsumables([]); return; }
+    let alive = true;
+    consumablesAPI.list(apptId, { silent: true } as any)
+      .then(r => { if (alive && r.success && Array.isArray(r.data)) setConsumables(r.data); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [stay?.billing?.appointmentId, stay?.dailyLogs?.length]);
 
   const saveLog = async () => {
     setBusy(true);
@@ -247,28 +259,80 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
             {/* Daily log history — same card, divided from the form above. */}
             <div className={active ? 'mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800' : ''}>
               <NotesFormatToggle className="mb-3" value={stay.displayFormat || 'PARAGRAPH'} onChange={(v) => { boardingAPI.update(stayId, { displayFormat: v } as any).then(() => { load(); onChanged?.(); }); }} />
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Care log</p>
-              {stay.dailyLogs && stay.dailyLogs.length > 0 ? (
-                <div className="space-y-2">
-                  {stay.dailyLogs.map(l => (
-                    <div key={l.id} className="bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-3 border border-slate-100 dark:border-zinc-800">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-[10px] font-black text-pine dark:text-zinc-200">{formatDate(l.logDate)}</span>
-                        <div className="flex gap-1.5 text-[9px] font-bold">
-                          {l.fedAm && <span className="text-emerald-600">AM</span>}
-                          {l.fedPm && <span className="text-emerald-600">PM</span>}
-                          {l.walked && <span className="text-seafoam">Walk</span>}
-                          {l.medicationGiven && <span className="text-indigo-500">Med</span>}
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Care log — check-in to {stay.actualPickupAt ? 'checkout' : 'today'}</p>
+              {/* Per-day reconciliation (user, 2026-08-02): every calendar day of the
+                  stay renders; a day with no log shows its blank fields so gaps are
+                  visible and the stay reconciles by hand against the bill. */}
+              {(() => {
+                const dayKey = (d: string | Date) => { const x = new Date(d); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; };
+                const start = new Date(stay.dropOffAt); start.setHours(0, 0, 0, 0);
+                const end = new Date(stay.actualPickupAt ?? Date.now()); end.setHours(0, 0, 0, 0);
+                const days: Date[] = [];
+                for (let d = new Date(start); d <= end; d = new Date(d.getTime() + 86_400_000)) days.push(new Date(d));
+                const byDay = new Map<string, any[]>();
+                (stay.dailyLogs || []).forEach(l => { const k = dayKey(l.logDate); byDay.set(k, [...(byDay.get(k) || []), l]); });
+                const consByDay = new Map<string, any[]>();
+                consumables.forEach(c => { const ck = dayKey(c.createdAt); consByDay.set(ck, [...(consByDay.get(ck) || []), c]); });
+                const rate = Number(stay.dailyRate ?? 0);
+                const fmtK = (n: number) => `KES ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+                return (
+                  <div className="space-y-2">
+                    {days.slice().reverse().map((d, ri) => {
+                      const k = dayKey(d);
+                      const dayNo = days.length - ri;
+                      const logs = byDay.get(k) || [];
+                      const dayCons = consByDay.get(k) || [];
+                      const itemsCost = dayCons.reduce((sum, c) => sum + (c.billable ? Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0)) : 0), 0);
+                      // Stay charges are NIGHTS-based (calendarDaysBetween, min 1): the
+                      // final calendar day of a multi-day stay starts no new night, so it
+                      // shows stay KES 0 — matching what the bill accrues.
+                      const dayRate = (days.length === 1 || dayNo < days.length) ? rate : 0;
+                      const dayTotal = dayRate + itemsCost;
+                      const consRows = dayCons.map(c => (
+                        <div key={`c-${c.id}`} className="mt-1.5 flex items-center gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg px-3 py-1.5 border border-emerald-100 dark:border-emerald-900/40">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 shrink-0">Item</span>
+                          <span className="min-w-0 flex-1 text-[10px] text-pine dark:text-zinc-200 truncate">{c.inventoryItem?.name} × {Number(c.quantity)} {c.inventoryItem?.unit || ''}</span>
+                          <span className="text-[9px] font-black text-emerald-600 shrink-0">{c.billable ? fmtK(Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0))) : 'no charge'}</span>
                         </div>
-                      </div>
-                      <p className="text-[10px] text-slate-500 dark:text-zinc-400">
-                        {l.appetite && `Appetite: ${l.appetite}. `}{l.stool && `Stool: ${l.stool}. `}{l.foodNotes && `Ate: ${l.foodNotes}. `}{l.notes}
-                      </p>
-                      {l.mealPhoto && <img src={l.mealPhoto} alt="meal" className="mt-2 w-20 h-20 rounded-lg object-cover border border-slate-200 dark:border-zinc-800" />}
-                    </div>
-                  ))}
-                </div>
-              ) : <p className="text-xs text-slate-400 text-center py-4">No care logged yet.</p>}
+                      ));
+                      {/* Charges for EVERY day, even zero (user) — rate + billed items. */}
+                      const chargeLine = (
+                        <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">{fmtK(dayTotal)}<span className="text-slate-400 font-bold"> · stay {fmtK(dayRate)} + items {fmtK(itemsCost)}</span></span>
+                      );
+                      if (logs.length === 0) return (
+                        <div key={k} className="rounded-xl p-3 border border-dashed border-slate-200 dark:border-zinc-800">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                            <span className="text-[10px] font-black text-pine dark:text-zinc-200">Day {dayNo} · {formatDate(d)}</span>
+                            <span className="flex items-center gap-2">{dayCons.length === 0 && <span className="text-[8px] font-black uppercase tracking-widest text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-full">Nothing recorded</span>}{chargeLine}</span>
+                          </div>
+                          <p className="text-[10px] text-slate-400">
+                            <span className="font-bold">Fed AM:</span> — · <span className="font-bold">Fed PM:</span> — · <span className="font-bold">Walked:</span> — · <span className="font-bold">Meds:</span> — · <span className="font-bold">Stool:</span> — · <span className="font-bold">Appetite:</span> — · <span className="font-bold">Notes:</span> —
+                          </p>
+                          {consRows}
+                        </div>
+                      );
+                      return logs.map((l, li) => (
+                        <div key={l.id} className="bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-3 border border-slate-100 dark:border-zinc-800">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
+                            <span className="text-[10px] font-black text-pine dark:text-zinc-200">Day {dayNo} · {formatDate(l.logDate)}{li === 0 && <span className="ml-2">{chargeLine}</span>}</span>
+                            <div className="flex gap-1.5 text-[9px] font-bold">
+                              <span className={l.fedAm ? 'text-emerald-600' : 'text-slate-300 dark:text-zinc-600'}>AM{l.fedAm ? '' : ' —'}</span>
+                              <span className={l.fedPm ? 'text-emerald-600' : 'text-slate-300 dark:text-zinc-600'}>PM{l.fedPm ? '' : ' —'}</span>
+                              <span className={l.walked ? 'text-seafoam' : 'text-slate-300 dark:text-zinc-600'}>Walk{l.walked ? '' : ' —'}</span>
+                              <span className={l.medicationGiven ? 'text-indigo-500' : 'text-slate-300 dark:text-zinc-600'}>Med{l.medicationGiven ? '' : ' —'}</span>
+                            </div>
+                          </div>
+                          <p className="text-[10px] text-slate-500 dark:text-zinc-400">
+                            Appetite: {l.appetite || '—'}. Stool: {l.stool || '—'}. Ate: {l.foodNotes || '—'}. {l.notes || ''}
+                          </p>
+                          {l.mealPhoto && <img src={l.mealPhoto} alt="meal" className="mt-2 w-20 h-20 rounded-lg object-cover border border-slate-200 dark:border-zinc-800" />}
+                          {li === logs.length - 1 && consRows}
+                        </div>
+                      ));
+                    })}
+                  </div>
+                );
+              })()}
             </div>
             </section>
           </div>
