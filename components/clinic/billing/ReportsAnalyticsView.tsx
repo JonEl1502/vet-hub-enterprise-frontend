@@ -473,7 +473,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
           </div>
 
           {/* ── Dept · Top vets · Methods · Client growth ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
             {/* Revenue by Department */}
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
               <div className="mb-2">
@@ -599,7 +599,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
           </div>
 
           {/* ── AR · AP · Insights · Forecast ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
             {/* Top outstanding */}
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col">
               <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight mb-2">Top 5 Outstanding Balances</h3>
