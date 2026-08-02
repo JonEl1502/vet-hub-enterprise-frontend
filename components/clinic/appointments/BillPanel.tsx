@@ -411,7 +411,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
           </span>
           <span className="ml-auto flex items-center gap-1">
             {invoice.scope && invoice.scope !== 'FULL' && (
-              <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">{invoice.scope === 'CLINICAL' ? 'Clinical split' : 'Stay split'}</span>
+              <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">{invoice.scope === 'CLINICAL' ? 'Clinical split' : invoice.scope === 'GROOMING' ? 'Grooming split' : 'Stay split'}</span>
             )}
             <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{invoice.status}</span>
           </span>
@@ -428,12 +428,18 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
               // transfer visits, and services from one original-clinic visit
               // always stay on one invoice.
               const hasStay = !!((visit as any).boardingStayId || (visit as any).hospitalizationId);
+              // Grooming is its own invoice scope too (user, 2026-08-02).
+              const STAY_CATS = ['Boarding Stay', 'Inpatient Stay', 'Food Program'];
+              const hasGroom = (bill.lines || []).some(l => !STAY_CATS.includes(l.category || '') && /groom/i.test(l.category || ''))
+                && (bill.lines || []).some(l => !STAY_CATS.includes(l.category || '') && !/groom/i.test(l.category || ''));
               const isTransfer = (visit as any).visitType === 'CLINICAL_TRANSFER';
               let scope: 'FULL' | 'CLINICAL' = 'FULL';
-              if (hasStay && !isTransfer) {
+              if ((hasStay || hasGroom) && !isTransfer) {
                 const split = await dialog.confirm({
                   title: 'Split invoices?',
-                  message: 'Do you want to split invoices for the encounters of this visit? The clinical work is invoiced now; the boarding/inpatient stay keeps accruing on the open bill and is invoiced at discharge.',
+                  message: hasStay
+                    ? 'Do you want to split invoices for the encounters of this visit? The clinical work is invoiced now; the boarding/inpatient stay keeps accruing on the open bill and is invoiced at discharge.'
+                    : 'Do you want to split invoices for the encounters of this visit? Clinical work and grooming each get their own invoice, payable separately.',
                   confirmLabel: 'Split — invoice clinical now',
                   cancelLabel: 'One invoice for everything',
                   variant: 'info',
@@ -449,12 +455,23 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
         )}
         {/* The stay's own document — once the clinical split exists. Charges
             keep accruing until discharge; generate this at the end. */}
-        {bill.status === 'APPROVED' && invoice?.scope === 'CLINICAL' && (
+        {bill.status === 'APPROVED' && invoice && invoice.scope !== 'FULL' && !!((visit as any).boardingStayId || (visit as any).hospitalizationId) && invoice.scope !== 'STAY' && (
           <button type="button" disabled={busy}
             onClick={() => run(async () => { const r = await invoicesAPI.generate(visit.id, { scope: 'STAY' }); setInvoice(r.data?.invoice ?? null); await load(); return null; }, 'Stay invoice generated')}
             title="Invoice the accrued boarding/inpatient stay (do this at discharge)"
             className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-600 text-white hover:bg-violet-700 disabled:opacity-40">
             <ReceiptText size={11} /> Invoice the stay
+          </button>
+        )}
+        {/* Grooming's own document — offered while the bill is still open and
+            it carries grooming lines not yet on their own invoice. */}
+        {bill.status === 'APPROVED' && invoice && invoice.scope !== 'FULL' && invoice.scope !== 'GROOMING'
+          && (bill.lines || []).some(l => !['Boarding Stay', 'Inpatient Stay', 'Food Program'].includes(l.category || '') && /groom/i.test(l.category || '')) && (
+          <button type="button" disabled={busy}
+            onClick={() => run(async () => { const r = await invoicesAPI.generate(visit.id, { scope: 'GROOMING' }); setInvoice(r.data?.invoice ?? null); await load(); return null; }, 'Grooming invoice generated')}
+            title="Invoice the grooming work on its own document"
+            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-fuchsia-600 text-white hover:bg-fuchsia-700 disabled:opacity-40">
+            <ReceiptText size={11} /> Invoice grooming
           </button>
         )}
         {editable && (

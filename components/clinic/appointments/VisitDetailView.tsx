@@ -24,7 +24,7 @@ import { subscribePendingRequests } from '../../../services/api/client';
 import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
-import { consumablesAPI, AppointmentConsumable, boardingAPI, inpatientAPI, labAPI, imagingAPI } from '../../../services';
+import { consumablesAPI, AppointmentConsumable, boardingAPI, inpatientAPI, labAPI, imagingAPI, clientsAPI } from '../../../services';
 import { serviceBundlesAPI, type ServiceBundle } from '../../../services/modules/serviceBundles.api';
 import { toast } from '../../../services/utils/toast';
 import { paymentGatewaysAPI } from '../../../services/modules/paymentGateways.api';
@@ -902,6 +902,12 @@ const VisitDetailInner: React.FC<Props> = ({
   const [isSettlingBill, setIsSettlingBill] = useState(false);
   const [isUpdatingPaymentMethod, setIsUpdatingPaymentMethod] = useState(false);
   const [showSettleModal, setShowSettleModal] = useState(false);
+  // Pay-together (user, 2026-08-02): the client's OTHER outstanding invoices,
+  // tickable inside the settle modal — one payment fulfils them all via the
+  // existing collect allocation engine (FIFO/manual, settlements many-to-many).
+  const [settleOthers, setSettleOthers] = useState<{ visitId: string; date: string; outstanding: number }[]>([]);
+  const [settleAlso, setSettleAlso] = useState<Set<string>>(new Set());
+  const [settleOthersOpen, setSettleOthersOpen] = useState(false);
   const [settlePaymentMethod, setSettlePaymentMethod] = useState<string | null>(null);
   const [settleDiscountType, setSettleDiscountType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
   const [settleDiscountValue, setSettleDiscountValue] = useState<string>('');
@@ -2565,6 +2571,15 @@ const VisitDetailInner: React.FC<Props> = ({
   };
 
   const openSettleModal = async () => {
+    setSettleAlso(new Set()); setSettleOthersOpen(false); setSettleOthers([]);
+    if (client) {
+      clientsAPI.getBilling(client.id, { silent: true } as any).then(r => {
+        const rows = (r.data?.invoices || [])
+          .filter(iv => Number(iv.outstanding) > 0 && String(iv.visitId) !== String(appointment.id))
+          .map(iv => ({ visitId: String(iv.visitId), date: iv.date, outstanding: Number(iv.outstanding) }));
+        setSettleOthers(rows);
+      }).catch(() => {});
+    }
     setSettlePaymentMethod(appointment.paymentMethod ?? null);
     setSettleDiscountType('PERCENTAGE');
     setSettleDiscountValue('');
@@ -6846,6 +6861,44 @@ const VisitDetailInner: React.FC<Props> = ({
                   </div>
                 </div>
 
+                {/* Other outstanding balances — tick to pay together (one
+                    payment, one receipt run, many invoices). */}
+                {settleOthers.length > 0 && (
+                  <div className="border border-amber-200 dark:border-amber-900/50 rounded-xl overflow-hidden">
+                    <button type="button" onClick={() => setSettleOthersOpen(o => !o)}
+                      className="w-full flex items-center justify-between px-3 py-2 bg-amber-50/70 dark:bg-amber-950/20 text-left">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
+                        Other outstanding · {settleOthers.length} invoice{settleOthers.length === 1 ? '' : 's'} · {activeClinic.currency} {settleOthers.reduce((n, r) => n + r.outstanding, 0).toLocaleString()}
+                      </span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-amber-600">{settleOthersOpen ? 'hide' : 'add to this payment'}</span>
+                    </button>
+                    {settleOthersOpen && (
+                      <div className="p-2 space-y-1 max-h-40 overflow-y-auto">
+                        {settleOthers.map(r => {
+                          const on = settleAlso.has(r.visitId);
+                          return (
+                            <button key={r.visitId} type="button"
+                              onClick={() => setSettleAlso(prev => { const n = new Set(prev); on ? n.delete(r.visitId) : n.add(r.visitId); return n; })}
+                              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left transition-all ${on ? 'border-seafoam bg-seafoam/10' : 'border-slate-100 dark:border-zinc-800 hover:border-seafoam/40'}`}>
+                              <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] font-black shrink-0 ${on ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-transparent'}`}>✓</span>
+                              <span className="flex-1 text-[11px] font-bold text-pine dark:text-zinc-100">Visit #{r.visitId} · {new Date(r.date).toLocaleDateString()}</span>
+                              <span className="text-[11px] font-black text-amber-600 font-mono">{activeClinic.currency} {r.outstanding.toLocaleString()}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {settleAlso.size > 0 && (
+                      <div className="px-3 py-2 bg-seafoam/10 flex items-center justify-between">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-seafoam">Paying together · {settleAlso.size + 1} invoices</span>
+                        <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono">
+                          {activeClinic.currency} {(finalTotal + settleOthers.filter(r => settleAlso.has(r.visitId)).reduce((n, r) => n + r.outstanding, 0)).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
                 {/* Confirm */}
                 <button
                   onClick={async () => {
@@ -6863,6 +6916,27 @@ const VisitDetailInner: React.FC<Props> = ({
                     const pickedWalletId = settleSelectedWalletId && settleSelectedWalletId !== CASH_OPTION_ID
                       ? settleSelectedWalletId
                       : null;
+                    if (settleAlso.size > 0 && client) {
+                      // ONE payment over this visit + the ticked invoices — the
+                      // collect engine allocates and receipts per filled invoice.
+                      setIsSettlingBill(true);
+                      try {
+                        const res = await clientsAPI.collect(client.id, {
+                          visitIds: [String(appointment.id), ...Array.from(settleAlso)],
+                          paymentMethod: settlePaymentMethod,
+                          walletId: pickedWalletId ?? undefined,
+                          ...(discountVal > 0 ? { discountType: settleDiscountType, discountValue: discountVal } : {}),
+                        });
+                        if (res.success) {
+                          toast.success(`Payment collected across ${settleAlso.size + 1} invoices${res.data?.receipt?.receiptNumber ? ` · ${res.data.receipt.receiptNumber}` : ''}`);
+                          setShowSettleModal(false);
+                          updateAppointmentOptimistically(appointment.id, appt => ({ ...appt, isPaid: true } as any));
+                          await onRefreshDashboard?.();
+                        }
+                      } catch (e: any) { toast.error(e?.message || 'Failed to collect'); }
+                      finally { setIsSettlingBill(false); }
+                      return;
+                    }
                     await handleSettleBill(settlePaymentMethod, discountVal > 0 ? settleDiscountType : undefined, discountVal > 0 ? discountVal : undefined, pickedWalletId);
                   }}
                   disabled={isSettlingBill}

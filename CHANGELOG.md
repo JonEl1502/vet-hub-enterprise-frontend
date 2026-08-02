@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: grooming invoice split + pay-together in the visit's settle modal  —  2026-08-02
+- **What changed:** (user) Generate-invoice split ask now also triggers when the bill
+  mixes grooming and clinical lines; while the bill stays open, "Invoice grooming" and
+  "Invoice the stay" buttons issue each remaining scope's own document (scope chip
+  shows Clinical/Grooming/Stay split). The settle modal gains a collapsible **"Other
+  outstanding"** list of the client's unpaid invoices — tick any to pay together: ONE
+  payment through the collect allocation engine covers this visit + the ticked ones
+  (receipt per filled invoice, running combined total shown).
+- **Record impact:** 🟢 — UI over existing endpoints.
+
 ### frontend: sticky bar offers Make payment once the bill is live  —  2026-08-02
 - **What changed:** (user) with an APPROVED/INVOICED bill the bottom bar no longer
   offers "Generate bill" again — it becomes **Make payment** (opens the settle flow).
