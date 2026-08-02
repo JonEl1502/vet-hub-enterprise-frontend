@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: "Transfer / add encounter" moves to the finalize & payment bar  —  2026-08-02
+- **What changed:** (user, S2: "let transfer to another visit type happen at the end next
+  to finalize or payment — not here any more") the picker is gone from the wizard header
+  beside the workflow chip and now sits in the visit's fixed **Generate bill / Settle**
+  bar, extracted as `AddEncounterSelect` (same taken-state rules, hidden once the visit is
+  paid). At the top it read as a mid-consultation mode switch and invited stacking work
+  onto an open visit; at the end it reads as the hand-off decision it actually is.
+- **Record impact:** 🟢 None — same handler, same endpoint, different placement.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ℹ️ This is also the shape the linked-visits direction needs — see
+  `backend/docs/LINKED_VISITS_ARCHITECTURE.md`, where this control becomes "start a linked
+  visit" instead of stacking an encounter row on the same visit.
+
+
 ### page: role-based dashboards — Front Office / Groomer / Vet  —  2026-08-02
 - **What changed:** (user, S2) non-full-access staff no longer all land on the same generic
   `StaffDashboard`. New `components/clinic/dashboard/roles/`:

@@ -49,6 +49,7 @@ import AppliedProcedurePanel from '../shared/AppliedProcedurePanel';
 import { ServiceInjectProvider } from '../shared/ServiceInjectContext';
 import BillPanel from './BillPanel';
 import BillBalanceCard from './BillBalanceCard';
+import AddEncounterSelect from './AddEncounterSelect';
 import type { Bill } from '../../../services/modules/bills.api';
 import DewormingAgainst from '../shared/DewormingAgainst';
 import Money from '../../shared/common/Money';
@@ -7172,6 +7173,16 @@ const VisitDetailInner: React.FC<Props> = ({
                 <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{activeClinic.currency} {Number(liveBill && (liveBill.lines?.length ?? 0) > 0 ? liveBill.total : appointment.totalCost).toLocaleString()}</p>
               </div>
               <div className="flex-1" />
+              {/* Hand-off lives HERE now (user, 2026-08-02) — beside finalize /
+                  payment, not in the wizard header. */}
+              {!appointment.isPaid && (
+                <AddEncounterSelect
+                  visit={appointment}
+                  availableEntries={wiz.availableEntries}
+                  onAdd={handleAddEncounter}
+                  className="hidden sm:block"
+                />
+              )}
               {isFinalized && canUnlock && (
                 <button onClick={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)} title="Unlock for editing"
                   className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 transition-all">
