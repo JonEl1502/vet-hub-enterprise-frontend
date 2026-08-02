@@ -95,6 +95,32 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   // Per-day line editing (user, 2026-08-02): each care-log day opens a
   // collapsible editor (same fields as Log today's care) so paper records can
   // be back-filled — blank day → addLog with that logDate, existing → updateLog.
+  // Stay & food pricing editor (user, 2026-08-02: a 300-meals/day typo billed
+  // 540,000 and there was nowhere to see or fix it). Saving re-prices the
+  // accrued lines server-side immediately.
+  const [pricingOpen, setPricingOpen] = useState(false);
+  const [priceDraft, setPriceDraft] = useState<any>(null);
+  const [priceSaving, setPriceSaving] = useState(false);
+  const openPricing = () => {
+    const fp: any = (stay as any)?.foodProgram || {};
+    setPriceDraft({ dailyRate: stay?.dailyRate ?? '', mealsPerDay: fp.mealsPerDay ?? '', ratePerMeal: fp.ratePerMeal ?? '', providedByClient: fp.providedByClient === true, feedingTimes: fp.feedingTimes ?? '' });
+    setPricingOpen(o => !o);
+  };
+  const savePricing = async () => {
+    if (!priceDraft) return;
+    setPriceSaving(true);
+    try {
+      const fp: any = { ...((stay as any)?.foodProgram || {}) };
+      fp.mealsPerDay = priceDraft.mealsPerDay === '' ? 0 : Number(priceDraft.mealsPerDay);
+      fp.ratePerMeal = priceDraft.ratePerMeal === '' ? 0 : Number(priceDraft.ratePerMeal);
+      fp.providedByClient = !!priceDraft.providedByClient;
+      if (priceDraft.feedingTimes !== '') fp.feedingTimes = priceDraft.feedingTimes;
+      const res = await boardingAPI.update(stayId, { dailyRate: priceDraft.dailyRate === '' ? undefined : Number(priceDraft.dailyRate), foodProgram: fp } as any);
+      if (res.success) { toast.success('Pricing updated — accrued charges re-priced'); setPricingOpen(false); await load(); onChanged?.(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to update pricing'); }
+    finally { setPriceSaving(false); }
+  };
+
   const [editDay, setEditDay] = useState<string | null>(null);
   const [dayDraft, setDayDraft] = useState<any>({});
   const [daySaving, setDaySaving] = useState(false);
@@ -545,14 +571,45 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
               {/* Accruing daily charge (added to the bill at checkout) —
                   calendar dates crossed since check-in, same maths as the
                   backend's computeNights. */}
-              {active && stay.dailyRate ? (() => {
-                const days = Math.max(1, calendarDaysBetween(stay.dropOffAt));
+              {(() => {
+                const days = Math.max(1, calendarDaysBetween(stay.dropOffAt, stay.actualPickupAt ?? undefined));
+                const fp: any = (stay as any).foodProgram || {};
+                const foodPerDay = fp.providedByClient === false ? (Number(fp.ratePerMeal) || 0) * (Number(fp.mealsPerDay) || 0) : 0;
                 return (
-                  <p className="text-[10px] text-slate-500 dark:text-zinc-400">
-                    Accruing: {days} day{days === 1 ? '' : 's'} × KES {stay.dailyRate.toLocaleString()} = <b className="text-pine dark:text-zinc-100">KES {(days * stay.dailyRate).toLocaleString()}</b> <span className="text-slate-400">(added at checkout)</span>
-                  </p>
+                  <div className="space-y-1">
+                    {active && stay.dailyRate ? (
+                      <p className="text-[10px] text-slate-500 dark:text-zinc-400">
+                        Accruing: {days} day{days === 1 ? '' : 's'} × KES {stay.dailyRate.toLocaleString()} = <b className="text-pine dark:text-zinc-100">KES {(days * stay.dailyRate).toLocaleString()}</b> <span className="text-slate-400">(added at checkout)</span>
+                      </p>
+                    ) : null}
+                    {/* The FOOD accrual — visible so a meals/rate typo can't hide. */}
+                    {foodPerDay > 0 && (
+                      <p className="text-[10px] text-slate-500 dark:text-zinc-400">
+                        Food: {Number(fp.mealsPerDay)} meal{Number(fp.mealsPerDay) === 1 ? '' : 's'}/day × KES {Number(fp.ratePerMeal).toLocaleString()} = KES {foodPerDay.toLocaleString()}/day → <b className="text-pine dark:text-zinc-100">KES {(days * foodPerDay).toLocaleString()}</b>
+                      </p>
+                    )}
+                    <button onClick={openPricing} className="px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">
+                      {pricingOpen ? 'Close' : '✎ Edit stay & food pricing'}
+                    </button>
+                    {pricingOpen && priceDraft && (
+                      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-2">
+                        <div className="grid grid-cols-3 gap-2">
+                          <div><label className="field-label">Daily rate</label><input type="number" min="0" className="field-input" value={priceDraft.dailyRate} onChange={e => setPriceDraft((d: any) => ({ ...d, dailyRate: e.target.value }))} /></div>
+                          <div><label className="field-label">Meals / day</label><input type="number" min="0" className="field-input" value={priceDraft.mealsPerDay} onChange={e => setPriceDraft((d: any) => ({ ...d, mealsPerDay: e.target.value }))} /></div>
+                          <div><label className="field-label">Rate / meal</label><input type="number" min="0" className="field-input" value={priceDraft.ratePerMeal} onChange={e => setPriceDraft((d: any) => ({ ...d, ratePerMeal: e.target.value }))} /></div>
+                        </div>
+                        <label className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                          <input type="checkbox" checked={!!priceDraft.providedByClient} onChange={e => setPriceDraft((d: any) => ({ ...d, providedByClient: e.target.checked }))} className="accent-seafoam" />
+                          Food provided by the client (no food charge)
+                        </label>
+                        <button onClick={savePricing} disabled={priceSaving} className="w-full py-2 bg-seafoam text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
+                          {priceSaving ? <Loader2 size={12} className="animate-spin" /> : null} Save — re-price accrued charges
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 );
-              })() : null}
+              })()}
             </div>
 
             {/* Billing (finalize · reminder · settle) lives ONLY on the visit

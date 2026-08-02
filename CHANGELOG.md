@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend+api: receipt honours collect-time discount; stay & food pricing editable  —  2026-08-02
+- **What changed:** (user, visit 133 + 135) The reconciliation/receipt now subtracts the
+  collect-time discount (proportional per transaction on multi-invoice collects) —
+  final amount, discount line, and balance read correctly instead of "balance 9 ·
+  payment reversed". Boarding-stay page gains a visible **Stay & food pricing** block
+  (daily rate, meals/day, rate/meal, provided-by-client) with an editor; saving
+  re-prices the accrued Boarding/Food lines immediately (a 300-meals/day typo billed
+  540,000 with nowhere to see or fix it). Transfer-visit tab order: Clinical Transfer →
+  Records & Reports → Partner Bill & Receipt (bill/receipt last, records second-last).
+- **Record impact:** 🟢 — read-path + idempotent re-pricing through the existing accrual.
+
 ### frontend+api: client Payments tab shows real invoices, select-all, printable view  —  2026-08-02
 - **What changed:** (user) `/clients/:id/billing` rows now carry the visit's live
   invoice DOCUMENTS (number, split scope, status). The Payments tab renders them as

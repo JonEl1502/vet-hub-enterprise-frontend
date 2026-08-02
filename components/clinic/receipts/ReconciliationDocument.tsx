@@ -206,6 +206,18 @@ const ReconciliationDocument: React.FC<Props> = ({
       {/* The three figures. All present on both documents, so a discount or a
           write-off is visible rather than implied by a single number. */}
       <div className={`px-4 py-3 border-t ${panel} space-y-1`}>
+        {Number((data as any).discount) > 0 && (
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Amount</span>
+            {amount((data as any).grossAmount ?? data.finalAmount, 'text-sm font-bold text-slate-500 dark:text-zinc-400 font-mono tabular-nums')}
+          </div>
+        )}
+        {Number((data as any).discount) > 0 && (
+          <div className="flex justify-between items-center">
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Discount applied</span>
+            {amount(-Number((data as any).discount), 'text-sm font-black text-emerald-600 font-mono tabular-nums')}
+          </div>
+        )}
         <div className="flex justify-between items-center">
           <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Final amount</span>
           {amount(data.finalAmount, 'text-sm font-black text-pine dark:text-zinc-100 font-mono tabular-nums')}
