@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: Follow-Up tab bar reads "Finalize visit & bill"  —  2026-08-02
+- **What changed:** (user) the sticky bar's generate button is labelled
+  "Finalize visit & bill" on the Follow-Up & Reminders tab (same action).
+- **Record impact:** 🟢.
+
+### frontend: Admin → Plans — audiences are the source of truth; readable feature keys  —  2026-08-02
+- **What changed:** (board §0f #5+#6, user decision) The "Offered to" chips now cover
+  every non-supplier audience — Clinic, Freelancer, **Client (pet owner)** and **Farm
+  (livestock)** were missing, which let a plan sit on a tab no buyer ever saw (live
+  example: CLIENT PORTAL, audience CLINIC, 0 views attached, invisible to clients).
+  Tabs remain filters over the same `audiences` field (placement and buyer visibility
+  cannot diverge); the Supplier tab is labelled as the one exception (separate table).
+  Views & Services toggles now lead with the human label from `FEATURE_COPY` with the
+  raw key as secondary text — no more reading `VIEW:LABORATORY` cold.
+- **Record impact:** 🟢 — UI; backend already accepted all five audiences.
+
 ### frontend: grooming invoice split + pay-together in the visit's settle modal  —  2026-08-02
 - **What changed:** (user) Generate-invoice split ask now also triggers when the bill
   mixes grooming and clinical lines; while the bill stays open, "Invoice grooming" and

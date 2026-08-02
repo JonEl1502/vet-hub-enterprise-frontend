@@ -16,6 +16,7 @@ import {
   type PackageAudience,
   type Region,
 } from '../../../services/modules/subscriptionPackages.api';
+import { featureCopy } from '../../../services/entitlements';
 import { dialog } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
@@ -277,7 +278,8 @@ const SubPackagesAdminPage: React.FC = () => {
         }
       />
 
-      {/* Audience tabs — Clinics vs Suppliers, one page */}
+      {/* Audience tabs — filters over each package's `audiences` tag (§0f #5).
+          Supplier is the one exception: its plans live in their own TABLE. */}
       <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 self-start inline-flex">
         {([
           ['clinic', 'Clinic Plans', Building2],
@@ -299,6 +301,11 @@ const SubPackagesAdminPage: React.FC = () => {
           </button>
         ))}
       </div>
+      {isSupplier && (
+        <p className="-mt-2 text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
+          Supplier plans are a separate catalog (own table) — this tab is not a filter like the others.
+        </p>
+      )}
 
       {(
       <>
@@ -509,7 +516,16 @@ const SubPackagesAdminPage: React.FC = () => {
                   <div>
                     <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Offered to</p>
                     <div className="flex flex-wrap gap-2">
-                      {(['CLINIC', 'SUPPLIER', 'FREELANCER'] as PackageAudience[]).map((aud) => {
+                      {/* §0f #5: audiences ARE the source of truth — every
+                          non-supplier audience is offerable (CLIENT and FARM
+                          were missing, so a plan could sit on a tab no buyer
+                          ever saw). Tabs are filters over this field. */}
+                      {([
+                        ['CLINIC', 'Clinic'],
+                        ['FREELANCER', 'Freelancer'],
+                        ['CLIENT', 'Client (pet owner)'],
+                        ['LIVESTOCK', 'Farm (livestock)'],
+                      ] as [PackageAudience, string][]).map(([aud, audLabel]) => {
                         const list = (selected.audiences && selected.audiences.length > 0) ? selected.audiences : ['CLINIC'] as PackageAudience[];
                         const isOn = list.includes(aud);
                         return (
@@ -529,13 +545,13 @@ const SubPackagesAdminPage: React.FC = () => {
                                 : 'bg-white dark:bg-zinc-900 text-slate-500 border-slate-200 dark:border-zinc-700 hover:border-pine dark:hover:border-seafoam'
                             }`}
                           >
-                            {aud}
+                            {audLabel}
                           </button>
                         );
                       })}
                     </div>
                     <p className="mt-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                      Only the chosen audiences see this package on their billing screen.
+                      Only the chosen audiences see this package on their billing screen — and the tabs above filter by this same field, so admin placement and buyer visibility can never disagree.
                     </p>
                   </div>
                   )}
@@ -746,7 +762,12 @@ const FeatureBucket: React.FC<FeatureBucketProps> = ({ title, catalog, isAttache
                     : 'bg-white dark:bg-zinc-900 border-slate-100 dark:border-zinc-800 text-slate-500 hover:border-slate-300'
                 }`}
               >
-                <span className="text-[10px] font-black uppercase tracking-tight truncate">{f}</span>
+                <span className="min-w-0">
+                  {/* §0f #6: the human label leads; the raw key is secondary.
+                      Reading 32 raw keys is how a plan ends up 0-of-32 unnoticed. */}
+                  <span className="block text-[11px] font-black tracking-tight truncate">{featureCopy(f.toLowerCase()).label}</span>
+                  <span className="block text-[8px] font-bold text-slate-400 uppercase tracking-widest truncate">{f}</span>
+                </span>
                 {on && <CheckCircle2 size={14} className="text-seafoam shrink-0"/>}
               </button>
             );

@@ -7136,7 +7136,7 @@ const VisitDetailInner: React.FC<Props> = ({
                 <button onClick={openFinalizeGate} disabled={isFinalizing}
                   title="Generate the bill for this visit — this finalizes it"
                   className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95">
-                  <FileText size={13} /> Generate bill
+                  <FileText size={13} /> {workflowTab === 'followup' ? 'Finalize visit & bill' : 'Generate bill'}
                 </button>
               ) : (
                 <button onClick={openSettleModal} disabled={isSettlingBill}
