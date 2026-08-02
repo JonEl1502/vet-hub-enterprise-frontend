@@ -22,9 +22,15 @@ interface Props {
   verified: boolean;
   verifiedAt?: string | null;
   onChanged: (verified: boolean) => void;
+  /**
+   * Admin console shows Vouch/Clear (the out-of-band bypass endpoints, which
+   * the server refuses for clinic roles anyway). Clinic settings passes false
+   * for the owner self-serve flow: send code → enter code, nothing else.
+   */
+  adminActions?: boolean;
 }
 
-const ClinicEmailVerify: React.FC<Props> = ({ clinicId, email, verified, verifiedAt, onChanged }) => {
+const ClinicEmailVerify: React.FC<Props> = ({ clinicId, email, verified, verifiedAt, onChanged, adminActions = true }) => {
   const [busy, setBusy] = React.useState(false);
   const [entering, setEntering] = React.useState(false);
   const [otp, setOtp] = React.useState('');
@@ -97,13 +103,15 @@ const ClinicEmailVerify: React.FC<Props> = ({ clinicId, email, verified, verifie
           >
             <Send size={10} /> Send code
           </button>
-          <button
-            onClick={() => vouch(true)}
-            title="Support has confirmed this address out of band — same bypass as user accounts"
-            className="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-all"
-          >
-            Vouch
-          </button>
+          {adminActions && (
+            <button
+              onClick={() => vouch(true)}
+              title="Support has confirmed this address out of band — same bypass as user accounts"
+              className="px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-all"
+            >
+              Vouch
+            </button>
+          )}
         </>
       )}
 
@@ -130,7 +138,7 @@ const ClinicEmailVerify: React.FC<Props> = ({ clinicId, email, verified, verifie
         </span>
       )}
 
-      {verified && !busy && (
+      {verified && !busy && adminActions && (
         <button
           onClick={() => vouch(false)}
           title="Clear the verification — the address changed, or it was vouched for in error"

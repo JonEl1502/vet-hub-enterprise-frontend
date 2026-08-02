@@ -55,6 +55,7 @@ import {
 import RatingsDashboardView from '../ratings/RatingsDashboardView';
 import ClinicTransferCard from './ClinicTransferCard';
 import VerificationPanel from '../../shared/verification/VerificationPanel';
+import ClinicEmailVerify from '../../admin/clinics/ClinicEmailVerify';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useManagementScope } from '../../../contexts/ManagementScopeContext';
 import ManagingSwitcher from '../../shared/common/ManagingSwitcher';
@@ -116,6 +117,9 @@ const ClinicManagementView: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState<'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification' | 'emergency' | 'ratings'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  // Clinic-email verification status (145) — owner self-serve in Branding.
+  const [emailVerifiedLocal, setEmailVerifiedLocal] = useState<boolean>(!!(clinic as any).emailVerified);
+  useEffect(() => { setEmailVerifiedLocal(!!(clinic as any).emailVerified); }, [clinic.id, (clinic as any).emailVerified]);
   const [actionLoading, setActionLoading] = useState<string | null>(null); // tracks which action is in progress
 
   // Local state for live preview before saving
@@ -692,6 +696,20 @@ const ClinicManagementView: React.FC<Props> = ({
                      <div className="space-y-1.5">
                         <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Email</label>
                         <input name="email" type="email" defaultValue={(clinic as any).email || ''} placeholder="clinic@example.com" className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20" />
+                        {/* Owner self-serve verification (145) — informational,
+                            never a gate. Admin Vouch/Clear hidden here. */}
+                        {(clinic as any).email && (
+                          <div className="px-1 text-[10px] text-slate-500 dark:text-zinc-400">
+                            <ClinicEmailVerify
+                              clinicId={String(clinic.id)}
+                              email=""
+                              verified={emailVerifiedLocal}
+                              verifiedAt={(clinic as any).emailVerifiedAt ?? null}
+                              onChanged={setEmailVerifiedLocal}
+                              adminActions={false}
+                            />
+                          </div>
+                        )}
                      </div>
                      <div className="space-y-1.5">
                         <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Phone</label>

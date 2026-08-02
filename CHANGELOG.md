@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: clinic settings — owner self-serve clinic-email verification  —  2026-08-02
+- **What changed:** (S2, §0 carry-over) the Branding tab's Email field now shows the
+  verified/unverified chip + "Send code" → enter-OTP flow (reuses `ClinicEmailVerify` with
+  a new `adminActions={false}` prop that hides admin Vouch/Clear). Informational only —
+  never a gate. Backend now returns `emailVerified`/`emailVerifiedAt` on clinic reads.
+- **Record impact:** 🟢 None.
+- **Data dependency:** Backend commit exposing `emailVerified` on clinic transforms
+  (same-day); column is 145, long live.
+- **Rollback:** revert the commit and rebuild.
+
+### component: visit bill action bar — spacer clears the bar; iOS safe-area  —  2026-08-02
+- **What changed:** (S2, S8 leftover) the fixed Generate-Bill/Settle bar's content spacer
+  grows `h-16` → `h-24 sm:h-20` (the bar is ~68px tall on desktop, so the last content row
+  hid under it) and the bar gains safe-area bottom padding for the iPhone home indicator.
+  Read-only audit same pass: task-price inputs gate on `!isFinalized`, bill lines on
+  `bill.editable` — no leaks found.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### fix: boarding visit no longer gains a bogus "Vet Visit — clinical" chip from fee lines  —  2026-08-02
 - **What changed:** (user bug report, S1) creating a BOARDING visit with an After-hours
   surcharge added a Vet Visit — clinical chip. Two-part fix: ① `NewVisitView` now stages
