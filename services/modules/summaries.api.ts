@@ -84,6 +84,15 @@ export interface ClinicStats {
   revenue: number;
 }
 
+/** Finance BI splits for the Reports & Analytics dashboard. */
+export interface FinanceBI {
+  paymentMethods: { method: string; amount: number; count: number }[];
+  revenueByCategory: { category: string; amount: number }[];
+  topStaff: { userId: string; name: string; avatarUrl: string | null; revenue: number; visits: number; deltaPct: number | null }[];
+  clientGrowth: { newClients: number; newClientsPrev: number; returningClients: number; lostClients: number; totalActiveClients: number };
+  compare: { from: string; to: string };
+}
+
 export const summariesAPI = {
   /** Aggregated totals + daily series for the requested scope. */
   get: async (
@@ -115,6 +124,17 @@ export const summariesAPI = {
     const q = new URLSearchParams({ scopeId: String(opts.scopeId) });
     if (opts.days) q.set('days', String(opts.days));
     return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'conversions')}?${q.toString()}`, { cache: false, ...options });
+  },
+
+  /** Finance BI splits — payment methods, category revenue, staff revenue, client growth. */
+  financeBI: async (
+    opts: { scopeId: string | number; from?: string; to?: string },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<FinanceBI>> => {
+    const q = new URLSearchParams({ scopeId: String(opts.scopeId) });
+    if (opts.from) q.set('from', opts.from);
+    if (opts.to) q.set('to', opts.to);
+    return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'finance-bi')}?${q.toString()}`, { cache: false, ...options });
   },
 
   /** Per-scope rows so the dashboard can render a per-clinic table. */

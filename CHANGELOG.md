@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Finance → Reports & Analytics — BI dashboard  —  2026-08-02
+- **What changed:** (user reference screenshot, S1) new `ReportsAnalyticsView`
+  (`reports-analytics` view id, Finance submenu entry): 7 KPI cards with vs-previous-period
+  deltas, Financial Performance line chart + Cash Flow in/out chart (daily/weekly, recharts),
+  derived Business Health Score gauge (6 star-rated dimensions), Revenue by Department +
+  Payment Methods donuts, Top Veterinarians by revenue (lead-staff attribution, delta),
+  Client Growth, Top-5 outstanding balances (AR ageing, call links), Upcoming Payables
+  (supplier invoices by due date, Overdue/Due Soon/Upcoming chips), rules-derived Business
+  Alerts & Insights, 30-day straight-line Forecast, and a Quick Reports strip (report
+  generators are stubs that toast "coming soon"). Data: `/summaries` (+ compare window),
+  new `/summaries/finance-bi`, `/transactions/ar-ageing`, `/suppliers/ap/*`, clinic wallet.
+- **Record impact:** 🟢 None — read-only page.
+- **Data dependency:** Graceful fallback — every source is wrapped; a missing
+  `/summaries/finance-bi` (backend not yet deployed) just leaves those cards empty.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** health score + forecast are DERIVED client-side (straight-line daily
+  averages) — they are estimates, labelled as such on the page.
+
 ### component: AppliedProcedurePanel — per-item qty × unit-price detail line  —  2026-08-02
 - **What changed:** (S2, surgery-record polish) every product line in an applied procedure
   now shows a detail row — `qty unit × price`, plus whether stock is already deducted or
