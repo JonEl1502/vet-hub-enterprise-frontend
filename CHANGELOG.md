@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: wizard resolves from the SELECTED ENCOUNTER (172)  —  2026-08-02
+- **What changed:** `useVisitWizard` now loads `GET /visits/:id/encounters` and derives
+  the step sequence from the **selected encounter row** (its encounterType / visitType /
+  templateId) instead of `appointments.visit_type`. Chips are the rows: switching selects
+  a row; *Transfer/add encounter* now also **creates the row** (`POST /encounters`);
+  removing an encounter also **deletes the row** (`DELETE /encounters/:id`) — fixing both
+  reported bugs (clinical chip on a VACCINATION visit rendered the vaccination stepper;
+  the chip's × removed nothing and it came straight back). Template resolution runs for
+  the selected encounter's types, so a default template (clinic 3's `Vaccination (copy)`)
+  can no longer hijack a clinical chip; a row's own `templateId` wins outright.
+- **`resolveEntryPoint()` is KEPT as the fallback** whenever the encounter list is empty
+  or the fetch fails — a failed fetch renders the legacy flow, never a blank workflow.
+- **Record impact:** 🟢 None — rows were backfilled by 172; visits without rows use the
+  fallback path unchanged.
+- **Data dependency:** backend 172 + encounters API (already live on both stacks).
+- **Rollback:** revert; chips go back to task-derived.
+
+
 ### feat: set a patient's photo from the pet profile  —  2026-08-02
 - **What changed:** the profile header rendered `pet.species === 'Dog' ? '🐶' : '🐱'` — hardcoded,
   so an uploaded photo never appeared there **and every reptile, bird or rabbit showed as a cat**.

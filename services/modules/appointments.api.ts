@@ -57,6 +57,21 @@ export interface PaymentData {
 /**
  * Visits API
  */
+/** A stacked encounter on a visit (172). Primary mirrors the visit's own
+ * encounter_type; added rows are the extra workflows staff attached. */
+export interface VisitEncounter {
+  id: string;
+  visitId: string;
+  encounterType: string;
+  visitType: string | null;
+  leadStaffId: string | null;
+  templateId: string | null;
+  isPrimary: boolean;
+  status: string;
+  sortOrder: number;
+  attendingStaff?: { id: string; userId: string; role: string | null; fee: number | null; isLead?: boolean; name?: string }[];
+}
+
 export const visitsAPI = {
   /**
    * Get all appointments with pagination
@@ -382,6 +397,30 @@ export const visitsAPI = {
     options?: RequestOptions
   ): Promise<ApiResponse<{ events: Array<{ id: string; visitId: string; at: string; label: string; kind: string; auto: boolean }> }>> => {
     return get(`/appointments/${appointmentId}/events`, { cache: false, silent: true, ...options });
+  },
+
+  /** Stacked encounters (172) — the rows that make the workflow chips real. */
+  listEncounters: async (
+    appointmentId: number | string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ encounters: VisitEncounter[] }>> => {
+    return get(`/appointments/${appointmentId}/encounters`, { cache: false, silent: true, ...options });
+  },
+
+  addEncounter: async (
+    appointmentId: number | string,
+    data: { encounterType: string; visitType?: string | null; leadStaffId?: string | number | null; templateId?: string | number | null },
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ encounter: VisitEncounter }>> => {
+    return post(`/appointments/${appointmentId}/encounters`, data, { showError: true, ...options });
+  },
+
+  removeEncounter: async (
+    appointmentId: number | string,
+    encounterId: string | number,
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ message: string }>> => {
+    return del(`/appointments/${appointmentId}/encounters/${encounterId}`, { showError: true, ...options });
   },
 
   addEvent: async (

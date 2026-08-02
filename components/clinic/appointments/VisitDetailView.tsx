@@ -528,6 +528,25 @@ const VisitDetailInner: React.FC<Props> = ({
         tasks: appt.tasks.filter(t => !doomed.some(d => d.id === t.id)),
         totalCost: Math.max(0, Number(appt.totalCost || 0) - removedCost),
       }));
+      // 172: delete the encounter ROW too, or the chip re-derives and comes
+      // straight back (the exact bug on visit 118). Primary rows are refused
+      // by the API by design — surface that rather than pretending.
+      const ROW_MATCH: Record<string, (e: any) => boolean> = {
+        grooming: e => e.encounterType === 'GROOMING',
+        boarding: e => e.encounterType === 'BOARDING',
+        vaccination: e => e.encounterType === 'VACCINATION' || e.visitType === 'VACCINATION',
+        deworming: e => e.visitType === 'DEWORMING',
+        standard: e => e.encounterType === 'VET_VISIT' && (e.visitType === 'CONSULTATION' || e.visitType == null),
+        emergency: e => e.visitType === 'EMERGENCY',
+      };
+      const rowPred = ROW_MATCH[entryKey];
+      const row = rowPred ? (wiz.encounters || []).find(rowPred) : undefined;
+      if (row && !row.isPrimary) {
+        try { await visitsAPI.removeEncounter(appointment.id, row.id); await wiz.reloadEncounters(); }
+        catch { /* tasks are gone; the chip clears on next reload */ }
+      } else if (row?.isPrimary) {
+        await wiz.reloadEncounters();
+      }
       wiz.emit(`${enc.label} encounter removed from the visit`, 'alert');
       toast.success(`${enc.label} removed from this visit`);
       onRefreshDashboard?.();
@@ -560,6 +579,22 @@ const VisitDetailInner: React.FC<Props> = ({
       serviceId: svc?.id,
     } as any);
     wiz.emit(`Added ${labels[type]} — ${reason}`, 'billing', true);
+    // 172: the encounter ROW is what makes the chip real — the wizard resolves
+    // its steps from it, and its × deletes it. Best-effort; the task/fee above
+    // already landed either way.
+    const ENC_ROW: Record<string, { encounterType: string; visitType?: string }> = {
+      VET_VISIT: { encounterType: 'VET_VISIT', visitType: 'CONSULTATION' },
+      VACCINATION: { encounterType: 'VET_VISIT', visitType: 'VACCINATION' },
+      GROOMING: { encounterType: 'GROOMING' },
+      BOARDING: { encounterType: 'BOARDING' },
+      HOSPITALIZATION: { encounterType: 'VET_VISIT', visitType: 'INPATIENT' },
+    };
+    const rowSpec = ENC_ROW[type];
+    if (rowSpec) {
+      visitsAPI.addEncounter(appointment.id, rowSpec)
+        .then(() => wiz.reloadEncounters())
+        .catch(() => { /* chip falls back to task-derived until reload */ });
+    }
     // Persist the conversion server-side (visit_events) so transfers between
     // workflows (vet visit → grooming/boarding…) are tracked on the record,
     // not just in the local journey draft.

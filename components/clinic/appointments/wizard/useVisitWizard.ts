@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Visit } from '../../../../types';
 import { visitsAPI, workflowTemplatesAPI, WorkflowTemplate, FormField, LayoutStage } from '../../../../services';
+import type { VisitEncounter } from '../../../../services/modules/appointments.api';
 import { JourneyEvent, JourneyKind, WizardPersist, WizardStepId } from './types';
 import { ENTRY_POINTS, EntryPointDef, resolveEntryPoint, STEP_DEFS } from './entryPoints';
 
@@ -57,6 +58,11 @@ export interface VisitWizardApi {
   // the default clinical surface many things need.
   availableEntries: EntryPointDef[];
   switchEntry: (key: string) => void;
+  // Stacked encounters (172) — the rows behind the chips. Empty when the
+  // visit predates 172 or the fetch failed (legacy derivation then applies).
+  encounters: VisitEncounter[];
+  selectedEncounterId: string | null;
+  reloadEncounters: () => Promise<void> | void;
 }
 
 /**
@@ -65,8 +71,54 @@ export interface VisitWizardApi {
  *   rabbit vaccination protocol differs from a dog's), and a
  *   species-restricted template can only match when we actually know it.
  */
+// Map a visit_encounters ROW (172) to its wizard flow. The VET_VISIT family
+// still honours the visit-level variant signals (hospitalization, house call,
+// booked surgery) exactly like resolveEntryPoint — an encounter row narrows
+// WHICH encounter runs, not how a vet visit varies.
+function entryForEncounter(enc: VisitEncounter, visit: Visit): EntryPointDef {
+  switch (enc.encounterType) {
+    case 'GROOMING': return ENTRY_POINTS.grooming;
+    case 'BOARDING': return ENTRY_POINTS.boarding;
+    case 'VACCINATION': return ENTRY_POINTS.vaccination; // legacy top-level rows
+  }
+  switch (enc.visitType) {
+    case 'VACCINATION': return ENTRY_POINTS.vaccination;
+    case 'DEWORMING': return ENTRY_POINTS.deworming;
+    case 'ROUTINE_CHECK': return ENTRY_POINTS.routineCheck;
+    case 'EMERGENCY': return ENTRY_POINTS.emergency;
+    case 'INPATIENT': return ENTRY_POINTS.admission;
+    case 'FOLLOW_UP': return ENTRY_POINTS.followUp;
+  }
+  if (visit.hospitalizationId) return ENTRY_POINTS.admission;
+  if (visit.isHouseCall) return ENTRY_POINTS.houseCall;
+  if ((visit.tasks || []).some(t => (t.category || '').toLowerCase().includes('surg'))) return ENTRY_POINTS.surgery;
+  return ENTRY_POINTS.standard;
+}
+
 export function useVisitWizard(visit: Visit, species?: string | null): VisitWizardApi {
-  const resolved = resolveEntryPoint(visit);
+  // ── Stacked encounters (172): the rows are the workflow identity. The
+  // legacy shape-derivation stays as the FALLBACK when the list is empty or
+  // the fetch fails — without it, a failed fetch blanks the workflow on the
+  // path every consultation renders through. Do not remove it.
+  const [encounters, setEncounters] = useState<VisitEncounter[]>([]);
+  const [selectedEncounterId, setSelectedEncounterId] = useState<string | null>(null);
+  const reloadEncounters = useCallback(() => {
+    return visitsAPI.listEncounters(visit.id)
+      .then(r => {
+        if (r.success && Array.isArray(r.data?.encounters)) setEncounters(r.data!.encounters);
+      })
+      .catch(() => { /* fallback path stands */ });
+  }, [visit.id]);
+  useEffect(() => { setEncounters([]); setSelectedEncounterId(null); reloadEncounters(); }, [visit.id, reloadEncounters]);
+
+  // The selected row (default: primary — the list is ordered primary-first).
+  const selectedEncounter = useMemo(() => {
+    if (!encounters.length) return null;
+    return encounters.find(e => e.id === selectedEncounterId) ?? encounters[0];
+  }, [encounters, selectedEncounterId]);
+
+  const legacyResolved = resolveEntryPoint(visit);
+  const resolved = selectedEncounter ? entryForEncounter(selectedEncounter, visit) : legacyResolved;
 
   const [state, setState] = useState<WizardPersist>(() => {
     try {
@@ -122,6 +174,16 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
   // into a single "Vet Visit — clinical" chip (whichever variant resolved);
   // house call etc. never appear as separate switch targets.
   const availableEntries = useMemo(() => {
+    // Encounter rows are the truth when present — one chip per row's flow.
+    if (encounters.length) {
+      const seen = new Set<string>();
+      const out: EntryPointDef[] = [];
+      for (const enc of encounters) {
+        const e = entryForEncounter(enc, visit);
+        if (!seen.has(e.key)) { seen.add(e.key); out.push(e); }
+      }
+      return out;
+    }
     const VET_FAMILY = ['standard', 'houseCall', 'followUp', 'routineCheck', 'emergency', 'surgery', 'admission'];
     const has = (kws: string[]) => (visit.tasks || []).some(t => kws.some(k => (t.category || '').toLowerCase().includes(k)));
     const keys: string[] = [resolved.key];
@@ -142,7 +204,7 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     if (has(['board']) || visit.boardingStayId) add('boarding');
     if (visit.hospitalizationId && !VET_FAMILY.includes(resolved.key)) add('admission');
     return keys.map(k => ENTRY_POINTS[k]).filter(Boolean);
-  }, [visit, resolved.key]);
+  }, [visit, resolved.key, encounters]);
 
   // The active entry: a manual switch (multi-encounter visit) wins over the
   // auto-resolved flow — except emergency, which always takes the wheel. A
@@ -187,6 +249,10 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
   const switchEntry = useCallback((key: string) => {
     const target = ENTRY_POINTS[key];
     if (!target) return;
+    // Encounter-backed chips: select the ROW whose flow matches, so step
+    // resolution follows the encounter identity, not a derived override.
+    const row = encounters.find(enc => entryForEncounter(enc, visit).key === key);
+    if (row) setSelectedEncounterId(row.id);
     setState(s => {
       if (s.entryKey === target.key && s.entryKeyOverride === key) return s;
       return {
@@ -197,7 +263,7 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
         events: [...s.events, { id: newId(), at: new Date().toISOString(), label: `Workflow switched to ${target.label}`, kind: 'milestone', auto: true }],
       };
     });
-  }, []);
+  }, [encounters, visit]);
 
   // Persist on every change: localStorage instantly (with a freshness
   // stamp), the server via a debounced PUT — the clinical record follows
@@ -255,10 +321,21 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
         .catch(() => { /* built-in flow stands */ });
       return () => { live = false; };
     }
+    // The selected encounter's own pinned template wins over resolution —
+    // that's what the row's templateId is FOR (172).
+    if (selectedEncounter?.templateId) {
+      workflowTemplatesAPI.getById(selectedEncounter.templateId)
+        .then(res => { if (live) setTemplate(res.success ? (res.data?.template ?? null) : null); })
+        .catch(() => { /* built-in flow stands */ });
+      return () => { live = false; };
+    }
     workflowTemplatesAPI
       .resolve({
-        encounterType: visit.encounterType,
-        visitType: visit.visitType,
+        // Resolve for the SELECTED ENCOUNTER, not the visit column — this is
+        // what stops clinic 3's default Vaccination template hijacking a
+        // clinical chip on a VACCINATION-typed visit.
+        encounterType: (selectedEncounter?.encounterType as any) ?? visit.encounterType,
+        visitType: (selectedEncounter?.visitType as any) ?? visit.visitType,
         species: species ?? null,
         // The entry point THIS hook already resolved. It wins server-side,
         // because it encodes everything a column cannot: the manual workflow
@@ -274,7 +351,7 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
       .catch(() => { /* built-in flow stands */ });
     return () => { live = false; };
     // entry.key changes when staff switch workflow — the template must follow.
-  }, [visit.id, visit.encounterType, visit.visitType, species, entry.key, pinnedTemplateId]);
+  }, [visit.id, visit.encounterType, visit.visitType, species, entry.key, pinnedTemplateId, selectedEncounter?.id, selectedEncounter?.templateId]);
 
   const templateStages = useMemo(() => {
     const out: Record<string, LayoutStage> = {};
@@ -382,5 +459,5 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     }).catch(() => { /* offline — the local pin still applies */ });
   }, [visit.id, state.entryKey, state.startedAt, state.currentStep, state.completed, state.data]);
 
-  return { entry, steps, template, setVisitTemplate, templateStages, templateFields, state, currentStep: steps[idx] ?? steps[0], goTo, next, prev, setStepData, completeStep, isComplete, emit, events, progress, resetWizard, availableEntries, switchEntry };
+  return { entry, steps, template, setVisitTemplate, templateStages, templateFields, state, currentStep: steps[idx] ?? steps[0], goTo, next, prev, setStepData, completeStep, isComplete, emit, events, progress, resetWizard, availableEntries, switchEntry, encounters, selectedEncounterId: selectedEncounter?.id ?? null, reloadEncounters };
 }
