@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Reports & Analytics — shared date picker, 2:1 chart layout, grid-3 rows  —  2026-08-02
+- **What changed:** (user, S2 — crossing into S1's billing lane) `ReportsAnalyticsView` now
+  uses the app's shared **`DateRangePicker`** (same control as Visits/Clients/Inpatient)
+  instead of its own range `<select>`; clearing it falls back to the This-Month default.
+  The top row becomes **2:1** — Financial Performance and Cash Flow **stacked** in the left
+  two-thirds, Business Health Score full-height on the right (three equal columns had
+  squeezed both charts to a third of the width and crushed their axis labels). The two
+  four-across card rows drop to **three across**, which also stops the department donut
+  legend truncating to "I…", "S.", "C.".
+- **Record impact:** 🟢 None — layout + an input control.
+- **Data dependency:** None; the picked range feeds the same `from`/`to` the page already sent.
+- **Rollback:** revert the commit and rebuild.
+
+
 ### fix: wizard gate check was behind the admission gates (vaccine list + recommend)  —  2026-08-02
 - **What changed:** (user, S2: "this gate check is behind") the visit wizard's Gate Check
   carried its **own hardcoded 8 vaccines** while boarding/inpatient/grooming admit modals

@@ -6,11 +6,12 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Wallet, Receipt, CircleDollarSign, Percent, FileText,
-  CreditCard, ChevronRight, ChevronDown, Phone, Plus, Star, Loader2, Calendar,
+  CreditCard, ChevronRight, ChevronDown, Phone, Plus, Star, Loader2,
   AlertTriangle, PackageOpen, Sparkles, BarChart3, Info, ScrollText, FileSpreadsheet,
   Users, UserPlus, UserMinus, UserCheck, Landmark, PiggyBank,
 } from 'lucide-react';
 import PageHeader from '../../shared/common/PageHeader';
+import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
 import { summariesAPI, FinanceBI, SummaryResponse } from '../../../services/modules/summaries.api';
 import { receivablesAPI, ArAgeing } from '../../../services/modules/receivables.api';
 import { supplierApAPI, SupplierInvoice } from '../../../services/modules/supplierAp.api';
@@ -41,13 +42,6 @@ const fmtDate = (d: string | Date) => new Date(d).toLocaleDateString('en-GB', { 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 type RangeKey = 'this-month' | 'last-month' | '30d' | '90d';
-const RANGES: { key: RangeKey; label: string }[] = [
-  { key: 'this-month', label: 'This Month' },
-  { key: 'last-month', label: 'Last Month' },
-  { key: '30d', label: 'Last 30 Days' },
-  { key: '90d', label: 'Last 90 Days' },
-];
-
 const rangeFor = (key: RangeKey): { from: Date; to: Date } => {
   const now = new Date();
   if (key === 'this-month') return { from: new Date(now.getFullYear(), now.getMonth(), 1), to: now };
@@ -68,8 +62,14 @@ const Stars: React.FC<{ n: number }> = ({ n }) => (
 );
 
 const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
-  const [rangeKey, setRangeKey] = useState<RangeKey>('this-month');
-  const { from, to } = useMemo(() => rangeFor(rangeKey), [rangeKey]);
+  const [rangeKey] = useState<RangeKey>('this-month');
+  // An explicit pick from the shared DateRangePicker wins over the default
+  // window; clearing it (null) falls back to `rangeKey`.
+  const [customRange, setCustomRange] = useState<DateRange | null>(null);
+  const { from, to } = useMemo(() => {
+    if (customRange?.start && customRange?.end) return { from: customRange.start, to: customRange.end };
+    return rangeFor(rangeKey);
+  }, [customRange, rangeKey]);
   const spanMs = to.getTime() - from.getTime();
   const prevTo = useMemo(() => new Date(from.getTime() - 86_400_000), [from]);
   const prevFrom = useMemo(() => new Date(prevTo.getTime() - spanMs), [prevTo, spanMs]);
@@ -295,16 +295,13 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
         onBack
         actions={(
           <div className="flex flex-wrap items-center gap-2">
-            <div className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-              <Calendar size={12} className="text-slate-400" />
-              <select value={rangeKey} onChange={e => setRangeKey(e.target.value as RangeKey)}
-                className="bg-transparent text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none">
-                {RANGES.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
-              </select>
-              <span className="text-[9px] font-bold text-slate-400 whitespace-nowrap hidden sm:inline">
-                {fmtDate(from)} – {fmtDate(to)}
-              </span>
-            </div>
+            {/* The app's shared range picker (user, 2026-08-02) — same control
+                as Visits/Clients/Inpatient, instead of this page's own select.
+                Clearing it falls back to the default This-Month window. */}
+            <DateRangePicker
+              value={customRange}
+              onChange={r => setCustomRange(r && r.start && r.end ? r : null)}
+            />
             <span className="hidden md:inline-flex items-center px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">
               Compared to: <span className="ml-1 text-pine dark:text-zinc-100">{fmtDate(prevFrom)} – {fmtDate(prevTo)}</span>
             </span>
@@ -366,9 +363,14 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
             })}
           </div>
 
-          {/* ── Performance · Cash flow · Health ── */}
-          <div className="grid grid-cols-1 xl:grid-cols-7 gap-4 items-stretch">
-            <div className="xl:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+          {/* ── Performance · Cash flow · Health ──
+              2:1 (user, 2026-08-02): the two time-series charts STACK in the
+              left two-thirds and the health score runs full height on the
+              right. Three equal columns squeezed both charts to ~1/3 width,
+              which is what crushed their axis labels. */}
+          <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-stretch">
+            <div className="xl:col-span-2 flex flex-col gap-4">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div>
                   <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Financial Performance</h3>
@@ -401,7 +403,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
               </div>
             </div>
 
-            <div className="xl:col-span-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
               <div className="flex items-start justify-between gap-2 mb-2">
                 <div>
                   <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Cash Flow</h3>
@@ -434,8 +436,10 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
               </div>
             </div>
 
-            {/* Business Health Score */}
-            <div className="xl:col-span-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+            </div>{/* /left 2-col stack */}
+
+            {/* Business Health Score — right third, full height */}
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-center">
               <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight mb-1">Business Health Score</h3>
               <div className="flex flex-col items-center">
                 <svg viewBox="0 0 200 110" className="w-44">
@@ -469,7 +473,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
           </div>
 
           {/* ── Dept · Top vets · Methods · Client growth ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
             {/* Revenue by Department */}
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
               <div className="mb-2">
@@ -595,7 +599,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
           </div>
 
           {/* ── AR · AP · Insights · Forecast ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 items-stretch">
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 items-stretch">
             {/* Top outstanding */}
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col">
               <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight mb-2">Top 5 Outstanding Balances</h3>
