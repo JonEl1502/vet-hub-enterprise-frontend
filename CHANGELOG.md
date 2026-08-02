@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Billing — "Plan Features" tab (clinic-facing "your plan", plan half only)  —  2026-08-02
+- **What changed:** (S1, §0f #7) `BillingView` gains a **Plan Features** tab
+  (`PlanFeaturesPanel`): plan summary (name, TRIAL/ACTIVE/LOCKED chip, add-on chips,
+  grace-until note), "Included in your plan" grouped Modules/Capabilities/Services straight
+  from the plan's `featureKeys` (trial/`*` shows the full catalog), and "Not in your plan"
+  built from `FEATURE_COPY` with the tier that grants each item + an upgrade CTA that jumps
+  to Current Billing. Billing is an ALWAYS_VIEW, so a LOCKED clinic can still see what
+  renewing restores.
+- **Record impact:** 🟢 None — read-only over the existing access payload.
+- **Data dependency:** None (`GET /clinic-subscriptions/:id/access` already live).
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** deliberately NOT a per-staff permission matrix — the API gates on the
+  global `User.role` only (`reference_role_gating_model`); do not add access claims per
+  role here until the server enforces `clinicRole`/grants.
+
 ### page: client profile — Files tab goes live (phase 2)  —  2026-08-02
 - **What changed:** (S2) `ClientFilesTab` is real: upload (images/PDF → R2 presigned flow,
   scope `client`, kind picker ID/Consent/Insurance/Doc/Photo/Other), card grid with image

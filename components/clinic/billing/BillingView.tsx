@@ -22,6 +22,7 @@ import { useManagementScope } from '../../../contexts/ManagementScopeContext';
 import { usePlanAccess } from '../../../contexts/PlanAccessContext';
 import ManagingSwitcher from '../../shared/common/ManagingSwitcher';
 import { PlanCard } from './PlanCard';
+import PlanFeaturesPanel from './PlanFeaturesPanel';
 import SupportTicketsPanel from './SupportTicketsPanel';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
@@ -99,9 +100,10 @@ const BillingView: React.FC = () => {
 
   // ── Page tabs ────────────────────────────────────────────────
   // 1. Current billing (plan, usage, change plan)
-  // 2. Invoices & receipts (sub-tabbed)
-  // 3. Raised tickets + their resolution
-  const [activeTab, setActiveTab] = useState<'plan' | 'documents' | 'tickets'>('plan');
+  // 2. Plan features (what the plan includes / what a tier up adds)
+  // 3. Invoices & receipts (sub-tabbed)
+  // 4. Raised tickets + their resolution
+  const [activeTab, setActiveTab] = useState<'plan' | 'features' | 'documents' | 'tickets'>('plan');
   const [docTab, setDocTab] = useState<'invoices' | 'receipts'>('invoices');
   // Bumped after a ticket is submitted so the tickets tab refetches.
   const [ticketsRefresh, setTicketsRefresh] = useState(0);
@@ -604,6 +606,7 @@ const BillingView: React.FC = () => {
 
   const TABS = [
     { id: 'plan' as const, label: 'Current Billing', icon: CreditCard, count: null as number | null },
+    { id: 'features' as const, label: 'Plan Features', icon: Package, count: null as number | null },
     { id: 'documents' as const, label: 'Invoices & Receipts', icon: FileText, count: history.length || null },
     { id: 'tickets' as const, label: 'Tickets', icon: LifeBuoy, count: null as number | null },
   ];
@@ -971,7 +974,12 @@ const BillingView: React.FC = () => {
 
       </>)}
 
-      {/* ══ TAB 2 — Invoices & receipts ═════════════════════════ */}
+      {/* ══ TAB 2 — Plan features (§0f #7, plan half only) ══════ */}
+      {activeTab === 'features' && (
+        <PlanFeaturesPanel onGoToPlans={() => setActiveTab('plan')} />
+      )}
+
+      {/* ══ TAB 3 — Invoices & receipts ═════════════════════════ */}
       {activeTab === 'documents' && (
         <section className="space-y-4">
           {/* Sub-tabs */}
