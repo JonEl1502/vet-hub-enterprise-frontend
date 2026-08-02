@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: send-to-partner rows say who resulted; money bar on Follow-Up tab  —  2026-08-02
+- **What changed:** (user) the "Send a service to a partner clinic" rows no longer offer
+  send on a service that's already handled: a completed partner job shows
+  "✓ Resulted by: ‹partner›", an in-flight one shows "With ‹partner› · status", and a
+  completed internal task shows "✓ Resulted by: Internal". The sticky money bar also
+  renders on the Follow-Up & Reminders tab, labelled "Finalize visit & bill".
+- **Record impact:** 🟢.
+
 ### frontend: Follow-Up tab bar reads "Finalize visit & bill"  —  2026-08-02
 - **What changed:** (user) the sticky bar's generate button is labelled
   "Finalize visit & bill" on the Follow-Up & Reminders tab (same action).

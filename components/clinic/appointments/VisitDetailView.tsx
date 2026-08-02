@@ -190,6 +190,17 @@ const VisitDetailInner: React.FC<Props> = ({
   const { rates: fxRates, refresh: refreshFx } = useFx();
   useEffect(() => { if (showInjectModal) setInjectSearch(''); }, [showInjectModal]);
   const [jobsRefresh, setJobsRefresh] = useState(0); // bump to refetch the outsourced-services panel
+  // Per-task job map for the send-to-partner rows (user, 2026-08-02): a service
+  // already resulted — internally or by a partner — must say so, not offer send.
+  const [visitJobsForTasks, setVisitJobsForTasks] = useState<any[]>([]);
+  useEffect(() => {
+    let alive = true;
+    import('../../../services/modules/visitJobs.api').then(({ visitJobsAPI }) =>
+      visitJobsAPI.listForVisit(appointment.id, { silent: true } as any)
+        .then(r => { if (alive && r.success && r.data?.jobs) setVisitJobsForTasks(r.data.jobs); })
+        .catch(() => {}));
+    return () => { alive = false; };
+  }, [appointment.id, jobsRefresh]);
   // Pull categories + services from the seeded backend catalog instead of
   // the old hardcoded SERVICE_CATEGORIES / PREDEFINED_SERVICES. The icon
   // mapping still lives in the constants — useful client-side and not worth
@@ -4571,15 +4582,27 @@ const VisitDetailInner: React.FC<Props> = ({
               <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 mb-1">Send a service to a partner clinic</p>
               <p className="text-[10px] text-slate-400 dark:text-zinc-500 mb-2">Partners with an agreed price for the service's category can be asked to handle it — they see it as a clinical-transfer visit on their side.</p>
               <div className="divide-y divide-slate-100 dark:divide-zinc-800">
-                {(appointment.tasks || []).map(task => (
+                {(appointment.tasks || []).map(task => {
+                  const job = visitJobsForTasks.find(j => String(j.taskId ?? '') === String(task.id) && j.status !== 'DECLINED' && j.status !== 'CANCELLED');
+                  const partnerName = job?.providerClinic?.name || 'partner clinic';
+                  return (
                   <div key={task.id} className="flex items-center justify-between gap-2 py-1.5">
                     <div className="min-w-0">
                       <p className="text-xs font-bold text-pine dark:text-zinc-100 truncate">{task.name}</p>
                       <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{task.category}</p>
                     </div>
-                    <OutsourceServiceButton visitId={appointment.id} taskId={task.id} category={task.category} serviceName={task.name} currency={activeClinic.currency} onCreated={() => setJobsRefresh(k => k + 1)} />
+                    {job && job.status === 'COMPLETED' ? (
+                      <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[9px] font-black uppercase tracking-widest shrink-0">✓ Resulted by: {partnerName}</span>
+                    ) : job ? (
+                      <span className="px-2.5 py-1 rounded-lg bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 text-[9px] font-black uppercase tracking-widest shrink-0">With {partnerName} · {String(job.status).toLowerCase()}</span>
+                    ) : String(task.status) === 'COMPLETED' ? (
+                      <span className="px-2.5 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400 text-[9px] font-black uppercase tracking-widest shrink-0">✓ Resulted by: Internal</span>
+                    ) : (
+                      <OutsourceServiceButton visitId={appointment.id} taskId={task.id} category={task.category} serviceName={task.name} currency={activeClinic.currency} onCreated={() => setJobsRefresh(k => k + 1)} />
+                    )}
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
@@ -7103,7 +7126,9 @@ const VisitDetailInner: React.FC<Props> = ({
 
       {/* Bill action bar — pinned to the viewport bottom while on Records &
           Billing so Finalize / Settle is always in reach. Hidden once paid. */}
-      {workflowTab === 'billing' && !appointment.isPaid && (
+      {/* Sticky money bar — also on Follow-Up & Reminders (user, 2026-08-02),
+          where it reads "Finalize visit & bill". */}
+      {(workflowTab === 'billing' || workflowTab === 'followup') && !appointment.isPaid && (
         <>
           <div className="h-16" aria-hidden />
           <div
