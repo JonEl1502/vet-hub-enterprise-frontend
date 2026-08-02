@@ -1,11 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pill, Scissors, ClipboardList, Package, Loader2, Plus, ExternalLink, Search } from 'lucide-react';
+import { Pill, Scissors, ClipboardList, Package, Loader2, Plus, ExternalLink, Search, Syringe } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L, showsField } from '../fields';
 import AppliedProcedurePanel from '../../../shared/AppliedProcedurePanel';
 import VaccinationPanel from '../../VaccinationPanel';
 import { useData } from '../../../../../contexts/DataContext';
-import { consumablesAPI, toast, procedureTemplatesAPI, ProcedureTemplate, vaccinationsAPI } from '../../../../../services';
+import { consumablesAPI, toast, procedureTemplatesAPI, ProcedureTemplate, vaccinationsAPI, vaccinePackagesAPI, VaccinePackage } from '../../../../../services';
 
 const ROUTES = ['PO', 'IV', 'IM', 'SC', 'Topical', 'Other'];
 
@@ -23,7 +23,7 @@ interface MedRow {
 // duration ride along as the prescription note. Gloves/syringes etc. are
 // added the same way with the Rx fields left blank.
 
-const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, refreshVisit, visibleFields  }) => {
+const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, refreshVisit, visibleFields, currency = 'KES' }) => {
   const show = showsField(visibleFields);
   const d = data || {};
   const meds: MedRow[] = d.medications || [];
@@ -32,6 +32,10 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
   const [busy, setBusy] = React.useState(false);
   const [removingIdx, setRemovingIdx] = React.useState<number | null>(null);
   const marCount = visit.medications?.length ?? 0;
+  // A vaccination flow administers ON this step — it unlocks the vaccination
+  // panel and widens the procedure search to packages + single vaccines.
+  const isVaccinationFlow = (visit as any).visitType === 'VACCINATION'
+    || (visit.tasks || []).some((t: any) => /vaccin|immuni/i.test(t.category || ''));
 
   // Vaccinations recorded on this visit — see the note in the Procedures
   // section. Best-effort: a failure leaves the strip empty rather than
@@ -103,8 +107,65 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
     const q = procSearch.trim().toLowerCase();
     const pool = procTemplates.filter(t => t.isActive !== false);
     if (!q) return pool.slice(0, 6);
-    return pool.filter(t => `${t.name} ${t.code ?? ''} ${t.categoryName ?? ''}`.toLowerCase().includes(q)).slice(0, 6);
+    return pool.filter(t => `${t.name} ${t.code ?? ''} ${t.categoryName ?? ''} ${(t as any).type ?? ''}`.toLowerCase().includes(q)).slice(0, 6);
   }, [procTemplates, procSearch]);
+
+  // On a VACCINATION flow the same box searches all three things staff might
+  // reach for (user, 2026-08-02): a procedure recipe, a vaccine PACKAGE, or a
+  // single vaccine off the shelf. Each lands on the visit by its own correct
+  // route — a package is not a recipe and a vial is neither.
+  const [vaccinePackages, setVaccinePackages] = useState<VaccinePackage[]>([]);
+  useEffect(() => {
+    if (!isVaccinationFlow) return;
+    vaccinePackagesAPI.list(false, { silent: true } as any)
+      .then(r => { if (r.success && r.data?.packages) setVaccinePackages(r.data.packages.filter(p => p.isActive !== false)); })
+      .catch(() => { /* box still searches procedures */ });
+  }, [isVaccinationFlow]);
+
+  const pkgMatches = useMemo(() => {
+    if (!isVaccinationFlow) return [];
+    const q = procSearch.trim().toLowerCase();
+    if (!q) return vaccinePackages.slice(0, 4);
+    return vaccinePackages.filter(p => `${p.name} ${p.description ?? ''}`.toLowerCase().includes(q)).slice(0, 4);
+  }, [isVaccinationFlow, vaccinePackages, procSearch]);
+
+  const vaccineMatches = useMemo(() => {
+    if (!isVaccinationFlow) return [];
+    const q = procSearch.trim().toLowerCase();
+    const isVax = (it: any) => /vaccin|immuni/i.test(`${it.category ?? ''} ${it.name ?? ''}`);
+    const pool = (inventory || []).filter(isVax);
+    if (!q) return pool.slice(0, 4);
+    return pool.filter((it: any) => `${it.name} ${it.category ?? ''} ${it.sku ?? ''}`.toLowerCase().includes(q)).slice(0, 4);
+  }, [isVaccinationFlow, inventory, procSearch]);
+
+  const applyPackage = async (p: VaccinePackage) => {
+    setApplyingProc(true);
+    try {
+      const res = await vaccinePackagesAPI.apply(p.id, visit.id);
+      if (res.success) {
+        emit(`Vaccine package applied — ${p.name}`, 'billing', true);
+        setProcSearch('');
+        refreshVisit?.();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to apply the package'); }
+    finally { setApplyingProc(false); }
+  };
+
+  // A single vaccine is dispensed exactly like any other stock item — same
+  // call as the Medications box above, so stock moves and the bill line is
+  // created once, by one code path.
+  const addVaccine = async (it: any) => {
+    setApplyingProc(true);
+    try {
+      const res = await consumablesAPI.log(visit.id, { inventoryItemId: String(it.id), quantity: 1 });
+      if (res.success) {
+        emit(`Vaccine given — ${it.name} ×1 · stock deducted`, 'billing', true);
+        setProcSearch('');
+        refreshVisit?.();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to add the vaccine'); }
+    finally { setApplyingProc(false); }
+  };
 
   const applyProcedure = async (t: ProcedureTemplate) => {
     setApplyingProc(true);
@@ -150,13 +211,10 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
     finally { setRemovingIdx(null); }
   };
 
-  // A vaccination flow administers ON this step — mount the full panel (mark
-  // given, batch #, next-due, ADD a second/third vaccine). Two vaccines in one
-  // visit are two VaccinationRecords on the SAME encounter, not a second
-  // VACCINATION encounter (172's unique index refuses the duplicate).
-  const isVaccinationFlow = (visit as any).visitType === 'VACCINATION'
-    || (visit.tasks || []).some((t: any) => /vaccin|immuni/i.test(t.category || ''));
-
+  // (`isVaccinationFlow` is defined at the top — the panel below and the
+  // package/vaccine search both key off it.) Two vaccines in one visit are two
+  // VaccinationRecords on the SAME encounter, not a second VACCINATION
+  // encounter (172's unique index refuses the duplicate).
   return (
     <div className="space-y-4">
       {isVaccinationFlow && (
@@ -222,7 +280,27 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
                   ))}
                 </div>
               )}
-              {draft.itemId && <p className="text-[9px] font-black text-seafoam mt-0.5 px-1">✓ from stock · {draft.stock} {draft.unit} available{draft.price ? ` · ${draft.price.toLocaleString()}/${draft.unit}` : ''}</p>}
+              {/* What it costs and what it leaves behind (user, 2026-08-02):
+                  the sell-price line total, and stock before → after, so the
+                  charge and the shelf are both visible BEFORE Add is pressed. */}
+              {draft.itemId && (() => {
+                const q = Number(draft.qty) || 0;
+                const before = Number(draft.stock ?? 0);
+                const after = before - q;
+                const lineTotal = (draft.price ?? 0) * q;
+                return (
+                  <p className="text-[9px] font-black mt-0.5 px-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
+                    <span className="text-seafoam">
+                      ✓ {draft.price ? `${draft.price.toLocaleString()}/${draft.unit}` : 'from stock'}
+                      {q > 0 && draft.price ? ` × ${q} = ${currency} ${lineTotal.toLocaleString()}` : ''}
+                    </span>
+                    <span className={after < 0 ? 'text-rose-500' : 'text-slate-400'}>
+                      stock {before.toLocaleString()} → {after.toLocaleString()} {draft.unit}
+                      {after < 0 ? ' · not enough' : ''}
+                    </span>
+                  </p>
+                );
+              })()}
             </div>
           </L>
           <L label={`Qty${draft.unit ? ` (${draft.unit})` : ''}`}><input type="number" min={0} step={0.01} className="field-input" value={draft.qty ?? ''} onChange={e => setDraft({ ...draft, qty: Number(e.target.value) })} /></L>
@@ -296,13 +374,51 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
         )}
         <div className="relative">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-          <input className="field-input field-icon-left" placeholder="Search your created procedures…"
+          <input className="field-input field-icon-left"
+            placeholder={isVaccinationFlow ? 'Search procedures, vaccine packages or a single vaccine…' : 'Search your created procedures…'}
             value={procSearch}
             onChange={e => setProcSearch(e.target.value)}
             onFocus={() => setProcFocus(true)}
             onBlur={() => setTimeout(() => setProcFocus(false), 150)} />
           {(procFocus || procSearch.trim() !== '') && (
-            <div className="absolute z-20 mt-1 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
+            <div className="absolute z-20 mt-1 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden max-h-72 overflow-y-auto custom-scrollbar">
+              {/* Vaccine PACKAGES — one click applies the whole package as a
+                  single billed line (its doses expand into records). */}
+              {pkgMatches.map(p => (
+                <button key={`pkg-${p.id}`} type="button" disabled={applyingProc}
+                  onMouseDown={() => applyPackage(p)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-950/20 transition-all disabled:opacity-50 border-b border-slate-50 dark:border-zinc-800">
+                  <span className="min-w-0 flex items-center gap-2">
+                    <Package size={12} className="text-amber-500 shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{p.name}</span>
+                      <span className="block text-[9px] text-slate-400">Vaccine package · {p.items.length} vaccine{p.items.length === 1 ? '' : 's'}</span>
+                    </span>
+                  </span>
+                  <span className="shrink-0 flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[8px] font-black uppercase tracking-wider">Package</span>
+                    <span className="text-[10px] font-black text-slate-400">{Number(p.pricing?.sellAfterDiscount ?? 0).toLocaleString()}</span>
+                  </span>
+                </button>
+              ))}
+              {/* A SINGLE vaccine straight off the shelf. */}
+              {vaccineMatches.map((it: any) => (
+                <button key={`vax-${it.id}`} type="button" disabled={applyingProc}
+                  onMouseDown={() => addVaccine(it)}
+                  className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-emerald-50 dark:hover:bg-emerald-950/20 transition-all disabled:opacity-50 border-b border-slate-50 dark:border-zinc-800">
+                  <span className="min-w-0 flex items-center gap-2">
+                    <Syringe size={12} className="text-emerald-500 shrink-0" />
+                    <span className="min-w-0">
+                      <span className="block text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{it.name}</span>
+                      <span className="block text-[9px] text-slate-400">{it.quantity} {it.unit} in stock</span>
+                    </span>
+                  </span>
+                  <span className="shrink-0 flex items-center gap-1.5">
+                    <span className="px-1.5 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300 text-[8px] font-black uppercase tracking-wider">Vaccine</span>
+                    <span className="text-[10px] font-black text-slate-400">{Number(it.price ?? 0).toLocaleString()}</span>
+                  </span>
+                </button>
+              ))}
               {procMatches.map(t => (
                 <button key={t.id} type="button" disabled={applyingProc}
                   onMouseDown={() => applyProcedure(t)}
@@ -314,9 +430,9 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
                   <span className="shrink-0 text-[10px] font-black text-slate-400">est. {t.estimatedTotal.toLocaleString()}</span>
                 </button>
               ))}
-              {procMatches.length === 0 && (
+              {procMatches.length === 0 && pkgMatches.length === 0 && vaccineMatches.length === 0 && (
                 <div className="px-3 py-2.5 space-y-1.5">
-                  <p className="text-[10px] text-slate-400 font-bold">{procSearch.trim() ? `No procedure matching "${procSearch.trim()}"` : 'No procedures created yet.'}</p>
+                  <p className="text-[10px] text-slate-400 font-bold">{procSearch.trim() ? `Nothing matching "${procSearch.trim()}"` : 'No procedures created yet.'}</p>
                   <button type="button"
                     onMouseDown={() => window.open('/app/procedures', '_blank')}
                     className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-seafoam hover:underline">

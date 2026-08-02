@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: Treatment step — 3-way vaccination search + sell price & stock before/after  —  2026-08-02
+- **What changed:** (user, S2) on a **vaccination** visit the Procedures search box now
+  searches all three things staff reach for — procedure **recipes**, vaccine **packages**
+  (amber chip, applied via `vaccinePackagesAPI.apply` as one billed line) and a **single
+  vaccine** off the shelf (green chip, dispensed via `consumablesAPI.log` so stock moves by
+  the same one code path as the Medications box). Each is badged so a match reads as what
+  it is. Separately, **Medications & Items Used** now shows the money and the shelf before
+  you commit: `price/unit × qty = total`, plus `stock N → M`, turning rose when the
+  quantity exceeds what is in stock.
+- **Record impact:** 🟢 None — the add actions are the existing endpoints.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the packages/vaccines rows are vaccination-flow ONLY (`visitType` is
+  VACCINATION or a vaccination-category task); a general vet visit keeps the plain
+  procedure search.
+
+
 ### page: visit tabs reordered — Records & Reports before Follow-Up  —  2026-08-02
 - **What changed:** (user, S2) visit workflow tabs now read **Clinical Workflow · Records &
   Reports · 🔔 Follow-Up & Reminders · Bill & Invoice**. Only the order changed; every tab
