@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: vaccination — administer & add vaccines on the wizard Treatment step  —  2026-08-02
+- **What changed:** (user, S2) A vaccination flow's Treatment step now mounts the full
+  `VaccinationPanel` (mark given, batch #, next-due + follow-up booking, **add a 2nd/3rd
+  vaccine**) instead of only a read-only strip — two vaccines on one visit are two
+  `VaccinationRecord`s on the SAME encounter (migration 172 refuses a duplicate VACCINATION
+  encounter, by design). The Transfer/Add-encounter dropdown now also counts the active
+  flow's entry as "taken", so a vaccination visit no longer offers adding VACCINATION again.
+- **Record impact:** 🟢 None — new write surface for existing tables.
+- **Data dependency:** None (172 already live).
+- **Rollback:** revert the commit and rebuild.
+
+### component: Bill & Balance — Invoice & receipts button only after the bill is generated  —  2026-08-02
+- **What changed:** (user, S2) `BillBalanceCard` hides the "Invoice & receipts" button while
+  the bill is still editable (DRAFT/PENDING_REVIEW) or VOID — it used to point at an empty
+  tab and read as if an invoice existed.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: client profile — reference-design upgrade (header, underline tabs, Payments account hub)  —  2026-08-02
 - **What changed:** (user reference screenshot, S1) `ClientProfileView` restyled: identity
   card with circular avatar, contact row, `CL-00000` id, client-type badge + star, and a

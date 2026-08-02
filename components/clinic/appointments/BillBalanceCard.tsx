@@ -111,7 +111,10 @@ const BillBalanceCard: React.FC<Props> = ({
           </div>
         )}
 
-        {onOpenInvoice && (
+        {/* Only once the bill is generated (past its editable draft stage) is
+            there an invoice or receipt to look at — showing this on a draft
+            bill sent people to an empty tab. */}
+        {onOpenInvoice && bill && !bill.editable && bill.status !== 'VOID' && (
           <button
             onClick={onOpenInvoice}
             className="w-full mt-1 px-2 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine transition-all flex items-center justify-center gap-1.5"

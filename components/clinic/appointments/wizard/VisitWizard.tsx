@@ -417,9 +417,14 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
               // vaccination flow stores encounterType VET_VISIT too, which
               // wrongly hid this option (user, 2026-08-02).
               { value: 'VET_VISIT', label: '🩺 Vet Visit — consultation', taken: has(['consult']) || availableEntries.some(e => ['standard', 'houseCall', 'followUp', 'routineCheck', 'surgery', 'admission'].includes(e.key)) },
-              { value: 'VACCINATION', label: '💉 Vaccination', taken: (visit as any).visitType === 'VACCINATION' || has(['vaccin', 'immuni']) },
-              { value: 'GROOMING', label: '✂️ Grooming', taken: visit.encounterType === 'GROOMING' || has(['groom']) },
-              { value: 'BOARDING', label: '🏠 Boarding', taken: visit.encounterType === 'BOARDING' || has(['board']) },
+              // Also count the flow's ENTRY as taken — an encounter row can carry
+              // the flow while visit_type/tasks say nothing (user screenshot,
+              // 2026-08-02: a vaccination visit still offered "Vaccination").
+              // A second vaccine goes on the SAME encounter via the Treatment
+              // step's vaccination panel, not a duplicate encounter (172 blocks it).
+              { value: 'VACCINATION', label: '💉 Vaccination', taken: (visit as any).visitType === 'VACCINATION' || has(['vaccin', 'immuni']) || availableEntries.some(e => e.key === 'vaccination') },
+              { value: 'GROOMING', label: '✂️ Grooming', taken: visit.encounterType === 'GROOMING' || has(['groom']) || availableEntries.some(e => e.key === 'grooming') },
+              { value: 'BOARDING', label: '🏠 Boarding', taken: visit.encounterType === 'BOARDING' || has(['board']) || availableEntries.some(e => e.key === 'boarding') },
             ].filter(o => !o.taken);
             if (options.length === 0) return null;
             return (

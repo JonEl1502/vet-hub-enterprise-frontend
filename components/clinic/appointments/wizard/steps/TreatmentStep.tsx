@@ -3,6 +3,7 @@ import { Pill, Scissors, ClipboardList, Package, Loader2, Plus, ExternalLink, Se
 import { StepProps } from '../types';
 import { Section, L, showsField } from '../fields';
 import AppliedProcedurePanel from '../../../shared/AppliedProcedurePanel';
+import VaccinationPanel from '../../VaccinationPanel';
 import { useData } from '../../../../../contexts/DataContext';
 import { consumablesAPI, toast, procedureTemplatesAPI, ProcedureTemplate, vaccinationsAPI } from '../../../../../services';
 
@@ -22,7 +23,7 @@ interface MedRow {
 // duration ride along as the prescription note. Gloves/syringes etc. are
 // added the same way with the Rx fields left blank.
 
-const TreatmentStep: React.FC<StepProps> = ({ visit, data, setData, emit, refreshVisit, visibleFields  }) => {
+const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, refreshVisit, visibleFields  }) => {
   const show = showsField(visibleFields);
   const d = data || {};
   const meds: MedRow[] = d.medications || [];
@@ -149,8 +150,20 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, data, setData, emit, refres
     finally { setRemovingIdx(null); }
   };
 
+  // A vaccination flow administers ON this step — mount the full panel (mark
+  // given, batch #, next-due, ADD a second/third vaccine). Two vaccines in one
+  // visit are two VaccinationRecords on the SAME encounter, not a second
+  // VACCINATION encounter (172's unique index refuses the duplicate).
+  const isVaccinationFlow = (visit as any).visitType === 'VACCINATION'
+    || (visit.tasks || []).some((t: any) => /vaccin|immuni/i.test(t.category || ''));
+
   return (
     <div className="space-y-4">
+      {isVaccinationFlow && (
+        <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 bg-white dark:bg-zinc-900">
+          <VaccinationPanel appointment={visit} petId={pet.id} onSaved={() => refreshVisit?.()} />
+        </div>
+      )}
       {show('medications') && (
       <Section icon={Pill} title="Medications & Items Used (deducts stock · bills)">
         {marCount > 0 && (
