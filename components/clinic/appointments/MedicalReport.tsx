@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Visit, Pet, Client, Clinic } from '../../../types';
-import { DewormingRecord, FormField, LayoutStage } from '../../../services';
+import { DewormingRecord, FormField, LayoutStage, labAPI, imagingAPI } from '../../../services';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { toEntries, SystemValue } from './wizard/SystemFindings';
 
@@ -107,6 +107,26 @@ const prose = (parts: (string | false | undefined | null)[]) =>
  * diagnosis → treatment → client communication → follow-up.
  */
 const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staff, dewormingRecords = [], templateStages = [], templateFields = {} }) => {
+  // Diagnostic RESULTS live in the lab/imaging module tables, not the wizard's
+  // consultation data — without this fetch a completed X-ray printed as
+  // "Not recorded" (transfer visit 134). Silent: the report still renders if
+  // the fetch fails; results simply stay absent.
+  const [diagRecs, setDiagRecs] = useState<{ lab: any[]; imaging: any[] }>({ lab: [], imaging: [] });
+  useEffect(() => {
+    let alive = true;
+    Promise.all([
+      labAPI.list({ appointmentId: visit.id } as any, { silent: true } as any).catch(() => null),
+      imagingAPI.list({ appointmentId: visit.id } as any, { silent: true } as any).catch(() => null),
+    ]).then(([lab, img]) => {
+      if (!alive) return;
+      const vid = String(visit.id);
+      setDiagRecs({
+        lab: (lab?.data?.records || []).filter((r: any) => String(r.appointmentId ?? '') === vid),
+        imaging: (img?.data?.records || []).filter((r: any) => String(r.appointmentId ?? '') === vid),
+      });
+    });
+    return () => { alive = false; };
+  }, [visit.id]);
   const h = data.history || {};
   const ex = data.examination || {};
   const as = data.assessment || {};
@@ -316,8 +336,26 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
       </Body>
 
       <SectionTitle>4 · Diagnostics</SectionTitle>
-      <Body has={!!dgText || customFacts('diagnostics').length > 0}>
+      <Body has={!!dgText || customFacts('diagnostics').length > 0 || diagRecs.lab.length > 0 || diagRecs.imaging.length > 0}>
         {dgText && <Narrative>{dgText}</Narrative>}
+        {/* Actual results from the module records — including work a PARTNER
+            clinic performed and mirrored back on a transfer. */}
+        {diagRecs.imaging.map((r: any) => (
+          <p key={`img-${r.id}`} className="text-[11px] leading-relaxed text-slate-600 dark:text-zinc-400 mt-0.5">
+            <span className="font-bold text-slate-700 dark:text-zinc-300">{r.modality || 'Imaging'}{r.bodyPart ? ` — ${r.bodyPart}` : ''}</span>
+            {r.status ? ` · ${String(r.status).toLowerCase().replace(/_/g, ' ')}` : ''}
+            {r.externalSource ? ` · via ${r.externalSource}` : ''}
+            {r.findings ? ` — ${r.findings}` : ' — no findings recorded'}
+          </p>
+        ))}
+        {diagRecs.lab.map((r: any) => (
+          <p key={`lab-${r.id}`} className="text-[11px] leading-relaxed text-slate-600 dark:text-zinc-400 mt-0.5">
+            <span className="font-bold text-slate-700 dark:text-zinc-300">{r.panelName || 'Lab panel'}</span>
+            {r.status ? ` · ${String(r.status).toLowerCase().replace(/_/g, ' ')}` : ''}
+            {r.externalSource ? ` · via ${r.externalSource}` : ''}
+            {(r.interpretation || r.notes) ? ` — ${r.interpretation || r.notes}` : ''}
+          </p>
+        ))}
         <Extras stageKey="diagnostics" />
       </Body>
 

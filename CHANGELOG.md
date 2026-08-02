@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: report shows diagnostic RESULTS; tracker labels  —  2026-08-02
+- **What changed:** (user) The Medical Report's §4 Diagnostics now prints the visit's
+  actual lab + imaging records (modality/panel, status, findings/notes, external
+  source) — including partner-performed work mirrored onto a transfer visit; wizard
+  prose alone left a completed X-ray reading "Not recorded". Outsourced-services
+  tracker: the collapsed pin toggle is now a labelled "Track / Hide tracking" button
+  and the item-type select gains a "What's moving" label + tooltip.
+- **Record impact:** 🟢 — read-path UI.
+
 ### frontend: complete & send partner result from the imaging study page  —  2026-08-02
 - **What changed:** (user) When an imaging study belongs to a visit we PROVIDE for a
   partner (accepted job on this provider visit, IMAGING category), the study page's

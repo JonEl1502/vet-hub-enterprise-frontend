@@ -89,7 +89,11 @@ const VisitJobTracker: React.FC<{ jobId: string; role: 'requester' | 'provider';
       {next && (
         <div className="flex flex-wrap items-center gap-2">
           {next.item && (
-            <select value={itemType} onChange={e => setItemType(e.target.value as MovementItemType)}
+            <label className="text-[8px] font-black uppercase tracking-widest text-slate-400">What's moving</label>
+          )}
+          {next.item && (
+            <select value={itemType} onChange={e => setItemType(e.target.value as MovementItemType)} title="What is being sent — patient, sample, document or image"
+
               className="px-2 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam">
               {ITEM_TYPES.map(t => <option key={t} value={t}>{t.toLowerCase()}</option>)}
             </select>

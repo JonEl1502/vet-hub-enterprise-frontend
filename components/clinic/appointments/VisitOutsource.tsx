@@ -399,7 +399,11 @@ export const VisitJobsPanel: React.FC<{ visitId: string | number; refreshKey?: n
                 <span className="block text-[9px] text-slate-400">{j.currency} {j.agreedPrice.toLocaleString()}{negotiating ? (proposedByMe ? ' · your proposal' : ` · proposed by ${partnerName}`) : ''}{j.movementStage ? ` · ${j.movementStage.replace('_', ' ').toLowerCase()}` : ''}</span>
               </span>
               {canTrack && (
-                <button onClick={() => setOpenTrack(o => ({ ...o, [j.id]: !o[j.id] }))} title="Track movement" className="p-1 text-seafoam hover:text-pine shrink-0"><MapPin size={13} /></button>
+                <button onClick={() => setOpenTrack(o => ({ ...o, [j.id]: !o[j.id] }))}
+                  title="Patient/sample movement tracking"
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg border border-seafoam/30 text-seafoam text-[8px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all shrink-0">
+                  <MapPin size={11} /> {openTrack[j.id] ? 'Hide tracking' : 'Track'}
+                </button>
               )}
               {j.paidOut && <span className="text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400">Paid B</span>}
               <span className={`flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 ${STATUS_TONE[j.status] || ''}`}><Icon size={10} /> {j.status}</span>
