@@ -102,7 +102,10 @@ const VisitJobsInbox: React.FC = () => {
             {mode === 'incoming' && negotiating && (
               <button onClick={() => act(job, 'DECLINED', 'Job declined')} disabled={b} className="px-3 py-1 bg-white dark:bg-zinc-900 text-slate-500 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700 hover:text-rose-500 transition-all disabled:opacity-50">Decline</button>
             )}
-            {mode === 'incoming' && (job.status === 'ACCEPTED' || job.status === 'COMPLETED') && job.providerVisitId && (() => {
+            {/* Module-page shortcut only once the visit has actually STARTED —
+                a SCHEDULED provider visit still says "Start visit" (user, 2026-08-02). */}
+            {mode === 'incoming' && (job.status === 'ACCEPTED' || job.status === 'COMPLETED') && job.providerVisitId
+              && (job.status === 'COMPLETED' || (job.providerVisitStatus && job.providerVisitStatus !== 'SCHEDULED')) && (() => {
               const menuId = resolveCategoryMenuId(job.category);
               if (!menuId) return null;
               return (

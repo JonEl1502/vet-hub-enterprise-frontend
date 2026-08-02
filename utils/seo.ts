@@ -15,7 +15,7 @@ type Seo = {
 };
 
 const DEFAULT_DESCRIPTION =
-  'VetHub Core is the operating system for veterinary clinics. Appointments, ' +
+  'VetHub Core is the operating system for veterinary practice. Appointments, ' +
   'patient & medical records, inventory, invoicing, M-Pesa & card payments, ' +
   'plus a pet-owner portal for booking and paying online.';
 

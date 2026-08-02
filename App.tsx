@@ -126,6 +126,7 @@ import SupplierOnboarding from './components/supplier/onboarding/SupplierOnboard
 import SupplierVerification from './components/supplier/onboarding/SupplierVerification';
 import SupplierProfileManagement from './components/supplier/profile/SupplierProfileManagement';
 import PurchaseOrderDetailView from './components/shared/marketplace/PurchaseOrderDetailView';
+import B2BJobsStats from './components/clinic/partnerships/B2BJobsStats';
 import DateRangePicker from './components/shared/common/DateRangePicker';
 import PurchaseOrderFormView from './components/shared/marketplace/PurchaseOrderFormView';
 import ReceivePurchaseOrderModal from './components/shared/marketplace/ReceivePurchaseOrderModal';
@@ -407,6 +408,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             prepaid: a.prepaid ?? false,
             paymentMethod: a.paymentMethod,
             isHouseCall: a.isHouseCall,
+            // ⚠️ mapper footgun (visit 134): this cache-miss path built the row
+            // WITHOUT visitType/encounterType, so a CLINICAL_TRANSFER visit —
+            // which is never in this clinic's cached list — rendered the full
+            // standard consultation. Keep these in sync with DataContext's map.
+            visitType: a.visitType ?? null,
+            encounterType: a.encounterType ?? 'VET_VISIT',
             parentAppointmentId: a.parentAppointmentId ? parseInt(a.parentAppointmentId) : undefined,
             originReferralId: a.originReferralId ? parseInt(a.originReferralId) : undefined,
             leadStaffId: a.leadStaffId ? parseInt(a.leadStaffId) : undefined,
@@ -1859,6 +1866,16 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">Paid for outgoing referrals</p>
           </div>
         </div>
+
+        {/* NEW partner-request (visit jobs) stats — the negotiated cross-clinic
+            system, shown beside the legacy referral numbers (user, 2026-08-02). */}
+        <B2BJobsStats
+          activeClinicIds={store.activeClinicIds.map(String)}
+          startStr={metricsDateRange.start ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi' }).format(new Date(metricsDateRange.start)) : null}
+          endStr={metricsDateRange.end ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Nairobi' }).format(new Date(metricsDateRange.end)) : null}
+          currency={firstActiveClinic?.currency || 'KES'}
+          onOpenPartners={() => navigateTo('referrals')}
+        />
 
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-4 sm:p-8 shadow-sm">
           <h3 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tighter mb-6">B2B Partnership Statistics</h3>

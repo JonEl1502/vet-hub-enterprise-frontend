@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: partner requests reach B2B Stats + Clinic Today; staff tallies card  —  2026-08-02
+- **What changed:** (user) The NEW cross-clinic visit-job system now surfaces beyond the
+  Partners page: **B2B Stats tab** gains a "Partner Requests" band (total/incoming/
+  outgoing/awaiting action + earned/paid from completed jobs, date-range filtered);
+  **Clinic Today** gains a "Partner requests" card (incoming jobs awaiting price/accept,
+  top 3, Open → Partners) and a "Staff activity · 7 days" card (§0f #4 — tallies BOTH
+  visit_encounter_staff and visit_task_staff; fees labelled internal, never billed).
+  Jobs inbox: the module-page shortcut (Imaging/Laboratory page) now hides until the
+  provider visit has actually STARTED. Transfer-visit fixes (user, visit 134): App's
+  cache-miss visit fetch dropped `visitType`/`encounterType` (mapper footgun) so a
+  CLINICAL_TRANSFER visit rendered the full standard consultation — fields added;
+  PatientRail gains `transferVisit` flag skipping pet snapshot/timeline calls (the
+  shared patient lives at the requester clinic → "Pet not found" toasts); the
+  Follow-Up & Reminders tab is hidden on transfer visits (requester's job); the
+  movement tracker derives its stage from the logged events, so the provider now
+  sees "Dispatched" highlighted and gets its "Mark received" action (the
+  deprecated movement_stage mirror lagged/nulled provider-side). Tagline
+  updated to "The operating system for veterinary practice." (index.html, seo.ts,
+  landing).
+- **Record impact:** 🟢 — UI + read-path only.
+
 ### frontend: boarding/inpatient per-day reconciliation sheet + daily costs  —  2026-08-02
 - **What changed:** (user) Boarding care log and inpatient daily sheet now render EVERY
   calendar day of the stay, check-in→checkout (or today), newest first. A day with

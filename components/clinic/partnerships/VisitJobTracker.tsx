@@ -44,20 +44,34 @@ const VisitJobTracker: React.FC<{ jobId: string; role: 'requester' | 'provider';
     } catch (e: any) { toast.error(e?.message || 'Failed to log'); } finally { setBusy(false); }
   };
 
+  // Effective stage comes from the EVENTS, not the passed prop: the prop is the
+  // deprecated `movement_stage` mirror, which lags/nulls on the provider side —
+  // the requester dispatched but the provider card showed no stage and no
+  // "Mark received" action (user, 2026-08-02). The latest stage-kind event is
+  // the truth both clinics already share.
+  const eventStage: MovementStage | null = (() => {
+    for (let i = events.length - 1; i >= 0; i--) {
+      const k = events[i].kind as string;
+      if (k !== 'NOTE' && STAGES.some(st => st.key === k)) return k as MovementStage;
+    }
+    return null;
+  })();
+  const effStage = eventStage ?? stage;
+
   // The next movement this clinic can log, given the current stage.
   const next = (() => {
     if (role === 'requester') {
-      if (!stage) return { kind: 'DISPATCHED' as MovementKind, label: 'Dispatch', icon: Truck, item: true };
-      if (stage === 'RESULT_SENT') return { kind: 'RETURNED' as MovementKind, label: 'Mark returned', icon: CornerDownLeft, item: false };
+      if (!effStage) return { kind: 'DISPATCHED' as MovementKind, label: 'Dispatch', icon: Truck, item: true };
+      if (effStage === 'RESULT_SENT') return { kind: 'RETURNED' as MovementKind, label: 'Mark returned', icon: CornerDownLeft, item: false };
     } else {
-      if (stage === 'DISPATCHED') return { kind: 'RECEIVED' as MovementKind, label: 'Mark received', icon: PackageCheck, item: false };
-      if (stage === 'RECEIVED') return { kind: 'IN_PROGRESS' as MovementKind, label: 'Start work', icon: Activity, item: false };
-      if (stage === 'IN_PROGRESS') return { kind: 'RESULT_SENT' as MovementKind, label: 'Send result back', icon: Send, item: true };
+      if (effStage === 'DISPATCHED') return { kind: 'RECEIVED' as MovementKind, label: 'Mark received', icon: PackageCheck, item: false };
+      if (effStage === 'RECEIVED') return { kind: 'IN_PROGRESS' as MovementKind, label: 'Start work', icon: Activity, item: false };
+      if (effStage === 'IN_PROGRESS') return { kind: 'RESULT_SENT' as MovementKind, label: 'Send result back', icon: Send, item: true };
     }
     return null;
   })();
 
-  const stageIdx = stage ? STAGES.findIndex(s => s.key === stage) : -1;
+  const stageIdx = effStage ? STAGES.findIndex(s => s.key === effStage) : -1;
 
   return (
     <div className="mt-2 pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-3">

@@ -77,6 +77,9 @@ interface Props {
   followUpPlan?: { nextDate?: string; nextTime?: string; reminders?: { title: string; description?: string; dueDate: string; assignTo?: string; assignToName?: string }[]; carePlan?: string[] } | null;
   onBookFromPlan?: (prefill: { date?: string; time?: string; note?: string }) => void;
   onRemindersCreated?: (n: number) => void;
+  // Cross-clinic transfer visit: the patient lives at the REQUESTER clinic, so
+  // pet-detail lookups here 404 ("Pet not found"). Skip them (user, 2026-08-02).
+  transferVisit?: boolean;
   // Visit closed & billed → rail is view-only: no behaviour edits, no
   // follow-up reminder creation / appointment booking from here.
   readOnly?: boolean;
@@ -101,13 +104,15 @@ interface Props {
  * Bill & Balance used to lead this rail; it now lives in the Bill & Invoice tab
  * (`BillBalanceCard.tsx`) beside the bill it describes.
  */
-const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allAppointments, visitReminder, onNavigateToVisit, onNavigateToPet, onNavigateToClient, onBookFollowUp, followUpPlan, onBookFromPlan, onRemindersCreated, readOnly, only }) => {
+const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allAppointments, visitReminder, onNavigateToVisit, onNavigateToPet, onNavigateToClient, onBookFollowUp, followUpPlan, onBookFromPlan, onRemindersCreated, readOnly, only, transferVisit }) => {
   const showFollowUp = only !== 'context';
   const showContext = only !== 'followup';
   const [petSnapshot, setPetSnapshot] = useState<any | null>(null);
   const [vaccineHistory, setVaccineHistory] = useState<{ name: string; date: string }[]>([]);
   useEffect(() => {
     let alive = true;
+    // Shared cross-clinic patient — not in this clinic's records; don't call.
+    if (transferVisit) return () => { alive = false; };
     petsAPI.getSnapshot(pet.id).then((r: any) => { if (alive && r.success && r.data?.snapshot) setPetSnapshot(r.data.snapshot); }).catch(() => {});
     petsAPI.getTimeline(pet.id).then((r: any) => {
       if (!alive || !r.success) return;
@@ -116,7 +121,7 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
       setVaccineHistory(entries.filter((e: any) => e.type === 'vaccination').map((e: any) => ({ name: e.vaccineName || 'Vaccine', date: e.date })));
     }).catch(() => {});
     return () => { alive = false; };
-  }, [pet.id]);
+  }, [pet.id, transferVisit]);
 
   // Behavioural traits — persisted on the pet record (pets.behaviour_traits).
   // Seed from the pet; fall back to any legacy per-device value once.

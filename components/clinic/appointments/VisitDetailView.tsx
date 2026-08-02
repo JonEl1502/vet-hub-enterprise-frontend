@@ -613,6 +613,10 @@ const VisitDetailInner: React.FC<Props> = ({
     toast.success(`${labels[type]} added to this visit's bill`);
   };
 
+  // Cross-clinic transfer visit (168) — declared before the rail consts that
+  // read it (hoisting: JSX consts below use it via the transferVisit flag).
+  const isTransferVisit = appointment.visitType === 'CLINICAL_TRANSFER';
+
   // Patient context rail (Bill & Balance · Patient & Owner · Behaviour ·
   // Clinical Snapshot) — shared between the wizard and Records & Billing.
   const patientRail = (
@@ -630,6 +634,7 @@ const VisitDetailInner: React.FC<Props> = ({
         loadVisitReminder();
       }}
       readOnly={visitClosed}
+      transferVisit={isTransferVisit}
       only="context"
     />
   );
@@ -652,6 +657,7 @@ const VisitDetailInner: React.FC<Props> = ({
         loadVisitReminder();
       }}
       readOnly={visitClosed}
+      transferVisit={isTransferVisit}
       only="followup"
     />
   );
@@ -747,7 +753,6 @@ const VisitDetailInner: React.FC<Props> = ({
   // Keyed on the EXPLICIT visit type (168) — the old category heuristic
   // ("every task is lab/imaging") hid the clinical workflow on a real
   // consultation whose only staged service was imaging.
-  const isTransferVisit = appointment.visitType === 'CLINICAL_TRANSFER';
   const diagnosticOnly = appointment.visitType === 'DIAGNOSTICS' || isTransferVisit;
   // Who sent the transfer — for the "patient shared for this visit" banner.
   // The patient lives in the REQUESTER's records; it's shared here, not copied.
@@ -789,6 +794,8 @@ const VisitDetailInner: React.FC<Props> = ({
     // No clinical wizard on diagnostics/transfer visits; transfers also have
     // no billing tab (escrow-paid), so they land on Records instead.
     if (diagnosticOnly && workflowTab === 'clinical') setWorkflowTab(isTransferVisit ? 'records' : 'billing');
+    // Transfers have no Follow-Up tab either (requester's job) — bounce to Records.
+    if (isTransferVisit && workflowTab === 'followup') setWorkflowTab('records');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [diagnosticOnly]);
   const [triageStabilized, setTriageStabilized] = useState(false);
@@ -3197,7 +3204,7 @@ const VisitDetailInner: React.FC<Props> = ({
           {/* On an emergency visit, Triage leads — it IS the workflow's front
               door. Diagnostics-only visits (auto-created from New lab/imaging)
               skip the clinical wizard entirely. */}
-          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), { id: 'followup', label: '🔔 Follow-Up & Reminders' }, { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [{ id: 'partnerbill', label: '🧾 Partner Bill & Receipt' }, { id: 'transfer', label: '🔁 Clinical Transfer' }] : [{ id: 'billing', label: 'Bill & Invoice' }])].map(t => (
+          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), ...(isTransferVisit ? [] /* follow-up is the requester clinic's job — hidden on transfers (user, 2026-08-02) */ : [{ id: 'followup', label: '🔔 Follow-Up & Reminders' }]), { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [{ id: 'partnerbill', label: '🧾 Partner Bill & Receipt' }, { id: 'transfer', label: '🔁 Clinical Transfer' }] : [{ id: 'billing', label: 'Bill & Invoice' }])].map(t => (
             <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
           ))}
           {/* Badge only for auto-created diagnostics visits — transfers have a

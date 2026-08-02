@@ -6,6 +6,8 @@ import { useData } from '../../../contexts/DataContext';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
+import { usePartnerJobs } from '../partnerships/B2BJobsStats';
+import { Send, Users } from 'lucide-react';
 
 /**
  * Conversion pulse (user, 2026-08-01) — the rich stats band on Clinic Today:
@@ -141,6 +143,84 @@ export const CheckoutsCard: React.FC<{ scopeId: string | number }> = ({ scopeId 
   );
 };
 
+/**
+ * Partner requests on the dashboard (user, 2026-08-02) — incoming cross-clinic
+ * jobs waiting on this clinic (price/accept), so new requests are seen without
+ * opening the Partners page.
+ */
+export const PartnerRequestsCard: React.FC<{ clinicId: string | number }> = ({ clinicId }) => {
+  const { jobs, loading } = usePartnerJobs();
+  if (loading) return null;
+  const ids = [String(clinicId)];
+  const awaiting = jobs.filter(j => ids.includes(String(j.providerClinicId)) && j.status === 'REQUESTED');
+  const active = jobs.filter(j => ids.includes(String(j.providerClinicId)) && j.status === 'ACCEPTED');
+  if (awaiting.length === 0 && active.length === 0) return null;
+  const go = () => window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'referrals' } }));
+  return (
+    <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-100 dark:border-zinc-800 shadow-sm p-4">
+      <div className="flex items-center gap-2">
+        <div className="w-8 h-8 rounded-xl bg-violet-500/10 flex items-center justify-center"><Send size={15} className="text-violet-500" /></div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest leading-none">Partner requests</p>
+          <p className="text-[10px] text-slate-400 mt-0.5 truncate">
+            {awaiting.length > 0 ? `${awaiting.length} new request${awaiting.length === 1 ? '' : 's'} awaiting your price/accept` : 'No new requests'}
+            {active.length > 0 ? ` · ${active.length} in progress` : ''}
+          </p>
+        </div>
+        <button onClick={go} className="px-3 py-1.5 rounded-lg bg-violet-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-violet-700 shrink-0">Open</button>
+      </div>
+      {awaiting.slice(0, 3).map(j => (
+        <div key={j.id} className="mt-2 flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-slate-50 dark:bg-zinc-800/50">
+          <span className="text-[8px] font-black uppercase tracking-widest text-violet-500 shrink-0">{j.category}</span>
+          <span className="min-w-0 flex-1 text-[11px] font-bold text-slate-700 dark:text-zinc-200 truncate">{j.serviceName || 'Service'}{(j as any).patientName ? ` · ${(j as any).patientName}` : ''}</span>
+          <span className="text-[9px] font-black text-emerald-600 shrink-0">{j.currency} {Number(j.agreedPrice || 0).toLocaleString()}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+/**
+ * Staff tallies (§0f #4) — attendance across BOTH attribution tables
+ * (encounters 172 + service lines 106). `fee` is INTERNAL clinic cost, never
+ * billed — labelled as such.
+ */
+export const StaffTalliesCard: React.FC<{ scopeId: string | number }> = ({ scopeId }) => {
+  const [rows, setRows] = useState<any[]>([]);
+  useEffect(() => {
+    let alive = true;
+    summariesAPI.conversions({ scopeId, days: 7 }, { silent: true } as any)
+      .then(r => { if (alive && r.success && (r.data as any)?.staffTallies) setRows((r.data as any).staffTallies); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [scopeId]);
+  if (!rows.length) return null;
+  return (
+    <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-100 dark:border-zinc-800 shadow-sm p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-8 h-8 rounded-xl bg-seafoam/10 flex items-center justify-center"><Users size={15} className="text-seafoam" /></div>
+        <div>
+          <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest leading-none">Staff activity · 7 days</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Encounters + service lines attended · fees are internal cost, never billed</p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+        {rows.map((r) => (
+          <div key={r.userId} className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/50">
+            {r.avatarUrl
+              ? <img src={r.avatarUrl} alt="" className="w-7 h-7 rounded-full object-cover shrink-0" />
+              : <div className="w-7 h-7 rounded-full bg-seafoam/15 flex items-center justify-center text-[10px] font-black text-seafoam shrink-0">{(r.name || 'S').slice(0, 1)}</div>}
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-slate-700 dark:text-zinc-200 truncate">{r.name}{r.role ? <span className="text-slate-400 font-medium"> · {r.role}</span> : null}</p>
+              <p className="text-[10px] text-slate-400 truncate">{r.encounters} encounter{r.encounters === 1 ? '' : 's'} · {r.services} service line{r.services === 1 ? '' : 's'}{r.internalFees > 0 ? ` · KES ${Number(r.internalFees).toLocaleString()} internal` : ''}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 interface Props {
   onOpenVisit?: (visitId: string) => void;
   onOpenBookings?: () => void;
@@ -237,6 +317,12 @@ const ClinicTodayView: React.FC<Props> = ({ onOpenVisit, onOpenBookings, onOpenR
 
       {/* 1b · Patient checkouts — expected releases + call-client reminders. */}
       {scopeId != null && <CheckoutsCard scopeId={scopeId} />}
+
+      {/* 1c · Partner requests — incoming cross-clinic jobs awaiting action. */}
+      {scopeId != null && <PartnerRequestsCard clinicId={scopeId} />}
+
+      {/* 1d · Staff tallies (§0f #4) — both attribution tables, internal fees. */}
+      {scopeId != null && <StaffTalliesCard scopeId={scopeId} />}
 
       {/* 2 · Date picker directly below the card, defaulting to today (user,
           2026-08-01). House-themed react-datepicker (same as AdvancedFilters)
