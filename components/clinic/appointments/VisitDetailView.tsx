@@ -7049,7 +7049,16 @@ const VisitDetailInner: React.FC<Props> = ({
                   <Lock size={12} /> Unlock
                 </button>
               )}
-              {!isFinalized ? (
+              {/* An APPROVED/INVOICED bill means generation already happened —
+                  offering "Generate bill" again (and the false gate behind it)
+                  misled; the next act is PAYMENT (user, 2026-08-02). */}
+              {(liveBill && liveBill.status && !['DRAFT', 'OPEN'].includes(String(liveBill.status))) && !isFinalized ? (
+                <button onClick={openSettleModal} disabled={isSettlingBill}
+                  title="Take payment against this bill's invoice"
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-seafoam hover:bg-pine disabled:opacity-40 transition-all active:scale-95">
+                  <CreditCard size={13} /> Make payment
+                </button>
+              ) : !isFinalized ? (
                 <button onClick={openFinalizeGate} disabled={isFinalizing}
                   title="Generate the bill for this visit — this finalizes it"
                   className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95">

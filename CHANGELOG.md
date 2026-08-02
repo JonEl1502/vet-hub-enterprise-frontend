@@ -59,6 +59,11 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: sticky bar offers Make payment once the bill is live  —  2026-08-02
+- **What changed:** (user) with an APPROVED/INVOICED bill the bottom bar no longer
+  offers "Generate bill" again — it becomes **Make payment** (opens the settle flow).
+- **Record impact:** 🟢.
+
 ### frontend: invoice tab + sticky bar show the REAL bill  —  2026-08-02
 - **What changed:** (user, visit 133) the legacy invoice document rendered only visit
   TASKS (X-Ray, 3,000) while the real bill carried consumables + custom lines (5,209,
