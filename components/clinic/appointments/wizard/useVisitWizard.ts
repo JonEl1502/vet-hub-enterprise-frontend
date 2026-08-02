@@ -196,9 +196,15 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     // a grooming/boarding visit via Transfer/Add encounter). A grooming-only
     // visit stays grooming-only — its flow already carries the vet check.
     const MODULE_KWS = ['groom', 'board', 'vaccin', 'retail', 'petshop', 'food', 'accessor'];
+    // Visit-LEVEL fee lines (after-hours / walk-in surcharge, house-call
+    // call-out + travel) are registered under 'Consultation' on legacy visits,
+    // but they are properties of the visit, not clinical work — counting them
+    // stapled a "Vet Visit — clinical" chip onto a plain boarding visit whose
+    // only extra was the after-hours fee (user, 2026-08-02).
+    const isVisitFee = (t: any) => /surcharge|call-?out|house call travel/i.test(t.name || '');
     const hasClinicalContent = (visit.tasks || []).some(t => {
       const c = (t.category || '').toLowerCase();
-      return !!c && !MODULE_KWS.some(k => c.includes(k));
+      return !!c && !MODULE_KWS.some(k => c.includes(k)) && !isVisitFee(t);
     });
     if (!VET_FAMILY.includes(resolved.key) && hasClinicalContent) add('standard');
     if (has(['vaccin'])) add('vaccination');
@@ -214,8 +220,10 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     const covered = new Set(fromRows.map(e => famOf(e.key)));
     // A merged VET chip needs a real CONSULTATION service — generic "clinical
     // content" matched an After-hours fee and stapled a Vet Visit chip onto a
-    // direct vaccination visit (user, 2026-08-02: "just one").
-    const hasConsultTask = (visit.tasks || []).some(t => (t.category || '').toLowerCase().includes('consult'));
+    // direct vaccination visit (user, 2026-08-02: "just one"). Fee lines are
+    // excluded here too: legacy visits carry them under 'Consultation', which
+    // walked straight through this guard on a boarding visit.
+    const hasConsultTask = (visit.tasks || []).some(t => (t.category || '').toLowerCase().includes('consult') && !isVisitFee(t));
     for (const e of fromTasks) {
       const fam = famOf(e.key);
       if (fam === 'vet' && !hasConsultTask) continue;

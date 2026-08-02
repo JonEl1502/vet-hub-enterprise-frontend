@@ -1197,6 +1197,17 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     if (isHouseCall) extras.push({ key: 'HOUSE_CALL', name: 'House call — call-out fee' });
     if (isWalkIn) extras.push({ key: 'WALK_IN', name: 'Walk-in surcharge' });
     if (isAfterHours) extras.push({ key: 'AFTER_HOURS', name: 'After-hours surcharge' });
+    // Visit-level fees belong to the visit's PRIMARY encounter, not to a
+    // consultation that may not exist: an After-hours surcharge staged as
+    // 'Consultation' on a BOARDING visit made the wizard read the visit as
+    // clinical and staple a "Vet Visit — clinical" chip onto it (user,
+    // 2026-08-02). Grooming/boarding fees land under their own category.
+    const extrasCategory = (() => {
+      if (encounterType !== 'GROOMING' && encounterType !== 'BOARDING') return 'Consultation';
+      const want = encounterType === 'GROOMING' ? 'groom' : 'board';
+      const cat = categoriesWithIcons.find(c => c.name.toLowerCase().includes(want));
+      return cat?.name || (encounterType === 'GROOMING' ? 'Grooming' : 'Boarding');
+    })();
     for (const ex of extras) {
       const fee = visitFees[ex.key];
       if (fee && fee > 0) {
@@ -1206,7 +1217,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
           // A configured fee, not a catalog service — no FK to carry.
           serviceId: undefined,
           name: ex.name,
-          category: 'Consultation',
+          category: extrasCategory,
           status: TaskStatus.PENDING,
           price: fee,
           notes: '',

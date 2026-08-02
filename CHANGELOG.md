@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: boarding visit no longer gains a bogus "Vet Visit — clinical" chip from fee lines  —  2026-08-02
+- **What changed:** (user bug report, S1) creating a BOARDING visit with an After-hours
+  surcharge added a Vet Visit — clinical chip. Two-part fix: ① `NewVisitView` now stages
+  visit-level fees (after-hours / walk-in) under the PRIMARY encounter's category on
+  grooming/boarding visits instead of hard-coded 'Consultation'; ② `useVisitWizard`'s
+  chip guards (`hasClinicalContent` + `hasConsultTask`) exclude fee lines by name
+  (surcharge / call-out / house-call travel), so ALREADY-created visits lose the bogus
+  chip too. House-call fee lines keep 'Consultation' — a house call is a vet visit.
+- **Record impact:** 🟢 — new visits only; no rewrite of existing task categories.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the guards match fee lines by NAME — if the fee-line names in
+  `NewVisitView` are ever renamed, keep the `isVisitFee` regex in `useVisitWizard` in step.
+
 ### flow: diagnostics search — no list before typing, procedures w/ type badge; procedure Type field  —  2026-08-02
 - **What changed:** (S2, S8 leftover) `InlineServiceSearch` no longer lists anything until
   the user types (`suggestCategories` deprecated, kept for compile-compat) and can now offer
