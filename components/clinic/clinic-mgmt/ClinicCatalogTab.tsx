@@ -8,6 +8,7 @@ import { useData } from '../../../contexts/DataContext';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import AddServiceModal from '../shared/AddServiceModal';
 import ServiceBundlesView from '../inventory/ServiceBundlesView';
+import QtyUnitControl, { sellUnitOf, costPerSellUnit } from '../shared/QtyUnitControl';
 
 const SCOPES: { value: 'ALL' | 'GENERAL' | 'CUSTOM'; label: string; hint: string }[] = [
   { value: 'ALL', label: 'All', hint: 'General + custom' },
@@ -138,7 +139,9 @@ const ClinicCatalogTab: React.FC = () => {
     for (const p of products || []) {
       const it = invById.get(p.inventoryItemId);
       sub += Number(it?.price ?? 0) * (Number(p.qty) || 0);
-      cost += Number(it?.costPrice ?? 0) * (Number(p.qty) || 0);
+      // costPrice is per STOCK unit; qty & price are per SELL unit — convert
+      // or a box-cost lands on a pair-qty line (the KES -435 gloves bug).
+      cost += (it ? costPerSellUnit(it) : 0) * (Number(p.qty) || 0);
     }
     return { sub, cost, margin: sub - cost };
   };
@@ -158,7 +161,8 @@ const ClinicCatalogTab: React.FC = () => {
   const addProduct = (id: string, item: any) => {
     const list = productsOf(id);
     if (list.some((p) => p.inventoryItemId === String(item.id))) { setAttachFor(null); setQ(''); return; }
-    const next = [...list, { inventoryItemId: String(item.id), name: item.name, qty: 1, unit: item.unit }];
+    // unit label = SELL unit — qty and price are denominated in it (§0f #8).
+    const next = [...list, { inventoryItemId: String(item.id), name: item.name, qty: 1, unit: sellUnitOf(item) }];
     setLocal(id, { products: next });
     save(id, { products: next });
     setAttachFor(null); setQ('');
@@ -361,13 +365,20 @@ const ClinicCatalogTab: React.FC = () => {
                                     <span key={p.inventoryItemId} className="inline-flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-full bg-seafoam/10 border border-seafoam/30 text-seafoam text-[10px] font-bold" title={stock}>
                                       <Package size={10} className="shrink-0" />
                                       <span className="truncate max-w-[180px]">{p.name}</span>
-                                      <input
-                                        type="number" min={0} step="any" value={p.qty}
-                                        onChange={(e) => setProductQty(s.id, p.inventoryItemId, Number(e.target.value))}
-                                        className="w-11 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 py-0.5 text-center text-pine dark:text-zinc-100 outline-none"
-                                        title="Quantity logged when this service is added"
-                                      />
-                                      {p.unit || ''}
+                                      {it ? (
+                                        <QtyUnitControl compact item={it} value={Number(p.qty) || 1}
+                                          onChange={(sellQty) => setProductQty(s.id, p.inventoryItemId, sellQty)} />
+                                      ) : (
+                                        <>
+                                          <input
+                                            type="number" min={0} step="any" value={p.qty}
+                                            onChange={(e) => setProductQty(s.id, p.inventoryItemId, Number(e.target.value))}
+                                            className="w-11 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 py-0.5 text-center text-pine dark:text-zinc-100 outline-none"
+                                            title="Quantity logged when this service is added"
+                                          />
+                                          {p.unit || ''}
+                                        </>
+                                      )}
                                       <button type="button" onClick={() => removeProduct(s.id, p.inventoryItemId)} className="hover:text-red-500 p-0.5"><X size={11} /></button>
                                     </span>
                                   );

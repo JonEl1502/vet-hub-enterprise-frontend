@@ -9,6 +9,7 @@ import { VISIT_FEE_DEFS, loadVisitFees, saveVisitFees, VisitFeesConfig, loadVisi
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import DefaultRateEditor from '../shared/DefaultRateEditor';
 import WorkingHoursEditor from '../shared/WorkingHoursEditor';
+import QtyUnitControl, { sellUnitOf } from '../shared/QtyUnitControl';
 
 /**
  * Emergency protocol billables — price the stabilization interventions
@@ -307,13 +308,20 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
                               return (
                                 <span key={i} className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-seafoam/10 text-seafoam text-[9px] font-bold" title={it ? '' : 'Not in this clinic’s inventory — no price'}>
                                   <Package size={9} /> {cn.name}
-                                  <input
-                                    type="number" min={0} step="any" value={cn.qty}
-                                    onChange={e => update(key, { consumables: b.consumables!.map((x, j) => j === i ? { ...x, qty: Number(e.target.value) || 1 } : x) })}
-                                    className="w-10 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 text-[9px] font-black text-center outline-none"
-                                    title="Quantity logged per tick"
-                                  />
-                                  {cn.unit || ''}
+                                  {it ? (
+                                    <QtyUnitControl compact item={it} value={Number(cn.qty) || 1}
+                                      onChange={(sellQty) => update(key, { consumables: b.consumables!.map((x, j) => j === i ? { ...x, qty: sellQty } : x) })} />
+                                  ) : (
+                                    <>
+                                      <input
+                                        type="number" min={0} step="any" value={cn.qty}
+                                        onChange={e => update(key, { consumables: b.consumables!.map((x, j) => j === i ? { ...x, qty: Number(e.target.value) || 1 } : x) })}
+                                        className="w-10 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 text-[9px] font-black text-center outline-none"
+                                        title="Quantity logged per tick"
+                                      />
+                                      {cn.unit || ''}
+                                    </>
+                                  )}
                                   <span className="text-emerald-600 dark:text-emerald-400 font-black">{currency} {amt.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                                   <button type="button" onClick={() => update(key, { consumables: b.consumables!.filter((_, j) => j !== i) })} className="hover:text-red-500"><X size={9} /></button>
                                 </span>
@@ -336,7 +344,7 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
                         </div>
                         {matches.map((it: any) => (
                           <button key={it.id} type="button"
-                            onClick={() => { update(key, { consumables: [...(b.consumables || []), { inventoryItemId: String(it.id), name: it.name, qty: 1, unit: it.unit }] }); setSearchFor(null); setQ(''); }}
+                            onClick={() => { update(key, { consumables: [...(b.consumables || []), { inventoryItemId: String(it.id), name: it.name, qty: 1, unit: sellUnitOf(it) }] }); setSearchFor(null); setQ(''); }}
                             className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-100 dark:border-zinc-800 hover:border-seafoam text-left transition-all">
                             <Package size={10} className="text-seafoam shrink-0" />
                             <span className="flex-1 text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{it.name}</span>

@@ -3,6 +3,7 @@ import toast from 'react-hot-toast';
 import { X, Plus, Package, Search, Loader2 } from 'lucide-react';
 import servicesAPI, { Service, ServiceProduct } from '../../../services/modules/services.api';
 import { useData } from '../../../contexts/DataContext';
+import QtyUnitControl, { sellUnitOf } from './QtyUnitControl';
 
 /**
  * Create a service — shared by the Billable Items → Services catalog and
@@ -44,7 +45,8 @@ const AddServiceModal: React.FC<Props> = ({ categories, defaultCategoryId, curre
   }, [inventory, q, products]);
 
   const addProduct = (it: any) => {
-    setProducts(p => [...p, { inventoryItemId: String(it.id), name: it.name, qty: 1, unit: it.unit }]);
+    // unit label = SELL unit — what qty and price are denominated in (§0f #8).
+    setProducts(p => [...p, { inventoryItemId: String(it.id), name: it.name, qty: 1, unit: sellUnitOf(it) }]);
     setQ('');
   };
   const setQty = (invId: string, qty: number) =>
@@ -144,10 +146,16 @@ const AddServiceModal: React.FC<Props> = ({ categories, defaultCategoryId, curre
                     className="inline-flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-full bg-seafoam/10 border border-seafoam/30 text-seafoam text-[10px] font-bold">
                     <Package size={10} className="shrink-0" />
                     <span className="truncate max-w-[160px]">{p.name}</span>
-                    <input type="number" min={0} step="any" value={p.qty}
-                      onChange={e => setQty(p.inventoryItemId, Number(e.target.value))}
-                      className="w-11 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 py-0.5 text-center text-pine dark:text-zinc-100 outline-none" />
-                    {p.unit || ''}
+                    {(() => { const it = (inventory || []).find((x: any) => String(x.id) === p.inventoryItemId); return it ? (
+                      <QtyUnitControl compact item={it} value={Number(p.qty) || 1} onChange={(sellQty) => setQty(p.inventoryItemId, sellQty)} />
+                    ) : (
+                      <>
+                        <input type="number" min={0} step="any" value={p.qty}
+                          onChange={e => setQty(p.inventoryItemId, Number(e.target.value))}
+                          className="w-11 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 py-0.5 text-center text-pine dark:text-zinc-100 outline-none" />
+                        {p.unit || ''}
+                      </>
+                    ); })()}
                     <button type="button" onClick={() => removeProduct(p.inventoryItemId)} className="hover:text-red-500 p-0.5"><X size={11} /></button>
                   </span>
                 ))}

@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: ONE shared quantity+unit control (sell-unit drift fix)  —  2026-08-02
+- **What changed:** new `QtyUnitControl` (components/clinic/shared) — canonical value in
+  SELL units, unit choices DERIVED from packSize (sell ×1, ¼/½ stock, stock ×packSize),
+  bounds ≥¼ unit and ≤ one purchase unit. Wired into: procedure editor item rows
+  (price label now "Price / <sell unit>"), catalog service product chips (margin math
+  now uses cost-per-SELL-unit — kills the KES −435 gloves lie), emergency billables
+  chips, Add Service modal chips, and the visit-side applied-procedure line editor.
+  Attach handlers now store the SELL unit label, not the stock unit.
+- **Record impact:** 🟢 — UI only; stored quantities were already sell-unit denominated.
+
 ### frontend: gate-check expected discharge + patient-checkout dashboard  —  2026-08-02
 - **What changed:** Inpatient admit modal gains an "Expected discharge" field (mirrors
   boarding's "Expected pickup"); inpatient chart header gets an inline editable

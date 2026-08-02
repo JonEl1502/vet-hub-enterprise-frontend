@@ -13,6 +13,7 @@ import {
   ProcedureStage, ProcItemType, ProcQtyBasis, ProcedurePreview,
 } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import QtyUnitControl, { costPerSellUnit } from '../shared/QtyUnitControl';
 
 interface Props {
   templateId: string | null;
@@ -26,7 +27,10 @@ type Tab = 'details' | 'components' | 'rules' | 'workflow' | 'summary';
 interface DraftItem extends ProcedureItemPayload {
   key: string;             // local list key
   name: string;            // display name (service/inventory/custom)
-  unit?: string | null;
+  unit?: string | null;        // SELL unit — what quantity & price are in
+  stockUnit?: string | null;   // stock-keeping unit (Box); packSize bridges
+  packSize?: number | null;
+  costPrice?: number | null;   // per SELL unit (converted on load/attach)
   stock?: number | null;
   basePrice: number;       // effective price when no override
   // STAFF components (backend 106). `staffFee` is internal clinic cost and is
@@ -163,7 +167,10 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
             staffRole: (i as any).staffRole ?? null,
             staffFee: (i as any).staffFee ?? null,
             name: (i.itemType === 'STAFF' ? ((i as any).staffName ?? i.name) : i.name),
-            unit: i.unit, stock: i.availableQuantity, basePrice: i.effectivePrice,
+            unit: i.unit, stockUnit: (i as any).stockUnit ?? i.unit,
+            packSize: (i as any).packSize ?? null,
+            costPrice: (i as any).costPerSellUnit ?? null,
+            stock: i.availableQuantity, basePrice: i.effectivePrice,
           })),
           pricingRules: t.pricingRules.map(r => ({ ...r })),
         });
@@ -289,7 +296,13 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
         key: nextKey(), itemType, serviceId: null, inventoryItemId: String(i.id), customName: null,
         stageKey: null, qtyBasis: 'FIXED' as ProcQtyBasis, quantity: 1, priceOverride: null,
         billable: i.billable !== false, deductStock: true, optional: false, consultantName: null,
-        name: i.name, unit: i.unit, stock: Number(i.quantity), basePrice: Number(i.price) || 0,
+        name: i.name,
+        // price is per SELL unit — label quantity in it, keep the stock facts
+        // for the unit picker (§0f #8 sell-unit drift).
+        unit: (i.metadata?.sellUnit || i.unit), stockUnit: i.unit,
+        packSize: i.packSize != null ? Number(i.packSize) : null,
+        costPrice: costPerSellUnit(i),
+        stock: Number(i.quantity), basePrice: Number(i.price) || 0,
       }],
     }));
     setPickSearch('');
@@ -681,11 +694,19 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                           </select>
                         </div>
                         <div>
-                          <label className="field-label">{i.qtyBasis === 'PER_KG' ? `Qty / kg${i.unit ? ` (${i.unit})` : ''}` : `Qty${i.unit ? ` (${i.unit})` : ''}`}</label>
-                          <input type="number" min={0} step={0.01} className="field-input w-24" value={i.quantity ?? 1} onChange={e => patchItem(i.key, { quantity: Number(e.target.value) })} />
+                          <label className="field-label">{i.qtyBasis === 'PER_KG' ? `Qty / kg${i.unit ? ` (${i.unit})` : ''}` : 'Qty'}</label>
+                          {(i.itemType === 'MEDICATION' || i.itemType === 'CONSUMABLE') && i.qtyBasis !== 'PER_KG' ? (
+                            <QtyUnitControl
+                              item={{ unit: i.stockUnit ?? i.unit, packSize: i.packSize, sellUnit: i.unit }}
+                              value={Number(i.quantity ?? 1)}
+                              onChange={(sellQty) => patchItem(i.key, { quantity: sellQty })}
+                            />
+                          ) : (
+                            <input type="number" min={0} step={0.01} className="field-input w-24" value={i.quantity ?? 1} onChange={e => patchItem(i.key, { quantity: Number(e.target.value) })} />
+                          )}
                         </div>
                         <div>
-                          <label className="field-label">Price ({currency})</label>
+                          <label className="field-label">{(i.itemType === 'MEDICATION' || i.itemType === 'CONSUMABLE') && i.unit ? `Price / ${i.unit} (${currency})` : `Price (${currency})`}</label>
                           <input type="number" min={0} className="field-input w-28" value={i.priceOverride ?? ''} placeholder={String(i.basePrice)} onChange={e => patchItem(i.key, { priceOverride: e.target.value === '' ? null : Number(e.target.value) })} />
                         </div>
                         <div>

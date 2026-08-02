@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ClipboardList, Loader2, Trash2, Check, Zap, AlertTriangle, Plus, Calculator, ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { procedureTemplatesAPI, consumablesAPI, ProcedureApplication, ProcedureTemplate } from '../../../services';
+import QtyUnitControl from './QtyUnitControl';
 
 interface Props {
   appointmentId: string | number;
@@ -364,16 +365,19 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
                             </span>
                             {editable && prod && (
                               <span className="flex items-center gap-1 shrink-0">
-                                <input
-                                  type="number" min={0} step="0.001" title="Quantity actually used"
-                                  disabled={lineBusy}
-                                  value={qtyDraft[prod.id] ?? String(prod.quantity)}
-                                  onChange={e => setQtyDraft(d => ({ ...d, [prod.id]: e.target.value }))}
-                                  onBlur={() => saveLineQty(prod.id, prod.quantity)}
-                                  onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                                  className="w-14 px-1.5 py-0.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded text-[10px] font-bold text-pine dark:text-zinc-100 text-right focus:outline-none focus:ring-1 focus:ring-seafoam disabled:opacity-50"
-                                />
-                                <span className="text-[9px] font-bold text-slate-400">{prod.inventoryItem.unit}</span>
+                                {/* Sell-unit-aware qty (§0f #8): quantity is in the item's
+                                    SELL unit; the picker offers ¼/½/full stock-unit factors.
+                                    Saves when focus leaves the control. */}
+                                <span
+                                  onBlur={e => { if (!e.currentTarget.contains(e.relatedTarget as Node)) saveLineQty(prod.id, prod.quantity); }}
+                                >
+                                  <QtyUnitControl
+                                    compact disabled={lineBusy}
+                                    item={{ unit: (prod.inventoryItem as any).stockUnit ?? prod.inventoryItem.unit, packSize: (prod.inventoryItem as any).packSize, sellUnit: prod.inventoryItem.unit }}
+                                    value={qtyDraft[prod.id] !== undefined ? Number(qtyDraft[prod.id]) : Number(prod.quantity)}
+                                    onChange={(sellQty) => setQtyDraft(d => ({ ...d, [prod.id]: String(sellQty) }))}
+                                  />
+                                </span>
                                 <button type="button" disabled={lineBusy}
                                   onClick={() => toggleLineBillable(prod.id, !prod.billable)}
                                   title={prod.billable ? 'Make this line non-billable' : 'Charge for this line'}
