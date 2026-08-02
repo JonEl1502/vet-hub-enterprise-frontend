@@ -49,6 +49,18 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   const [data, setData] = React.useState<ClientBilling | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  // Per-row "Settle" (user, 2026-08-02): picking one invoice and jumping
+  // straight to the collect bar, instead of hunting for its checkbox. It
+  // REUSES the collect flow rather than opening a second payment path —
+  // method, credit and allocation all stay in one place.
+  const collectBarRef = React.useRef<HTMLDivElement>(null);
+  const settleOne = (visitId: string) => {
+    setSelected(new Set([visitId]));
+    // The bar only mounts once something is selectable; let it paint first.
+    requestAnimationFrame(() => {
+      collectBarRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+  };
   // Expanded row → inline printable invoice document (user, 2026-08-02).
   const [expandedVisit, setExpandedVisit] = React.useState<string | null>(null);
   const [expandedDoc, setExpandedDoc] = React.useState<any | null>(null);
@@ -352,7 +364,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
       {sub === 'invoices' && (
         <div className="space-y-3">
           {canCollect && selectable.length > 0 && (
-            <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
+            <div ref={collectBarRef} className="flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
               <button type="button"
                 onClick={() => setSelected(selected.size === selectable.length ? new Set() : new Set(selectable.map(i => i.visitId)))}
                 className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 transition-all">
@@ -601,6 +613,27 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                     </span>
                   )}
 
+                  {/* Settle this one invoice (user, 2026-08-02). A finalized
+                      invoice is collected right here; an unfinalized one CANNOT
+                      be — the server refuses a visit that isn't
+                      PENDING_PAYMENT/COMPLETED because its total can still move
+                      — so that row sends you to the visit to generate the bill
+                      rather than offering a button that would just 400. */}
+                  {canCollect && !inv.isPaid && (
+                    inv.collectable ? (
+                      <button onClick={() => settleOne(inv.visitId)}
+                        title={`Settle ${money(inv.outstanding ?? inv.total, currency)} on visit #${inv.visitId}`}
+                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-pine transition-all">
+                        <CreditCard size={10} /> Settle
+                      </button>
+                    ) : onViewVisit ? (
+                      <button onClick={() => onViewVisit(Number(inv.visitId))}
+                        title="This visit isn't finalized, so its total can still change — generate its bill on the visit, then settle"
+                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-all">
+                        <FileText size={10} /> Finalize to settle
+                      </button>
+                    ) : null
+                  )}
                   {onViewVisit && (
                     <button onClick={() => onViewVisit(Number(inv.visitId))}
                       className="shrink-0 text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70">View →</button>

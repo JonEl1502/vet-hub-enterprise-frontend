@@ -131,11 +131,47 @@ const ClientAccountHub: React.FC<Props> = ({
     return rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [invoices, payments]);
 
-  const filtered = filter === 'ALL' ? entries : entries.filter(e => e.kind === filter);
+  // Date-range filter (user, 2026-08-02: the chip used to be a static LABEL of
+  // the data's own span and "Filters" only toasted "coming soon"). `from`/`to`
+  // are yyyy-mm-dd; `to` is compared inclusively to the end of that day.
+  const [from, setFrom] = React.useState('');
+  const [to, setTo] = React.useState('');
+  const [rangeOpen, setRangeOpen] = React.useState(false);
+  const [minAmount, setMinAmount] = React.useState('');
+  const [unpaidOnly, setUnpaidOnly] = React.useState(false);
+
+  const inRange = React.useCallback((iso: string) => {
+    const t = new Date(iso).getTime();
+    if (from && t < new Date(`${from}T00:00:00`).getTime()) return false;
+    if (to && t > new Date(`${to}T23:59:59.999`).getTime()) return false;
+    return true;
+  }, [from, to]);
+
+  const filtered = entries.filter(e =>
+    (filter === 'ALL' || e.kind === filter)
+    && inRange(e.date)
+    && (!minAmount || Math.abs(e.amount) >= Number(minAmount))
+    && (!unpaidOnly || (e.status !== 'PAID' && e.status !== 'VOIDED')));
+
+  const activeFilterCount = (from || to ? 1 : 0) + (minAmount ? 1 : 0) + (unpaidOnly ? 1 : 0);
+  const clearFilters = () => { setFrom(''); setTo(''); setMinAmount(''); setUnpaidOnly(false); };
+  // Quick presets — the common questions ("what happened this month?").
+  const applyPreset = (days: number | 'ytd') => {
+    const now = new Date();
+    const end = now.toISOString().slice(0, 10);
+    const start = days === 'ytd'
+      ? `${now.getFullYear()}-01-01`
+      : new Date(now.getTime() - days * 86400000).toISOString().slice(0, 10);
+    setFrom(start); setTo(end); setShown(PAGE);
+  };
   const visible = filtered.slice(0, shown);
-  const rangeLabel = entries.length
-    ? `${fmt(entries[entries.length - 1].date)} – ${fmt(entries[0].date)}`
-    : 'No transactions';
+  // The chip reads the CHOSEN range when there is one; otherwise it keeps
+  // describing the data's own span (which is all it ever did).
+  const rangeLabel = (from || to)
+    ? `${from ? fmt(from) : 'Start'} – ${to ? fmt(to) : 'Today'}`
+    : entries.length
+      ? `${fmt(entries[entries.length - 1].date)} – ${fmt(entries[0].date)}`
+      : 'No transactions';
 
   // Donut segments — lifetime view of where the account stands.
   const segments = [
@@ -244,14 +280,76 @@ const ClientAccountHub: React.FC<Props> = ({
                 </button>
               ))}
             </div>
-            <div className="ml-auto flex items-center gap-2">
-              <span className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">
-                <CalendarRange size={12} className="text-slate-400" /> {rangeLabel}
-              </span>
-              <button type="button" onClick={() => soon('More filters')}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam transition-all">
-                <Filter size={12} /> Filters
+            <div className="ml-auto flex items-center gap-2 relative">
+              <button type="button" onClick={() => setRangeOpen(o => !o)}
+                title="Filter the timeline by date"
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border bg-white dark:bg-zinc-900 text-[9px] font-black uppercase tracking-widest transition-all ${
+                  (from || to)
+                    ? 'border-seafoam text-seafoam'
+                    : 'border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam'
+                }`}>
+                <CalendarRange size={12} /> {rangeLabel}
               </button>
+              <button type="button" onClick={() => setRangeOpen(o => !o)}
+                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border bg-white dark:bg-zinc-900 text-[9px] font-black uppercase tracking-widest transition-all ${
+                  activeFilterCount > 0
+                    ? 'border-seafoam text-seafoam'
+                    : 'border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam'
+                }`}>
+                <Filter size={12} /> Filters{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
+              </button>
+
+              {rangeOpen && (
+                <>
+                  <div className="fixed inset-0 z-20" onClick={() => setRangeOpen(false)} />
+                  <div className="absolute right-0 top-full mt-1.5 z-30 w-72 p-3 space-y-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl animate-in fade-in zoom-in-95 duration-100">
+                    <div className="flex flex-wrap gap-1.5">
+                      {([['30 days', 30], ['90 days', 90], ['Year to date', 'ytd']] as const).map(([label, v]) => (
+                        <button key={label} type="button" onClick={() => applyPreset(v as any)}
+                          className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-seafoam hover:text-white transition-all">
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="space-y-1">
+                        <span className="field-label">From</span>
+                        <input type="date" value={from} max={to || undefined}
+                          onChange={e => { setFrom(e.target.value); setShown(PAGE); }}
+                          className="field-input !py-1.5 text-[11px]" />
+                      </label>
+                      <label className="space-y-1">
+                        <span className="field-label">To</span>
+                        <input type="date" value={to} min={from || undefined}
+                          onChange={e => { setTo(e.target.value); setShown(PAGE); }}
+                          className="field-input !py-1.5 text-[11px]" />
+                      </label>
+                    </div>
+                    <label className="space-y-1 block">
+                      <span className="field-label">Minimum amount ({currency})</span>
+                      <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="Any"
+                        value={minAmount}
+                        onChange={e => { setMinAmount(e.target.value); setShown(PAGE); }}
+                        className="field-input !py-1.5 text-[11px]" />
+                    </label>
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input type="checkbox" checked={unpaidOnly}
+                        onChange={e => { setUnpaidOnly(e.target.checked); setShown(PAGE); }}
+                        className="w-3.5 h-3.5 rounded border-slate-300 text-seafoam focus:ring-seafoam" />
+                      <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300">Outstanding only</span>
+                    </label>
+                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-zinc-800">
+                      <button type="button" onClick={clearFilters} disabled={activeFilterCount === 0}
+                        className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 disabled:opacity-40 transition-all">
+                        Clear all
+                      </button>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                        {filtered.length} of {entries.length}
+                      </span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
@@ -263,7 +361,7 @@ const ClientAccountHub: React.FC<Props> = ({
 
             {visible.length === 0 && (
               <div className="py-14 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-3xl opacity-40 uppercase font-black text-[10px] tracking-[0.2em]">
-                No transactions {filter !== 'ALL' ? 'of this type' : 'yet'}
+                No transactions {activeFilterCount > 0 ? 'match these filters' : filter !== 'ALL' ? 'of this type' : 'yet'}
               </div>
             )}
 

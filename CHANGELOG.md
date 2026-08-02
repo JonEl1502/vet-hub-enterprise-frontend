@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: client Payments/Invoices — real date-range + filters, per-row Settle  —  2026-08-02
+- **What changed:** (user, S2) two dead controls made real. In `ClientAccountHub` the date
+  chip was a **static label of the data's own span** and **Filters** only toasted "coming
+  soon" — both now open a popover with 30-day/90-day/YTD presets, From/To date inputs, a
+  minimum-amount field and an "outstanding only" toggle; the chip turns seafoam and shows
+  the chosen range, Filters shows an active count, and the empty state says when nothing
+  matches. In `ClientPaymentsTab` each unpaid invoice row gains a **Settle** button that
+  selects just that invoice and scrolls to the collect bar (reusing the one collect flow —
+  method, credit and allocation stay in one place).
+- **Record impact:** 🟢 None — filtering is client-side; Settle drives the existing collect.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** a **NOT FINALIZED** visit shows "Finalize to settle" (routes to the
+  visit) rather than Settle — the server refuses to collect a visit that isn't
+  PENDING_PAYMENT/COMPLETED because its total can still change, so a Settle button there
+  would only ever 400. That is also why the collect bar is hidden when nothing is
+  finalized: with all rows unfinalized there was previously **no settle path at all**.
+
+
 ### page: Finance → Reports & Analytics — BI dashboard  —  2026-08-02
 - **What changed:** (user reference screenshot, S1) new `ReportsAnalyticsView`
   (`reports-analytics` view id, Finance submenu entry): 7 KPI cards with vs-previous-period
