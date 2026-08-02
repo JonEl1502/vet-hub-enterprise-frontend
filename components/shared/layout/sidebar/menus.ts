@@ -191,10 +191,11 @@ const CLINIC_ITEMS: MenuItem[] = [
     icon: CircleDollarSign,
     requiredPerm: 'VIEW_FINANCE',
     subItems: [
-      { id: 'financial-overview', label: 'Financial Overview', icon: TrendingUp },
-      { id: 'b2b-stats',          label: 'B2B Stats',          icon: Repeat },
-      { id: 'transactions',       label: 'Transactions',       icon: Receipt },
-      { id: 'financial-core',     label: 'Clinic Finance',     icon: CircleDollarSign },
+      { id: 'financial-overview', label: 'Financial Overview',  icon: TrendingUp },
+      { id: 'reports-analytics',  label: 'Reports & Analytics', icon: BarChart3 },
+      { id: 'b2b-stats',          label: 'B2B Stats',           icon: Repeat },
+      { id: 'transactions',       label: 'Transactions',        icon: Receipt },
+      { id: 'financial-core',     label: 'Clinic Finance',      icon: CircleDollarSign },
     ],
   },
   {

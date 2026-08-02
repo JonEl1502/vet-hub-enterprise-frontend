@@ -138,6 +138,7 @@ import ClinicSwitcherModal from './components/clinic/clinic-mgmt/ClinicSwitcherM
 import InitialClinicSelection from './components/clinic/clinic-mgmt/InitialClinicSelection';
 import TransactionsView from './components/clinic/billing/TransactionsView';
 import FinanceView from './components/clinic/billing/FinanceView';
+import ReportsAnalyticsView from './components/clinic/billing/ReportsAnalyticsView';
 import ToastContainer from './components/shared/common/ToastContainer';
 import GlobalAIAssistant from './components/shared/ai/GlobalAIAssistant';
 import ClinicTodayView from './components/clinic/dashboard/ClinicTodayView';
@@ -2182,7 +2183,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       return true;
 
     // Finance group
-    if (['finance', 'financial-overview', 'b2b-stats', 'transactions', 'financial-core'].includes(view))
+    if (['finance', 'financial-overview', 'reports-analytics', 'b2b-stats', 'transactions', 'financial-core'].includes(view))
       return hasPerm(Permission.VIEW_FINANCE);
 
     // Referrals / partners (detail + create pages inherit the same gate)
@@ -2659,6 +2660,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <FinanceView
           clinicId={firstActiveClinic?.id}
           onViewTransaction={(transactionId) => navigateTo('transactions')}
+        />;
+      case 'reports-analytics':
+        return <ReportsAnalyticsView
+          clinicId={firstActiveClinic?.id}
+          onNavigate={(view, params) => navigateTo(view, params)}
         />;
       case 'financial-overview':
         return <FinanceView
