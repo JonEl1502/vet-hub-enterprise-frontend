@@ -358,10 +358,22 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
                         const editable = !!prod && !billLocked;
                         return (
                           <div key={t.id} className="flex items-center justify-between gap-2 mt-1 pl-1">
-                            <span className="min-w-0 text-[10px] text-slate-500 dark:text-zinc-400 truncate">
-                              {t.name}
-                              {prod?.batchNumber && <span className="ml-1 font-black text-amber-600 dark:text-amber-500">· Batch {prod.batchNumber}</span>}
-                              {prod && !prod.billable && <span className="ml-1 text-slate-400">· no charge</span>}
+                            <span className="min-w-0">
+                              <span className="block text-[10px] text-slate-500 dark:text-zinc-400 truncate">
+                                {t.name}
+                                {prod?.batchNumber && <span className="ml-1 font-black text-amber-600 dark:text-amber-500">· Batch {prod.batchNumber}</span>}
+                                {prod && !prod.billable && <span className="ml-1 text-slate-400">· no charge</span>}
+                              </span>
+                              {/* Per-item detail: qty × unit price in the item's own
+                                  unit — visible even when the bill lock hides the
+                                  edit controls (surgery-record polish, S2). */}
+                              {prod && (
+                                <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 truncate">
+                                  {Number(prod.quantity)} {prod.inventoryItem.unit}
+                                  {prod.unitPrice != null && <> × {currency} {Number(prod.unitPrice).toLocaleString()}</>}
+                                  {prod.isDeducted ? ' · stock deducted' : ' · reserves on finalize'}
+                                </span>
+                              )}
                             </span>
                             {editable && prod && (
                               <span className="flex items-center gap-1 shrink-0">

@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: AppliedProcedurePanel — per-item qty × unit-price detail line  —  2026-08-02
+- **What changed:** (S2, surgery-record polish) every product line in an applied procedure
+  now shows a detail row — `qty unit × price`, plus whether stock is already deducted or
+  reserves on finalize — visible even when the bill lock hides the edit controls.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None (fields already in the consumables payload).
+- **Rollback:** revert the commit and rebuild.
+
 ### page: clinic settings — owner self-serve clinic-email verification  —  2026-08-02
 - **What changed:** (S2, §0 carry-over) the Branding tab's Email field now shows the
   verified/unverified chip + "Send code" → enter-OTP flow (reuses `ClinicEmailVerify` with
