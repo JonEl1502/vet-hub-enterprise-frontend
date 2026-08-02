@@ -42,6 +42,7 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
   const ADMIT_REASON_CHIPS = ['Critical condition', 'Post-surgery care', 'Monitoring / observation', 'Client request'];
   const [cage, setCage] = useState('');
   const [dailyRate, setDailyRate] = useState('');
+  const [expectedDischargeAt, setExpectedDischargeAt] = useState('');
   const [intakeWeight, setIntakeWeight] = useState('');
   const [weightCopied, setWeightCopied] = useState(false);
   const [foodProgram, setFoodProgram] = useState<FoodProgram>({ providedByClient: true });
@@ -114,6 +115,7 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
         feedingInstructions: feedingInstructions || undefined,
         medicationInstructions: medicationInstructions || undefined,
         emergencyContact: emergencyContact || undefined,
+        expectedDischargeAt: expectedDischargeAt ? new Date(expectedDischargeAt).toISOString() : undefined,
       });
       if (res.success) {
         // Journey log + (if agreed) vaccination work on the admission's visit —
@@ -199,6 +201,7 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
             <div><label className="field-label">Inpatient no.</label><input className="field-input" value={inpatientNo} onChange={e => setInpatientNo(e.target.value)} placeholder="IP-001" /></div>
             <div><label className="field-label">Cage / Kennel</label><input className="field-input" value={cage} onChange={e => setCage(e.target.value)} placeholder="A1" /></div>
             <div><label className="field-label">Daily rate (KES)</label><input type="number" min="0" className="field-input" value={dailyRate} onChange={e => setDailyRate(e.target.value)} placeholder="3000" /></div>
+            <div><label className="field-label">Expected discharge</label><input type="datetime-local" className="field-input" value={expectedDischargeAt} onChange={e => setExpectedDischargeAt(e.target.value)} /></div>
           </div>
           <div>
             <label className="field-label">Reason for admission / observations</label>

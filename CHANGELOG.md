@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: gate-check expected discharge + patient-checkout dashboard  —  2026-08-02
+- **What changed:** Inpatient admit modal gains an "Expected discharge" field (mirrors
+  boarding's "Expected pickup"); inpatient chart header gets an inline editable
+  "Release:" date chip. Clinic Today: Checkouts stat in the Conversion Pulse band
+  (today / soon / overdue) + a "Patient checkouts" card listing due boarding pickups
+  and inpatient discharges with a one-tap "Call reminder" (creates a FOLLOW_UP
+  reminder due at the expected release time, phone in notes).
+- **Record impact:** 🟢 — UI only; backend column is migration 173.
+
 ### page: client Payment Account + Collect lands on Payments; house dialog on Procedures  —  2026-08-02
 - **What changed:**
   - The Clients-page **Collect** button now opens the client profile's **Payments tab**

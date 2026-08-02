@@ -25,7 +25,7 @@ export interface Hospitalization {
   diagnosis: string | null; admissionNotes: string | null; cage: string | null; dailyRate: number | null;
   intakeWeight: number | null; vaccineChecklist?: Record<string, boolean>;
   feedingInstructions: string | null; medicationInstructions: string | null; emergencyContact: string | null; foodProgram?: Record<string, any>;
-  admittedAt: string; dischargedAt: string | null; dischargeNotes: string | null;
+  admittedAt: string; expectedDischargeAt?: string | null; dischargedAt: string | null; dischargeNotes: string | null;
   homeInstructions: string | null; finalWeight: number | null; weightChange: number | null; outcome: DischargeOutcome | null;
   clinician: { id: string; name: string; role: string } | null;
   pet: { id: string; name: string; species: string; breed: string; avatarUrl: string | null } | null;
@@ -50,7 +50,7 @@ export const inpatientAPI = {
   getById: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>
     get(ENDPOINTS.INPATIENT.BY_ID(id), { cache: false, ...options }),
 
-  admit: async (data: { petId: string | number; clientId: string | number; appointmentId?: string | number; inpatientNo?: string; diagnosis?: string; admissionNotes?: string; cage?: string; clinicianId?: string | number; dailyRate?: number; intakeWeight?: number; vaccineChecklist?: Record<string, boolean>; foodProgram?: Record<string, any>; feedingInstructions?: string; medicationInstructions?: string; emergencyContact?: string }, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>
+  admit: async (data: { petId: string | number; clientId: string | number; appointmentId?: string | number; inpatientNo?: string; diagnosis?: string; admissionNotes?: string; cage?: string; clinicianId?: string | number; dailyRate?: number; intakeWeight?: number; vaccineChecklist?: Record<string, boolean>; foodProgram?: Record<string, any>; feedingInstructions?: string; medicationInstructions?: string; emergencyContact?: string; expectedDischargeAt?: string }, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>
     post(ENDPOINTS.INPATIENT.BASE, data, { showError: true, ...options }),
 
   update: async (id: string | number, data: Record<string, any>, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>

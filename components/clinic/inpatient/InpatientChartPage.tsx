@@ -252,6 +252,21 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                 Discharged {h.dischargedAt ? formatDate(h.dischargedAt) : ''}{h.outcome ? ` · ${h.outcome}` : ''}
               </span>
             )}
+            {h && active && (
+              <label className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 cursor-pointer" title="Expected discharge — drives the checkout list on the dashboard">
+                <span>Release:</span>
+                <input
+                  type="datetime-local"
+                  className="bg-transparent text-white/90 text-[10px] font-bold outline-none [color-scheme:dark] w-[130px]"
+                  defaultValue={h.expectedDischargeAt ? (() => { const d = new Date(h.expectedDischargeAt!); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); })() : ''}
+                  onBlur={(e) => {
+                    const v = e.target.value ? new Date(e.target.value).toISOString() : null;
+                    if ((v ?? null) === (h.expectedDischargeAt ?? null)) return;
+                    inpatientAPI.update(hospId, { expectedDischargeAt: v }).then(() => { load(); onChanged?.(); });
+                  }}
+                />
+              </label>
+            )}
             {/* Billing state of the linked visit — mirrors the Lab page. */}
             {h?.billing && (h.billing.isPaid || ['PENDING_PAYMENT', 'COMPLETED'].includes(String(h.billing.status))) && (
               <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">

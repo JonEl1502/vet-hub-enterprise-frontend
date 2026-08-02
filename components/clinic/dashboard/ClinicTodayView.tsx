@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, BellRing, CalendarClock, Stethoscope, Loader2, ArrowRight, Repeat } from 'lucide-react';
+import { CalendarDays, BellRing, CalendarClock, Stethoscope, Loader2, ArrowRight, Repeat, LogOut, PhoneCall, Check } from 'lucide-react';
 import { remindersAPI, appointmentsAPI, Reminder } from '../../../services';
 import { summariesAPI } from '../../../services/modules/summaries.api';
 import { useData } from '../../../contexts/DataContext';
@@ -41,11 +41,14 @@ export const ConversionPulse: React.FC<{ scopeId: string | number }> = ({ scopeI
   return (
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-pine via-pine to-emerald-950 p-4 md:p-5 shadow-xl">
       <Repeat size={84} className="absolute -right-3 -top-4 text-white/5" />
-      <div className="relative z-10 grid grid-cols-2 md:grid-cols-5 gap-x-5 gap-y-3 items-end">
+      <div className="relative z-10 grid grid-cols-2 md:grid-cols-6 gap-x-5 gap-y-3 items-end">
         <Block label="Visits today" big={<>{today?.visitsDone ?? 0}<span className="text-white/40 text-sm"> / {today?.visitsTotal ?? 0}</span></>} sub={`${t.visitsDone} done · 7 days`} />
         <Block label="Appointments → visits" big={<>{t.bookingsConverted}<span className="text-white/40 text-sm"> / {t.bookings}</span></>} sub={`${pct(t.bookingsConverted, t.bookings)} converted`} />
         <Block label="Reminders → visits" big={<>{t.remindersConverted}<span className="text-white/40 text-sm"> / {t.remindersDue}</span></>} sub={`${pct(t.remindersConverted, t.remindersDue)} converted`} />
         <Block label="Cross-sell" big={t.crossSell} sub={topPair ? `${topPair[0]} · ${topPair[1]}×` : 'encounters combined'} />
+        {/* Patient checkouts (173) — boarding pickups + inpatient discharges with
+            an expected release date: today / next 3 days / overdue. */}
+        <Block label="Checkouts" big={<>{(data as any).checkouts?.today ?? 0}<span className="text-white/40 text-sm"> today</span></>} sub={`${(data as any).checkouts?.soon ?? 0} soon · ${(data as any).checkouts?.overdue ?? 0} overdue`} />
         {/* 7-day visits-done trend */}
         <div className="col-span-2 md:col-span-1">
           <p className="text-white/50 text-[8px] font-black uppercase tracking-widest leading-none mb-1.5">7-day visits</p>
@@ -57,6 +60,82 @@ export const ConversionPulse: React.FC<{ scopeId: string | number }> = ({ scopeI
             ))}
           </div>
         </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Patient checkouts (user, 2026-08-02) — boarding pickups + inpatient
+ * discharges with an expected release date. Rows within the next 3 days
+ * (or overdue), each with a one-tap "call the client" reminder.
+ */
+export const CheckoutsCard: React.FC<{ scopeId: string | number }> = ({ scopeId }) => {
+  const [rows, setRows] = useState<any[]>([]);
+  const [reminded, setReminded] = useState<Record<string, boolean>>({});
+  const [busy, setBusy] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    summariesAPI.conversions({ scopeId, days: 7 }, { silent: true } as any)
+      .then(r => { if (alive && r.success && (r.data as any)?.checkouts?.list) setRows((r.data as any).checkouts.list); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [scopeId]);
+
+  if (!rows.length) return null;
+  const toneOf = (b: string) => b === 'overdue' ? 'text-rose-600 bg-rose-50 dark:bg-rose-950/40'
+    : b === 'today' ? 'text-amber-600 bg-amber-50 dark:bg-amber-950/40' : 'text-seafoam bg-seafoam/10';
+  const whenLabel = (r: any) => `${formatDate(r.at)} · ${new Date(r.at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`;
+
+  const remind = async (r: any) => {
+    const key = `${r.kind}-${r.id}`;
+    setBusy(key);
+    try {
+      const res = await remindersAPI.create({
+        petId: r.petId, clientId: r.clientId, serviceType: 'FOLLOW_UP',
+        title: `Call ${r.client || 'client'} — ${r.kind === 'BOARDING' ? 'boarding pickup' : 'inpatient discharge'} for ${r.pet}`,
+        notes: r.phone ? `Phone: ${r.phone}` : undefined,
+        dueAt: new Date(r.at).toISOString(),
+        meta: { kind: 'CHECKOUT_CALL', source: r.kind, sourceId: r.id },
+      });
+      if (res.success) setReminded(prev => ({ ...prev, [key]: true }));
+    } finally { setBusy(null); }
+  };
+
+  return (
+    <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-100 dark:border-zinc-800 shadow-sm p-4">
+      <div className="flex items-center gap-2 mb-3">
+        <div className="w-8 h-8 rounded-xl bg-seafoam/10 flex items-center justify-center"><LogOut size={15} className="text-seafoam" /></div>
+        <div>
+          <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest leading-none">Patient checkouts</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Boarding pickups & inpatient discharges due — call the client ahead</p>
+        </div>
+      </div>
+      <div className="space-y-1.5">
+        {rows.map((r) => {
+          const key = `${r.kind}-${r.id}`;
+          return (
+            <div key={key} className="flex items-center gap-2.5 px-2.5 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/50">
+              <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest shrink-0 ${toneOf(r.bucket)}`}>
+                {r.bucket === 'overdue' ? 'Overdue' : r.bucket === 'today' ? 'Today' : 'Soon'}
+              </span>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-slate-700 dark:text-zinc-200 truncate">
+                  {r.pet} <span className="text-slate-400 font-medium">· {r.kind === 'BOARDING' ? 'Boarding pickup' : 'Discharge'}</span>
+                </p>
+                <p className="text-[10px] text-slate-400 truncate">{whenLabel(r)}{r.client ? ` · ${r.client}` : ''}{r.phone ? ` · ${r.phone}` : ''}</p>
+              </div>
+              {reminded[key] ? (
+                <span className="flex items-center gap-1 text-[9px] font-black text-seafoam uppercase tracking-widest shrink-0"><Check size={12} /> Reminder set</span>
+              ) : (
+                <button onClick={() => remind(r)} disabled={busy === key}
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20 disabled:opacity-50 shrink-0">
+                  {busy === key ? <Loader2 size={11} className="animate-spin" /> : <PhoneCall size={11} />} Call reminder
+                </button>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -155,6 +234,9 @@ const ClinicTodayView: React.FC<Props> = ({ onOpenVisit, onOpenBookings, onOpenR
     <div className="space-y-4">
       {/* 1 · Conversion pulse — the day's numbers and conversion rates. */}
       {scopeId != null && <ConversionPulse scopeId={scopeId} />}
+
+      {/* 1b · Patient checkouts — expected releases + call-client reminders. */}
+      {scopeId != null && <CheckoutsCard scopeId={scopeId} />}
 
       {/* 2 · Date picker directly below the card, defaulting to today (user,
           2026-08-01). House-themed react-datepicker (same as AdvancedFilters)
