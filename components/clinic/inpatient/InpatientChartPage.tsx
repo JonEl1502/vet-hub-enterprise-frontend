@@ -89,6 +89,10 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   // Per-day charges for the reconciliation sheet (user, 2026-08-02): the
   // stay's daily rate + billable consumables logged that day. Shown even at 0.
   const [consumables, setConsumables] = useState<any[]>([]);
+  // Back-fill (user, 2026-08-02): when set, the Add-to-daily-sheet form and the
+  // consumables picker record entries AS this datetime — a paper day sheet can
+  // be keyed in after the fact. Null = normal "now" logging.
+  const [backfillAt, setBackfillAt] = useState<string | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     try { const res = await inpatientAPI.getById(hospId); if (res.success && res.data?.hospitalization) setH(res.data.hospitalization); }
@@ -126,7 +130,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
     }
     setBusy(true);
     try {
-      await inpatientAPI.addLog(hospId, { kind: logKind, status: isTask(logKind) ? 'due' : undefined, data: { ...logData } });
+      await inpatientAPI.addLog(hospId, { kind: logKind, status: isTask(logKind) ? 'due' : undefined, data: { ...logData }, ...(backfillAt ? { loggedAt: new Date(backfillAt).toISOString() } : {}) } as any);
       const apptId = h?.billing?.appointmentId;
       if (logKind === 'MEDICATION' && drugItem && apptId && drugQty > 0) {
         try {
@@ -136,6 +140,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
             billable: drugBillable,
             unitPrice: drugBillable ? Number(drugItem.price) : undefined,
             notes: 'MAR',
+            recordedAt: backfillAt ? new Date(backfillAt).toISOString() : undefined,
           });
           updateInventoryOptimistically(String(drugItem.id), (it: any) => ({ ...it, quantity: Number(it.quantity) - drugQty }));
           toast.success(`${drugItem.name} · ${drugQty} ${drugItem.unit} deducted${drugBillable ? ` · KES ${(Number(drugItem.price) * drugQty).toLocaleString()}` : ''}`);
@@ -321,8 +326,17 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
 
             {/* Add daily-sheet entry */}
             {active && (
-              <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5"><ClipboardList size={13} /> Add to daily sheet</p>
+              <section data-daily-sheet-form className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5"><ClipboardList size={13} /> Add to daily sheet
+                  {backfillAt && <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-600 text-[8px] font-black uppercase tracking-widest">Back-filling {new Date(backfillAt).toLocaleString()}</span>}
+                </p>
+                {/* Record-as time (paper back-fill): pick a datetime, or Now. */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Time</label>
+                  <input type="datetime-local" className={fieldCls + ' !w-auto'} value={backfillAt || ''} onChange={e => setBackfillAt(e.target.value || null)} />
+                  <button type="button" onClick={() => setBackfillAt(null)}
+                    className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 text-[9px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-700">Now</button>
+                </div>
                 <select className={fieldCls} value={logKind} onChange={e => { setLogKind(e.target.value as LogKind); setLogData({}); resetDrug(); }}>
                   {LOG_KINDS.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
                 </select>
@@ -378,10 +392,14 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                             <span className="ml-auto text-[9px] font-black text-emerald-600 dark:text-emerald-400">{fmtK(dayTotal)}<span className="text-slate-400 font-bold"> · stay {fmtK(dayRate)} + items {fmtK(itemsCost)}</span></span>
                           </div>
                           {empty ? (
-                            <div className="flex flex-wrap gap-1.5 px-3 py-2 rounded-lg border border-dashed border-slate-200 dark:border-zinc-800">
+                            <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-slate-200 dark:border-zinc-800">
                               {BLANK_FIELDS.map(f => (
                                 <span key={f} className="text-[9px] text-slate-400"><span className="font-bold">{f}:</span> —</span>
                               ))}
+                              {active && (
+                                <button onClick={() => { setBackfillAt(`${k}T12:00`); document.querySelector('[data-daily-sheet-form]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}
+                                  className="ml-auto px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">✎ Fill this day</button>
+                              )}
                             </div>
                           ) : (
                             <div className="space-y-1.5">
@@ -423,7 +441,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
             {/* Consumables & medication used (deduct stock + billable charge). */}
             {active && h.billing?.appointmentId && (
               <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
-                <ConsumablePicker appointmentId={h.billing.appointmentId} onChanged={() => { load(); onChanged?.(); }} title="Consumables & medication used" />
+                <ConsumablePicker appointmentId={h.billing.appointmentId} recordedAt={backfillAt ? new Date(backfillAt).toISOString() : null} onChanged={() => { load(); onChanged?.(); }} title="Consumables & medication used" />
               </section>
             )}
           </div>

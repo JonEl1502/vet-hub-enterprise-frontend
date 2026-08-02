@@ -13,6 +13,9 @@ interface Props {
   // it (via notes) and the list shows only that service's items.
   serviceTag?: string;
   compact?: boolean;
+  // Back-fill: log rows with THIS timestamp (ISO) instead of now — used by the
+  // per-day reconciliation editors. Stock still moves at log time.
+  recordedAt?: string | null;
 }
 
 const FRACTIONAL_UNITS = new Set(['ml', 'mg', 'g', 'l', 'cc', 'mcg', 'iu']);
@@ -24,7 +27,7 @@ const stepFor = (unit?: string) => (unit && FRACTIONAL_UNITS.has(unit.toLowerCas
  * log: deducts stock and (if billable) adds an itemized charge. Logged lines
  * can be toggled billable or removed in place — the inline "edit bill".
  */
-const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = 'Consumables & items used', serviceTag }) => {
+const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = 'Consumables & items used', serviceTag, recordedAt }) => {
   const { inventory } = useData();
   const [allItems, setAllItems] = useState<AppointmentConsumable[]>([]);
   const items = useMemo(() => serviceTag ? allItems.filter(c => (c.notes || '') === serviceTag) : allItems, [allItems, serviceTag]);
@@ -95,6 +98,7 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
         billable,
         unitPrice: billable ? unitPrice : undefined,
         notes: serviceTag || undefined,
+        recordedAt: recordedAt || undefined,
       });
       if (res.success) {
         toast.success(`${selected.name} logged${billable ? ` · KES ${(unitPrice * qty).toLocaleString()}` : ' (non-billable)'}`);

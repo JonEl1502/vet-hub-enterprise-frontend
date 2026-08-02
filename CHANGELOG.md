@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: day editors — consumables + photo + record-as time with Now button  —  2026-08-02
+- **What changed:** (user) Boarding day editor gains: inventory search + quantity
+  (ConsumablePicker, rows recorded AS the chosen datetime), meal-photo upload, and a
+  **Time** datetime picker with a **Now** button (defaults noon of that day) driving
+  logDate and the consumable timestamps. Inpatient chart mirrors it: Add-to-daily-sheet
+  gets a record-as Time + Now control with a "Back-filling…" chip, blank day rows get
+  "✎ Fill this day" (pre-sets the time, scrolls to the form), and MAR/consumable
+  logging carries the back-fill timestamp. Stock always moves at log time — only the
+  record's date is historical.
+- **Record impact:** 🟢 — UI + optional field on existing endpoints.
+
 ### frontend: complete diagnostics in place; avatars +40%  —  2026-08-02
 - **What changed:** (user) Diagnostics request rows gain a **Complete** button — the
   clinic's plan may not include the full imaging/lab/surgery workflow pages, and a

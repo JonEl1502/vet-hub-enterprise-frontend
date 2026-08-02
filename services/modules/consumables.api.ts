@@ -33,6 +33,8 @@ export interface LogConsumablePayload {
   quantity: number;
   billable?: boolean;
   unitPrice?: number;
+  // Back-fill: historical timestamp for the record (stock still moves now).
+  recordedAt?: string;
   notes?: string;
 }
 
