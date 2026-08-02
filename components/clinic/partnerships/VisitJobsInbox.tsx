@@ -87,12 +87,10 @@ const VisitJobsInbox: React.FC = () => {
           <span className={`flex items-center gap-1 text-[8px] font-black px-2 py-0.5 rounded uppercase tracking-wider shrink-0 ${TONE[job.status] || ''}`}><StatusIcon s={job.status} size={10} /> {job.status}</span>
         </div>
         <div className="flex flex-wrap items-center justify-between gap-1.5">
-          {(job.status === 'ACCEPTED' || job.status === 'COMPLETED') ? (
-            <button onClick={() => setOpenTrack(o => ({ ...o, [job.id]: !o[job.id] }))}
-              className="flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-zinc-900 text-seafoam rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700">
-              <MapPin size={11} /> {openTrack[job.id] ? 'Hide' : 'Track'}{job.movementStage ? ` · ${job.movementStage.replace('_', ' ').toLowerCase()}` : ''}
-            </button>
-          ) : <span />}
+          {/* No per-service Track. One patient making one trip had a Track
+              button per service, each with its own stage — two answers to
+              "where is this animal?". The group carries one, below. */}
+          <span />
           <div className="flex flex-wrap items-center gap-1.5">
             {negotiating && !proposedByMe && (
               <button onClick={() => act(job, 'ACCEPTED', `Accepted · ${job.currency} ${job.agreedPrice.toLocaleString()}`)} disabled={b} className="px-3 py-1 bg-emerald-500 text-white rounded-lg text-[9px] font-black uppercase tracking-widest shadow disabled:opacity-50">Accept {job.currency} {job.agreedPrice.toLocaleString()}</button>
@@ -135,9 +133,7 @@ const VisitJobsInbox: React.FC = () => {
             <button onClick={() => setCounterFor(null)} className="px-2 py-1.5 text-slate-400 text-[9px] font-black uppercase tracking-widest">Cancel</button>
           </div>
         )}
-        {openTrack[job.id] && (
-          <VisitJobTracker jobId={job.id} role={mode === 'incoming' ? 'provider' : 'requester'} stage={job.movementStage} onChanged={load} />
-        )}
+
       </div>
     );
   };
@@ -153,6 +149,10 @@ const VisitJobsInbox: React.FC = () => {
     const anyAccepted = jobs.find(j => j.status === 'ACCEPTED' || j.status === 'COMPLETED');
     const ongoing = !!withVisit && (withVisit.providerVisitStatus !== 'SCHEDULED' || jobs.filter(j => j.providerVisitId).length > 1);
     const busy = jobs.some(j => busyId === j.id);
+    // The trip is one thing: track off the first accepted/completed job, and
+    // key the open state by the VISIT so both services share one panel.
+    const trackJob = jobs.find(j => j.status === 'ACCEPTED' || j.status === 'COMPLETED') || null;
+    const trackKey = `visit-${first.visitId ?? jobs[0].id}`;
     return (
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 space-y-2.5">
         <div className="flex items-center gap-3">
@@ -193,6 +193,21 @@ const VisitJobsInbox: React.FC = () => {
             </button>
           )}
         </div>
+        {/* ONE track for the visit. The animal travels once, so its movement
+            stage belongs to the group, not to each service. Driven by the
+            first accepted job — the stage is a property of the trip. */}
+        {trackJob && (
+          <div className="space-y-1.5">
+            <button onClick={() => setOpenTrack(o => ({ ...o, [trackKey]: !o[trackKey] }))}
+              className="flex items-center gap-1 px-2.5 py-1 bg-white dark:bg-zinc-900 text-seafoam rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-100 dark:border-zinc-700">
+              <MapPin size={11} /> {openTrack[trackKey] ? 'Hide tracking' : 'Track'}
+              {trackJob.movementStage ? ` · ${trackJob.movementStage.replace('_', ' ').toLowerCase()}` : ''}
+            </button>
+            {openTrack[trackKey] && (
+              <VisitJobTracker jobId={trackJob.id} role={mode === 'incoming' ? 'provider' : 'requester'} stage={trackJob.movementStage} onChanged={load} />
+            )}
+          </div>
+        )}
         <div className="space-y-1.5">
           {jobs.map(j => <JobRow key={j.id} job={j} mode={mode} />)}
         </div>

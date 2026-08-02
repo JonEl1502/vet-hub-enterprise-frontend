@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: one Track per visit, not one per outsourced service  —  2026-08-02
+
+- **What changed:** every service row in the partner inbox carried its own **Track** button with
+  its own movement stage, so a two-service visit showed *"Track"* and *"Track · dispatched"* side
+  by side for **one animal making one trip** — two different answers to "where is this patient?".
+  Tracking is now a single control on the visit group, driven by the first accepted job.
+- **Record impact:** 🟢 None — display and interaction only; the tracker still writes through the
+  same `VisitJobTracker`.
+- **Data dependency:** None.
+- **Rollback:** revert the commit.
+- ⚠️ **`movementStage` is still stored PER JOB on the backend.** This makes the UI honest about
+  the trip being one thing, but two jobs can still hold different stages in the database — the
+  group now shows the first accepted job's. The real fix is moving movement to the visit; until
+  then a stage advanced on one job won't visibly move the other.
+- ⚠️ The open/closed state is keyed by `visitId`, so both services share one panel.
+
 ### page: Past requests section on Partners  —  2026-08-02
 - **What changed:** declined partnership requests move out of the main Partnerships grid
   into a **Past requests** section below it — compact muted rows (partner, direction
