@@ -59,6 +59,13 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: Time + Now on the main boarding care form  —  2026-08-02
+- **What changed:** (user) the Log Today's Care form gains the same Time picker + Now
+  button as the per-day editor — defaults to now, or pick a datetime to back-date the
+  log AND the consumables logged beneath it (an amber "Back-dating to …" chip shows
+  when set).
+- **Record impact:** 🟢.
+
 ### frontend+api: receipt honours collect-time discount; stay & food pricing editable  —  2026-08-02
 - **What changed:** (user, visit 133 + 135) The reconciliation/receipt now subtracts the
   collect-time discount (proportional per transaction on multi-invoice collects) —

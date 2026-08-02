@@ -168,6 +168,9 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
     return () => { alive = false; };
   }, [stay?.billing?.appointmentId, stay?.dailyLogs?.length]);
 
+  // Record-as time for the main Log-today's-care form (user, 2026-08-02) —
+  // same Time + Now control as the per-day editor; null = now.
+  const [logAt, setLogAt] = useState<string | null>(null);
   const saveLog = async () => {
     setBusy(true);
     try {
@@ -175,7 +178,8 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
         fedAm: log.fedAm, fedPm: log.fedPm, walked: log.walked, medicationGiven: log.medicationGiven,
         stool: log.stool || null, appetite: log.appetite || null, notes: log.notes || null,
         mealPhoto: log.mealPhoto || null, foodNotes: log.foodNotes || null,
-      });
+        ...(logAt ? { logDate: new Date(logAt).toISOString() } : {}),
+      } as any);
       if (res.success) {
         setLog({ fedAm: false, fedPm: false, walked: false, medicationGiven: false, stool: '', appetite: '', notes: '', mealPhoto: '', foodNotes: '' });
         await load();
@@ -295,11 +299,21 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                   {log.mealPhoto && <img src={log.mealPhoto} alt="meal" className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-zinc-800" />}
                   {log.mealPhoto && <button type="button" onClick={() => setLog(s => ({ ...s, mealPhoto: '' }))} className="text-[10px] font-bold text-rose-500">Remove</button>}
                 </div>
+                {/* Record-as time (user, 2026-08-02): defaults to now; pick a
+                    datetime to back-date the log AND the consumables below. */}
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Time</label>
+                  <input type="datetime-local" className="px-2 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100 [color-scheme:light] dark:[color-scheme:dark]"
+                    value={logAt || ''} onChange={e => setLogAt(e.target.value || null)} />
+                  <button type="button" onClick={() => setLogAt(null)}
+                    className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${logAt ? 'bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 border-slate-200 dark:border-zinc-700' : 'bg-seafoam/10 text-seafoam border-seafoam/30'}`}>Now</button>
+                  {logAt && <span className="text-[9px] font-black uppercase tracking-widest text-amber-500">Back-dating to {new Date(logAt).toLocaleString()}</span>}
+                </div>
                 {/* Consumables search lives right here beside the meal photo (§0f #2) —
                     the item you hand over IS part of today's care, not a separate page-length away. */}
                 {stay.billing?.appointmentId && (
                   <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
-                    <ConsumablePicker appointmentId={stay.billing.appointmentId} onChanged={() => { load(); onChanged?.(); }} title="Consumables & items used" />
+                    <ConsumablePicker appointmentId={stay.billing.appointmentId} recordedAt={logAt ? new Date(logAt).toISOString() : null} onChanged={() => { load(); onChanged?.(); }} title="Consumables & items used" />
                   </div>
                 )}
                 <textarea className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" rows={2} placeholder="Notes (e.g. bright and alert, vomited once)" value={log.notes} onChange={e => setLog(s => ({ ...s, notes: e.target.value }))} />
