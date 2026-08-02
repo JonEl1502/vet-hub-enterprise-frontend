@@ -199,9 +199,11 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
           {/* MAIN — daily care logging + care log history */}
           <div className="lg:col-span-2 space-y-4">
-            {/* Add daily log */}
+            {/* ONE care card (§0f #2): log form ÷ consumables ÷ care-log history,
+                divided — not three cards a scroll-length apart. */}
+            <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
             {active && (
-              <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 space-y-3 shadow-sm">
+              <div className="space-y-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5"><ClipboardList size={13} /> Log today's care</p>
                 <div className="flex flex-wrap gap-2">
                   <Toggle on={log.fedAm} onClick={() => setLog(s => ({ ...s, fedAm: !s.fedAm }))} icon={Utensils} label="Fed AM" />
@@ -228,15 +230,22 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                   {log.mealPhoto && <img src={log.mealPhoto} alt="meal" className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-zinc-800" />}
                   {log.mealPhoto && <button type="button" onClick={() => setLog(s => ({ ...s, mealPhoto: '' }))} className="text-[10px] font-bold text-rose-500">Remove</button>}
                 </div>
+                {/* Consumables search lives right here beside the meal photo (§0f #2) —
+                    the item you hand over IS part of today's care, not a separate page-length away. */}
+                {stay.billing?.appointmentId && (
+                  <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
+                    <ConsumablePicker appointmentId={stay.billing.appointmentId} onChanged={() => { load(); onChanged?.(); }} title="Consumables & items used" />
+                  </div>
+                )}
                 <textarea className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" rows={2} placeholder="Notes (e.g. bright and alert, vomited once)" value={log.notes} onChange={e => setLog(s => ({ ...s, notes: e.target.value }))} />
                 <button onClick={saveLog} disabled={busy} className="w-full py-2 bg-seafoam text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
                   {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add log
                 </button>
-              </section>
+              </div>
             )}
 
-            {/* Daily log history — format toggle sits directly above the care-log notes. */}
-            <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+            {/* Daily log history — same card, divided from the form above. */}
+            <div className={active ? 'mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800' : ''}>
               <NotesFormatToggle className="mb-3" value={stay.displayFormat || 'PARAGRAPH'} onChange={(v) => { boardingAPI.update(stayId, { displayFormat: v } as any).then(() => { load(); onChanged?.(); }); }} />
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Care log</p>
               {stay.dailyLogs && stay.dailyLogs.length > 0 ? (
@@ -260,14 +269,8 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                   ))}
                 </div>
               ) : <p className="text-xs text-slate-400 text-center py-4">No care logged yet.</p>}
+            </div>
             </section>
-
-            {/* Consumables & items used (deduct stock + billable charge). */}
-            {active && stay.billing?.appointmentId && (
-              <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
-                <ConsumablePicker appointmentId={stay.billing.appointmentId} onChanged={() => { load(); onChanged?.(); }} title="Consumables & items used" />
-              </section>
-            )}
           </div>
 
           {/* SIDE — stay context, actions, checkout */}

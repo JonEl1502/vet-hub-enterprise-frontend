@@ -59,6 +59,12 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: boarding-stay page — one care card  —  2026-08-02
+- **What changed:** (board §0f #2) Log Today's Care, the consumables search, and the
+  care-log history merged into ONE card with dividers; consumables sit right under the
+  meal-photo row instead of three scroll-lengths away. No API change.
+- **Record impact:** 🟢 — layout only.
+
 ### frontend: ONE shared quantity+unit control (sell-unit drift fix)  —  2026-08-02
 - **What changed:** new `QtyUnitControl` (components/clinic/shared) — canonical value in
   SELL units, unit choices DERIVED from packSize (sell ×1, ¼/½ stock, stock ×packSize),
