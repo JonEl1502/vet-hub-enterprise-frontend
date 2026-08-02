@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: encounter chips — fresh-row deletes, single-chip visibility, Vet Visit in the add dropdown  —  2026-08-02
+- **What changed:** (user, visit 138) chip delete now matches against FRESHLY fetched
+  encounter rows (the stale in-memory list orphaned row 119 — repaired on prod); the
+  chips row renders from ONE entry up so a lone encounter is visible and deletable;
+  the Transfer/Add dropdown offers "Vet Visit — consultation" on vaccination flows
+  (encounterType VET_VISIT no longer wrongly marks it taken).
+- **Record impact:** 🟢 (+ one orphan row deleted on prod).
+
 ### frontend: every workflow chip is deletable; deleting clears the matching visit type  —  2026-08-02
 - **What changed:** (user, visit 138: "when i delete vet visit it doesn't go" + no × on
   the vaccination chip) All encounter chips now carry ×, including the first one — the

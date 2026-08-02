@@ -554,7 +554,15 @@ const VisitDetailInner: React.FC<Props> = ({
         emergency: e => e.visitType === 'EMERGENCY',
       };
       const rowPred = ROW_MATCH[entryKey];
-      const row = rowPred ? (wiz.encounters || []).find(rowPred) : undefined;
+      // FRESH rows, not wiz.encounters — the in-memory list can be stale when
+      // the row was added moments ago, which left orphan rows (visit 138,
+      // row 119) that re-derived the chip after "successful" deletes.
+      let liveRows: any[] = wiz.encounters || [];
+      try {
+        const fresh = await visitsAPI.listEncounters(appointment.id, { silent: true } as any);
+        if (fresh.success && (fresh.data as any)?.encounters) liveRows = (fresh.data as any).encounters;
+      } catch { /* fall back to the in-memory list */ }
+      const row = rowPred ? liveRows.find(rowPred) : undefined;
       if (row && !row.isPrimary) {
         try { await visitsAPI.removeEncounter(appointment.id, row.id); await wiz.reloadEncounters(); }
         catch { /* tasks are gone; the chip clears on next reload */ }

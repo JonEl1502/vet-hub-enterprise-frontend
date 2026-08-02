@@ -364,7 +364,9 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
           {/* Workflow switcher — a multi-encounter visit can run several
               flows; the Vet Visit clinical flow is always offered. Emergency
               locks the flow until stabilized/discharged. */}
-          {availableEntries.length > 1 && entry.key !== 'emergency' && !locked && (
+          {/* Chips show from ONE entry up (user, 2026-08-02) — a single
+              encounter still needs its chip visible to be seen and deleted. */}
+          {availableEntries.length > 0 && entry.key !== 'emergency' && !locked && (
             <div className="inline-flex items-center gap-1.5 flex-wrap">
               <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Workflow</span>
               {availableEntries.map((e, ei) => {
@@ -411,7 +413,10 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
             const has = (kws: string[]) => (visit.tasks || []).some(t => kws.some(k => (t.category || '').toLowerCase().includes(k)));
             // Hospitalization is NOT here (dedicated 🏥 escalation button).
             const options = [
-              { value: 'VET_VISIT', label: '🩺 Vet Visit — consultation', taken: visit.encounterType === 'VET_VISIT' || has(['consult']) },
+              // "Taken" means a CLINICAL chip is actually offered — a
+              // vaccination flow stores encounterType VET_VISIT too, which
+              // wrongly hid this option (user, 2026-08-02).
+              { value: 'VET_VISIT', label: '🩺 Vet Visit — consultation', taken: has(['consult']) || availableEntries.some(e => ['standard', 'houseCall', 'followUp', 'routineCheck', 'surgery', 'admission'].includes(e.key)) },
               { value: 'VACCINATION', label: '💉 Vaccination', taken: (visit as any).visitType === 'VACCINATION' || has(['vaccin', 'immuni']) },
               { value: 'GROOMING', label: '✂️ Grooming', taken: visit.encounterType === 'GROOMING' || has(['groom']) },
               { value: 'BOARDING', label: '🏠 Boarding', taken: visit.encounterType === 'BOARDING' || has(['board']) },
