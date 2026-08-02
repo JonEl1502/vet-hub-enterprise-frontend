@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: adding an encounter row no longer hides legacy chips  —  2026-08-02
+- **What changed:** (user, visit 137) on a legacy visit whose grooming/vet chips were
+  TASK-derived (no encounter rows yet), adding the FIRST row (vaccination) switched the
+  wizard to rows-only and every other chip vanished. Row entries and task-derived
+  entries now MERGE (rows lead; vet-family dedupes to one chip), so nothing disappears
+  and the vet-visit chip's × still removes its services.
+- **Record impact:** 🟢 — render logic; no data was lost (rows are additive).
+
 ### frontend: send-to-partner rows say who resulted; money bar on Follow-Up tab  —  2026-08-02
 - **What changed:** (user) the "Send a service to a partner clinic" rows no longer offer
   send on a service that's already handled: a completed partner job shows

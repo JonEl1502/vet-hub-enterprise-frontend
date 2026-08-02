@@ -174,15 +174,17 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
   // into a single "Vet Visit — clinical" chip (whichever variant resolved);
   // house call etc. never appear as separate switch targets.
   const availableEntries = useMemo(() => {
-    // Encounter rows are the truth when present — one chip per row's flow.
+    // Encounter rows lead when present — one chip per row's flow. They are
+    // MERGED with the task-derived entries below, never a replacement: visit
+    // 137 (user, 2026-08-02) had legacy grooming+vet chips from TASKS only,
+    // and adding its FIRST row (vaccination) made every other chip vanish.
+    const fromRows: EntryPointDef[] = [];
     if (encounters.length) {
       const seen = new Set<string>();
-      const out: EntryPointDef[] = [];
       for (const enc of encounters) {
         const e = entryForEncounter(enc, visit);
-        if (!seen.has(e.key)) { seen.add(e.key); out.push(e); }
+        if (!seen.has(e.key)) { seen.add(e.key); fromRows.push(e); }
       }
-      return out;
     }
     const VET_FAMILY = ['standard', 'houseCall', 'followUp', 'routineCheck', 'emergency', 'surgery', 'admission'];
     const has = (kws: string[]) => (visit.tasks || []).some(t => kws.some(k => (t.category || '').toLowerCase().includes(k)));
@@ -203,7 +205,17 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     if (has(['groom'])) add('grooming');
     if (has(['board']) || visit.boardingStayId) add('boarding');
     if (visit.hospitalizationId && !VET_FAMILY.includes(resolved.key)) add('admission');
-    return keys.map(k => ENTRY_POINTS[k]).filter(Boolean);
+    const fromTasks = keys.map(k => ENTRY_POINTS[k]).filter(Boolean);
+    if (!fromRows.length) return fromTasks;
+    // Rows first (their order is the visit's), then any task-derived flow the
+    // rows don't cover yet — a legacy visit keeps every chip it had. Vet-family
+    // keys collapse to one chip, so dedupe on the family, not the exact key.
+    const famOf = (k: string) => (VET_FAMILY.includes(k) ? 'vet' : k);
+    const covered = new Set(fromRows.map(e => famOf(e.key)));
+    for (const e of fromTasks) {
+      if (!covered.has(famOf(e.key))) { covered.add(famOf(e.key)); fromRows.push(e); }
+    }
+    return fromRows;
   }, [visit, resolved.key, encounters]);
 
   // The active entry: a manual switch (multi-encounter visit) wins over the
