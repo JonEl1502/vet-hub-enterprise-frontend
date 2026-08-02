@@ -59,6 +59,30 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: role-based dashboards — Front Office / Groomer / Vet  —  2026-08-02
+- **What changed:** (user, S2) non-full-access staff no longer all land on the same generic
+  `StaffDashboard`. New `components/clinic/dashboard/roles/`:
+  `RoleDashboard` (routes on the global `User.role`), `FrontOfficeDashboard`,
+  `GroomerDashboard`, `VetDashboard`, a shared **`WorkInProgressStrip`** (boarding /
+  inpatient / consultation / surgery / grooming, each with total-active-waiting-done) and
+  `roleShared` (stat tiles, card shell, queue columns, goal bar, day checklist).
+  FRONT_OFFICE/RECEPTIONIST/CASHIER → the money-and-queue desk view; GROOMER → grooming
+  queue + own revenue; VET/VET_NURSE → patient queue, schedule, clinical alerts, quick
+  actions. Every other role falls through to the existing `StaffDashboard` unchanged.
+- **No new backend.** Everything derives from the visits/clients already in `DataContext`
+  plus three existing reads (`billsAPI.list`, `receivablesAPI.arAgeing`, `remindersAPI.list`).
+- **Record impact:** 🟢 None — read-only views.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** this is a UX **affordance, not a security boundary** — per
+  `reference_role_gating_model` the API authorises on the GLOBAL `User.role` only, so
+  routing a groomer to the grooming view does not stop their token reaching clinical
+  endpoints. Do not treat these pages as enforcement.
+- ⚠️ Day checklists are **localStorage-only and reset daily** (there is no tasks table, and
+  inventing one to hold "sanitise the clippers" would be wrong). Anything that must
+  survive belongs in Reminders.
+
+
 ### component: ONE shared `AdmissionGate` — wizard gate now identical to the admit pages  —  2026-08-02
 - **What changed:** (user, S2: "still not same… make same same") new
   `components/clinic/shared/AdmissionGate.tsx` renders the gate once — amber "Admission

@@ -70,6 +70,7 @@ import EmergencyAlertBar from './components/clinic/triage/EmergencyAlertBar';
 import PetshopView from './components/clinic/petshop/PetshopView';
 import PharmacyView from './components/clinic/pharmacy/PharmacyView';
 import StaffDashboard from './components/clinic/dashboard/StaffDashboard';
+import RoleDashboard from './components/clinic/dashboard/roles/RoleDashboard';
 import ReferralsView from './components/clinic/partnerships/ReferralsView';
 import ClinicWallet from './components/clinic/clinic-mgmt/ClinicWallet';
 import PlatformDashboard from './components/admin/platform/PlatformDashboard';
@@ -2138,7 +2139,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             : <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} scopeClinics={selectedClinics as any} />}
         </>
       ) : (
-        <StaffDashboard onNavigate={(view, params) => navigateTo(view, params)} />
+        /* Non-full-access staff land on the dashboard for their JOB (front
+           office / groomer / vet); any other role falls through to the
+           generic StaffDashboard inside RoleDashboard. */
+        <RoleDashboard onNavigate={(view, params) => navigateTo(view, params)} />
       )}
     </div>
     );
