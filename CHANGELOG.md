@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: invoice tab + sticky bar show the REAL bill  —  2026-08-02
+- **What changed:** (user, visit 133) the legacy invoice document rendered only visit
+  TASKS (X-Ray, 3,000) while the real bill carried consumables + custom lines (5,209,
+  INV-2026-000006). When a live bill with lines exists: the invoice tab renders the
+  bill's lines and total, the "Editing…" banner hides once the bill is past draft, and
+  the sticky bottom bar shows the bill total/status instead of "not finalized 3,000".
+  Task-derived editing remains for visits with no bill yet.
+- **Record impact:** 🟢 — read-path UI.
+
 ### frontend: diagnosis can attach visit results as evidence  —  2026-08-02
 - **What changed:** (user) The Diagnosis step's Confirmed Diagnosis card lists the
   visit's lab/imaging results — including partner-mirrored ones — as optional

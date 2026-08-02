@@ -5124,7 +5124,7 @@ const VisitDetailInner: React.FC<Props> = ({
                            )}
                            {/* Reopened bill: amounts are editable right on the
                                invoice lines below. */}
-                           {!isFinalized && (
+                           {!isFinalized && !(liveBill && liveBill.status && !['DRAFT', 'OPEN'].includes(String(liveBill.status))) && (
                              <span className="flex items-center gap-1.5 px-3 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-700/40 text-amber-700 dark:text-amber-400 rounded-lg font-bold text-[10px] uppercase tracking-wide">
                                ✏️ Editing — change amounts on the lines below, add services/discounts, then Finalize
                              </span>
@@ -5252,7 +5252,19 @@ const VisitDetailInner: React.FC<Props> = ({
                            <div className="p-4">
                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Services &amp; items</p>
                              <div className="space-y-2">
-                               {appointment.tasks.map(t => {
+                               {/* The REAL bill (revenue cycle) is the truth once it exists —
+                                   it carries consumable + custom lines the task list never
+                                   sees (user, 2026-08-02: invoice showed 3,000 vs bill 5,209). */}
+                               {liveBill && (liveBill.lines?.length ?? 0) > 0 ? liveBill.lines!.map(l => (
+                                 <div key={`bl-${l.id}`} className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
+                                   <div>
+                                     <span className={`text-sm font-bold ${l.lineTotal < 0 ? 'text-emerald-600' : 'text-pine dark:text-zinc-200'}`}>{l.name}</span>
+                                     {(l.category || l.kind) && <span className="ml-2 text-[8px] font-black text-slate-400 uppercase tracking-wider">{l.category || l.kind}</span>}
+                                     {l.quantity !== 1 && <span className="ml-2 text-[9px] text-slate-400">× {l.quantity}</span>}
+                                   </div>
+                                   <Money amount={l.lineTotal} currency={sourceCurrency} target={printCurrency} hideOriginal showCode primaryClassName="text-sm font-black text-pine dark:text-zinc-100 font-mono" />
+                                 </div>
+                               )) : appointment.tasks.map(t => {
                                  const isAdjustment = (t.price || 0) < 0;
                                  return (
                                  <div key={t.id} className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
@@ -5344,7 +5356,7 @@ const VisitDetailInner: React.FC<Props> = ({
                            <div className="p-4 bg-pine/5 dark:bg-pine/10 border-t-2 border-pine flex justify-between items-end">
                              <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Settlement</span>
                              <Money
-                               amount={appointment.totalCost}
+                               amount={liveBill && (liveBill.lines?.length ?? 0) > 0 ? liveBill.total : appointment.totalCost}
                                currency={sourceCurrency}
                                target={printCurrency}
                                hideOriginal
@@ -7025,8 +7037,10 @@ const VisitDetailInner: React.FC<Props> = ({
             className="fixed bottom-0 inset-x-0 z-40 px-4 sm:px-6 py-2 sm:py-3 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[0_-4px_16px_rgba(0,0,0,0.10)]">
             <div className="flex items-center gap-3">
               <div className="min-w-0">
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{isFinalized ? 'Awaiting payment' : 'Total bill · not finalized'}</p>
-                <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
+                {/* The live BILL total wins when a bill exists — the task total
+                    misses consumable/custom lines (3,000 vs 5,209, visit 133). */}
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{(liveBill && liveBill.status && !['DRAFT', 'OPEN'].includes(String(liveBill.status))) ? `Bill ${String(liveBill.status).toLowerCase()}` : isFinalized ? 'Awaiting payment' : 'Total bill · not finalized'}</p>
+                <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{activeClinic.currency} {Number(liveBill && (liveBill.lines?.length ?? 0) > 0 ? liveBill.total : appointment.totalCost).toLocaleString()}</p>
               </div>
               <div className="flex-1" />
               {isFinalized && canUnlock && (
