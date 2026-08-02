@@ -373,7 +373,10 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
                 // be removed; added encounters get a ✕ (confirmed upstream).
                 // Exception: a service-less deworming workflow (visitType-driven,
                 // no bill line) IS removable even as primary, so it isn't orphaned.
-                const removable = !!onDeleteEncounter && (ei > 0 || e.key === 'deworming');
+                // ALL chips are deletable (user, 2026-08-02) — the visit can be
+                // emptied and re-picked via Transfer/Add. Row-primary deletion is
+                // still refused server-side and surfaces as a toast.
+                const removable = !!onDeleteEncounter;
                 return (
                   <button
                     key={e.key}

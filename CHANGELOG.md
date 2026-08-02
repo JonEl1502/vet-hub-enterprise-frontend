@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: every workflow chip is deletable; deleting clears the matching visit type  —  2026-08-02
+- **What changed:** (user, visit 138: "when i delete vet visit it doesn't go" + no × on
+  the vaccination chip) All encounter chips now carry ×, including the first one — the
+  visit can be emptied and re-picked via Transfer/Add (a primary encounter ROW is still
+  refused server-side and surfaces as a toast). Deleting a visitType-driven chip
+  (vaccination/deworming/emergency) also clears `visits.visit_type`, so resolution
+  stops re-deriving the chip and it actually leaves.
+- **Record impact:** 🟢 — visit_type nulled only on explicit chip delete.
+
 ### frontend: procedure details everywhere; vet chip only with a real consult  —  2026-08-02
 - **What changed:** (user) Treatment step's Procedures Performed now mounts the full
   applied-procedure panel — every med, consumable and fee from the recipe, with qty

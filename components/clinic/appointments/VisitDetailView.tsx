@@ -511,9 +511,12 @@ const VisitDetailInner: React.FC<Props> = ({
       for (const t of doomed) {
         await visitsAPI.deleteTask(appointment.id, t.id);
       }
-      // Deworming is a visitType-driven workflow (no bill line) — clearing the
-      // visit's deworming type is what actually removes the workflow chip.
-      if (entryKey === 'deworming' && (appointment as any).visitType === 'DEWORMING') {
+      // A visitType-driven chip (vaccination, deworming…) re-derives from the
+      // VISIT TYPE, so deleting its services alone leaves the chip standing —
+      // "when i delete it doesn't go" (user, 2026-08-02). Clear the matching
+      // type so the chip actually leaves and the user can re-pick an encounter.
+      const TYPE_OF: Record<string, string> = { deworming: 'DEWORMING', vaccination: 'VACCINATION', emergency: 'EMERGENCY' };
+      if (TYPE_OF[entryKey] && (appointment as any).visitType === TYPE_OF[entryKey]) {
         await visitsAPI.update(appointment.id, { visitType: null } as any);
         updateAppointmentOptimistically(appointment.id, appt => ({ ...(appt as any), visitType: null }));
       }
