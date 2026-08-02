@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: Collect — spend client credit ("Use credit" affordance)  —  2026-08-02
+- **What changed:** (S1, §0 carry-over) the Collect bar in `ClientPaymentsTab` gains a
+  **Use credit** toggle when the payment account holds money: credit is drawn BEFORE cash
+  (oldest invoice first, mirroring the server), the Cash input's blank default becomes the
+  post-credit due, per-row previews show each invoice's credit share, manual allocation
+  caps/sums are computed against the post-credit cash, and a bill can be settled entirely
+  from credit (0 cash). Over-tender is no longer blocked — the stale "client credit isn't
+  supported yet" message is replaced with "surplus is saved as client credit", matching
+  the server, which banks the surplus as unapplied money.
+- **Record impact:** 🟢 — sends the existing `useCredit`/`amountTendered` fields on
+  `POST /clients/:id/collect`; no new writes.
+- **Data dependency:** None (backend `useCredit` + surplus-as-credit already live).
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** manual allocations describe the CASH split only — the server spreads
+  credit itself; the FE mirrors that FIFO for the preview and caps each row at
+  outstanding − credit share.
+
 ### flow: vaccination — administer & add vaccines on the wizard Treatment step  —  2026-08-02
 - **What changed:** (user, S2) A vaccination flow's Treatment step now mounts the full
   `VaccinationPanel` (mark given, batch #, next-due + follow-up booking, **add a 2nd/3rd

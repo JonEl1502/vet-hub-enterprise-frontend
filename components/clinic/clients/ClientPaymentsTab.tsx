@@ -2,7 +2,7 @@ import React from 'react';
 import toast from 'react-hot-toast';
 import {
   Receipt, FileText, CreditCard, Loader2, CheckCircle2, Ban, AlertTriangle, Link2, Trash2,
-  Search, X,
+  Search, X, Wallet,
 } from 'lucide-react';
 import { clientsAPI, transactionsAPI, invoicesAPI } from '../../../services';
 import { printElementAsPdf } from '../shared/printPdf';
@@ -70,6 +70,9 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   // Allocation (backend P3). Blank `tendered` means "settle the selection in
   // full", which is what this tab did before there was a choice.
   const [tendered, setTendered] = React.useState('');
+  // Spend the client's payment-account credit on this collection (drawn
+  // before cash, oldest invoice first — server `useCredit`).
+  const [applyCredit, setApplyCredit] = React.useState(false);
   const [allocMode, setAllocMode] = React.useState<'AUTO' | 'MANUAL'>('AUTO');
   const [search, setSearch] = React.useState('');
   const [manual, setManual] = React.useState<Record<string, string>>({});
@@ -125,42 +128,71 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
 
   // ── Allocation maths ──────────────────────────────────────────────────────
   const round2 = (n: number) => Math.round(n * 100) / 100;
-  // Blank means the whole selection; anything else is a short (or typo'd) pay.
-  const tenderedNum = tendered.trim() === '' ? selectedTotal : round2(Number(tendered) || 0);
-  const isShort = tenderedNum < selectedTotal - 0.005;
-  const overTendered = tenderedNum > selectedTotal + 0.005;
+  // Credit spends FIRST (mirrors the server: drawn before cash is asked for,
+  // oldest invoice first). It reduces the cash due; it is never part of it.
+  const creditDraw = applyCredit ? round2(Math.min(credit, selectedTotal)) : 0;
+  const cashDue = round2(selectedTotal - creditDraw);
+  // Blank means "the cash the selection still needs"; anything else is a
+  // short (or deliberate over-) pay.
+  const tenderedNum = tendered.trim() === '' ? cashDue : round2(Number(tendered) || 0);
+  const fundsTotal = round2(tenderedNum + creditDraw);
+  const isShort = fundsTotal < selectedTotal - 0.005;
+  // Over-tender is ALLOWED: the server keeps the surplus unapplied, which is
+  // exactly what client credit is. Say so instead of blocking.
+  const overTendered = fundsTotal > selectedTotal + 0.005;
+  const surplus = overTendered ? round2(fundsTotal - selectedTotal) : 0;
+  // Only the applied part of the cash spreads across invoices.
+  const appliedCash = round2(Math.min(tenderedNum, cashDue));
 
-  // What AUTO would do, computed here so the split is visible before it is
-  // committed rather than being a surprise on the receipt. Mirrors the
-  // server's FIFO: oldest invoice first until the money runs out.
-  const autoSplit = React.useMemo(() => {
+  // How the credit would spread — oldest invoice first, same as the server.
+  const creditSplit = React.useMemo(() => {
     const picked = open.filter(i => selected.has(i.visitId))
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-    let left = tenderedNum;
+    let left = creditDraw;
     const out: Record<string, number> = {};
     for (const inv of picked) {
       if (left <= 0.005) break;
-      // Cap on what is still OWED, not face value — on a part-paid invoice the
-      // preview otherwise allocates money to a balance that is already cleared.
       const apply = round2(Math.min(inv.outstanding ?? inv.total, left));
       if (apply > 0) { out[inv.visitId] = apply; left = round2(left - apply); }
     }
     return out;
-  }, [open, selected, tenderedNum]);
+  }, [open, selected, creditDraw]);
+
+  // What AUTO would do with the CASH, computed here so the split is visible
+  // before it is committed rather than being a surprise on the receipt.
+  // Mirrors the server's FIFO over what credit left behind.
+  const autoSplit = React.useMemo(() => {
+    const picked = open.filter(i => selected.has(i.visitId))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    let left = appliedCash;
+    const out: Record<string, number> = {};
+    for (const inv of picked) {
+      if (left <= 0.005) break;
+      // Cap on what is still OWED after credit, not face value — on a
+      // part-paid invoice the preview otherwise allocates money to a balance
+      // that is already cleared.
+      const due = round2((inv.outstanding ?? inv.total) - (creditSplit[inv.visitId] ?? 0));
+      const apply = round2(Math.min(due, left));
+      if (apply > 0) { out[inv.visitId] = apply; left = round2(left - apply); }
+    }
+    return out;
+  }, [open, selected, appliedCash, creditSplit]);
 
   const manualTotal = round2(
     [...selected].reduce((s, id) => s + (Number(manual[id]) || 0), 0),
   );
-  const remaining = round2(tenderedNum - manualTotal);
+  // Manual allocations describe the CASH split only (the server spreads the
+  // credit itself), so they must add up to the cash being applied.
+  const remaining = round2(appliedCash - manualTotal);
   // The effective split, whichever mode is active — drives the row previews.
   const effectiveSplit: Record<string, number> = allocMode === 'MANUAL'
     ? Object.fromEntries([...selected].map(id => [id, round2(Number(manual[id]) || 0)]))
     : autoSplit;
 
   const allocationInvalid =
-    overTendered ||
-    tenderedNum <= 0 ||
-    (allocMode === 'MANUAL' && Math.abs(remaining) > 0.005);
+    tenderedNum < 0 ||
+    fundsTotal <= 0 ||
+    (allocMode === 'MANUAL' && isShort && Math.abs(remaining) > 0.005);
 
   const collect = async () => {
     if (selected.size === 0 || allocationInvalid) return;
@@ -170,9 +202,13 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
         visitIds: [...selected],
         paymentMethod: method,
         // Only send these when they actually change the outcome, so a plain
-        // full collection stays the same request it always was.
-        ...(isShort ? { amountTendered: tenderedNum } : {}),
-        ...(allocMode === 'MANUAL'
+        // full collection stays the same request it always was. An explicit
+        // amount is sent whenever the user typed one — the server's default
+        // is "the cash still due after credit", which a typed value overrides
+        // in BOTH directions (short pay and deliberate overpay-into-credit).
+        ...(tendered.trim() !== '' ? { amountTendered: tenderedNum } : {}),
+        ...(applyCredit && creditDraw > 0 ? { useCredit: true } : {}),
+        ...(allocMode === 'MANUAL' && isShort
           ? { allocations: [...selected].map(id => ({ visitId: id, amount: round2(Number(manual[id]) || 0) })).filter(a => a.amount > 0) }
           : {}),
       });
@@ -181,11 +217,11 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
         const touched = res.data?.visitIds?.length ?? selected.size;
         toast.success(
           settled === touched
-            ? `Collected ${money(res.data?.receipt?.total ?? selectedTotal, currency)} across ${touched} invoice${touched === 1 ? '' : 's'}`
-            : `Collected ${money(res.data?.receipt?.total ?? tenderedNum, currency)} — ${settled} of ${touched} settled in full`,
+            ? `Collected ${money(res.data?.receipt?.total ?? fundsTotal, currency)} across ${touched} invoice${touched === 1 ? '' : 's'}`
+            : `Collected ${money(res.data?.receipt?.total ?? fundsTotal, currency)} — ${settled} of ${touched} settled in full`,
         );
         setSelected(new Set());
-        setTendered(''); setManual({}); setAllocMode('AUTO');
+        setTendered(''); setManual({}); setAllocMode('AUTO'); setApplyCredit(false);
         await load();
         onChanged?.();
       }
@@ -330,18 +366,33 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                 {selected.size} selected · <span className="text-pine dark:text-zinc-100 font-black">{money(selectedTotal, currency)}</span>
               </span>
 
-              {/* Amount tendered — blank settles the selection in full. */}
+              {/* Use credit — spends the payment account before cash is asked
+                  for (server `useCredit`, drawn oldest invoice first). */}
+              {credit > 0 && (
+                <button type="button"
+                  onClick={() => setApplyCredit(v => !v)}
+                  disabled={selected.size === 0}
+                  title="Spend the client's payment-account credit on this collection — drawn before cash, oldest invoice first"
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all disabled:opacity-40 ${
+                    applyCredit
+                      ? 'bg-emerald-600 text-white border-emerald-600'
+                      : 'bg-white dark:bg-zinc-950 text-emerald-600 border-emerald-300 dark:border-emerald-900/50 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
+                  }`}>
+                  <Wallet size={11} />
+                  {applyCredit ? `Credit −${money(creditDraw, currency)}` : `Use credit · ${money(credit, currency)}`}
+                </button>
+              )}
+
+              {/* Amount tendered — blank settles the (post-credit) cash due. */}
               <label className="inline-flex items-center gap-1.5">
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Amount</span>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Cash</span>
                 <input
                   type="number" min={0} step="0.01" inputMode="decimal"
                   value={tendered} onChange={e => setTendered(e.target.value)}
-                  placeholder={selectedTotal.toFixed(2)}
+                  placeholder={cashDue.toFixed(2)}
                   disabled={selected.size === 0}
-                  title="Leave blank to settle the selection in full"
-                  className={`w-28 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border rounded-lg text-[10px] font-black font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam ${
-                    overTendered ? 'border-rose-400' : 'border-slate-200 dark:border-zinc-800'
-                  }`} />
+                  title="Leave blank to settle the selection in full (after any credit)"
+                  className="w-28 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] font-black font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
               </label>
 
               {/* Only worth choosing a split once the money is short of the total. */}
@@ -364,16 +415,22 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                 {busy ? <Loader2 size={11} className="animate-spin" /> : <CreditCard size={11} />} Collect as one payment
               </button>
 
-              {/* Why the button is disabled, or what a short payment will leave behind. */}
-              {(overTendered || (allocMode === 'MANUAL' && isShort && Math.abs(remaining) > 0.005) || (isShort && !overTendered)) && (
+              {/* How the money stacks up: credit + cash vs the selection, what
+                  a short pay leaves behind, where a surplus goes. */}
+              {applyCredit && creditDraw > 0 && selected.size > 0 && (
+                <p className="w-full text-[9px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+                  Credit covers {money(creditDraw, currency)} · cash due {money(cashDue, currency)}
+                </p>
+              )}
+              {((allocMode === 'MANUAL' && isShort && Math.abs(remaining) > 0.005) || isShort || overTendered) && (
                 <p className={`w-full text-[9px] font-black uppercase tracking-wider ${
-                  overTendered || (allocMode === 'MANUAL' && Math.abs(remaining) > 0.005) ? 'text-rose-500' : 'text-amber-600'
+                  allocMode === 'MANUAL' && isShort && Math.abs(remaining) > 0.005 ? 'text-rose-500' : 'text-amber-600'
                 }`}>
-                  {overTendered
-                    ? `That is more than the ${money(selectedTotal, currency)} selected — client credit isn't supported yet, so select more invoices instead.`
-                    : allocMode === 'MANUAL' && Math.abs(remaining) > 0.005
-                      ? `${money(Math.abs(remaining), currency)} ${remaining > 0 ? 'still to allocate' : 'over-allocated'}`
-                      : `Short payment — ${money(selectedTotal - tenderedNum, currency)} will stay outstanding`}
+                  {allocMode === 'MANUAL' && isShort && Math.abs(remaining) > 0.005
+                    ? `${money(Math.abs(remaining), currency)} ${remaining > 0 ? 'still to allocate' : 'over-allocated'}`
+                    : isShort
+                      ? `Short payment — ${money(round2(selectedTotal - fundsTotal), currency)} will stay outstanding`
+                      : `${money(surplus, currency)} more than the selection — the surplus is saved as client credit`}
                 </p>
               )}
             </div>
@@ -508,17 +565,26 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                     </div>
                   )}
 
-                  {/* What this invoice gets out of the payment being taken. */}
+                  {/* What this invoice gets from the payment account. */}
+                  {picked && applyCredit && (creditSplit[inv.visitId] ?? 0) > 0 && (
+                    <span className="shrink-0 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                      title="Covered from the client's payment-account credit">
+                      credit {money(creditSplit[inv.visitId], currency)}
+                    </span>
+                  )}
+                  {/* What this invoice gets out of the CASH being taken. */}
                   {picked && isShort && (
                     allocMode === 'MANUAL' ? (
                       <input
-                        type="number" min={0} max={inv.outstanding ?? inv.total} step="0.01" inputMode="decimal"
+                        type="number" min={0}
+                        max={round2((inv.outstanding ?? inv.total) - (creditSplit[inv.visitId] ?? 0))}
+                        step="0.01" inputMode="decimal"
                         value={manual[inv.visitId] ?? ''}
                         onChange={e => setManual(m => ({ ...m, [inv.visitId]: e.target.value }))}
                         placeholder="0.00"
-                        title={`Apply to this invoice (max ${inv.total.toFixed(2)})`}
+                        title={`Apply cash to this invoice (max ${round2((inv.outstanding ?? inv.total) - (creditSplit[inv.visitId] ?? 0)).toFixed(2)} after credit)`}
                         className={`shrink-0 w-24 px-2 py-1 bg-white dark:bg-zinc-950 border rounded-lg text-[10px] font-black font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam ${
-                          (Number(manual[inv.visitId]) || 0) > inv.total + 0.005 ? 'border-rose-400' : 'border-slate-200 dark:border-zinc-800'
+                          (Number(manual[inv.visitId]) || 0) > round2((inv.outstanding ?? inv.total) - (creditSplit[inv.visitId] ?? 0)) + 0.005 ? 'border-rose-400' : 'border-slate-200 dark:border-zinc-800'
                         }`} />
                     ) : (
                       <span className="shrink-0 w-24 text-right text-[10px] font-black font-mono text-seafoam"
@@ -528,10 +594,10 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                     )
                   )}
                   {/* A short payment leaves a real balance — say so before it happens. */}
-                  {picked && isShort && (effectiveSplit[inv.visitId] ?? 0) < inv.total - 0.005 && (
+                  {picked && isShort && ((effectiveSplit[inv.visitId] ?? 0) + (creditSplit[inv.visitId] ?? 0)) < (inv.outstanding ?? inv.total) - 0.005 && (
                     <span className="shrink-0 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
                       title="This invoice will keep a balance after the payment">
-                      {money(inv.total - (effectiveSplit[inv.visitId] ?? 0), currency)} left
+                      {money(round2((inv.outstanding ?? inv.total) - (effectiveSplit[inv.visitId] ?? 0) - (creditSplit[inv.visitId] ?? 0)), currency)} left
                     </span>
                   )}
 
