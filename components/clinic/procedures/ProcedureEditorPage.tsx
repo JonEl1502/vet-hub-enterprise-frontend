@@ -42,7 +42,7 @@ interface DraftItem extends ProcedureItemPayload {
 }
 
 interface Draft {
-  name: string; description: string; code: string;
+  name: string; description: string; code: string; type: string;
   categoryId: string; species: string[]; defaultDurationMin: string;
   triggerServiceId: string; stages: ProcedureStage[]; discount: string; isActive: boolean;
   items: DraftItem[]; pricingRules: ProcedurePricingRule[];
@@ -60,8 +60,11 @@ const DEFAULT_STAGES: ProcedureStage[] = [
   { key: 'follow-up', label: 'Follow-up' },
 ];
 
+// Suggested kinds for the type badge — free text, clinics can type their own.
+const PROC_TYPES = ['Laboratory', 'Imaging', 'Surgery', 'Dental', 'Therapy', 'Vaccination', 'Deworming', 'Grooming', 'General'];
+
 const EMPTY: Draft = {
-  name: '', description: '', code: '', categoryId: '', species: [], defaultDurationMin: '',
+  name: '', description: '', code: '', type: '', categoryId: '', species: [], defaultDurationMin: '',
   triggerServiceId: '', stages: DEFAULT_STAGES, discount: '', isActive: true, items: [], pricingRules: [],
 };
 
@@ -149,7 +152,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
       if (res.success && res.data?.template) {
         const t = res.data.template;
         setDraft({
-          name: t.name, description: t.description ?? '', code: t.code ?? '',
+          name: t.name, description: t.description ?? '', code: t.code ?? '', type: t.type ?? '',
           categoryId: t.categoryId ?? '', species: t.species ?? [],
           defaultDurationMin: t.defaultDurationMin != null ? String(t.defaultDurationMin) : '',
           triggerServiceId: t.triggerServiceId ?? '',
@@ -417,6 +420,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
         name: draft.name.trim(),
         description: draft.description || undefined,
         code: draft.code || undefined,
+        type: draft.type || null,
         categoryId: draft.categoryId || null,
         species: draft.species,
         defaultDurationMin: draft.defaultDurationMin !== '' ? Number(draft.defaultDurationMin) : null,
@@ -495,6 +499,13 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="field-label">Procedure name *</label><input className="field-input" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} placeholder="Spay – Dog (Routine)" /></div>
                 <div><label className="field-label">Code</label><input className="field-input" value={draft.code} onChange={e => setDraft({ ...draft, code: e.target.value })} placeholder="PROC-SPAY-DOG-001" /></div>
+                {/* Kind badge shown in the diagnostics search (174). Pick or type. */}
+                <div>
+                  <label className="field-label">Type</label>
+                  <input className="field-input" list="proc-type-options" value={draft.type}
+                    onChange={e => setDraft({ ...draft, type: e.target.value })} placeholder="Laboratory, Imaging, Surgery…" />
+                  <datalist id="proc-type-options">{PROC_TYPES.map(t => <option key={t} value={t} />)}</datalist>
+                </div>
                 <div>
                   <label className="field-label">Category</label>
                   <select className="field-select" value={draft.categoryId} onChange={e => setDraft({ ...draft, categoryId: e.target.value })}>

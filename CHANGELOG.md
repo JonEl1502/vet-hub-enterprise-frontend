@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: diagnostics search — no list before typing, procedures w/ type badge; procedure Type field  —  2026-08-02
+- **What changed:** (S2, S8 leftover) `InlineServiceSearch` no longer lists anything until
+  the user types (`suggestCategories` deprecated, kept for compile-compat) and can now offer
+  procedure RECIPES alongside services — badged with the procedure's new **Type**
+  (violet chip; picking one applies the whole recipe to the visit). DiagnosticsStep wires
+  its search to all active templates; the procedure editor gains a **Type** input
+  (datalist: Laboratory/Imaging/Surgery/Dental/Therapy/Vaccination/Deworming/Grooming/
+  General, free text allowed); ProceduresView + TreatmentStep search show it.
+- **Record impact:** 🟢 None.
+- **Data dependency:** Requires backend migration **174** (`procedure_templates.type`) for
+  the badge to persist; UI degrades to "Procedure" when null.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: Billing — "Plan Features" tab (clinic-facing "your plan", plan half only)  —  2026-08-02
 - **What changed:** (S1, §0f #7) `BillingView` gains a **Plan Features** tab
   (`PlanFeaturesPanel`): plan summary (name, TRIAL/ACTIVE/LOCKED chip, add-on chips,

@@ -309,7 +309,7 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
                   className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-seafoam/5 transition-all disabled:opacity-50">
                   <span className="min-w-0">
                     <span className="block text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{t.name}</span>
-                    <span className="block text-[9px] text-slate-400">{t.categoryName ?? 'Procedure'} · {t.items.length} component{t.items.length === 1 ? '' : 's'}</span>
+                    <span className="block text-[9px] text-slate-400">{t.type ?? t.categoryName ?? 'Procedure'} · {t.items.length} component{t.items.length === 1 ? '' : 's'}</span>
                   </span>
                   <span className="shrink-0 text-[10px] font-black text-slate-400">est. {t.estimatedTotal.toLocaleString()}</span>
                 </button>

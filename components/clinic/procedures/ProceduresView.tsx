@@ -137,7 +137,7 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
                   <div className="min-w-0">
                     <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{t.name}</h3>
                     <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">
-                      {t.code ? `${t.code} · ` : ''}{t.categoryName ?? 'Uncategorised'}{t.species.length ? ` · ${t.species.join(', ')}` : ''}
+                      {t.code ? `${t.code} · ` : ''}{t.type ? `${t.type} · ` : ''}{t.categoryName ?? 'Uncategorised'}{t.species.length ? ` · ${t.species.join(', ')}` : ''}
                     </p>
                   </div>
                   <button

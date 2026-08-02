@@ -69,6 +69,8 @@ export interface ProcedureTemplate {
   name: string;
   description: string | null;
   code: string | null;
+  /** Procedure kind badge (backend 174). Null on older rows. */
+  type: string | null;
   categoryId: string | null;
   categoryName: string | null;
   species: string[];
@@ -109,6 +111,8 @@ export interface ProcedureTemplatePayload {
   name: string;
   description?: string;
   code?: string;
+  /** Procedure kind badge — Laboratory / Imaging / Surgery / … (backend 174). */
+  type?: string | null;
   categoryId?: string | number | null;
   species?: string[];
   defaultDurationMin?: number | null;
