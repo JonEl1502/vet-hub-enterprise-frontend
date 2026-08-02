@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Target, BadgeCheck, ClipboardList } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L, Seg, CheckGrid , showsField } from '../fields';
+import { labAPI, imagingAPI } from '../../../../../services';
 
 const CONFIDENCE = ['High', 'Moderate', 'Low'];
 const ONSET = ['Acute (< 7 days)', 'Subacute (1–4 weeks)', 'Chronic (> 4 weeks)'];
@@ -17,9 +18,43 @@ const BASIS = [
   { k: 'other', label: 'Other confirmatory tests' },
 ];
 
-const DiagnosisStep: React.FC<StepProps> = ({ data, setData, staff, emit, visibleFields }) => {
+const DiagnosisStep: React.FC<StepProps> = ({ visit, data, setData, staff, emit, visibleFields }) => {
   const show = showsField(visibleFields);
   const d = data || {};
+  // Evidence attachments (user, 2026-08-02): the visit's ACTUAL lab/imaging
+  // results — including partner-mirrored ones — CAN (never must) be attached
+  // to the confirmed diagnosis. Stored as {type,id,name} refs in the data.
+  const [evidencePool, setEvidencePool] = useState<{ type: 'lab' | 'imaging'; id: string; name: string; detail: string }[]>([]);
+  useEffect(() => {
+    if (!visit?.id) return;
+    let alive = true;
+    Promise.all([
+      labAPI.list({ appointmentId: visit.id } as any, { silent: true } as any).catch(() => null),
+      imagingAPI.list({ appointmentId: visit.id } as any, { silent: true } as any).catch(() => null),
+    ]).then(([lab, img]) => {
+      if (!alive) return;
+      const vid = String(visit.id);
+      const pool = [
+        ...((lab?.data?.records || []).filter((r: any) => String(r.appointmentId ?? '') === vid)
+          .map((r: any) => ({ type: 'lab' as const, id: String(r.id), name: r.panelName || 'Lab panel', detail: r.externalSource ? `via ${r.externalSource}` : (r.notes || '') }))),
+        ...((img?.data?.records || []).filter((r: any) => String(r.appointmentId ?? '') === vid)
+          .map((r: any) => ({ type: 'imaging' as const, id: String(r.id), name: `${r.modality || 'Imaging'}${r.bodyPart ? ` — ${r.bodyPart}` : ''}`, detail: r.findings || (r.externalSource ? `via ${r.externalSource}` : '') }))),
+      ];
+      setEvidencePool(pool);
+    });
+    return () => { alive = false; };
+  }, [visit?.id]);
+  const attached: { type: string; id: string; name: string }[] = d.evidenceRecords || [];
+  const isAttached = (id: string) => attached.some(a => a.id === id);
+  const toggleEvidence = (rec: { type: 'lab' | 'imaging'; id: string; name: string }) => {
+    const next = isAttached(rec.id) ? attached.filter(a => a.id !== rec.id) : [...attached, { type: rec.type, id: rec.id, name: rec.name }];
+    // Attaching also ticks the matching basis box — detaching leaves it alone.
+    const basisKey = rec.type === 'lab' ? 'labResults' : 'imaging';
+    const patch: any = { evidenceRecords: next };
+    if (!isAttached(rec.id)) patch.basis = { ...(d.basis || {}), [basisKey]: true };
+    setData(patch);
+    if (!isAttached(rec.id)) emit(`${rec.name} attached as diagnosis evidence`, 'action', true);
+  };
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -41,6 +76,23 @@ const DiagnosisStep: React.FC<StepProps> = ({ data, setData, staff, emit, visibl
           {show('basis') && <L label="Basis / evidence">
             <CheckGrid items={BASIS} value={d.basis} onToggle={(k, _l, on) => setData({ basis: { ...(d.basis || {}), [k]: on } })} />
           </L>}
+          {/* Optional result attachments — shown only when results exist. */}
+          {evidencePool.length > 0 && (
+            <L label="Attach results (optional)">
+              <div className="space-y-1">
+                {evidencePool.map(r => (
+                  <button key={r.id} type="button" onClick={() => toggleEvidence(r)}
+                    className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left transition-all ${isAttached(r.id) ? 'border-seafoam bg-seafoam/10' : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/50'}`}>
+                    <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] font-black shrink-0 ${isAttached(r.id) ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-transparent'}`}>✓</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{r.type === 'lab' ? '🧪' : '🩻'} {r.name}</span>
+                      {r.detail && <span className="block text-[9px] text-slate-400 truncate">{r.detail}</span>}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </L>
+          )}
           <div className="grid grid-cols-2 gap-3">
             {show('dateConfirmed') && <L label="Date confirmed">
               <input className="field-input" type="date" value={d.dateConfirmed ?? ''} onChange={e => setData({ dateConfirmed: e.target.value })} />

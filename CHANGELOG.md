@@ -59,6 +59,13 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: diagnosis can attach visit results as evidence  —  2026-08-02
+- **What changed:** (user) The Diagnosis step's Confirmed Diagnosis card lists the
+  visit's lab/imaging results — including partner-mirrored ones — as optional
+  attachments ("can but not must"). Attaching stores a `{type,id,name}` ref in
+  `data.diagnosis.evidenceRecords` and ticks the matching basis box.
+- **Record impact:** 🟢 — additive key in consultation data.
+
 ### frontend: report shows diagnostic RESULTS; tracker labels  —  2026-08-02
 - **What changed:** (user) The Medical Report's §4 Diagnostics now prints the visit's
   actual lab + imaging records (modality/panel, status, findings/notes, external
