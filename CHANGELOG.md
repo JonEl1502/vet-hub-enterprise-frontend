@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: client profile — Files tab goes live (phase 2)  —  2026-08-02
+- **What changed:** (S2) `ClientFilesTab` is real: upload (images/PDF → R2 presigned flow,
+  scope `client`, kind picker ID/Consent/Insurance/Doc/Photo/Other), card grid with image
+  previews, open-in-new-tab, delete. New `clientsAPI.addAttachment/removeAttachment` +
+  `ClientAttachment` type; `Client.attachments?` added.
+- **Record impact:** 🟢 None.
+- **Data dependency:** Requires backend migration **175** (`clients.attachments`) — but the
+  tab degrades to the empty state if absent (list read is `?? []` server-side).
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: Collect — spend client credit ("Use credit" affordance)  —  2026-08-02
 - **What changed:** (S1, §0 carry-over) the Collect bar in `ClientPaymentsTab` gains a
   **Use credit** toggle when the payment account holds money: credit is drawn BEFORE cash

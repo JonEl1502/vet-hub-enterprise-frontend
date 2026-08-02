@@ -3,11 +3,11 @@ import toast from 'react-hot-toast';
 import {
   Wallet, FileText, CreditCard, TrendingUp, CircleDollarSign, Filter, CalendarRange,
   ChevronDown, Eye, MoreVertical, Loader2, X, Plus, RotateCcw, HandCoins, Tag,
-  ScrollText, Mail, Banknote, Pencil, FolderOpen, PiggyBank,
+  ScrollText, Mail, Banknote, Pencil, FolderOpen, PiggyBank, Trash2,
 } from 'lucide-react';
 import { Client } from '../../../types';
-import { clientsAPI } from '../../../services';
-import { ClientBilling } from '../../../services/modules/clients.api';
+import { clientsAPI, uploadsAPI } from '../../../services';
+import { ClientBilling, ClientAttachment } from '../../../services/modules/clients.api';
 
 /**
  * Client → Payments tab, account-hub layout (user reference design, 2026-08-02).
@@ -580,13 +580,118 @@ export const ClientStatementTab: React.FC<{ clientId: string | number; currency:
   );
 };
 
-/** Client → Files tab: placeholder until client attachments land. */
-export const ClientFilesTab: React.FC = () => (
-  <div className="py-24 flex flex-col items-center justify-center gap-4 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] animate-in fade-in">
-    <FolderOpen size={32} className="text-slate-200 dark:text-zinc-700" />
-    <p className="uppercase font-black text-[10px] tracking-[0.2em] text-slate-300 dark:text-zinc-600">No files yet</p>
-    <p className="text-xs text-slate-400 dark:text-zinc-500 font-medium max-w-xs text-center">Documents and attachments uploaded for this client will appear here.</p>
-  </div>
-);
+/**
+ * Client → Files tab (backend 175). Bytes go straight to storage via the
+ * presigned-URL flow (scope 'client'); the client row keeps only metadata.
+ * Add/remove responses return the fresh attachments array, so the list never
+ * needs a full profile refetch after a change.
+ */
+const FILE_KINDS = ['ID', 'CONSENT', 'INSURANCE', 'DOC', 'PHOTO', 'OTHER'] as const;
+
+export const ClientFilesTab: React.FC<{ clientId: number | string; canEdit?: boolean }> = ({ clientId, canEdit = true }) => {
+  const [files, setFiles] = React.useState<ClientAttachment[]>([]);
+  const [loading, setLoading] = React.useState(true);
+  const [uploading, setUploading] = React.useState(false);
+  const [removingIdx, setRemovingIdx] = React.useState<number | null>(null);
+  const [kind, setKind] = React.useState<string>('DOC');
+  const inputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    let alive = true;
+    clientsAPI.getById(Number(clientId), { cache: false })
+      .then(r => { if (alive && r.success && r.data?.client) setFiles((r.data.client as any).attachments || []); })
+      .catch(() => { /* empty list */ })
+      .finally(() => { if (alive) setLoading(false); });
+    return () => { alive = false; };
+  }, [clientId]);
+
+  const pick = () => inputRef.current?.click();
+
+  const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    try {
+      const stored = await uploadsAPI.upload(file, 'client');
+      const res = await clientsAPI.addAttachment(clientId, {
+        url: stored.publicUrl, key: stored.key, kind,
+        contentType: file.type || undefined, sizeBytes: file.size, label: file.name,
+      });
+      if (res.success && res.data) { setFiles(res.data.attachments); toast.success('File uploaded'); }
+    } catch (err: any) { toast.error(err?.message || 'Upload failed'); }
+    finally { setUploading(false); }
+  };
+
+  const remove = async (idx: number) => {
+    setRemovingIdx(idx);
+    try {
+      const res = await clientsAPI.removeAttachment(clientId, idx);
+      if (res.success && res.data) { setFiles(res.data.attachments); toast.success('File removed'); }
+    } catch (err: any) { toast.error(err?.message || 'Failed to remove'); }
+    finally { setRemovingIdx(null); }
+  };
+
+  const sizeLabel = (b?: number | null) => b == null ? '' : b >= 1048576 ? `${(b / 1048576).toFixed(1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`;
+
+  return (
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+      {canEdit && (
+        <div className="flex flex-wrap items-center gap-2">
+          <select value={kind} onChange={e => setKind(e.target.value)} className="field-select w-auto">
+            {FILE_KINDS.map(k => <option key={k} value={k}>{k.charAt(0) + k.slice(1).toLowerCase()}</option>)}
+          </select>
+          <button type="button" onClick={pick} disabled={uploading}
+            className="flex items-center gap-2 px-4 py-2 bg-seafoam text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all disabled:opacity-50">
+            {uploading ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Upload file
+          </button>
+          <input ref={inputRef} type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,application/pdf" className="hidden" onChange={onFile} />
+          <p className="text-[9px] font-bold text-slate-400 basis-full sm:basis-auto">Images or PDF. ID, consent forms, insurance documents…</p>
+        </div>
+      )}
+
+      {loading && <div className="py-12 flex items-center justify-center"><Loader2 size={18} className="animate-spin text-seafoam" /></div>}
+
+      {!loading && files.length === 0 && (
+        <div className="py-24 flex flex-col items-center justify-center gap-4 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
+          <FolderOpen size={32} className="text-slate-200 dark:text-zinc-700" />
+          <p className="uppercase font-black text-[10px] tracking-[0.2em] text-slate-300 dark:text-zinc-600">No files yet</p>
+          <p className="text-xs text-slate-400 dark:text-zinc-500 font-medium max-w-xs text-center">Documents and attachments uploaded for this client will appear here.</p>
+        </div>
+      )}
+
+      {!loading && files.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+          {files.map((f, i) => {
+            const isImage = (f.contentType || '').startsWith('image/');
+            return (
+              <div key={`${f.url}-${i}`} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+                <a href={f.url} target="_blank" rel="noreferrer" className="block">
+                  {isImage
+                    ? <img src={f.url} alt={f.label || 'Attachment'} className="w-full h-32 object-cover bg-slate-50 dark:bg-zinc-950" />
+                    : <div className="w-full h-32 flex items-center justify-center bg-slate-50 dark:bg-zinc-950"><FileText size={28} className="text-slate-300 dark:text-zinc-700" /></div>}
+                </a>
+                <div className="p-3 flex items-start gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[11px] font-bold text-pine dark:text-zinc-100 truncate" title={f.label || undefined}>{f.label || 'File'}</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">
+                      {f.kind}{f.sizeBytes ? ` · ${sizeLabel(f.sizeBytes)}` : ''} · {new Date(f.createdAt).toLocaleDateString()}
+                    </p>
+                  </div>
+                  {canEdit && (
+                    <button type="button" disabled={removingIdx === i} onClick={() => remove(i)} title="Remove file"
+                      className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 shrink-0 disabled:opacity-50">
+                      {removingIdx === i ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default ClientAccountHub;

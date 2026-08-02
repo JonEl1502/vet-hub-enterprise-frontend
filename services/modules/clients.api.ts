@@ -44,6 +44,19 @@ export interface Client {
   pets?: any[];
   appointmentCount?: number;
   petCount?: number;
+  /** Files tab (backend 175). Absent on older deploys — treat as []. */
+  attachments?: ClientAttachment[];
+}
+
+export interface ClientAttachment {
+  url: string;
+  key?: string | null;
+  kind: 'ID' | 'CONSENT' | 'INSURANCE' | 'DOC' | 'PHOTO' | 'OTHER' | string;
+  contentType?: string | null;
+  sizeBytes?: number | null;
+  label?: string | null;
+  createdAt: string;
+  createdBy?: string | null;
 }
 
 export interface DuplicateGroupClient {
@@ -226,6 +239,15 @@ export const clientsAPI = {
   /** Prepayment into the client's payment account (derived credit) — no invoices. */
   recordAdvance: (clientId: string | number, data: { amount: number; paymentMethod: string; note?: string }): Promise<ApiResponse<{ transactionId: string; amount: number; creditBalance: number | null }>> =>
     post(`/clients/${clientId}/advance`, data, { showError: true }),
+
+  /** Client file attachments (backend 175) — metadata only; bytes go to R2 via uploadsAPI (scope 'client'). */
+  addAttachment: (clientId: string | number, data: {
+    url: string; key?: string; kind?: string; contentType?: string; sizeBytes?: number; label?: string;
+  }): Promise<ApiResponse<{ clientId: string; attachments: ClientAttachment[] }>> =>
+    post(`/clients/${clientId}/attachments`, data, { showError: true }),
+
+  removeAttachment: (clientId: string | number, index: number): Promise<ApiResponse<{ clientId: string; attachments: ClientAttachment[] }>> =>
+    del(`/clients/${clientId}/attachments/${index}`, { showError: true }),
 
   credit: (clientId: string | number): Promise<ApiResponse<{
     balance: number;

@@ -1359,7 +1359,7 @@ const renderOverview = () => (
         {activeTab === 'statements' && (
           <ClientStatementTab clientId={client.id} currency={client.currency || 'KES'} />
         )}
-        {activeTab === 'files' && <ClientFilesTab />}
+        {activeTab === 'files' && <ClientFilesTab clientId={client.id} canEdit={hasFullAccess} />}
         {activeTab === 'discounts' && (
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
             {/* Add Discount Button */}
