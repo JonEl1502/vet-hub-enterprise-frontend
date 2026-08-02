@@ -1882,16 +1882,21 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                           }
                         }}
                         title={petDeceased ? 'Patient deceased — no new appointments' : undefined}
-                        className={`flex flex-col items-center gap-1 p-2 rounded-xl border transition-all ${
+                        className={`flex items-center gap-2 p-2 rounded-xl border transition-all text-left ${
                           isActive ? (isGroupVisit ? 'border-violet-500 bg-violet-500/5' : 'border-cyan bg-cyan/5') : 'border-slate-100 dark:border-zinc-800 hover:border-cyan/40'
                         } ${petDeceased ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
                       >
+                        {/* Avatar left, details stacked to its right. Centre-stacked
+                            made a tall card whose name, species and owner each had
+                            their own line — a lot of height to say "Rex, dog". */}
                         <PetAvatar pet={p} size={30} rounded="rounded-lg" />
-                        <p className="text-pine dark:text-zinc-100 font-bold uppercase text-[8px] truncate w-full text-center">{p.name}</p>
-                        <p className={`uppercase text-[7px] font-bold truncate w-full text-center ${petDeceased ? 'text-red-500' : 'text-slate-400'}`}>
-                          {petDeceased ? 'Deceased' : p.species}
-                        </p>
-                        {(() => { const tag = ownerTag(p.ownerId); return tag ? <p className="normal-case text-[7px] font-semibold text-seafoam/80 truncate w-full text-center">{tag}</p> : null; })()}
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-pine dark:text-zinc-100 font-bold uppercase text-[8px] truncate">{p.name}</span>
+                          <span className={`block uppercase text-[7px] font-bold truncate ${petDeceased ? 'text-red-500' : 'text-slate-400'}`}>
+                            {petDeceased ? 'Deceased' : p.species}
+                          </span>
+                          {(() => { const tag = ownerTag(p.ownerId); return tag ? <span className="block normal-case text-[7px] font-semibold text-seafoam/80 truncate">{tag}</span> : null; })()}
+                        </span>
                       </button>
                       );
                     })}
@@ -1900,10 +1905,10 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                       <button
                         type="button"
                         onClick={() => setShowInlineAddPet(v => !v)}
-                        className={`flex flex-col items-center justify-center gap-1 p-2 rounded-xl border border-dashed transition-all ${showInlineAddPet ? 'border-cyan bg-cyan/5' : 'border-slate-200 dark:border-zinc-700 hover:border-cyan/60 hover:bg-cyan/5'}`}
+                        className={`flex items-center justify-center gap-2 p-2 rounded-xl border border-dashed transition-all ${showInlineAddPet ? 'border-cyan bg-cyan/5' : 'border-slate-200 dark:border-zinc-700 hover:border-cyan/60 hover:bg-cyan/5'}`}
                       >
-                        <UserPlus size={15} className="text-cyan" />
-                        <p className="text-cyan font-bold uppercase text-[8px] text-center">Add patient</p>
+                        <UserPlus size={15} className="text-cyan shrink-0" />
+                        <p className="text-cyan font-bold uppercase text-[8px]">Add patient</p>
                       </button>
                     )}
                   </div>

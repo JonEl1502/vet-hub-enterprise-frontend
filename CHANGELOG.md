@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: patient cards put the avatar left and the details beside it  —  2026-08-02
+- **What changed:** the Linked Patient cards stacked avatar → name → species → owner vertically
+  and centre-aligned, so a card was four lines tall to say "Rex, dog". Now the avatar sits left
+  with name/species/owner stacked to its right, left-aligned. The Add-patient tile matches.
+- **Record impact:** 🟢 None — layout only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit.
+
 ### flow: one Track per visit, not one per outsourced service  —  2026-08-02
 
 - **What changed:** every service row in the partner inbox carried its own **Track** button with
