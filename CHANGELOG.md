@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: adding a Vaccination encounter no longer auto-picks a vaccine  —  2026-08-02
+- **What changed:** (user) Transfer/Add-encounter injected the FIRST service in the
+  category as the fee line — for Vaccination that billed whatever vaccine sorts first
+  (Bordetella, 1,000) plus its scheduled record. Vaccination now adds only the
+  encounter row/chip; the actual vaccine is chosen (and charged) in the vaccination
+  step, per the standing "no service required to start a vaccination" rule.
+- **Record impact:** 🟢.
+
 ### frontend: Time + Now on the main boarding care form  —  2026-08-02
 - **What changed:** (user) the Log Today's Care form gains the same Time picker + Now
   button as the per-day editor — defaults to now, or pick a datetime to back-date the

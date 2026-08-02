@@ -567,6 +567,20 @@ const VisitDetailInner: React.FC<Props> = ({
   const handleAddEncounter = (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => setPendingTransfer(type);
   const performTransfer = (type: string, reason: string) => {
     const labels: Record<string, string> = { VET_VISIT: 'Vet Visit — consultation', VACCINATION: 'Vaccination', GROOMING: 'Grooming', BOARDING: 'Boarding', HOSPITALIZATION: 'Hospitalization/In-Patient' };
+    // VACCINATION adds NO auto service (user, 2026-08-02: adding the encounter
+    // auto-picked whatever vaccine sorts first — Bordetella — onto the bill).
+    // The wizard's vaccination step is where the ACTUAL vaccine is chosen and
+    // charged; the encounter row + chip is all this needs to create.
+    if (type === 'VACCINATION') {
+      const rowSpecV = { encounterType: 'VET_VISIT', visitType: 'VACCINATION' };
+      visitsAPI.addEncounter(appointment.id, rowSpecV)
+        .then(() => wiz.reloadEncounters())
+        .catch(() => {});
+      visitsAPI.addEvent(appointment.id, { label: `Transferred/added encounter: Vaccination — ${reason}`, kind: 'transfer' }).catch(() => {});
+      wiz.emit(`Added Vaccination — ${reason}`, 'billing', true);
+      toast.success('Vaccination added — pick the vaccine in its workflow step');
+      return;
+    }
     const want = type === 'VET_VISIT' ? 'consult' : type === 'GROOMING' ? 'groom' : type === 'BOARDING' ? 'board' : type === 'VACCINATION' ? 'vaccin' : 'inpatient';
     const cat = refCategories.find(c => c.name.toLowerCase().includes(want));
     const svc = cat ? refServices.find(s => s.categoryId === cat.id) : undefined;
