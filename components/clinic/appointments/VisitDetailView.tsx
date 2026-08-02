@@ -7155,10 +7155,12 @@ const VisitDetailInner: React.FC<Props> = ({
           where it reads "Finalize visit & bill". */}
       {(workflowTab === 'billing' || workflowTab === 'followup') && !appointment.isPaid && (
         <>
-          <div className="h-16" aria-hidden />
+          {/* Spacer must clear the bar's real height (py-3 + button ≈ 68px
+              desktop) or the last content row hides under it — h-16 didn't. */}
+          <div className="h-24 sm:h-20" aria-hidden />
           <div
             style={billBarRect ? { left: billBarRect.left, width: billBarRect.width, right: 'auto' } : undefined}
-            className="fixed bottom-0 inset-x-0 z-40 px-4 sm:px-6 py-2 sm:py-3 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[0_-4px_16px_rgba(0,0,0,0.10)]">
+            className="fixed bottom-0 inset-x-0 z-40 px-4 sm:px-6 py-2 sm:py-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[0_-4px_16px_rgba(0,0,0,0.10)]">
             <div className="flex items-center gap-3">
               <div className="min-w-0">
                 {/* The live BILL total wins when a bill exists — the task total
