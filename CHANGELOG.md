@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: set a patient's photo from the pet profile  —  2026-08-02
+- **What changed:** the profile header rendered `pet.species === 'Dog' ? '🐶' : '🐱'` — hardcoded,
+  so an uploaded photo never appeared there **and every reptile, bird or rabbit showed as a cat**.
+  It now renders `PetAvatar` (real photo, species emoji fallback) and clicking it opens a file
+  picker: upload → R2 (`scope: 'pet'`) → `petsAPI.update({ avatarUrl })`.
+- **Record impact:** 🔵 Low — writes `avatarUrl` on the pet the user chose.
+- **Data dependency:** None new — the `pet` upload scope and `avatarUrl` both already existed.
+- **Rollback:** revert the commit. Photos already uploaded stay on the pet and keep rendering
+  everywhere else that uses `PetAvatar`.
+- ⚠️ The header keeps a **local override** of the new URL so it updates the instant the upload
+  finishes, rather than waiting for the parent's pet list to refetch. Navigating away and back
+  reads the persisted value.
+- ⚠️ Non-image files are rejected client-side; a failed upload leaves the previous photo intact.
+
 ### component: patient cards put the avatar left and the details beside it  —  2026-08-02
 - **What changed:** the Linked Patient cards stacked avatar → name → species → owner vertically
   and centre-aligned, so a card was four lines tall to say "Rex, dog". Now the avatar sits left

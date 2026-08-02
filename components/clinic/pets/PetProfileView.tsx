@@ -10,12 +10,14 @@ import AppointmentCreateModal from '../appointments/AppointmentCreateModal';
 import ReminderCreateModal from '../reminders/ReminderCreateModal';
 import RemindersApptsTab from '../shared/RemindersApptsTab';
 import { petsAPI, PetSnapshot, PetTimelineEntry } from '../../../services/modules/pets.api';
+import { uploadsAPI } from '../../../services/modules/uploads.api';
+import PetAvatar from '../shared/PetAvatar';
 import { clientsAPI } from '../../../services';
 import { toast } from '../../../services/utils/toast';
 import { remindersAPI, appointmentsAPI } from '../../../services';
 import type { Reminder, Appointment } from '../../../services';
 import { Transaction } from '../../../services/modules/transactions.api';
-import { Heart, Activity, Calendar, CalendarPlus, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical, Smile } from 'lucide-react';
+import { Heart, Activity, Calendar, CalendarPlus, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical, Smile, Camera, Loader2 } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 
@@ -53,6 +55,11 @@ const PetProfileView: React.FC<Props> = ({
   pet, owner, activeClinic, clinics, appointments, transactions = [], allPets, onBack, initialTab = 'overview',
   onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onSettleVisit, onViewAppointment, onViewOwner, initialVisitId
 }) => {
+  // Pet photo: local override so the header updates the moment it uploads,
+  // without waiting for the parent's pet list to refetch.
+  const avatarInputRef = React.useRef<HTMLInputElement>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
   // Records restructure (077): conditional Medical / Grooming / Boarding
@@ -1153,9 +1160,48 @@ const PetProfileView: React.FC<Props> = ({
              <ArrowLeft size={18}/>
            </button>
            <div className="flex items-center gap-3 sm:gap-4 min-w-0">
-              <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-seafoam border-2 border-white dark:border-zinc-950 flex items-center justify-center text-2xl sm:text-3xl shadow-lg shrink-0 aspect-square uppercase">
-                {pet.species === 'Dog' ? '🐶' : '🐱'}
-              </div>
+              {/* The pet's own photo, and the place to set it. The header
+                  hardcoded a dog/cat emoji off `species`, so an uploaded photo
+                  never showed here and every reptile was a cat. Click to
+                  replace; falls back to the species emoji when there's no
+                  photo. */}
+              <button
+                type="button"
+                onClick={() => avatarInputRef.current?.click()}
+                disabled={avatarBusy}
+                title={avatarBusy ? 'Uploading…' : 'Change photo'}
+                className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl border-2 border-white dark:border-zinc-950 shadow-lg shrink-0 aspect-square overflow-hidden group disabled:opacity-60"
+              >
+                <PetAvatar pet={{ ...pet, avatarUrl: avatarUrl ?? (pet as any).avatarUrl } as any} size={48} rounded="rounded-none" className="w-full h-full" />
+                <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/50">
+                  {avatarBusy
+                    ? <Loader2 size={14} className="animate-spin text-white" />
+                    : <Camera size={14} className="text-white" />}
+                </span>
+              </button>
+              <input
+                ref={avatarInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async e => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (!file) return;
+                  if (!file.type.startsWith('image/')) { toast.error('Pick an image file'); return; }
+                  setAvatarBusy(true);
+                  try {
+                    const up = await uploadsAPI.upload(file, 'pet');
+                    const url = (up as any)?.publicUrl || (up as any)?.url;
+                    if (!url) throw new Error('Upload did not return a URL');
+                    await petsAPI.update(Number(pet.id), { avatarUrl: url } as any);
+                    setAvatarUrl(url);
+                    toast.success('Photo updated');
+                  } catch (err: any) {
+                    toast.error(err?.message || 'Could not update the photo');
+                  } finally { setAvatarBusy(false); }
+                }}
+              />
               <div className="min-w-0">
                 <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{pet.name}</h1>
                 <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 truncate">
