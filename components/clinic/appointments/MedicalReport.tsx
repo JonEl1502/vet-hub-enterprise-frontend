@@ -114,7 +114,10 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
   const dx = data.diagnosis || {};
   const tx = data.treatment || {};
   const cm = data.communication || {};
-  const fu = data.followUp || {};
+  // §0f #3: professional follow-up judgments are per encounter kind; the
+  // clinical report reads the vet-visit slot with a MANDATORY fallback to the
+  // legacy shared slot so pre-split records don't look wiped.
+  const fu = { ...(data.followUp || {}), ...(data['followUp:VET_VISIT'] || {}) };
   const systems: Record<string, SystemValue> = ex.systems || {};
   const abnormalSystems = Object.entries(systems).filter(([, s]) => s.findings && s.findings.trim());
   // Grouped by title: each abnormal system with its individual findings, so the

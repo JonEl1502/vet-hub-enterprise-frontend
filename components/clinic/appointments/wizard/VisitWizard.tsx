@@ -168,11 +168,31 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
   };
   const def = stageDef(currentStep);
 
+  // Follow-up data split (§0f #3): the professional judgments are PER
+  // ENCOUNTER KIND — the vet visit's outcome and the groom's outcome used to
+  // share one `data.followUp` slot and stamp each other. Judgments live under
+  // `followUp:<ENCOUNTER_TYPE>`; reminders STAY shared at visit level (one
+  // animal, one owner — duplicating reminders would double-message clients).
+  // Read fallback to the legacy shared slot is MANDATORY (069-style drift):
+  // an old record must not look wiped.
+  const FOLLOWUP_PRO_FIELDS = ['currentOutcome', 'closeOutcome', 'outcomeNotes', 'carePlan', 'monitoring'];
+  const selEncType = ((wiz.encounters || []).find((e: any) => String(e.id) === String(wiz.selectedEncounterId))?.encounterType
+    ?? (visit as any).encounterType ?? 'VET_VISIT') as string;
+  const fuNsKey = `followUp:${selEncType}` as WizardStepId;
+
   const stepProps: StepProps = useMemo(() => ({
     visit, pet, client, staff,
     currency: activeClinic.currency,
-    data: state.data[currentStep],
-    setData: (patch: any) => setStepData(currentStep, patch),
+    data: currentStep === 'followUp'
+      ? { ...(state.data['followUp'] || {}), ...((state.data as any)[fuNsKey] || {}) }
+      : state.data[currentStep],
+    setData: (patch: any) => {
+      if (currentStep !== 'followUp') return setStepData(currentStep, patch);
+      const pro: any = {}; const shared: any = {};
+      for (const [k, v] of Object.entries(patch)) (FOLLOWUP_PRO_FIELDS.includes(k) ? pro : shared)[k] = v;
+      if (Object.keys(pro).length) setStepData(fuNsKey, pro);
+      if (Object.keys(shared).length) setStepData('followUp', shared);
+    },
     emit,
     goServices,
     addService: onAddService,
@@ -181,7 +201,7 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
     refreshVisit: onRefreshVisit,
     onTriageStatusChange,
     onTriageDischarged,
-  }), [visit, pet, client, staff, activeClinic.currency, state.data, currentStep, setStepData, emit, goServices, onAddService, onOpenModule, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged]);
+  }), [visit, pet, client, staff, activeClinic.currency, state.data, currentStep, fuNsKey, setStepData, emit, goServices, onAddService, onOpenModule, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged]);
 
   const renderStep = () => {
     const stage = templateStages?.[currentStep];
