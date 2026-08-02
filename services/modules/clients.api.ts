@@ -95,6 +95,8 @@ export interface ClientInvoice {
   visitType?: string | null;
   pet: { id: string; name: string; species: string } | null;
   collectable: boolean;
+  /** The visit's live invoice documents (several on a split bill). */
+  invoices?: { id: string; number: string | null; scope: string; status: string; total: number }[];
 }
 
 export interface ClientPayment {

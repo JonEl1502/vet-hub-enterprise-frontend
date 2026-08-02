@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend+api: client Payments tab shows real invoices, select-all, printable view  —  2026-08-02
+- **What changed:** (user) `/clients/:id/billing` rows now carry the visit's live
+  invoice DOCUMENTS (number, split scope, status). The Payments tab renders them as
+  chips on each row, adds a **Select all / Clear** button (one or many), and each row
+  with an invoice expands ("Invoice ▾") into a **printable invoice document** — lines
+  from the bill snapshot, totals, paid/outstanding, Print/download button. Settle
+  stays as-is: tick rows and collect (auto FIFO from the tendered amount, or manual
+  split).
+- **Record impact:** 🟢 — read-path.
+
 ### frontend: adding an encounter row no longer hides legacy chips  —  2026-08-02
 - **What changed:** (user, visit 137) on a legacy visit whose grooming/vet chips were
   TASK-derived (no encounter rows yet), adding the FIRST row (vaccination) switched the

@@ -4,7 +4,8 @@ import {
   Receipt, FileText, CreditCard, Loader2, CheckCircle2, Ban, AlertTriangle, Link2, Trash2,
   Search, X,
 } from 'lucide-react';
-import { clientsAPI, transactionsAPI } from '../../../services';
+import { clientsAPI, transactionsAPI, invoicesAPI } from '../../../services';
+import { printElementAsPdf } from '../shared/printPdf';
 import { ClientBilling } from '../../../services/modules/clients.api';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -45,6 +46,22 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   const [data, setData] = React.useState<ClientBilling | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
+  // Expanded row → inline printable invoice document (user, 2026-08-02).
+  const [expandedVisit, setExpandedVisit] = React.useState<string | null>(null);
+  const [expandedDoc, setExpandedDoc] = React.useState<any | null>(null);
+  const [docLoading, setDocLoading] = React.useState(false);
+  const toggleExpand = (inv: any) => {
+    const next = expandedVisit === inv.visitId ? null : inv.visitId;
+    setExpandedVisit(next); setExpandedDoc(null);
+    const docId = inv.invoices?.[0]?.id;
+    if (next && docId) {
+      setDocLoading(true);
+      invoicesAPI.get(docId, { silent: true } as any)
+        .then(r => { if (r.success && r.data?.invoice) setExpandedDoc(r.data.invoice); })
+        .catch(() => {})
+        .finally(() => setDocLoading(false));
+    }
+  };
   const [method, setMethod] = React.useState('CASH');
   const [busy, setBusy] = React.useState(false);
   // Allocation (backend P3). Blank `tendered` means "settle the selection in
@@ -384,6 +401,16 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
             </p>
           )}
 
+          {/* One or many (user, 2026-08-02): tick rows individually or all at once. */}
+          {canCollect && selectable.length > 0 && (
+            <div className="flex items-center justify-end gap-2 mb-1.5">
+              <button type="button"
+                onClick={() => setSelected(prev => prev.size >= selectable.length ? new Set() : new Set(selectable.map(i => i.visitId)))}
+                className="px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">
+                {selected.size >= selectable.length ? 'Clear selection' : `Select all · ${selectable.length}`}
+              </button>
+            </div>
+          )}
           <div className="space-y-1.5">
             {visible.length === 0 && (
               <p className="px-3 py-6 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">
@@ -393,11 +420,14 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
             {visible.map(inv => {
               const picked = selected.has(inv.visitId);
               const partly = !inv.isPaid && (inv.paid ?? 0) > 0;
+              const docs = inv.invoices || [];
+              const isExpanded = expandedVisit === inv.visitId;
               return (
                 <div key={inv.visitId}
-                  className={`flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${
+                  className={`px-3 py-2.5 rounded-xl border transition-all ${
                     picked ? 'border-seafoam bg-seafoam/5' : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
                   }`}>
+                <div className="flex flex-wrap items-center gap-2">
                   {canCollect && !inv.isPaid && (
                     <input type="checkbox" checked={picked} disabled={!inv.collectable}
                       onChange={() => toggle(inv.visitId)}
@@ -412,6 +442,14 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                       {fmt(inv.date)} · {String(inv.encounterType ?? '').replace('_', ' ').toLowerCase()}
                     </p>
                   </div>
+                  {/* The ACTUAL invoice documents (user, 2026-08-02) — number,
+                      split scope, status. Click a row's chevron for the
+                      printable view. */}
+                  {docs.map(d => (
+                    <span key={d.id} className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300">
+                      <FileText size={9} /> {d.number || `INV #${d.id}`}{d.scope && d.scope !== 'FULL' ? ` · ${String(d.scope).toLowerCase()}` : ''} · {String(d.status).toLowerCase()}
+                    </span>
+                  ))}
                   {inv.isPaid ? (
                     <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                       <CheckCircle2 size={9} /> {inv.prepaid ? 'Paid up front' : 'Paid'}
@@ -492,6 +530,61 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                     <button onClick={() => onViewVisit(Number(inv.visitId))}
                       className="shrink-0 text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70">View →</button>
                   )}
+                  {docs.length > 0 && (
+                    <button onClick={() => toggleExpand(inv)}
+                      title={isExpanded ? 'Hide the invoice document' : 'Show the printable invoice'}
+                      className="shrink-0 text-[9px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-700">
+                      {isExpanded ? 'Hide invoice ▴' : 'Invoice ▾'}
+                    </button>
+                  )}
+                </div>
+
+                {/* Printable invoice document (user, 2026-08-02) — lines from
+                    the bill snapshot behind the invoice, print-ready. */}
+                {isExpanded && (
+                  <div className="mt-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                    {docLoading ? (
+                      <div className="flex justify-center py-4"><Loader2 size={16} className="animate-spin text-seafoam" /></div>
+                    ) : expandedDoc ? (
+                      <div>
+                        <div className="flex justify-end mb-1.5">
+                          <button onClick={() => printElementAsPdf(`inv-print-${inv.visitId}`, `Invoice ${expandedDoc.number || ''}`, false)}
+                            className="px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine">🖨 Print / download</button>
+                        </div>
+                        <div id={`inv-print-${inv.visitId}`} className="rounded-xl border border-slate-200 dark:border-zinc-800 overflow-hidden">
+                          <div className="bg-pine text-white px-4 py-3 flex items-center justify-between">
+                            <div>
+                              <p className="text-[8px] font-black uppercase tracking-[0.2em] text-white/60">Invoice</p>
+                              <p className="text-sm font-black">{expandedDoc.number || `INV #${expandedDoc.id}`}</p>
+                            </div>
+                            <div className="text-right text-[9px] font-bold text-white/70">
+                              {inv.pet?.name ? <p>{inv.pet.name}</p> : null}
+                              <p>{fmt(expandedDoc.createdAt || inv.date)}</p>
+                              {expandedDoc.scope && expandedDoc.scope !== 'FULL' && <p className="uppercase">{String(expandedDoc.scope).toLowerCase()} split</p>}
+                            </div>
+                          </div>
+                          <div className="p-4 bg-white dark:bg-zinc-900">
+                            {(expandedDoc.lines || []).map((l: any) => (
+                              <div key={l.id} className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
+                                <span className="text-xs font-bold text-pine dark:text-zinc-100">{l.name}{l.quantity !== 1 ? ` × ${l.quantity}` : ''}{l.category ? <span className="ml-2 text-[8px] font-black uppercase text-slate-400">{l.category}</span> : null}</span>
+                                <span className="text-xs font-black font-mono text-pine dark:text-zinc-100">{money(Number(l.lineTotal), currency)}</span>
+                              </div>
+                            ))}
+                            <div className="flex justify-between items-end pt-2">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total{Number(expandedDoc.discount) > 0 ? ` · discount ${money(Number(expandedDoc.discount), currency)}` : ''}</span>
+                              <span className="text-lg font-black font-mono text-pine dark:text-zinc-100">{money(Number(expandedDoc.total), currency)}</span>
+                            </div>
+                            {Number(expandedDoc.amountPaid) > 0 && (
+                              <p className="text-right text-[9px] font-bold text-slate-400 mt-0.5">paid {money(Number(expandedDoc.amountPaid), currency)} · {money(Number(expandedDoc.outstanding ?? (Number(expandedDoc.total) - Number(expandedDoc.amountPaid))), currency)} outstanding</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <p className="py-3 text-center text-[10px] font-bold uppercase tracking-widest text-slate-400">Could not load the invoice document.</p>
+                    )}
+                  </div>
+                )}
                 </div>
               );
             })}
