@@ -212,8 +212,14 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     // keys collapse to one chip, so dedupe on the family, not the exact key.
     const famOf = (k: string) => (VET_FAMILY.includes(k) ? 'vet' : k);
     const covered = new Set(fromRows.map(e => famOf(e.key)));
+    // A merged VET chip needs a real CONSULTATION service — generic "clinical
+    // content" matched an After-hours fee and stapled a Vet Visit chip onto a
+    // direct vaccination visit (user, 2026-08-02: "just one").
+    const hasConsultTask = (visit.tasks || []).some(t => (t.category || '').toLowerCase().includes('consult'));
     for (const e of fromTasks) {
-      if (!covered.has(famOf(e.key))) { covered.add(famOf(e.key)); fromRows.push(e); }
+      const fam = famOf(e.key);
+      if (fam === 'vet' && !hasConsultTask) continue;
+      if (!covered.has(fam)) { covered.add(fam); fromRows.push(e); }
     }
     return fromRows;
   }, [visit, resolved.key, encounters]);

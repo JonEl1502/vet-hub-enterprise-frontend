@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Pill, Scissors, ClipboardList, Package, Loader2, Plus, ExternalLink, Search } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L, showsField } from '../fields';
+import AppliedProcedurePanel from '../../../shared/AppliedProcedurePanel';
 import { useData } from '../../../../../contexts/DataContext';
 import { consumablesAPI, toast, procedureTemplatesAPI, ProcedureTemplate, vaccinationsAPI } from '../../../../../services';
 
@@ -270,6 +271,14 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, data, setData, emit, refres
                 </button>
               </div>
             ))}
+          </div>
+        )}
+        {/* Every applied recipe in FULL — its meds, consumables and fees, with
+            per-line qty edit / billable toggle / remove (user, 2026-08-02:
+            "show all meds n consumables from the procedure and allow edit"). */}
+        {procRows.length > 0 && (
+          <div className="mt-2">
+            <AppliedProcedurePanel appointmentId={visit.id} onChanged={() => refreshVisit?.()} />
           </div>
         )}
         <div className="relative">

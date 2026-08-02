@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: procedure details everywhere; vet chip only with a real consult  —  2026-08-02
+- **What changed:** (user) Treatment step's Procedures Performed now mounts the full
+  applied-procedure panel — every med, consumable and fee from the recipe, with qty
+  edit / billable toggle / remove in place. Procedures page: clicking a CARD opens the
+  procedure's details (editor); inner buttons no longer double-fire. Chip merge
+  tightened: a merged "Vet Visit — clinical" chip needs an actual CONSULTATION
+  service — an After-hours fee no longer staples a vet chip onto a direct vaccination.
+- **Record impact:** 🟢.
+
 ### frontend: adding a Vaccination encounter no longer auto-picks a vaccine  —  2026-08-02
 - **What changed:** (user) Transfer/Add-encounter injected the FIRST service in the
   category as the fee line — for Vaccination that billed whatever vaccine sorts first

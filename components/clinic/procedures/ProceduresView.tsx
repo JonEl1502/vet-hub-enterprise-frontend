@@ -129,7 +129,10 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
           {filtered.map(t => {
             const counts = typeCounts(t);
             return (
-              <div key={t.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm space-y-3 ${t.isActive ? 'border-slate-200 dark:border-zinc-800' : 'border-slate-200 dark:border-zinc-800 opacity-60'}`}>
+              <div key={t.id}
+                onClick={() => onOpenEditor(t.id)}
+                title="Open this procedure's details"
+                className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm space-y-3 cursor-pointer hover:border-seafoam/60 transition-colors ${t.isActive ? 'border-slate-200 dark:border-zinc-800' : 'border-slate-200 dark:border-zinc-800 opacity-60'}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{t.name}</h3>
@@ -138,7 +141,7 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
                     </p>
                   </div>
                   <button
-                    onClick={() => toggleActive(t)}
+                    onClick={(e) => { e.stopPropagation(); toggleActive(t); }}
                     disabled={busyId === t.id}
                     className={`shrink-0 px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${t.isActive ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}
                   >
@@ -169,7 +172,7 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
                     <p className="text-base font-black text-pine dark:text-zinc-100">{currency} {t.estimatedTotal.toLocaleString()}</p>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <button onClick={() => onOpenEditor(t.id)} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-pine" title="Edit"><Pencil size={14} /></button>
+                    <button onClick={(e) => { e.stopPropagation(); onOpenEditor(t.id); }} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-pine" title="Edit"><Pencil size={14} /></button>
                     <button onClick={() => remove(t)} disabled={busyId === t.id} className="p-2 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50" title="Delete">
                       {busyId === t.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                     </button>
