@@ -7,6 +7,8 @@ import StandardRecordControls from '../shared/StandardRecordControls';
 import NotesFormatToggle, { FormattedNotes } from '../shared/NotesFormatToggle';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import UpgradeGate from '../../shared/common/UpgradeGate';
+import { visitJobsAPI, VisitJob } from '../../../services/modules/visitJobs.api';
+import { Send } from 'lucide-react';
 
 interface Props {
   record: ImagingRecord;
@@ -56,6 +58,35 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
     } catch { /* keep what we have */ }
   }, [record.appointmentId, record.id, record.updatedAt]);
   useEffect(() => { setCurrentId(record.id); }, [record.id]);
+
+  // Partner transfer (user, 2026-08-02): when this study belongs to a visit we
+  // are PROVIDING for another clinic, completing + sending the result back
+  // happens RIGHT HERE — completing the job mirrors the record to the
+  // requester and stops the round-trip to the jobs inbox.
+  const [partnerJob, setPartnerJob] = useState<VisitJob | null>(null);
+  const [sendingJob, setSendingJob] = useState(false);
+  useEffect(() => {
+    if (!record.appointmentId) { setPartnerJob(null); return; }
+    let alive = true;
+    visitJobsAPI.listForVisit(record.appointmentId, { silent: true } as any)
+      .then(r => {
+        if (!alive) return;
+        const j = (r.data?.jobs || []).find(x => String(x.providerVisitId ?? '') === String(record.appointmentId)
+          && String(x.category || '').toUpperCase() === 'IMAGING' && x.status === 'ACCEPTED');
+        setPartnerJob(j ?? null);
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [record.appointmentId, record.id]);
+  const completeAndSend = async () => {
+    if (!partnerJob) return;
+    setSendingJob(true);
+    try {
+      const r = await visitJobsAPI.updateStatus(partnerJob.id, 'COMPLETED');
+      if (r.success) { toast.success(`Result sent to ${partnerJob.requesterClinic?.name || 'the requesting clinic'}`); setPartnerJob(null); onChanged(); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to complete the job'); }
+    finally { setSendingJob(false); }
+  };
   useEffect(() => { loadSiblings(); }, [loadSiblings]);
 
   // Lock states: a COMPLETED study is view-only (reopen with "Edit study"
@@ -248,6 +279,13 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
         {/* Side rail */}
         <div className="lg:col-span-4 space-y-4">
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-4 shadow-sm sticky top-4">
+            {partnerJob && (
+              <button onClick={completeAndSend} disabled={sendingJob}
+                className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 bg-violet-600 hover:bg-violet-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest shadow disabled:opacity-50">
+                {sendingJob ? <Loader2 size={13} className="animate-spin" /> : <Send size={13} />}
+                Complete & send result to {partnerJob.requesterClinic?.name || 'requester'}
+              </button>
+            )}
             <StandardRecordControls
               appointmentId={current.appointmentId}
               onOpenAppointment={onOpenAppointment}

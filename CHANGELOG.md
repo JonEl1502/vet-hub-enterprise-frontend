@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### frontend: complete & send partner result from the imaging study page  —  2026-08-02
+- **What changed:** (user) When an imaging study belongs to a visit we PROVIDE for a
+  partner (accepted job on this provider visit, IMAGING category), the study page's
+  side rail gains "Complete & send result to <clinic>" — completes the visit job,
+  which mirrors the record back to the requester and queues the escrow payout. No
+  round-trip to the jobs inbox.
+- **Record impact:** 🟢 — UI; uses the existing job-completion endpoint.
+
 ### frontend: day editors — consumables + photo + record-as time with Now button  —  2026-08-02
 - **What changed:** (user) Boarding day editor gains: inventory search + quantity
   (ConsumablePicker, rows recorded AS the chosen datetime), meal-photo upload, and a
