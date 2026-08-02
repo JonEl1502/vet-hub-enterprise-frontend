@@ -3249,13 +3249,16 @@ const VisitDetailInner: React.FC<Props> = ({
         </div>
       )}
 
-      {/* Visit workflow tabs — Clinical Workflow · Triage (emergency) · Categories & Services · Records & Billing */}
+      {/* Visit workflow tabs, in the user's order (2026-08-02):
+          Clinical Workflow · Records & Reports · Follow-Up & Reminders · Bill & Invoice.
+          Records now precedes Follow-Up — you write up what happened before you
+          decide what comes next. */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-max overflow-x-auto">
           {/* On an emergency visit, Triage leads — it IS the workflow's front
               door. Diagnostics-only visits (auto-created from New lab/imaging)
               skip the clinical wizard entirely. */}
-          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), ...(isTransferVisit ? [] /* follow-up is the requester clinic's job — hidden on transfers (user, 2026-08-02) */ : [{ id: 'followup', label: '🔔 Follow-Up & Reminders' }]), ...(isTransferVisit ? [{ id: 'transfer', label: '🔁 Clinical Transfer' }] : []), { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [{ id: 'partnerbill', label: '🧾 Partner Bill & Receipt' }] : [{ id: 'billing', label: 'Bill & Invoice' }])].map(t => (
+          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), ...(isTransferVisit ? [{ id: 'transfer', label: '🔁 Clinical Transfer' }] : []), { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [] /* follow-up is the requester clinic's job — hidden on transfers (user, 2026-08-02) */ : [{ id: 'followup', label: '🔔 Follow-Up & Reminders' }]),...(isTransferVisit ? [{ id: 'partnerbill', label: '🧾 Partner Bill & Receipt' }] : [{ id: 'billing', label: 'Bill & Invoice' }])].map(t => (
             <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
           ))}
           {/* Badge only for auto-created diagnostics visits — transfers have a

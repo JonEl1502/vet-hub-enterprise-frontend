@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: visit tabs reordered — Records & Reports before Follow-Up  —  2026-08-02
+- **What changed:** (user, S2) visit workflow tabs now read **Clinical Workflow · Records &
+  Reports · 🔔 Follow-Up & Reminders · Bill & Invoice**. Only the order changed; every tab
+  is keyed by id, so deep links and the finalized-visit default landing are unaffected.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
+
 ### page: client Payments/Invoices — real date-range + filters, per-row Settle  —  2026-08-02
 - **What changed:** (user, S2) two dead controls made real. In `ClientAccountHub` the date
   chip was a **static label of the data's own span** and **Filters** only toasted "coming
