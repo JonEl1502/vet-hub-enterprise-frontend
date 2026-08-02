@@ -54,11 +54,23 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   const [search, setSearch] = React.useState('');
   const [manual, setManual] = React.useState<Record<string, string>>({});
 
+  // Payment account (user, 2026-08-02): the client's derived credit — money
+  // they paid ahead (or overpaid) that the next collection can spend.
+  const [credit, setCredit] = React.useState<number>(0);
+  const [advanceOpen, setAdvanceOpen] = React.useState(false);
+  const [advanceAmt, setAdvanceAmt] = React.useState('');
+  const [advanceMethod, setAdvanceMethod] = React.useState('CASH');
+  const [advanceBusy, setAdvanceBusy] = React.useState(false);
+
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
-      const res = await clientsAPI.getBilling(clientId);
+      const [res, cr] = await Promise.all([
+        clientsAPI.getBilling(clientId),
+        clientsAPI.credit(clientId).catch(() => null),
+      ]);
       if (res.success && res.data) setData(res.data);
+      if (cr?.success && cr.data) setCredit(Number(cr.data.balance) || 0);
     } catch { /* surfaced by the client */ }
     finally { setLoading(false); }
   }, [clientId]);
@@ -161,6 +173,22 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
     finally { setBusy(false); }
   };
 
+  const recordAdvance = async () => {
+    const amount = Number(advanceAmt);
+    if (!(amount > 0)) { toast.error('Enter an amount'); return; }
+    setAdvanceBusy(true);
+    try {
+      const res = await clientsAPI.recordAdvance(clientId, { amount, paymentMethod: advanceMethod });
+      if (res.success) {
+        toast.success(`${money(amount, currency)} added to the payment account`);
+        setAdvanceOpen(false); setAdvanceAmt('');
+        await load();
+        onChanged?.();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to record the advance'); }
+    finally { setAdvanceBusy(false); }
+  };
+
   // Hard delete — for a payment that should never have existed (wrong client,
   // duplicate, wrong amount), where a void would leave a confusing ghost on the
   // statement. Void stays the default for genuine reversals.
@@ -215,13 +243,48 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
             </button>
           ))}
         </div>
-        {(data?.outstanding ?? 0) > 0 && (
+        <div className="flex items-center gap-4">
+          {/* Payment account — prepaid/overpaid money the next collection can
+              spend. Clients can pay ahead; this is where it sits. */}
           <div className="text-right">
-            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Outstanding</p>
-            <p className="text-lg font-black font-mono text-amber-600">{money(data!.outstanding, currency)}</p>
+            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Payment account</p>
+            <p className={`text-lg font-black font-mono ${credit > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>{money(credit, currency)}</p>
+            {canCollect && (
+              <button type="button" onClick={() => setAdvanceOpen(o => !o)}
+                className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-pine transition-colors">
+                {advanceOpen ? 'Close' : '+ Record advance'}
+              </button>
+            )}
           </div>
-        )}
+          {(data?.outstanding ?? 0) > 0 && (
+            <div className="text-right">
+              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Outstanding</p>
+              <p className="text-lg font-black font-mono text-amber-600">{money(data!.outstanding, currency)}</p>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* Record an advance — money ahead of any bill; lands as spendable credit. */}
+      {advanceOpen && canCollect && (
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50">
+          <p className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Record advance payment</p>
+          <input type="number" min={0} value={advanceAmt} onChange={e => setAdvanceAmt(e.target.value)} placeholder="Amount" autoFocus
+            className="w-28 px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-zinc-950 text-sm font-bold text-pine dark:text-zinc-100 text-right outline-none focus:ring-2 focus:ring-emerald-400/40" />
+          <select value={advanceMethod} onChange={e => setAdvanceMethod(e.target.value)}
+            className="px-2 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-zinc-950 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none">
+            <option value="CASH">Cash</option>
+            <option value="MPESA">M-Pesa</option>
+            <option value="CARD">Card</option>
+            <option value="BANK_TRANSFER">Bank transfer</option>
+          </select>
+          <button type="button" onClick={recordAdvance} disabled={advanceBusy}
+            className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[9px] font-black uppercase tracking-widest hover:bg-emerald-700 disabled:opacity-50">
+            {advanceBusy ? 'Recording…' : 'Record'}
+          </button>
+          <p className="text-[9px] text-emerald-700/70 dark:text-emerald-400/70 basis-full">Sits in the payment account and is drawn automatically (or via "use credit") on the next collection. No invoice needed.</p>
+        </div>
+      )}
 
       {/* ── Invoices ── */}
       {sub === 'invoices' && (

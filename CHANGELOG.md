@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: client Payment Account + Collect lands on Payments; house dialog on Procedures  —  2026-08-02
+- **What changed:**
+  - The Clients-page **Collect** button now opens the client profile's **Payments tab**
+    (was: Visits with unpaid filter).
+  - The Payments tab gains a **Payment account** figure (the client's derived credit) and
+    **+ Record advance**: amount + method, recorded via `POST /clients/:id/advance` —
+    clients can pay ahead; the balance is drawn automatically on future collections.
+  - Procedures delete confirm switched from the browser's native popup to the house
+    dialog (`dialog.confirmDelete`).
+- **Record impact:** 🟢 None beyond the advance transaction the user records.
+- **Data dependency:** same-day backend deploy (`/clients/:id/advance`).
+- **Rollback:** revert.
+
 ### page: wizard resolves from the SELECTED ENCOUNTER (172)  —  2026-08-02
 - **What changed:** `useVisitWizard` now loads `GET /visits/:id/encounters` and derives
   the step sequence from the **selected encounter row** (its encounterType / visitType /

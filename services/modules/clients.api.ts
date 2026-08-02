@@ -221,6 +221,10 @@ export const clientsAPI = {
    * Unapplied money on the client's account. DERIVED on read — money paid that
    * no settlement has attached to a receivable. There is no stored balance.
    */
+  /** Prepayment into the client's payment account (derived credit) — no invoices. */
+  recordAdvance: (clientId: string | number, data: { amount: number; paymentMethod: string; note?: string }): Promise<ApiResponse<{ transactionId: string; amount: number; creditBalance: number | null }>> =>
+    post(`/clients/${clientId}/advance`, data, { showError: true }),
+
   credit: (clientId: string | number): Promise<ApiResponse<{
     balance: number;
     sources: { transactionId: string; paidAt: string; amount: number; applied: number; remaining: number }[];

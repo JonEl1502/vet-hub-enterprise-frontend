@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ClipboardList, Plus, Loader2, Trash2, Pencil, Search, Zap, FlaskConical, Pill, Package, Stethoscope, Wand2 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { procedureTemplatesAPI, ProcedureTemplate } from '../../../services';
+import { procedureTemplatesAPI, ProcedureTemplate, dialog } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import BrandMark from '../../shared/common/BrandMark';
 
@@ -70,7 +70,12 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
   };
 
   const remove = async (t: ProcedureTemplate) => {
-    if (!confirm(`Delete procedure "${t.name}"? If it was ever applied to a visit it is deactivated instead (history kept).`)) return;
+    const ok = await dialog.confirmDelete({
+      title: 'Delete procedure',
+      message: 'If it was ever applied to a visit it is deactivated instead (history kept).',
+      entityName: t.name,
+    });
+    if (!ok) return;
     setBusyId(t.id);
     try {
       const res = await procedureTemplatesAPI.remove(t.id);
