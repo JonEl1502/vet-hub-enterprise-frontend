@@ -4,9 +4,9 @@ import { Pet } from '../../../types';
 import { boardingAPI, visitsAPI } from '../../../services';
 import FoodProgramFields, { FoodProgram } from '../shared/FoodProgramFields';
 import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
+import AdmissionGate from '../shared/AdmissionGate';
 import { useData } from '../../../contexts/DataContext';
 import { ownerAbbrev } from '../shared/ownerAbbrev';
-import GateVaccineRecommend from '../shared/GateVaccineRecommend';
 
 // Full-page boarding admission — converted from the old full-screen modal so
 // admission is a real in-app page (sidebar + breadcrumb stay visible). Callers
@@ -36,7 +36,6 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
   const [kennel, setKennel] = useState('');
   const [dailyRate, setDailyRate] = useState('');
   const [intakeWeight, setIntakeWeight] = useState('');
-  const [weightCopied, setWeightCopied] = useState(false);
   // Gate escape when nothing is on record — see GateVaccineRecommend.
   const [recommended, setRecommended] = useState<Record<string, boolean>>({});
   const [clientAgreed, setClientAgreed] = useState(false);
@@ -64,16 +63,6 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
 
   const selectedPet = useMemo(() => pets.find(p => String(p.id) === String(petId)) ?? null, [pets, petId]);
 
-  // Copy the recorded weight when it's less than 3 months old.
-  useEffect(() => {
-    if (!selectedPet) return;
-    const w = parseFloat(String((selectedPet as any).weight || ''));
-    const ts = (selectedPet as any).updatedAt;
-    const fresh = ts ? (Date.now() - new Date(ts).getTime()) < 90 * 24 * 60 * 60 * 1000 : false;
-    if (w > 0 && fresh) { setIntakeWeight(String(w)); setWeightCopied(true); }
-    else setWeightCopied(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [petId]);
   const matches = useMemo(() => {
     const q = petSearch.trim().toLowerCase();
     if (!q) return [] as Pet[];
@@ -204,34 +193,20 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
           </div>
         </section>
 
-        {/* Admission gate card — required */}
-        <section className="bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-4 shadow-sm space-y-3">
-          <p className="text-[11px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 flex items-center gap-1.5"><ShieldCheck size={13} /> Admission gate — required</p>
-          <div className="max-w-[240px]">
-            <label className="field-label">Intake weight (kg) *</label>
-            <input type="number" min="0" step="0.1" required className="field-input" placeholder="e.g. 12.4" value={intakeWeight} onChange={e => { setIntakeWeight(e.target.value); setWeightCopied(false); }} />
-            {weightCopied && <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-1">Copied from record (&lt;3 months old) — confirm on the scale.</p>}
-          </div>
-          <div>
-            <label className="field-label">Vaccination check *</label>
-            <div className="flex flex-wrap gap-2">
-              {VACCINES.map(v => (
-                <button key={v.key} type="button" onClick={() => setVaccines(s => ({ ...s, [v.key]: !s[v.key] }))}
-                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border ${vaccines[v.key] ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800' : 'bg-white dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
-                  {vaccines[v.key] ? '✓ ' : ''}{v.label}
-                </button>
-              ))}
-            </div>
-            {!hasVaccineRecorded(vaccines) && (
-              <GateVaccineRecommend
-                recommended={recommended}
-                onToggle={(k) => setRecommended(s => ({ ...s, [k]: !s[k] }))}
-                clientAgreed={clientAgreed}
-                onAgreed={setClientAgreed}
-              />
-            )}
-          </div>
-        </section>
+        {/* Admission gate — THE shared component (weight + vaccines + recommend).
+            Prefill is pet-keyed, so a linked visit's gate arrives already filled. */}
+        <AdmissionGate
+          petId={petId}
+          petWeight={(selectedPet as any)?.weight ?? null}
+          petWeightAt={(selectedPet as any)?.updatedAt ?? null}
+          value={{ intakeWeight, vaccines, recommended, clientAgreed }}
+          onChange={patch => {
+            if (patch.intakeWeight !== undefined) setIntakeWeight(patch.intakeWeight);
+            if (patch.vaccines !== undefined) setVaccines(patch.vaccines);
+            if (patch.recommended !== undefined) setRecommended(patch.recommended);
+            if (patch.clientAgreed !== undefined) setClientAgreed(patch.clientAgreed);
+          }}
+        />
 
         {/* Food program card */}
         <FoodProgramFields value={foodProgram} onChange={setFoodProgram} />

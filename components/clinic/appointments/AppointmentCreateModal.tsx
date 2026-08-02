@@ -294,7 +294,7 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
             </button>
             {gateOpen && (
               <div className="p-3">
-                <GateCheckForm formKey={gateFormKey} data={gateData} setData={p => setGateData((d: any) => ({ ...d, ...p }))} petId={petId} />
+                <GateCheckForm formKey={gateFormKey} data={gateData} setData={p => setGateData((d: any) => ({ ...d, ...p }))} petId={petId} pet={pets.find((p: any) => String(p.id) === String(petId))} />
               </div>
             )}
           </div>

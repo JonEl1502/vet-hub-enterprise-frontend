@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: ONE shared `AdmissionGate` — wizard gate now identical to the admit pages  —  2026-08-02
+- **What changed:** (user, S2: "still not same… make same same") new
+  `components/clinic/shared/AdmissionGate.tsx` renders the gate once — amber "Admission
+  gate — required" card, **intake weight**, the canonical 14 vaccines as **chips** (not a
+  checkbox grid), and `GateVaccineRecommend` when nothing is on record. Wired into
+  `AdmitBoardingModal` and the wizard's gate-check step (`EntrySteps`, new `gate` field
+  kind), so the boarding-admission page and the wizard's Boarding Assessment are now the
+  same markup rather than two lookalikes.
+- **Prefill is keyed on the PET, not the visit** — deliberately, because boarding-after-
+  grooming is a **separate visit**, not an encounter-type change, so anything stored on the
+  visit could never cross. Weight copies from the pet's record when under 90 days old;
+  vaccines auto-tick from the pet's ADMINISTERED records (with the given-date shown on the
+  chip). Staff edits always win. That is what makes the gates fill each other.
+- **Record impact:** 🟢 None — UI + prefill.
+- **Data dependency:** None (pet timeline + pet weight already exist).
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** `vaccineKeyFor` and `fetchAdministeredVaccines` moved OUT of
+  `EntrySteps` into `AdmissionGate` — import from there, don't re-add local copies; that
+  duplication is exactly how the two gates drifted apart. The boarding modal also lost its
+  private weight-copy effect (the shared gate owns it now).
+
+
 ### page: Reports & Analytics — shared date picker, 2:1 chart layout, grid-3 rows  —  2026-08-02
 - **What changed:** (user, S2 — crossing into S1's billing lane) `ReportsAnalyticsView` now
   uses the app's shared **`DateRangePicker`** (same control as Visits/Clients/Inpatient)

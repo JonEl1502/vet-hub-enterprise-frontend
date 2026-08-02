@@ -2241,7 +2241,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                     Skipped at registration — the gate check still runs as the first step of the visit workflow (mandatory there).
                   </p>
                 ) : (
-                  <GateCheckForm formKey={gateFormKey} data={gateData} setData={patch => setGateData((d: any) => ({ ...d, ...patch }))} petId={selectedPetId} />
+                  <GateCheckForm formKey={gateFormKey} data={gateData} setData={patch => setGateData((d: any) => ({ ...d, ...patch }))} petId={selectedPetId} pet={pets.find((p: any) => String(p.id) === String(selectedPetId))} />
                 )}
              </div>
            )}
