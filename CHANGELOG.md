@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: client profile — reference-design upgrade (header, underline tabs, Payments account hub)  —  2026-08-02
+- **What changed:** (user reference screenshot, S1) `ClientProfileView` restyled: identity
+  card with circular avatar, contact row, `CL-00000` id, client-type badge + star, and a
+  financial strip (lifetime spend / outstanding / available credit / status + last & preferred
+  payment) fed by `/clients/:id/billing` + `/credit`; tab bar is now underline-style with new
+  top-level **Invoices**, **Receipts** (both reuse `ClientPaymentsTab` via a new `only` prop —
+  collect flow, printable invoice rows, select-all and record-advance all kept), **Statements**
+  (`/clients/:id/statement` table) and **Files** (placeholder) tabs. New `ClientAccountHub`
+  renders the Payments tab: 5 stat cards, filterable account timeline (invoices + payments,
+  load-more), donut account summary, payment-information card, quick-actions grid (Refund /
+  Credit Note / Payment Plan / Email Statement are stubs that toast "coming soon").
+- **Record impact:** 🟢 — read-only UI; the only writes are the existing collect/advance endpoints.
+- **Data dependency:** None (billing/credit/statement endpoints all live; header falls back to
+  `client.outstandingBalance` if billing fails).
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** tab id `transactions` still means Payments (deep links unchanged);
+  Reminders & Appts + Medical History tabs moved to the end of the bar, not removed.
+
 ### frontend: encounter chips — fresh-row deletes, single-chip visibility, Vet Visit in the add dropdown  —  2026-08-02
 - **What changed:** (user, visit 138) chip delete now matches against FRESHLY fetched
   encounter rows (the stale in-memory list orphaned row 119 — repaired on prod); the

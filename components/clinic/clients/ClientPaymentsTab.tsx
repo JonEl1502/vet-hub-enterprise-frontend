@@ -27,6 +27,9 @@ interface Props {
   canCollect: boolean;
   onViewVisit?: (visitId: number) => void;
   onChanged?: () => void;
+  /** Pin the tab to ONE view (and hide the sub-tab bar) — the client profile
+   * now has top-level Invoices/Receipts tabs that each reuse this component. */
+  only?: 'invoices' | 'payments' | 'receipts';
 }
 
 const METHODS = ['CASH', 'M_PESA', 'CARD', 'BANK_TRANSFER'];
@@ -36,13 +39,13 @@ const money = (n: number, c: string) =>
 
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
-const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, onViewVisit, onChanged }) => {
+const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, onViewVisit, onChanged, only }) => {
   const { user } = useAuth();
   // Permanent deletion is owner/manager/admin only — mirrors the server's
   // role gate on DELETE /transactions/:id so the button isn't offered to
   // someone who would just get a 403.
   const canDelete = ['SUPER_ADMIN', 'MERCHANT_ADMIN', 'CLINIC_OWNER', 'CLINIC_MANAGER'].includes(String(user?.role));
-  const [sub, setSub] = React.useState<'invoices' | 'payments' | 'receipts'>('invoices');
+  const [sub, setSub] = React.useState<'invoices' | 'payments' | 'receipts'>(only ?? 'invoices');
   const [data, setData] = React.useState<ClientBilling | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [selected, setSelected] = React.useState<Set<string>>(new Set());
@@ -249,6 +252,11 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
       {/* Outstanding + sub-tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3">
+        {only ? (
+          <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400">
+            {(() => { const s = SUBS.find(x => x.id === only)!; return (<><s.icon size={12} /> {s.label} <span>({s.count})</span></>); })()}
+          </div>
+        ) : (
         <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800">
           {SUBS.map(s => (
             <button key={s.id} onClick={() => setSub(s.id)}
@@ -260,6 +268,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
             </button>
           ))}
         </div>
+        )}
         <div className="flex items-center gap-4">
           {/* Payment account — prepaid/overpaid money the next collection can
               spend. Clients can pay ahead; this is where it sits. */}

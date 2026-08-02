@@ -9,9 +9,11 @@ import ReconciliationDocument from '../receipts/ReconciliationDocument';
 import { printElementAsPdf } from '../shared/printPdf';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { clientDiscountsAPI, clientsAPI, messagingAPI, toast, PlatformMessage } from '../../../services';
-import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell } from 'lucide-react';
+import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell, Star, ScrollText, FolderOpen } from 'lucide-react';
 import RemindersApptsTab from '../shared/RemindersApptsTab';
 import ClientPaymentsTab from './ClientPaymentsTab';
+import ClientAccountHub, { ClientStatementTab, ClientFilesTab, preferredMethod } from './ClientAccountHub';
+import { ClientBilling } from '../../../services/modules/clients.api';
 import { formatDate, formatDateTime } from '../../../services/utils/dateFormatter';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -99,6 +101,33 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
 
   const { user } = useAuth();
   const hasFullAccess = FULL_ACCESS_ROLES.includes(user?.role as UserRole);
+
+  // Account money for the header strip + the Payments hub: one fetch feeds
+  // both (the collect flow in ClientPaymentsTab keeps its own copy and calls
+  // `loadBilling` back through onChanged so the header stays honest).
+  const [billing, setBilling] = useState<ClientBilling | null>(null);
+  const [creditBalance, setCreditBalance] = useState(0);
+  const [billingLoading, setBillingLoading] = useState(true);
+  const loadBilling = useCallback(async () => {
+    if (!hasFullAccess) { setBillingLoading(false); return; }
+    try {
+      const [b, c] = await Promise.all([
+        clientsAPI.getBilling(client.id, { silent: true } as any),
+        clientsAPI.credit(client.id).catch(() => null),
+      ]);
+      if (b.success && b.data) setBilling(b.data);
+      if (c?.success && c.data) setCreditBalance(Number(c.data.balance) || 0);
+    } catch { /* header falls back to the client aggregate */ }
+    finally { setBillingLoading(false); }
+  }, [client.id, hasFullAccess]);
+  useEffect(() => { loadBilling(); }, [loadBilling]);
+
+  const money2 = (n: number) =>
+    `${client.currency || 'KES'} ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const lastPayment = (billing?.payments ?? [])
+    .filter(p => p.status !== 'VOIDED')
+    .sort((a, b) => new Date(b.settledAt || b.createdAt).getTime() - new Date(a.settledAt || a.createdAt).getTime())[0] ?? null;
+  const headerOutstanding = billing?.outstanding ?? client.outstandingBalance ?? 0;
 
   const loadDiscounts = useCallback(async () => {
     setDiscountsLoading(true);
@@ -847,35 +876,51 @@ const renderOverview = () => (
   return (
     <div className="space-y-4 pb-20">
       {/* Identity row on top; the tab bar sits BELOW it, full width. */}
-      <header className="flex flex-col gap-3 pb-4 border-b border-slate-200 dark:border-zinc-800">
-        <div className="flex items-center gap-4">
-           <button onClick={onBack} className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-lg active:scale-95 shrink-0">
-             <ArrowLeft size={18}/>
-           </button>
-           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+      <header className="space-y-4">
+        {/* Identity card — avatar + contacts on the left, the account's money
+            on the right (reference design, 2026-08-02). */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm p-4 sm:p-6">
+          <div className="flex flex-col xl:flex-row xl:items-start gap-5 xl:gap-8">
+            <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+              <button onClick={onBack} className="w-10 h-10 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-full flex items-center justify-center text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-sm active:scale-95 shrink-0 mt-1.5">
+                <ArrowLeft size={17}/>
+              </button>
               <div className="relative shrink-0">
-                <img src={client.avatar} className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl border-2 border-white dark:border-zinc-950 shadow-lg aspect-square" alt="" />
+                <img src={client.avatar} className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-white dark:border-zinc-950 shadow-lg aspect-square object-cover" alt="" />
                 {client.portalStatus === 'active' && (
                   <span title="Active portal account"
-                        className="absolute -bottom-1 -right-1 min-w-[18px] min-h-[18px] rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow">
+                        className="absolute -bottom-0.5 -right-0.5 min-w-[18px] min-h-[18px] rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow">
                     P
                   </span>
                 )}
               </div>
-              <div className="min-w-0">
-                <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{client.name}</h1>
-                <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 truncate">
-                   Client Profile
-                   <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 shrink-0"></span>
-                   ID: {client.id}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tight leading-none truncate">{client.name}</h1>
+                  {(() => {
+                    const t = CLIENT_TYPES.find(x => x.value === client.clientType);
+                    return t ? (
+                      <>
+                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border ${t.bg} ${t.color}`}>{t.label} Client</span>
+                        <Star size={14} className="text-amber-400 fill-amber-400 shrink-0" />
+                      </>
+                    ) : null;
+                  })()}
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+                  {client.phone && <span className="inline-flex items-center gap-1.5 min-w-0"><Phone size={11} className="text-slate-400 shrink-0" /> {client.phone}</span>}
+                  {client.email && <span className="inline-flex items-center gap-1.5 min-w-0 truncate"><Mail size={11} className="text-slate-400 shrink-0" /> <span className="truncate">{client.email}</span></span>}
+                  {(client.address || client.region || client.country) && (
+                    <span className="inline-flex items-center gap-1.5 min-w-0 truncate"><MapPin size={11} className="text-slate-400 shrink-0" /> <span className="truncate">{[client.address || client.region, client.country].filter(Boolean).join(', ')}</span></span>
+                  )}
+                </div>
+                <p className="mt-1.5 text-[10px] font-bold text-slate-400 dark:text-zinc-500">
+                  Joined: {client.joinedAt ? formatDate(client.joinedAt) : '—'}
+                  <span className="mx-2 text-slate-200 dark:text-zinc-700">|</span>
+                  ID: CL-{String(client.id).padStart(5, '0')}
                 </p>
-              </div>
-           </div>
-        </div>
-
-        {/* Portal account row — status chip + one action, BELOW the name so
-            it never crowds it. none → invite · dormant → wake · active → ✓ */}
-        <div className="flex flex-wrap items-center gap-2">
+                {/* Portal account row — none → invite · dormant → wake · active → ✓ */}
+                <div className="flex flex-wrap items-center gap-2 mt-3">
           {client.portalStatus === 'active' ? (
             <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-200 dark:border-emerald-900">
               <CheckCircle2 size={11} /> Portal · Active
@@ -907,33 +952,84 @@ const renderOverview = () => (
               {inviting ? 'Sending…' : invited ? 'Invite sent' : 'Invite to portal'}
             </button>
           ) : null}
+                </div>
+              </div>
+            </div>
+
+            {/* Financial strip — lifetime spend, what's owed, what's banked,
+                and whether the account is live. Money is owner/manager-only. */}
+            <div className="shrink-0 w-full xl:w-auto flex flex-col justify-between gap-3">
+              {hasFullAccess ? (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 rounded-xl border border-slate-100 dark:border-zinc-800 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-zinc-800 overflow-hidden">
+                    <div className="px-4 py-3 text-center">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Spend (Lifetime)</p>
+                      <p className="text-sm font-black font-mono text-pine dark:text-zinc-100 whitespace-nowrap">{money2(client.totalSpent || 0)}</p>
+                    </div>
+                    <div className="px-4 py-3 text-center">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Outstanding Balance</p>
+                      <p className={`text-sm font-black font-mono whitespace-nowrap ${headerOutstanding > 0 ? 'text-rose-500' : 'text-pine dark:text-zinc-100'}`}>{money2(headerOutstanding)}</p>
+                    </div>
+                    <div className="px-4 py-3 text-center">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Available Credit</p>
+                      <p className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{money2(creditBalance)}</p>
+                    </div>
+                    <div className="px-4 py-3 text-center flex flex-col items-center justify-between">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Client Status</p>
+                      <span className={`inline-flex px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ${
+                        client.isActive !== false ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border border-slate-200 dark:border-zinc-700'
+                      }`}>{client.isActive !== false ? 'Active' : 'Inactive'}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-2 gap-y-1 text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                    <span className="inline-flex items-center gap-1.5"><CreditCard size={11} className="text-slate-400" /> Last Payment: <span className="text-pine dark:text-zinc-200 font-black">{lastPayment ? formatDate(lastPayment.settledAt || lastPayment.createdAt) : '—'}</span></span>
+                    <span className="text-slate-200 dark:text-zinc-700">|</span>
+                    <span>Preferred Payment: <span className="text-pine dark:text-zinc-200 font-black">{preferredMethod(billing?.payments ?? [])}</span></span>
+                  </div>
+                </>
+              ) : (
+                <span className={`self-start xl:self-end inline-flex px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                  client.isActive !== false ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border border-slate-200 dark:border-zinc-700'
+                }`}>{client.isActive !== false ? 'Active Client' : 'Inactive Client'}</span>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div data-tour="client-tabs" className="flex w-full bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
-           {[
-             { id: 'overview', label: 'Summary', icon: Activity },
-             { id: 'pets', label: 'Patients', icon: PawPrint },
-             { id: 'appointments', label: 'Visits', icon: Calendar },
-             { id: 'schedule', label: 'Reminders & Appts', icon: Bell },
-             { id: 'medical', label: 'Medical History', icon: FileText },
-             // id stays 'transactions' so existing deep links keep landing here.
-             ...(hasFullAccess ? [{ id: 'transactions', label: 'Payments', icon: Receipt }] : []),
-             { id: 'discounts', label: 'Discounts', icon: Tag },
-             { id: 'outreach', label: 'Messaging', icon: MessageCircle },
-           ].map(tab => (
-             <button
-               key={tab.id}
-               onClick={() => setActiveTab(tab.id)}
-               className={`flex-1 flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                 activeTab === tab.id
-                   ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg'
-                   : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
-               }`}
-             >
-               <tab.icon size={12} />
-               {tab.label}
-             </button>
-           ))}
+        {/* Tab bar — underline style (reference design). Deep-link ids are
+            unchanged: 'transactions' is still the Payments tab. */}
+        <div data-tour="client-tabs" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-x-auto no-scrollbar scroll-smooth">
+           <div className="flex min-w-max px-2">
+             {[
+               { id: 'overview', label: 'Overview', icon: Activity },
+               { id: 'pets', label: `Pets (${pets.length})`, icon: PawPrint },
+               { id: 'appointments', label: 'Visits', icon: Calendar },
+               ...(hasFullAccess ? [
+                 { id: 'invoices', label: 'Invoices', icon: FileText },
+                 { id: 'transactions', label: 'Payments', icon: CreditCard },
+                 { id: 'receipts', label: 'Receipts', icon: Receipt },
+                 { id: 'statements', label: 'Statements', icon: ScrollText },
+               ] : []),
+               { id: 'discounts', label: 'Discounts & Credits', icon: Tag },
+               { id: 'outreach', label: 'Communication', icon: MessageCircle },
+               { id: 'files', label: 'Files', icon: FolderOpen },
+               { id: 'schedule', label: 'Reminders & Appts', icon: Bell },
+               { id: 'medical', label: 'Medical History', icon: Stethoscope },
+             ].map(tab => (
+               <button
+                 key={tab.id}
+                 onClick={() => setActiveTab(tab.id)}
+                 className={`flex items-center gap-2 px-4 py-3.5 text-[9px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 -mb-px transition-all ${
+                   activeTab === tab.id
+                     ? 'border-seafoam text-seafoam'
+                     : 'border-transparent text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
+                 }`}
+               >
+                 <tab.icon size={13} />
+                 {tab.label}
+               </button>
+             ))}
+           </div>
         </div>
       </header>
 
@@ -1223,17 +1319,47 @@ const renderOverview = () => (
               })()}
            </div>
         )}
-        {/* Payments: invoices (= visit bills) · payments · receipts, with
-            multi-select collection into ONE reversible payment. Tab id stays
-            'transactions' so existing deep links keep working. */}
+        {/* Payments (tab id stays 'transactions' for deep links): the account
+            hub — stat cards, timeline, summary donut, quick actions. */}
         {activeTab === 'transactions' && (
-          <ClientPaymentsTab
-            clientId={client.id}
-            currency={client.currency}
+          <ClientAccountHub
+            client={client}
+            billing={billing}
+            credit={creditBalance}
+            loading={billingLoading}
+            currency={client.currency || 'KES'}
             canCollect={hasFullAccess}
+            onRefresh={loadBilling}
             onViewVisit={onViewAppointment}
+            onGoTab={setActiveTab}
           />
         )}
+        {/* Invoices: the collect flow — multi-select outstanding bills into ONE
+            reversible payment, printable invoice documents per row. */}
+        {activeTab === 'invoices' && (
+          <ClientPaymentsTab
+            clientId={client.id}
+            currency={client.currency || 'KES'}
+            canCollect={hasFullAccess}
+            onViewVisit={onViewAppointment}
+            onChanged={loadBilling}
+            only="invoices"
+          />
+        )}
+        {activeTab === 'receipts' && (
+          <ClientPaymentsTab
+            clientId={client.id}
+            currency={client.currency || 'KES'}
+            canCollect={hasFullAccess}
+            onViewVisit={onViewAppointment}
+            onChanged={loadBilling}
+            only="receipts"
+          />
+        )}
+        {activeTab === 'statements' && (
+          <ClientStatementTab clientId={client.id} currency={client.currency || 'KES'} />
+        )}
+        {activeTab === 'files' && <ClientFilesTab />}
         {activeTab === 'discounts' && (
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
             {/* Add Discount Button */}
