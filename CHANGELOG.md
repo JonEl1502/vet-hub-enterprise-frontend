@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: patient profile adopts the client-profile shell + a Financials tab  —  2026-08-03
+- **What changed:** (user: "update patient profile details page to something like the
+  clients page … but financials will be here") the patient profile header is now the
+  same identity card as the client profile — round back button, round avatar (photo
+  upload kept, deceased badge), name + species/deceased/alerts chips, a breed · sex ·
+  age · weight · microchip meta row, last-visit + `PT-00005` id line, and an owner row
+  (open client · call · message · book visit; orphaned patients say so). On the right
+  sits the money strip: **Spend on this patient · Outstanding · Owner credit · Patient
+  status**, with last-payment / preferred-method underneath. The pill tab bar becomes
+  the underline tab bar; the old **Transactions** tab (a flat list of the owner's
+  transactions, unfiltered by pet) becomes **Financials**, rendering `ClientAccountHub`
+  scoped to this patient. `ClientAccountHub` gains optional `petId`/`petName`: it
+  filters charges to the patient's visits and counts each payment only for the amount
+  actually applied to those bills. `pet-profile?initialTab=transactions` still resolves.
+- **Record impact:** 🟢 None — read-only over `/clients/:id/billing` + `/credit`.
+- **Data dependency:** None (endpoints already live; hub hides when there's no owner).
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** money strip + Financials tab are `FULL_ACCESS_ROLES`-only, and both
+  read the OWNER's account — an orphaned patient shows the "no account to bill" empty
+  state. Collection itself deliberately stays on the client profile (one payment can
+  clear bills across several pets); quick actions there deep-link to it.
+
 ### feat: spec 7b phase 2 — Outpatient|Inpatient ON the Treatment step, plan carry, inpatient estimate  —  2026-08-03
 - **What changed:** (user: "do them now", S1) ① the Treatment step opens with a **Treat
   as: Outpatient | Inpatient — admit** choice (vet clinical spec item 9). Outpatient

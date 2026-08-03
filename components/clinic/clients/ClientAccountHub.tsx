@@ -29,6 +29,14 @@ interface Props {
   onRefresh: () => void;
   onViewVisit?: (visitId: number) => void;
   onGoTab: (tab: string) => void;
+  /**
+   * Scope every figure to ONE patient — the Patient → Financials tab reuses
+   * this hub over the OWNER's billing payload. Money is always owed by the
+   * client, so credit / credit limit stay account-level and say so; only the
+   * charges and the money applied to them narrow to the pet.
+   */
+  petId?: string | number;
+  petName?: string;
 }
 
 const money = (n: number, c: string) =>
@@ -73,6 +81,7 @@ const PAGE = 8;
 
 const ClientAccountHub: React.FC<Props> = ({
   client, billing, credit, loading, currency, canCollect, onRefresh, onViewVisit, onGoTab,
+  petId, petName,
 }) => {
   const [filter, setFilter] = React.useState<'ALL' | TimelineKind>('ALL');
   const [shown, setShown] = React.useState(PAGE);
@@ -84,10 +93,38 @@ const ClientAccountHub: React.FC<Props> = ({
   const [advanceMethod, setAdvanceMethod] = React.useState('CASH');
   const [advanceBusy, setAdvanceBusy] = React.useState(false);
 
-  const invoices = billing?.invoices ?? [];
-  const payments = billing?.payments ?? [];
+  const petKey = petId != null ? String(petId) : null;
+  const subject = petKey ? (petName || 'this patient') : 'this client';
 
-  const outstanding = billing?.outstanding ?? client.outstandingBalance ?? 0;
+  const allInvoices = billing?.invoices ?? [];
+  const allPayments = billing?.payments ?? [];
+
+  const invoices = petKey ? allInvoices.filter(i => String(i.pet?.id ?? '') === petKey) : allInvoices;
+
+  // Patient scope: a single payment can clear bills for SEVERAL of the owner's
+  // pets, so its face value is not this patient's money. Each invoice knows
+  // what was applied to it — sum that per payment and use it as the amount.
+  const appliedByPayment = React.useMemo(() => {
+    const m = new Map<string, number>();
+    if (!petKey) return m;
+    for (const inv of invoices) {
+      for (const ip of inv.payments || []) {
+        const k = String(ip.id);
+        m.set(k, (m.get(k) || 0) + (ip.amountApplied || 0));
+      }
+    }
+    return m;
+  }, [petKey, invoices]);
+
+  const payments = petKey ? allPayments.filter(p => appliedByPayment.has(String(p.id))) : allPayments;
+  const paidAmount = React.useCallback(
+    (p: { id: string; amount: number }) => petKey ? (appliedByPayment.get(String(p.id)) ?? 0) : (p.amount || 0),
+    [petKey, appliedByPayment],
+  );
+
+  const outstanding = petKey
+    ? invoices.reduce((s, i) => s + (i.outstanding ?? 0), 0)
+    : (billing?.outstanding ?? client.outstandingBalance ?? 0);
   const openCount = invoices.filter(i => !i.isPaid).length;
 
   const yearAgo = React.useMemo(() => {
@@ -96,10 +133,10 @@ const ClientAccountHub: React.FC<Props> = ({
   const invoiced12 = invoices.filter(i => new Date(i.date).getTime() >= yearAgo)
     .reduce((s, i) => s + (i.total || 0), 0);
   const paid12 = payments.filter(p => p.status !== 'VOIDED' && new Date(p.settledAt || p.createdAt).getTime() >= yearAgo)
-    .reduce((s, p) => s + (p.amount || 0), 0);
+    .reduce((s, p) => s + paidAmount(p), 0);
 
   const invoicedAll = invoices.reduce((s, i) => s + (i.total || 0), 0);
-  const paidAll = payments.filter(p => p.status !== 'VOIDED').reduce((s, p) => s + (p.amount || 0), 0);
+  const paidAll = payments.filter(p => p.status !== 'VOIDED').reduce((s, p) => s + paidAmount(p), 0);
   const reliability = invoicedAll > 0 ? Math.min(100, Math.round((paidAll / invoicedAll) * 100)) : null;
   const reliabilityLabel = reliability == null ? 'No history'
     : reliability >= 90 ? 'Excellent' : reliability >= 70 ? 'Good' : reliability >= 50 ? 'Fair' : 'Poor';
@@ -115,7 +152,7 @@ const ClientAccountHub: React.FC<Props> = ({
           kind: doc ? 'INVOICE' : 'BILL',
           date: inv.date,
           title: doc ? 'Invoice' : 'Bill',
-          desc: `Visit #${inv.visitId}${inv.pet ? ` — ${inv.pet.name}` : ''}${
+          desc: `Visit #${inv.visitId}${!petKey && inv.pet ? ` — ${inv.pet.name}` : ''}${
             inv.encounterType ? ` · ${String(inv.encounterType).replace(/_/g, ' ').toLowerCase()}` : ''}`,
           ref: doc ? (doc.number || `INV #${doc.id}`) : `BILL · Visit #${inv.visitId}`,
           amount: inv.total,
@@ -128,16 +165,19 @@ const ClientAccountHub: React.FC<Props> = ({
         kind: p.status === 'VOIDED' ? 'REFUND' : 'PAYMENT',
         date: p.settledAt || p.createdAt,
         title: p.status === 'VOIDED' ? 'Voided payment' : 'Payment',
+        // In patient scope the row shows only the share applied to this
+        // patient's bills — say so when the payment covered more than that.
         desc: `Payment via ${String(p.method || '').replace(/_/g, ' ')}${
           p.receiptNumber ? ` · Ref: ${p.receiptNumber}` : ''}${
-          p.coveredCount > 1 ? ` · ${p.coveredCount} invoices` : ''}`,
+          p.coveredCount > 1 ? ` · ${p.coveredCount} invoices` : ''}${
+          petKey && p.coveredCount > 1 ? ` · applied here of ${money(p.amount, currency)}` : ''}`,
         ref: `PAY-${p.id}`,
-        amount: p.amount,
+        amount: paidAmount(p),
         status: p.status === 'VOIDED' ? 'VOIDED' : 'PAID',
       })),
     ];
     return rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [invoices, payments]);
+  }, [invoices, payments, petKey, paidAmount, currency]);
 
   // Date-range filter (user, 2026-08-02: the chip used to be a static LABEL of
   // the data's own span and "Filters" only toasted "coming soon"). `from`/`to`
@@ -185,7 +225,7 @@ const ClientAccountHub: React.FC<Props> = ({
   const segments = [
     { label: 'Paid', value: paidAll, color: 'text-emerald-500', dot: 'bg-emerald-500' },
     { label: 'Outstanding', value: outstanding, color: 'text-rose-500', dot: 'bg-rose-500' },
-    { label: 'Credits', value: credit, color: 'text-purple-500', dot: 'bg-purple-500' },
+    { label: petKey ? 'Owner Credit' : 'Credits', value: credit, color: 'text-purple-500', dot: 'bg-purple-500' },
   ];
   const segTotal = segments.reduce((s, x) => s + x.value, 0);
 
@@ -223,14 +263,16 @@ const ClientAccountHub: React.FC<Props> = ({
 
   const STAT_CARDS = [
     {
-      label: 'Current Balance', icon: Wallet, chip: 'bg-rose-500/10 text-rose-500',
+      label: petKey ? 'Balance On This Patient' : 'Current Balance', icon: Wallet, chip: 'bg-rose-500/10 text-rose-500',
       value: money(outstanding, currency), valueCls: outstanding > 0 ? 'text-rose-500' : 'text-pine dark:text-zinc-100',
       sub: openCount > 0 ? `From ${openCount} invoice${openCount === 1 ? '' : 's'}` : 'Nothing outstanding',
     },
     {
-      label: 'Credit Available', icon: PiggyBank, chip: 'bg-emerald-500/10 text-emerald-500',
+      label: petKey ? 'Owner Credit' : 'Credit Available', icon: PiggyBank, chip: 'bg-emerald-500/10 text-emerald-500',
       value: money(credit, currency), valueCls: 'text-pine dark:text-zinc-100',
-      sub: client.maxDebt != null ? `Credit Limit: ${money(client.maxDebt, currency)}` : 'No credit limit set',
+      sub: petKey
+        ? `On ${client.name}'s account`
+        : client.maxDebt != null ? `Credit Limit: ${money(client.maxDebt, currency)}` : 'No credit limit set',
     },
     {
       label: 'Total Invoiced', icon: FileText, chip: 'bg-indigo-500/10 text-indigo-500',
@@ -370,7 +412,11 @@ const ClientAccountHub: React.FC<Props> = ({
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5">
             <div className="mb-4">
               <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Account Timeline</h3>
-              <p className="text-[10px] font-bold text-slate-400">All financial transactions for this client</p>
+              <p className="text-[10px] font-bold text-slate-400">
+                {petKey
+                  ? `Charges raised for ${subject} and the money applied to them`
+                  : 'All financial transactions for this client'}
+              </p>
             </div>
 
             {visible.length === 0 && (
@@ -521,7 +567,11 @@ const ClientAccountHub: React.FC<Props> = ({
           {/* Payment Information */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Payment Information</h3>
+              <div className="min-w-0">
+                <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Payment Information</h3>
+                {/* Credit and limits belong to the payer, not the patient. */}
+                {petKey && <p className="text-[10px] font-bold text-slate-400 truncate">Owner account · {client.name}</p>}
+              </div>
               <button type="button" title="Editing payment information is coming soon" onClick={() => soon('Editing payment information')}
                 className="p-1.5 rounded-lg text-slate-300 dark:text-zinc-600 hover:text-seafoam transition-colors">
                 <Pencil size={13} />

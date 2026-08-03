@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
-import { Pet, Visit, ApptStatus, Client, Clinic, Message } from '../../../types';
+import { Pet, Visit, ApptStatus, Client, Clinic, Message, FULL_ACCESS_ROLES, UserRole } from '../../../types';
 import VaccinePassportModal from './VaccinePassportModal';
 import PetCertificateModal from './PetCertificates';
 import ClinicalSnapshotPanel from './ClinicalSnapshotPanel';
@@ -17,9 +17,12 @@ import { toast } from '../../../services/utils/toast';
 import { remindersAPI, appointmentsAPI } from '../../../services';
 import type { Reminder, Appointment } from '../../../services';
 import { Transaction } from '../../../services/modules/transactions.api';
-import { Heart, Activity, Calendar, CalendarPlus, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical, Smile, Camera, Loader2 } from 'lucide-react';
+import { Heart, Activity, Calendar, CalendarPlus, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical, Smile, Camera, Loader2, User, Phone } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
+import { useAuth } from '../../../contexts/AuthContext';
+import ClientAccountHub, { preferredMethod } from '../clients/ClientAccountHub';
+import type { ClientBilling } from '../../../services/modules/clients.api';
 
 const BEHAVIOUR_TRAITS = ['Calm', 'Very happy', 'Likes petting', 'Well trained', 'Good with kids', 'Food motivated', 'Playful', 'Nervous', 'Anxious at vet', 'Aggressive', 'May bite', 'Hates nail trims', 'Vocal'];
 
@@ -47,7 +50,7 @@ interface Props {
   // instead of the legacy method-grid modal.
   onSettleVisit?: (apptId: number) => void;
   onViewAppointment?: (appointmentId: number) => void;
-  onViewOwner?: (clientId: number) => void;
+  onViewOwner?: (clientId: number, tab?: string) => void;
   initialVisitId?: number;
 }
 
@@ -69,6 +72,9 @@ const PetProfileView: React.FC<Props> = ({
   const [activeTab, setActiveTab] = useState(
     initialTab === 'appointments' || initialTab === 'visits' ? 'medical'
     : initialTab === 'vaccines' ? 'medical'
+    // The Transactions tab became Financials (the client-page account hub,
+    // scoped to this patient). Old deep links keep working.
+    : initialTab === 'transactions' ? 'financials'
     : initialTab
   );
   const [vaccineTab, setVaccineTab] = useState<'timeline' | 'history'>('timeline');
@@ -236,6 +242,63 @@ const PetProfileView: React.FC<Props> = ({
 
   const { species: apiSpecies, getBreedsBySpecies } = useReferenceData();
 
+  // ── Money ────────────────────────────────────────────────────────────────
+  // Bills belong to the OWNER's account, so the patient's financials come off
+  // the same `/clients/:id/billing` payload the client page uses and are then
+  // narrowed to this patient's visits. Owner-less (orphaned) patients have no
+  // account to read — the tab says so rather than showing zeroes.
+  const { user } = useAuth();
+  const hasFullAccess = FULL_ACCESS_ROLES.includes(user?.role as UserRole);
+  const currency = owner?.currency || 'KES';
+  const [billing, setBilling] = useState<ClientBilling | null>(null);
+  const [creditBalance, setCreditBalance] = useState(0);
+  const [billingLoading, setBillingLoading] = useState(true);
+
+  const loadBilling = useCallback(async () => {
+    if (!hasFullAccess || !owner) { setBillingLoading(false); return; }
+    setBillingLoading(true);
+    try {
+      const [b, c] = await Promise.all([
+        clientsAPI.getBilling(owner.id, { silent: true } as any),
+        clientsAPI.credit(owner.id).catch(() => null),
+      ]);
+      if (b.success && b.data) setBilling(b.data);
+      if (c?.success && c.data) setCreditBalance(Number(c.data.balance) || 0);
+    } catch { /* header falls back to the visit list */ }
+    finally { setBillingLoading(false); }
+  }, [owner?.id, hasFullAccess]);
+  useEffect(() => { loadBilling(); }, [loadBilling]);
+
+  // Patient-scoped figures for the header strip. Until billing lands (or when
+  // the patient has no owner) they fall back to the visit list already in props.
+  const petInvoices = useMemo(
+    () => (billing?.invoices ?? []).filter(i => String(i.pet?.id ?? '') === String(pet.id)),
+    [billing, pet.id],
+  );
+  const money2 = (n: number) =>
+    `${currency} ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const petSpend = billing
+    ? petInvoices.reduce((s, i) => s + (i.paid || 0), 0)
+    : appointments.filter(a => a.isPaid).reduce((s, a) => s + (a.totalCost || 0), 0);
+  const petOutstanding = billing
+    ? petInvoices.reduce((s, i) => s + (i.outstanding || 0), 0)
+    : appointments.filter(a => !a.isPaid).reduce((s, a) => s + (a.totalCost || 0), 0);
+  // Payments that actually touched this patient's bills — for the "last
+  // payment / preferred method" line under the strip.
+  const petPayments = useMemo(() => {
+    const ids = new Set<string>();
+    petInvoices.forEach(i => (i.payments || []).forEach(p => ids.add(String(p.id))));
+    return (billing?.payments ?? []).filter(p => ids.has(String(p.id)) && p.status !== 'VOIDED');
+  }, [billing, petInvoices]);
+  const lastPetPayment = [...petPayments]
+    .sort((a, b) => new Date(b.settledAt || b.createdAt).getTime() - new Date(a.settledAt || a.createdAt).getTime())[0] ?? null;
+
+  const lastVisit = useMemo(
+    () => appointments.filter(a => a.status === ApptStatus.COMPLETED)
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0] ?? null,
+    [appointments],
+  );
+
   const speciesOptions = useMemo(() => apiSpecies.map(s => s.name), [apiSpecies]);
 
   const breedOptions = useMemo(() => {
@@ -255,16 +318,6 @@ const PetProfileView: React.FC<Props> = ({
 
     return petAppointments.findIndex(a => a.id === appointment.id) + 1;
   };
-
-  // Filter transactions for this pet from appointments
-  const petTransactions = transactions.filter(tx => {
-    // Check if transaction is related to any appointment for this pet
-    if (tx.appointmentId) {
-      const relatedAppt = appointments.find(appt => appt.id === parseInt(tx.appointmentId || '0'));
-      return relatedAppt !== undefined;
-    }
-    return false;
-  });
 
   // Calculate statistics
   const totalVisits = appointments.length;
@@ -1153,32 +1206,43 @@ const PetProfileView: React.FC<Props> = ({
 
   return (
     <div className="space-y-4 pb-20">
-      {/* Identity row on top; the tab bar sits BELOW it, full width. */}
-      <header className="flex flex-col gap-3 pb-4 border-b border-slate-200 dark:border-zinc-800">
-        <div className="flex items-center gap-4">
-           <button onClick={onBack} className="w-10 h-10 sm:w-12 sm:h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-lg active:scale-95 shrink-0">
-             <ArrowLeft size={18}/>
-           </button>
-           <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+      {/* Identity row on top; the tab bar sits BELOW it, full width — same
+          shape as the client profile (user, 2026-08-03), with the patient's
+          own menu and its money on the right. */}
+      <header className="space-y-4">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm p-4 sm:p-6">
+          <div className="flex flex-col xl:flex-row xl:items-start gap-5 xl:gap-8">
+            <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
+              <button onClick={onBack} className="w-10 h-10 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-full flex items-center justify-center text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-sm active:scale-95 shrink-0 mt-1.5">
+                <ArrowLeft size={17}/>
+              </button>
               {/* The pet's own photo, and the place to set it. The header
                   hardcoded a dog/cat emoji off `species`, so an uploaded photo
                   never showed here and every reptile was a cat. Click to
                   replace; falls back to the species emoji when there's no
                   photo. */}
-              <button
-                type="button"
-                onClick={() => avatarInputRef.current?.click()}
-                disabled={avatarBusy}
-                title={avatarBusy ? 'Uploading…' : 'Change photo'}
-                className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-xl border-2 border-white dark:border-zinc-950 shadow-lg shrink-0 aspect-square overflow-hidden group disabled:opacity-60"
-              >
-                <PetAvatar pet={{ ...pet, avatarUrl: avatarUrl ?? (pet as any).avatarUrl } as any} size={48} rounded="rounded-none" className="w-full h-full" />
-                <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/50">
-                  {avatarBusy
-                    ? <Loader2 size={14} className="animate-spin text-white" />
-                    : <Camera size={14} className="text-white" />}
-                </span>
-              </button>
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarBusy}
+                  title={avatarBusy ? 'Uploading…' : 'Change photo'}
+                  className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-white dark:border-zinc-950 shadow-lg aspect-square overflow-hidden group disabled:opacity-60"
+                >
+                  <PetAvatar pet={{ ...pet, avatarUrl: avatarUrl ?? (pet as any).avatarUrl } as any} size={64} rounded="rounded-none" className="w-full h-full" />
+                  <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/50">
+                    {avatarBusy
+                      ? <Loader2 size={14} className="animate-spin text-white" />
+                      : <Camera size={14} className="text-white" />}
+                  </span>
+                </button>
+                {pet.isAlive === false && (
+                  <span title="Deceased"
+                        className="absolute -bottom-0.5 -right-0.5 min-w-[18px] min-h-[18px] px-1 rounded-full bg-slate-500 text-white text-[8px] font-black flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow">
+                    †
+                  </span>
+                )}
+              </div>
               <input
                 ref={avatarInputRef}
                 type="file"
@@ -1202,18 +1266,122 @@ const PetProfileView: React.FC<Props> = ({
                   } finally { setAvatarBusy(false); }
                 }}
               />
-              <div className="min-w-0">
-                <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter leading-none mb-1 uppercase truncate">{pet.name}</h1>
-                <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest flex items-center gap-2 truncate">
-                   Pet Profile
-                   <span className="w-1.5 h-1.5 rounded-full bg-slate-200 dark:bg-zinc-800 shrink-0"></span>
-                   ID: {pet.id}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tight leading-none truncate">{pet.name}</h1>
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border bg-seafoam/10 text-seafoam border-seafoam/20">
+                    {pet.species || 'Patient'}
+                  </span>
+                  {pet.isAlive === false && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border bg-slate-100 dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700">
+                      Deceased{pet.dateOfDeath ? ` · ${formatDate(pet.dateOfDeath)}` : ''}
+                    </span>
+                  )}
+                  {healthAlerts.length > 0 && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border bg-rose-500/10 text-rose-500 border-rose-500/20">
+                      <AlertCircle size={10} /> {healthAlerts.length} Alert{healthAlerts.length === 1 ? '' : 's'}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+                  {pet.breed && <span className="inline-flex items-center gap-1.5 min-w-0 truncate"><Tag size={11} className="text-slate-400 shrink-0" /> {pet.breed}</span>}
+                  {pet.gender && <span className="inline-flex items-center gap-1.5"><Heart size={11} className="text-slate-400 shrink-0" /> {pet.gender}{pet.isNeutered ? ' · Neutered' : ''}</span>}
+                  {pet.age != null && <span className="inline-flex items-center gap-1.5"><Clock size={11} className="text-slate-400 shrink-0" /> {pet.age}</span>}
+                  {pet.weight && <span className="inline-flex items-center gap-1.5"><Activity size={11} className="text-slate-400 shrink-0" /> {pet.weight}</span>}
+                  {pet.rfidChipNumber && <span className="inline-flex items-center gap-1.5 min-w-0 truncate"><Cpu size={11} className="text-slate-400 shrink-0" /> <span className="truncate">{pet.rfidChipNumber}</span></span>}
+                </div>
+                <p className="mt-1.5 text-[10px] font-bold text-slate-400 dark:text-zinc-500">
+                  Last Visit: {lastVisit ? formatDate(lastVisit.date) : '—'}
+                  <span className="mx-2 text-slate-200 dark:text-zinc-700">|</span>
+                  ID: PT-{String(pet.id).padStart(5, '0')}
                 </p>
+                {/* Owner row — the patient's account is the owner's account. */}
+                <div className="flex flex-wrap items-center gap-2 mt-3">
+                  {owner ? (
+                    <>
+                      <button
+                        onClick={() => onViewOwner?.(owner.id)}
+                        disabled={!onViewOwner}
+                        title={onViewOwner ? 'Open client profile' : undefined}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:border-seafoam hover:text-seafoam transition-all active:scale-95 disabled:opacity-60 max-w-full"
+                      >
+                        <User size={11} className="shrink-0" /> <span className="truncate">{owner.name}</span>
+                        {onViewOwner && <ChevronRight size={11} className="shrink-0" />}
+                      </button>
+                      {owner.phone && (
+                        <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400">
+                          <Phone size={11} /> {owner.phone}
+                        </span>
+                      )}
+                      <button
+                        onClick={() => onOpenMessaging(owner)}
+                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam text-seafoam hover:bg-seafoam hover:text-white transition-all active:scale-95"
+                      >
+                        <MessageSquare size={11} /> Message owner
+                      </button>
+                      {onBookAppointment && (
+                        <button
+                          onClick={() => onBookAppointment(pet.id, owner.id)}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:border-seafoam hover:text-seafoam transition-all active:scale-95"
+                        >
+                          <CalendarPlus size={11} /> Book visit
+                        </button>
+                      )}
+                    </>
+                  ) : (
+                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-900">
+                      <AlertCircle size={11} /> Orphaned · no owner linked
+                    </span>
+                  )}
+                </div>
               </div>
-           </div>
+            </div>
+
+            {/* Financial strip — this patient's own money: what has been paid
+                on their visits, what is still owed, and the owner's credit
+                that can settle it. Owner/manager-only, like the client page. */}
+            <div className="shrink-0 w-full xl:w-auto flex flex-col justify-between gap-3">
+              {hasFullAccess ? (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 rounded-xl border border-slate-100 dark:border-zinc-800 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-zinc-800 overflow-hidden">
+                    <div className="px-4 py-3 text-center">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Spend On This Patient</p>
+                      <p className="text-sm font-black font-mono text-pine dark:text-zinc-100 whitespace-nowrap">{money2(petSpend)}</p>
+                    </div>
+                    <div className="px-4 py-3 text-center">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Outstanding Balance</p>
+                      <p className={`text-sm font-black font-mono whitespace-nowrap ${petOutstanding > 0 ? 'text-rose-500' : 'text-pine dark:text-zinc-100'}`}>{money2(petOutstanding)}</p>
+                    </div>
+                    <div className="px-4 py-3 text-center">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Owner Credit</p>
+                      <p className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{money2(creditBalance)}</p>
+                    </div>
+                    <div className="px-4 py-3 text-center flex flex-col items-center justify-between">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Patient Status</p>
+                      <span className={`inline-flex px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ${
+                        pet.isAlive !== false ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border border-slate-200 dark:border-zinc-700'
+                      }`}>{pet.isAlive !== false ? 'Active' : 'Deceased'}</span>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-2 gap-y-1 text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                    <span className="inline-flex items-center gap-1.5"><CreditCard size={11} className="text-slate-400" /> Last Payment: <span className="text-pine dark:text-zinc-200 font-black">{lastPetPayment ? formatDate(lastPetPayment.settledAt || lastPetPayment.createdAt) : '—'}</span></span>
+                    <span className="text-slate-200 dark:text-zinc-700">|</span>
+                    <span>Preferred Payment: <span className="text-pine dark:text-zinc-200 font-black">{preferredMethod(petPayments)}</span></span>
+                  </div>
+                </>
+              ) : (
+                <span className={`self-start xl:self-end inline-flex px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${
+                  pet.isAlive !== false ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border border-slate-200 dark:border-zinc-700'
+                }`}>{pet.isAlive !== false ? 'Active Patient' : 'Deceased'}</span>
+              )}
+            </div>
+          </div>
         </div>
 
-        <div data-tour="pet-tabs" className="flex w-full bg-slate-50 dark:bg-zinc-900 p-1 rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-xl overflow-x-auto no-scrollbar scroll-smooth">
+        {/* Tab bar — underline style, matching the client profile. Deep-link
+            ids are unchanged ('transactions' still lands on Financials). */}
+        <div data-tour="pet-tabs" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-x-auto no-scrollbar scroll-smooth">
+          <div className="flex min-w-max px-2">
             {[
               { id: 'overview', label: 'Overview', icon: Heart },
               { id: 'timeline', label: 'Timeline', icon: Clock },
@@ -1225,24 +1393,27 @@ const PetProfileView: React.FC<Props> = ({
               { id: 'medical', label: 'Medical Record', icon: Clipboard },
               ...(groomingVisits.length > 0 ? [{ id: 'grooming', label: 'Grooming Record', icon: Smile }] : []),
               ...(boardingVisits.length > 0 || petStays.length > 0 ? [{ id: 'boarding', label: 'Boarding Record', icon: Building2 }] : []),
+              // ONE money tab, same as the client page: the account hub scoped
+              // to this patient's bills.
+              ...(hasFullAccess ? [{ id: 'financials', label: 'Financials', icon: CreditCard }] : []),
               { id: 'schedule', label: 'Reminders & Appts', icon: BellPlus },
-              { id: 'transactions', label: 'Transactions', icon: Receipt },
               { id: 'outreach', label: 'Outreach Log', icon: MessageCircle },
             ].map(tab => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex-1 flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
+                className={`flex items-center gap-2 px-4 py-3.5 text-[9px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 -mb-px transition-all ${
                   activeTab === tab.id
-                    ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg'
-                    : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
+                    ? 'border-seafoam text-seafoam'
+                    : 'border-transparent text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
                 }`}
               >
-                <tab.icon size={12} />
+                <tab.icon size={13} />
                 {tab.label}
               </button>
             ))}
           </div>
+        </div>
       </header>
 
       <div className="min-h-[50vh]">
@@ -1430,63 +1601,37 @@ const PetProfileView: React.FC<Props> = ({
            </div>
           );
         })()}
-        {activeTab === 'transactions' && (
-           <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
-              {petTransactions.length > 0 ? petTransactions.map((tx: any) => (
-                <div key={tx.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm hover:border-seafoam transition-all">
-                   <div className="flex justify-between items-start mb-4 gap-3">
-                      <div className="flex items-center gap-3 min-w-0">
-                         <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0">
-                            <Receipt size={18} className="text-emerald-500" />
-                         </div>
-                         <div className="min-w-0">
-                            <p className="text-pine dark:text-zinc-100 font-black text-sm uppercase truncate">Transaction #{tx.id}</p>
-                            <p className="text-slate-400 text-[9px] font-black uppercase mt-1">
-                              {formatDate(tx.createdAt || tx.date)} • {tx.method}
-                            </p>
-                         </div>
-                      </div>
-                      <div className="text-right shrink-0">
-                         <p className="text-lg sm:text-2xl font-black font-mono text-emerald-600">{owner?.currency || 'KES'} {tx.amount.toLocaleString()}</p>
-                         <span className="text-[8px] font-black uppercase bg-emerald-500/10 text-emerald-500 px-2 py-1 rounded-lg border border-emerald-500/20 inline-block mt-1.5">
-                           {tx.status || 'SETTLED'}
-                         </span>
-                      </div>
-                   </div>
-                   <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 flex flex-wrap gap-3 items-center justify-between">
-                      <div className="flex flex-wrap gap-3">
-                        {tx.appointmentId && (() => {
-                          const appt = appointments.find(a => a.id === parseInt(tx.appointmentId || '0'));
-                          return (
-                           <div>
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Visit</p>
-                              <p className="text-xs font-bold text-slate-600 dark:text-zinc-400">Visit #{appt ? getVisitNumber(appt) : tx.appointmentId}</p>
-                           </div>
-                          );
-                        })()}
-                        {tx.receiptNumber && (
-                           <div>
-                              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Receipt #</p>
-                              <p className="text-xs font-bold text-slate-600 dark:text-zinc-400">{tx.receiptNumber}</p>
-                           </div>
-                        )}
-                      </div>
-                      {tx.appointmentId && onViewAppointment && (
-                        <button
-                          onClick={() => onViewAppointment(parseInt(tx.appointmentId))}
-                          className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70 transition-colors flex items-center gap-1"
-                        >
-                          View Visit →
-                        </button>
-                      )}
-                   </div>
-                </div>
-              )) : (
-                 <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em]">
-                   No transactions found
-                 </div>
-              )}
-           </div>
+        {/* Financials — the client page's account hub, narrowed to this
+            patient's bills. Money is owed by the OWNER, so an orphaned patient
+            has no account to show; collection itself stays on the client
+            profile (one payment can clear bills across several pets). */}
+        {activeTab === 'financials' && hasFullAccess && (
+          owner ? (
+            <ClientAccountHub
+              client={owner}
+              billing={billing}
+              credit={creditBalance}
+              loading={billingLoading}
+              currency={currency}
+              canCollect={hasFullAccess}
+              onRefresh={loadBilling}
+              onViewVisit={onViewAppointment}
+              onGoTab={(t) => {
+                if (t === 'appointments') setActiveTab('medical');
+                else onViewOwner?.(owner.id, t);
+              }}
+              petId={pet.id}
+              petName={pet.name}
+            />
+          ) : (
+            <div className="py-24 flex flex-col items-center justify-center gap-3 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
+              <CreditCard size={32} className="text-slate-200 dark:text-zinc-700" />
+              <p className="uppercase font-black text-[10px] tracking-[0.2em] text-slate-300 dark:text-zinc-600">No account to bill</p>
+              <p className="text-xs text-slate-400 dark:text-zinc-500 font-medium max-w-xs text-center">
+                Charges belong to the patient's owner. Link an owner from the Overview tab to see financials here.
+              </p>
+            </div>
+          )
         )}
         {activeTab === 'medical' && visitSubTab === 'history' && (
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in slide-in-from-bottom-4">
