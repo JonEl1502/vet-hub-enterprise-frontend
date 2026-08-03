@@ -138,8 +138,8 @@ import DialogHost from './components/shared/common/DialogHost';
 import ClinicSwitcherModal from './components/clinic/clinic-mgmt/ClinicSwitcherModal';
 import InitialClinicSelection from './components/clinic/clinic-mgmt/InitialClinicSelection';
 import TransactionsView from './components/clinic/billing/TransactionsView';
-import FinanceView from './components/clinic/billing/FinanceView';
 import ReportsAnalyticsView from './components/clinic/billing/ReportsAnalyticsView';
+import ReceivablesView from './components/clinic/billing/ReceivablesView';
 import ToastContainer from './components/shared/common/ToastContainer';
 import GlobalAIAssistant from './components/shared/ai/GlobalAIAssistant';
 import ClinicTodayView from './components/clinic/dashboard/ClinicTodayView';
@@ -2187,7 +2187,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       return true;
 
     // Finance group
-    if (['finance', 'financial-overview', 'reports-analytics', 'b2b-stats', 'transactions', 'financial-core'].includes(view))
+    if (['finance', 'financial-overview', 'reports-analytics', 'receivables', 'b2b-stats', 'transactions', 'financial-core'].includes(view))
       return hasPerm(Permission.VIEW_FINANCE);
 
     // Referrals / partners (detail + create pages inherit the same gate)
@@ -2660,25 +2660,18 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onBack={goBack}
         />;
       }
+      // Financial Overview is RETIRED (user, 2026-08-03) — Reports & Analytics
+      // is the finance landing page; the old ids stay as redirects so every
+      // existing deep link and menu memory still lands somewhere real.
       case 'finance':
-        return <FinanceView
-          clinicId={firstActiveClinic?.id}
-          onViewTransaction={(transactionId) => navigateTo('transactions')}
-        />;
+      case 'financial-overview':
       case 'reports-analytics':
         return <ReportsAnalyticsView
           clinicId={firstActiveClinic?.id}
           onNavigate={(view, params) => navigateTo(view, params)}
         />;
-      case 'financial-overview':
-        return <FinanceView
-          clinicId={firstActiveClinic?.id}
-          dateRange={metricsDateRange}
-          onDateRangeChange={setMetricsDateRange}
-          onViewTransaction={(transactionId) => navigateTo('transactions')}
-          onRefresh={handleDashboardRefresh}
-          isRefreshing={isDashboardRefreshing}
-        />;
+      case 'receivables':
+        return <ReceivablesView currency={(firstActiveClinic as any)?.currency} />;
       case 'b2b-stats':
         return renderB2BStats();
       case 'financial-core':

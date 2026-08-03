@@ -221,8 +221,11 @@ const Navbar: React.FC<NavbarProps> = ({
       inventory: 'Inventory',
       'purchase-orders': 'Purchase Orders',
       referrals: 'Partners',
-      finance: 'Finance',
-      'financial-overview': 'Financial Overview',
+      finance: 'Reports & Analytics',
+      // Retired id — redirects to Reports & Analytics, so it titles as that.
+      'financial-overview': 'Reports & Analytics',
+      'reports-analytics': 'Reports & Analytics',
+      receivables: 'Receivables',
       transactions: 'Transactions',
       settings: 'Clinic Settings',
       staff: 'Staff Directory',

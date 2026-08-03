@@ -191,8 +191,10 @@ const CLINIC_ITEMS: MenuItem[] = [
     icon: CircleDollarSign,
     requiredPerm: 'VIEW_FINANCE',
     subItems: [
-      { id: 'financial-overview', label: 'Financial Overview',  icon: TrendingUp },
+      // Financial Overview retired 2026-08-03 — Reports & Analytics replaced it
+      // (the old view id still redirects there).
       { id: 'reports-analytics',  label: 'Reports & Analytics', icon: BarChart3 },
+      { id: 'receivables',        label: 'Receivables',         icon: TrendingUp },
       { id: 'b2b-stats',          label: 'B2B Stats',           icon: Repeat },
       { id: 'transactions',       label: 'Transactions',        icon: Receipt },
       { id: 'financial-core',     label: 'Clinic Finance',      icon: CircleDollarSign },
