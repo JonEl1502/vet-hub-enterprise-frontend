@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: admin Plans → Supplier tab is first-class — create works cleanly, no dead state  —  2026-08-03
+- **What changed:** (user: "create/add supplier pkgs, i dont want this", S1) the amber
+  "separate catalog / not a filter" disclaimer is gone (the tab creates/edits supplier
+  packages like every other tab — where they live is an implementation detail); every tab
+  now AUTO-SELECTS its first package so the "SELECT A PACKAGE" dead state never shows; the
+  New Plan form on the Supplier tab hides the clinic-only Max Patients/Max Clients caps and
+  defaults Currency to USD (all supplier plans are USD).
+- **Record impact:** 🟢 None — the supplier create/update/delete API paths were already
+  wired; this is presentation + defaults.
+- **Rollback:** revert the commit and rebuild.
+
+
 ### page: Finance → Expenses — operating spend capture (backend 112)  —  2026-08-03
 - **What changed:** (S1, user approved: expenses module before real P&L) new `ExpensesView`
   (`expenses` view id, Finance submenu): record rent/salaries/utilities/etc with category

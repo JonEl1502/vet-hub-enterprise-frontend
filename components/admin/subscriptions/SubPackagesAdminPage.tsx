@@ -119,6 +119,13 @@ const SubPackagesAdminPage: React.FC = () => {
     return inAudience.filter(p => p.name.toLowerCase().includes(q));
   }, [packages, search, audienceTag, audience, isSupplier]);
 
+  // No dead "select a package" state (user, 2026-08-03): when the tab's list
+  // arrives and nothing is picked, open the first package's editor.
+  useEffect(() => {
+    if (selectedId == null && filteredPackages.length > 0) setSelectedId(filteredPackages[0].id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredPackages, selectedId]);
+
   // Catalog toggles operate on the GATING array (featureKeys) — what the
   // access gate actually reads. Custom bullets stay in `features` (display).
   const isFeatureAttached = (feature: string) =>
@@ -199,7 +206,7 @@ const SubPackagesAdminPage: React.FC = () => {
         name: draft.name!,
         price: Number(draft.price),
         region: (draft.region || 'AFRICA') as Region,
-        currency: draft.currency || 'KES',
+        currency: draft.currency || (isSupplier ? 'USD' : 'KES'),
         billingCycle: (draft.billingCycle as any) || 'MONTHLY',
         // An add-on has no rung on the ladder, so it sits at tier 0 — but tier is
         // only how this LIST tells them apart. Entitlements resolve the base plan
@@ -301,11 +308,10 @@ const SubPackagesAdminPage: React.FC = () => {
           </button>
         ))}
       </div>
-      {isSupplier && (
-        <p className="-mt-2 text-[9px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">
-          Supplier plans are a separate catalog (own table) — this tab is not a filter like the others.
-        </p>
-      )}
+      {/* (user, 2026-08-03: "i dont want this") — the old amber "not a filter"
+          disclaimer read as "this tab is broken". The tab creates and edits
+          supplier packages exactly like the others; where they live is an
+          implementation detail nobody at this screen needs shouted at them. */}
 
       {(
       <>
@@ -329,7 +335,8 @@ const SubPackagesAdminPage: React.FC = () => {
               </select>
             </Field>
             <Field label="Currency">
-              <select value={draft.currency || 'KES'} onChange={e => setDraft(d => ({ ...d, currency: e.target.value }))} className={inputCls}>
+              {/* Supplier plans have always been priced in USD — default to it. */}
+              <select value={draft.currency || (isSupplier ? 'USD' : 'KES')} onChange={e => setDraft(d => ({ ...d, currency: e.target.value }))} className={inputCls}>
                 {CURRENCY_OPTIONS.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </Field>
@@ -342,12 +349,18 @@ const SubPackagesAdminPage: React.FC = () => {
             <Field label="Tier">
               <input type="number" value={Number(draft.tier ?? 1)} onChange={e => setDraft(d => ({ ...d, tier: Number(e.target.value) }))} className={inputCls}/>
             </Field>
-            <Field label="Max Patients">
-              <input type="number" value={Number(draft.maxPatients ?? 500)} onChange={e => setDraft(d => ({ ...d, maxPatients: Number(e.target.value) }))} className={inputCls}/>
-            </Field>
-            <Field label="Max Clients">
-              <input type="number" value={Number(draft.maxClients ?? 1000)} onChange={e => setDraft(d => ({ ...d, maxClients: Number(e.target.value) }))} className={inputCls}/>
-            </Field>
+            {/* Patients/clients caps are clinic concepts — hidden on the
+                Supplier tab (the supplier payload never carried them). */}
+            {!isSupplier && (
+              <Field label="Max Patients">
+                <input type="number" value={Number(draft.maxPatients ?? 500)} onChange={e => setDraft(d => ({ ...d, maxPatients: Number(e.target.value) }))} className={inputCls}/>
+              </Field>
+            )}
+            {!isSupplier && (
+              <Field label="Max Clients">
+                <input type="number" value={Number(draft.maxClients ?? 1000)} onChange={e => setDraft(d => ({ ...d, maxClients: Number(e.target.value) }))} className={inputCls}/>
+              </Field>
+            )}
             <Field label="Max Staff">
               <input type="number" value={Number(draft.maxStaff ?? 5)} onChange={e => setDraft(d => ({ ...d, maxStaff: Number(e.target.value) }))} className={inputCls}/>
             </Field>
