@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: "Shares & Partners" becomes its own visit tab  —  2026-08-03
+- **What changed:** (user, 2026-08-03) the outsourcing surface — *Send a service to a
+  partner clinic* plus the outsourced-jobs tracker — moves off the top of **Records &
+  Reports** into its own **🤝 Shares & Partners** tab. It was pushing the actual reports
+  (medical, grooming, boarding, meds) below the fold on every visit, including the
+  majority that never involve a partner. Hidden on clinical-transfer visits, where the
+  provider side has its own surface.
+- **Record impact:** 🟢 None — the same panels, relocated.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
+
 ### fix+feat: client identity — gender dropdown; save no longer 400s on date of birth  —  2026-08-03
 - **What changed:** (user, S1) the Identity Profile editor gains a **Gender** dropdown
   (Male/Female/Other — the field existed on the record but had no input, walk-in

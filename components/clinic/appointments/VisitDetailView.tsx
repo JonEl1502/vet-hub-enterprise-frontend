@@ -402,7 +402,7 @@ const VisitDetailInner: React.FC<Props> = ({
   // Clinical Workflow · Categories & Services · Records & Billing.
   // Non-finalized visits land on the clinical wizard (entry-point-driven) —
   // emergencies land on Triage; finalized ones on Services.
-  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'followup' | 'services' | 'records' | 'billing' | 'triage' | 'partnerbill' | 'transfer'>(
+  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'followup' | 'services' | 'records' | 'shares' | 'billing' | 'triage' | 'partnerbill' | 'transfer'>(
     // A finalized visit lands on the BILL — it is the record of what was done
     // (user, 2026-07-29). It used to land on Categories & Services, which no
     // longer exists as a tab.
@@ -3337,7 +3337,7 @@ const VisitDetailInner: React.FC<Props> = ({
           {/* On an emergency visit, Triage leads — it IS the workflow's front
               door. Diagnostics-only visits (auto-created from New lab/imaging)
               skip the clinical wizard entirely. */}
-          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), ...(isTransferVisit ? [{ id: 'transfer', label: '🔁 Clinical Transfer' }] : []), { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [] /* follow-up is the requester clinic's job — hidden on transfers (user, 2026-08-02) */ : [{ id: 'followup', label: '🔔 Follow-Up & Reminders' }]),...(isTransferVisit ? [{ id: 'partnerbill', label: '🧾 Partner Bill & Receipt' }] : [{ id: 'billing', label: 'Bill & Invoice' }])].map(t => (
+          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), ...(isTransferVisit ? [{ id: 'transfer', label: '🔁 Clinical Transfer' }] : []), { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [] : [{ id: 'shares', label: '🤝 Shares & Partners' }]), ...(isTransferVisit ? [] /* follow-up is the requester clinic's job — hidden on transfers (user, 2026-08-02) */ : [{ id: 'followup', label: '🔔 Follow-Up & Reminders' }]),...(isTransferVisit ? [{ id: 'partnerbill', label: '🧾 Partner Bill & Receipt' }] : [{ id: 'billing', label: 'Bill & Invoice' }])].map(t => (
             <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
           ))}
           {/* Badge only for auto-created diagnostics visits — transfers have a
@@ -4681,7 +4681,10 @@ const VisitDetailInner: React.FC<Props> = ({
           self-hides when the visit has no jobs; the per-service "send to
           partner" rows show only while the visit is open (and never on the
           provider side of a transfer). */}
-      {workflowTab === 'records' && (
+      {/* Shares & Partners — its OWN tab (user, 2026-08-03). Sending a service
+          out and tracking what comes back is its own job; sat on top of
+          Records & Reports it pushed the actual reports below the fold. */}
+      {workflowTab === 'shares' && (
         <div className="space-y-3 animate-in fade-in">
           <VisitJobsPanel visitId={appointment.id} refreshKey={jobsRefresh} />
           {!isTransferVisit && !visitClosed && (appointment.tasks || []).length > 0 && (
