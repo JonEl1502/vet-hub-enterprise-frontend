@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   Activity, Stethoscope, CalendarClock, CreditCard, ShieldCheck,
-  AlertTriangle, Pill, HeartPulse, UserCog,
+  AlertTriangle, Pill, HeartPulse, UserCog, ArrowRight,
 } from 'lucide-react';
 import { PetSnapshot } from '../../../services/modules/pets.api';
 import { formatDate } from '../../../services/utils/dateFormatter';
@@ -9,6 +9,8 @@ import { formatDate } from '../../../services/utils/dateFormatter';
 interface Props {
   snapshot: PetSnapshot | null;
   loading?: boolean;
+  /** Continue the still-open, unpaid visit straight from the profile. */
+  onOpenVisit?: (visitId: number) => void;
 }
 
 // Current-status pill styling.
@@ -43,7 +45,7 @@ const Chips: React.FC<{ items: string[]; cls: string }> = ({ items, cls }) => (
   </div>
 );
 
-const ClinicalSnapshotPanel: React.FC<Props> = ({ snapshot, loading }) => {
+const ClinicalSnapshotPanel: React.FC<Props> = ({ snapshot, loading, onOpenVisit }) => {
   if (loading && !snapshot) {
     return (
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-lg animate-pulse">
@@ -56,7 +58,7 @@ const ClinicalSnapshotPanel: React.FC<Props> = ({ snapshot, loading }) => {
   }
   if (!snapshot) return null;
 
-  const { pet, owner, currentStatus, attendingVet, lastVisitAt, activeProblem, currentMedications, vaccines, finance } = snapshot;
+  const { pet, owner, currentStatus, attendingVet, lastVisitAt, activeProblem, currentMedications, vaccines, finance, openVisit } = snapshot;
   const status = STATUS_STYLES[currentStatus];
   const StatusIcon = status.icon;
   const vacc = VACCINE_STYLES[vaccines.status];
@@ -89,7 +91,29 @@ const ClinicalSnapshotPanel: React.FC<Props> = ({ snapshot, loading }) => {
 
       {/* Key facts */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 px-5 py-4">
-        <Fact icon={CalendarClock} label="Last visit">{lastVisitAt ? formatDate(lastVisitAt) : 'No visits yet'}</Fact>
+        {/* An OPEN unpaid visit takes over this slot and becomes clickable
+            (user, 2026-08-03): the pet reads "under treatment" with a balance,
+            so "No visits yet" was both wrong-looking and a dead end — the visit
+            existed, nothing just linked to it. `lastVisitAt` only counts
+            COMPLETED visits, which is why it was blank here. */}
+        {openVisit && onOpenVisit ? (
+          <button
+            type="button"
+            onClick={() => onOpenVisit(Number(openVisit.id))}
+            className="flex items-start gap-2 text-left group"
+            title={`Open the visit in progress (${openVisit.status.toLowerCase().replace('_', ' ')})`}
+          >
+            <CalendarClock size={14} className="text-amber-500 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Visit in progress</p>
+              <p className="text-xs font-bold text-amber-600 dark:text-amber-400 group-hover:underline flex items-center gap-1">
+                {formatDate(openVisit.scheduledAt)} <ArrowRight size={11} />
+              </p>
+            </div>
+          </button>
+        ) : (
+          <Fact icon={CalendarClock} label="Last visit">{lastVisitAt ? formatDate(lastVisitAt) : 'No visits yet'}</Fact>
+        )}
         <Fact icon={UserCog} label="Attending vet">{attendingVet?.name || '—'}</Fact>
         <Fact icon={Activity} label="Last diagnosis">{activeProblem || '—'}</Fact>
         <Fact icon={HeartPulse} label="Weight">{weightLabel}{pet.weight.trend != null ? ` (${pet.weight.trend > 0 ? '↑' : '↓'}${Math.abs(pet.weight.trend)})` : ''}</Fact>

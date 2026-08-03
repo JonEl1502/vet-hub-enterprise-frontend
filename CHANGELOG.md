@@ -59,6 +59,46 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: "View product details" opened a BLANK PAGE — `inventoryAPI` was never imported  —  no migration
+- **Root cause:** `InventoryView.tsx` calls `inventoryAPI.getItemAnalytics(...)` in the effect
+  that runs when a product is opened, but **`inventoryAPI` is not in the file's import list**.
+  Opening the details therefore threw a `ReferenceError` and React unmounted the tree — a
+  blank page rather than an error, because the throw happens in an effect after render.
+  `tsc` had been reporting it (`TS2552: Cannot find name 'inventoryAPI'`) among the repo's
+  pre-existing errors. Fixed by importing it; the analytics panel now renders.
+- **Also hardened** the three analytics dereferences that sat behind only an
+  `itemAnalytics &&` truthiness check (`consumption.*`, `reorder.*`, `ledger.length`) plus
+  two unguarded `clinic.currency` reads. A response missing any one key would blank the whole
+  page instead of the one card it belongs to.
+- **Record impact:** 🟢 None — client-side only.
+- **Rollback:** revert; the details page goes blank again.
+
+### feat: clinic-wide DEFAULT service charges, inherited by new products  —  no migration
+- **What changed:** (user: "add these too and in products should pick values automatically")
+  a **Default Service Charges** card in Clinic Management → Billables, beside Default Daily
+  Rates — Service, Administration, Injection and Prescription. A **new** product's form opens
+  pre-filled from them (`components/clinic/shared/serviceCharges.ts`).
+- **⚠️ Deliberately does NOT re-price existing stock.** `metadata.fees` on an item is read and
+  billed today, so a default that flowed into saved products would silently change what
+  clients are charged from a settings screen. Editing a product reads its own saved fees;
+  only creation inherits.
+- An unset default stays `undefined` rather than `0` — a zero would look configured while
+  billing nothing.
+- **Storage:** localStorage, mirroring `visitFees.ts` (both move to a clinic settings column
+  in the API phase).
+- **Record impact:** 🟢 None — no API or data change.
+
+### feat: open the in-progress visit straight from the patient profile  —  no migration
+- **What changed:** (user: "if visit still open and not paid for allow to open from here") the
+  pet snapshot gains `openVisit` (the unpaid visit in SCHEDULED / IN_PROGRESS /
+  PENDING_PAYMENT), and the Clinical Snapshot panel turns the "Last visit" slot into a
+  clickable **Visit in progress** when one exists.
+- **Why it read "No visits yet" while the pet was under treatment with a balance:**
+  `lastVisitAt` only matches **COMPLETED** visits. The open visit was in the data; nothing
+  surfaced it, so the card was both wrong-looking and a dead end.
+- **Record impact:** 🟢 None — additive read-only field.
+
+
 ### ui: patients list — real photos, two columns, tighter filter panel  —  2026-08-03
 - **What changed:** (user) ① patient cards render `PetAvatar` instead of a hardcoded
   `species === 'Dog' ? '🐶' : '🐱'`, so an uploaded profile photo actually shows and a

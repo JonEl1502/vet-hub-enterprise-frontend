@@ -476,7 +476,7 @@ const PetProfileView: React.FC<Props> = ({
       <div className="lg:col-span-2 space-y-6">
         {/* Clinical Snapshot — the patient-header panel a vet sees first. */}
         {(snapshot || loadingClinical) && (
-          <ClinicalSnapshotPanel snapshot={snapshot} loading={loadingClinical} />
+          <ClinicalSnapshotPanel snapshot={snapshot} loading={loadingClinical} onOpenVisit={onViewAppointment} />
         )}
         {/* Combined Stats Card */}
         <div data-tour="pet-stats" className="flex gap-3">

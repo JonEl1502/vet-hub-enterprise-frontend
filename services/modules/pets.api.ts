@@ -65,6 +65,13 @@ export interface PetSnapshot {
   attendingVet: { id: string; name: string; role: string } | null;
   lastVisitAt: string | null;
   upcomingVisit: { id: string; scheduledAt: string } | null;
+  /**
+   * The visit that is still OPEN and unpaid, so the profile can offer
+   * "continue this visit". Distinct from `upcomingVisit` (a future booking) and
+   * from `lastVisitAt` (COMPLETED only — which is why a pet mid-treatment used
+   * to read "No visits yet" while carrying a balance).
+   */
+  openVisit: { id: string; scheduledAt: string; status: string; totalCost: number } | null;
   activeProblem: string | null;
   problems: string[];
   lastDiagnosisAt: string | null;

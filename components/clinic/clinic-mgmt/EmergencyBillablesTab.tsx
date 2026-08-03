@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Siren, Package, X, Search, CreditCard, BedDouble } from 'lucide-react';
+import { Siren, Package, X, Search, CreditCard, BedDouble, Stethoscope } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
 import {
   STABILIZATION, billableKey, loadEmergencyBillables, saveEmergencyBillables,
@@ -8,6 +8,7 @@ import {
 import { VISIT_FEE_DEFS, loadVisitFees, saveVisitFees, VisitFeesConfig, loadVisitFeeServices, saveVisitFeeServices, VisitFeeServicesConfig, loadVisitFeeRates, saveVisitFeeRates, VisitFeeRatesConfig, loadVisitFeeMeta, saveVisitFeeMeta, VisitFeeMeta, DistanceUnit, HOUSE_CALL_DISTANCE_KEY } from '../shared/visitFees';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import DefaultRateEditor from '../shared/DefaultRateEditor';
+import { SERVICE_CHARGE_DEFS, loadServiceCharges, saveServiceCharges, ServiceChargesConfig } from '../shared/serviceCharges';
 import WorkingHoursEditor from '../shared/WorkingHoursEditor';
 import QtyUnitControl, { sellUnitOf } from '../shared/QtyUnitControl';
 
@@ -35,6 +36,18 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
       return next;
     });
   };
+  // Clinic-wide DEFAULT service charges — what a new product's fee fields open
+  // with, so the same four numbers aren't retyped per product.
+  const [svcCharges, setSvcCharges] = useState<ServiceChargesConfig>(() => loadServiceCharges());
+  const setSvcCharge = (key: ServiceChargesConfig extends infer _ ? keyof ServiceChargesConfig : never, v: string) => {
+    setSvcCharges(prev => {
+      const next = { ...prev };
+      if (v === '') delete next[key]; else next[key] = Number(v) || 0;
+      saveServiceCharges(next);
+      return next;
+    });
+  };
+
   // Per-fee time rates (per hour / per minute) + the clinic distance unit.
   const [rates, setRates] = useState<VisitFeeRatesConfig>(() => loadVisitFeeRates());
   const setRate = (key: string, field: 'perHour' | 'perMinute', v: string) => {
@@ -123,6 +136,39 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
       <div className="flex flex-wrap gap-3">
         <DefaultRateEditor field="boardingDayRate" label="Boarding — daily rate" />
         <DefaultRateEditor field="inpatientDayRate" label="In-patient — daily rate" />
+      </div>
+    </div>
+
+    {/* ── Default service charges — the per-dispense fees a NEW product opens
+           with, so a clinic sets them once instead of on every product. ── */}
+    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-3 animate-in slide-in-from-bottom-4">
+      <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-zinc-800 pb-3">
+        <div className="p-1.5 bg-seafoam text-white rounded-lg shadow-md"><Stethoscope size={16} /></div>
+        <div className="flex-1">
+          <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Default Service Charges</h2>
+          <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
+            Per-dispense fees a <strong>new</strong> product's form opens with. Leave blank for no default.
+            Products already saved keep their own charges — changing a default never re-prices existing stock.
+          </p>
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
+        {SERVICE_CHARGE_DEFS.map(def => (
+          <div key={def.key} className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 space-y-1.5">
+            <p className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-wide">{def.label}</p>
+            <p className="text-[9px] text-slate-400 dark:text-zinc-500 font-medium leading-tight">{def.hint}</p>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">{currency}</span>
+              <input
+                type="number" min={0} step="0.01" inputMode="decimal"
+                value={svcCharges[def.key] ?? ''}
+                onChange={e => setSvcCharge(def.key, e.target.value)}
+                placeholder="—"
+                className="field-input py-1.5 text-xs font-mono w-full"
+              />
+            </div>
+          </div>
+        ))}
       </div>
     </div>
 

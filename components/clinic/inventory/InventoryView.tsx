@@ -3,7 +3,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../../../types';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet, GripVertical, Check, MoreVertical, Eye, SlidersHorizontal } from 'lucide-react';
-import { suppliersAPI, Supplier as APISupplier, toast, INVENTORY_FORMS, stockMovementsAPI, uploadsAPI, procedureTemplatesAPI } from '../../../services';
+import { suppliersAPI, Supplier as APISupplier, toast, INVENTORY_FORMS, inventoryAPI, stockMovementsAPI, uploadsAPI, procedureTemplatesAPI } from '../../../services';
 import { walletAPI } from '../../../services/modules/wallet.api';
 import { usePagination } from '../../../hooks/usePagination';
 import Pagination from '../../shared/common/Pagination';
@@ -15,6 +15,7 @@ import InventoryExpiry from './InventoryExpiry';
 import StockTransfersPanel from './StockTransfersPanel';
 import StockTakePanel from './StockTakePanel';
 import { useData } from '../../../contexts/DataContext';
+import { defaultItemFees } from '../shared/serviceCharges';
 
 
 interface InventoryViewProps {
@@ -574,7 +575,11 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
       supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined,
       mainCategory: 'MEDICINE', subcategories: [], species: [], maxLevel: undefined, reorderQty: undefined, barcode: '', sellUnit: '', costUnit: '', sellQty: 1, packOf: undefined, injectionUnitMl: 10,
-      feeService: undefined, feeAdmin: undefined, feeInjection: undefined, feePrescription: undefined,
+      // Inherit the clinic's DEFAULT service charges (Clinic Management →
+      // Billables) so the same four numbers aren't retyped per product. Only
+      // applied to a NEW item — `startEdit` reads the item's own saved fees, so
+      // editing a product never silently re-inherits a changed default.
+      ...defaultItemFees(),
     });
     setIsAddModalOpen(true);
   };
@@ -877,7 +882,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
         const it: any = viewItem;
         const meta = it.metadata || {};
         const fees = meta.fees || {};
-        const ccy = clinic.currency || 'KES';
+        const ccy = clinic?.currency || 'KES';
         const expiry = (() => { const d = it.expiryDate ? new Date(it.expiryDate) : null; return d && !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'; })();
         const Stat = ({ label, value }: { label: string; value: any }) => (
           <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-xl p-3 border border-slate-100 dark:border-zinc-800">
@@ -962,20 +967,20 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               )}
 
               {/* Consumption velocity + reorder recommendation (ERP P2). */}
-              {itemAnalytics && (
+              {!!itemAnalytics?.consumption && (
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                   <Stat label="Used · 30 days" value={`${itemAnalytics.consumption.last30} ${it.unit}`} />
                   <Stat label="Avg / month" value={`${itemAnalytics.consumption.avgMonthlyUse} ${it.unit}`} />
                   <Stat label="Est. remaining" value={itemAnalytics.consumption.monthsRemaining != null ? `${itemAnalytics.consumption.monthsRemaining} mo` : '—'} />
-                  <div className={`rounded-xl p-3 border ${itemAnalytics.reorder.belowReorder ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/40' : 'bg-slate-50 dark:bg-zinc-800/60 border-slate-100 dark:border-zinc-800'}`}>
+                  <div className={`rounded-xl p-3 border ${itemAnalytics.reorder?.belowReorder ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800/40' : 'bg-slate-50 dark:bg-zinc-800/60 border-slate-100 dark:border-zinc-800'}`}>
                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Reorder</p>
-                    <p className="text-sm font-black text-pine dark:text-zinc-100">{itemAnalytics.reorder.recommendedQty > 0 ? `${itemAnalytics.reorder.recommendedQty} ${it.unit}` : 'OK'}</p>
+                    <p className="text-sm font-black text-pine dark:text-zinc-100">{(itemAnalytics.reorder?.recommendedQty ?? 0) > 0 ? `${itemAnalytics.reorder.recommendedQty} ${it.unit}` : 'OK'}</p>
                   </div>
                 </div>
               )}
 
               {/* Live batches in FEFO order — earliest expiry depletes first (ERP). */}
-              {itemAnalytics && itemAnalytics.batches && itemAnalytics.batches.length > 0 && (
+              {!!itemAnalytics?.batches?.length && (
                 <div>
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5"><Package size={12} /> Live batches · FEFO order</p>
                   <div className="space-y-1.5">
@@ -993,7 +998,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               )}
 
               {/* Movement ledger — the product's "bank statement" (ERP P2). */}
-              {itemAnalytics && itemAnalytics.ledger.length > 0 && (
+              {!!itemAnalytics?.ledger?.length && (
                 <div>
                   <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2 flex items-center gap-1.5"><History size={12} /> Stock movements</p>
                   <div className="border border-slate-100 dark:border-zinc-800 rounded-xl overflow-hidden">
@@ -1763,7 +1768,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               const marginPct = sale > 0 ? ((sale - cost) / sale) * 100 : 0;
               const enabled = !editingItem && deductFromWallet && projected > 0;
               const picked = stockWallets.find((w: any) => String(w.id) === String(selectedStockWalletId));
-              const ccy = clinic.currency || 'KES';
+              const ccy = clinic?.currency || 'KES';
               const sellUnit = itemForm.sellUnit || itemForm.unit;
               const costUnit = itemForm.costUnit || itemForm.unit;
               return (
