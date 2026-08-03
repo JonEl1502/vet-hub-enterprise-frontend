@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: admin Plans — ONE catalog, ONE api; tab bugs fixed  —  2026-08-03
+- **What changed:** (user, S1; backend 113) the supplier api adapter is GONE — every tab
+  drives the single `subscriptionPackagesAPI`, with supplier plans as audiences=['SUPPLIER']
+  rows. Two live bugs fixed: ① the auto-select could grab an id from the OUTGOING tab's
+  list during a tab switch and blank the editor — the selection now self-heals to the
+  current tab's first package; ② the Client tab showed "NO PACKAGES" because the Client
+  Portal package was tagged audience CLINIC (data fixed to CLIENT at deploy).
+- **Record impact:** 🟢 None client-side.
+- **Data dependency:** **Requires backend migration 113** — before it, the Supplier tab
+  lists nothing (the unified api has no supplier rows yet).
+- **Rollback:** revert the commit and rebuild (and revert 113's audience rows).
+
+
 ### page: patient Records is ONE tab; money vocabulary is Bill → Invoice → Payment → Receipt  —  2026-08-03
 - **What changed:** (user) ① **Records** replaces the separate Medical Record / Grooming
   Record / Boarding Record tabs on the patient profile. Its sub-views are **All Visits ·

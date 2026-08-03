@@ -5,7 +5,6 @@ import {
   Building2, Truck, Users, Sprout,
   Sparkles,
 } from 'lucide-react';
-import { supplierSubscriptionPackagesAPI } from '../../../services/modules/supplierSubscriptionPackages.api';
 import {
   subscriptionPackagesAPI,
   FEATURE_CATALOG,
@@ -59,20 +58,13 @@ const SubPackagesAdminPage: React.FC = () => {
   const [savingNew, setSavingNew] = useState(false);
   const [savingFeatureId, setSavingFeatureId] = useState<string | null>(null);
 
-  // Supplier plans live in their OWN table (`supplier_subscription_packages`)
-  // behind their own admin API. Everything else — Clinic, Client, Livestock and
-  // Add-ons — shares `clinic_subscription_packages` and is told apart by the
-  // `audiences` tag. One adapter lets a single editor drive both, so the tabs
-  // differ only by which catalog of keys they offer.
+  // ONE catalog, ONE api (user, 2026-08-03; backend 113): every audience —
+  // Clinic, Supplier, Client, Livestock — and the add-ons live in
+  // `clinic_subscription_packages`, told apart by the `audiences` tag
+  // (+ `isAddon`). The supplier-only table and its api adapter are gone;
+  // supplier-facing billing endpoints read the same rows server-side.
   const isSupplier = audience === 'supplier';
-  const api = useMemo(() => (isSupplier ? {
-    list: () => supplierSubscriptionPackagesAPI.list() as any,
-    create: (d: any) => supplierSubscriptionPackagesAPI.create(d) as any,
-    update: (id: any, d: any) => supplierSubscriptionPackagesAPI.update(id, d) as any,
-    delete: (id: any) => supplierSubscriptionPackagesAPI.delete(id) as any,
-    addFeature: (id: any, f: string) => supplierSubscriptionPackagesAPI.addFeature(id, f) as any,
-    removeFeature: (id: any, f: string) => supplierSubscriptionPackagesAPI.removeFeature(id, f) as any,
-  } : subscriptionPackagesAPI), [isSupplier]);
+  const api = subscriptionPackagesAPI;
 
   const refresh = async (silent = false) => {
     silent ? setIsRefreshing(true) : setIsLoading(true);
@@ -80,7 +72,9 @@ const SubPackagesAdminPage: React.FC = () => {
       const res = await api.list();
       if (res.success && res.data?.packages) {
         setPackages(res.data.packages);
-        if (!selectedId && res.data.packages.length) setSelectedId(res.data.packages[0].id);
+        // Selection is owned by the filtered-list effect below — picking the
+        // UNFILTERED first row here could select a package the current tab
+        // doesn't even show.
       }
     } finally {
       setIsLoading(false);
@@ -102,8 +96,9 @@ const SubPackagesAdminPage: React.FC = () => {
   const filteredPackages = useMemo(() => {
     const q = search.trim().toLowerCase();
     const inAudience = packages.filter((p) => {
-      // The supplier table holds only supplier plans — nothing to tag by.
-      if (isSupplier) return true;
+      // 113: supplier plans are ordinary audiences=['SUPPLIER'] rows — the
+      // tab is a plain filter now, like every other audience.
+      if (isSupplier) return (p.audiences || []).includes('SUPPLIER' as any) && Number(p.tier) !== 0 && !p.isAddon;
       // An ADD-ON is tier 0: it layers over any plan rather than sitting at a
       // position in the ladder, which is exactly why it does not belong in the
       // Clinic Plans list next to Manager / Pro / Enterprise.
@@ -120,9 +115,15 @@ const SubPackagesAdminPage: React.FC = () => {
   }, [packages, search, audienceTag, audience, isSupplier]);
 
   // No dead "select a package" state (user, 2026-08-03): when the tab's list
-  // arrives and nothing is picked, open the first package's editor.
+  // arrives, open the first package's editor — and SELF-HEAL a selection that
+  // isn't in this tab's list (tab switches race the refetch: the first version
+  // of this effect grabbed an id from the OUTGOING tab's table, which then
+  // matched nothing and blanked the editor — user's screenshot, same day).
   useEffect(() => {
-    if (selectedId == null && filteredPackages.length > 0) setSelectedId(filteredPackages[0].id);
+    if (filteredPackages.length === 0) return;
+    if (selectedId == null || !filteredPackages.some(p => p.id === selectedId)) {
+      setSelectedId(filteredPackages[0].id);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filteredPackages, selectedId]);
 
@@ -220,9 +221,10 @@ const SubPackagesAdminPage: React.FC = () => {
         isActive: draft.isActive ?? true,
         features: draft.features || [],
       };
-      const res = await api.create(isSupplier ? base : {
+      const res = await api.create({
         ...base,
-        maxPatients: Number(draft.maxPatients ?? 500),
+        // Clinic-only caps zero out on supplier rows.
+        maxPatients: isSupplier ? 0 : Number(draft.maxPatients ?? 500),
         // Tag the new plan with the tab it was created on, so it lists under
         // that audience and only that audience's billing screen offers it.
         // Add-ons are clinic-audience rows distinguished by tier 0.
