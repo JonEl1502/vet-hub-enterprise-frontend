@@ -202,7 +202,11 @@ const FoodProgramFields: React.FC<Props> = ({ value, onChange, disabled }) => {
                 title="Less" className="px-2.5 text-slate-500 dark:text-zinc-400 hover:text-seafoam disabled:opacity-30">
                 <Minus size={13} />
               </button>
-              <input type="number" min="0" step={PORTION_STEP}
+              {/* step="any": the steppers move in tenths, but a TYPED portion must
+                  not be rejected for missing the grid — 0.06 of a 2kg bag is
+                  120g, a real cat meal, and the browser was refusing it
+                  ("the two nearest valid values are 0 and 0.1"). */}
+              <input type="number" min="0" step="any"
                 className="flex-1 min-w-0 px-2 py-2.5 bg-transparent text-sm text-center text-pine dark:text-zinc-100 focus:outline-none"
                 disabled={disabled || !picked}
                 placeholder={picked ? '0.5' : 'Pick a food'}

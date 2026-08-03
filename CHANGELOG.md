@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a typed portion no longer has to land on the stepper grid  —  2026-08-03
+- **What changed:** (user) the portion input carried `step={0.1}` from the stepper, so the
+  browser rejected anything off that grid — typing `0.06` (120 g of a 2 kg bag, a real cat
+  meal) raised *"the two nearest valid values are 0 and 0.1"* and blocked the form. The
+  input is now `step="any"`; the −/+ buttons still move in tenths and the ¼ ½ ¾ chips are
+  unchanged.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### fix: the food picker hid stock the clinic actually holds  —  2026-08-03
 - **What changed:** (user: "i know i have beef") the boarding/inpatient food search
   whitelisted items whose name or category matched `food|diet|kibble|feed|nutri` and
