@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: ONE boarding intake and ONE grooming intake — Admit and New Visit now identical  —  2026-08-03
+- **What changed:** (user, 2026-08-03: "ui is not same when creating boarding from Admit and
+  from new Visit. both must be exactly the same from now on. even grooming for both its
+  pages.") New `BoardingIntakeFields` and `GroomingIntakeFields` render each service's
+  intake **once**, and all four surfaces now use them — `AdmitBoardingModal`,
+  `GroomingAdmitModal`, and the wizard's Boarding/Grooming gate checks.
+- **What each door used to lose.** Boarding: Admit had kennel, daily rate, medication
+  instructions and emergency contact; the wizard had temperament and belongings and used a
+  *different* food control. Grooming: Admit had weight and temperament; the wizard had coat
+  condition and the physical flags (fleas, wounds, ears, nails) that Admit never captured.
+  Whichever door staff used decided what got recorded. Both now capture the union.
+- **Record impact:** 🔵 Low — the modals now submit fields they previously dropped
+  (belongings on boarding; coat + flags on grooming).
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Drop-off stays Admit-only** — the wizard's visit already carries its date/time. It is
+  the one deliberate difference.
+- ⚠️ **`temperament` is captured on boarding but NOT persisted** — `CreateBoardingPayload`
+  has no column for it. The field is there and the UI matches; add the column before
+  relying on the value.
+
+
 ### fix: role dashboards were UNREACHABLE — bespoke-dashboard roles now land on them  —  2026-08-03
 - **What changed:** (S1, found live on prod with the kabivets.test accounts) the role
   dashboards S2 built (Front Office / Groomer / Vet) shipped invisible: the six roles they

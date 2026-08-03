@@ -8,6 +8,8 @@ import { useData } from '../../../../../contexts/DataContext';
 import { petsAPI } from '../../../../../services';
 import { VACCINES } from '../../../../../constants/vaccines';
 import AdmissionGate from '../../../shared/AdmissionGate';
+import BoardingIntakeFields, { emptyBoardingIntake } from '../../../shared/BoardingIntakeFields';
+import GroomingIntakeFields, { emptyGroomingIntake } from '../../../shared/GroomingIntakeFields';
 
 // Entry steps for the non-consultation Visit Entry Points. They share one
 // config-driven form (fields per step defined below) so adding a new entry
@@ -19,6 +21,7 @@ type FieldDef =
   | { kind: 'seg'; key: string; label: string; options: string[]; span?: 2 }
   | { kind: 'checks'; key: string; label: string; items: { k: string; label: string }[]; span?: 2 }
   | { kind: 'gate'; key: string; label: string; span?: 2 }
+  | { kind: 'intake'; key: 'boarding' | 'grooming'; label: string; span?: 2 }
   | { kind: 'food'; key: string; label: string; span?: 2 };
 
 // Vaccine types pickable wherever a gate check records vaccination status.
@@ -169,29 +172,16 @@ const FORMS: Record<string, EntryFormDef> = {
   },
   groomingAssessment: {
     title: 'Grooming Assessment',
+    intro: 'Exactly the same intake as the Grooming Admit page — one form, either door.',
     fields: [
-      { kind: 'seg', key: 'temperament', label: 'Temperament', options: ['Calm', 'Nervous', 'Aggressive', 'Unknown'] },
-      { kind: 'seg', key: 'coat', label: 'Coat condition', options: ['Good', 'Matted', 'Shedding', 'Skin issues'] },
-      { kind: 'seg', key: 'vaccStatus', label: 'Vaccination status', options: ['Up to date', 'Overdue', 'Unknown'] },
-      { kind: 'gate', key: 'admissionGate', label: 'Admission gate', span: 2 },
-      { kind: 'checks', key: 'flags', label: 'Flags', items: [
-        { k: 'fleas', label: 'Fleas/ticks seen' }, { k: 'wounds', label: 'Wounds / hotspots' },
-        { k: 'earIssues', label: 'Ear issues' }, { k: 'nailIssues', label: 'Overgrown nails' },
-      ] },
-      { kind: 'textarea', key: 'instructions', label: 'Special instructions', placeholder: 'Style, areas to avoid, owner requests…', span: 2 },
+      { kind: 'intake', key: 'grooming', label: 'Grooming intake', span: 2 },
     ],
   },
   boardingAssessment: {
     title: 'Boarding Assessment',
-    intro: 'Intake check — the full admit checklist runs from the visit header (Onboard to boarding).',
+    intro: 'Exactly the same intake as the Boarding Admit page — one form, either door.',
     fields: [
-      { kind: 'seg', key: 'temperament', label: 'Temperament', options: ['Calm', 'Nervous', 'Aggressive', 'Unknown'] },
-      { kind: 'seg', key: 'vaccStatus', label: 'Vaccination status', options: ['Up to date', 'Overdue', 'Unknown'] },
-      { kind: 'gate', key: 'admissionGate', label: 'Admission gate', span: 2 },
-      { kind: 'food', key: 'food', label: 'Food', span: 2 },
-      { kind: 'textarea', key: 'feeding', label: 'Feeding schedule', placeholder: 'Amounts, times…' },
-      { kind: 'textarea', key: 'belongings', label: 'Belongings', placeholder: 'Bed, toys, leash…' },
-      { kind: 'textarea', key: 'specialCare', label: 'Special care notes', placeholder: 'Medication times, anxieties, exercise needs…', span: 2 },
+      { kind: 'intake', key: 'boarding', label: 'Boarding intake', span: 2 },
     ],
   },
   // Mandatory vet check on grooming & boarding flows (077): a vet confirms
@@ -239,6 +229,32 @@ export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (pat
               return <L key={f.key} label={f.label} className={span}><Seg options={f.options} value={d[f.key]} onChange={v => setData({ [f.key]: v })} /></L>;
             case 'checks': {
               return <L key={f.key} label={f.label} className={span}><CheckGrid items={f.items} value={d[f.key]} onToggle={(k, _l, on) => setData({ [f.key]: { ...(d[f.key] || {}), [k]: on } })} /></L>;
+            }
+            case 'intake': {
+              // THE shared intake — identical to the Admit page for this
+              // service. The wizard owns the schedule, so the stay block is
+              // hidden on boarding; the gate is advisory here, not blocking.
+              const iv = d.intake || (f.key === 'boarding' ? emptyBoardingIntake() : emptyGroomingIntake());
+              const patch = (pt: any) => setData({ intake: { ...iv, ...pt } });
+              return (
+                <div key={f.key} className={`${span} space-y-4`}>
+                  {f.key === 'boarding' ? (
+                    <BoardingIntakeFields
+                      value={iv} onChange={patch} required={false} showStay={false}
+                      petId={petId ?? null}
+                      petWeight={(pet as any)?.weight ?? null}
+                      petWeightAt={(pet as any)?.updatedAt ?? null}
+                    />
+                  ) : (
+                    <GroomingIntakeFields
+                      value={iv} onChange={patch} required={false}
+                      petId={petId ?? null}
+                      petWeight={(pet as any)?.weight ?? null}
+                      petWeightAt={(pet as any)?.updatedAt ?? null}
+                    />
+                  )}
+                </div>
+              );
             }
             case 'gate':
               // THE shared admission gate — identical markup to the boarding /

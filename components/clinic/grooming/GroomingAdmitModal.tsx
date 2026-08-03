@@ -3,6 +3,7 @@ import { Scissors, Loader2, Search, ShieldCheck, Dog, ArrowLeft, Plus, CalendarC
 import { Pet } from '../../../types';
 import { visitsAPI, servicesAPI } from '../../../services';
 import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
+import GroomingIntakeFields, { emptyGroomingIntake, GroomingIntakeValue } from '../shared/GroomingIntakeFields';
 import { useData } from '../../../contexts/DataContext';
 import { ownerAbbrev } from '../shared/ownerAbbrev';
 import GateVaccineRecommend from '../shared/GateVaccineRecommend';
@@ -36,14 +37,14 @@ const GroomingAdmitModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
   const [petSearch, setPetSearch] = useState('');
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState(new Date().toTimeString().slice(0, 5));
-  const [intakeWeight, setIntakeWeight] = useState('');
-  const [weightCopied, setWeightCopied] = useState(false);
-  const [vaccines, setVaccines] = useState<Record<string, boolean>>({});
+  const [intake, setIntake] = useState<GroomingIntakeValue>(emptyGroomingIntake());
+  const { gate } = intake;
+  const vaccines = gate.vaccines;
+  const recommended = gate.recommended;
+  const clientAgreed = gate.clientAgreed;
+  const temperament = intake.temperament;
   // Gate escape when nothing is on record: recommend vaccines (+ optional
   // client agreement → vaccination rides the visit). Logged on the journey.
-  const [recommended, setRecommended] = useState<Record<string, boolean>>({});
-  const [clientAgreed, setClientAgreed] = useState(false);
-  const [temperament, setTemperament] = useState('');
   const [specialInstructions, setSpecialInstructions] = useState('');
   const [services, setServices] = useState<{ id: string; name: string; defaultPrice?: number }[]>([]);
   const [picked, setPicked] = useState<Record<string, { name: string; price: number }>>({});
@@ -60,17 +61,6 @@ const GroomingAdmitModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
 
   const selectedPet = useMemo(() => pets.find(p => p.id === petId) ?? null, [pets, petId]);
 
-  // Copy the recorded weight into the intake field when it was captured
-  // less than 3 months ago — staff confirm on the scale, not re-type.
-  useEffect(() => {
-    if (!selectedPet) return;
-    const w = parseFloat(String((selectedPet as any).weight || ''));
-    const ts = (selectedPet as any).updatedAt;
-    const fresh = ts ? (Date.now() - new Date(ts).getTime()) < 90 * 24 * 60 * 60 * 1000 : false;
-    if (w > 0 && fresh) { setIntakeWeight(String(w)); setWeightCopied(true); }
-    else setWeightCopied(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [petId]);
 
   const matches = useMemo(() => {
     const q = petSearch.trim().toLowerCase();
@@ -92,7 +82,7 @@ const GroomingAdmitModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
     if (!selectedPet) { setError('Select a patient to groom.'); return; }
     const clientId = (selectedPet as any).ownerId ?? (selectedPet as any).owner?.id;
     if (!clientId) { setError('This patient has no owner on record.'); return; }
-    if (!intakeWeight || Number(intakeWeight) <= 0) { setError('Intake weight is required.'); return; }
+    if (!gate.intakeWeight || Number(gate.intakeWeight) <= 0) { setError('Intake weight is required.'); return; }
     const recommendedList = VACCINES.filter(v => recommended[v.key]).map(v => v.label);
     if (!hasVaccineRecorded(vaccines) && recommendedList.length === 0) {
       setError('Record a vaccination — or recommend vaccines below to proceed.');
@@ -113,7 +103,7 @@ const GroomingAdmitModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
         encounterType: 'GROOMING', visitType: 'CONSULTATION',
         totalCost: tasks.reduce((s, t) => s + (t.price || 0), 0),
         tasks: [...tasks, ...vaccTasks],
-        groomingDetail: { temperament, specialInstructions, vaccinationStatus: Object.keys(vaccines).filter(k => vaccines[k]).join(', '), intakeWeight: Number(intakeWeight) },
+        groomingDetail: { temperament, specialInstructions: intake.instructions, vaccinationStatus: Object.keys(vaccines).filter(k => vaccines[k]).join(', '), intakeWeight: Number(gate.intakeWeight), coat: intake.coat, flags: intake.flags },
       } as any);
       if (res.success) {
         const newId = (res.data as any)?.appointment?.id;
@@ -190,35 +180,15 @@ const GroomingAdmitModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
           </div>
         </section>
 
-        {/* Admission gate */}
-        <section className="bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-4 shadow-sm">
-          <p className="flex items-center gap-1.5 text-[11px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 mb-3"><ShieldCheck size={14} /> Admission gate — required</p>
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div>
-              <label className="field-label">Intake weight (kg) *</label>
-              <input type="number" min="0" step="0.1" className="field-input" value={intakeWeight} onChange={e => { setIntakeWeight(e.target.value); setWeightCopied(false); }} placeholder="e.g. 12.4" />
-              {weightCopied && <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-1">Copied from record (&lt;3 months old) — confirm on the scale.</p>}
-            </div>
-            <div><label className="field-label">Temperament</label><select className="field-select" value={temperament} onChange={e => setTemperament(e.target.value)}><option value="">Select…</option>{TEMPERAMENTS.map(t => <option key={t} value={t}>{t}</option>)}</select></div>
-          </div>
-          <label className="field-label">Vaccination check *</label>
-          <div className="flex flex-wrap gap-2">
-            {VACCINES.map(v => (
-              <button key={v.key} type="button" onClick={() => setVaccines(s => ({ ...s, [v.key]: !s[v.key] }))}
-                className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border ${vaccines[v.key] ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800' : 'bg-white dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
-                {vaccines[v.key] ? '✓ ' : ''}{v.label}
-              </button>
-            ))}
-          </div>
-          {!hasVaccineRecorded(vaccines) && (
-            <GateVaccineRecommend
-              recommended={recommended}
-              onToggle={(k) => setRecommended(s => ({ ...s, [k]: !s[k] }))}
-              clientAgreed={clientAgreed}
-              onAgreed={setClientAgreed}
-            />
-          )}
-        </section>
+        {/* THE shared grooming intake — identical to the New Visit gate
+            check (user, 2026-08-03: "even grooming for both its pages"). */}
+        <GroomingIntakeFields
+          value={intake}
+          onChange={patch => setIntake(v => ({ ...v, ...patch }))}
+          petId={petId}
+          petWeight={(selectedPet as any)?.weight ?? null}
+          petWeightAt={(selectedPet as any)?.updatedAt ?? null}
+        />
 
         {/* Services */}
         <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
@@ -232,11 +202,6 @@ const GroomingAdmitModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
           )}
         </section>
 
-        {/* Instructions */}
-        <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
-          <label className="field-label">Special instructions</label>
-          <textarea rows={2} className="field-textarea" value={specialInstructions} onChange={e => setSpecialInstructions(e.target.value)} placeholder="Sensitive ears, matting, etc." />
-        </section>
 
         <div className="flex gap-3 pt-2 border-t border-slate-200 dark:border-zinc-800">
           <button type="button" onClick={onClose} disabled={submitting} className="flex-1 px-6 py-3 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-black text-sm uppercase tracking-wide hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-50">Cancel</button>

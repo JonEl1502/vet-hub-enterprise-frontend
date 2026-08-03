@@ -4,7 +4,7 @@ import { Pet } from '../../../types';
 import { boardingAPI, visitsAPI } from '../../../services';
 import FoodProgramFields, { FoodProgram } from '../shared/FoodProgramFields';
 import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
-import AdmissionGate from '../shared/AdmissionGate';
+import BoardingIntakeFields, { emptyBoardingIntake, BoardingIntakeValue } from '../shared/BoardingIntakeFields';
 import { useData } from '../../../contexts/DataContext';
 import { ownerAbbrev } from '../shared/ownerAbbrev';
 
@@ -32,26 +32,21 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
   const [petId, setPetId] = useState<number | null>(initialPetId ?? null);
   const [petSearch, setPetSearch] = useState('');
   const [dropOffAt, setDropOffAt] = useState(() => new Date().toISOString().slice(0, 16));
-  const [expectedPickupAt, setExpectedPickupAt] = useState('');
-  const [kennel, setKennel] = useState('');
-  const [dailyRate, setDailyRate] = useState('');
-  const [intakeWeight, setIntakeWeight] = useState('');
-  // Gate escape when nothing is on record — see GateVaccineRecommend.
-  const [recommended, setRecommended] = useState<Record<string, boolean>>({});
-  const [clientAgreed, setClientAgreed] = useState(false);
-  const [foodProgram, setFoodProgram] = useState<FoodProgram>({ providedByClient: true });
-  const [vaccines, setVaccines] = useState<Record<string, boolean>>({});
-  const [specialInstructions, setSpecialInstructions] = useState('');
-  const [feedingInstructions, setFeedingInstructions] = useState('');
-  const [medicationInstructions, setMedicationInstructions] = useState('');
-  const [emergencyContact, setEmergencyContact] = useState('');
+  // ONE value object — the shared intake owns every field below drop-off.
+  const [intake, setIntake] = useState<BoardingIntakeValue>(() => ({
+    ...emptyBoardingIntake(), food: { providedByClient: true },
+  }));
+  const { gate } = intake;
+  const vaccines = gate.vaccines;
+  const recommended = gate.recommended;
+  const clientAgreed = gate.clientAgreed;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Pre-fill the daily rate from the clinic default each time the page opens
   // (only when the user hasn't already typed one).
   useEffect(() => {
-    if (isOpen && defaultRate != null) setDailyRate(prev => prev === '' ? String(defaultRate) : prev);
+    if (isOpen && defaultRate != null) setIntake(v => (v.dailyRate === '' ? { ...v, dailyRate: String(defaultRate) } : v));
   }, [isOpen, defaultRate]);
 
   // Seed the patient each time the page opens — the component stays mounted,
@@ -79,7 +74,7 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
     if (!clientId) { setError('This patient has no owner on record.'); return; }
     // Admission gate: intake weight + vaccination check are required —
     // unless staff record a vaccine RECOMMENDATION (logged on the journey).
-    if (!intakeWeight || Number(intakeWeight) <= 0) { setError('Intake weight is required.'); return; }
+    if (!gate.intakeWeight || Number(gate.intakeWeight) <= 0) { setError('Intake weight is required.'); return; }
     const recommendedList = VACCINES.filter(v => recommended[v.key]).map(v => v.label);
     if (!hasVaccineRecorded(vaccines) && recommendedList.length === 0) {
       setError('Record a vaccination — or recommend vaccines below to proceed.');
@@ -92,16 +87,20 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
         clientId,
         appointmentId,
         dropOffAt: dropOffAt ? new Date(dropOffAt).toISOString() : undefined,
-        expectedPickupAt: expectedPickupAt ? new Date(expectedPickupAt).toISOString() : undefined,
-        kennel: kennel || undefined,
-        dailyRate: dailyRate ? Number(dailyRate) : undefined,
-        intakeWeight: intakeWeight ? Number(intakeWeight) : undefined,
+        expectedPickupAt: intake.expectedPickupAt ? new Date(intake.expectedPickupAt).toISOString() : undefined,
+        kennel: intake.kennel || undefined,
+        dailyRate: intake.dailyRate ? Number(intake.dailyRate) : undefined,
+        intakeWeight: gate.intakeWeight ? Number(gate.intakeWeight) : undefined,
         vaccineChecklist: vaccines,
-        foodProgram,
-        specialInstructions: specialInstructions || undefined,
-        feedingInstructions: feedingInstructions || undefined,
-        medicationInstructions: medicationInstructions || undefined,
-        emergencyContact: emergencyContact || undefined,
+        foodProgram: intake.food,
+        belongings: intake.belongings || undefined,
+        // NOTE: `temperament` is captured in the shared intake but the boarding
+        // API has no column for it yet — it is NOT persisted here. Add a field
+        // before relying on it. (S2, 2026-08-03)
+        specialInstructions: intake.specialInstructions || undefined,
+        feedingInstructions: intake.feedingInstructions || undefined,
+        medicationInstructions: intake.medicationInstructions || undefined,
+        emergencyContact: intake.emergencyContact || undefined,
       });
       if (res.success) {
         // Journey log + (if agreed) vaccination work on the stay's visit.
@@ -182,45 +181,25 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
           )}
         </section>
 
-        {/* Schedule & kennel card */}
+        {/* Drop-off is the only admit-specific field — the wizard's visit
+            already carries its date/time. Everything else below is THE shared
+            boarding intake, identical to the New Visit gate check
+            (user, 2026-08-03: "both must be exactly the same"). */}
         <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
-          <p className="text-[11px] font-black uppercase tracking-widest text-seafoam">Schedule & kennel</p>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div><label className="field-label">Drop-off</label><input type="datetime-local" className="field-input" value={dropOffAt} onChange={e => setDropOffAt(e.target.value)} /></div>
-            <div><label className="field-label">Expected pickup</label><input type="datetime-local" className="field-input" value={expectedPickupAt} onChange={e => setExpectedPickupAt(e.target.value)} /></div>
-            <div><label className="field-label">Kennel / Run</label><input className="field-input" placeholder="A1" value={kennel} onChange={e => setKennel(e.target.value)} /></div>
-            <div><label className="field-label">Daily rate (KES)</label><input type="number" min="0" className="field-input" placeholder="1500" value={dailyRate} onChange={e => setDailyRate(e.target.value)} /></div>
+          <p className="text-[11px] font-black uppercase tracking-widest text-seafoam">Drop-off</p>
+          <div className="max-w-[260px]">
+            <label className="field-label">Drop-off</label>
+            <input type="datetime-local" className="field-input" value={dropOffAt} onChange={e => setDropOffAt(e.target.value)} />
           </div>
         </section>
 
-        {/* Admission gate — THE shared component (weight + vaccines + recommend).
-            Prefill is pet-keyed, so a linked visit's gate arrives already filled. */}
-        <AdmissionGate
+        <BoardingIntakeFields
+          value={intake}
+          onChange={patch => setIntake(v => ({ ...v, ...patch }))}
           petId={petId}
           petWeight={(selectedPet as any)?.weight ?? null}
           petWeightAt={(selectedPet as any)?.updatedAt ?? null}
-          value={{ intakeWeight, vaccines, recommended, clientAgreed }}
-          onChange={patch => {
-            if (patch.intakeWeight !== undefined) setIntakeWeight(patch.intakeWeight);
-            if (patch.vaccines !== undefined) setVaccines(patch.vaccines);
-            if (patch.recommended !== undefined) setRecommended(patch.recommended);
-            if (patch.clientAgreed !== undefined) setClientAgreed(patch.clientAgreed);
-          }}
         />
-
-        {/* Food program card */}
-        <FoodProgramFields value={foodProgram} onChange={setFoodProgram} />
-
-        {/* Instructions card */}
-        <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
-          <p className="text-[11px] font-black uppercase tracking-widest text-seafoam">Care instructions</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div><label className="field-label">Feeding instructions</label><textarea className="field-textarea" rows={2} value={feedingInstructions} onChange={e => setFeedingInstructions(e.target.value)} placeholder="2 cups dry AM/PM" /></div>
-            <div><label className="field-label">Medication instructions</label><textarea className="field-textarea" rows={2} value={medicationInstructions} onChange={e => setMedicationInstructions(e.target.value)} placeholder="Apoquel 1 tab daily" /></div>
-            <div><label className="field-label">Special instructions</label><textarea className="field-textarea" rows={2} value={specialInstructions} onChange={e => setSpecialInstructions(e.target.value)} placeholder="Anxious; separate from other dogs" /></div>
-            <div><label className="field-label">Emergency contact</label><input className="field-input" value={emergencyContact} onChange={e => setEmergencyContact(e.target.value)} placeholder="Name + phone" /></div>
-          </div>
-        </section>
 
         <div className="flex gap-3 pt-2 border-t border-slate-200 dark:border-zinc-800">
           <button type="button" onClick={onClose} disabled={submitting} className="flex-1 px-6 py-3 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-black text-sm uppercase tracking-wide hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-50">Cancel</button>
