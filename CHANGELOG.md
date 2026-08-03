@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: admin Plans — "Livestock Plans" tab renamed "Farm Plans"  —  2026-08-03
+- **What changed:** (user) the tab's buyers are FARM businesses (Smallholder/Farm/Estate),
+  and "Livestock" also names the clinic add-on — same word, two products. Label only;
+  the internal audience value stays LIVESTOCK, no data changes.
+- **Record impact:** 🟢 None.
+- **Rollback:** revert the commit and rebuild.
+
+
 ### fix: a fully-settled visit read PARTIAL and still offered "Settle Bill"  —  2026-08-03
 - **What changed:** (user: "why is bill partial and payment is full") the account
   timeline derived a receivable's status from the VISIT's `isPaid` flag. On prod, visit

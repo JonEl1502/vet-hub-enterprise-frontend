@@ -308,7 +308,10 @@ const SubPackagesAdminPage: React.FC = () => {
           ['clinic', 'Clinic Plans', Building2],
           ['supplier', 'Supplier Plans', Truck],
           ['client', 'Client Plans', Users],
-          ['livestock', 'Livestock Plans', Sprout],
+          // "Farm Plans" (user, 2026-08-03): the buyer is a FARM business —
+          // "Livestock" also names the clinic add-on, which read as the same
+          // thing. Internal audience value stays LIVESTOCK (data unchanged).
+          ['livestock', 'Farm Plans', Sprout],
           // Add-ons layer OVER a plan rather than replacing one, so they get
           // their own tab instead of sitting in the tier ladder.
           ['addon', 'Add-ons', Sparkles],
