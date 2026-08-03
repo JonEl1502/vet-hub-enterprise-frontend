@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Financial Overview RETIRED — Reports & Analytics is the finance landing page  —  2026-08-03
+- **What changed:** (user, S1) `financial-overview` and `finance` view ids now render
+  `ReportsAnalyticsView` (redirect — every deep link still lands), the Finance submenu
+  drops Financial Overview and gains **Receivables** (new `ReceivablesView`: PageHeader +
+  the existing `ReceivablesPanel`, since AR ageing lived only inside the retired page);
+  navbar titles updated. On the Reports page itself: **Compared-to is now a
+  DateRangePicker** (explicit pick wins, clearing falls back to the equal-length previous
+  window) and the KPI cards sit in a **3/2/2 grid** so money values stop truncating.
+- **Record impact:** 🟢 None — routing/UI only.
+- **Data dependency:** None.
+- **Rollback:** revert the commits and rebuild.
+- ⚠️ **Watch out:** `FinanceView.tsx` is now UNMOUNTED dead code (kept on disk this
+  round to avoid churn against concurrent sessions) — delete it once nothing new
+  wants salvaging from it. `ClinicStatistics`/wallet/PO panels it hosted live on
+  elsewhere (`financial-core`, `payables`).
+
 ### flow: LINKED VISITS — transfer now starts a SEPARATE, billable visit  —  2026-08-02
 - **What changed:** "Transfer / add encounter" no longer stacks an encounter row on the
   current visit. It **creates a new visit** for the same patient carrying

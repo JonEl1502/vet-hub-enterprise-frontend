@@ -93,6 +93,7 @@ export const VIEW_KEY: Record<string, string> = {
   'financial-overview': 'view:financial-overview',
   // BI dashboard rides the same entitlement as the finance overview.
   'reports-analytics': 'view:financial-overview',
+  receivables: 'view:financial-overview',
   'b2b-stats': 'view:b2b-stats',
   transactions: 'view:transactions',
   'financial-core': 'view:financial-core',
