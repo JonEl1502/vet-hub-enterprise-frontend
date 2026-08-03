@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: position:sticky works app-wide — <main> overflow-x-hidden → clip  —  2026-08-03
+- **What changed:** (user: the inventory Order Summary rail scrolled away) `<main>`'s
+  `overflow-x-hidden` made it the sticky containing block without being the scroller, so
+  every `sticky` inside the app silently never engaged. Switched to `overflow-x-clip` —
+  still cuts horizontal overflow, creates no scroll container. The Order Summary (and any
+  other sticky rail) now pins while the form scrolls.
+- **Record impact:** 🟢 None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** `overflow-x: clip` needs Safari 16+/Chrome 90+; older browsers ignore
+  it (falls back to visible). Wide content must keep scrolling in its OWN containers
+  (§0d rule) — which is already the house style.
+
+### ui: stock form labels — "Units bought *", "<unit> (units) per pack (optional)"  —  2026-08-03
+- **What changed:** (user) "Unit Type *" reads **Units bought** and the per-pack label
+  gains "(units)" — e.g. "G (units) per pack (optional)".
+- **Record impact:** 🟢 None.
+- **Rollback:** revert the commit and rebuild.
+
+
 ### ui: inpatient chart — visible entry-kind chips, ONE rail card, slim header  —  2026-08-03
 - **What changed:** (user, S1) ① the "Add to daily sheet" entry kind is a CHIP ROW now —
   all ten kinds (Treatment task → Shift handover) visible at once instead of hidden in a

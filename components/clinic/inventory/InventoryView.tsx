@@ -1374,7 +1374,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   />
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Unit Type *</label>
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Units bought *</label>
                   <select
                     required
                     className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
@@ -1406,7 +1406,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                       : `${u}s`;
                     return (
                       <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
-                        {plural} per pack <span className="text-slate-400 normal-case font-bold">(optional)</span>
+                        {plural} <span className="normal-case">(units)</span> per pack <span className="text-slate-400 normal-case font-bold">(optional)</span>
                       </label>
                     );
                   })()}
