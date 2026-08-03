@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: Records & Reports follows the visit's ENCOUNTERS  —  2026-08-03
+- **What changed:** (user, S1) the report sub-tabs are per-encounter now: Medical Report
+  shows when the visit has clinical content (vet-family/vaccination/deworming encounter),
+  Grooming/Boarding Reports only when that work is on the visit, and **Meds & Consumables
+  always** (nearly every visit has them). A grooming/boarding visit also DEFAULTS to its
+  own report tab (until the user picks one). With invoice scopes already per encounter,
+  a grooming encounter now carries its full chain: workflow → bill → GROOMING-scoped
+  invoice → grooming report → receipt.
+- **Record impact:** 🟢 None — tab visibility/default only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** reverses the earlier "Grooming/Boarding always show" decision —
+  that was pre-encounters; the chips now say what work exists, so a missing tab reads
+  as "not on this visit", not "lost".
+
 ### flow: boarding — food priced from inventory, Stay gets its own step, Pro feeding programs  —  2026-08-03
 - **What changed:** (user, 2026-08-03) three boarding improvements:
   1. **Food comes from inventory.** The meal rate was typed from memory ("e.g. 250"), so

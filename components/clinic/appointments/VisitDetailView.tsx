@@ -232,6 +232,16 @@ const VisitDetailInner: React.FC<Props> = ({
   // gets its own report tab — shown even when the data is still sparse.
   const hasGroomingWork = appointment.encounterType === 'GROOMING' || appointment.tasks.some(t => (t.category || '').toLowerCase().includes('groom'));
   const hasBoardingWork = appointment.encounterType === 'BOARDING' || !!appointment.boardingStayId || appointment.tasks.some(t => (t.category || '').toLowerCase().includes('board'));
+  // Per-encounter reports (user, 2026-08-03): a grooming/boarding visit LEADS
+  // with its own report — the default report tab follows the primary
+  // encounter. Only until the user picks a tab themselves.
+  const reportTabPickedRef = React.useRef(false);
+  useEffect(() => {
+    if (reportTabPickedRef.current) return;
+    if (appointment.encounterType === 'GROOMING' && hasGroomingWork) setActiveBottomTab(t => t === 'report' ? 'groomingReport' : t);
+    else if (appointment.encounterType === 'BOARDING' && hasBoardingWork) setActiveBottomTab(t => t === 'report' ? 'boardingReport' : t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointment.encounterType, hasGroomingWork, hasBoardingWork]);
   const [stayForReport, setStayForReport] = useState<any | null>(null);
   useEffect(() => {
     let alive = true;
@@ -4776,20 +4786,23 @@ const VisitDetailInner: React.FC<Props> = ({
                          { id: 'receipt', label: reconciliationState && !reconciliationState.settled ? 'Reconciliation' : 'Receipt', icon: Receipt },
                        ]
                      : [
-                         // The compiled clinical document from the workflow's data.
-                         { id: 'report', label: 'Medical Report', icon: FileText },
-                         // Grooming/Boarding always show. A visit without that
-                         // work renders "No results" inside the tab rather than
-                         // the tab disappearing — staff kept wondering where it
-                         // had gone.
-                         { id: 'groomingReport', label: 'Grooming Report', icon: FileText },
-                         { id: 'boardingReport', label: 'Boarding Report', icon: FileText },
+                         // Reports follow the visit's ENCOUNTERS (user,
+                         // 2026-08-03: workflows are per encounter, so each
+                         // encounter carries its own report — a grooming
+                         // encounter gets workflow → bill → invoice → report →
+                         // receipt). Meds & Consumables shows on (almost)
+                         // every visit, so it always stays.
+                         ...(appointment.encounterType === 'VET_VISIT'
+                            || wiz.availableEntries.some(e => !['grooming', 'boarding'].includes(e.key))
+                           ? [{ id: 'report', label: 'Medical Report', icon: FileText }] : []),
+                         ...(hasGroomingWork ? [{ id: 'groomingReport', label: 'Grooming Report', icon: FileText }] : []),
+                         ...(hasBoardingWork ? [{ id: 'boardingReport', label: 'Boarding Report', icon: FileText }] : []),
                          { id: 'medications', label: 'Meds & Consumables', icon: Pill },
                        ]
                    ).map(tab => (
                      <button
                        key={tab.id}
-                       onClick={() => setActiveBottomTab(tab.id as any)}
+                       onClick={() => { reportTabPickedRef.current = true; setActiveBottomTab(tab.id as any); }}
                        disabled={tab.id === 'receipt' && !appointment.isPaid && !hasMoneyActivity}
                        className={`shrink-0 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeBottomTab === tab.id ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-md border border-seafoam/20 dark:border-seafoam/10' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300 hover:bg-white/50 dark:hover:bg-zinc-900/50 disabled:opacity-20 disabled:cursor-not-allowed'}`}
                      >
