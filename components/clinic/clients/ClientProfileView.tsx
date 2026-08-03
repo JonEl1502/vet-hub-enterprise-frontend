@@ -12,6 +12,7 @@ import { clientDiscountsAPI, clientsAPI, messagingAPI, toast, PlatformMessage } 
 import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell, Star, ScrollText, FolderOpen } from 'lucide-react';
 import RemindersApptsTab from '../shared/RemindersApptsTab';
 import ClientPaymentsTab from './ClientPaymentsTab';
+import ClientBillsTab from './ClientBillsTab';
 import ClientAccountHub, { ClientStatementTab, ClientFilesTab, preferredMethod } from './ClientAccountHub';
 import { ClientBilling } from '../../../services/modules/clients.api';
 import { formatDate, formatDateTime } from '../../../services/utils/dateFormatter';
@@ -1322,11 +1323,12 @@ const renderOverview = () => (
         {/* Payments (tab id stays 'transactions' for deep links): the account
             hub — stat cards, timeline, summary donut, quick actions. */}
         {/* Financials — one tab, five sub-views. */}
-        {['transactions', 'invoices', 'receipts', 'statements', 'discounts'].includes(activeTab) && (
+        {['transactions', 'bills', 'invoices', 'receipts', 'statements', 'discounts'].includes(activeTab) && (
           <div className="flex flex-wrap items-center gap-1.5 mb-4">
             {[
               { id: 'transactions', label: 'Overview' },
-              { id: 'invoices', label: 'Bills' },
+              { id: 'bills', label: 'Bills' },
+              { id: 'invoices', label: 'Invoices' },
               { id: 'receipts', label: 'Receipts' },
               { id: 'statements', label: 'Statements' },
               { id: 'discounts', label: 'Discounts & Credits' },
@@ -1355,8 +1357,19 @@ const renderOverview = () => (
             onGoTab={setActiveTab}
           />
         )}
-        {/* Invoices: the collect flow — multi-select outstanding bills into ONE
-            reversible payment, printable invoice documents per row. */}
+        {/* Bills — stage one of Bill → Invoice → Payment → Receipt: the bill
+            document per visit, and the button that turns it into an invoice. */}
+        {activeTab === 'bills' && (
+          <ClientBillsTab
+            clientId={client.id}
+            currency={client.currency || 'KES'}
+            canManage={hasFullAccess}
+            onViewVisit={onViewAppointment}
+            onChanged={loadBilling}
+          />
+        )}
+        {/* Invoices: the collect flow — multi-select outstanding invoices into
+            ONE reversible payment, printable invoice documents per row. */}
         {activeTab === 'invoices' && (
           <ClientPaymentsTab
             clientId={client.id}

@@ -22,6 +22,7 @@ import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import ClientAccountHub, { ClientStatementTab, preferredMethod } from '../clients/ClientAccountHub';
 import ClientPaymentsTab from '../clients/ClientPaymentsTab';
+import ClientBillsTab from '../clients/ClientBillsTab';
 import type { ClientBilling } from '../../../services/modules/clients.api';
 
 /**
@@ -89,7 +90,7 @@ const PetProfileView: React.FC<Props> = ({
   );
   const [vaccineTab, setVaccineTab] = useState<'timeline' | 'history'>('timeline');
   // Financials sub-views — the same five the client profile has.
-  const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'invoices' | 'receipts' | 'statements' | 'discounts'>('overview');
+  const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'bills' | 'invoices' | 'receipts' | 'statements' | 'discounts'>('overview');
   // Records sub-tabs: all visits · clinical records · vaccinations ·
   // deworming · grooming · boarding · inpatient.
   // A deep-linked visit (initialVisitId) lands on Clinical Records with that
@@ -1788,7 +1789,8 @@ const PetProfileView: React.FC<Props> = ({
               <div className="flex flex-wrap items-center gap-1.5 mb-4">
                 {[
                   { id: 'overview', label: 'Overview' },
-                  { id: 'invoices', label: 'Bills' },
+                  { id: 'bills', label: 'Bills' },
+                  { id: 'invoices', label: 'Invoices' },
                   { id: 'receipts', label: 'Receipts' },
                   { id: 'statements', label: 'Statements' },
                   { id: 'discounts', label: 'Discounts & Credits' },
@@ -1821,6 +1823,18 @@ const PetProfileView: React.FC<Props> = ({
                   }}
                   petId={pet.id}
                   petName={pet.name}
+                />
+              )}
+              {/* Stage one: the bill document per visit, and the button that
+                  turns it into an invoice. */}
+              {financeSubTab === 'bills' && (
+                <ClientBillsTab
+                  clientId={owner.id}
+                  currency={currency}
+                  petId={pet.id}
+                  canManage={hasFullAccess}
+                  onViewVisit={onViewAppointment}
+                  onChanged={loadBilling}
                 />
               )}
               {/* Collecting from here settles the OWNER's account — the list is

@@ -146,7 +146,15 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
    * `collectable` is the server's own "this visit is finalized" signal, so the
    * list and the collect flow agree by construction.
    */
-  const invoiceable = invoices.filter(i => i.collectable || i.isPaid || (i.invoices?.length ?? 0) > 0);
+  /**
+   * The INVOICES view lists invoice DOCUMENTS only (user, 2026-08-03: "on visit
+   * created dont show shit in invoices tab till bill generates it"). A visit
+   * that has only accrued charges is a BILL and lives on the Bills tab, where
+   * its invoice is generated; it appears here the moment that happens.
+   */
+  const invoiceable = only === 'invoices'
+    ? invoices.filter(i => (i.invoices?.length ?? 0) > 0)
+    : invoices.filter(i => i.collectable || i.isPaid || (i.invoices?.length ?? 0) > 0);
   const notYetInvoiced = invoices.filter(i => !invoiceable.includes(i));
   const allOpen = invoiceable.filter(i => !i.isPaid);
 
@@ -403,7 +411,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
               front desk wondering where a visit went. */}
           {notYetInvoiced.length > 0 && (
             <p className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-[10px] font-bold text-slate-500 dark:text-zinc-400">
-              {notYetInvoiced.length} open visit{notYetInvoiced.length === 1 ? '' : 's'} not shown — an invoice is raised once the visit is finalized and billed.
+              {notYetInvoiced.length} bill{notYetInvoiced.length === 1 ? '' : 's'} not shown — they become invoices on the Bills tab, where you generate the invoice.
             </p>
           )}
           {canCollect && selectable.length > 0 && (

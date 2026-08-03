@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: Bills tab before Invoices — the bill document, and where its invoice is generated  —  2026-08-03
+- **What changed:** (user: "Bills tab b4 Invoice … and can generate its invoice there.
+  on visit created dont show shit in invoices tab till bill generates it") Financials
+  now reads **Overview · Bills · Invoices · Receipts · Statements · Discounts & Credits**
+  on both the client and patient profiles. New `ClientBillsTab`: one row per visit with
+  charges; opening a row renders the **bill document** in the same layout as the visit's
+  Bill Review (BILL · number, status chip, the "backfilled from the visit record" warning,
+  the Item/Kind/Qty/Unit/Line table and the total) with **Generate invoice** on it. The
+  **Invoices** tab now lists invoice DOCUMENTS only — a visit that has merely accrued
+  charges is a bill and stays out of it until the invoice is generated.
+- **Record impact:** 🔵 Low — "Generate invoice" writes (`POST /visits/:id/invoice`), the
+  same call the visit's Bill Review already makes. Opening a bill row calls
+  `GET /visits/:id/bill`, which materializes a DRAFT bill when the visit has none.
+- **Data dependency:** None — bills (100) and invoices (101) are long live.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** ① the Invoices tab is also the COLLECT flow, so an approved-but-not-
+  invoiced bill can no longer be settled from there — generate its invoice on the Bills
+  tab first (one click). That is the point of the chain, but it changes the front desk's
+  shortest path. ② `GET /visits/:id/bill` is a write in disguise; it is called ONLY when
+  a row is explicitly opened, never on list render. Keep it that way.
+
 ### page: admin Plans — ONE catalog, ONE api; tab bugs fixed  —  2026-08-03
 - **What changed:** (user, S1; backend 113) the supplier api adapter is GONE — every tab
   drives the single `subscriptionPackagesAPI`, with supplier plans as audiences=['SUPPLIER']
