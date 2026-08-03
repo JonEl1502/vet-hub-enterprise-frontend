@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Records lists every record type, always  —  2026-08-03
+- **What changed:** (user: "add boarding and inpatient too") the Records sub-tab row is
+  no longer conditional — **Grooming, Boarding and Inpatient** now always appear
+  alongside All Visits, Clinical Records, Vaccinations and Deworming, each with its own
+  empty state. This reverses 077's rule that a workflow tab only appears once the patient
+  has such a record.
+- **Record impact:** 🟢 None — reads only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the sub-tab row is now a fixed index of what a patient record CAN
+  hold, so an empty Boarding tab is expected, not a bug. Grooming became unconditional
+  too — it was on the same rule, and leaving it conditional would have kept the row
+  changing shape between patients.
+
 ### page: admin Plans — Add-ons are CARDS with an "offer to" picker  —  2026-08-03
 - **What changed:** (user, S1) the Add-ons tab drops the always-open plan editor for a
   card grid: each add-on shows name, price/cycle, an Active toggle, its key count, and

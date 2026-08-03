@@ -1480,12 +1480,15 @@ const PetProfileView: React.FC<Props> = ({
                { id: 'history', label: 'Clinical Records', icon: Clipboard },
                { id: 'vaccinations', label: 'Vaccinations', icon: ShieldCheck },
                { id: 'deworming', label: 'Deworming', icon: Shield },
-               // Workflow records only appear once the patient HAS one — an
-               // empty Boarding tab on a patient that has never boarded is
-               // noise, which is why 077 made them conditional.
-               ...(groomingVisits.length > 0 ? [{ id: 'grooming' as const, label: 'Grooming', icon: Smile }] : []),
-               ...(boardingVisits.length > 0 || petStays.length > 0 ? [{ id: 'boarding' as const, label: 'Boarding', icon: Building2 }] : []),
-               ...(petHosps.length > 0 ? [{ id: 'inpatient' as const, label: 'Inpatient', icon: BadgeCheck }] : []),
+               // Every record type is always listed (user, 2026-08-03: "add
+               // boarding and inpatient too"). This reverses 077's conditional
+               // tabs: a patient with no boarding history now gets a Boarding
+               // sub-tab with an empty state, rather than no sub-tab at all —
+               // the sub-tab row is the index of what a record CAN hold, and a
+               // row that changes shape per patient is harder to learn.
+               { id: 'grooming', label: 'Grooming', icon: Smile },
+               { id: 'boarding', label: 'Boarding', icon: Building2 },
+               { id: 'inpatient', label: 'Inpatient', icon: BadgeCheck },
              ] as const).map(st => (
                <button
                  key={st.id}
