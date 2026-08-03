@@ -750,6 +750,18 @@ const VisitDetailInner: React.FC<Props> = ({
   // Onboard-to-stay via the FULL admit checklist (vaccination / belongings /
   // cage / feeding), not a bare auto-create. Drives AdmitBoarding/InpatientModal.
   const [admitModal, setAdmitModal] = useState<null | 'BOARDING' | 'INPATIENT'>(null);
+  // Pay-gate before a stay (user spec 7b, 2026-08-03): the visit's accrued
+  // bill settles IN FULL before the patient converts to boarding/in-patient.
+  // Owner/manager may override for a health danger — recorded and flagged.
+  const [payGate, setPayGate] = useState<null | 'BOARDING' | 'INPATIENT'>(null);
+  const [gateOverrideReason, setGateOverrideReason] = useState('');
+  const GATE_OVERRIDE_ROLES = ['SUPER_ADMIN', 'MERCHANT_ADMIN', 'CLINIC_OWNER', 'CLINIC_MANAGER'];
+  const gateAdmit = (kind: 'BOARDING' | 'INPATIENT') => {
+    const owes = !appointment.isPaid && Number(appointment.totalCost || 0) > 0;
+    if (!owes) { setAdmitModal(kind); return; }
+    setGateOverrideReason('');
+    setPayGate(kind);
+  };
   // Service bundles available to apply to this visit (loaded when the Add
   // Services modal opens). Applying calls the server, which adds the bundle's
   // tasks + pricing, then we refresh.
@@ -2736,6 +2748,52 @@ const VisitDetailInner: React.FC<Props> = ({
 
   return (
     <div ref={billBarRootRef} className="space-y-6 animate-in slide-in-from-bottom-2 duration-300 pb-20">
+      {/* Pay-gate before boarding/in-patient (spec 7b): settle in full first;
+          owner/manager may override for a health danger — recorded + flagged. */}
+      {payGate && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[800] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setPayGate(null)}>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-md w-full p-5 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <h2 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-1">Settle before admitting</h2>
+            <p className="text-xs font-bold text-slate-500 dark:text-zinc-400 leading-relaxed mb-4">
+              This visit has <span className="text-pine dark:text-zinc-100 font-black">{activeClinic?.currency || 'KES'} {Number(appointment.totalCost || 0).toLocaleString()}</span> accrued.
+              The current bill settles <span className="text-pine dark:text-zinc-100 font-black">in full</span> before the patient moves to {payGate === 'BOARDING' ? 'boarding' : 'in-patient'} —
+              the stay then runs on its own estimate.
+            </p>
+            <button
+              onClick={() => { setPayGate(null); openSettleModal(); }}
+              className="w-full flex items-center justify-center gap-2 py-3 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all">
+              <CreditCard size={14} /> Settle bill now
+            </button>
+            {GATE_OVERRIDE_ROLES.includes(String(currentUser?.role)) && (
+              <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-2">
+                <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Owner/manager override — health danger only</p>
+                <input
+                  value={gateOverrideReason}
+                  onChange={e => setGateOverrideReason(e.target.value)}
+                  placeholder="Why must this patient be admitted before payment?"
+                  className="field-input text-xs"
+                />
+                <button
+                  disabled={gateOverrideReason.trim().length < 5}
+                  onClick={() => {
+                    const kind = payGate;
+                    visitsAPI.addEvent(appointment.id, {
+                      label: `⚠ PAY-GATE OVERRIDDEN — admitted to ${kind === 'BOARDING' ? 'boarding' : 'in-patient'} with ${activeClinic?.currency || 'KES'} ${Number(appointment.totalCost || 0).toLocaleString()} unsettled — health danger: ${gateOverrideReason.trim()} — by ${(currentUser as any)?.name || currentUser?.email || 'staff'}`,
+                      kind: 'alert',
+                    }).catch(() => {});
+                    toast.error('Pay-gate overridden — flagged on the visit record');
+                    setPayGate(null);
+                    setAdmitModal(kind);
+                  }}
+                  className="w-full py-2.5 rounded-xl border border-amber-400 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest hover:bg-amber-500 hover:text-white transition-all disabled:opacity-40">
+                  Admit without payment — flag it
+                </button>
+              </div>
+            )}
+            <button onClick={() => setPayGate(null)} className="w-full mt-2 py-2 text-slate-400 text-[10px] font-black uppercase tracking-widest hover:text-rose-500 transition-colors">Cancel</button>
+          </div>
+        </div>
+      )}
       {/* Full-page loading overlay for manual save */}
       {isManualSaving && (
         <div className="fixed inset-0 z-[100] bg-black/30 flex items-center justify-center">
@@ -3185,7 +3243,7 @@ const VisitDetailInner: React.FC<Props> = ({
         {/* No linked stay yet — onboard through the full admit checklist
             (vaccination, belongings, cage record, feeding/medication). */}
         {canGenerateStay && (
-          <button onClick={() => setAdmitModal(appointment.encounterType === 'BOARDING' ? 'BOARDING' : 'INPATIENT')}
+          <button onClick={() => gateAdmit(appointment.encounterType === 'BOARDING' ? 'BOARDING' : 'INPATIENT')}
             className="w-full flex items-center justify-between gap-2 px-4 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 border-t border-amber-500/20 transition-all disabled:opacity-60">
             <span className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
               <Stethoscope size={13} />
@@ -3357,7 +3415,7 @@ const VisitDetailInner: React.FC<Props> = ({
           // Hospitalization escalation lives HERE (next to Escalate to
           // Emergency), not at registration — a consultation escalates to
           // inpatient during the workflow. Opens the full admit checklist.
-          onHospitalize={!isFinalized && appointment.encounterType === 'VET_VISIT' && !appointment.hospitalizationId ? () => setAdmitModal('INPATIENT') : undefined}
+          onHospitalize={!isFinalized && appointment.encounterType === 'VET_VISIT' && !appointment.hospitalizationId ? () => gateAdmit('INPATIENT') : undefined}
           // Anything added is deletable until the bill is paid (server
           // enforces the same lock) — powers the diagnostics-step delete.
           onDeleteTask={!visitClosed ? (taskId: number) => onDeleteTask(appointment.id, taskId) : undefined}

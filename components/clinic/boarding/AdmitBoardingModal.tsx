@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Home, Loader2, Search, ShieldCheck, Dog, ArrowLeft, CalendarClock } from 'lucide-react';
+import { Home, Loader2, Search, ShieldCheck, Dog, ArrowLeft, CalendarClock, Calculator } from 'lucide-react';
 import { Pet } from '../../../types';
-import { boardingAPI, visitsAPI } from '../../../services';
+import { boardingAPI, visitsAPI, clientsAPI, toast } from '../../../services';
 import FoodProgramFields, { FoodProgram } from '../shared/FoodProgramFields';
 import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
 import BoardingIntakeFields, { emptyBoardingIntake, BoardingIntakeValue } from '../shared/BoardingIntakeFields';
@@ -42,6 +42,24 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
   const clientAgreed = gate.clientAgreed;
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Stay ESTIMATE (user spec 7b, 2026-08-03): once the visit's own bill is
+  // settled, the stay is quoted up front — (food/day × days) + (rate × days) —
+  // and the client either pays it NOW (banked as client credit that discharge
+  // billing draws automatically) or pays at pickup.
+  const [payChoice, setPayChoice] = useState<'discharge' | 'now'>('discharge');
+  const [payMethod, setPayMethod] = useState('CASH');
+  const estDays = useMemo(() => {
+    if (!intake.expectedPickupAt) return null;
+    const fromT = dropOffAt ? new Date(dropOffAt).getTime() : Date.now();
+    const toT = new Date(intake.expectedPickupAt).getTime();
+    if (!(toT > fromT)) return null;
+    return Math.max(1, Math.ceil((toT - fromT) / 86_400_000));
+  }, [dropOffAt, intake.expectedPickupAt]);
+  const estRate = Number(intake.dailyRate) || 0;
+  const estFoodPerDay = (!intake.food?.providedByClient && intake.food?.billable !== false)
+    ? (Number(intake.food?.ratePerMeal) || 0) * (Number(intake.food?.mealsPerDay) || 0) : 0;
+  const estTotal = estDays != null ? (estRate + estFoodPerDay) * estDays : null;
 
   // Pre-fill the daily rate from the clinic default each time the page opens
   // (only when the user hasn't already typed one).
@@ -103,6 +121,20 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
         emergencyContact: intake.emergencyContact || undefined,
       });
       if (res.success) {
+        // Estimate prepayment — lands as client credit; the discharge
+        // collection draws it before asking for cash (server `useCredit`).
+        if (payChoice === 'now' && estTotal != null && estTotal > 0) {
+          try {
+            await clientsAPI.recordAdvance(clientId, {
+              amount: estTotal,
+              paymentMethod: payMethod,
+              note: `Boarding estimate prepayment — ${selectedPet.name}, ${estDays} day${estDays === 1 ? '' : 's'} (rate ${estRate}/day${estFoodPerDay ? ` + food ${estFoodPerDay}/day` : ''})`,
+            });
+            toast.success(`Estimate collected — banked as client credit; discharge billing draws it automatically`);
+          } catch {
+            toast.error("Admitted, but the estimate payment failed — record it from the client's Payments tab.");
+          }
+        }
         // Journey log + (if agreed) vaccination work on the stay's visit.
         const stay: any = (res.data as any)?.stay ?? res.data;
         const apptId = stay?.appointmentId;
@@ -200,6 +232,58 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
           petWeight={(selectedPet as any)?.weight ?? null}
           petWeightAt={(selectedPet as any)?.updatedAt ?? null}
         />
+
+        {/* Stay estimate — quoted up front from expected pickup + rate + food
+            program; pay now (banks as credit) or at discharge. */}
+        {estDays != null && (estRate > 0 || estFoodPerDay > 0) && (
+          <section className="bg-white dark:bg-zinc-900 border border-seafoam/30 rounded-2xl p-4 shadow-sm space-y-3">
+            <p className="text-[11px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5">
+              <Calculator size={13} /> Stay estimate · {estDays} day{estDays === 1 ? '' : 's'}
+            </p>
+            <div className="space-y-1.5">
+              {estRate > 0 && (
+                <div className="flex justify-between text-xs font-bold text-slate-600 dark:text-zinc-300">
+                  <span>Boarding — {estRate.toLocaleString()} × {estDays} day{estDays === 1 ? '' : 's'}</span>
+                  <span className="font-black font-mono text-pine dark:text-zinc-100">{(estRate * estDays).toLocaleString()}</span>
+                </div>
+              )}
+              {estFoodPerDay > 0 && (
+                <div className="flex justify-between text-xs font-bold text-slate-600 dark:text-zinc-300">
+                  <span>Food — {(Number(intake.food?.ratePerMeal) || 0).toLocaleString()} × {Number(intake.food?.mealsPerDay) || 0} meal{(Number(intake.food?.mealsPerDay) || 0) === 1 ? '' : 's'}/day × {estDays} day{estDays === 1 ? '' : 's'}</span>
+                  <span className="font-black font-mono text-pine dark:text-zinc-100">{(estFoodPerDay * estDays).toLocaleString()}</span>
+                </div>
+              )}
+              <div className="flex justify-between pt-1.5 border-t border-slate-100 dark:border-zinc-800 text-sm">
+                <span className="font-black uppercase tracking-wide text-pine dark:text-zinc-100">Estimated total</span>
+                <span className="font-black font-mono text-seafoam">{(estTotal ?? 0).toLocaleString()}</span>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {([['discharge', 'Pay at discharge'], ['now', 'Collect estimate now']] as const).map(([v, l]) => (
+                <button key={v} type="button" onClick={() => setPayChoice(v)}
+                  className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                    payChoice === v ? 'bg-seafoam text-white border-seafoam' : 'bg-white dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
+                  }`}>
+                  {l}
+                </button>
+              ))}
+              {payChoice === 'now' && (
+                <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
+                  className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none">
+                  <option value="CASH">Cash</option>
+                  <option value="MPESA">M-Pesa</option>
+                  <option value="CARD">Card</option>
+                  <option value="BANK_TRANSFER">Bank transfer</option>
+                </select>
+              )}
+            </div>
+            <p className="text-[10px] font-bold text-slate-400 leading-relaxed">
+              {payChoice === 'now'
+                ? 'Collected now and banked as client credit — the discharge bill draws it automatically; any difference settles then.'
+                : 'Nothing collected now — the stay accrues per day and the whole bill settles at pickup.'}
+            </p>
+          </section>
+        )}
 
         <div className="flex gap-3 pt-2 border-t border-slate-200 dark:border-zinc-800">
           <button type="button" onClick={onClose} disabled={submitting} className="flex-1 px-6 py-3 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-black text-sm uppercase tracking-wide hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-50">Cancel</button>

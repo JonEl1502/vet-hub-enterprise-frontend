@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: pay-gated admission + up-front stay estimate (spec 7b, phase 1: boarding)  —  2026-08-03
+- **What changed:** (user spec 7b Q1+Q2, S1) ① Onboard-to-boarding / Hospitalize now
+  pay-gates: if the visit has an unsettled accrued bill, a modal requires **Settle bill
+  now** (jumps into the existing settle flow) before admitting. Owner/manager can
+  **override for a health danger** — requires a typed reason and writes a flagged
+  `⚠ PAY-GATE OVERRIDDEN` journey event naming the amount, reason and who did it.
+  ② The boarding admit page now shows a **Stay estimate** once expected pickup + rate
+  are set — (rate × days) + (ratePerMeal × mealsPerDay × days, when the clinic provides
+  billable food) — with the user's choice: **Pay at discharge** (default; stay accrues as
+  today) or **Collect estimate now**, which records the amount as a client ADVANCE
+  (banked credit) that the discharge collection draws automatically before asking for
+  cash (the `useCredit` flow).
+- **Record impact:** 🟢 — override writes a `visit_events` row; prepayment writes the
+  same advance transaction the Payments tab records.
+- **Data dependency:** None (advance + credit endpoints live).
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the estimate is a QUOTE, not a bill — nothing is invoiced at admit;
+  actual accruals bill at discharge and the credit absorbs them. Inpatient admission has
+  the pay-gate but no estimate card yet (its costing is treatment-driven, not per-day-rate).
+
 ### page: Wallet becomes its own page in the Finance & BI design, opened from Quick Action  —  2026-08-03
 - **What changed:** (user, 2026-08-03) `ClinicWallet` gains the same shell as Finance &
   Business Intelligence — a real `PageHeader` (it had none) plus a 5-card KPI ribbon
