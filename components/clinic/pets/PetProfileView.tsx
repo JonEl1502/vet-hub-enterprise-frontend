@@ -16,7 +16,6 @@ import { clientsAPI } from '../../../services';
 import { toast } from '../../../services/utils/toast';
 import { remindersAPI, appointmentsAPI } from '../../../services';
 import type { Reminder, Appointment } from '../../../services';
-import { Transaction } from '../../../services/modules/transactions.api';
 import { Heart, Activity, Calendar, CalendarPlus, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical, Smile, Camera, Loader2, User, Phone } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
@@ -33,7 +32,6 @@ interface Props {
   activeClinic?: Clinic;
   clinics: Clinic[];
   appointments: Visit[];
-  transactions?: Transaction[];
   allPets: Pet[];
   onBack: () => void;
   initialTab?: string;
@@ -56,7 +54,7 @@ interface Props {
 }
 
 const PetProfileView: React.FC<Props> = ({
-  pet, owner, activeClinic, clinics, appointments, transactions = [], allPets, onBack, initialTab = 'overview',
+  pet, owner, activeClinic, clinics, appointments, allPets, onBack, initialTab = 'overview',
   onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onSettleVisit, onViewAppointment, onViewOwner, initialVisitId
 }) => {
   // Pet photo: local override so the header updates the moment it uploads,

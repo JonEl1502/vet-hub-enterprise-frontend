@@ -2499,7 +2499,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           activeClinic={firstActiveClinic}
           clinics={store.clinics}
           appointments={appointments.filter(a => a.petId === pId)}
-          transactions={transactions}
           allPets={pets}
           onBack={goBack}
           initialTab={currentNav.params?.initialTab || 'overview'}
