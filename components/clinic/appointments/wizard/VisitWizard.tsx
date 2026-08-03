@@ -26,7 +26,7 @@ import CommunicationStep from './steps/CommunicationStep';
 import FollowUpStep from './steps/FollowUpStep';
 import DewormingStep from './steps/DewormingStep';
 import PriorPlanStep from './steps/PriorPlanStep';
-import { GenericEntryStep, EmergencyEntryStep, GroomingCareStep } from './steps/EntrySteps';
+import { GenericEntryStep, EmergencyEntryStep, GroomingCareStep, BoardingEntryStep, AdmissionEntryStep } from './steps/EntrySteps';
 
 // The Dynamic Visit Workflow shell: entry-point-driven stepper + live
 // Patient Journey sidebar + running-bill rail. UI-ONLY phase — every step
@@ -219,6 +219,11 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
 
     if (currentStep === 'emergencyTriage') return <EmergencyEntryStep {...stepProps} />;
     if (currentStep === 'groomingCare') return <GroomingCareStep {...stepProps} />;
+    // Boarding / admission steps carry the REAL module page embedded below
+    // their gate-check (user, 2026-08-03) — same records the module pages
+    // read, so either surface works on the same stay/chart.
+    if (currentStep === 'boardingAssessment') return <BoardingEntryStep {...stepProps} />;
+    if (currentStep === 'admission') return <AdmissionEntryStep {...stepProps} />;
 
     const Core = CORE_STEPS[currentStep];
 

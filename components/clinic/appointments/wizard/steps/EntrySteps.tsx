@@ -4,6 +4,8 @@ import { StepProps } from '../types';
 import { Section, L, Seg, CheckGrid } from '../fields';
 import EmergencyTriagePanel from '../../../triage/EmergencyTriagePanel';
 import GroomingPanel from '../../GroomingPanel';
+import BoardingStayPage from '../../../boarding/BoardingStayPage';
+import InpatientChartPage from '../../../inpatient/InpatientChartPage';
 import { useData } from '../../../../../contexts/DataContext';
 import { petsAPI } from '../../../../../services';
 import { VACCINES } from '../../../../../constants/vaccines';
@@ -306,6 +308,55 @@ export const GroomingCareStep: React.FC<StepProps> = ({ visit, refreshVisit, emi
     appointment={visit}
     onSaved={() => { emit('Grooming report card updated', 'action', true); refreshVisit?.(); }}
   />
+);
+
+// Boarding entry step — the gate-check intake PLUS the real boarding-stay
+// page embedded below it (user, 2026-08-03: "inject the module pages into the
+// visit workflow"), so care logs, feeding, consumables and day sheets are
+// worked right here — same record the Boarding page reads, one surface.
+// The stay itself is still created via Onboard-to-boarding (visit header /
+// registration gate check) — this step manages it once it exists.
+export const BoardingEntryStep: React.FC<StepProps> = ({ visit, pet, data, setData, refreshVisit, emit }) => (
+  <div className="space-y-4">
+    <GateCheckForm formKey="boardingAssessment" data={data} setData={setData} petId={pet?.id} pet={pet} />
+    {visit.boardingStayId ? (
+      <div className="pt-4 border-t-2 border-dashed border-slate-200 dark:border-zinc-800">
+        <BoardingStayPage
+          stayId={String(visit.boardingStayId)}
+          embedded
+          onBack={() => {}}
+          onChanged={() => { emit('Boarding stay updated', 'action', true); refreshVisit?.(); }}
+        />
+      </div>
+    ) : (
+      <p className="px-3 py-2.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+        No boarding stay linked yet — Onboard to boarding from the visit header and the full stay (care logs, feeding, consumables) manages right here.
+      </p>
+    )}
+  </div>
+);
+
+// Hospital admission step — same treatment for inpatients: the admission
+// intake plus the real inpatient chart (MAR, fluids, feeding, nursing and
+// progress notes, discharge) embedded once the patient is hospitalized.
+export const AdmissionEntryStep: React.FC<StepProps> = ({ visit, pet, data, setData, refreshVisit, emit }) => (
+  <div className="space-y-4">
+    <GateCheckForm formKey="admission" data={data} setData={setData} petId={pet?.id} pet={pet} />
+    {visit.hospitalizationId ? (
+      <div className="pt-4 border-t-2 border-dashed border-slate-200 dark:border-zinc-800">
+        <InpatientChartPage
+          hospId={String(visit.hospitalizationId)}
+          embedded
+          onBack={() => {}}
+          onChanged={() => { emit('Inpatient chart updated', 'action', true); refreshVisit?.(); }}
+        />
+      </div>
+    ) : (
+      <p className="px-3 py-2.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+        Not hospitalized yet — use Hospitalize / In-Patient on the visit header and the full chart (MAR, fluids, notes) manages right here.
+      </p>
+    )}
+  </div>
 );
 
 // Emergency entry — wraps the existing (already API-backed) triage +

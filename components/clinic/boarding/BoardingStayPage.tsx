@@ -17,12 +17,15 @@ interface Props {
   onChanged?: () => void;
   onOpenAppointment?: (appointmentId: string, settle?: boolean) => void;
   onOpenGrooming?: (appointmentId: string) => void;
+  /** Rendered inside the visit wizard's Boarding step — hides the page-level
+   * back link (the wizard provides its own navigation). */
+  embedded?: boolean;
 }
 
 const STOOL = ['normal', 'abnormal', 'none'];
 const APPETITE = ['excellent', 'good', 'fair', 'poor', 'none'];
 
-const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAppointment, onOpenGrooming }) => {
+const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAppointment, onOpenGrooming, embedded }) => {
   const [stay, setStay] = useState<BoardingStay | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -231,11 +234,14 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   const active = stay?.status === 'ADMITTED';
 
   return (
-    <div className="space-y-5 pb-20 animate-in fade-in duration-300">
-      {/* Header — Lab-style back link + pine banner */}
-      <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all">
-        <ArrowLeft size={13} /> Boarding
-      </button>
+    <div className={`space-y-5 animate-in fade-in duration-300 ${embedded ? '' : 'pb-20'}`}>
+      {/* Header — Lab-style back link + pine banner (link hidden when the
+          page is embedded in the visit wizard's Boarding step) */}
+      {!embedded && (
+        <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all">
+          <ArrowLeft size={13} /> Boarding
+        </button>
+      )}
       <div>
         <div className="bg-gradient-to-br from-pine to-pine/90 text-white p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 shadow-xl">
           <div className="flex items-center gap-3 min-w-0">

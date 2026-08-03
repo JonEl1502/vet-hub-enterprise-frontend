@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: boarding stay + inpatient chart EMBEDDED in the visit wizard  —  2026-08-03
+- **What changed:** (user, S1) the Boarding Assessment and Hospital Admission wizard steps
+  now carry the REAL module page below their gate-check — `BoardingStayPage` (care logs,
+  feeding, consumables, day sheets) when `visit.boardingStayId` is set, `InpatientChartPage`
+  (MAR, fluids, feeding, nursing/progress notes, discharge) when `visit.hospitalizationId`
+  is set — same records the module pages read, one surface, mirroring how the grooming
+  report card is already embedded. New `embedded` prop on both pages hides their page-level
+  back link. No stay/chart yet → an amber hint pointing at the header's Onboard/Hospitalize
+  action (creation stays where it was — the gate keeps living at creation).
+- **Record impact:** 🟢 None — same APIs, new mount point.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the embed renders whole pages inside a wizard step — if either page
+  ever regains root `p-*`/`mx-auto` chrome, it will double up inside the step (§0d).
+
 ### component: ONE boarding intake and ONE grooming intake — Admit and New Visit now identical  —  2026-08-03
 - **What changed:** (user, 2026-08-03: "ui is not same when creating boarding from Admit and
   from new Visit. both must be exactly the same from now on. even grooming for both its

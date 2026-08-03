@@ -15,7 +15,12 @@ import { useData } from '../../../contexts/DataContext';
 const FRACTIONAL_UNITS = new Set(['ml', 'mg', 'g', 'l', 'cc', 'mcg', 'iu']);
 const stepFor = (unit?: string) => (unit && FRACTIONAL_UNITS.has(unit.toLowerCase()) ? 0.1 : 1);
 
-interface Props { hospId: string; onBack: () => void; onChanged?: () => void; onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; }
+interface Props {
+  hospId: string; onBack: () => void; onChanged?: () => void; onOpenAppointment?: (appointmentId: string, settle?: boolean) => void;
+  /** Rendered inside the visit wizard's Admission step — hides the page-level
+   * back link (the wizard provides its own navigation). */
+  embedded?: boolean;
+}
 
 const OUTCOMES: DischargeOutcome[] = ['RECOVERED', 'IMPROVED', 'UNCHANGED', 'DEFERRED', 'DECEASED'];
 const LOG_KINDS: { value: LogKind; label: string }[] = [
@@ -45,7 +50,7 @@ const logSummary = (kind: LogKind, d: Record<string, any>): string => {
   }
 };
 
-const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpenAppointment }) => {
+const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpenAppointment, embedded }) => {
   const [h, setH] = useState<Hospitalization | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -248,11 +253,14 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   const billOutstanding = !!h?.billing && !h.billing.isPaid && (h.billing.totalCost ?? 0) > 0;
 
   return (
-    <div className="space-y-5 pb-20 animate-in fade-in duration-300">
-      {/* Header — Lab-style back link + pine banner */}
-      <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all">
-        <ArrowLeft size={13} /> Inpatient
-      </button>
+    <div className={`space-y-5 animate-in fade-in duration-300 ${embedded ? '' : 'pb-20'}`}>
+      {/* Header — Lab-style back link + pine banner (link hidden when the
+          page is embedded in the visit wizard's Admission step) */}
+      {!embedded && (
+        <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all">
+          <ArrowLeft size={13} /> Inpatient
+        </button>
+      )}
       <div>
         <div className="bg-gradient-to-br from-pine to-pine/90 text-white p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 shadow-xl">
           <div className="flex items-center gap-3 min-w-0">
