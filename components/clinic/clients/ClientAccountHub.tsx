@@ -262,19 +262,25 @@ const ClientAccountHub: React.FC<Props> = ({
         {/* ── Left: filters + account timeline ── */}
         <div className="lg:col-span-2 space-y-3">
           <div className="flex flex-wrap items-center gap-2">
-            <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 overflow-x-auto no-scrollbar">
+            {/* These are TIMELINE FILTERS, not navigation. Styled as tabs they
+                read as duplicates of the page's own Invoices / Payments /
+                Receipts tabs directly above (user, 2026-08-03: "tab
+                repetition"), so they are chips behind a "Show" label — same
+                behaviour, no longer pretending to be a second tab bar. */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mr-0.5">Show</span>
               {([
-                { id: 'ALL' as const, label: 'All Transactions' },
-                { id: 'INVOICE' as const, label: 'Invoices' },
+                { id: 'ALL' as const, label: 'Everything' },
+                { id: 'INVOICE' as const, label: 'Charges' },
                 { id: 'PAYMENT' as const, label: 'Payments' },
                 { id: 'CREDIT' as const, label: 'Credits' },
                 { id: 'REFUND' as const, label: 'Refunds' },
               ]).map(f => (
                 <button key={f.id} onClick={() => { setFilter(f.id); setShown(PAGE); }}
-                  className={`px-3.5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest whitespace-nowrap transition-all ${
+                  className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap border transition-all ${
                     filter === f.id
-                      ? 'bg-white dark:bg-zinc-800 text-seafoam shadow-sm border border-seafoam/30'
-                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300 border border-transparent'
+                      ? 'bg-seafoam text-white border-seafoam'
+                      : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:text-seafoam'
                   }`}>
                   {f.label}
                 </button>

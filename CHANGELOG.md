@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: client Payments — inner row no longer looks like a second tab bar  —  2026-08-03
+- **What changed:** (user, 2026-08-03: "tab repetition") the account timeline's
+  All/Invoices/Payments/Credits/Refunds row was styled as tabs directly beneath the client
+  profile's own **Invoices / Payments / Receipts** tabs, so the same words appeared twice
+  and the inner set read as broken navigation. They are **filters over the timeline**, not
+  pages — now rendered as chips behind a "Show" label, with "All Transactions" → *Everything*
+  and "Invoices" → *Charges* so no label collides with a real tab.
+- **Record impact:** 🟢 None — identical behaviour, different affordance.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
+
 ### component: a wizard step can put its action in the bottom bar — grooming Save moves there  —  2026-08-03
 - **What changed:** (user, 2026-08-03: "move the Save report to the bottom bar") new
   `StepActionContext` lets a wizard step contribute a button to the wizard's fixed action
