@@ -73,6 +73,12 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
   scoped to this patient. `ClientAccountHub` gains optional `petId`/`petName`: it
   filters charges to the patient's visits and counts each payment only for the amount
   actually applied to those bills. `pet-profile?initialTab=transactions` still resolves.
+  Financials carries the **same five sub-views as the client page** — Overview ·
+  Invoices · Receipts · Statements · Discounts & Credits — each filtered to the
+  patient: `ClientPaymentsTab` gains `petId` (bills by pet, payments/receipts by the
+  visits they cover) and `ClientStatementTab` gains `petVisitIds` (rows filtered,
+  running balance and totals RECOMPUTED over the kept rows). Discounts & credits are
+  granted to the payer, so that sub-view says so and hands over to the owner's profile.
 - **Record impact:** 🟢 None — read-only over `/clients/:id/billing` + `/credit`.
 - **Data dependency:** None (endpoints already live; hub hides when there's no owner).
 - **Rollback:** revert the commit and rebuild.

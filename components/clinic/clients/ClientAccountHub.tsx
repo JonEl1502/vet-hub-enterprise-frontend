@@ -661,8 +661,20 @@ export const preferredMethod = (payments: ClientBilling['payments']) => {
   return top ? top[0] : '—';
 };
 
-/** Client → Statements tab: chronological charges/payments with running balance. */
-export const ClientStatementTab: React.FC<{ clientId: string | number; currency: string }> = ({ clientId, currency }) => {
+/**
+ * Client → Statements tab: chronological charges/payments with running balance.
+ *
+ * `petVisitIds` narrows it to one patient (the Patient → Financials tab). Every
+ * statement row — charge AND payment — carries the visit it belongs to, so the
+ * extract is exact; the running balance and the totals are recomputed over the
+ * kept rows rather than inherited from the whole account.
+ */
+export const ClientStatementTab: React.FC<{
+  clientId: string | number;
+  currency: string;
+  petVisitIds?: Set<string>;
+  petName?: string;
+}> = ({ clientId, currency, petVisitIds, petName }) => {
   const [rows, setRows] = React.useState<{
     date: string; kind: 'CHARGE' | 'PAYMENT'; description: string; visitId: string; charge: number; payment: number; balance: number;
   }[]>([]);
@@ -675,14 +687,30 @@ export const ClientStatementTab: React.FC<{ clientId: string | number; currency:
       try {
         const res = await clientsAPI.statement(clientId);
         if (live && res.success && res.data) {
-          setRows(res.data.rows ?? []);
-          setTotals({ balance: res.data.balance, credit: res.data.credit, totalCharged: res.data.totalCharged, totalPaid: res.data.totalPaid });
+          const all = res.data.rows ?? [];
+          if (petVisitIds) {
+            let running = 0;
+            const kept = all
+              .filter(r => petVisitIds.has(String(r.visitId)))
+              .map(r => { running += (r.charge || 0) - (r.payment || 0); return { ...r, balance: Math.max(running, 0) }; });
+            setRows(kept);
+            setTotals({
+              balance: Math.max(running, 0),
+              // Credit is money on the ACCOUNT, never on a patient.
+              credit: res.data.credit,
+              totalCharged: kept.reduce((s, r) => s + (r.charge || 0), 0),
+              totalPaid: kept.reduce((s, r) => s + (r.payment || 0), 0),
+            });
+          } else {
+            setRows(all);
+            setTotals({ balance: res.data.balance, credit: res.data.credit, totalCharged: res.data.totalCharged, totalPaid: res.data.totalPaid });
+          }
         }
       } catch { /* surfaced by the client */ }
       finally { if (live) setLoading(false); }
     })();
     return () => { live = false; };
-  }, [clientId]);
+  }, [clientId, petVisitIds]);
 
   if (loading) {
     return <div className="flex items-center justify-center py-16"><Loader2 size={20} className="animate-spin text-seafoam" /></div>;
@@ -696,7 +724,7 @@ export const ClientStatementTab: React.FC<{ clientId: string | number; currency:
             { label: 'Total Charged', value: money(totals.totalCharged, currency), cls: 'text-pine dark:text-zinc-100' },
             { label: 'Total Paid', value: money(totals.totalPaid, currency), cls: 'text-emerald-600 dark:text-emerald-400' },
             { label: 'Balance', value: money(totals.balance, currency), cls: totals.balance > 0 ? 'text-rose-500' : 'text-pine dark:text-zinc-100' },
-            { label: 'Credit', value: money(totals.credit, currency), cls: 'text-purple-500' },
+            { label: petVisitIds ? 'Owner Credit' : 'Credit', value: money(totals.credit, currency), cls: 'text-purple-500' },
           ].map(c => (
             <div key={c.label} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{c.label}</p>
@@ -708,8 +736,14 @@ export const ClientStatementTab: React.FC<{ clientId: string | number; currency:
 
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
         <div className="px-4 sm:px-5 py-4 border-b border-slate-100 dark:border-zinc-800">
-          <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Account Statement</h3>
-          <p className="text-[10px] font-bold text-slate-400">Chronological charges and payments with running balance</p>
+          <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">
+            {petVisitIds ? `Statement — ${petName || 'this patient'}` : 'Account Statement'}
+          </h3>
+          <p className="text-[10px] font-bold text-slate-400">
+            {petVisitIds
+              ? "Extract of the owner's account: this patient's charges and payments only"
+              : 'Chronological charges and payments with running balance'}
+          </p>
         </div>
         {rows.length === 0 ? (
           <div className="py-16 text-center opacity-40 uppercase font-black text-[10px] tracking-[0.2em]">No statement entries</div>

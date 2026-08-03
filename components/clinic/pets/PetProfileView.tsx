@@ -21,7 +21,8 @@ import { Heart, Activity, Calendar, CalendarPlus, Clipboard, Network, ArrowLeft,
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useAuth } from '../../../contexts/AuthContext';
-import ClientAccountHub, { preferredMethod } from '../clients/ClientAccountHub';
+import ClientAccountHub, { ClientStatementTab, preferredMethod } from '../clients/ClientAccountHub';
+import ClientPaymentsTab from '../clients/ClientPaymentsTab';
 import type { ClientBilling } from '../../../services/modules/clients.api';
 
 const BEHAVIOUR_TRAITS = ['Calm', 'Very happy', 'Likes petting', 'Well trained', 'Good with kids', 'Food motivated', 'Playful', 'Nervous', 'Anxious at vet', 'Aggressive', 'May bite', 'Hates nail trims', 'Vocal'];
@@ -78,6 +79,8 @@ const PetProfileView: React.FC<Props> = ({
     : initialTab
   );
   const [vaccineTab, setVaccineTab] = useState<'timeline' | 'history'>('timeline');
+  // Financials sub-views — the same five the client profile has.
+  const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'invoices' | 'receipts' | 'statements' | 'discounts'>('overview');
   // Medical Record sub-tabs: all visits · clinical records · vaccinations.
   // A deep-linked visit (initialVisitId) lands on Clinical Records with that
   // visit highlighted and scrolled into view.
@@ -274,6 +277,12 @@ const PetProfileView: React.FC<Props> = ({
   const petInvoices = useMemo(
     () => (billing?.invoices ?? []).filter(i => String(i.pet?.id ?? '') === String(pet.id)),
     [billing, pet.id],
+  );
+  // The visits that carry this patient's money — what the statement extract and
+  // the receipt/payment lists are filtered by.
+  const petVisitIdSet = useMemo(
+    () => new Set(petInvoices.map(i => String(i.visitId))),
+    [petInvoices],
   );
   const money2 = (n: number) =>
     `${currency} ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -1601,28 +1610,96 @@ const PetProfileView: React.FC<Props> = ({
            </div>
           );
         })()}
-        {/* Financials — the client page's account hub, narrowed to this
-            patient's bills. Money is owed by the OWNER, so an orphaned patient
-            has no account to show; collection itself stays on the client
-            profile (one payment can clear bills across several pets). */}
+        {/* Financials — the SAME five sub-views as the client page, filtered to
+            this patient. Money is owed by the OWNER, so an orphaned patient has
+            no account to show, and credit / discounts stay account-level. */}
         {activeTab === 'financials' && hasFullAccess && (
           owner ? (
-            <ClientAccountHub
-              client={owner}
-              billing={billing}
-              credit={creditBalance}
-              loading={billingLoading}
-              currency={currency}
-              canCollect={hasFullAccess}
-              onRefresh={loadBilling}
-              onViewVisit={onViewAppointment}
-              onGoTab={(t) => {
-                if (t === 'appointments') setActiveTab('medical');
-                else onViewOwner?.(owner.id, t);
-              }}
-              petId={pet.id}
-              petName={pet.name}
-            />
+            <>
+              <div className="flex flex-wrap items-center gap-1.5 mb-4">
+                {[
+                  { id: 'overview', label: 'Overview' },
+                  { id: 'invoices', label: 'Invoices' },
+                  { id: 'receipts', label: 'Receipts' },
+                  { id: 'statements', label: 'Statements' },
+                  { id: 'discounts', label: 'Discounts & Credits' },
+                ].map(t => (
+                  <button key={t.id} type="button" onClick={() => setFinanceSubTab(t.id as any)}
+                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                      financeSubTab === t.id
+                        ? 'bg-seafoam text-white border-seafoam'
+                        : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:text-seafoam'
+                    }`}>
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              {financeSubTab === 'overview' && (
+                <ClientAccountHub
+                  client={owner}
+                  billing={billing}
+                  credit={creditBalance}
+                  loading={billingLoading}
+                  currency={currency}
+                  canCollect={hasFullAccess}
+                  onRefresh={loadBilling}
+                  onViewVisit={onViewAppointment}
+                  onGoTab={(t) => {
+                    // The hub's quick actions address this page's own sub-tabs;
+                    // "New invoice" is a visit, which lives under Medical Record.
+                    if (t === 'appointments') setActiveTab('medical');
+                    else setFinanceSubTab(t as any);
+                  }}
+                  petId={pet.id}
+                  petName={pet.name}
+                />
+              )}
+              {/* Collecting from here settles the OWNER's account — the list is
+                  simply narrowed to this patient's bills. */}
+              {(financeSubTab === 'invoices' || financeSubTab === 'receipts') && (
+                <ClientPaymentsTab
+                  clientId={owner.id}
+                  currency={currency}
+                  canCollect={hasFullAccess}
+                  onViewVisit={onViewAppointment}
+                  onChanged={loadBilling}
+                  only={financeSubTab}
+                  petId={pet.id}
+                />
+              )}
+              {financeSubTab === 'statements' && (
+                <ClientStatementTab
+                  clientId={owner.id}
+                  currency={currency}
+                  petVisitIds={petVisitIdSet}
+                  petName={pet.name}
+                />
+              )}
+              {/* Discounts and credits are granted to the PAYER, not the
+                  patient — there is nothing pet-specific to filter, so this
+                  states the fact and hands over to the owner's profile. */}
+              {financeSubTab === 'discounts' && (
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 sm:p-8 flex flex-col items-center text-center gap-3 animate-in fade-in slide-in-from-bottom-4">
+                  <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-500"><Tag size={20} /></div>
+                  <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Discounts &amp; credits live on the account</h3>
+                  <p className="text-xs text-slate-400 dark:text-zinc-500 font-medium max-w-md">
+                    They are granted to <span className="font-black text-pine dark:text-zinc-200">{owner.name}</span> and can be spent on any
+                    of their patients, so there is nothing to filter to {pet.name}.
+                  </p>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                    Available credit: <span className="text-emerald-600 dark:text-emerald-400">{money2(creditBalance)}</span>
+                  </p>
+                  {onViewOwner && (
+                    <button
+                      onClick={() => onViewOwner(owner.id, 'discounts')}
+                      className="mt-1 flex items-center gap-2 px-4 py-2 bg-seafoam text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all shadow-sm"
+                    >
+                      Manage on {owner.name}'s profile <ChevronRight size={12} />
+                    </button>
+                  )}
+                </div>
+              )}
+            </>
           ) : (
             <div className="py-24 flex flex-col items-center justify-center gap-3 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
               <CreditCard size={32} className="text-slate-200 dark:text-zinc-700" />

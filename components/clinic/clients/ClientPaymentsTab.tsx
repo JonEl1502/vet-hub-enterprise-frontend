@@ -30,6 +30,13 @@ interface Props {
   /** Pin the tab to ONE view (and hide the sub-tab bar) — the client profile
    * now has top-level Invoices/Receipts tabs that each reuse this component. */
   only?: 'invoices' | 'payments' | 'receipts';
+  /**
+   * Narrow every list to ONE patient — the Patient → Financials tab reuses this
+   * over the OWNER's billing payload. Bills are matched by their pet; payments
+   * and receipts by the visits they cover. Collection still settles against the
+   * client's account, so a payment raised here can only cover this pet's bills.
+   */
+  petId?: string | number;
 }
 
 const METHODS = ['CASH', 'M_PESA', 'CARD', 'BANK_TRANSFER'];
@@ -39,7 +46,7 @@ const money = (n: number, c: string) =>
 
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
-const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, onViewVisit, onChanged, only }) => {
+const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, onViewVisit, onChanged, only, petId }) => {
   const { user } = useAuth();
   // Permanent deletion is owner/manager/admin only — mirrors the server's
   // role gate on DELETE /transactions/:id so the button isn't offered to
@@ -111,7 +118,24 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   }, [clientId]);
   React.useEffect(() => { load(); }, [load]);
 
-  const invoices = data?.invoices ?? [];
+  // Patient scope: bills belong to a pet directly, payments and receipts only
+  // through the visits they cover.
+  const petKey = petId != null ? String(petId) : null;
+  const invoices = petKey
+    ? (data?.invoices ?? []).filter(i => String(i.pet?.id ?? '') === petKey)
+    : (data?.invoices ?? []);
+  const petVisitIds = React.useMemo(
+    () => new Set(invoices.map(i => String(i.visitId))),
+    [invoices],
+  );
+  const payments = petKey
+    ? (data?.payments ?? []).filter(p => (p.coveredVisitIds ?? []).some(v => petVisitIds.has(String(v))))
+    : (data?.payments ?? []);
+  const receipts = petKey
+    ? (data?.receipts ?? []).filter(r =>
+        (r.visitId && petVisitIds.has(String(r.visitId)))
+        || (r.coveredVisitIds ?? []).some(v => petVisitIds.has(String(v))))
+    : (data?.receipts ?? []);
   /**
    * An INVOICE only exists once the visit is finalized and billed — the invoice
    * comes AFTER (user, 2026-08-03: "dont ever show an invoice if not finalized
@@ -304,8 +328,8 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
 
   const SUBS = [
     { id: 'invoices' as const, label: 'Invoices', icon: FileText, count: open.length },
-    { id: 'payments' as const, label: 'Payments', icon: CreditCard, count: data?.payments.length ?? 0 },
-    { id: 'receipts' as const, label: 'Receipts', icon: Receipt, count: data?.receipts.length ?? 0 },
+    { id: 'payments' as const, label: 'Payments', icon: CreditCard, count: payments.length },
+    { id: 'receipts' as const, label: 'Receipts', icon: Receipt, count: receipts.length },
   ];
 
   return (
@@ -717,12 +741,12 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
       {/* ── Payments ── */}
       {sub === 'payments' && (
         <div className="space-y-1.5">
-          {(data?.payments.length ?? 0) === 0 && (
+          {payments.length === 0 && (
             <div className="py-16 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-3xl opacity-30 uppercase font-black text-[10px] tracking-[0.2em]">
               No payments
             </div>
           )}
-          {data?.payments.map(p => {
+          {payments.map(p => {
             const voided = p.status === 'VOIDED';
             return (
               <div key={p.id}
@@ -774,12 +798,12 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
       {/* ── Receipts ── */}
       {sub === 'receipts' && (
         <div className="space-y-1.5">
-          {(data?.receipts.length ?? 0) === 0 && (
+          {receipts.length === 0 && (
             <div className="py-16 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-3xl opacity-30 uppercase font-black text-[10px] tracking-[0.2em]">
               No receipts
             </div>
           )}
-          {data?.receipts.map(r => (
+          {receipts.map(r => (
             <div key={r.id}
               className={`flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 ${
                 r.voided ? 'bg-slate-50/60 dark:bg-zinc-950 opacity-70' : 'bg-white dark:bg-zinc-900'
