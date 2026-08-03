@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: "approve the bill on the visit" now takes you there and points at the button  —  2026-08-03
+- **What changed:** (user) on Financials → Bills, the amber **"Approve the bill on the
+  visit to invoice it"** chip is a button: it opens that visit **on its Bill tab** and
+  pulses the bill's next action for **1.5s** so the eye lands on it. `VisitDetailView`
+  gains `initialBottomTab` + `highlightBillAction` (nav params `bottomTab` /
+  `highlightBillAction`), and `BillPanel` gains `highlightAction`, which rings and
+  scrolls the action into view. The pulse targets **Generate invoice** when the bill is
+  already approved and **Approve bill** when it is not — only one of the two is ever
+  rendered, since they need opposite bill states.
+- **Record impact:** 🟢 None — navigation and styling only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: Bills tab before Invoices — the bill document, and where its invoice is generated  —  2026-08-03
 - **What changed:** (user: "Bills tab b4 Invoice … and can generate its invoice there.
   on visit created dont show shit in invoices tab till bill generates it") Financials

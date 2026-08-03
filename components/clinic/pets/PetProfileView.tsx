@@ -58,6 +58,8 @@ interface Props {
   onSettleVisit?: (apptId: number) => void;
   onViewAppointment?: (appointmentId: number) => void;
   onViewOwner?: (clientId: number, tab?: string) => void;
+  /** Open a visit ON its Bill tab, next action pulsed (Financials → Bills). */
+  onOpenVisitBill?: (visitId: number) => void;
   /** Records → Inpatient: open the hospitalization's own chart. */
   onOpenInpatient?: (hospId: string | number) => void;
   initialVisitId?: number;
@@ -65,7 +67,7 @@ interface Props {
 
 const PetProfileView: React.FC<Props> = ({
   pet, owner, activeClinic, clinics, appointments, allPets, onBack, initialTab = 'overview',
-  onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onSettleVisit, onViewAppointment, onViewOwner, onOpenInpatient, initialVisitId
+  onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onSettleVisit, onViewAppointment, onViewOwner, onOpenInpatient, onOpenVisitBill, initialVisitId
 }) => {
   // Pet photo: local override so the header updates the moment it uploads,
   // without waiting for the parent's pet list to refetch.
@@ -1834,6 +1836,7 @@ const PetProfileView: React.FC<Props> = ({
                   petId={pet.id}
                   canManage={hasFullAccess}
                   onViewVisit={onViewAppointment}
+                  onGoToVisitBill={onOpenVisitBill}
                   onChanged={loadBilling}
                 />
               )}

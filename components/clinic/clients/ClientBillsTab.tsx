@@ -1,7 +1,7 @@
 import React from 'react';
 import toast from 'react-hot-toast';
 import {
-  ReceiptText, Loader2, AlertTriangle, ChevronDown, Eye, FileText, CheckCircle2,
+  ReceiptText, Loader2, AlertTriangle, ChevronDown, ChevronRight, Eye, FileText, CheckCircle2,
 } from 'lucide-react';
 import { clientsAPI, billsAPI, invoicesAPI } from '../../../services';
 import { ClientBilling } from '../../../services/modules/clients.api';
@@ -25,6 +25,8 @@ interface Props {
   /** Narrow to one patient (the Patient → Financials tab). */
   petId?: string | number;
   onViewVisit?: (visitId: number) => void;
+  /** Open the visit ON its Bill tab, with the next action pulsed for 1.5s. */
+  onGoToVisitBill?: (visitId: number) => void;
   /** Told after an invoice is generated, so the header money refreshes. */
   onChanged?: () => void;
   /** Generating an invoice is a billing action — owner/manager only. */
@@ -54,7 +56,7 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 const ClientBillsTab: React.FC<Props> = ({
-  clientId, currency, petId, onViewVisit, onChanged, canManage = true,
+  clientId, currency, petId, onViewVisit, onGoToVisitBill, onChanged, canManage = true,
 }) => {
   const [billing, setBilling] = React.useState<ClientBilling | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -262,9 +264,18 @@ const ClientBillsTab: React.FC<Props> = ({
                             <CheckCircle2 size={11} /> Invoiced · {docInvoice.number || `INV #${docInvoice.id}`}
                           </span>
                         ) : doc.editable ? (
-                          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-900">
+                          // Approving locks the clinical record, so it stays a
+                          // decision made ON the visit — this just takes you
+                          // there and points at the button.
+                          <button
+                            type="button"
+                            onClick={() => (onGoToVisitBill ?? onViewVisit)?.(Number(r.visitId))}
+                            disabled={!onGoToVisitBill && !onViewVisit}
+                            title="Open this visit's Bill tab"
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-900 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-all active:scale-95 disabled:opacity-60">
                             <AlertTriangle size={11} /> Approve the bill on the visit to invoice it
-                          </span>
+                            <ChevronRight size={11} />
+                          </button>
                         ) : canManage ? (
                           <button onClick={() => generateInvoice(r.visitId)} disabled={busy}
                             className="inline-flex items-center gap-2 px-4 py-2 bg-seafoam text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all shadow-sm disabled:opacity-50">

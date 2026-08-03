@@ -114,6 +114,10 @@ interface Props {
   autoSettle?: boolean;
   // Land directly on the Triage tab (e.g. opening a case from the Emergency board).
   autoOpenTriage?: boolean;
+  /** Land on a specific bottom tab — Financials → Bills sends 'bill'. */
+  initialBottomTab?: 'report' | 'groomingReport' | 'boardingReport' | 'medications' | 'bill' | 'invoice' | 'receipt';
+  /** Pulse the bill's next action for 1.5s (arrived here to approve/invoice). */
+  highlightBillAction?: boolean;
 }
 
 const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> = {
@@ -170,7 +174,7 @@ const VisitDetailView: React.FC<Props> = (props) => {
 const VisitDetailInner: React.FC<Props> = ({
   appointment, pet, client, staffMembers, clinics, activeClinic, onUpdateStatus, onUpdateTaskDetails, onDeleteTask,
   onBack, onUpdateApptStatus, onInjectTask, onProcessPayment, onScheduleFollowup, onNavigateToVisit, onOpenDetails,
-  onNavigateToClient, onNavigateToPet, onNavigateToStaff, onNavigateToReminder, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient, onOpenModule, canUnlock, autoSettle, autoOpenTriage
+  onNavigateToClient, onNavigateToPet, onNavigateToStaff, onNavigateToReminder, allAppointments, onRefreshDashboard, onOpenBoarding, onOpenInpatient, onOpenModule, canUnlock, autoSettle, autoOpenTriage, initialBottomTab, highlightBillAction
 }) => {
   // Get inventory from DataContext (already loaded and cached)
   const { inventory, pets, updateAppointmentOptimistically, refreshInventory } = useData();
@@ -223,7 +227,10 @@ const VisitDetailInner: React.FC<Props> = ({
   // 'record' merged into the per-workflow report tabs: the diagnostic record
   // lives inside Medical Report; grooming notes inside Grooming Report;
   // the boarding care log inside Boarding Report.
-  const [activeBottomTab, setActiveBottomTab] = useState<'report' | 'groomingReport' | 'boardingReport' | 'medications' | 'bill' | 'invoice' | 'receipt'>('report');
+  const [activeBottomTab, setActiveBottomTab] = useState<'report' | 'groomingReport' | 'boardingReport' | 'medications' | 'bill' | 'invoice' | 'receipt'>(initialBottomTab ?? 'report');
+  // A second navigation into an already-mounted view must still land on the
+  // requested tab — the initial state alone only covers the first mount.
+  useEffect(() => { if (initialBottomTab) setActiveBottomTab(initialBottomTab); }, [initialBottomTab, appointment.id]);
   // The bill BillPanel is holding, published up so BillBalanceCard renders the
   // same numbers. Lives here rather than in either component because both need
   // it and neither owns the other.
@@ -5225,6 +5232,7 @@ const VisitDetailInner: React.FC<Props> = ({
                          onCollect={openSettleModal}
                          onChanged={() => onRefreshDashboard?.()}
                          onBillChange={setLiveBill}
+                         highlightAction={highlightBillAction}
                        />
                        {/* Procedure recipes applied to this visit — stage
                            checklist, optional diagnostics, weight/flags re-quote.

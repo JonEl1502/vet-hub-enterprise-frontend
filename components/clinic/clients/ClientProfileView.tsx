@@ -34,11 +34,13 @@ interface Props {
   onViewAppointment?: (appointmentId: number) => void;
   onOpenMedicalRecord?: (petId: number, visitId: number) => void;
   onManageWorkflow?: (appointmentId: number) => void;
+  /** Open a visit ON its Bill tab, next action pulsed (Financials → Bills). */
+  onOpenVisitBill?: (visitId: number) => void;
   onScheduleAppointment?: () => void;
   onAddPet?: () => void;
 }
 
-const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onOpenMedicalRecord, onManageWorkflow, onScheduleAppointment, onAddPet }) => {
+const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onOpenMedicalRecord, onManageWorkflow, onScheduleAppointment, onAddPet, onOpenVisitBill }) => {
   // This view has no `activeClinic` prop; the printed document still needs a
   // clinic name on it. With a multi-clinic scope the first selected one is the
   // right answer here — the client is being viewed within that scope.
@@ -1365,6 +1367,7 @@ const renderOverview = () => (
             currency={client.currency || 'KES'}
             canManage={hasFullAccess}
             onViewVisit={onViewAppointment}
+            onGoToVisitBill={onOpenVisitBill}
             onChanged={loadBilling}
           />
         )}

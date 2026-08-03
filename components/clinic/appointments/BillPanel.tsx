@@ -34,6 +34,12 @@ interface Props {
    * quote `visit.totalCost`, which lags every line change.
    */
   onBillChange?: (bill: Bill | null) => void;
+  /**
+   * Arrived here from "approve the bill on the visit to invoice it" on a
+   * Financials → Bills row. Pulse the action that actually moves the bill along
+   * for 1.5s so the eye lands on it instead of hunting the panel.
+   */
+  highlightAction?: boolean;
 }
 
 const money = (n: number, c: string) =>
@@ -54,7 +60,7 @@ const KIND_LABEL: Record<string, string> = {
   SERVICE: 'Service', CONSUMABLE: 'Consumable', MEDICATION: 'Medication', OTHER: 'Other',
 };
 
-const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange }) => {
+const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange, highlightAction }) => {
   const { inventory } = useData() as any;
   const [bill, setBill] = React.useState<Bill | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -200,6 +206,21 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
 
   const saveLine = (l: BillLine, patch: { quantity?: number; unitPrice?: number }) =>
     run(() => billsAPI.updateLine(visit.id, l.id, patch));
+
+  // 1.5s pulse on the action that moves the bill along, when we were sent here
+  // to do exactly that. Ref lives on the actions row so it can be scrolled to.
+  const actionsRef = React.useRef<HTMLDivElement>(null);
+  const [pulse, setPulse] = React.useState(false);
+  React.useEffect(() => {
+    if (!highlightAction || loading || !bill) return;
+    setPulse(true);
+    const t0 = setTimeout(() => actionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
+    const t1 = setTimeout(() => setPulse(false), 1500);
+    return () => { clearTimeout(t0); clearTimeout(t1); };
+  }, [highlightAction, loading, bill?.id]);
+  // Only one of Generate-invoice / Approve is ever rendered (they need opposite
+  // bill states), so both may carry it.
+  const pulseCls = pulse ? ' ring-4 ring-amber-400 ring-offset-2 dark:ring-offset-zinc-900 animate-pulse' : '';
 
   if (loading) {
     return <div className="flex items-center gap-2 text-[11px] text-slate-400 py-3"><Loader2 size={13} className="animate-spin" /> Loading bill…</div>;
@@ -419,7 +440,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
       )}
 
       {/* Actions */}
-      <div className="flex flex-wrap items-center gap-2">
+      <div ref={actionsRef} className="flex flex-wrap items-center gap-2">
         {bill.status === 'APPROVED' && !invoice && (
           <button type="button" disabled={busy}
             onClick={async () => {
@@ -449,7 +470,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
               await run(async () => { const r = await invoicesAPI.generate(visit.id, { scope }); setInvoice(r.data?.invoice ?? null); await load(); return null; }, scope === 'CLINICAL' ? 'Clinical invoice generated — the stay keeps accruing' : 'Invoice generated');
             }}
             title="Turn this approved bill into an invoice"
-            className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-40">
+            className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-indigo-500 text-white hover:bg-indigo-600 disabled:opacity-40${pulseCls}`}>
             <ReceiptText size={11} /> Generate invoice
           </button>
         )}
@@ -491,7 +512,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
             </button>
             <button type="button" onClick={() => run(() => billsAPI.approve(visit.id), 'Bill approved')} disabled={busy}
               title="Sign the bill off — this locks the clinical record"
-              className="ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-40">
+              className={`ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-40${pulseCls}`}>
               {busy ? <Loader2 size={11} className="animate-spin" /> : <Lock size={11} />} Approve bill
             </button>
           </>
