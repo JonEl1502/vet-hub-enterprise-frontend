@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: remove the "Billing & Invoice" collapse header from the Invoice tab  —  no migration
+- **What changed:** (user, 2026-08-03: "remove this collapse feature from invoice") the
+  collapsible `🧾 Billing & Invoice` bar at the top of the visit's Invoice tab is gone,
+  along with its `invoiceCollapsed` state. The section now always renders.
+- **Why:** the Invoice TAB already names the section, so the bar was a second title whose
+  only function was to hide the entire contents of the tab you had just clicked into.
+- **Record impact:** 🟢 None — presentational only, no API or data change.
+- **Rollback:** restore the button and the `invoiceCollapsed` state.
+
+
 ### ui: admin Plans — "Livestock Plans" tab renamed "Farm Plans"  —  2026-08-03
 - **What changed:** (user) the tab's buyers are FARM businesses (Smallholder/Farm/Estate),
   and "Livestock" also names the clinic add-on — same word, two products. Label only;
