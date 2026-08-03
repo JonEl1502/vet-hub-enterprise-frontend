@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a fully-settled visit read PARTIAL and still offered "Settle Bill"  —  2026-08-03
+- **What changed:** (user: "why is bill partial and payment is full") the account
+  timeline derived a receivable's status from the VISIT's `isPaid` flag. On prod, visit
+  #124 had invoice `INV-2026-000008` at **PAID**, a settlement covering the full
+  KES 5,327 and a receipt reading "settled in full" — but `appointments.is_paid` was
+  still `false`, so the row rendered **PARTIAL** beside its own PAID payment. New shared
+  `isSettled()` (exported from `ClientAccountHub`) believes the money instead:
+  `isPaid || (total > 0 && outstanding <= 0)`. Applied to the timeline status, the
+  Bills row badge, and — importantly — `ClientPaymentsTab`'s open/selectable list, so a
+  settled visit can no longer be ticked for collection. The visit's own **Settle Bill**
+  button now also checks `reconciliationState.settled` (the server's verdict) rather
+  than the flag alone.
+- **Record impact:** 🟢 None by itself — but it CLOSES a path to a double charge.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** this is a display/guard fix, **not the root cause**. The backend
+  settle path leaves `appointments.is_paid = false` (and the bill at `INVOICED`) when a
+  bill is filled through its invoice, which also makes the server's own `collectable`
+  flag true for a settled visit. One prod row is affected today
+  (`select … from appointments a join settlements s … where a.is_paid = false having
+  sum(amount_applied) >= total_cost` → 1). Owner: the revenue-cycle lane.
+
 ### page: Records lists every record type, always  —  2026-08-03
 - **What changed:** (user: "add boarding and inpatient too") the Records sub-tab row is
   no longer conditional — **Grooming, Boarding and Inpatient** now always appear

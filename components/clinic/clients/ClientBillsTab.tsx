@@ -7,6 +7,7 @@ import { clientsAPI, billsAPI, invoicesAPI } from '../../../services';
 import { ClientBilling } from '../../../services/modules/clients.api';
 import { Bill } from '../../../services/modules/bills.api';
 import { Invoice } from '../../../services/modules/invoices.api';
+import { isSettled } from './ClientAccountHub';
 
 /**
  * Financials → BILLS (user, 2026-08-03: "Bills tab b4 Invoice … and can
@@ -135,6 +136,7 @@ const ClientBillsTab: React.FC<Props> = ({
       {rows.map(r => {
         const isOpen = openVisit === r.visitId;
         const invoiced = (r.invoices?.length ?? 0) > 0;
+        const settled = isSettled(r);
         return (
           <div key={r.visitId} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
             {/* Row */}
@@ -153,10 +155,10 @@ const ClientBillsTab: React.FC<Props> = ({
               <div className="text-right shrink-0">
                 <p className="text-sm font-black font-mono text-pine dark:text-zinc-100">{money(r.total, currency)}</p>
                 <span className={`inline-block mt-1 px-2 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest border ${
-                  r.isPaid ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
+                  settled ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
                   : invoiced ? 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20'
                   : 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20'
-                }`}>{r.isPaid ? 'Paid' : invoiced ? 'Invoiced' : 'Bill'}</span>
+                }`}>{settled ? 'Paid' : invoiced ? 'Invoiced' : 'Bill'}</span>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {onViewVisit && (

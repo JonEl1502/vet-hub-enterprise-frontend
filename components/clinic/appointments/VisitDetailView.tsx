@@ -289,7 +289,6 @@ const VisitDetailInner: React.FC<Props> = ({
   const [invoiceCurrency, setInvoiceCurrency] = useState<string | null>(null);
   // Billing upgrades (077): collapsible billing view, previous outstanding
   // balance carried onto the invoice, and a pre-finalize discount line.
-  const [invoiceCollapsed, setInvoiceCollapsed] = useState(false);
   const [prevBalance, setPrevBalance] = useState<{ total: number; items: Array<{ appointmentId: string; petName: string | null; scheduledAt: string; amount: number }> } | null>(null);
   const [includePrevBalance, setIncludePrevBalance] = useState(true);
   const [showDiscountModal, setShowDiscountModal] = useState(false);
@@ -5270,20 +5269,10 @@ const VisitDetailInner: React.FC<Props> = ({
                      })();
                      return (
                      <div>
-                        {/* Collapsible billing view (077) — the whole invoice
-                            section folds away so the workflow stays scannable. */}
-                        <button
-                          type="button"
-                          onClick={() => setInvoiceCollapsed(c => !c)}
-                          className="w-full flex items-center justify-between gap-2 mb-3 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/50 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors print:hidden"
-                        >
-                          <span className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">🧾 Billing &amp; Invoice</span>
-                          <span className="flex items-center gap-2 text-[9px] font-black uppercase tracking-widest text-seafoam">
-                            {invoiceCollapsed ? `${printCurrency} ${Number(appointment.totalCost || 0).toLocaleString()} · expand` : 'collapse'}
-                            <ChevronRight size={12} className={`transition-transform ${invoiceCollapsed ? 'rotate-90' : '-rotate-90'}`} />
-                          </span>
-                        </button>
-                        {!invoiceCollapsed && (
+                        {/* The "Billing & Invoice" collapse header (077) was removed
+                            at the user's request 2026-08-03: the Invoice TAB already
+                            says what this is, so the bar was a second title that only
+                            let you hide the tab's entire contents. */}
                         <>
                         <div className="flex justify-end items-center gap-2 mb-3 print:hidden flex-wrap">
                            {/* Invoices stay editable after generation: reopen a
@@ -5335,8 +5324,13 @@ const VisitDetailInner: React.FC<Props> = ({
                                View Receipt
                              </button>
                            )}
-                           {/* Settle the bill right next to the invoice (finalized & unpaid). */}
-                           {!appointment.isPaid && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
+                           {/* Settle the bill right next to the invoice (finalized & unpaid).
+                               `appointment.isPaid` alone is not enough: a bill filled
+                               through its invoice can leave the visit flag stale, and
+                               offering Settle on a settled visit invites a double
+                               charge. `reconciliationState.settled` is the server's own
+                               verdict on the money, so it decides. */}
+                           {!appointment.isPaid && !reconciliationState?.settled && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
                              <button
                                onClick={openSettleModal}
                                disabled={isSettlingBill}
@@ -5653,7 +5647,6 @@ const VisitDetailInner: React.FC<Props> = ({
                           </div>
                         )}
                         </>
-                        )}
 
                         {/* Discount modal — stages a negative Adjustment line
                             on the bill before finalize/settle. */}

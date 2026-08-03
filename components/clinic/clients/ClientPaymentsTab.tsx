@@ -8,6 +8,7 @@ import { clientsAPI, transactionsAPI, invoicesAPI } from '../../../services';
 import { printElementAsPdf } from '../shared/printPdf';
 import { ClientBilling } from '../../../services/modules/clients.api';
 import { useAuth } from '../../../contexts/AuthContext';
+import { isSettled } from './ClientAccountHub';
 
 /**
  * Client → Payments tab (backend migration 097).
@@ -156,7 +157,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
     ? invoices.filter(i => (i.invoices?.length ?? 0) > 0)
     : invoices.filter(i => i.collectable || i.isPaid || (i.invoices?.length ?? 0) > 0);
   const notYetInvoiced = invoices.filter(i => !invoiceable.includes(i));
-  const allOpen = invoiceable.filter(i => !i.isPaid);
+  const allOpen = invoiceable.filter(i => !isSettled(i));
 
   // Search the invoice list, because a client with two patients wants to pay
   // for one of them. Matches the patient's name/species or the invoice number;
@@ -548,7 +549,8 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
             )}
             {visible.map(inv => {
               const picked = selected.has(inv.visitId);
-              const partly = !inv.isPaid && (inv.paid ?? 0) > 0;
+              const settled = isSettled(inv);
+              const partly = !settled && (inv.paid ?? 0) > 0;
               const docs = inv.invoices || [];
               const isExpanded = expandedVisit === inv.visitId;
               return (
@@ -557,7 +559,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                     picked ? 'border-seafoam bg-seafoam/5' : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
                   }`}>
                 <div className="flex flex-wrap items-center gap-2">
-                  {canCollect && !inv.isPaid && (
+                  {canCollect && !settled && (
                     <input type="checkbox" checked={picked} disabled={!inv.collectable}
                       onChange={() => toggle(inv.visitId)}
                       title={inv.collectable ? 'Include in this collection' : 'Finalize the visit before collecting'}
@@ -579,7 +581,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                       <FileText size={9} /> {d.number || `INV #${d.id}`}{d.scope && d.scope !== 'FULL' ? ` · ${String(d.scope).toLowerCase()}` : ''} · {String(d.status).toLowerCase()}
                     </span>
                   ))}
-                  {inv.isPaid ? (
+                  {settled ? (
                     <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                       <CheckCircle2 size={9} /> {inv.prepaid ? 'Paid up front' : 'Paid'}
                     </span>
@@ -673,7 +675,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                   {/* Every row here IS finalized and billed, so Settle is the
                       only action — the old "Finalize to settle" fallback is
                       unreachable now that open visits are excluded. */}
-                  {canCollect && !inv.isPaid && (
+                  {canCollect && !settled && (
                     <button onClick={() => settleOne(inv.visitId)}
                       title={`Settle ${money(inv.outstanding ?? inv.total, currency)} on visit #${inv.visitId}`}
                       className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-pine transition-all">

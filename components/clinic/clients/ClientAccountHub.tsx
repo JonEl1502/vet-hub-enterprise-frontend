@@ -79,6 +79,14 @@ const STATUS_BADGE: Record<TimelineEntry['status'], string> = {
 
 const PAGE = 8;
 
+/**
+ * A receivable is settled when nothing is outstanding on it — `isPaid` alone
+ * lies whenever the flag was not flipped (see the timeline comment below).
+ * `total > 0` keeps a zero-value visit from reading as "paid".
+ */
+export const isSettled = (i: { isPaid?: boolean; total?: number; paid?: number; outstanding?: number }) =>
+  !!i.isPaid || (Number(i.total ?? 0) > 0 && Number(i.outstanding ?? Number(i.total ?? 0) - Number(i.paid ?? 0)) <= 0);
+
 const ClientAccountHub: React.FC<Props> = ({
   client, billing, credit, loading, currency, canCollect, onRefresh, onViewVisit, onGoTab,
   petId, petName,
@@ -156,7 +164,11 @@ const ClientAccountHub: React.FC<Props> = ({
             inv.encounterType ? ` · ${String(inv.encounterType).replace(/_/g, ' ').toLowerCase()}` : ''}`,
           ref: doc ? (doc.number || `INV #${doc.id}`) : `BILL · Visit #${inv.visitId}`,
           amount: inv.total,
-          status: inv.isPaid ? 'PAID' : (inv.paid ?? 0) > 0 ? 'PARTIAL' : 'UNPAID',
+          // Believe the MONEY, not the visit's `isPaid` flag. The flag is set
+          // by the visit settle path and does not always get flipped when a
+          // bill is filled through its invoice — prod had a fully-settled
+          // grooming visit reading PARTIAL beside its own PAID payment.
+          status: isSettled(inv) ? 'PAID' : (inv.paid ?? 0) > 0 ? 'PARTIAL' : 'UNPAID',
           visitId: Number(inv.visitId),
         };
       }),
