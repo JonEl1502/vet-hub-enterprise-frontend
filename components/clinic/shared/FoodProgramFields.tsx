@@ -35,7 +35,15 @@ interface Props {
 const fieldCls = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
 const labelCls = 'block text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1.5';
 
-const isFood = (i: any) => /food|diet|kibble|feed|nutri/i.test(`${i?.category ?? ''} ${i?.name ?? ''}`);
+/**
+ * Looks like food. Used to ORDER results, never to hide them — the keyword
+ * whitelist used to filter the list, so a clinic that stocks "Beef chunks 1kg"
+ * under Consumables was told "No food matching beef" while holding exactly that
+ * (user, 2026-08-03: "i know i have beef"). Staff know what they feed; the app
+ * should not overrule them with a word list.
+ */
+const isFood = (i: any) => /food|diet|kibble|feed|nutri|meat|beef|chicken|fish|lamb|treat|biscuit|milk|formula|pellet|mash|hay/i
+  .test(`${i?.category ?? ''} ${i?.name ?? ''}`);
 
 /** Portions move in tenths of a pack; the chips cover the common fractions. */
 const PORTION_STEP = 0.1;
@@ -86,9 +94,11 @@ const FoodProgramFields: React.FC<Props> = ({ value, onChange, disabled }) => {
   const matches = React.useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (needle.length < 2) return [] as any[];
-    return (inventory || []).filter(isFood)
-      .filter((i: any) => `${i.name} ${i.category ?? ''}`.toLowerCase().includes(needle))
-      .slice(0, 6);
+    // Search EVERYTHING the clinic stocks, then float the food-looking ones to
+    // the top. Hiding non-matching categories cost more than it ever saved.
+    const hits = (inventory || [])
+      .filter((i: any) => `${i.name} ${i.category ?? ''}`.toLowerCase().includes(needle));
+    return [...hits].sort((a: any, b: any) => Number(isFood(b)) - Number(isFood(a))).slice(0, 8);
   }, [inventory, q]);
 
   /** Picking a food (or changing the portion) recomputes the meal rate. */
@@ -142,7 +152,7 @@ const FoodProgramFields: React.FC<Props> = ({ value, onChange, disabled }) => {
           ) : (
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
-              <input className={`${fieldCls} pl-8`} disabled={disabled} placeholder="Search foods in inventory (2+ chars)…"
+              <input className={`${fieldCls} pl-8`} disabled={disabled} placeholder="Search inventory (2+ chars) — foods listed first…"
                 value={q} onChange={e => setQ(e.target.value)} />
               {matches.length > 0 && (
                 <div className="absolute z-30 mt-1 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl overflow-hidden">
@@ -151,7 +161,10 @@ const FoodProgramFields: React.FC<Props> = ({ value, onChange, disabled }) => {
                       onMouseDown={() => { applyFood(i, value.portion ?? ''); setQ(''); }}
                       className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-seafoam/5 transition-all">
                       <Package size={11} className="text-seafoam shrink-0" />
-                      <span className="flex-1 min-w-0 text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{i.name}</span>
+                      <span className="flex-1 min-w-0">
+                        <span className="block text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{i.name}</span>
+                        {i.category && <span className="block text-[9px] font-bold text-slate-400 truncate">{i.category}</span>}
+                      </span>
                       <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400">
                         {Number(i.price ?? 0).toLocaleString()}/{i.unit}
                       </span>
@@ -161,7 +174,7 @@ const FoodProgramFields: React.FC<Props> = ({ value, onChange, disabled }) => {
               )}
               {q.trim().length >= 2 && matches.length === 0 && (
                 <p className="mt-1 text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                  No food matching “{q.trim()}” — add it to inventory, or let the client bring food.
+                  Nothing in inventory matching “{q.trim()}” — add it to inventory, or let the client bring food.
                 </p>
               )}
             </div>

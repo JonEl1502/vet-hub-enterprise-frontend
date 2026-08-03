@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the food picker hid stock the clinic actually holds  —  2026-08-03
+- **What changed:** (user: "i know i have beef") the boarding/inpatient food search
+  whitelisted items whose name or category matched `food|diet|kibble|feed|nutri` and
+  **filtered everything else out**, so a clinic stocking "Beef chunks 1kg" under
+  Consumables was told *"No food matching beef"* while holding exactly that. The search
+  now covers **all** inventory and merely **sorts** food-looking items first; the
+  keyword list was widened (meat, beef, chicken, fish, lamb, treat, biscuit, milk,
+  formula, pellet, mash, hay) but only for ranking. Result rows show the item's category
+  so an unusual pick is a visible choice, and the empty state no longer claims the item
+  isn't food — it says nothing in inventory matches.
+- **Record impact:** 🟢 None — search/display only. Picking still writes the same
+  `inventoryItemId` + portion and derives the rate the same way.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### feat: feeding programs reach Pro AND Enterprise; portion is a quantity picker  —  2026-08-03
 - **What changed:** (user: "pkg to be available to enterprise too", "in food obviously i
   would not use full bag, so add quantity picker")
