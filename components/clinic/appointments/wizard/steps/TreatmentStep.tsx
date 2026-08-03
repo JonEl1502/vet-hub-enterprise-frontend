@@ -4,6 +4,9 @@ import { StepProps } from '../types';
 import { Section, L, showsField } from '../fields';
 import AppliedProcedurePanel from '../../../shared/AppliedProcedurePanel';
 import VaccinationPanel from '../../VaccinationPanel';
+import QtyUnitControl, { sellUnitOf } from '../../../shared/QtyUnitControl';
+import VisitFeeLines from '../../VisitFeeLines';
+import { billsAPI } from '../../../../../services';
 import { useData } from '../../../../../contexts/DataContext';
 import { consumablesAPI, toast, procedureTemplatesAPI, ProcedureTemplate, vaccinationsAPI, vaccinePackagesAPI, VaccinePackage } from '../../../../../services';
 
@@ -31,6 +34,7 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
   const [drugFocus, setDrugFocus] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
   const [removingIdx, setRemovingIdx] = React.useState<number | null>(null);
+  const [feeRefresh, setFeeRefresh] = React.useState(0);
   const marCount = visit.medications?.length ?? 0;
   // A vaccination flow administers ON this step — it unlocks the vaccination
   // panel and widens the procedure search to packages + single vaccines.
@@ -66,6 +70,36 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
     price: Number(it.price) || 0, stock: Number(it.quantity),
   }));
 
+  /** The full inventory row behind the draft — QtyUnitControl and the fees need it. */
+  const draftItem = useMemo(
+    () => (inventory || []).find((it: any) => String(it.id) === String(draft.itemId)) || null,
+    [inventory, draft.itemId]);
+
+  /**
+   * Per-item service charges (`metadata.fees`, written by the product form and
+   * the CSV import). They were STORED but nothing ever charged them — a vaccine
+   * with a KES 300 injection fee configured billed only the vial (user,
+   * 2026-08-03). Ticked fees are added as their own bill lines alongside the
+   * dispense, so each can be edited or removed on its own.
+   */
+  const FEE_LABELS: Record<string, string> = {
+    injection: 'Injection fee', admin: 'Administration fee',
+    service: 'Service charge', prescription: 'Prescription fee',
+  };
+  const itemFees: { key: string; label: string; amount: number }[] = useMemo(() => {
+    const fees = (draftItem as any)?.metadata?.fees || {};
+    return Object.entries(fees)
+      .filter(([, v]) => v != null && Number(v) > 0)
+      .map(([k, v]) => ({ key: k, label: FEE_LABELS[k] || k, amount: Number(v) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draftItem]);
+  const [feesOn, setFeesOn] = useState<Record<string, boolean>>({});
+  // Default every configured fee ON when a new item is picked — the clinic
+  // set them up precisely so they get charged; untick to waive.
+  useEffect(() => {
+    setFeesOn(Object.fromEntries(itemFees.map(f => [f.key, true])));
+  }, [draft.itemId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const rxNote = (m: MedRow) => [m.dose, m.route, m.frequency, m.duration].filter(Boolean).join(' · ');
 
   const addMed = async () => {
@@ -84,7 +118,25 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
         const lineTotal = (res.data as any)?.lineCost ?? (draft.price ?? 0) * qty;
         setData({ medications: [...meds, { drug: draft.drug, dose: draft.dose, route: draft.route, frequency: draft.frequency, duration: draft.duration, consumableId: (res.data as any)?.id, qty, unit: draft.unit, lineTotal }] });
         emit(`Medication dispensed — ${draft.drug} ×${qty}${draft.dose ? ` (${rxNote(draft)})` : ''} · stock deducted`, 'billing', true);
+
+        // Each ticked fee becomes its OWN bill line so it can be edited or
+        // deleted independently of the product it came with.
+        const picked = itemFees.filter(f => feesOn[f.key]);
+        for (const f of picked) {
+          try {
+            await billsAPI.addLine(visit.id, {
+              name: `${f.label} — ${draft.drug}`,
+              kind: 'SERVICE',
+              quantity: 1,
+              unitPrice: f.amount,
+              category: 'Fees',
+            } as any);
+            emit(`${f.label} charged — ${currency} ${f.amount.toLocaleString()}`, 'billing', true);
+          } catch { toast.error(`Could not add the ${f.label.toLowerCase()}`); }
+        }
+
         setDraft({ drug: '', dose: '', route: 'PO', frequency: '', duration: '', qty: 1 });
+        setFeeRefresh(n => n + 1);
         refreshVisit?.();
       }
     } catch (e: any) { toast.error(e?.message || 'Failed to dispense'); }
@@ -288,11 +340,18 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
                 const before = Number(draft.stock ?? 0);
                 const after = before - q;
                 const lineTotal = (draft.price ?? 0) * q;
+                const feeTotal = itemFees.filter(f => feesOn[f.key]).reduce((t, f) => t + f.amount, 0);
                 return (
                   <p className="text-[9px] font-black mt-0.5 px-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     <span className="text-seafoam">
                       ✓ {draft.price ? `${draft.price.toLocaleString()}/${draft.unit}` : 'from stock'}
                       {q > 0 && draft.price ? ` × ${q} = ${currency} ${lineTotal.toLocaleString()}` : ''}
+                      {/* Fees are charged with it, so quote the REAL total. */}
+                      {feeTotal > 0 && (
+                        <> {' + '}{currency} {feeTotal.toLocaleString()} charges
+                          {' = '}<b>{currency} {(lineTotal + feeTotal).toLocaleString()}</b>
+                        </>
+                      )}
                     </span>
                     <span className={after < 0 ? 'text-rose-500' : 'text-slate-400'}>
                       stock {before.toLocaleString()} → {after.toLocaleString()} {draft.unit}
@@ -303,7 +362,20 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
               })()}
             </div>
           </L>
-          <L label={`Qty${draft.unit ? ` (${draft.unit})` : ''}`}><input type="number" min={0} step={0.01} className="field-input" value={draft.qty ?? ''} onChange={e => setDraft({ ...draft, qty: Number(e.target.value) })} /></L>
+          {/* Sell-unit aware qty (user, 2026-08-03) — the picker offers the
+              item's own units (Dose / Box / ½ Box…) instead of a bare number,
+              so a 25-dose vial can't be billed as a whole box by accident. */}
+          <L label={`Qty${draft.itemId ? ` (${sellUnitOf(draftItem || {})})` : ''}`}>
+            {draft.itemId ? (
+              <QtyUnitControl
+                item={draftItem || {}}
+                value={Number(draft.qty) || 0}
+                onChange={q => setDraft(d => ({ ...d, qty: q }))}
+              />
+            ) : (
+              <input type="number" min={0} step={0.01} className="field-input" value={draft.qty ?? ''} onChange={e => setDraft({ ...draft, qty: Number(e.target.value) })} />
+            )}
+          </L>
           <L label="Dose"><input className="field-input" placeholder="10 mg/kg" value={draft.dose} onChange={e => setDraft({ ...draft, dose: e.target.value })} /></L>
           <L label="Route">
             <select className="field-select" value={draft.route} onChange={e => setDraft({ ...draft, route: e.target.value })}>{ROUTES.map(r => <option key={r}>{r}</option>)}</select>
@@ -314,11 +386,41 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
             {busy ? <Loader2 size={12} className="animate-spin" /> : 'Add'}
           </button>
         </div>
+        {/* Configured service charges for the picked item — tick what applies.
+            Nothing read `metadata.fees` before, so these were set up and never
+            billed (user, 2026-08-03). */}
+        {itemFees.length > 0 && (
+          <div className="flex flex-wrap items-center gap-1.5 px-1">
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Charges</span>
+            {itemFees.map(f => (
+              <button
+                key={f.key} type="button"
+                onClick={() => setFeesOn(m => ({ ...m, [f.key]: !m[f.key] }))}
+                title={feesOn[f.key] ? 'Charged with this item — click to waive' : 'Waived — click to charge'}
+                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold border transition-all ${
+                  feesOn[f.key]
+                    ? 'bg-seafoam/10 text-seafoam border-seafoam/40'
+                    : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-700 line-through'
+                }`}>
+                {feesOn[f.key] ? '✓ ' : ''}{f.label} · {currency} {f.amount.toLocaleString()}
+              </button>
+            ))}
+          </div>
+        )}
+
         <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">
           Adding dispenses from inventory: stock deducts and the charge lands on this visit's bill. Dose/route/frequency/duration are saved as the prescription note. Non-drug items (gloves, syringes…) go through the same search.
         </p>
       </Section>
       )}
+
+      {/* Charges added alongside dispensed items — editable / removable. */}
+      <VisitFeeLines
+        visitId={visit.id}
+        currency={currency}
+        refreshKey={feeRefresh}
+        onChanged={() => refreshVisit?.()}
+      />
 
       {show('procedures') && (
       <Section icon={Scissors} title="Procedures Performed">

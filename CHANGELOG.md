@@ -59,6 +59,30 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: per-item service charges are finally billed; sell-unit qty picker; 3-way Add  —  2026-08-03
+- **What changed:** (user, 2026-08-03) three things on the visit surface:
+  1. **Injection / administration / prescription / service charges now actually bill.**
+     Items carry these in `metadata.fees` — the product form and the CSV importer have
+     always written them and **nothing ever read them**, so a vaccine with a KES 300
+     injection fee configured billed only the vial. Picking an item now shows its charges
+     as tick-chips (all on by default — the clinic set them up to be charged; untick to
+     waive), the quoted price includes them before you press Add, and each ticked charge
+     becomes **its own bill line**. New `VisitFeeLines` panel lists them with inline
+     **edit and delete**, locking once the bill is approved.
+  2. **Sell-unit qty picker** — the Medications qty field uses `QtyUnitControl`, offering
+     the item's own units (Dose / Box / ½ Box) instead of a bare number, so a 25-dose vial
+     can't be billed as a whole box by accident.
+  3. **Running bill: Invoice → ＋ Add** with **Service · Consumable · Procedure**, in the
+     same space. Consumables go through `consumablesAPI.log` — the same call the
+     medications box uses — so stock moves by one code path, not two that can drift.
+- **Record impact:** 🔵 Low — ticked charges add bill lines on save; nothing retroactive.
+- **Data dependency:** None (`metadata.fees` already exists and was already populated).
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** fee lines are matched back by `category: 'Fees'` (or a name containing
+  fee/charge). A hand-typed line called "Boarding fee" will therefore appear in the
+  Service-charges panel — harmless, but that is why it is there.
+
+
 ### revert: transfer goes back to adding an ENCOUNTER, not a separate visit  —  2026-08-03
 - **What changed:** (user, after review) the visit split is reversed. Transfer/add-encounter
   once again adds an encounter to the CURRENT visit instead of creating a linked one, and

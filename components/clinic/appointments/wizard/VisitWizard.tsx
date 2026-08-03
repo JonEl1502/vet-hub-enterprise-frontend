@@ -8,7 +8,8 @@ import {
 import { Visit, Pet, Client, Clinic } from '../../../../types';
 import { STEP_DEFS } from './entryPoints';
 import TemplateStep from './steps/TemplateStep';
-import { workflowTemplatesAPI } from '../../../../services';
+import { workflowTemplatesAPI, procedureTemplatesAPI, ProcedureTemplate, toast } from '../../../../services';
+import InlineConsumableSearch from '../InlineConsumableSearch';
 import { StepProps, WizardStepId, StaffOpt } from './types';
 // Inline add-service search on the Running Bill card (user, 2026-08-01) —
 // same control the Diagnostics step uses; context provided by VisitDetailView.
@@ -123,7 +124,10 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry, templateStages, templateFields, template, setVisitTemplate } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   // Inline add-service search on the Running Bill card (user, 2026-08-01).
-  const [billSearchOpen, setBillSearchOpen] = useState(false);
+  // Three-way inline adder on the running bill: service | consumable | procedure.
+  const [addMode, setAddMode] = useState<'service' | 'consumable' | 'procedure' | null>(null);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [procList, setProcList] = useState<ProcedureTemplate[]>([]);
   const { injectService, addedNames } = useServiceInject();
   // Mobile ⚠ menu holding the Hospitalize / Escalate-to-Emergency actions.
   const [escMenuOpen, setEscMenuOpen] = useState(false);
@@ -561,28 +565,71 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
                 {/* Inline add — the search opens right above the buttons (user,
                     2026-08-01), same control as the Diagnostics step. Falls
                     back to the Add Services panel when no inject context. */}
-                {billSearchOpen && injectService && !locked && (
+                {/* Three-way inline adder (user, 2026-08-03) — service,
+                    consumable or procedure, all in the space the single
+                    "Add services" search used to occupy. */}
+                {addMode && !locked && (
                   <div className="pt-1">
-                    <InlineServiceSearch
-                      onAdd={(svc, categoryName) => injectService(svc, categoryName)}
-                      addedNames={addedNames}
-                      currency={activeClinic.currency}
-                      placeholder="Search a service to add…"
-                    />
+                    {addMode === 'consumable' ? (
+                      <InlineConsumableSearch
+                        visitId={visit.id}
+                        currency={activeClinic.currency}
+                        onAdded={() => { onRefreshVisit?.(); setAddMode(null); }}
+                      />
+                    ) : (
+                      <InlineServiceSearch
+                        onAdd={(svc, categoryName) => { injectService?.(svc, categoryName); setAddMode(null); }}
+                        addedNames={addedNames}
+                        currency={activeClinic.currency}
+                        placeholder={addMode === 'procedure' ? 'Search a procedure to apply…' : 'Search a service to add…'}
+                        procedures={addMode === 'procedure' ? procList.map(t => ({ id: t.id, name: t.name, type: (t as any).type, estimatedTotal: t.estimatedTotal })) : undefined}
+                        onAddProcedure={addMode === 'procedure' ? (pr => {
+                          procedureTemplatesAPI.apply(pr.id, { appointmentId: visit.id })
+                            .then(r => { if (r.success) { emit(`Procedure applied — ${pr.name}`, 'billing', true); onRefreshVisit?.(); } })
+                            .catch((e: any) => toast.error(e?.message || 'Failed to apply the procedure'))
+                            .finally(() => setAddMode(null));
+                        }) : undefined}
+                      />
+                    )}
                   </div>
                 )}
-                <div className="flex gap-1.5 pt-1">
-                  {!locked && (injectService || onAddService || goServices) && (
-                    <button type="button"
-                      onClick={injectService ? () => setBillSearchOpen(o => !o) : (onAddService ?? goServices)}
-                      className={`flex-1 px-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${billSearchOpen ? 'bg-seafoam text-white' : 'bg-seafoam/10 text-seafoam hover:bg-seafoam hover:text-white'}`}>
-                      {billSearchOpen ? 'Close search' : 'Add services'}
-                    </button>
-                  )}
-                  {goBilling && (
-                    <button type="button" onClick={goBilling} className="flex-1 px-2 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-widest hover:text-pine dark:hover:text-zinc-100 transition-all">
-                      Invoice
-                    </button>
+                <div className="flex gap-1.5 pt-1 relative">
+                  {!locked && (
+                    <>
+                      <button type="button"
+                        onClick={() => setAddMenuOpen(o => !o)}
+                        className={`flex-1 px-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                          addMode || addMenuOpen ? 'bg-seafoam text-white' : 'bg-seafoam/10 text-seafoam hover:bg-seafoam hover:text-white'
+                        }`}>
+                        {addMode ? 'Close' : '＋ Add'}
+                      </button>
+                      {addMenuOpen && (
+                        <>
+                          <div className="fixed inset-0 z-20" onClick={() => setAddMenuOpen(false)} />
+                          <div className="absolute bottom-full mb-1 left-0 right-0 z-30 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl overflow-hidden">
+                            {([
+                              ['service', 'Service'],
+                              ['consumable', 'Consumable'],
+                              ['procedure', 'Procedure'],
+                            ] as const).map(([m, label]) => (
+                              <button key={m} type="button"
+                                onClick={() => {
+                                  setAddMenuOpen(false);
+                                  setAddMode(prev => (prev === m ? null : m));
+                                  if (m === 'procedure' && procList.length === 0) {
+                                    procedureTemplatesAPI.list()
+                                      .then(r => { if (r.success && r.data?.templates) setProcList(r.data.templates.filter(t => t.isActive !== false)); })
+                                      .catch(() => {});
+                                  }
+                                }}
+                                className="w-full px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-seafoam/10 transition-colors">
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
