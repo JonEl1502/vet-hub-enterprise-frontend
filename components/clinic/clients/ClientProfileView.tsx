@@ -435,6 +435,8 @@ const renderOverview = () => (
                      { label: 'Second Name', field: 'secondName', val: isEditing ? editedClient.secondName : client.secondName, icon: User, kind: 'text', type: 'text' },
                      { label: 'Surname', field: 'surname', val: isEditing ? editedClient.surname : client.surname, icon: User, kind: 'text', type: 'text' },
                      { label: 'Full Name', field: 'name', val: isEditing ? (computedFullName || '—') : client.name, icon: Activity, kind: 'readonly' },
+                     { label: 'Gender', field: 'gender', val: isEditing ? editedClient.gender : client.gender, icon: User, kind: 'select',
+                       options: ['Male', 'Female', 'Other'].map(g => ({ value: g, label: g })) },
                      { label: 'Email', field: 'email', val: isEditing ? editedClient.email : client.email, icon: Mail, kind: 'text', type: 'email' },
                      { label: 'Phone', field: 'phone', val: isEditing ? editedClient.phone : client.phone, icon: Phone, kind: 'text', type: 'tel' },
                      { label: 'Address', field: 'address', val: isEditing ? editedClient.address : client.address, icon: MapPin, kind: 'text', type: 'text' },

@@ -290,13 +290,18 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
         </div>
       </div>
 
-      {/* Services */}
-      {(visit.tasks || []).length > 0 && (
-        <>
-          <SectionTitle>Services Rendered</SectionTitle>
-          <p className="text-[12px] font-medium">{(visit.tasks || []).map(t => t.name).join(' · ')}</p>
-        </>
-      )}
+      {/* Services — CLINICAL only (user, 2026-08-03: reports are per
+          encounter, so grooming/boarding lines live on their own reports;
+          this document carries the medical work). */}
+      {(() => {
+        const clinical = (visit.tasks || []).filter(t => !/groom|board/i.test(t.category || ''));
+        return clinical.length > 0 ? (
+          <>
+            <SectionTitle>Services Rendered</SectionTitle>
+            <p className="text-[12px] font-medium">{clinical.map(t => t.name).join(' · ')}</p>
+          </>
+        ) : null;
+      })()}
 
       <SectionTitle>1 · History</SectionTitle>
       <Body has={!!historyText || customFacts('history').length > 0}>

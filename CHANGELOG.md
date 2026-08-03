@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix+feat: client identity — gender dropdown; save no longer 400s on date of birth  —  2026-08-03
+- **What changed:** (user, S1) the Identity Profile editor gains a **Gender** dropdown
+  (Male/Female/Other — the field existed on the record but had no input, walk-in
+  registrations left it unset). The save 400 ("Invalid data provided") was the backend
+  passing the date-only `dob` string straight into Prisma — fixed server-side (coerced,
+  '' clears, invalid dates get a real message).
+- **Record impact:** 🟢 None.
+- **Data dependency:** pairs with backend `dob` coercion fix (same day) — saving a dob
+  before that backend deploys still 400s.
+- **Rollback:** revert the commit and rebuild.
+
+### flow: Medical Report carries CLINICAL services only  —  2026-08-03
+- **What changed:** (user, S1) "Services Rendered" on the Medical Report now excludes
+  grooming/boarding-category lines — those live on their own per-encounter reports.
+  A grooming-only visit shows no clinical services block at all.
+- **Record impact:** 🟢 None — print/display only.
+- **Rollback:** revert the commit and rebuild.
+
+
 ### flow: Records & Reports follows the visit's ENCOUNTERS  —  2026-08-03
 - **What changed:** (user, S1) the report sub-tabs are per-encounter now: Medical Report
   shows when the visit has clinical content (vet-family/vaccination/deworming encounter),
