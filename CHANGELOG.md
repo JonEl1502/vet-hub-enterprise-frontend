@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: dashboard "Clinic" tab becomes Finance & Business Intelligence  —  2026-08-03
+- **What changed:** (user, 2026-08-03) the dashboard's second tab is relabelled
+  **Finance & BI** and now renders `ReportsAnalyticsView` itself, instead of mounting the
+  wallet inline. The wallet keeps its own page, reached from that view's
+  **Quick Action → Open wallet**.
+- **Record impact:** 🟢 None — routing/labels only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
+
 ### flow: pay-gated admission + up-front stay estimate (spec 7b, phase 1: boarding)  —  2026-08-03
 - **What changed:** (user spec 7b Q1+Q2, S1) ① Onboard-to-boarding / Hospitalize now
   pay-gates: if the visit has an unsettled accrued bill, a modal requires **Settle bill
