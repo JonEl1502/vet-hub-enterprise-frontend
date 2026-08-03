@@ -66,16 +66,18 @@ const GroomingRecordPage: React.FC<Props> = ({ appointment, onBack, onChanged, o
         </span>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
+      {/* One column (user, 2026-08-03), matching the boarding stay: the report
+          card gets the full width and the controls run under it. */}
+      <div className="space-y-4">
         {/* Report card — intake, before/after, groomer notes, consumables. */}
-        <div className="lg:col-span-8 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-2.5 sm:p-4 shadow-sm">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-2.5 sm:p-4 shadow-sm">
           <GroomingPanel appointment={appointment} onSaved={onChanged}
             notesFormat={gRec ? { value: gRec.displayFormat || 'PARAGRAPH', onChange: (v) => patchRec({ displayFormat: v }) } : undefined}
             onFinalize={locked ? undefined : () => onOpenAppointment?.(String(appointment.id))} />
         </div>
 
-        {/* Side rail — status/share/linked visit controls. */}
-        <div className="lg:col-span-4 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm sticky top-4 space-y-3">
+        {/* Status / share / linked-visit controls — full width, below. */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
           {/* Add another grooming service to THIS visit — the category trigger
               creates its record so the new service appears on the report card. */}
           {!locked && (

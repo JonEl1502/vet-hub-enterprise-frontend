@@ -59,6 +59,30 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: boarding care sheet reads as rounds; one column; rate inherits the clinic default  —  2026-08-03
+- **What changed:** (user, three items)
+  ① **Daily sheet = timed entries.** Each day is now ONE block listing its rounds —
+  `08:12 · Fed AM · Walked · stool normal`, `13:40 · Meds`, `18:05 · Fed PM` — with an
+  entry count and **+ Add entry** on the day. Multiple logs per day always saved fine, but
+  each rendered as its own "Day 3" card, so three rounds looked like three days. Sorted by
+  the log's own timestamp (`logDate`, which carries the chosen time; `createdAt` for rows
+  written before back-dating existed).
+  ② **One column.** The stay context / actions / checkout rail moves from a third of the
+  width beside the care sheet to **full width underneath it**, on the boarding stay page
+  and — same change — the grooming record page (its sticky side rail is gone too).
+  ③ **Daily rate inherits.** The stay page falls back to the clinic's Billables →
+  Default Daily Rate when the stay has none, for the per-day charge lines and the accrual,
+  and the pricing editor pre-fills with it. The accrual says so: *"clinic default — save
+  the price to pin it to this stay."*
+- **Record impact:** 🟢 None — the rate fallback is display-only; nothing is written until
+  you save the price.
+- **Data dependency:** None. The server already copies the clinic rate onto a stay AT
+  ADMIT; this covers stays admitted before the default was set.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the inherited rate is NOT stored on the stay. Checkout bills from
+  `stay.dailyRate`, so a stay showing the amber "clinic default" note will bill **zero
+  stay charge** until someone saves the price. That is why the note is there.
+
 ### fix: a typed portion no longer has to land on the stepper grid  —  2026-08-03
 - **What changed:** (user) the portion input carried `step={0.1}` from the stepper, so the
   browser rejected anything off that grid — typing `0.06` (120 g of a 2 kg bag, a real cat

@@ -7,6 +7,7 @@ import ConsumablePicker from '../shared/ConsumablePicker';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
 import UpgradeGate from '../../shared/common/UpgradeGate';
+import { useClinic } from '../../../contexts/ClinicContext';
 
 // Full-page boarding stay — converted from the old right-side drawer so the
 // stay is a real navigable page (deep-linkable via nav param stayId).
@@ -117,12 +118,18 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   // Stay & food pricing editor (user, 2026-08-02: a 300-meals/day typo billed
   // 540,000 and there was nowhere to see or fix it). Saving re-prices the
   // accrued lines server-side immediately.
+  // Clinic-wide default from Billables → Default Daily Rates. The server
+  // already copies it onto a stay AT ADMIT; a stay admitted before the default
+  // was set keeps a null rate, so the page falls back to it for display and
+  // pre-fills the editor with it (user, 2026-08-03: "auto pick daily rate").
+  const { selectedClinics } = useClinic();
+  const clinicDayRate = (selectedClinics[0] as any)?.boardingDayRate ?? null;
   const [pricingOpen, setPricingOpen] = useState(false);
   const [priceDraft, setPriceDraft] = useState<any>(null);
   const [priceSaving, setPriceSaving] = useState(false);
   const openPricing = () => {
     const fp: any = (stay as any)?.foodProgram || {};
-    setPriceDraft({ dailyRate: stay?.dailyRate ?? '', mealsPerDay: fp.mealsPerDay ?? '', ratePerMeal: fp.ratePerMeal ?? '', providedByClient: fp.providedByClient === true, feedingTimes: fp.feedingTimes ?? '' });
+    setPriceDraft({ dailyRate: stay?.dailyRate ?? (clinicDayRate ?? ''), mealsPerDay: fp.mealsPerDay ?? '', ratePerMeal: fp.ratePerMeal ?? '', providedByClient: fp.providedByClient === true, feedingTimes: fp.feedingTimes ?? '' });
     setPricingOpen(o => !o);
   };
   const savePricing = async () => {
@@ -287,9 +294,12 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
       {loading && !stay ? (
         <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
       ) : stay ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        // One column (user, 2026-08-03): the stay context / actions / checkout
+        // column used to sit beside the care sheet, squeezing the thing staff
+        // actually work in into two thirds. It runs full width UNDER it now.
+        <div className="space-y-4">
           {/* MAIN — daily care logging + care log history */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="space-y-4">
             {/* ONE care card (§0f #2): log form ÷ consumables ÷ care-log history,
                 divided — not three cards a scroll-length apart. */}
             <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
@@ -358,7 +368,10 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 (stay.dailyLogs || []).forEach(l => { const k = dayKey(l.logDate); byDay.set(k, [...(byDay.get(k) || []), l]); });
                 const consByDay = new Map<string, any[]>();
                 consumables.forEach(c => { const ck = dayKey(c.createdAt); consByDay.set(ck, [...(consByDay.get(ck) || []), c]); });
-                const rate = Number(stay.dailyRate ?? 0);
+                // Falls back to the clinic default so a stay admitted before
+                // the rate existed still reconciles — the server uses the same
+                // number when the stay's own rate is null.
+                const rate = Number(stay.dailyRate ?? clinicDayRate ?? 0);
                 const fmtK = (n: number) => `KES ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
                 const dayEditor = (dateKey: string) => editDay === dateKey && (
                   <div className="mt-2 pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-2">
@@ -454,28 +467,69 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                           {dayEditor(k)}
                         </div>
                       );
-                      return logs.map((l, li) => (
-                        <div key={l.id} className="bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-3 border border-slate-100 dark:border-zinc-800">
-                          <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
-                            <span className="text-[10px] font-black text-pine dark:text-zinc-200">Day {dayNo} · {formatDate(l.logDate)}{li === 0 && <span className="ml-2">{chargeLine}</span>}</span>
-                            <div className="flex gap-1.5 text-[9px] font-bold">
-                              <span className={l.fedAm ? 'text-emerald-600' : 'text-slate-300 dark:text-zinc-600'}>AM{l.fedAm ? '' : ' —'}</span>
-                              <span className={l.fedPm ? 'text-emerald-600' : 'text-slate-300 dark:text-zinc-600'}>PM{l.fedPm ? '' : ' —'}</span>
-                              <span className={l.walked ? 'text-seafoam' : 'text-slate-300 dark:text-zinc-600'}>Walk{l.walked ? '' : ' —'}</span>
-                              <span className={l.medicationGiven ? 'text-indigo-500' : 'text-slate-300 dark:text-zinc-600'}>Med{l.medicationGiven ? '' : ' —'}</span>
-                            </div>
+                      // ONE block per day, listing its timed entries (user,
+                      // 2026-08-03). Care happens in rounds — morning, midday,
+                      // evening — and rendering each log as its own "Day 3"
+                      // card made three rounds look like three days.
+                      const hhmm = (d: string | Date) =>
+                        new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                      const stamp = (l: any) => l.logDate ?? l.createdAt;
+                      const ordered = [...logs].sort((x, y) =>
+                        new Date(stamp(x)).getTime() - new Date(stamp(y)).getTime());
+                      return (
+                        <div key={k} className="bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-3 border border-slate-100 dark:border-zinc-800">
+                          <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                            <span className="text-[10px] font-black text-pine dark:text-zinc-200">
+                              Day {dayNo} · {formatDate(d)}
+                              <span className="ml-2 text-slate-400 font-bold">{ordered.length} entr{ordered.length === 1 ? 'y' : 'ies'}</span>
+                            </span>
+                            {chargeLine}
                           </div>
-                          <p className="text-[10px] text-slate-500 dark:text-zinc-400">
-                            Appetite: {l.appetite || '—'}. Stool: {l.stool || '—'}. Ate: {l.foodNotes || '—'}. {l.notes || ''}
-                          </p>
-                          {l.mealPhoto && <img src={l.mealPhoto} alt="meal" className="mt-2 w-20 h-20 rounded-lg object-cover border border-slate-200 dark:border-zinc-800" />}
-                          {li === logs.length - 1 && consRows}
-                          <button onClick={() => openDayEditor(`${k}#${l.id}`, l)} className="mt-1.5 px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">
-                            {editDay === `${k}#${l.id}` ? 'Close' : '✎ Edit'}
+                          <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+                            {ordered.map(l => (
+                              <div key={l.id} className="py-2 first:pt-0">
+                                <div className="flex flex-wrap items-start gap-x-2 gap-y-1">
+                                  <span className="shrink-0 w-12 text-[10px] font-black font-mono text-slate-500 dark:text-zinc-400 pt-0.5">
+                                    {hhmm(stamp(l))}
+                                  </span>
+                                  <div className="min-w-0 flex-1">
+                                    <div className="flex flex-wrap gap-1.5 text-[9px] font-bold">
+                                      {l.fedAm && <span className="text-emerald-600">Fed AM</span>}
+                                      {l.fedPm && <span className="text-emerald-600">Fed PM</span>}
+                                      {l.walked && <span className="text-seafoam">Walked</span>}
+                                      {l.medicationGiven && <span className="text-indigo-500">Meds</span>}
+                                      {l.appetite && <span className="text-slate-400">appetite {l.appetite}</span>}
+                                      {l.stool && <span className="text-slate-400">stool {l.stool}</span>}
+                                      {!l.fedAm && !l.fedPm && !l.walked && !l.medicationGiven && !l.appetite && !l.stool && (
+                                        <span className="text-slate-300 dark:text-zinc-600">nothing ticked</span>
+                                      )}
+                                    </div>
+                                    {(l.foodNotes || l.notes) && (
+                                      <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                                        {l.foodNotes ? `Ate: ${l.foodNotes}. ` : ''}{l.notes || ''}
+                                      </p>
+                                    )}
+                                    {l.mealPhoto && <img src={l.mealPhoto} alt="meal" className="mt-1.5 w-16 h-16 rounded-lg object-cover border border-slate-200 dark:border-zinc-800" />}
+                                  </div>
+                                  <button onClick={() => openDayEditor(`${k}#${l.id}`, l)}
+                                    className="shrink-0 px-2 py-0.5 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">
+                                    {editDay === `${k}#${l.id}` ? 'Close' : '✎'}
+                                  </button>
+                                </div>
+                                {dayEditor(`${k}#${l.id}`)}
+                              </div>
+                            ))}
+                          </div>
+                          {consRows}
+                          {/* Adding a round to THIS day — back-dated to it, so a
+                              missed evening check can be filled in tomorrow. */}
+                          <button onClick={() => openDayEditor(k)}
+                            className="mt-2 px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">
+                            {editDay === k ? 'Close' : '+ Add entry'}
                           </button>
-                          {dayEditor(`${k}#${l.id}`)}
+                          {dayEditor(k)}
                         </div>
-                      ));
+                      );
                     })}
                   </div>
                 );
@@ -484,7 +538,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
             </section>
           </div>
 
-          {/* SIDE — stay context, actions, checkout */}
+          {/* Stay context, actions, checkout — full width, below the sheet. */}
           <div className="space-y-4">
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
               {/* Stay facts — after check-out the grid shows the real
@@ -605,11 +659,17 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 const foodPerDay = fp.providedByClient === false ? (Number(fp.ratePerMeal) || 0) * (Number(fp.mealsPerDay) || 0) : 0;
                 return (
                   <div className="space-y-1">
-                    {active && stay.dailyRate ? (
-                      <p className="text-[10px] text-slate-500 dark:text-zinc-400">
-                        Accruing: {days} day{days === 1 ? '' : 's'} × KES {stay.dailyRate.toLocaleString()} = <b className="text-pine dark:text-zinc-100">KES {(days * stay.dailyRate).toLocaleString()}</b> <span className="text-slate-400">(added at checkout)</span>
-                      </p>
-                    ) : null}
+                    {active && (stay.dailyRate ?? clinicDayRate) ? (() => {
+                      const r = Number(stay.dailyRate ?? clinicDayRate);
+                      return (
+                        <p className="text-[10px] text-slate-500 dark:text-zinc-400">
+                          Accruing: {days} day{days === 1 ? '' : 's'} × KES {r.toLocaleString()} = <b className="text-pine dark:text-zinc-100">KES {(days * r).toLocaleString()}</b> <span className="text-slate-400">(added at checkout)</span>
+                          {stay.dailyRate == null && (
+                            <span className="text-amber-500 font-bold"> · clinic default — save the price to pin it to this stay</span>
+                          )}
+                        </p>
+                      );
+                    })() : null}
                     {/* The FOOD accrual — visible so a meals/rate typo can't hide. */}
                     {foodPerDay > 0 && (
                       <p className="text-[10px] text-slate-500 dark:text-zinc-400">
