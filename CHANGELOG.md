@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: patient Records is ONE tab; money vocabulary is Bill → Invoice → Payment → Receipt  —  2026-08-03
+- **What changed:** (user) ① **Records** replaces the separate Medical Record / Grooming
+  Record / Boarding Record tabs on the patient profile. Its sub-views are **All Visits ·
+  Clinical Records · Vaccinations · Deworming · Grooming · Boarding · Inpatient** —
+  Grooming/Boarding/Inpatient still only appear once the patient HAS one (077's rule).
+  Two new sub-views: **Deworming** (`dewormingAPI.list({petId})` — product, dose, route,
+  weight, batch, who gave it, next due with an overdue flag) and **Inpatient**
+  (`inpatientAPI.list('all')` filtered to the pet — stay number, dates, cage, diagnosis,
+  clinician, outcome, weights, and a link into the chart via new `onOpenInpatient`).
+  Old deep links (`medical`, `vaccines`, `grooming`, `boarding`, `appointments`,
+  `visits`) all resolve to Records on the right sub-view.
+  ② **Naming follows the revenue-cycle chain.** The account timeline's `Charges` filter
+  splits into **Bills** and **Invoices** (the rows already said BILL vs INVOICE; one chip
+  folded them together). `Total Invoiced` → **Total Billed** (stat card + donut),
+  `From N invoices` → `From N bills`, `N invoices` on a payment row → `N bills`,
+  `New Invoice` → **New Bill**, and the Financials sub-tab `Invoices` → **Bills** on both
+  the client and patient profiles.
+- **Record impact:** 🟢 None — reads only.
+- **Data dependency:** None (both endpoints already live; each sub-view fails soft to an
+  empty list, so nothing else on the page breaks if one 403s).
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the `Bills` chip now filters `kind === 'BILL'` ONLY. A visit whose
+  invoice document has been generated is an INVOICE row and answers to the Invoices chip
+  — that is the point of the split, but it means `Bills` shows fewer rows than the old
+  `Charges` did.
+
 ### page: admin Plans → Supplier tab is first-class — create works cleanly, no dead state  —  2026-08-03
 - **What changed:** (user: "create/add supplier pkgs, i dont want this", S1) the amber
   "separate catalog / not a filter" disclaimer is gone (the tab creates/edits supplier

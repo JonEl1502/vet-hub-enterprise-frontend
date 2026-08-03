@@ -169,7 +169,7 @@ const ClientAccountHub: React.FC<Props> = ({
         // patient's bills — say so when the payment covered more than that.
         desc: `Payment via ${String(p.method || '').replace(/_/g, ' ')}${
           p.receiptNumber ? ` · Ref: ${p.receiptNumber}` : ''}${
-          p.coveredCount > 1 ? ` · ${p.coveredCount} invoices` : ''}${
+          p.coveredCount > 1 ? ` · ${p.coveredCount} bills` : ''}${
           petKey && p.coveredCount > 1 ? ` · applied here of ${money(p.amount, currency)}` : ''}`,
         ref: `PAY-${p.id}`,
         amount: paidAmount(p),
@@ -196,7 +196,7 @@ const ClientAccountHub: React.FC<Props> = ({
   }, [from, to]);
 
   const filtered = entries.filter(e =>
-    (filter === 'ALL' || e.kind === filter || (filter === 'INVOICE' && e.kind === 'BILL'))
+    (filter === 'ALL' || e.kind === filter)
     && inRange(e.date)
     && (!minAmount || Math.abs(e.amount) >= Number(minAmount))
     && (!unpaidOnly || (e.status !== 'PAID' && e.status !== 'VOIDED')));
@@ -247,7 +247,7 @@ const ClientAccountHub: React.FC<Props> = ({
   const soon = (what: string) => toast(`${what} is coming soon`, { icon: '🛠️' });
 
   const QUICK_ACTIONS: { label: string; icon: any; onClick: () => void; disabled?: boolean }[] = [
-    { label: 'New Invoice', icon: FileText, onClick: () => onGoTab('appointments') },
+    { label: 'New Bill', icon: FileText, onClick: () => onGoTab('appointments') },
     { label: 'Receive Payment', icon: CircleDollarSign, onClick: () => onGoTab('invoices') },
     { label: 'Record Advance', icon: HandCoins, onClick: () => setAdvanceOpen(true), disabled: !canCollect },
     { label: 'Refund', icon: RotateCcw, onClick: () => soon('Refunds') },
@@ -265,7 +265,7 @@ const ClientAccountHub: React.FC<Props> = ({
     {
       label: petKey ? 'Balance On This Patient' : 'Current Balance', icon: Wallet, chip: 'bg-rose-500/10 text-rose-500',
       value: money(outstanding, currency), valueCls: outstanding > 0 ? 'text-rose-500' : 'text-pine dark:text-zinc-100',
-      sub: openCount > 0 ? `From ${openCount} invoice${openCount === 1 ? '' : 's'}` : 'Nothing outstanding',
+      sub: openCount > 0 ? `From ${openCount} bill${openCount === 1 ? '' : 's'}` : 'Nothing outstanding',
     },
     {
       label: petKey ? 'Owner Credit' : 'Credit Available', icon: PiggyBank, chip: 'bg-emerald-500/10 text-emerald-500',
@@ -275,7 +275,7 @@ const ClientAccountHub: React.FC<Props> = ({
         : client.maxDebt != null ? `Credit Limit: ${money(client.maxDebt, currency)}` : 'No credit limit set',
     },
     {
-      label: 'Total Invoiced', icon: FileText, chip: 'bg-indigo-500/10 text-indigo-500',
+      label: 'Total Billed', icon: FileText, chip: 'bg-indigo-500/10 text-indigo-500',
       value: money(invoiced12, currency), valueCls: 'text-pine dark:text-zinc-100',
       sub: 'Last 12 months',
     },
@@ -321,7 +321,8 @@ const ClientAccountHub: React.FC<Props> = ({
               <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mr-0.5">Show</span>
               {([
                 { id: 'ALL' as const, label: 'Everything' },
-                { id: 'INVOICE' as const, label: 'Charges' },
+                { id: 'BILL' as const, label: 'Bills' },
+                { id: 'INVOICE' as const, label: 'Invoices' },
                 { id: 'PAYMENT' as const, label: 'Payments' },
                 { id: 'CREDIT' as const, label: 'Credits' },
                 { id: 'REFUND' as const, label: 'Refunds' },
@@ -414,7 +415,7 @@ const ClientAccountHub: React.FC<Props> = ({
               <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Account Timeline</h3>
               <p className="text-[10px] font-bold text-slate-400">
                 {petKey
-                  ? `Charges raised for ${subject} and the money applied to them`
+                  ? `Bills raised for ${subject} and the money applied to them`
                   : 'All financial transactions for this client'}
               </p>
             </div>
@@ -510,7 +511,7 @@ const ClientAccountHub: React.FC<Props> = ({
                         {[
                           { label: 'Receive payment', icon: CircleDollarSign, run: () => onGoTab('invoices') },
                           { label: 'Record advance', icon: HandCoins, run: () => setAdvanceOpen(true) },
-                          { label: 'New invoice', icon: FileText, run: () => onGoTab('appointments') },
+                          { label: 'New bill', icon: FileText, run: () => onGoTab('appointments') },
                         ].map(a => (
                           <button key={a.label} onClick={() => { setNewTxOpen(false); a.run(); }}
                             className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-seafoam/10 hover:text-seafoam transition-all">
@@ -557,7 +558,7 @@ const ClientAccountHub: React.FC<Props> = ({
                   </div>
                 ))}
                 <div className="flex items-center gap-2 pt-1.5 border-t border-slate-100 dark:border-zinc-800">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 flex-1">Total Invoiced</span>
+                  <span className="text-[9px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 flex-1">Total Billed</span>
                   <span className="text-[10px] font-black font-mono text-pine dark:text-zinc-100">{money(invoicedAll, currency)}</span>
                 </div>
               </div>

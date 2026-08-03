@@ -24,7 +24,14 @@ import ClientAccountHub, { ClientStatementTab, preferredMethod } from '../client
 import ClientPaymentsTab from '../clients/ClientPaymentsTab';
 import type { ClientBilling } from '../../../services/modules/clients.api';
 
-const BEHAVIOUR_TRAITS = ['Calm', 'Very happy', 'Likes petting', 'Well trained', 'Good with kids', 'Food motivated', 'Playful', 'Nervous', 'Anxious at vet', 'Aggressive', 'May bite', 'Hates nail trims', 'Vocal'];
+/**
+ * Records is ONE tab (user, 2026-08-03) — medical, grooming, boarding,
+ * inpatient, vaccination and deworming are all records of this patient, so they
+ * are sub-views of a single tab rather than a row of competing top-level tabs.
+ */
+type RecordSubTab = 'all' | 'history' | 'vaccinations' | 'deworming' | 'grooming' | 'boarding' | 'inpatient';
+
+const BEHAVIOUR_TRAITS =['Calm', 'Very happy', 'Likes petting', 'Well trained', 'Good with kids', 'Food motivated', 'Playful', 'Nervous', 'Anxious at vet', 'Aggressive', 'May bite', 'Hates nail trims', 'Vocal'];
 
 interface Props {
   pet: Pet;
@@ -50,12 +57,14 @@ interface Props {
   onSettleVisit?: (apptId: number) => void;
   onViewAppointment?: (appointmentId: number) => void;
   onViewOwner?: (clientId: number, tab?: string) => void;
+  /** Records → Inpatient: open the hospitalization's own chart. */
+  onOpenInpatient?: (hospId: string | number) => void;
   initialVisitId?: number;
 }
 
 const PetProfileView: React.FC<Props> = ({
   pet, owner, activeClinic, clinics, appointments, allPets, onBack, initialTab = 'overview',
-  onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onSettleVisit, onViewAppointment, onViewOwner, initialVisitId
+  onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onSettleVisit, onViewAppointment, onViewOwner, onOpenInpatient, initialVisitId
 }) => {
   // Pet photo: local override so the header updates the moment it uploads,
   // without waiting for the parent's pet list to refetch.
@@ -67,10 +76,12 @@ const PetProfileView: React.FC<Props> = ({
   // Records restructure (077): conditional Medical / Grooming / Boarding
   // record tabs. Legacy tab ids map in: 'appointments'/'visits' → 'medical';
   // 'vaccines' → 'medical' with the Vaccinations sub-tab (vaccination lives
-  // under Medical Record now).
+  // under Records → Vaccinations now).
+  // Every record type is one tab now ('records'); the old per-type tab ids stay
+  // valid as deep links and land on the matching sub-view (see visitSubTab).
   const [activeTab, setActiveTab] = useState(
-    initialTab === 'appointments' || initialTab === 'visits' ? 'medical'
-    : initialTab === 'vaccines' ? 'medical'
+    ['appointments', 'visits', 'vaccines', 'medical', 'grooming', 'boarding', 'inpatient', 'deworming']
+      .includes(initialTab) ? 'records'
     // The Transactions tab became Financials (the client-page account hub,
     // scoped to this patient). Old deep links keep working.
     : initialTab === 'transactions' ? 'financials'
@@ -79,11 +90,17 @@ const PetProfileView: React.FC<Props> = ({
   const [vaccineTab, setVaccineTab] = useState<'timeline' | 'history'>('timeline');
   // Financials sub-views — the same five the client profile has.
   const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'invoices' | 'receipts' | 'statements' | 'discounts'>('overview');
-  // Medical Record sub-tabs: all visits · clinical records · vaccinations.
+  // Records sub-tabs: all visits · clinical records · vaccinations ·
+  // deworming · grooming · boarding · inpatient.
   // A deep-linked visit (initialVisitId) lands on Clinical Records with that
   // visit highlighted and scrolled into view.
-  const [visitSubTab, setVisitSubTab] = useState<'all' | 'history' | 'vaccinations'>(
-    initialTab === 'vaccines' ? 'vaccinations' : initialVisitId ? 'history' : 'all'
+  const [visitSubTab, setVisitSubTab] = useState<RecordSubTab>(
+    initialTab === 'vaccines' ? 'vaccinations'
+    : initialTab === 'deworming' ? 'deworming'
+    : initialTab === 'grooming' ? 'grooming'
+    : initialTab === 'boarding' ? 'boarding'
+    : initialTab === 'inpatient' ? 'inpatient'
+    : initialVisitId ? 'history' : 'all'
   );
   useEffect(() => {
     if (!initialVisitId) return;
@@ -108,7 +125,34 @@ const PetProfileView: React.FC<Props> = ({
   const groomingVisits = useMemo(() => appointments.filter(isGroomingVisit), [appointments, isGroomingVisit]);
   const boardingVisits = useMemo(() => appointments.filter(isBoardingVisit), [appointments, isBoardingVisit]);
 
-  // Boarding stays for this patient — feeds the Boarding Record tab (kennel,
+  // Hospitalizations for this patient — the Inpatient record. Kept separate
+  // from the visit list because a stay outlives the visit that admitted it.
+  const [petHosps, setPetHosps] = useState<any[]>([]);
+  useEffect(() => {
+    let alive = true;
+    import('../../../services').then(({ inpatientAPI }) =>
+      inpatientAPI.list('all', { silent: true } as any).then(res => {
+        if (alive && res.success && res.data?.hospitalizations) {
+          setPetHosps(res.data.hospitalizations.filter((h: any) => String(h.petId) === String(pet.id)));
+        }
+      })
+    ).catch(() => { /* non-fatal — the sub-tab simply stays hidden */ });
+    return () => { alive = false; };
+  }, [pet.id]);
+
+  // Deworming records (088) — the same standing as vaccinations.
+  const [petDeworming, setPetDeworming] = useState<any[]>([]);
+  useEffect(() => {
+    let alive = true;
+    import('../../../services').then(({ dewormingAPI }) =>
+      dewormingAPI.list({ petId: pet.id }, { silent: true } as any).then(res => {
+        if (alive && res.success && res.data?.records) setPetDeworming(res.data.records);
+      })
+    ).catch(() => { /* non-fatal */ });
+    return () => { alive = false; };
+  }, [pet.id]);
+
+  // Boarding stays for this patient — feeds the Boarding record (kennel,
   // belongings log, feeding schedule, daily logs) + the printable report.
   const [petStays, setPetStays] = useState<any[]>([]);
   const [reportStay, setReportStay] = useState<any | null>(null);
@@ -1392,14 +1436,11 @@ const PetProfileView: React.FC<Props> = ({
             {[
               { id: 'overview', label: 'Overview', icon: Heart },
               { id: 'timeline', label: 'Timeline', icon: Clock },
-              // Conditional record tabs (077): a tab only appears when that
-              // record type exists for this patient. Everything clinical —
-              // visits, consults, inpatient, surgery, lab, vaccinations —
-              // lives under Medical Record (Medical always shows: it's the
-              // primary record and hosts vaccinations).
-              { id: 'medical', label: 'Medical Record', icon: Clipboard },
-              ...(groomingVisits.length > 0 ? [{ id: 'grooming', label: 'Grooming Record', icon: Smile }] : []),
-              ...(boardingVisits.length > 0 || petStays.length > 0 ? [{ id: 'boarding', label: 'Boarding Record', icon: Building2 }] : []),
+              // ONE Records tab (user, 2026-08-03). Medical, grooming,
+              // boarding, inpatient, vaccination and deworming are all records
+              // of the same patient — they are sub-views in there, not a row of
+              // competing top-level tabs.
+              { id: 'records', label: 'Records', icon: Clipboard },
               // ONE money tab, same as the client page: the account hub scoped
               // to this patient's bills.
               ...(hasFullAccess ? [{ id: 'financials', label: 'Financials', icon: CreditCard }] : []),
@@ -1426,15 +1467,22 @@ const PetProfileView: React.FC<Props> = ({
       <div className="min-h-[50vh]">
         {activeTab === 'overview' && renderOverview()}
         {activeTab === 'timeline' && <PatientTimeline entries={timeline} reminders={reminders} bookings={bookings} visitsById={visitsById} onEditReminder={setEditingReminder} onDeleteReminder={handleDeleteReminder} loading={loadingClinical} />}
-        {/* Medical Record (077) — everything clinical: vet visits, consults,
+        {/* Records (077 + 2026-08-03) — everything clinical: vet visits, consults,
             hospitalizations, surgeries, lab AND vaccinations (with record +
             certificate access from the Vaccinations sub-tab). */}
-        {activeTab === 'medical' && (
-           <div className="flex gap-1 bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-fit mb-6">
+        {activeTab === 'records' && (
+           <div className="flex flex-wrap gap-1 bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-fit max-w-full mb-6">
              {([
                { id: 'all', label: 'All Visits', icon: Calendar },
                { id: 'history', label: 'Clinical Records', icon: Clipboard },
                { id: 'vaccinations', label: 'Vaccinations', icon: ShieldCheck },
+               { id: 'deworming', label: 'Deworming', icon: Shield },
+               // Workflow records only appear once the patient HAS one — an
+               // empty Boarding tab on a patient that has never boarded is
+               // noise, which is why 077 made them conditional.
+               ...(groomingVisits.length > 0 ? [{ id: 'grooming' as const, label: 'Grooming', icon: Smile }] : []),
+               ...(boardingVisits.length > 0 || petStays.length > 0 ? [{ id: 'boarding' as const, label: 'Boarding', icon: Building2 }] : []),
+               ...(petHosps.length > 0 ? [{ id: 'inpatient' as const, label: 'Inpatient', icon: BadgeCheck }] : []),
              ] as const).map(st => (
                <button
                  key={st.id}
@@ -1450,13 +1498,136 @@ const PetProfileView: React.FC<Props> = ({
              ))}
            </div>
         )}
-        {activeTab === 'medical' && visitSubTab === 'vaccinations' && renderVaccines()}
+        {activeTab === 'records' && visitSubTab === 'vaccinations' && renderVaccines()}
+        {/* Deworming (088) — same standing as vaccinations: what was given, and
+            what it made due next. */}
+        {activeTab === 'records' && visitSubTab === 'deworming' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in fade-in slide-in-from-right-4">
+            {petDeworming.length > 0 ? petDeworming.map((r: any) => {
+              const overdue = r.nextDueAt && new Date(r.nextDueAt) < new Date();
+              return (
+                <div key={r.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm">
+                  <div className="flex items-start justify-between gap-3 mb-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 aspect-square">
+                        <Shield size={17} className="text-emerald-500" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-pine dark:text-zinc-100 font-black text-sm uppercase truncate">{r.productName}</p>
+                        <p className="text-slate-400 text-[9px] font-black uppercase mt-0.5">
+                          {r.dewormedAt ? formatDate(r.dewormedAt) : 'Not given yet'}
+                          {r.wormType ? ` · ${r.wormType}` : ''}
+                        </p>
+                      </div>
+                    </div>
+                    <span className={`text-[7px] font-black uppercase px-2 py-1 rounded-lg border shrink-0 ${
+                      r.status === 'ADMINISTERED'
+                        ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                        : 'bg-amber-500/10 text-amber-500 border-amber-500/20'
+                    }`}>{r.status}</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                    {[
+                      { label: 'Dose', value: r.doseGiven },
+                      { label: 'Route', value: r.route },
+                      { label: 'Weight', value: r.weightKg != null ? `${r.weightKg} kg` : null },
+                      { label: 'Batch', value: r.batchNumber },
+                      { label: 'Given by', value: r.administeredByName },
+                    ].filter(x => x.value).map(x => (
+                      <div key={x.label}>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{x.label}</p>
+                        <p className="text-xs font-bold text-slate-600 dark:text-zinc-400 truncate">{x.value}</p>
+                      </div>
+                    ))}
+                    {r.nextDueAt && (
+                      <div>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Next due</p>
+                        <p className={`text-xs font-black ${overdue ? 'text-rose-500' : 'text-pine dark:text-zinc-200'}`}>
+                          {formatDate(r.nextDueAt)}{overdue ? ' · overdue' : ''}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                  {r.notes && <p className="mt-3 text-[11px] text-slate-500 dark:text-zinc-400 italic leading-relaxed">{r.notes}</p>}
+                </div>
+              );
+            }) : (
+              <div className="col-span-full py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em]">
+                No deworming records
+              </div>
+            )}
+          </div>
+        )}
+        {/* Inpatient — the hospitalizations themselves. A stay outlives the
+            visit that admitted it, so it is its own record, not a visit card. */}
+        {activeTab === 'records' && visitSubTab === 'inpatient' && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in fade-in slide-in-from-right-4">
+            {petHosps.length > 0 ? petHosps.map((h: any) => (
+              <div key={h.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm">
+                <div className="flex items-start justify-between gap-3 mb-3">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="w-10 h-10 rounded-xl bg-cyan/10 flex items-center justify-center shrink-0 aspect-square">
+                      <BadgeCheck size={17} className="text-cyan" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-pine dark:text-zinc-100 font-black text-sm uppercase truncate">
+                        {h.inpatientNo || `Stay #${h.id}`}
+                      </p>
+                      <p className="text-slate-400 text-[9px] font-black uppercase mt-0.5">
+                        {formatDate(h.admittedAt)}{h.dischargedAt ? ` → ${formatDate(h.dischargedAt)}` : ' · ongoing'}
+                        {h.cage ? ` · Cage ${h.cage}` : ''}
+                      </p>
+                    </div>
+                  </div>
+                  <span className={`text-[7px] font-black uppercase px-2 py-1 rounded-lg border shrink-0 ${
+                    h.status === 'ADMITTED' ? 'bg-cyan/10 text-cyan border-cyan/20'
+                    : h.status === 'DISCHARGED' ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20'
+                    : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700'
+                  }`}>{h.status}</span>
+                </div>
+                <div className="space-y-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                  {h.diagnosis && (
+                    <div>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Diagnosis</p>
+                      <p className="text-xs font-bold text-slate-600 dark:text-zinc-400">{h.diagnosis}</p>
+                    </div>
+                  )}
+                  <div className="flex flex-wrap gap-x-4 gap-y-2">
+                    {[
+                      { label: 'Clinician', value: h.clinician?.name },
+                      { label: 'Outcome', value: h.outcome },
+                      { label: 'Intake wt', value: h.intakeWeight != null ? `${h.intakeWeight} kg` : null },
+                      { label: 'Final wt', value: h.finalWeight != null ? `${h.finalWeight} kg` : null },
+                    ].filter(x => x.value).map(x => (
+                      <div key={x.label}>
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{x.label}</p>
+                        <p className="text-xs font-bold text-slate-600 dark:text-zinc-400">{x.value}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  onClick={() => onOpenInpatient?.(h.id)}
+                  disabled={!onOpenInpatient}
+                  className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 w-full flex items-center justify-between text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest hover:text-seafoam transition-colors group disabled:opacity-40"
+                >
+                  <span className="flex items-center gap-1.5"><Clipboard size={11} /> Open inpatient chart</span>
+                  <ChevronRight size={11} className="group-hover:translate-x-0.5 transition-transform" />
+                </button>
+              </div>
+            )) : (
+              <div className="col-span-full py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em]">
+                No inpatient stays
+              </div>
+            )}
+          </div>
+        )}
         {/* Reminders & appointment bookings for this patient — today & future first. */}
         {activeTab === 'schedule' && <RemindersApptsTab petId={pet.id} />}
         {/* Grooming / Boarding record tabs + Medical "All Visits" share the
             visit-card list — only the source list differs. */}
-        {((activeTab === 'medical' && visitSubTab === 'all') || activeTab === 'grooming' || activeTab === 'boarding') && (() => {
-          const visibleVisits = activeTab === 'grooming' ? groomingVisits : activeTab === 'boarding' ? boardingVisits : medicalVisits;
+        {activeTab === 'records' && ['all', 'grooming', 'boarding'].includes(visitSubTab) && (() => {
+          const visibleVisits = visitSubTab === 'grooming' ? groomingVisits : visitSubTab === 'boarding' ? boardingVisits : medicalVisits;
           return (
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in fade-in slide-in-from-right-4">
               {visibleVisits.length > 0 ? visibleVisits.map(appt => {
@@ -1558,7 +1729,7 @@ const PetProfileView: React.FC<Props> = ({
                       {/* Per-workflow report (077): grooming visits get their
                           own printable Grooming Report — separate from any
                           medical/boarding report for the same patient. */}
-                      {activeTab === 'grooming' && (
+                      {visitSubTab === 'grooming' && (
                         <button
                           onClick={() => setGroomingReportVisit(appt)}
                           className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70 transition-colors"
@@ -1570,13 +1741,13 @@ const PetProfileView: React.FC<Props> = ({
                 </div>
               )}) : (
                  <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-20 uppercase font-black text-[10px] tracking-[0.2em] col-span-full">
-                   {activeTab === 'grooming' ? 'No grooming visits yet' : activeTab === 'boarding' ? 'No boarding history yet' : 'No medical visits found'}
+                   {visitSubTab === 'grooming' ? 'No grooming visits yet' : visitSubTab === 'boarding' ? 'No boarding history yet' : 'No medical visits found'}
                  </div>
               )}
               {/* Boarding Record: the stays themselves — kennel, dates,
                   belongings log, feeding schedule — with a printable
                   per-stay Boarding Report. */}
-              {activeTab === 'boarding' && petStays.length > 0 && (
+              {visitSubTab === 'boarding' && petStays.length > 0 && (
                 <div className="col-span-full space-y-3">
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Boarding stays</p>
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -1617,7 +1788,7 @@ const PetProfileView: React.FC<Props> = ({
               <div className="flex flex-wrap items-center gap-1.5 mb-4">
                 {[
                   { id: 'overview', label: 'Overview' },
-                  { id: 'invoices', label: 'Invoices' },
+                  { id: 'invoices', label: 'Bills' },
                   { id: 'receipts', label: 'Receipts' },
                   { id: 'statements', label: 'Statements' },
                   { id: 'discounts', label: 'Discounts & Credits' },
@@ -1644,7 +1815,7 @@ const PetProfileView: React.FC<Props> = ({
                   onViewVisit={onViewAppointment}
                   onGoTab={(t) => {
                     // The hub's quick actions address this page's own sub-tabs;
-                    // "New invoice" is a visit, which lives under Medical Record.
+                    // A new bill starts as a visit, which lives under Records.
                     if (t === 'appointments') setActiveTab('medical');
                     else setFinanceSubTab(t as any);
                   }}
@@ -1708,7 +1879,7 @@ const PetProfileView: React.FC<Props> = ({
             </div>
           )
         )}
-        {activeTab === 'medical' && visitSubTab === 'history' && (
+        {activeTab === 'records' && visitSubTab === 'history' && (
            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in slide-in-from-bottom-4">
               {(() => {
                 // Clinical Records shows EVERY concluded visit — a grooming- or

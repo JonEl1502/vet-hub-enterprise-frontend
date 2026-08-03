@@ -1326,7 +1326,7 @@ const renderOverview = () => (
           <div className="flex flex-wrap items-center gap-1.5 mb-4">
             {[
               { id: 'transactions', label: 'Overview' },
-              { id: 'invoices', label: 'Invoices' },
+              { id: 'invoices', label: 'Bills' },
               { id: 'receipts', label: 'Receipts' },
               { id: 'statements', label: 'Statements' },
               { id: 'discounts', label: 'Discounts & Credits' },
