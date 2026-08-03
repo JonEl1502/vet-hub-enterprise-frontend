@@ -262,7 +262,8 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
         </button>
       )}
       <div>
-        <div className="bg-gradient-to-br from-pine to-pine/90 text-white p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 shadow-xl">
+        {/* Compact bar (user, 2026-08-03: simpler) — one row, no dead space. */}
+        <div className="bg-gradient-to-br from-pine to-pine/90 text-white px-4 py-2.5 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 shadow-lg">
           <div className="flex items-center gap-3 min-w-0">
             <Stethoscope size={20} className="text-seafoam shrink-0" />
             <div className="min-w-0">
@@ -345,9 +346,21 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                   <button type="button" onClick={() => setBackfillAt(null)}
                     className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 text-[9px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-700">Now</button>
                 </div>
-                <select className={fieldCls} value={logKind} onChange={e => { setLogKind(e.target.value as LogKind); setLogData({}); resetDrug(); }}>
-                  {LOG_KINDS.map(k => <option key={k.value} value={k.value}>{k.label}</option>)}
-                </select>
+                {/* All entry kinds visible at once (user, 2026-08-03: "not
+                    hidden by selection") — chips, not a dropdown. */}
+                <div className="flex flex-wrap gap-1.5">
+                  {LOG_KINDS.map(k => (
+                    <button key={k.value} type="button"
+                      onClick={() => { setLogKind(k.value); setLogData({}); resetDrug(); }}
+                      className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                        logKind === k.value
+                          ? 'bg-seafoam text-white border-seafoam shadow-sm'
+                          : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:text-seafoam'
+                      }`}>
+                      {k.label}
+                    </button>
+                  ))}
+                </div>
                 {logFields()}
                 <button onClick={addLog} disabled={busy} className="w-full py-2 bg-seafoam text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">{busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add entry</button>
               </section>
@@ -519,22 +532,19 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                   </p>
                 );
               })() : null}
-            </div>
+              {/* ONE rail card (user, 2026-08-03: simpler) — complexity and
+                  discharge fold in here instead of floating as their own cards. */}
+              <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
+                <StandardRecordControls
+                  complexity={{
+                    value: h.complexity ?? null,
+                    readOnly: !active,
+                    onChange: (v) => { inpatientAPI.update(hospId, { complexity: v }).then(() => { load(); onChanged?.(); }); },
+                  }}
+                />
+              </div>
 
-            {/* Complexity — read-only once discharged: saved value stays
-                highlighted, clicks do nothing. */}
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
-              <StandardRecordControls
-                complexity={{
-                  value: h.complexity ?? null,
-                  readOnly: !active,
-                  onChange: (v) => { inpatientAPI.update(hospId, { complexity: v }).then(() => { load(); onChanged?.(); }); },
-                }}
-              />
-            </div>
-
-            {/* Discharge */}
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+              <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
               {active ? (
                 !showDischarge ? (
                   <button onClick={() => setShowDischarge(true)} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2"><LogOut size={15} /> Discharge</button>
@@ -566,6 +576,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                   ); })()}
                 </div>
               )}
+              </div>
             </div>
           </div>
         </div>

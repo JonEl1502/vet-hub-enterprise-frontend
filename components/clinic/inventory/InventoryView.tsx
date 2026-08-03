@@ -76,7 +76,7 @@ const unitToForm = (unit: string): string => UNIT_TO_FORM[unit] || 'UNIT';
 const FEE_DEFS: { key: 'feeService' | 'feeAdmin' | 'feeInjection' | 'feePrescription'; label: string; hint: string; default: number }[] = [
   { key: 'feeService', label: 'Service Charge', hint: 'Flat handling fee added when dispensed', default: 0 },
   { key: 'feeAdmin', label: 'Administration Fee', hint: 'Fee to administer the product', default: 0 },
-  { key: 'feeInjection', label: 'Injection Fee', hint: 'Per injection (e.g. 300 / 10 mL)', default: 300 },
+  { key: 'feeInjection', label: 'Injection Fee', hint: 'Flat fee per injection', default: 300 },
   { key: 'feePrescription', label: 'Prescription Fee', hint: 'Fee to write the prescription', default: 0 },
 ];
 
@@ -1638,6 +1638,11 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                               onChange={e => setItemForm(prev => ({ ...prev, [fee.key]: e.target.value === '' ? 0 : Number(e.target.value) }))}
                             />
                           </div>
+                          {/* Per-mL divisor HIDDEN (user, 2026-08-03: "remove
+                              per ml ui, just comment") — the injection fee is a
+                              flat per-injection amount for now. The
+                              `injectionUnitMl` field still persists (default 10)
+                              so re-enabling this is uncommenting, not a rebuild.
                           {fee.key === 'feeInjection' && (
                             <div className="relative w-24 shrink-0">
                               <input
@@ -1651,6 +1656,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                               <span className="absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400">mL</span>
                             </div>
                           )}
+                          */}
                         </div>
                       )}
                     </div>
@@ -1753,7 +1759,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                           <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Service charges</p>
                           {itemForm.feeService !== undefined && <div className="flex justify-between text-[9px] font-bold text-slate-500 dark:text-zinc-400"><span>Service</span><span className="font-mono">{ccy} {(itemForm.feeService||0).toLocaleString()}</span></div>}
                           {itemForm.feeAdmin !== undefined && <div className="flex justify-between text-[9px] font-bold text-slate-500 dark:text-zinc-400"><span>Administration</span><span className="font-mono">{ccy} {(itemForm.feeAdmin||0).toLocaleString()}</span></div>}
-                          {itemForm.feeInjection !== undefined && <div className="flex justify-between text-[9px] font-bold text-slate-500 dark:text-zinc-400"><span>Injection / {itemForm.injectionUnitMl}mL</span><span className="font-mono">{ccy} {(itemForm.feeInjection||0).toLocaleString()}</span></div>}
+                          {itemForm.feeInjection !== undefined && <div className="flex justify-between text-[9px] font-bold text-slate-500 dark:text-zinc-400"><span>Injection</span><span className="font-mono">{ccy} {(itemForm.feeInjection||0).toLocaleString()}</span></div>}
                           {itemForm.feePrescription !== undefined && <div className="flex justify-between text-[9px] font-bold text-slate-500 dark:text-zinc-400"><span>Prescription</span><span className="font-mono">{ccy} {(itemForm.feePrescription||0).toLocaleString()}</span></div>}
                         </div>
                       )}

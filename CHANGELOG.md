@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: inpatient chart — visible entry-kind chips, ONE rail card, slim header  —  2026-08-03
+- **What changed:** (user, S1) ① the "Add to daily sheet" entry kind is a CHIP ROW now —
+  all ten kinds (Treatment task → Shift handover) visible at once instead of hidden in a
+  dropdown. ② The right rail's three cards (admission/actions · Complexity · Discharge)
+  merged into ONE card with dividers. ③ The header banner slimmed to a compact bar
+  (was a tall mostly-empty block).
+- **Record impact:** 🟢 None — layout/input only, same writes.
+- **Rollback:** revert the commit and rebuild.
+
+### ui: inventory — injection fee is a flat per-injection amount (per-mL divisor hidden)  —  2026-08-03
+- **What changed:** (user: "remove per ml ui, just comment") the "/ N mL" divisor input on
+  the Injection Fee card is COMMENTED OUT, hint reads "Flat fee per injection", pricing
+  summary drops the "/10mL" suffix. `injectionUnitMl` still persists (default 10), so
+  re-enabling is uncommenting.
+- **Record impact:** 🟢 None.
+- **Rollback:** revert the commit (or just uncomment).
+
+
 ### page: client profile — one "Financials" tab, and no invoice before it exists  —  2026-08-03
 - **What changed:** (user, 2026-08-03) Invoices / Payments / Receipts / Statements /
   Discounts & Credits were five top-level tabs for one subject — and the same words were
