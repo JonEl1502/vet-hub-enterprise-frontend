@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: YTD and lifetime are two figures; bigger client portrait  —  2026-08-03
+- **What changed:** (user: "split them properly, YTD and lifetime separate")
+  ① the client card's `Value (YTD)` tile had always printed `client.totalSpent`, which is
+  LIFETIME — the label was simply wrong. The caption under the balance now reads
+  **`X YTD · Y lifetime · N visits`**, with YTD computed from paid visits since 1 Jan.
+  ② the patient header's single "Spend on this patient" becomes **Spend (YTD)** and
+  **Spend (Lifetime)** — a 5-cell strip — both counting what was actually PAID on that
+  patient's bills, not what was charged. ③ the client profile portrait grows from
+  `w-14/16` to `w-24 sm:w-32`, matching the patient profile (portal "P" badge scaled).
+- **Record impact:** 🟢 None — reads only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the two figures come from different sources by design — YTD is derived
+  client-side from the visits/bills in view, lifetime is the server's `totalSpent`
+  aggregate. They will not tie exactly if a payment sits outside the loaded window.
+
 ### ui: client card rebuilt — money leads, fewer boxes, today's visit + due reminder  —  2026-08-03
 - **What changed:** (user: "too many boxes", "weak hierarchy", "general outlook n feel n
   can have most important data eg reminders, today's visit shown if exist")

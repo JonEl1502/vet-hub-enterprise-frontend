@@ -892,10 +892,10 @@ const renderOverview = () => (
                 <ArrowLeft size={17}/>
               </button>
               <div className="relative shrink-0">
-                <img src={client.avatar} className="w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-white dark:border-zinc-950 shadow-lg aspect-square object-cover" alt="" />
+                <img src={client.avatar} className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-2 border-white dark:border-zinc-950 shadow-lg aspect-square object-cover" alt="" />
                 {client.portalStatus === 'active' && (
                   <span title="Active portal account"
-                        className="absolute -bottom-0.5 -right-0.5 min-w-[18px] min-h-[18px] rounded-full bg-emerald-500 text-white text-[9px] font-black flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow">
+                        className="absolute bottom-1 right-1 min-w-[24px] min-h-[24px] rounded-full bg-emerald-500 text-white text-[11px] font-black flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow">
                     P
                   </span>
                 )}

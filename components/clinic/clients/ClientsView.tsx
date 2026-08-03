@@ -611,6 +611,15 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                 .sort((x, y) => new Date(x.dueAt).getTime() - new Date(y.dueAt).getTime())[0] ?? null;
               const reminderOverdue = dueReminder ? new Date(dueReminder.dueAt).getTime() < Date.now() : false;
               const currency = client.currency || 'KES';
+              // YTD vs LIFETIME are different numbers and the card used to print
+              // lifetime under a "Value (YTD)" label (user, 2026-08-03: "split
+              // them properly"). YTD = paid visits since 1 Jan; lifetime is the
+              // client aggregate the server already maintains.
+              const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime();
+              const spendYtd = clientAppts
+                .filter(a => a.isPaid && new Date(a.date).getTime() >= yearStart)
+                .reduce((sum, a) => sum + (a.totalCost || 0), 0);
+              const spendLifetime = client.totalSpent || 0;
 
               return (
                 <motion.div
@@ -877,7 +886,11 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                       </p>
                       {hasFullAccess && (
                         <p className="text-[10px] font-bold text-slate-400 mt-1">
-                          {currency} {(client.totalSpent || 0).toLocaleString()} lifetime · {visitCount} visit{visitCount === 1 ? '' : 's'}
+                          <span className="text-slate-500 dark:text-zinc-300">{currency} {spendYtd.toLocaleString()}</span> YTD
+                          <span className="mx-1.5 text-slate-300 dark:text-zinc-700">·</span>
+                          <span className="text-slate-500 dark:text-zinc-300">{currency} {spendLifetime.toLocaleString()}</span> lifetime
+                          <span className="mx-1.5 text-slate-300 dark:text-zinc-700">·</span>
+                          {visitCount} visit{visitCount === 1 ? '' : 's'}
                         </p>
                       )}
                     </div>

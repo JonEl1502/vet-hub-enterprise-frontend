@@ -331,9 +331,17 @@ const PetProfileView: React.FC<Props> = ({
   );
   const money2 = (n: number) =>
     `${currency} ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Lifetime and year-to-date are different questions, so they are two figures
+  // (user, 2026-08-03: "YTD and lifetime separate"). Both count what was
+  // actually PAID on this patient's bills, not what was charged.
+  const yearStart = useMemo(() => new Date(new Date().getFullYear(), 0, 1).getTime(), []);
   const petSpend = billing
     ? petInvoices.reduce((s, i) => s + (i.paid || 0), 0)
     : appointments.filter(a => a.isPaid).reduce((s, a) => s + (a.totalCost || 0), 0);
+  const petSpendYtd = billing
+    ? petInvoices.filter(i => new Date(i.date).getTime() >= yearStart).reduce((s, i) => s + (i.paid || 0), 0)
+    : appointments.filter(a => a.isPaid && new Date(a.date).getTime() >= yearStart)
+        .reduce((s, a) => s + (a.totalCost || 0), 0);
   const petOutstanding = billing
     ? petInvoices.reduce((s, i) => s + (i.outstanding || 0), 0)
     : appointments.filter(a => !a.isPaid).reduce((s, a) => s + (a.totalCost || 0), 0);
@@ -1402,9 +1410,13 @@ const PetProfileView: React.FC<Props> = ({
             <div className="shrink-0 w-full xl:w-auto flex flex-col justify-between gap-3">
               {hasFullAccess ? (
                 <>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 rounded-xl border border-slate-100 dark:border-zinc-800 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-zinc-800 overflow-hidden">
+                  <div className="grid grid-cols-2 sm:grid-cols-5 rounded-xl border border-slate-100 dark:border-zinc-800 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-zinc-800 overflow-hidden">
                     <div className="px-4 py-3 text-center">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Spend On This Patient</p>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Spend (YTD)</p>
+                      <p className="text-sm font-black font-mono text-pine dark:text-zinc-100 whitespace-nowrap">{money2(petSpendYtd)}</p>
+                    </div>
+                    <div className="px-4 py-3 text-center">
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Spend (Lifetime)</p>
                       <p className="text-sm font-black font-mono text-pine dark:text-zinc-100 whitespace-nowrap">{money2(petSpend)}</p>
                     </div>
                     <div className="px-4 py-3 text-center">
