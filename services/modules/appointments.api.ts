@@ -72,6 +72,30 @@ export interface VisitEncounter {
   attendingStaff?: { id: string; userId: string; role: string | null; fee: number | null; isLead?: boolean; name?: string }[];
 }
 
+export type VisitLinkType = 'ESCALATION' | 'TRANSFER' | 'SAME_DAY';
+
+export interface LinkedVisitRow {
+  id: string;
+  date: string;
+  status: string;
+  isPaid: boolean;
+  totalCost: number;
+  encounterType: string | null;
+  visitType: string | null;
+  patient: { id: string; name: string } | null;
+  /** Did this come OUT of the visit, is it the visit's origin, or a same-day peer? */
+  direction: 'DESCENDANT' | 'ORIGIN' | 'PEER';
+  linkType: VisitLinkType;
+  reason: string | null;
+  bill: { id: string; status: string; total: number; number: string | null } | null;
+}
+
+export interface LinkedVisits {
+  visitId: string;
+  origin: { visitId: string; linkType: VisitLinkType; reason: string | null } | null;
+  linked: LinkedVisitRow[];
+}
+
 export const visitsAPI = {
   /**
    * Get all appointments with pagination
@@ -364,6 +388,16 @@ export const visitsAPI = {
    * Group visit (077): all sibling visits sharing a group ref — feeds the
    * per-animal progress panel + the consolidated group invoice.
    */
+  /**
+   * Linked visits (backend 120) — origin, descendants and same-day peers for
+   * this visit, each with its OWN bill status.
+   */
+  getLinked: async (
+    visitId: string | number,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<LinkedVisits>> =>
+    get(`/visits/${visitId}/linked`, { cache: false, ...options }),
+
   getGroup: async (
     groupVisitId: string,
     options?: RequestOptions

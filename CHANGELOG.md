@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: LINKED VISITS — transfer now starts a SEPARATE, billable visit  —  2026-08-02
+- **What changed:** "Transfer / add encounter" no longer stacks an encounter row on the
+  current visit. It **creates a new visit** for the same patient carrying
+  `originVisitId` + link type (**ESCALATION** for hospitalization, **TRANSFER** otherwise)
+  + the reason staff typed, copies the entry service onto it, groups it same-day via
+  `groupVisitId`, and navigates there. New **`LinkedVisitsStrip`** on the visit page shows
+  the origin, anything that came out of this visit, and same-day peers — **each with its
+  own bill status**, which is the entire point: bill and get paid for the groom while
+  boarding is still open.
+- **Record impact:** 🟢 None to existing rows — it creates a new visit instead of mutating
+  this one. Existing stacked visits keep rendering as they always did.
+- **Data dependency:** Requires backend migration **120**.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ The strip renders **nothing** when a visit has no links, so single-encounter visits
+  look exactly as before.
+- ⚠️ VACCINATION transfers still add **no** service — picking the vaccine happens in the
+  wizard step, so the bill can't auto-grab whichever vaccine sorts first.
+
+
 ### flow: "Transfer / add encounter" moves to the finalize & payment bar  —  2026-08-02
 - **What changed:** (user, S2: "let transfer to another visit type happen at the end next
   to finalize or payment — not here any more") the picker is gone from the wizard header
