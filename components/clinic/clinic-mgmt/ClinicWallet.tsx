@@ -1,5 +1,6 @@
 
 import ClinicStatsTab from '../dashboard/ClinicStatsTab';
+import PageHeader from '../../shared/common/PageHeader';
 import React, { useState, useMemo, useEffect } from 'react';
 import { Clinic, Transaction, PaymentMethod } from '../../../types';
 import { useData } from '../../../contexts/DataContext';
@@ -1310,7 +1311,36 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   );
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-4 animate-in fade-in duration-500 pb-20">
+
+      {/* ── Page shell, matching Finance & Business Intelligence ──────────
+          The wallet is its own page now, opened from F&BI → Quick Action
+          (user, 2026-08-03). Same header + KPI ribbon language so finance
+          reads as one product rather than two. */}
+      <PageHeader
+        title="Wallet"
+        subtitle="Float, money in and out, and transfers across your clinic wallets"
+        icon={Wallet}
+        onBack
+      />
+
+      <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-5 gap-3">
+        {[
+          { label: 'Wallet float', value: totalFloat, tone: 'text-pine dark:text-zinc-100', sub: `${wallets.length} wallet${wallets.length === 1 ? '' : 's'}` },
+          { label: 'Money in', value: analyticsData.totalIncome, tone: 'text-emerald-600 dark:text-emerald-400', sub: 'Selected period' },
+          { label: 'Money out', value: stats.totalOutflow, tone: 'text-rose-600 dark:text-rose-400', sub: 'Selected period' },
+          { label: 'Net', value: analyticsData.netIncome, tone: analyticsData.netIncome >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400', sub: 'In − out' },
+          { label: 'Average payment', value: analyticsData.avgTxn, tone: 'text-pine dark:text-zinc-100', sub: 'Per transaction' },
+        ].map(k => (
+          <div key={k.label} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{k.label}</p>
+            <p className={`text-lg font-black leading-none tabular-nums truncate ${k.tone}`}>
+              {clinic.currency} {Math.round(Number(k.value) || 0).toLocaleString()}
+            </p>
+            <p className="text-[9px] font-bold text-slate-400 mt-1.5">{k.sub}</p>
+          </div>
+        ))}
+      </div>
 
       {/* ── Transfer Modal ─────────────────────────────────────────────── */}
       {transferModal && (

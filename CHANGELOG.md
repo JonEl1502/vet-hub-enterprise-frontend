@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Wallet becomes its own page in the Finance & BI design, opened from Quick Action  —  2026-08-03
+- **What changed:** (user, 2026-08-03) `ClinicWallet` gains the same shell as Finance &
+  Business Intelligence — a real `PageHeader` (it had none) plus a 5-card KPI ribbon
+  reading live figures: wallet float, money in, money out, net, average payment. It is
+  reached from **F&BI → Quick Action → Open wallet**, and the dashboard's "Clinic" tab no
+  longer renders it inline — that tab now points at the page, so the wallet has **one
+  home** instead of two mounts that could drift.
+- **Finance consolidation:** `finance`, `financial-overview` and `reports-analytics` all
+  already resolve to the F&BI page (S1, earlier today); this removes the last duplicate
+  finance surface.
+- **Record impact:** 🟢 None — presentation and routing only; no wallet logic touched.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ℹ️ Type-check went 101 → **99**: dropping the duplicate mount removed two pre-existing
+  errors. Baseline improves.
+- ⚠️ Only the wallet's **shell** was restyled. Its 2,500 lines of transfer/reconciliation
+  internals are untouched on purpose — that is live payment code and deserves its own pass.
+
+
 ### flow: boarding stay + inpatient chart EMBEDDED in the visit wizard  —  2026-08-03
 - **What changed:** (user, S1) the Boarding Assessment and Hospital Admission wizard steps
   now carry the REAL module page below their gate-check — `BoardingStayPage` (care logs,

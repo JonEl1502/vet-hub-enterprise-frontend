@@ -322,6 +322,9 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                   <div className="fixed inset-0 z-10" onClick={() => setQuickOpen(false)} />
                   <div className="absolute right-0 top-11 w-52 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-20 py-1 animate-in fade-in slide-in-from-top-2 duration-150">
                     {[
+                      // Wallet is its own page now, reached from here rather than
+                      // living as a dashboard tab (user, 2026-08-03).
+                      { label: 'Open wallet', run: () => onNavigate?.('financial-core') },
                       { label: 'New visit', run: () => onNavigate?.('new-appointment') },
                       { label: 'Collect a payment', run: () => onNavigate?.('clients') },
                       { label: 'Record purchase order', run: () => onNavigate?.('purchase-order-form') },

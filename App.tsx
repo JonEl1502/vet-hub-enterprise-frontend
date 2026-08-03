@@ -2138,7 +2138,18 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             )
             : dashboardTab === 'b2b'
             ? renderB2BStats()
-            : <ClinicWallet clinic={firstActiveClinic} allClinics={store.clinics} transactions={store.transactions} onAddTransaction={store.addTransaction} scopeClinics={selectedClinics as any} />}
+            : (
+              /* Wallet has ONE home now — its own page, opened from Finance &
+                 Business Intelligence → Quick Action (user, 2026-08-03). */
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-8 text-center space-y-3">
+                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Wallet moved</p>
+                <p className="text-xs font-bold text-slate-500 dark:text-zinc-400">It is a full page now, in the same design as Finance &amp; Business Intelligence.</p>
+                <button onClick={() => navigateTo('financial-core')}
+                  className="inline-flex items-center gap-1.5 px-4 py-2 bg-seafoam text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all">
+                  Open wallet
+                </button>
+              </div>
+            )}
         </>
       ) : (
         /* Non-full-access staff land on the dashboard for their JOB (front
