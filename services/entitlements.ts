@@ -293,6 +293,11 @@ export const FEATURE_COPY: Record<string, { label: string; plan: string; blurb?:
     plan: 'Pro',
     blurb: 'Create and customise visit workflows. Without it you can still use the workflows VetHub ships.',
   },
+  'capability:feeding-programs': {
+    label: 'Feeding programs',
+    plan: 'Pro',
+    blurb: 'Save a food, portion and schedule to a patient so the next stay starts pre-filled.',
+  },
 
   // Enterprise modules
   'view:surgery': { label: 'Surgery', plan: 'Enterprise', blurb: 'Theatre scheduling and surgical records.' },

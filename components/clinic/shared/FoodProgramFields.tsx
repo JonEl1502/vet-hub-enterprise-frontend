@@ -1,5 +1,5 @@
 import React from 'react';
-import { Utensils, Search, Package, X, Sparkles, Lock } from 'lucide-react';
+import { Utensils, Search, Package, X, Sparkles, Lock, Plus, Minus } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
 import { useFeature } from '../../../contexts/PlanAccessContext';
 
@@ -36,6 +36,25 @@ const fieldCls = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-
 const labelCls = 'block text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-1.5';
 
 const isFood = (i: any) => /food|diet|kibble|feed|nutri/i.test(`${i?.category ?? ''} ${i?.name ?? ''}`);
+
+/** Portions move in tenths of a pack; the chips cover the common fractions. */
+const PORTION_STEP = 0.1;
+const PORTION_PRESETS = [
+  { v: 0.25, l: '¼' }, { v: 0.5, l: '½' }, { v: 0.75, l: '¾' }, { v: 1, l: '1' },
+];
+
+/**
+ * Pack weight parsed out of the item name ("Hill's Science Diet Adult Dog 2kg"),
+ * so a portion of 0.25 can be shown as the 500 g it actually is. Name-derived
+ * and therefore best-effort — absent when nothing parses, never guessed.
+ */
+const packGrams = (name?: string | null): number | null => {
+  const m = /(\d+(?:\.\d+)?)\s*(kg|g)\b/i.exec(String(name ?? ''));
+  if (!m) return null;
+  const n = Number(m[1]);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  return m[2].toLowerCase() === 'kg' ? n * 1000 : n;
+};
 
 /**
  * Food / feeding program for a boarding or inpatient stay.
@@ -86,6 +105,8 @@ const FoodProgramFields: React.FC<Props> = ({ value, onChange, disabled }) => {
   };
 
   const perDay = Number(value.ratePerMeal || 0) * Number(value.mealsPerDay || 0);
+  const pg = packGrams(picked?.name);
+  const grams = pg != null && Number(value.portion) > 0 ? Math.round(pg * Number(value.portion)) : null;
 
   return (
     <section className="bg-slate-50/60 dark:bg-zinc-950/30 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
@@ -158,10 +179,46 @@ const FoodProgramFields: React.FC<Props> = ({ value, onChange, disabled }) => {
         {clinicProvided && (
           <div>
             <label className={labelCls}>Portion / meal{picked ? ` (${picked.unit})` : ''}</label>
-            <input type="number" min="0" step="0.01" className={fieldCls} disabled={disabled || !picked}
-              placeholder={picked ? 'e.g. 0.5' : 'Pick a food first'}
-              value={value.portion ?? ''}
-              onChange={e => applyFood(picked, e.target.value === '' ? '' : Number(e.target.value))} />
+            {/* A meal is a FRACTION of a bag, never a whole one (user,
+                2026-08-03), so typing a decimal from scratch was the wrong
+                control. Steppers + quarter chips, and the grams are spelled out
+                whenever the pack size is in the item name. */}
+            <div className="flex items-stretch rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 overflow-hidden">
+              <button type="button" disabled={disabled || !picked || !(Number(value.portion) > 0)}
+                onClick={() => applyFood(picked, Math.max(0, Math.round((Number(value.portion || 0) - PORTION_STEP) * 100) / 100))}
+                title="Less" className="px-2.5 text-slate-500 dark:text-zinc-400 hover:text-seafoam disabled:opacity-30">
+                <Minus size={13} />
+              </button>
+              <input type="number" min="0" step={PORTION_STEP}
+                className="flex-1 min-w-0 px-2 py-2.5 bg-transparent text-sm text-center text-pine dark:text-zinc-100 focus:outline-none"
+                disabled={disabled || !picked}
+                placeholder={picked ? '0.5' : 'Pick a food'}
+                value={value.portion ?? ''}
+                onChange={e => applyFood(picked, e.target.value === '' ? '' : Number(e.target.value))} />
+              <button type="button" disabled={disabled || !picked}
+                onClick={() => applyFood(picked, Math.round((Number(value.portion || 0) + PORTION_STEP) * 100) / 100)}
+                title="More" className="px-2.5 text-slate-500 dark:text-zinc-400 hover:text-seafoam disabled:opacity-30">
+                <Plus size={13} />
+              </button>
+            </div>
+            <div className="flex items-center gap-1 mt-1.5">
+              {PORTION_PRESETS.map(fr => (
+                <button key={fr.v} type="button" disabled={disabled || !picked}
+                  onClick={() => applyFood(picked, fr.v)}
+                  className={`px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border transition-all disabled:opacity-30 ${
+                    Number(value.portion) === fr.v
+                      ? 'bg-seafoam text-white border-seafoam'
+                      : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:text-seafoam'
+                  }`}>
+                  {fr.l}
+                </button>
+              ))}
+              {grams != null && (
+                <span className="ml-auto text-[9px] font-black uppercase tracking-wider text-slate-400">
+                  ≈ {grams.toLocaleString()} g
+                </span>
+              )}
+            </div>
           </div>
         )}
         <div>
@@ -206,7 +263,7 @@ const FoodProgramFields: React.FC<Props> = ({ value, onChange, disabled }) => {
           <span className="block text-[10px] font-bold text-slate-400 mt-0.5">
             {canAutoProgram
               ? 'Saves this food, portion and schedule to the patient, so the next stay starts pre-filled.'
-              : 'Available on Pro — upgrade to save feeding programs per patient.'}
+              : 'Available on Pro and Enterprise — upgrade to save feeding programs per patient.'}
           </span>
         </span>
       </label>

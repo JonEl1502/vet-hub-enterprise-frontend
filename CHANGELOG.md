@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: feeding programs reach Pro AND Enterprise; portion is a quantity picker  —  2026-08-03
+- **What changed:** (user: "pkg to be available to enterprise too", "in food obviously i
+  would not use full bag, so add quantity picker")
+  ① `capability:feeding-programs` is now in the admin feature catalog and has FEATURE_COPY,
+  and **backend 131** grants it to Pro and Enterprise. It was gated in the UI and told the
+  user "Available on Pro" while **no package carried the key at all** — so the checkbox was
+  locked on every plan, Pro included. Upsell copy now names both plans.
+  ② Portion / meal stops being a bare decimal box: −/+ steppers (0.1), quick **¼ ½ ¾ 1**
+  chips, and a live **≈ N g** readout derived from the pack size in the item name
+  (`… 2kg` → ¼ = 500 g). The rate is still `portion × unit price`, unchanged.
+- **Record impact:** 🟢 in the frontend. Backend 131 is 🔵 — it appends one key to two plan
+  rows.
+- **Data dependency:** **131** must be applied or the checkbox stays locked (it fails soft:
+  the card works, only the save-program tick is disabled).
+- **Rollback:** revert the commit; to undo the grant,
+  `array_remove(feature_keys, 'capability:feeding-programs')` on those rows.
+- ⚠️ **Watch out:** the gram readout is parsed from the item NAME, so it appears only when
+  the name carries a pack size. Absent, not guessed — the portion itself is still in the
+  item's own unit, which is what gets billed.
+
 ### fix: YTD and lifetime are two figures; bigger client portrait  —  2026-08-03
 - **What changed:** (user: "split them properly, YTD and lifetime separate")
   ① the client card's `Value (YTD)` tile had always printed `client.totalSpent`, which is

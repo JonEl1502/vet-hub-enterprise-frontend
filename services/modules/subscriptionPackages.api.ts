@@ -192,6 +192,11 @@ export const FEATURE_CATALOG = {
     // publishing to the shared library is Enterprise.
     'capability:workflow-builder',
     'capability:workflow-share',
+    // Standing per-patient feeding programs (boarding/inpatient food card).
+    // Pro and Enterprise (user, 2026-08-03: "pkg to be available to enterprise
+    // too"). It was gated in the UI but granted by NO package, so it was dark
+    // on every plan including the one the upsell named.
+    'capability:feeding-programs',
   ],
   services: [
     'service:appointment-scheduling',
