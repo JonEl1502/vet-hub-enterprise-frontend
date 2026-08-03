@@ -3266,7 +3266,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           subscription={activeClinicSubscription}
           onUpgrade={() => navigateTo('subscription-management')}
         />
-        <main className={`relative flex-1 transition-all duration-500 overflow-x-hidden mt-16 ml-0 ${isDesktopCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
+        {/* overflow-x-CLIP, not -hidden: hidden made <main> the sticky
+            containing block without being the scroller, so position:sticky
+            never engaged anywhere in the app (the inventory Order Summary
+            rail scrolled away, user 2026-08-03). clip still cuts horizontal
+            overflow but creates no scroll container — sticky works. */}
+        <main className={`relative flex-1 transition-all duration-500 overflow-x-clip mt-16 ml-0 ${isDesktopCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
           {/* AMBER ALERT — rides above every page while any patient is still in
               emergency triage, and removes itself once the last one is
               stabilised. Inside <main> so it doesn't cover the nav, sticky so
