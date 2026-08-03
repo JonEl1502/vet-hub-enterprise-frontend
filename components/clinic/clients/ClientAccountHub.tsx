@@ -37,7 +37,7 @@ const money = (n: number, c: string) =>
 const fmt = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 
-type TimelineKind = 'INVOICE' | 'PAYMENT' | 'CREDIT' | 'REFUND';
+type TimelineKind = 'BILL' | 'INVOICE' | 'PAYMENT' | 'CREDIT' | 'REFUND';
 
 interface TimelineEntry {
   key: string;
@@ -52,6 +52,9 @@ interface TimelineEntry {
 }
 
 const KIND_STYLE: Record<TimelineKind, { label: string; text: string; chip: string }> = {
+  // A visit with charges but NO generated invoice document is a BILL (user,
+  // 2026-08-03: "we can't display Invoice before Generate invoice is clicked").
+  BILL: { label: 'Bill', text: 'text-cyan-700 dark:text-cyan-400', chip: 'bg-cyan-500/10 text-cyan-600' },
   INVOICE: { label: 'Invoice', text: 'text-indigo-600 dark:text-indigo-400', chip: 'bg-indigo-500/10 text-indigo-500' },
   PAYMENT: { label: 'Payment', text: 'text-emerald-600 dark:text-emerald-400', chip: 'bg-emerald-500/10 text-emerald-500' },
   CREDIT: { label: 'Credit Note', text: 'text-amber-600 dark:text-amber-400', chip: 'bg-amber-500/10 text-amber-500' },
@@ -103,18 +106,23 @@ const ClientAccountHub: React.FC<Props> = ({
 
   const entries = React.useMemo<TimelineEntry[]>(() => {
     const rows: TimelineEntry[] = [
-      ...invoices.map((inv): TimelineEntry => ({
-        key: `inv-${inv.visitId}`,
-        kind: 'INVOICE',
-        date: inv.date,
-        title: 'Invoice',
-        desc: `Visit #${inv.visitId}${inv.pet ? ` — ${inv.pet.name}` : ''}${
-          inv.encounterType ? ` · ${String(inv.encounterType).replace(/_/g, ' ').toLowerCase()}` : ''}`,
-        ref: inv.invoices?.[0]?.number || `VISIT-${inv.visitId}`,
-        amount: inv.total,
-        status: inv.isPaid ? 'PAID' : (inv.paid ?? 0) > 0 ? 'PARTIAL' : 'UNPAID',
-        visitId: Number(inv.visitId),
-      })),
+      ...invoices.map((inv): TimelineEntry => {
+        // Only a GENERATED invoice document may call itself an invoice — until
+        // then the visit's charges are a bill.
+        const doc = inv.invoices?.[0];
+        return {
+          key: `inv-${inv.visitId}`,
+          kind: doc ? 'INVOICE' : 'BILL',
+          date: inv.date,
+          title: doc ? 'Invoice' : 'Bill',
+          desc: `Visit #${inv.visitId}${inv.pet ? ` — ${inv.pet.name}` : ''}${
+            inv.encounterType ? ` · ${String(inv.encounterType).replace(/_/g, ' ').toLowerCase()}` : ''}`,
+          ref: doc ? (doc.number || `INV #${doc.id}`) : `BILL · Visit #${inv.visitId}`,
+          amount: inv.total,
+          status: inv.isPaid ? 'PAID' : (inv.paid ?? 0) > 0 ? 'PARTIAL' : 'UNPAID',
+          visitId: Number(inv.visitId),
+        };
+      }),
       ...payments.map((p): TimelineEntry => ({
         key: `pay-${p.id}`,
         kind: p.status === 'VOIDED' ? 'REFUND' : 'PAYMENT',
@@ -148,7 +156,7 @@ const ClientAccountHub: React.FC<Props> = ({
   }, [from, to]);
 
   const filtered = entries.filter(e =>
-    (filter === 'ALL' || e.kind === filter)
+    (filter === 'ALL' || e.kind === filter || (filter === 'INVOICE' && e.kind === 'BILL'))
     && inRange(e.date)
     && (!minAmount || Math.abs(e.amount) >= Number(minAmount))
     && (!unpaidOnly || (e.status !== 'PAID' && e.status !== 'VOIDED')));

@@ -239,6 +239,13 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     barcode: string;
     sellUnit: string;
     costUnit: string;
+    /** Billable quantity: the sale price is per THIS MANY sell units
+     * ("KES 100 per 10 mL"). Stored in metadata; the DB `price` stays
+     * per single sell unit (= entered price ÷ sellQty) so every existing
+     * charge/deduction path keeps working untouched. */
+    sellQty: number;
+    /** Outer pack (purchasing note only): how many stock units per pack. */
+    packOf?: number;
     injectionUnitMl: number;
     // Service charges — undefined = not applied; a number (incl 0) = applied.
     feeService?: number;
@@ -249,7 +256,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     name: '', category: 'Antibiotics', sku: '', batchNumber: '', quantity: 0, minThreshold: 5, unit: 'Tablet', form: 'TABLET', packSize: undefined, billable: true, manufacturer: '', imageUrl: '', countryOfOrigin: '', storageConditions: '', prescriptionOnly: false, price: 0, costPrice: 0,
     expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
     supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined,
-    mainCategory: 'MEDICINE', subcategories: [], species: [], maxLevel: undefined, reorderQty: undefined, barcode: '', sellUnit: '', costUnit: '', injectionUnitMl: 10,
+    mainCategory: 'MEDICINE', subcategories: [], species: [], maxLevel: undefined, reorderQty: undefined, barcode: '', sellUnit: '', costUnit: '', sellQty: 1, packOf: undefined, injectionUnitMl: 10,
     feeService: undefined, feeAdmin: undefined, feeInjection: undefined, feePrescription: undefined,
   });
   // Free-text entry for the "add subcategory" input.
@@ -416,7 +423,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       countryOfOrigin: item.countryOfOrigin ?? '',
       storageConditions: item.storageConditions ?? '',
       prescriptionOnly: item.prescriptionOnly === true,
-      price: item.price,
+      // DB price is per single sell unit; the form shows it per sellQty units.
+      price: Math.round((Number(item.price) || 0) * (Number(meta.sellQty) || 1) * 100) / 100,
       costPrice: item.costPrice,
       expiryDate: item.expiryDate,
       supplierId: item.supplierId ?? undefined,
@@ -428,6 +436,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       barcode: item.barcode ?? '',
       sellUnit: meta.sellUnit ?? '',
       costUnit: meta.costUnit ?? '',
+      sellQty: Number(meta.sellQty) || 1,
+      packOf: meta.packOf != null ? Number(meta.packOf) : undefined,
       injectionUnitMl: Number(meta.injectionUnitMl) || 10,
       feeService: fees.service !== undefined ? Number(fees.service) : undefined,
       feeAdmin: fees.admin !== undefined ? Number(fees.admin) : undefined,
@@ -563,7 +573,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       costPrice: 0,
       expiryDate: new Date(new Date().setFullYear(new Date().getFullYear() + 1)).toISOString().split('T')[0],
       supplierId: suppliers[0]?.id ? Number(suppliers[0].id) : undefined,
-      mainCategory: 'MEDICINE', subcategories: [], species: [], maxLevel: undefined, reorderQty: undefined, barcode: '', sellUnit: '', costUnit: '', injectionUnitMl: 10,
+      mainCategory: 'MEDICINE', subcategories: [], species: [], maxLevel: undefined, reorderQty: undefined, barcode: '', sellUnit: '', costUnit: '', sellQty: 1, packOf: undefined, injectionUnitMl: 10,
       feeService: undefined, feeAdmin: undefined, feeInjection: undefined, feePrescription: undefined,
     });
     setIsAddModalOpen(true);
@@ -590,6 +600,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       injectionUnitMl: Number(f.injectionUnitMl) || 10,
       sellUnit: f.sellUnit || f.unit,
       costUnit: f.costUnit || f.unit,
+      sellQty: Number(f.sellQty) || 1,
+      ...(f.packOf ? { packOf: Number(f.packOf) } : {}),
     };
   };
 
@@ -631,8 +643,12 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
 
     // Derive the DB category + dispensing form from the structured selection,
     // and attach the extended metadata for persistence.
+    // sellQty/packOf live in metadata only; DB `price` is per SINGLE sell unit
+    // (entered price ÷ billable quantity) so every charge path stays correct.
+    const { sellQty: _sq, packOf: _po, ...restForm } = itemForm;
     const payload = {
-      ...itemForm,
+      ...restForm,
+      price: Math.round(((Number(itemForm.price) || 0) / (Number(itemForm.sellQty) || 1)) * 100) / 100,
       category: deriveCategory(),
       form: unitToForm(itemForm.unit),
       metadata: buildMetadata(),
@@ -1390,42 +1406,88 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 </div>
               </div>
 
-              {/* Row 3b: Units per pack (optional) + Billable. The dispensing
-                  form is derived automatically from the unit type. */}
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  {/* The label follows Unit Type — "Capsules per pack" reads
-                      unambiguously where a generic "Units per pack" left staff
-                      guessing which unit was meant. Measures (mL, mg, kg…) are
-                      never pluralised. */}
-                  {(() => {
-                    const u = (itemForm.unit || '').trim();
-                    const MEASURES = ['ml', 'l', 'mg', 'g', 'kg', 'iu', 'cc'];
-                    const plural = !u ? 'Units'
-                      : MEASURES.includes(u.toLowerCase()) || /s$/i.test(u) ? u
-                      : `${u}s`;
-                    return (
-                      <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
-                        {plural} <span className="normal-case">(units)</span> per pack <span className="text-slate-400 normal-case font-bold">(optional)</span>
-                      </label>
-                    );
-                  })()}
-                  <input
-                    type="number" min="0"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-                    placeholder={`e.g. 30 ${itemForm.unit || 'units'} per box`}
-                    value={itemForm.packSize ?? ''}
-                    onChange={e => setItemForm({ ...itemForm, packSize: e.target.value === '' ? undefined : Number(e.target.value) })}
-                  />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Billable</label>
-                  <button type="button" onClick={() => setItemForm({ ...itemForm, billable: !itemForm.billable })}
-                    className={`w-full px-3 py-2.5 rounded-xl text-sm font-black uppercase tracking-wider border ${itemForm.billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
-                    {itemForm.billable ? 'Billable' : 'Non-billable'}
-                  </button>
-                </div>
-              </div>
+              {/* Row 3b: how the item is BOUGHT vs BILLED (user, 2026-08-03:
+                  "state the billable quantity" — Vials per pack, mL in 1 Vial,
+                  price per N mL, Billable BELOW the statement). `packSize`
+                  stays the load-bearing stock→sell bridge; `packOf` is an
+                  outer-pack purchasing note (metadata, display only). */}
+              {(() => {
+                const u = (itemForm.unit || '').trim();
+                const MEASURES = ['ml', 'l', 'mg', 'g', 'kg', 'iu', 'cc'];
+                const plural = !u ? 'Units'
+                  : MEASURES.includes(u.toLowerCase()) || /s$/i.test(u) ? u
+                  : `${u}s`;
+                const sellU = (itemForm.sellUnit || '').trim();
+                const split = !!sellU && sellU.toLowerCase() !== u.toLowerCase();
+                return (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Billed / sold in *</label>
+                        <select
+                          className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                          value={itemForm.sellUnit || itemForm.unit}
+                          onChange={e => setItemForm({ ...itemForm, sellUnit: e.target.value })}
+                          title="The unit this item is billed in — can differ from the unit bought"
+                        >
+                          {Array.from(new Set([itemForm.unit, ...ORDERED_UNITS])).map(un => <option key={un} value={un}>{un}</option>)}
+                        </select>
+                      </div>
+                      {split ? (
+                        <>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
+                              {sellU} <span className="normal-case">in 1</span> {u} *
+                            </label>
+                            <input
+                              type="number" min="0" step="any"
+                              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                              placeholder={`e.g. 100 ${sellU} per ${u}`}
+                              title={`How many ${sellU} one ${u} contains — drives stock deduction and pricing`}
+                              value={itemForm.packSize ?? ''}
+                              onChange={e => setItemForm({ ...itemForm, packSize: e.target.value === '' ? undefined : Number(e.target.value) })}
+                            />
+                          </div>
+                          <div className="space-y-1">
+                            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
+                              {plural} per pack <span className="text-slate-400 normal-case font-bold">(optional)</span>
+                            </label>
+                            <input
+                              type="number" min="0"
+                              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                              placeholder={`e.g. 30 ${plural} per box`}
+                              title="Outer pack, for purchasing reference only"
+                              value={itemForm.packOf ?? ''}
+                              onChange={e => setItemForm({ ...itemForm, packOf: e.target.value === '' ? undefined : Number(e.target.value) })}
+                            />
+                          </div>
+                        </>
+                      ) : (
+                        <div className="space-y-1 sm:col-span-2">
+                          <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
+                            {plural} <span className="normal-case">(units)</span> per pack <span className="text-slate-400 normal-case font-bold">(optional)</span>
+                          </label>
+                          <input
+                            type="number" min="0"
+                            className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                            placeholder={`e.g. 30 ${itemForm.unit || 'units'} per box`}
+                            value={itemForm.packSize ?? ''}
+                            onChange={e => setItemForm({ ...itemForm, packSize: e.target.value === '' ? undefined : Number(e.target.value) })}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    {/* Billable — BELOW the buy/bill statement (user request). */}
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Billable</label>
+                      <button type="button" onClick={() => setItemForm({ ...itemForm, billable: !itemForm.billable })}
+                        className={`w-full px-3 py-2.5 rounded-xl text-sm font-black uppercase tracking-wider border ${itemForm.billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
+                        {itemForm.billable ? 'Billable' : 'Non-billable'}
+                      </button>
+                    </div>
+                  </>
+                );
+              })()}
 
               <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 pt-2 border-t border-slate-100 dark:border-zinc-800">
                 <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">4</span> Levels & Pricing
@@ -1505,7 +1567,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Sale price (KES) *</label>
-                  <div className="flex gap-2">
+                  {/* Price per BILLABLE QUANTITY (user, 2026-08-03): "from a
+                      100 mL vial costing 100, I charge 100 for every 10 mL" —
+                      KES [100] per [10] [mL]. Stored per single sell unit. */}
+                  <div className="flex gap-2 items-center">
                     <input
                       type="number" required step="0.01" min="0"
                       className="flex-1 min-w-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
@@ -1513,14 +1578,15 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                       value={itemForm.price}
                       onChange={e => setItemForm({ ...itemForm, price: Number(e.target.value) })}
                     />
-                    <select
-                      className="w-28 shrink-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-2 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-xs"
-                      value={itemForm.sellUnit || itemForm.unit}
-                      onChange={e => setItemForm({ ...itemForm, sellUnit: e.target.value })}
-                      title="Sale is per this unit"
-                    >
-                      {Array.from(new Set([itemForm.unit, ...ORDERED_UNITS])).map(u => <option key={u} value={u}>per {u}</option>)}
-                    </select>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 shrink-0">per</span>
+                    <input
+                      type="number" min="0.01" step="any"
+                      className="w-16 shrink-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-2 py-2.5 text-pine dark:text-zinc-100 font-black text-center outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                      title="Billable quantity — the price covers this many sell units"
+                      value={itemForm.sellQty}
+                      onChange={e => setItemForm({ ...itemForm, sellQty: Number(e.target.value) || 1 })}
+                    />
+                    <span className="text-xs font-bold text-pine dark:text-zinc-100 shrink-0 min-w-[2.5rem]">{itemForm.sellUnit || itemForm.unit}</span>
                   </div>
                 </div>
               </div>
@@ -1534,7 +1600,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   number, rather than showing a confident wrong one. */}
               {(() => {
                 const cost = Number(itemForm.costPrice) || 0;
-                const sale = Number(itemForm.price) || 0;
+                // Displayed price covers sellQty units — maths run per single unit.
+                const sale = (Number(itemForm.price) || 0) / (Number(itemForm.sellQty) || 1);
                 if (sale <= 0) return null;
                 const costU = itemForm.costUnit || itemForm.unit;
                 const sellU = itemForm.sellUnit || itemForm.unit;

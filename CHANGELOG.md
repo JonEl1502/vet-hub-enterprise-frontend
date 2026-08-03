@@ -59,6 +59,34 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: a BILL may not call itself an INVOICE before one is generated  —  2026-08-03
+- **What changed:** (user, S1) ① client account timeline: visit charges with NO generated
+  invoice document now render as **BILL** (cyan, ref "BILL · Visit #x"); only a real
+  invoice doc shows INVOICE + its number. The Charges filter matches both. ② the visit
+  workflow's billing tabs hide **Invoice + Receipt until the Bill has generated an
+  invoice** (same predicate as BillBalanceCard: bill past its editable states, not VOID;
+  `isPaid` keeps legacy pre-bill visits); a hidden selection falls back to the Bill tab.
+- **Record impact:** 🟢 None — display/visibility only.
+- **Rollback:** revert the commit and rebuild.
+
+### feat: inventory — billable quantity ("KES 100 per 10 mL") + buy-vs-bill statement  —  2026-08-03
+- **What changed:** (user, S1) the item form now states the chain explicitly: Units
+  bought (e.g. Vials) → **Billed/sold in** (e.g. mL) → **mL in 1 Vial** (the
+  load-bearing `packSize` bridge, finally labelled as what it is) → optional
+  **Vials per pack** (new `metadata.packOf`, purchasing note only) → **Billable**
+  toggle moved BELOW the statement → sale price entered **per billable quantity**:
+  "KES [100] per [10] [mL]" (new `metadata.sellQty`). The DB `price` stays per single
+  sell unit (entered ÷ sellQty), so every existing charge/stock path
+  (`stockPerSellUnit`, consumables, QtyUnitControl) is untouched and correct.
+  Margin/profit readouts compute per-unit. Editing an item re-multiplies for display.
+- **Record impact:** 🟢 None — existing items default sellQty 1 and behave identically.
+- **Data dependency:** None (metadata-only fields).
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** an entered price that doesn't divide evenly (100 per 30 mL →
+  3.33/mL stored) re-displays as 99.90 — cosmetic rounding, charges follow the stored
+  per-unit price. The injection fee stays FLAT per injection (per-mL already removed).
+
+
 ### fix: position:sticky works app-wide — <main> overflow-x-hidden → clip  —  2026-08-03
 - **What changed:** (user: the inventory Order Summary rail scrolled away) `<main>`'s
   `overflow-x-hidden` made it the sticky containing block without being the scroller, so

@@ -242,6 +242,12 @@ const VisitDetailInner: React.FC<Props> = ({
     else if (appointment.encounterType === 'BOARDING' && hasBoardingWork) setActiveBottomTab(t => t === 'report' ? 'boardingReport' : t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointment.encounterType, hasGroomingWork, hasBoardingWork]);
+  // Invoice/Receipt tabs exist only once the bill has GENERATED an invoice —
+  // if the selection points at a hidden tab, fall back to the Bill.
+  const invoiceReady = (liveBill && !liveBill.editable && String(liveBill.status) !== 'VOID') || !!appointment.isPaid;
+  useEffect(() => {
+    if (!invoiceReady) setActiveBottomTab(t => (t === 'invoice' || t === 'receipt') ? 'bill' : t);
+  }, [invoiceReady]);
   const [stayForReport, setStayForReport] = useState<any | null>(null);
   useEffect(() => {
     let alive = true;
@@ -4784,10 +4790,19 @@ const VisitDetailInner: React.FC<Props> = ({
                    {(workflowTab === 'billing'
                      ? [
                          { id: 'bill', label: 'Bill', icon: ReceiptText },
-                         { id: 'invoice', label: 'Invoice', icon: Printer },
-                         // Label follows the document the server will return:
-                         // a filled bill has a Receipt, a part-paid one a slip.
-                         { id: 'receipt', label: reconciliationState && !reconciliationState.settled ? 'Reconciliation' : 'Receipt', icon: Receipt },
+                         // No Invoice tab until the Bill has GENERATED one
+                         // (user, 2026-08-03: "we can't display Invoice before
+                         // Generate invoice is clicked") — same predicate as
+                         // BillBalanceCard: bill past its editable states and
+                         // not VOID. `isPaid` keeps legacy pre-bill visits.
+                         ...((liveBill && !liveBill.editable && String(liveBill.status) !== 'VOID') || appointment.isPaid
+                           ? [
+                               { id: 'invoice', label: 'Invoice', icon: Printer },
+                               // Label follows the document the server will return:
+                               // a filled bill has a Receipt, a part-paid one a slip.
+                               { id: 'receipt', label: reconciliationState && !reconciliationState.settled ? 'Reconciliation' : 'Receipt', icon: Receipt },
+                             ]
+                           : []),
                        ]
                      : [
                          // Reports follow the visit's ENCOUNTERS (user,
