@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: running-bill rail — edit quantity and amount inline  —  2026-08-03
+- **What changed:** (user, 2026-08-03) each line on the wizard's Running Bill now carries a
+  small **qty** and **amount** box, saving on blur or Enter through the same
+  `onUpdateTaskDetails` path the Bill tab uses. The Bill tab already allowed this and the
+  rail did not, so correcting a price meant leaving the workflow. Read-only once the visit
+  is billed.
+- **Record impact:** 🔵 Low — writes the visit's task price/quantity, as the Bill tab does.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
+
 ### page: "Shares & Partners" becomes its own visit tab  —  2026-08-03
 - **What changed:** (user, 2026-08-03) the outsourcing surface — *Send a service to a
   partner clinic* plus the outsourced-jobs tracker — moves off the top of **Records &

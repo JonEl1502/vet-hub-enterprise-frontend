@@ -66,6 +66,8 @@ interface Props {
   onWorkStarted?: () => void;
   // Delete a service line (diagnostic request etc.) — pre-payment only.
   onDeleteTask?: (taskId: number) => void;
+  /** Inline qty/amount edit on the running bill rail. */
+  onUpdateTask?: (taskId: number, patch: { price?: number; quantity?: number }) => void;
   // Transfer/extend the visit to another encounter type mid-workflow — its
   // entry service lands on THIS visit's bill so billing has it all.
   onAddEncounter?: (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => void;
@@ -120,7 +122,7 @@ const useElapsed = (fromIso: string) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
-const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
+const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onUpdateTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry, templateStages, templateFields, template, setVisitTemplate } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   // Inline add-service search on the Running Bill card (user, 2026-08-01).
@@ -554,10 +556,41 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><Receipt size={11} className="text-seafoam" /> Running Bill</p>
                 <div className="space-y-1 max-h-[26vh] overflow-y-auto custom-scrollbar">
                   {(visit.tasks || []).length === 0 && <p className="text-[10px] text-slate-400 py-2">No services yet.</p>}
+                  {/* Qty + amount are editable right here (user, 2026-08-03) —
+                      the Bill tab already allowed it and the rail did not, so a
+                      wrong price meant leaving the workflow to fix it. Saves on
+                      blur / Enter; locked once the visit is billed. */}
                   {(visit.tasks || []).map(t => (
-                    <div key={t.id} className="flex items-baseline justify-between gap-2">
-                      <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 truncate">{t.name}</span>
-                      <span className="text-[10px] font-black text-pine dark:text-zinc-100 font-mono shrink-0">{t.price?.toLocaleString()}</span>
+                    <div key={t.id} className="flex items-center justify-between gap-1.5">
+                      <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 truncate flex-1 min-w-0">{t.name}</span>
+                      {locked || !onUpdateTask ? (
+                        <span className="text-[10px] font-black text-pine dark:text-zinc-100 font-mono shrink-0">{t.price?.toLocaleString()}</span>
+                      ) : (
+                        <>
+                          <input
+                            type="number" min={0} step={1} defaultValue={(t as any).quantity ?? 1}
+                            key={`q-${t.id}-${(t as any).quantity ?? 1}`}
+                            title="Quantity"
+                            onBlur={e => {
+                              const q = Number(e.target.value);
+                              if (q > 0 && q !== ((t as any).quantity ?? 1)) onUpdateTask(Number(t.id), { quantity: q });
+                            }}
+                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            className="w-9 shrink-0 px-1 py-0.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded text-[9px] font-black font-mono text-center text-pine dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-seafoam"
+                          />
+                          <input
+                            type="number" min={0} step={1} defaultValue={t.price ?? 0}
+                            key={`p-${t.id}-${t.price}`}
+                            title="Amount"
+                            onBlur={e => {
+                              const v = Number(e.target.value);
+                              if (!Number.isNaN(v) && v !== (t.price ?? 0)) onUpdateTask(Number(t.id), { price: v });
+                            }}
+                            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            className="w-16 shrink-0 px-1 py-0.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded text-[10px] font-black font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-seafoam"
+                          />
+                        </>
+                      )}
                     </div>
                   ))}
                 </div>

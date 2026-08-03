@@ -3429,6 +3429,7 @@ const VisitDetailInner: React.FC<Props> = ({
           // Anything added is deletable until the bill is paid (server
           // enforces the same lock) — powers the diagnostics-step delete.
           onDeleteTask={!visitClosed ? (taskId: number) => onDeleteTask(appointment.id, taskId) : undefined}
+          onUpdateTask={!visitClosed ? (taskId: number, patch: any) => onUpdateTaskDetails(appointment.id, taskId, patch) : undefined}
           // Work began (Complete & next, or stepper navigation with data) —
           // the visit is live: SCHEDULED → IN_PROGRESS + journey milestone.
           onWorkStarted={() => {
