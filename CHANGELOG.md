@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: patient card carries more, reminders move right; pet photos on the client profile  —  2026-08-03
+- **What changed:** (user) ① the appointment + reminder chips move out of the left column
+  into the **right** column, under the upcoming-visit badge — left is identity + owner,
+  right is "what's due". ② the stats strip goes from 2 tiles to **4** — Weight · Visits ·
+  Vaccines · Sex (with `·N` for neutered) — and a clinical-flag row appears under it when
+  the patient has allergies, chronic conditions or staff health alerts (2 + 2 + 1 shown).
+  ③ the client profile's two pet-card grids (Registered Pets, and the Pets tab) render
+  `PetAvatar` instead of a hardcoded dog/cat emoji, matching the patients list.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None — `vaccinationCount`, `gender`, `isNeutered`, `allergies`,
+  `chronicConditions` and `healthAlerts` all ride on the existing patient payload.
+- **Rollback:** revert the commit and rebuild.
+
 ### fix: "View product details" opened a BLANK PAGE — `inventoryAPI` was never imported  —  no migration
 - **Root cause:** `InventoryView.tsx` calls `inventoryAPI.getItemAnalytics(...)` in the effect
   that runs when a product is opened, but **`inventoryAPI` is not in the file's import list**.

@@ -590,35 +590,10 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                         </div>
                       </div>
 
-                      {/* Next appointment + reminder with remaining days */}
-                      {(nextAppt || nextReminder) && (
-                        <div className="flex flex-wrap gap-1.5 mb-2">
-                          {nextAppt && (
-                            <button type="button" title="View in Reminders & Appts"
-                              onClick={(e) => { e.stopPropagation(); onViewPet(pet.id, 'schedule'); }}
-                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cyan/10 text-cyan ring-1 ring-cyan/20 text-[8px] font-black uppercase tracking-wider whitespace-nowrap hover:bg-cyan/20 hover:scale-105 transition-all">
-                              <CalendarClock size={9} className="shrink-0" />
-                              Appt {apptRel.text}
-                            </button>
-                          )}
-                          {nextReminder && (
-                            <button type="button" title="View in Reminders & Appts"
-                              onClick={(e) => { e.stopPropagation(); onViewPet(pet.id, 'schedule'); }}
-                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider whitespace-nowrap ring-1 hover:scale-105 transition-all ${
-                              reminderRel.overdue
-                                ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-red-200 dark:ring-red-700/50 hover:bg-red-100 dark:hover:bg-red-900/50'
-                                : 'bg-seafoam/10 text-seafoam ring-seafoam/20 hover:bg-seafoam/20'
-                            }`}>
-                              <BellPlus size={9} className="shrink-0" />
-                              Reminder {reminderRel.text}
-                            </button>
-                          )}
-                        </div>
-                      )}
                     </div>
 
                     {/* RIGHT COLUMN: badge + actions icon with inline menu */}
-                    <div className="flex flex-col items-center gap-2 shrink-0 pt-1">
+                    <div className="flex flex-col items-end gap-1.5 shrink-0 pt-1">
                       {/* Always-visible upcoming visit badge */}
                       {upcomingVisit && (
                         <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-black select-none whitespace-nowrap ${
@@ -630,6 +605,28 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                           <span>{formatDate(upcomingVisit.date)}</span>
                           {extraVisits > 0 && <span className="opacity-70 ml-0.5">+{extraVisits}</span>}
                         </div>
+                      )}
+
+                      {/* What's due — appointment + reminder, right column. */}
+                      {nextAppt && (
+                        <button type="button" title="View in Reminders & Appts"
+                          onClick={(e) => { e.stopPropagation(); onViewPet(pet.id, 'schedule'); }}
+                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-cyan/10 text-cyan ring-1 ring-cyan/20 text-[8px] font-black uppercase tracking-wider whitespace-nowrap hover:bg-cyan/20 hover:scale-105 transition-all">
+                          <CalendarClock size={9} className="shrink-0" />
+                          Appt {apptRel.text}
+                        </button>
+                      )}
+                      {nextReminder && (
+                        <button type="button" title="View in Reminders & Appts"
+                          onClick={(e) => { e.stopPropagation(); onViewPet(pet.id, 'schedule'); }}
+                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider whitespace-nowrap ring-1 hover:scale-105 transition-all ${
+                          reminderRel.overdue
+                            ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-red-200 dark:ring-red-700/50 hover:bg-red-100 dark:hover:bg-red-900/50'
+                            : 'bg-seafoam/10 text-seafoam ring-seafoam/20 hover:bg-seafoam/20'
+                        }`}>
+                          <BellPlus size={9} className="shrink-0" />
+                          Reminder {reminderRel.text}
+                        </button>
                       )}
 
                       {/* Actions icon + inline menu */}
@@ -720,17 +717,51 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                     </div>
                   </div>
 
-                  {/* Stats */}
-                  <div className="grid grid-cols-2 gap-1.5 pt-2 border-t border-slate-100 dark:border-zinc-800">
-                    <div className="bg-emerald-50 dark:bg-emerald-900/30 p-3 rounded-xl">
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Weight</p>
-                      <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">{pet.weight || 'N/A'}</p>
+                  {/* Stats — the card carried only weight + visits, which is
+                      less than the row already knows (user, 2026-08-03: "the pet
+                      card can hv more data"). Sex/neutered, vaccination count
+                      and records count come free with the patient payload. */}
+                  <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                    <div className="bg-emerald-50 dark:bg-emerald-900/30 p-2.5 rounded-xl">
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-0.5">Weight</p>
+                      <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 truncate">{pet.weight || '—'}</p>
                     </div>
-                    <div className="bg-slate-100 dark:bg-zinc-800 p-3 rounded-xl">
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Visits</p>
+                    <div className="bg-slate-100 dark:bg-zinc-800 p-2.5 rounded-xl">
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-0.5">Visits</p>
                       <p className="text-sm font-semibold text-slate-700 dark:text-white">{String(pet.appointmentCount || 0)}</p>
                     </div>
+                    <div className="bg-indigo-50 dark:bg-indigo-900/25 p-2.5 rounded-xl">
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-0.5">Vaccines</p>
+                      <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">{String(pet.vaccinationCount ?? pet.vaccinations?.length ?? 0)}</p>
+                    </div>
+                    <div className="bg-slate-100 dark:bg-zinc-800 p-2.5 rounded-xl">
+                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-0.5">Sex</p>
+                      <p className="text-sm font-semibold text-slate-700 dark:text-white truncate">
+                        {pet.gender || '—'}{pet.isNeutered ? ' ·N' : ''}
+                      </p>
+                    </div>
                   </div>
+                  {/* Clinical flags — allergies and chronic conditions are the
+                      two a vet wants BEFORE opening the record. */}
+                  {((pet.allergies?.length ?? 0) > 0 || (pet.chronicConditions?.length ?? 0) > 0 || (pet.healthAlerts?.length ?? 0) > 0) && (
+                    <div className="flex flex-wrap items-center gap-1 pt-1.5">
+                      {(pet.allergies ?? []).slice(0, 2).map(a => (
+                        <span key={`al-${a}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 ring-1 ring-amber-200/70 dark:ring-amber-700/40 text-[8px] font-black uppercase tracking-wider">
+                          <AlertTriangle size={8} className="shrink-0" /> {a}
+                        </span>
+                      ))}
+                      {(pet.chronicConditions ?? []).slice(0, 2).map(c => (
+                        <span key={`cc-${c}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-rose-50 dark:bg-rose-900/30 text-rose-700 dark:text-rose-400 ring-1 ring-rose-200/70 dark:ring-rose-700/40 text-[8px] font-black uppercase tracking-wider">
+                          {c}
+                        </span>
+                      ))}
+                      {(pet.healthAlerts ?? []).slice(0, 1).map(h => (
+                        <span key={`ha-${h}`} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-red-50 dark:bg-red-900/30 text-red-700 dark:text-red-400 ring-1 ring-red-200/70 dark:ring-red-700/40 text-[8px] font-black uppercase tracking-wider">
+                          <AlertTriangle size={8} className="shrink-0" /> {h}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </motion.div>
               );
             })}

@@ -12,6 +12,7 @@ import { clientDiscountsAPI, clientsAPI, messagingAPI, toast, PlatformMessage } 
 import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell, Star, ScrollText, FolderOpen } from 'lucide-react';
 import RemindersApptsTab from '../shared/RemindersApptsTab';
 import ClientPaymentsTab from './ClientPaymentsTab';
+import PetAvatar from '../shared/PetAvatar';
 import ClientBillsTab from './ClientBillsTab';
 import ClientAccountHub, { ClientStatementTab, ClientFilesTab, preferredMethod } from './ClientAccountHub';
 import { ClientBilling } from '../../../services/modules/clients.api';
@@ -678,7 +679,7 @@ const renderOverview = () => (
                 const hasScheduled = petScheduled.length > 0;
                 return (
                   <div key={pet.id} className={`flex items-center gap-4 p-4 rounded-2xl border transition-all cursor-pointer group ${hasScheduled ? 'bg-amber-50/50 dark:bg-amber-900/10 border-amber-400/60 dark:border-amber-500/40 shadow-[0_0_12px_rgba(245,158,11,0.2)]' : 'bg-slate-50 dark:bg-zinc-800/50 border-slate-100 dark:border-zinc-800 hover:border-seafoam'}`}>
-                     <div onClick={() => onViewPet(pet.id)} className="w-12 h-12 rounded-xl bg-white dark:bg-zinc-900 flex items-center justify-center text-3xl group-hover:scale-110 transition-transform shrink-0 aspect-square">{pet.species === 'Dog' ? '🐶' : '🐱'}</div>
+                     <div onClick={() => onViewPet(pet.id)} className="shrink-0"><PetAvatar pet={pet} size={36} rounded="rounded-xl" className="group-hover:scale-110 transition-transform" /></div>
                      <div onClick={() => onViewPet(pet.id)} className="min-w-0 flex-1">
                         <p className="text-pine dark:text-zinc-100 font-black text-sm truncate uppercase">{pet.name}</p>
                         <p className={`text-[8px] font-black uppercase tracking-widest ${hasScheduled ? 'text-amber-600 dark:text-amber-400' : 'text-seafoam dark:text-zinc-500'}`}>
@@ -1050,7 +1051,7 @@ const renderOverview = () => (
               {pets.length > 0 ? pets.map(pet => (
                 <div key={pet.id} onClick={() => onViewPet(pet.id)} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-6 hover:border-seafoam transition-all cursor-pointer group shadow-sm">
                    <div className="flex items-center gap-4 mb-6">
-                      <div className="w-16 h-16 rounded-2xl bg-slate-50 dark:bg-zinc-800 flex items-center justify-center text-4xl group-hover:scale-110 transition-transform shrink-0 aspect-square">{pet.species === 'Dog' ? '🐶' : '🐱'}</div>
+                      <PetAvatar pet={pet} size={48} rounded="rounded-2xl" className="group-hover:scale-110 transition-transform" />
                       <div className="min-w-0 flex-1">
                          <p className="text-pine dark:text-zinc-100 font-black text-lg truncate uppercase">{pet.name}</p>
                          <p className="text-seafoam text-[9px] font-black uppercase tracking-widest">{pet.breed}</p>
