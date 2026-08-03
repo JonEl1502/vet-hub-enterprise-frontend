@@ -50,7 +50,6 @@ import { ServiceInjectProvider } from '../shared/ServiceInjectContext';
 import BillPanel from './BillPanel';
 import BillBalanceCard from './BillBalanceCard';
 import AddEncounterSelect from './AddEncounterSelect';
-import LinkedVisitsStrip from './LinkedVisitsStrip';
 import type { Bill } from '../../../services/modules/bills.api';
 import DewormingAgainst from '../shared/DewormingAgainst';
 import Money from '../../shared/common/Money';
@@ -244,7 +243,6 @@ const VisitDetailInner: React.FC<Props> = ({
   }, [appointment.boardingStayId, appointment.status, appointment.isPaid]);
   // Group visit siblings — feeds the consolidated group invoice section on
   // the Invoice tab (this visit's client: their animals only).
-  const [linkedRefresh, setLinkedRefresh] = useState(0);
   const [groupSiblings, setGroupSiblings] = useState<any[]>([]);
   useEffect(() => {
     let alive = true;
@@ -580,80 +578,86 @@ const VisitDetailInner: React.FC<Props> = ({
 
   const handleAddEncounter = (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => setPendingTransfer(type);
   /**
-   * Transfer / hand-off → creates a **LINKED VISIT** (backend 120), not another
-   * encounter stacked on this one.
+   * Transfer / hand-off — adds an ENCOUNTER to THIS visit.
    *
-   * `bills.visit_id` is UNIQUE, so stacking forced every encounter onto ONE
-   * bill — which is exactly what stopped staff closing and getting paid for the
-   * groom before boarding began. A separate visit gets its own bill, invoice
-   * and payment, joined back here by `originVisitId` + link type + reason.
-   * Spec: backend/docs/LINKED_VISITS_ARCHITECTURE.md
+   * Reverted from the linked-visit split (user, 2026-08-03): the animal came in
+   * ONCE, so one attendance stays one visit. Separate billing is being solved
+   * where it belongs — a bill per ENCOUNTER — instead of by splitting the visit,
+   * which broke every visit count and needed a strip to explain itself.
+   * It also must NOT invent a `groupVisitId`: that means "several ANIMALS
+   * registered in one go" and drives GroupVisitPanel's consolidated invoice.
    */
-  const performTransfer = async (type: string, reason: string) => {
+  const performTransfer = (type: string, reason: string) => {
     const labels: Record<string, string> = { VET_VISIT: 'Vet Visit — consultation', VACCINATION: 'Vaccination', GROOMING: 'Grooming', BOARDING: 'Boarding', HOSPITALIZATION: 'Hospitalization/In-Patient' };
-    const ENC_SPEC: Record<string, { encounterType: string; visitType?: string }> = {
+    // VACCINATION adds NO auto service (user, 2026-08-02: adding the encounter
+    // auto-picked whatever vaccine sorts first — Bordetella — onto the bill).
+    // The wizard's vaccination step is where the ACTUAL vaccine is chosen and
+    // charged; the encounter row + chip is all this needs to create.
+    if (type === 'VACCINATION') {
+      const rowSpecV = { encounterType: 'VET_VISIT', visitType: 'VACCINATION' };
+      visitsAPI.addEncounter(appointment.id, rowSpecV)
+        .then(() => wiz.reloadEncounters())
+        .catch(() => {});
+      visitsAPI.addEvent(appointment.id, { label: `Transferred/added encounter: Vaccination — ${reason}`, kind: 'transfer' }).catch(() => {});
+      wiz.emit(`Added Vaccination — ${reason}`, 'billing', true);
+      toast.success('Vaccination added — pick the vaccine in its workflow step');
+      return;
+    }
+    const want = type === 'VET_VISIT' ? 'consult' : type === 'GROOMING' ? 'groom' : type === 'BOARDING' ? 'board' : type === 'VACCINATION' ? 'vaccin' : 'inpatient';
+    const cat = refCategories.find(c => c.name.toLowerCase().includes(want));
+    const svc = cat ? refServices.find(s => s.categoryId === cat.id) : undefined;
+    // Vet-visit consultation prefers the configured consultation fee.
+    const price = entryFeeFor(loadVisitFees(), type, type === 'VET_VISIT' ? 'CONSULTATION' : undefined) ?? Number(svc?.defaultPrice ?? 0);
+    onInjectTask(appointment.id, {
+      id: Math.floor(Math.random() * 1000000),
+      name: svc?.name || labels[type],
+      category: cat?.name || labels[type],
+      status: TaskStatus.PENDING,
+      price,
+      notes: `Transfer reason: ${reason}`,
+      // Left UNASSIGNED on purpose. This used to default to `staffMembers[0]`
+      // — whoever happens to sort first in the clinic's staff list — which
+      // silently attributed the work (and the right to tick it complete) to a
+      // person who was never asked. The assignee select renders an amber
+      // "Assign…" prompt when empty; that is the intended state.
+      assignedStaffId: undefined,
+      // Same reason as the Add Services drawer: recipe auto-apply matches on
+      // the trigger service ID first.
+      serviceId: svc?.id,
+    } as any);
+    wiz.emit(`Added ${labels[type]} — ${reason}`, 'billing', true);
+    // 172: the encounter ROW is what makes the chip real — the wizard resolves
+    // its steps from it, and its × deletes it. Best-effort; the task/fee above
+    // already landed either way.
+    const ENC_ROW: Record<string, { encounterType: string; visitType?: string }> = {
       VET_VISIT: { encounterType: 'VET_VISIT', visitType: 'CONSULTATION' },
       VACCINATION: { encounterType: 'VET_VISIT', visitType: 'VACCINATION' },
       GROOMING: { encounterType: 'GROOMING' },
       BOARDING: { encounterType: 'BOARDING' },
       HOSPITALIZATION: { encounterType: 'VET_VISIT', visitType: 'INPATIENT' },
     };
-    const spec = ENC_SPEC[type];
-    if (!spec) return;
-
-    // The entry service for the new visit. VACCINATION deliberately gets NONE —
-    // adding it used to auto-pick whichever vaccine sorted first (Bordetella)
-    // onto the bill; the wizard's vaccination step is where the real one is chosen.
-    const want = type === 'VET_VISIT' ? 'consult' : type === 'GROOMING' ? 'groom' : type === 'BOARDING' ? 'board' : 'inpatient';
-    const cat = type === 'VACCINATION' ? undefined : refCategories.find(c => c.name.toLowerCase().includes(want));
-    const svc = cat ? refServices.find(s => s.categoryId === cat.id) : undefined;
-    const price = type === 'VACCINATION' ? 0
-      : (entryFeeFor(loadVisitFees(), type, type === 'VET_VISIT' ? 'CONSULTATION' : undefined) ?? Number(svc?.defaultPrice ?? 0));
-
-    const now = new Date();
-    const pad = (n: number) => String(n).padStart(2, '0');
-
-    try {
-      const res = await visitsAPI.create({
-        clientId: appointment.clientId,
-        petId: appointment.petId,
-        apptDate: `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`,
-        apptTime: `${pad(now.getHours())}:${pad(now.getMinutes())}`,
-        isWalkIn: true,
-        ...spec,
-        // ESCALATION = clinically caused by this visit; everything else is a
-        // hand-off. Both keep the reason staff typed.
-        originVisitId: appointment.id,
-        originLinkType: type === 'HOSPITALIZATION' ? 'ESCALATION' : 'TRANSFER',
-        originLinkReason: reason,
-        // Loosely group them too, so the same-day set holds together.
-        groupVisitId: appointment.groupVisitId || `grp-${appointment.id}`,
-        ...(cat && svc ? {
-          tasks: [{
-            name: svc.name || labels[type],
-            category: cat.name,
-            price,
-            notes: `Transfer reason: ${reason}`,
-            serviceId: svc.id,
-          }],
-          totalCost: price,
-        } : {}),
-      } as any);
-
-      const created: any = (res as any)?.data?.appointment ?? (res as any)?.data?.visit;
-      if (!res.success || !created?.id) throw new Error((res as any)?.message || 'Could not start the linked visit');
-
-      visitsAPI.addEvent(appointment.id, {
-        label: `Transferred to a linked ${labels[type]} visit #${created.id} — ${reason}`,
-        kind: 'transfer',
-      }).catch(() => {});
-      wiz.emit(`Transferred to linked ${labels[type]} visit #${created.id} — ${reason}`, 'milestone', true);
-      setLinkedRefresh(n => n + 1);
-      toast.success(`${labels[type]} started as visit #${created.id} — this visit can be billed on its own`);
-      onNavigateToVisit(Number(created.id));
-    } catch (e: any) {
-      toast.error(e?.message || 'Could not start the linked visit');
+    const rowSpec = ENC_ROW[type];
+    if (rowSpec) {
+      visitsAPI.addEncounter(appointment.id, rowSpec)
+        .then(() => wiz.reloadEncounters())
+        .catch(() => { /* chip falls back to task-derived until reload */ });
     }
+    // Persist the conversion server-side (visit_events) so transfers between
+    // workflows (vet visit → grooming/boarding…) are tracked on the record,
+    // not just in the local journey draft.
+    visitsAPI.addEvent(appointment.id, {
+      label: `Transferred/added encounter: ${labels[type]} — ${reason}`,
+      kind: 'transfer',
+    }).catch(() => { /* non-fatal */ });
+    // Adding a vet visit to a grooming/boarding visit means clinical work is
+    // wanted NOW — switch the active workflow to the clinical flow right away
+    // (it stays switchable back via the wizard's Workflow picker).
+    if (type === 'VET_VISIT') {
+      wiz.switchEntry('standard');
+      toast.success('Vet Visit added — switched to the clinical workflow');
+      return;
+    }
+    toast.success(`${labels[type]} added to this visit's bill`);
   };
 
   // Cross-clinic transfer visit (168) — declared before the rail consts that
@@ -3255,16 +3259,6 @@ const VisitDetailInner: React.FC<Props> = ({
           })()}
         </div>
       )}
-
-      {/* Linked visits (120) — the other visits this patient had today and how
-          this one relates, each with its OWN bill. Renders nothing when there
-          are none, so a single-encounter visit looks exactly as before. */}
-      <LinkedVisitsStrip
-        visitId={appointment.id}
-        currency={activeClinic.currency || 'KES'}
-        onOpenVisit={(id) => onNavigateToVisit(id)}
-        refreshKey={linkedRefresh}
-      />
 
       {/* Visit workflow tabs, in the user's order (2026-08-02):
           Clinical Workflow · Records & Reports · Follow-Up & Reminders · Bill & Invoice.

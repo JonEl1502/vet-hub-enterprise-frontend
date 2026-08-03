@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### revert: transfer goes back to adding an ENCOUNTER, not a separate visit  —  2026-08-03
+- **What changed:** (user, after review) the visit split is reversed. Transfer/add-encounter
+  once again adds an encounter to the CURRENT visit instead of creating a linked one, and
+  `LinkedVisitsStrip` is removed. The animal came in **once**, so one attendance stays one
+  visit; separate billing is being solved where it belongs — **a bill per ENCOUNTER** —
+  rather than by splitting the visit.
+- **Why the split was wrong:** it inflated every visit count (Clinic Today, conversions,
+  revenue-per-visit) with no good answer to whether a report should count visits or groups,
+  and it needed a UI strip to reassemble what the model had split — the tell that the split
+  was in the wrong place.
+- **Also fixed by this revert:** transfer was inventing `groupVisitId: grp-<visitId>`.
+  That column means "several **ANIMALS** registered in one go" and drives
+  `GroupVisitPanel`'s **consolidated invoice** — the exact opposite of keeping encounter
+  bills apart. It no longer writes it.
+- **Record impact:** 🟢 None. Prod never ran it: 129 visits, **0 origin links**, and its 3
+  real group visits (2, 7 and 2 animals — one visit each) are intact and untouched.
+- **Data dependency:** none. Migration 120's columns stay in place but **dormant** —
+  nullable, unwritten, and cheaper to leave than to drop.
+- **Rollback:** revert the commit and rebuild.
+
+
 ### page: Financial Overview RETIRED — Reports & Analytics is the finance landing page  —  2026-08-03
 - **What changed:** (user, S1) `financial-overview` and `finance` view ids now render
   `ReportsAnalyticsView` (redirect — every deep link still lands), the Finance submenu
