@@ -112,7 +112,19 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   React.useEffect(() => { load(); }, [load]);
 
   const invoices = data?.invoices ?? [];
-  const allOpen = invoices.filter(i => !i.isPaid);
+  /**
+   * An INVOICE only exists once the visit is finalized and billed — the invoice
+   * comes AFTER (user, 2026-08-03: "dont ever show an invoice if not finalized
+   * and billed"). An open visit still accruing work is not a document the
+   * client can be shown or asked to pay; it appeared here only as a row badged
+   * "Not finalized", which invited exactly that.
+   *
+   * `collectable` is the server's own "this visit is finalized" signal, so the
+   * list and the collect flow agree by construction.
+   */
+  const invoiceable = invoices.filter(i => i.collectable || i.isPaid || (i.invoices?.length ?? 0) > 0);
+  const notYetInvoiced = invoices.filter(i => !invoiceable.includes(i));
+  const allOpen = invoiceable.filter(i => !i.isPaid);
 
   // Search the invoice list, because a client with two patients wants to pay
   // for one of them. Matches the patient's name/species or the invoice number;
@@ -126,7 +138,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
     || !!i.pet?.species?.toLowerCase().includes(q)
     || i.visitId.includes(q);
 
-  const visible = invoices.filter(matches);
+  const visible = invoiceable.filter(matches);
   const open = allOpen.filter(matches);
   const selectable = open.filter(i => i.collectable);
   // OUTSTANDING, not `total`. A part-paid invoice owes its remainder, and
@@ -363,6 +375,13 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
       {/* ── Invoices ── */}
       {sub === 'invoices' && (
         <div className="space-y-3">
+          {/* Open visits are NOT invoices yet — say so, rather than leaving the
+              front desk wondering where a visit went. */}
+          {notYetInvoiced.length > 0 && (
+            <p className="px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+              {notYetInvoiced.length} open visit{notYetInvoiced.length === 1 ? '' : 's'} not shown — an invoice is raised once the visit is finalized and billed.
+            </p>
+          )}
           {canCollect && selectable.length > 0 && (
             <div ref={collectBarRef} className="flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800">
               <button type="button"
@@ -619,20 +638,15 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                       PENDING_PAYMENT/COMPLETED because its total can still move
                       — so that row sends you to the visit to generate the bill
                       rather than offering a button that would just 400. */}
+                  {/* Every row here IS finalized and billed, so Settle is the
+                      only action — the old "Finalize to settle" fallback is
+                      unreachable now that open visits are excluded. */}
                   {canCollect && !inv.isPaid && (
-                    inv.collectable ? (
-                      <button onClick={() => settleOne(inv.visitId)}
-                        title={`Settle ${money(inv.outstanding ?? inv.total, currency)} on visit #${inv.visitId}`}
-                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-pine transition-all">
-                        <CreditCard size={10} /> Settle
-                      </button>
-                    ) : onViewVisit ? (
-                      <button onClick={() => onViewVisit(Number(inv.visitId))}
-                        title="This visit isn't finalized, so its total can still change — generate its bill on the visit, then settle"
-                        className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-amber-300 dark:border-amber-800 text-amber-600 dark:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-950/30 transition-all">
-                        <FileText size={10} /> Finalize to settle
-                      </button>
-                    ) : null
+                    <button onClick={() => settleOne(inv.visitId)}
+                      title={`Settle ${money(inv.outstanding ?? inv.total, currency)} on visit #${inv.visitId}`}
+                      className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-pine transition-all">
+                      <CreditCard size={10} /> Settle
+                    </button>
                   )}
                   {onViewVisit && (
                     <button onClick={() => onViewVisit(Number(inv.visitId))}

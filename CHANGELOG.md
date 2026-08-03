@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: client profile — one "Financials" tab, and no invoice before it exists  —  2026-08-03
+- **What changed:** (user, 2026-08-03) Invoices / Payments / Receipts / Statements /
+  Discounts & Credits were five top-level tabs for one subject — and the same words were
+  repeated as filters inside Payments. They are now **sub-tabs of a single Financials tab**
+  (Overview · Invoices · Receipts · Statements · Discounts & Credits), which removes the
+  duplication at its source rather than restyling it.
+- **An invoice is never shown before it exists.** The Invoices list previously included
+  open visits badged "Not finalized" — inviting staff to treat a still-accruing visit as a
+  payable document. The list is now restricted to visits that are **finalized and billed**
+  (the server's own `collectable` signal, so the list and the collect flow agree by
+  construction). Excluded visits are **counted in a note** — "N open visits not shown, an
+  invoice is raised once the visit is finalized and billed" — rather than silently vanishing.
+- **Record impact:** 🟢 None — filtering and navigation only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ℹ️ The "Finalize to settle" fallback added earlier is now **unreachable** and has been
+  removed: every row in the list is finalized by definition.
+
+
 ### fix: client Payments — inner row no longer looks like a second tab bar  —  2026-08-03
 - **What changed:** (user, 2026-08-03: "tab repetition") the account timeline's
   All/Invoices/Payments/Credits/Refunds row was styled as tabs directly beneath the client

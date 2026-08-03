@@ -1006,13 +1006,11 @@ const renderOverview = () => (
                { id: 'overview', label: 'Overview', icon: Activity },
                { id: 'pets', label: `Pets (${pets.length})`, icon: PawPrint },
                { id: 'appointments', label: 'Visits', icon: Calendar },
-               ...(hasFullAccess ? [
-                 { id: 'invoices', label: 'Invoices', icon: FileText },
-                 { id: 'transactions', label: 'Payments', icon: CreditCard },
-                 { id: 'receipts', label: 'Receipts', icon: Receipt },
-                 { id: 'statements', label: 'Statements', icon: ScrollText },
-               ] : []),
-               { id: 'discounts', label: 'Discounts & Credits', icon: Tag },
+               // ONE money tab (user, 2026-08-03). Invoices / Payments /
+               // Receipts / Statements / Discounts sat alongside each other AND
+               // were repeated as filters inside Payments — five top-level tabs
+               // for one subject. They are sub-tabs of Financials now.
+               ...(hasFullAccess ? [{ id: 'transactions', label: 'Financials', icon: CreditCard }] : []),
                { id: 'outreach', label: 'Communication', icon: MessageCircle },
                { id: 'files', label: 'Files', icon: FolderOpen },
                { id: 'schedule', label: 'Reminders & Appts', icon: Bell },
@@ -1323,6 +1321,27 @@ const renderOverview = () => (
         )}
         {/* Payments (tab id stays 'transactions' for deep links): the account
             hub — stat cards, timeline, summary donut, quick actions. */}
+        {/* Financials — one tab, five sub-views. */}
+        {['transactions', 'invoices', 'receipts', 'statements', 'discounts'].includes(activeTab) && (
+          <div className="flex flex-wrap items-center gap-1.5 mb-4">
+            {[
+              { id: 'transactions', label: 'Overview' },
+              { id: 'invoices', label: 'Invoices' },
+              { id: 'receipts', label: 'Receipts' },
+              { id: 'statements', label: 'Statements' },
+              { id: 'discounts', label: 'Discounts & Credits' },
+            ].map(t => (
+              <button key={t.id} type="button" onClick={() => setActiveTab(t.id)}
+                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                  activeTab === t.id
+                    ? 'bg-seafoam text-white border-seafoam'
+                    : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:text-seafoam'
+                }`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
         {activeTab === 'transactions' && (
           <ClientAccountHub
             client={client}
