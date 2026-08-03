@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: patient header — bigger portrait, owner actions kept side by side  —  2026-08-03
+- **What changed:** (user) the patient photo goes from `w-14/16` to `w-24 sm:w-32`, so it
+  runs the height of the identity block instead of reading as a chip (deceased badge
+  scaled with it). **Message owner** and **Book visit** are wrapped in their own flex
+  group with `whitespace-nowrap`, so they stay on one line together instead of Book visit
+  dropping to a second row whenever the owner name or phone runs long.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### ui: remove the "Billing & Invoice" collapse header from the Invoice tab  —  no migration
 - **What changed:** (user, 2026-08-03: "remove this collapse feature from invoice") the
   collapsible `🧾 Billing & Invoice` bar at the top of the visit's Invoice tab is gone,

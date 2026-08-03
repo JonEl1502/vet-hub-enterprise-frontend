@@ -1281,9 +1281,9 @@ const PetProfileView: React.FC<Props> = ({
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={avatarBusy}
                   title={avatarBusy ? 'Uploading…' : 'Change photo'}
-                  className="relative w-14 h-14 sm:w-16 sm:h-16 rounded-full border-2 border-white dark:border-zinc-950 shadow-lg aspect-square overflow-hidden group disabled:opacity-60"
+                  className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full border-2 border-white dark:border-zinc-950 shadow-lg aspect-square overflow-hidden group disabled:opacity-60"
                 >
-                  <PetAvatar pet={{ ...pet, avatarUrl: avatarUrl ?? (pet as any).avatarUrl } as any} size={64} rounded="rounded-none" className="w-full h-full" />
+                  <PetAvatar pet={{ ...pet, avatarUrl: avatarUrl ?? (pet as any).avatarUrl } as any} size={128} rounded="rounded-none" className="w-full h-full" />
                   <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/50">
                     {avatarBusy
                       ? <Loader2 size={14} className="animate-spin text-white" />
@@ -1292,7 +1292,7 @@ const PetProfileView: React.FC<Props> = ({
                 </button>
                 {pet.isAlive === false && (
                   <span title="Deceased"
-                        className="absolute -bottom-0.5 -right-0.5 min-w-[18px] min-h-[18px] px-1 rounded-full bg-slate-500 text-white text-[8px] font-black flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow">
+                        className="absolute bottom-1 right-1 min-w-[22px] min-h-[22px] px-1 rounded-full bg-slate-500 text-white text-[10px] font-black flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow">
                     †
                   </span>
                 )}
@@ -1367,20 +1367,25 @@ const PetProfileView: React.FC<Props> = ({
                           <Phone size={11} /> {owner.phone}
                         </span>
                       )}
-                      <button
-                        onClick={() => onOpenMessaging(owner)}
-                        className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam text-seafoam hover:bg-seafoam hover:text-white transition-all active:scale-95"
-                      >
-                        <MessageSquare size={11} /> Message owner
-                      </button>
-                      {onBookAppointment && (
+                      {/* The two actions travel together — grouped so they wrap
+                          as a pair instead of Book visit dropping to its own
+                          line the moment the name or phone runs long. */}
+                      <div className="flex items-center gap-2">
                         <button
-                          onClick={() => onBookAppointment(pet.id, owner.id)}
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:border-seafoam hover:text-seafoam transition-all active:scale-95"
+                          onClick={() => onOpenMessaging(owner)}
+                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam text-seafoam hover:bg-seafoam hover:text-white transition-all active:scale-95 whitespace-nowrap"
                         >
-                          <CalendarPlus size={11} /> Book visit
+                          <MessageSquare size={11} /> Message owner
                         </button>
-                      )}
+                        {onBookAppointment && (
+                          <button
+                            onClick={() => onBookAppointment(pet.id, owner.id)}
+                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:border-seafoam hover:text-seafoam transition-all active:scale-95 whitespace-nowrap"
+                          >
+                            <CalendarPlus size={11} /> Book visit
+                          </button>
+                        )}
+                      </div>
                     </>
                   ) : (
                     <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-900">
