@@ -71,8 +71,11 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
     return rangeFor(rangeKey);
   }, [customRange, rangeKey]);
   const spanMs = to.getTime() - from.getTime();
-  const prevTo = useMemo(() => new Date(from.getTime() - 86_400_000), [from]);
-  const prevFrom = useMemo(() => new Date(prevTo.getTime() - spanMs), [prevTo, spanMs]);
+  // Compared-to is a PICKER too (user, 2026-08-03): an explicit pick wins;
+  // clearing it falls back to the equal-length window ending just before `from`.
+  const [compareRange, setCompareRange] = useState<DateRange | null>(null);
+  const prevTo = useMemo(() => compareRange?.end ?? new Date(from.getTime() - 86_400_000), [compareRange, from]);
+  const prevFrom = useMemo(() => compareRange?.start ?? new Date(prevTo.getTime() - spanMs), [compareRange, prevTo, spanMs]);
 
   const [loading, setLoading] = useState(true);
   const [summary, setSummary] = useState<SummaryResponse | null>(null);
@@ -194,7 +197,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
     if ((ar?.clients?.length ?? 0) > 0) list.push({
       icon: Receipt, tone: 'text-amber-500',
       text: `${ar!.clients.length} client${ar!.clients.length === 1 ? ' has' : 's have'} overdue balances. Total outstanding: ${money(arTotal)}.`,
-      go: () => onNavigate?.('financial-overview'),
+      go: () => onNavigate?.('receivables'),
     });
     const topCat = bi?.revenueByCategory?.[0];
     if (topCat) list.push({
@@ -302,8 +305,12 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
               value={customRange}
               onChange={r => setCustomRange(r && r.start && r.end ? r : null)}
             />
-            <span className="hidden md:inline-flex items-center px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">
-              Compared to: <span className="ml-1 text-pine dark:text-zinc-100">{fmtDate(prevFrom)} – {fmtDate(prevTo)}</span>
+            <span className="hidden md:inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">
+              Compared to:
+              <DateRangePicker
+                value={compareRange ?? { start: prevFrom, end: prevTo }}
+                onChange={r => setCompareRange(r && r.start && r.end ? r : null)}
+              />
             </span>
             <div className="relative">
               <button onClick={() => setQuickOpen(o => !o)}
@@ -337,13 +344,14 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
         <div className="flex items-center justify-center py-24"><Loader2 size={22} className="animate-spin text-seafoam" /></div>
       ) : (
         <>
-          {/* ── KPI cards ── */}
-          <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3">
-            {kpis.map(k => {
+          {/* ── KPI cards — 3 / 2 / 2 rows (user, 2026-08-03) so the money
+              values render whole instead of truncating at 7-across. ── */}
+          <div className="grid grid-cols-1 sm:grid-cols-6 gap-3">
+            {kpis.map((k, ki) => {
               const up = (k.delta ?? 0) >= 0;
               const good = k.delta == null ? true : (k as any).badDeltaUp ? !up : up;
               return (
-                <div key={k.label} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5">
+                <div key={k.label} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5 ${ki < 3 ? 'sm:col-span-2' : 'sm:col-span-3'}`}>
                   <div className="flex items-center gap-2 mb-2">
                     <span className={`p-2 rounded-xl ${k.chip}`}><k.icon size={14} /></span>
                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-tight">{k.label}</p>
@@ -625,7 +633,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                   ))}
                 </div>
               )}
-              <button onClick={() => onNavigate?.('financial-overview')}
+              <button onClick={() => onNavigate?.('receivables')}
                 className="mt-3 w-full py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:border-seafoam hover:text-seafoam transition-all">
                 View All Receivables
               </button>
