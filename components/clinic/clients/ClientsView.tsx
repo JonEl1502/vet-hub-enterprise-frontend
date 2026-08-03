@@ -477,7 +477,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
 
         {/* Stacked panel — slides out from UNDER the primary card. */}
         {advOpen && (
-          <div className="stacked-filter-panel bg-slate-100/80 dark:bg-zinc-950/60 border border-slate-200/60 dark:border-zinc-800/60 rounded-2xl px-4 pb-4 space-y-3">
+          <div className="stacked-filter-panel bg-slate-100/80 dark:bg-zinc-950/60 border border-slate-200/60 dark:border-zinc-800/60 rounded-2xl px-4 pb-2.5 space-y-2">
             <div className="flex flex-wrap items-end gap-3">
               <button
                 type="button"

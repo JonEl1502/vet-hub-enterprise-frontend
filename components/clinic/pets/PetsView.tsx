@@ -18,6 +18,7 @@ import { PaginationMeta } from '../../../services/types/pagination';
 import Pagination from '../../shared/common/Pagination';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
 import ScopeClinicBadge from '../../shared/common/ScopeClinicBadge';
+import PetAvatar from '../shared/PetAvatar';
 
 interface Props {
   clinics: Clinic[];
@@ -478,7 +479,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
 
         {/* Stacked panel — slides out from UNDER the primary card. */}
         {advOpen && (
-          <div className="stacked-filter-panel bg-slate-100/80 dark:bg-zinc-950/60 border border-slate-200/60 dark:border-zinc-800/60 rounded-2xl px-4 pb-4 space-y-3">
+          <div className="stacked-filter-panel bg-slate-100/80 dark:bg-zinc-950/60 border border-slate-200/60 dark:border-zinc-800/60 rounded-2xl px-4 pb-2.5 space-y-2">
             {/* A–Z alphabet filter (by patient name) */}
             <div className="flex flex-wrap items-center gap-1">
               {['ALL', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), '#'].map(L => {
@@ -515,7 +516,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
               <Pagination meta={paginationMeta} onPageChange={handlePageChange} compact />
             </div>
           )}
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 p-4 overflow-visible">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 overflow-visible">
             {paginatedPets.map((pet, index) => {
               const owner = clients.find(c => c.id === pet.ownerId);
               const upcomingVisits = getUpcomingVisits(pet.id);
@@ -551,9 +552,12 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                     {/* LEFT: pet info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
-                        <div className="w-10 h-10 rounded-lg bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 flex items-center justify-center text-xl group-hover:scale-105 transition-transform shrink-0">
-                          {pet.species === 'Dog' ? '🐶' : '🐱'}
-                        </div>
+                        <PetAvatar
+                          pet={pet}
+                          size={44}
+                          rounded="rounded-xl"
+                          className="group-hover:scale-105 transition-transform"
+                        />
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <h3 className="card-title text-sm truncate leading-tight">{pet.name}</h3>

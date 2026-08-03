@@ -582,8 +582,11 @@ body {
 .stacked-filter-panel {
   position: relative;
   z-index: 0;
-  margin-top: -14px;
-  padding-top: 26px;
+  /* Slides out from UNDER the primary card, so the negative margin tucks it
+     behind and the top padding clears the overlap. Both were generous enough
+     that the open panel read as a big empty band (user, 2026-08-03). */
+  margin-top: -16px;
+  padding-top: 20px;
   animation: stackedSlide 0.28s ease;
 }
 @keyframes stackedSlide {

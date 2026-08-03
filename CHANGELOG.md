@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: patients list — real photos, two columns, tighter filter panel  —  2026-08-03
+- **What changed:** (user) ① patient cards render `PetAvatar` instead of a hardcoded
+  `species === 'Dog' ? '🐶' : '🐱'`, so an uploaded profile photo actually shows and a
+  rabbit is no longer a cat; the chip grows from 40px to 44px (×1.4 inside PetAvatar).
+  ② the card grid drops to **two columns** (`md:grid-cols-2`, was `xl:grid-cols-3`) —
+  the third column clipped the owner / weight / visits block. ③ the "More filters"
+  slide-out panel loses its empty band: `.stacked-filter-panel` padding-top 26→20px,
+  margin-top −14→−16px, and the panel's own `pb-4 space-y-3` → `pb-2.5 space-y-2`.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** `.stacked-filter-panel` is shared with the **Clients** list, so its
+  filter panel tightens by the same amount — intended, they are the same control.
+
 ### ui: patient header — bigger portrait, owner actions kept side by side  —  2026-08-03
 - **What changed:** (user) the patient photo goes from `w-14/16` to `w-24 sm:w-32`, so it
   runs the height of the identity block instead of reading as a chip (deceased badge
