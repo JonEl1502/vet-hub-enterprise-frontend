@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: a wizard step can put its action in the bottom bar — grooming Save moves there  —  2026-08-03
+- **What changed:** (user, 2026-08-03: "move the Save report to the bottom bar") new
+  `StepActionContext` lets a wizard step contribute a button to the wizard's fixed action
+  bar. `GroomingPanel` uses it: inside the wizard the Save sits beside **Done → next**
+  instead of at the bottom of its own card, where two competing action bars meant the save
+  got missed. Outside the wizard (the standalone grooming page) there is no bar, so the
+  in-card button stays — hence the `inWizard` prop rather than deleting it.
+- **Record impact:** 🟢 None — same save, different placement.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ Registration is **keyed**, and a late unmount can only clear its OWN action — otherwise
+  navigating between steps would blank the button the incoming step just registered.
+
+
 ### flow: running-bill rail — edit quantity and amount inline  —  2026-08-03
 - **What changed:** (user, 2026-08-03) each line on the wizard's Running Bill now carries a
   small **qty** and **amount** box, saving on blur or Enter through the same

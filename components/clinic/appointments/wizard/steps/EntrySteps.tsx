@@ -307,6 +307,7 @@ export const GroomingCareStep: React.FC<StepProps> = ({ visit, refreshVisit, emi
   <GroomingPanel
     appointment={visit}
     onSaved={() => { emit('Grooming report card updated', 'action', true); refreshVisit?.(); }}
+      inWizard
   />
 );
 

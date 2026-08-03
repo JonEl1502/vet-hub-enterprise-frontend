@@ -16,6 +16,7 @@ import { StepProps, WizardStepId, StaffOpt } from './types';
 import InlineServiceSearch from '../../shared/InlineServiceSearch';
 import { useServiceInject } from '../../shared/ServiceInjectContext';
 import { VisitWizardApi } from './useVisitWizard';
+import { StepActionProvider, useStepActionSlot } from './StepActionContext';
 import HistoryStep from './steps/HistoryStep';
 import ExaminationStep from './steps/ExaminationStep';
 import AssessmentStep from './steps/AssessmentStep';
@@ -122,7 +123,22 @@ const useElapsed = (fromIso: string) => {
   return `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(mins % 60).padStart(2, '0')}`;
 };
 
-const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onUpdateTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
+/** Renders whatever action the current step registered. */
+const StepActionSlot: React.FC = () => {
+  const a = useStepActionSlot();
+  if (!a) return null;
+  return (
+    <span className="flex items-center gap-2 mr-2">
+      {a.note && <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">{a.note}</span>}
+      <button type="button" onClick={a.onClick} disabled={a.busy || a.disabled}
+        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-pine disabled:opacity-50 transition-all">
+        {a.busy ? 'Saving…' : a.label}
+      </button>
+    </span>
+  );
+};
+
+const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onUpdateTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry, templateStages, templateFields, template, setVisitTemplate } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   // Inline add-service search on the Running Bill card (user, 2026-08-01).
@@ -697,6 +713,9 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
           </button>
         )}
         <div className="flex-1" />
+        {/* A step can put its own action here (e.g. the grooming report's
+            Save) so the screen has ONE action bar, not two. */}
+        <StepActionSlot />
         {locked ? (
           <>
             {isLast ? (
@@ -726,5 +745,9 @@ const VisitWizard: React.FC<Props> = ({ visit, pet, client, staff, activeClinic,
     </div>
   );
 };
+
+const VisitWizard: React.FC<Props> = (props) => (
+  <StepActionProvider><VisitWizardInner {...props} /></StepActionProvider>
+);
 
 export default VisitWizard;

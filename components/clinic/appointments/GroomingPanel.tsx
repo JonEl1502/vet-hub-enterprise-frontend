@@ -1,3 +1,4 @@
+import { useRegisterStepAction } from './wizard/StepActionContext';
 import React, { useState, useEffect } from 'react';
 import { Scissors, Save, Loader2, ImagePlus, X, CheckCircle2 } from 'lucide-react';
 import { Visit } from '../../../types';
@@ -7,6 +8,8 @@ import NotesFormatToggle from '../shared/NotesFormatToggle';
 import InlineServiceSearch from '../shared/InlineServiceSearch';
 
 interface Props {
+  /** Inside the visit wizard: the save action moves to the wizard's bottom bar. */
+  inWizard?: boolean;
   appointment: Visit;
   onSaved?: () => void;
   // Opens the finalize gate (parent owns the reminder gate + settle flow).
@@ -81,7 +84,7 @@ const PhotoStrip: React.FC<{ label: string; urls: string[]; onChange: (urls: str
   );
 };
 
-const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, notesFormat }) => {
+const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, notesFormat, inWizard }) => {
   const d = appointment.groomingDetail || {};
   // Lock the report card once the visit is checked out — i.e. finalized
   // (PENDING_PAYMENT), completed, or the bill is settled. Mirrors VisitDetailView's
@@ -162,6 +165,12 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
       if (res.success) { setSaved(true); onSaved?.(); }
     } finally { setSaving(false); }
   };
+
+
+  // Hand the save to the wizard's bottom bar when we're inside it.
+  useRegisterStepAction('grooming-save', inWizard && !locked
+    ? { label: 'Save report', onClick: save, busy: saving, note: saved ? 'Saved ✓' : undefined }
+    : null);
 
   return (
     <div className="space-y-5">
@@ -286,7 +295,10 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
         </div>
       </section>
 
-      {!locked && (
+      {/* Save moved to the wizard's bottom bar (user, 2026-08-03) — two
+          competing action bars on one screen meant the save got missed.
+          Outside the wizard there is no bar, so the button stays here. */}
+      {!locked && !inWizard && (
         <div className="flex items-center gap-3">
           <button type="button" onClick={save} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 disabled:opacity-50">
             {saving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><Save size={14} /> Save report</>}
