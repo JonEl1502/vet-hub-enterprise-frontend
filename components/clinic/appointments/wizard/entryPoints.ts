@@ -25,6 +25,9 @@ export const STEP_DEFS: Record<WizardStepId, WizardStepDef> = {
   groomingAssessment:    { id: 'groomingAssessment', label: 'Grooming Assessment', short: 'Assessment' },
   groomingCare:          { id: 'groomingCare', label: 'Grooming — Attending & Report Card', short: 'Attending' },
   boardingAssessment:    { id: 'boardingAssessment', label: 'Boarding Assessment', short: 'Boarding Assessment' },
+  // The stay itself gets its own step (user, 2026-08-03) — intake and the
+  // day-to-day care log are different jobs and were sharing one screen.
+  boardingStay:          { id: 'boardingStay', label: 'Boarding Stay', short: 'Stay' },
   vetCheck:              { id: 'vetCheck', label: 'Vet Check', short: 'Vet Check' },
   history:               { id: 'history', label: 'History', short: 'History' },
   examination:           { id: 'examination', label: 'Physical Examination', short: 'Examination' },
@@ -69,7 +72,7 @@ export const ENTRY_POINTS: Record<string, EntryPointDef> = {
   houseCall:    { key: 'houseCall', label: 'House Call', icon: '🏠', steps: ['visitDetails', ...CORE] },
   // Grooming and boarding both REQUIRE a vet check before care starts (077).
   grooming:     { key: 'grooming', label: 'Grooming', icon: '✂️', steps: ['groomingAssessment', 'vetCheck', 'groomingCare', 'communication', 'followUp'] },
-  boarding:     { key: 'boarding', label: 'Boarding Admission', icon: '🛏️', steps: ['boardingAssessment', 'vetCheck', 'communication', 'followUp'] },
+  boarding:     { key: 'boarding', label: 'Boarding Admission', icon: '🛏️', steps: ['boardingAssessment', 'vetCheck', 'boardingStay', 'communication', 'followUp'] },
 };
 
 export function resolveEntryPoint(visit: Visit): EntryPointDef {

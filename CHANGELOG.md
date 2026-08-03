@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: boarding — food priced from inventory, Stay gets its own step, Pro feeding programs  —  2026-08-03
+- **What changed:** (user, 2026-08-03) three boarding improvements:
+  1. **Food comes from inventory.** The meal rate was typed from memory ("e.g. 250"), so
+     the food charge had no relationship to the food actually issued or to stock.
+     Clinic-provided food is now **searched from inventory** with a **portion per meal**,
+     and `ratePerMeal` is **derived** as `portion × unit price`. Deliberately kept as the
+     same output field, so the stay estimate that already multiplies
+     `rate × meals/day × days` keeps working — this improves its inputs rather than
+     duplicating the maths.
+  2. **Boarding Stay is its own wizard step**, after Vet Check. Admitting a patient and
+     running its daily care are different jobs and were sharing one screen.
+  3. **"Create a feeding program for this patient"** checkbox, gated on
+     `capability:feeding-programs` — shown locked with an upgrade line off-plan.
+- **Record impact:** 🟢 None yet — the rate is computed client-side into the existing field.
+- **Data dependency:** None. ⚠️ The feeding-program checkbox is **UI + entitlement only** —
+  nothing persists a program yet; the backend for it is not built.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ `capability:feeding-programs` must be added to the Pro package's `featureKeys` or the
+  checkbox stays locked for everyone.
+
+
 ### page: dashboard "Clinic" tab becomes Finance & Business Intelligence  —  2026-08-03
 - **What changed:** (user, 2026-08-03) the dashboard's second tab is relabelled
   **Finance & BI** and now renders `ReportsAnalyticsView` itself, instead of mounting the

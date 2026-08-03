@@ -310,30 +310,30 @@ export const GroomingCareStep: React.FC<StepProps> = ({ visit, refreshVisit, emi
   />
 );
 
-// Boarding entry step — the gate-check intake PLUS the real boarding-stay
-// page embedded below it (user, 2026-08-03: "inject the module pages into the
-// visit workflow"), so care logs, feeding, consumables and day sheets are
-// worked right here — same record the Boarding page reads, one surface.
-// The stay itself is still created via Onboard-to-boarding (visit header /
-// registration gate check) — this step manages it once it exists.
-export const BoardingEntryStep: React.FC<StepProps> = ({ visit, pet, data, setData, refreshVisit, emit }) => (
-  <div className="space-y-4">
-    <GateCheckForm formKey="boardingAssessment" data={data} setData={setData} petId={pet?.id} pet={pet} />
-    {visit.boardingStayId ? (
-      <div className="pt-4 border-t-2 border-dashed border-slate-200 dark:border-zinc-800">
-        <BoardingStayPage
-          stayId={String(visit.boardingStayId)}
-          embedded
-          onBack={() => {}}
-          onChanged={() => { emit('Boarding stay updated', 'action', true); refreshVisit?.(); }}
-        />
-      </div>
-    ) : (
-      <p className="px-3 py-2.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
-        No boarding stay linked yet — Onboard to boarding from the visit header and the full stay (care logs, feeding, consumables) manages right here.
-      </p>
-    )}
-  </div>
+// Boarding entry step — the shared intake ONLY. The stay itself moved to its
+// own "Boarding Stay" step (user, 2026-08-03): admitting a patient and running
+// its daily care are different jobs and were competing for one screen.
+export const BoardingEntryStep: React.FC<StepProps> = ({ pet, data, setData }) => (
+  <GateCheckForm formKey="boardingAssessment" data={data} setData={setData} petId={pet?.id} pet={pet} />
+);
+
+// Boarding STAY step — the real boarding page embedded, so care logs, feeding,
+// consumables and day sheets are worked here against the same record the
+// Boarding page reads. The stay is created by Onboard-to-boarding; this step
+// manages it once it exists.
+export const BoardingStayStep: React.FC<StepProps> = ({ visit, refreshVisit, emit }) => (
+  visit.boardingStayId ? (
+    <BoardingStayPage
+      stayId={String(visit.boardingStayId)}
+      embedded
+      onBack={() => {}}
+      onChanged={() => { emit('Boarding stay updated', 'action', true); refreshVisit?.(); }}
+    />
+  ) : (
+    <p className="px-3 py-2.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+      No boarding stay linked yet — Onboard to boarding from the visit header, then the full stay (care logs, feeding, consumables) manages right here.
+    </p>
+  )
 );
 
 // Hospital admission step — same treatment for inpatients: the admission
