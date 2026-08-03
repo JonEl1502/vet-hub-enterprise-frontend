@@ -226,6 +226,7 @@ const Navbar: React.FC<NavbarProps> = ({
       'financial-overview': 'Reports & Analytics',
       'reports-analytics': 'Reports & Analytics',
       receivables: 'Receivables',
+      expenses: 'Expenses',
       transactions: 'Transactions',
       settings: 'Clinic Settings',
       staff: 'Staff Directory',

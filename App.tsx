@@ -140,6 +140,7 @@ import InitialClinicSelection from './components/clinic/clinic-mgmt/InitialClini
 import TransactionsView from './components/clinic/billing/TransactionsView';
 import ReportsAnalyticsView from './components/clinic/billing/ReportsAnalyticsView';
 import ReceivablesView from './components/clinic/billing/ReceivablesView';
+import ExpensesView from './components/clinic/billing/ExpensesView';
 import ToastContainer from './components/shared/common/ToastContainer';
 import GlobalAIAssistant from './components/shared/ai/GlobalAIAssistant';
 import ClinicTodayView from './components/clinic/dashboard/ClinicTodayView';
@@ -2198,7 +2199,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       return true;
 
     // Finance group
-    if (['finance', 'financial-overview', 'reports-analytics', 'receivables', 'b2b-stats', 'transactions', 'financial-core'].includes(view))
+    if (['finance', 'financial-overview', 'reports-analytics', 'receivables', 'expenses', 'b2b-stats', 'transactions', 'financial-core'].includes(view))
       return hasPerm(Permission.VIEW_FINANCE);
 
     // Referrals / partners (detail + create pages inherit the same gate)
@@ -2683,6 +2684,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         />;
       case 'receivables':
         return <ReceivablesView currency={(firstActiveClinic as any)?.currency} />;
+      case 'expenses':
+        return <ExpensesView currency={(firstActiveClinic as any)?.currency} />;
       case 'b2b-stats':
         return renderB2BStats();
       case 'financial-core':

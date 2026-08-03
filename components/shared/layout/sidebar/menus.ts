@@ -195,6 +195,7 @@ const CLINIC_ITEMS: MenuItem[] = [
       // (the old view id still redirects there).
       { id: 'reports-analytics',  label: 'Reports & Analytics', icon: BarChart3 },
       { id: 'receivables',        label: 'Receivables',         icon: TrendingUp },
+      { id: 'expenses',           label: 'Expenses',            icon: CircleDollarSign },
       { id: 'b2b-stats',          label: 'B2B Stats',           icon: Repeat },
       { id: 'transactions',       label: 'Transactions',        icon: Receipt },
       { id: 'financial-core',     label: 'Clinic Finance',      icon: CircleDollarSign },
