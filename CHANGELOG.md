@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Finance → Expenses — operating spend capture (backend 112)  —  2026-08-03
+- **What changed:** (S1, user approved: expenses module before real P&L) new `ExpensesView`
+  (`expenses` view id, Finance submenu): record rent/salaries/utilities/etc with category
+  chips (+ free-text Other), amount, date, paid-via, description; period totals + by-category
+  cards; list with delete. New `expensesAPI` (list/create/remove).
+- **Record impact:** 🟢 None.
+- **Data dependency:** **Requires backend migration 112** (`expenses` table) — the page 404s
+  before it deploys.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** each write recomputes that day's summary snapshot server-side, so the
+  BI dashboard's Total Expenses / profit / margin move immediately for that day.
+
+
 ### page: patient profile adopts the client-profile shell + a Financials tab  —  2026-08-03
 - **What changed:** (user: "update patient profile details page to something like the
   clients page … but financials will be here") the patient profile header is now the
