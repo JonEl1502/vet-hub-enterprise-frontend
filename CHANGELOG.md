@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: role dashboards were UNREACHABLE — bespoke-dashboard roles now land on them  —  2026-08-03
+- **What changed:** (S1, found live on prod with the kabivets.test accounts) the role
+  dashboards S2 built (Front Office / Groomer / Vet) shipped invisible: the six roles they
+  serve (FRONT_OFFICE, RECEPTIONIST, CASHIER, GROOMER, VET, VET_NURSE) lack the
+  `VIEW_DASHBOARD` grant, so they landed on Visits with no Dashboard menu item. New
+  exported `ROLE_DASHBOARD_ROLES` set (in `RoleDashboard.tsx`) is OR'd into the dashboard
+  gate in three places: `App.getInitialView` (both branches — they now LAND on their
+  dashboard), `App.canAccess`, and the Sidebar's perm filter (menu item shows). Every
+  other role still requires the grant, and the owner stats page is untouched — the grant
+  still protects clinic-wide numbers; a bespoke role dashboard is the user's own workspace.
+- **Record impact:** 🟢 None — routing/visibility only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### flow: per-item service charges are finally billed; sell-unit qty picker; 3-way Add  —  2026-08-03
 - **What changed:** (user, 2026-08-03) three things on the visit surface:
   1. **Injection / administration / prescription / service charges now actually bill.**

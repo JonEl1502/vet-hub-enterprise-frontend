@@ -13,6 +13,7 @@ import {
 } from './menus';
 import AudienceSwitcher from './AudienceSwitcher';
 import ClinicSearchDropdown from './ClinicSearchDropdown';
+import { ROLE_DASHBOARD_ROLES } from '../../../clinic/dashboard/roles/RoleDashboard';
 import SupplierSearchDropdown from './SupplierSearchDropdown';
 import { useClinic } from '../../../../contexts/ClinicContext';
 import { staffScopeAPI, resolveCategoryMenuId, CATEGORY_GATED_MENU_IDS } from '../../../../services';
@@ -314,8 +315,12 @@ const SectionBlock: React.FC<SectionBlockProps> = ({
 }) => {
   const [open, setOpen] = useState(defaultOpen);
   const hasFullAccess = FULL_ACCESS_ROLES.includes(role);
+  // Roles with a bespoke role dashboard see the Dashboard item without the
+  // VIEW_DASHBOARD grant — mirrors App.canAccess, or the menu hides a page
+  // the router happily opens.
   const hasPerm = (perm?: string) =>
-    !perm || hasFullAccess || customPermissions.includes(perm);
+    !perm || hasFullAccess || customPermissions.includes(perm)
+    || (perm === 'VIEW_DASHBOARD' && ROLE_DASHBOARD_ROLES.has(String(role)));
   const planOk = planAllows ?? (() => true);
   // Billable Items taxonomy (M4) — rolled out to ALL clinics 2026-07-21 after
   // the prod_test pilot: Products/Services/Procedures/Packages replaces the

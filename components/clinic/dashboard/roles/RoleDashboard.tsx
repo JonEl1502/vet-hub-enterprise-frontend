@@ -29,6 +29,19 @@ interface Props {
   onNavigate?: (view: string, params?: any) => void;
 }
 
+/**
+ * Roles with a bespoke dashboard. These reach the 'dashboard' view WITHOUT a
+ * VIEW_DASHBOARD grant — it is their own operational workspace, not the
+ * owner's clinic-wide stats page (which is what that grant protects). Without
+ * this, the dashboards shipped unreachable: the roles they were built for
+ * landed on Visits and had no Dashboard menu item at all (found live on prod
+ * with the kabivets.test accounts, 2026-08-03).
+ */
+export const ROLE_DASHBOARD_ROLES: ReadonlySet<string> = new Set([
+  UserRole.FRONT_OFFICE, UserRole.RECEPTIONIST, UserRole.CASHIER,
+  UserRole.GROOMER, UserRole.VET, UserRole.VET_NURSE,
+]);
+
 const RoleDashboard: React.FC<Props> = ({ onNavigate }) => {
   const { user } = useAuth();
   const { appointments, clients } = useData() as any;

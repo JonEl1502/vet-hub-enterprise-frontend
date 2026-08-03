@@ -70,7 +70,7 @@ import EmergencyAlertBar from './components/clinic/triage/EmergencyAlertBar';
 import PetshopView from './components/clinic/petshop/PetshopView';
 import PharmacyView from './components/clinic/pharmacy/PharmacyView';
 import StaffDashboard from './components/clinic/dashboard/StaffDashboard';
-import RoleDashboard from './components/clinic/dashboard/roles/RoleDashboard';
+import RoleDashboard, { ROLE_DASHBOARD_ROLES } from './components/clinic/dashboard/roles/RoleDashboard';
 import ReferralsView from './components/clinic/partnerships/ReferralsView';
 import ClinicWallet from './components/clinic/clinic-mgmt/ClinicWallet';
 import PlatformDashboard from './components/admin/platform/PlatformDashboard';
@@ -297,7 +297,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       if (user.role === UserRole.SUPPLIER) return 'supplier-dashboard';
       const perms = user.customPermissions ?? [];
       const hasFullAccess = FULL_ACCESS_ROLES.includes(user.role as UserRole);
-      const canViewDashboard = hasFullAccess || perms.includes(Permission.VIEW_DASHBOARD);
+      const canViewDashboard = hasFullAccess || perms.includes(Permission.VIEW_DASHBOARD)
+        || ROLE_DASHBOARD_ROLES.has(String(user.role));
       return canViewDashboard ? 'dashboard' : 'appointments';
     }
 
@@ -311,7 +312,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     }
     const perms = user.customPermissions ?? [];
     const hasFullAccess = FULL_ACCESS_ROLES.includes(user.role as UserRole);
-    const canViewDashboard = hasFullAccess || perms.includes(Permission.VIEW_DASHBOARD);
+    const canViewDashboard = hasFullAccess || perms.includes(Permission.VIEW_DASHBOARD)
+      || ROLE_DASHBOARD_ROLES.has(String(user.role));
     if (urlView && !urlView.startsWith('supplier-')) {
       if (urlView === 'dashboard' && !canViewDashboard) { /* fall through */ }
       else return urlView;
@@ -2179,8 +2181,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       return !staffScopedModuleIds || staffScopedModuleIds.has(view);
     }
 
-    // Dashboard requires CLINIC_OWNER+ or explicit permission
-    if (view === 'dashboard') return hasPerm(Permission.VIEW_DASHBOARD);
+    // Dashboard requires CLINIC_OWNER+ or explicit permission — EXCEPT roles
+    // with a bespoke role dashboard, which is their own workspace.
+    if (view === 'dashboard') return hasPerm(Permission.VIEW_DASHBOARD) || ROLE_DASHBOARD_ROLES.has(String(role));
 
     // Inventory — open to all clinic staff
     if (['inventory', 'purchase-orders', 'purchase-order-detail', 'purchase-order-form', 'vaccine-packages', 'procedures', 'procedure-editor', 'workflows', 'workflow-builder', 'clinic-billables', 'packages', 'services-catalog', 'bills'].includes(view))
