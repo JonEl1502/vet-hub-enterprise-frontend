@@ -68,6 +68,9 @@ export interface StepProps {
    */
   injectService?: (svc: { id: number; name: string; defaultPrice?: number | null }, categoryName: string) => void;
   openModule?: (category: string) => void; // open the service's module full page for this visit
+  /** Escalate to inpatient (opens the pay-gated admit flow) — powers the
+   * Treatment step's Outpatient|Inpatient choice (spec 7b). */
+  onHospitalize?: () => void;
   // Remove a service line from the visit — available until the bill is paid
   // (anything added is deletable before payment; server enforces the lock).
   deleteTask?: (taskId: number) => void;

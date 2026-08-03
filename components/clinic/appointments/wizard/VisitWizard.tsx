@@ -219,11 +219,12 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
     goServices,
     addService: onAddService,
     openModule: onOpenModule,
+    onHospitalize,
     deleteTask: onDeleteTask,
     refreshVisit: onRefreshVisit,
     onTriageStatusChange,
     onTriageDischarged,
-  }), [visit, pet, client, staff, activeClinic.currency, state.data, currentStep, fuNsKey, setStepData, emit, goServices, onAddService, onOpenModule, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged]);
+  }), [visit, pet, client, staff, activeClinic.currency, state.data, currentStep, fuNsKey, setStepData, emit, goServices, onAddService, onOpenModule, onHospitalize, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged]);
 
   const renderStep = () => {
     const stage = templateStages?.[currentStep];

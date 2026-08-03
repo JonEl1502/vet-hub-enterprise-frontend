@@ -25,6 +25,22 @@ interface Props {
 const STOOL = ['normal', 'abnormal', 'none'];
 const APPETITE = ['excellent', 'good', 'fair', 'poor', 'none'];
 
+// All options visible at once (user, 2026-08-03: "not hidden by selection") —
+// chips instead of dropdowns; tapping the active chip clears it.
+const ChipPick: React.FC<{ label: string; options: string[]; value?: string; onChange: (v: string) => void }> = ({ label, options, value, onChange }) => (
+  <div className="space-y-1">
+    <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 px-0.5">{label}</p>
+    <div className="flex flex-wrap gap-1">
+      {options.map(o => (
+        <button key={o} type="button" onClick={() => onChange(value === o ? '' : o)}
+          className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${
+            value === o ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800 hover:border-seafoam'
+          }`}>{o}</button>
+      ))}
+    </div>
+  </div>
+);
+
 const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAppointment, onOpenGrooming, embedded }) => {
   const [stay, setStay] = useState<BoardingStay | null>(null);
   const [loading, setLoading] = useState(false);
@@ -286,13 +302,9 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                   <Toggle on={log.walked} onClick={() => setLog(s => ({ ...s, walked: !s.walked }))} icon={Footprints} label="Walked" />
                   <Toggle on={log.medicationGiven} onClick={() => setLog(s => ({ ...s, medicationGiven: !s.medicationGiven }))} icon={Pill} label="Meds" />
                 </div>
-                <div className="grid grid-cols-2 gap-2">
-                  <select className="px-2 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" value={log.stool} onChange={e => setLog(s => ({ ...s, stool: e.target.value }))}>
-                    <option value="">Stool…</option>{STOOL.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
-                  <select className="px-2 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" value={log.appetite} onChange={e => setLog(s => ({ ...s, appetite: e.target.value }))}>
-                    <option value="">Appetite…</option>{APPETITE.map(o => <option key={o} value={o}>{o}</option>)}
-                  </select>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <ChipPick label="Stool" options={STOOL} value={log.stool} onChange={v => setLog(s => ({ ...s, stool: v }))} />
+                  <ChipPick label="Appetite" options={APPETITE} value={log.appetite} onChange={v => setLog(s => ({ ...s, appetite: v }))} />
                 </div>
                 <input className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" placeholder="What did they eat? (e.g. ½ cup A/D, ate fully)" value={log.foodNotes} onChange={e => setLog(s => ({ ...s, foodNotes: e.target.value }))} />
                 <div className="flex items-center gap-2">
@@ -356,13 +368,9 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                       <Toggle on={!!dayDraft.walked} onClick={() => setDayDraft((d: any) => ({ ...d, walked: !d.walked }))} icon={Footprints} label="Walked" />
                       <Toggle on={!!dayDraft.medicationGiven} onClick={() => setDayDraft((d: any) => ({ ...d, medicationGiven: !d.medicationGiven }))} icon={Pill} label="Meds" />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <select className="px-2 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" value={dayDraft.stool} onChange={e => setDayDraft((d: any) => ({ ...d, stool: e.target.value }))}>
-                        <option value="">Stool…</option>{STOOL.map(o => <option key={o} value={o}>{o}</option>)}
-                      </select>
-                      <select className="px-2 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" value={dayDraft.appetite} onChange={e => setDayDraft((d: any) => ({ ...d, appetite: e.target.value }))}>
-                        <option value="">Appetite…</option>{APPETITE.map(o => <option key={o} value={o}>{o}</option>)}
-                      </select>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      <ChipPick label="Stool" options={STOOL} value={dayDraft.stool} onChange={v => setDayDraft((d: any) => ({ ...d, stool: v }))} />
+                      <ChipPick label="Appetite" options={APPETITE} value={dayDraft.appetite} onChange={v => setDayDraft((d: any) => ({ ...d, appetite: v }))} />
                     </div>
                     <input className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" placeholder="What did they eat?" value={dayDraft.foodNotes} onChange={e => setDayDraft((d: any) => ({ ...d, foodNotes: e.target.value }))} />
                     <textarea className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" rows={2} placeholder="Notes for this day (back-filled from the paper sheet?)" value={dayDraft.notes} onChange={e => setDayDraft((d: any) => ({ ...d, notes: e.target.value }))} />

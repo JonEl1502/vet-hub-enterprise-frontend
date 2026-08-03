@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Stethoscope, Loader2, Search, Dog, ShieldCheck, ArrowLeft, CalendarClock } from 'lucide-react';
+import { Stethoscope, Loader2, Search, Dog, ShieldCheck, ArrowLeft, CalendarClock, Calculator } from 'lucide-react';
 import { Pet } from '../../../types';
-import { inpatientAPI, visitsAPI } from '../../../services';
+import { inpatientAPI, visitsAPI, clientsAPI, toast } from '../../../services';
+import { getMedicationsByAppointment } from '../../../services/modules/appointmentMedications.api';
 import FoodProgramFields, { FoodProgram } from '../shared/FoodProgramFields';
 import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
 import { useData } from '../../../contexts/DataContext';
@@ -56,6 +57,38 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
   const [emergencyContact, setEmergencyContact] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Stay ESTIMATE (spec 7b, mirrors the boarding admit): (rate × expected
+  // days) + clinic-provided food/day — pay NOW (banks as client credit that
+  // discharge billing draws automatically) or pay at discharge.
+  const [payChoice, setPayChoice] = useState<'discharge' | 'now'>('discharge');
+  const [payMethod, setPayMethod] = useState('CASH');
+  const estDays = useMemo(() => {
+    if (!expectedDischargeAt) return null;
+    const toT = new Date(expectedDischargeAt).getTime();
+    if (!(toT > Date.now())) return null;
+    return Math.max(1, Math.ceil((toT - Date.now()) / 86_400_000));
+  }, [expectedDischargeAt]);
+  const estRate = Number(dailyRate) || 0;
+  const estFoodPerDay = (!foodProgram?.providedByClient && foodProgram?.billable !== false)
+    ? (Number(foodProgram?.ratePerMeal) || 0) * (Number(foodProgram?.mealsPerDay) || 0) : 0;
+  const estTotal = estDays != null ? (estRate + estFoodPerDay) * estDays : null;
+
+  // Treatment-plan carry (spec 7b): the visit's dispensed medications land on
+  // the chart as its medication instructions — drug, qty and the Rx note
+  // (dose · route · frequency · duration) travel with the patient.
+  useEffect(() => {
+    if (!isOpen || !appointmentId) return;
+    getMedicationsByAppointment(appointmentId)
+      .then(meds => {
+        if (!meds?.length) return;
+        const lines = meds.map(m =>
+          `${m.inventoryItem?.name || 'Medication'} ×${m.quantity}${m.notes ? ` — ${String(m.notes).replace(/^Rx:\s*/i, '')}` : ''}`);
+        setMedicationInstructions(prev => prev || lines.join('\n'));
+      })
+      .catch(() => { /* prefill only — the field stays editable either way */ });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, appointmentId]);
 
   // Pre-fill the daily rate from the clinic default when opening (unless typed).
   useEffect(() => {
@@ -118,6 +151,20 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
         expectedDischargeAt: expectedDischargeAt ? new Date(expectedDischargeAt).toISOString() : undefined,
       });
       if (res.success) {
+        // Estimate prepayment — lands as client credit; the discharge
+        // collection draws it before asking for cash (server `useCredit`).
+        if (payChoice === 'now' && estTotal != null && estTotal > 0) {
+          try {
+            await clientsAPI.recordAdvance(clientId, {
+              amount: estTotal,
+              paymentMethod: payMethod,
+              note: `Inpatient estimate prepayment — ${selectedPet.name}, ${estDays} day${estDays === 1 ? '' : 's'} (rate ${estRate}/day${estFoodPerDay ? ` + food ${estFoodPerDay}/day` : ''})`,
+            });
+            toast.success('Estimate collected — banked as client credit; discharge billing draws it automatically');
+          } catch {
+            toast.error("Admitted, but the estimate payment failed — record it from the client's Payments tab.");
+          }
+        }
         // Journey log + (if agreed) vaccination work on the admission's visit —
         // same attribution as the grooming/boarding gates.
         const hosp: any = (res.data as any)?.hospitalization ?? res.data;
@@ -257,6 +304,59 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
             <div><label className="field-label">Emergency contact</label><input className="field-input" value={emergencyContact} onChange={e => setEmergencyContact(e.target.value)} placeholder="Name + phone" /></div>
           </div>
         </section>
+
+        {/* Stay estimate — mirrors the boarding admit (spec 7b): quoted from
+            expected discharge + rate + clinic-provided food; pay now (banks
+            as credit) or at discharge. */}
+        {estDays != null && (estRate > 0 || estFoodPerDay > 0) && (
+          <section className="bg-white dark:bg-zinc-900 border border-seafoam/30 rounded-2xl p-4 shadow-sm space-y-3">
+            <p className="text-[11px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5">
+              <Calculator size={13} /> Stay estimate · {estDays} day{estDays === 1 ? '' : 's'}
+            </p>
+            <div className="space-y-1.5">
+              {estRate > 0 && (
+                <div className="flex justify-between text-xs font-bold text-slate-600 dark:text-zinc-300">
+                  <span>Inpatient care — {estRate.toLocaleString()} × {estDays} day{estDays === 1 ? '' : 's'}</span>
+                  <span className="font-black font-mono text-pine dark:text-zinc-100">{(estRate * estDays).toLocaleString()}</span>
+                </div>
+              )}
+              {estFoodPerDay > 0 && (
+                <div className="flex justify-between text-xs font-bold text-slate-600 dark:text-zinc-300">
+                  <span>Food — {(Number(foodProgram?.ratePerMeal) || 0).toLocaleString()} × {Number(foodProgram?.mealsPerDay) || 0} meal{(Number(foodProgram?.mealsPerDay) || 0) === 1 ? '' : 's'}/day × {estDays} day{estDays === 1 ? '' : 's'}</span>
+                  <span className="font-black font-mono text-pine dark:text-zinc-100">{(estFoodPerDay * estDays).toLocaleString()}</span>
+                </div>
+              )}
+              <div className="flex justify-between pt-1.5 border-t border-slate-100 dark:border-zinc-800 text-sm">
+                <span className="font-black uppercase tracking-wide text-pine dark:text-zinc-100">Estimated total</span>
+                <span className="font-black font-mono text-seafoam">{(estTotal ?? 0).toLocaleString()}</span>
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {([['discharge', 'Pay at discharge'], ['now', 'Collect estimate now']] as const).map(([v, l]) => (
+                <button key={v} type="button" onClick={() => setPayChoice(v)}
+                  className={`px-3 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                    payChoice === v ? 'bg-seafoam text-white border-seafoam' : 'bg-white dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
+                  }`}>
+                  {l}
+                </button>
+              ))}
+              {payChoice === 'now' && (
+                <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
+                  className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none">
+                  <option value="CASH">Cash</option>
+                  <option value="MPESA">M-Pesa</option>
+                  <option value="CARD">Card</option>
+                  <option value="BANK_TRANSFER">Bank transfer</option>
+                </select>
+              )}
+            </div>
+            <p className="text-[10px] font-bold text-slate-400 leading-relaxed">
+              {payChoice === 'now'
+                ? 'Collected now and banked as client credit — the discharge bill draws it automatically; treatment charges settle then too.'
+                : 'Nothing collected now — care accrues on the chart and the whole bill settles at discharge.'}
+            </p>
+          </section>
+        )}
 
         <div className="flex gap-3 pt-1">
           <button type="button" onClick={onClose} disabled={submitting} className="flex-1 px-5 py-3 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-black text-sm uppercase tracking-wide hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-50">Cancel</button>

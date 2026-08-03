@@ -26,7 +26,7 @@ interface MedRow {
 // duration ride along as the prescription note. Gloves/syringes etc. are
 // added the same way with the Rx fields left blank.
 
-const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, refreshVisit, visibleFields, currency = 'KES' }) => {
+const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, refreshVisit, visibleFields, currency = 'KES', onHospitalize }) => {
   const show = showsField(visibleFields);
   const d = data || {};
   const meds: MedRow[] = d.medications || [];
@@ -269,6 +269,46 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
   // encounter (172's unique index refuses the duplicate).
   return (
     <div className="space-y-4">
+      {/* Treatment setting (spec 7b, vet clinical spec item 9): Outpatient |
+          Inpatient, chosen ON the treatment plan. Inpatient runs the
+          PAY-GATED admit flow (settle the accrued bill first; owner/manager
+          health-danger override); the visit's medications carry onto the
+          chart's instructions. Outpatient is recorded once on the journey. */}
+      <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5 bg-white dark:bg-zinc-900 flex flex-wrap items-center gap-2">
+        <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mr-1">Treat as</span>
+        {visit.hospitalizationId ? (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+            🏥 Inpatient — chart runs on the Admission step / linked chart
+          </span>
+        ) : (
+          <>
+            <button type="button"
+              onClick={() => {
+                if (data?.treatAs !== 'OUTPATIENT') {
+                  setData({ treatAs: 'OUTPATIENT' });
+                  emit('Treatment plan: OUTPATIENT', 'action', true);
+                }
+              }}
+              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                data?.treatAs === 'OUTPATIENT'
+                  ? 'bg-seafoam text-white border-seafoam'
+                  : 'bg-white dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
+              }`}>
+              Outpatient
+            </button>
+            <button type="button"
+              disabled={!onHospitalize}
+              title={onHospitalize ? 'Admit as inpatient — the current bill settles first, then the stay runs on its own estimate' : 'Hospitalization is available from the visit page'}
+              onClick={() => onHospitalize?.()}
+              className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-indigo-300 dark:border-indigo-900/50 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 transition-all disabled:opacity-40">
+              Inpatient — admit
+            </button>
+            {data?.treatAs === 'OUTPATIENT' && (
+              <span className="text-[9px] font-bold text-slate-400">Recorded on the journey — care continues on this visit.</span>
+            )}
+          </>
+        )}
+      </div>
       {isVaccinationFlow && (
         <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 bg-white dark:bg-zinc-900">
           <VaccinationPanel appointment={visit} petId={pet.id} onSaved={() => refreshVisit?.()} />

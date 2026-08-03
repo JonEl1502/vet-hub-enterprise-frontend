@@ -59,6 +59,33 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: spec 7b phase 2 — Outpatient|Inpatient ON the Treatment step, plan carry, inpatient estimate  —  2026-08-03
+- **What changed:** (user: "do them now", S1) ① the Treatment step opens with a **Treat
+  as: Outpatient | Inpatient — admit** choice (vet clinical spec item 9). Outpatient
+  records once on the journey ("Treatment plan: OUTPATIENT" — the Q3 default);
+  Inpatient runs the existing PAY-GATED admit flow (settle first / flagged override).
+  Already-hospitalized visits show an Inpatient badge. `StepProps` gains
+  `onHospitalize` (passed through VisitWizard). ② **Treatment-plan carry:** admitting
+  from a visit prefills the chart's Medication instructions from the visit's dispensed
+  meds (drug ×qty — dose · route · frequency · duration), editable before saving.
+  ③ the inpatient admit page gains the same **Stay estimate** card as boarding
+  (rate × expected days + clinic-provided food/day) with pay-now-as-credit or
+  pay-at-discharge.
+- **Record impact:** 🟢 — outpatient choice writes a journey event; prepayment writes
+  the standard advance transaction.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the estimate covers rate+food only — treatment costs accrue on the
+  chart and settle at discharge (said on the card).
+
+### ui: boarding day log — stool & appetite as visible chips  —  2026-08-03
+- **What changed:** (user pattern: "not hidden by selection") the boarding care form and
+  the per-day back-fill editor swap their Stool…/Appetite… dropdowns for chip rows
+  (tap the active chip to clear). Same fields, same writes.
+- **Record impact:** 🟢 None.
+- **Rollback:** revert the commit and rebuild.
+
+
 ### flow: a BILL may not call itself an INVOICE before one is generated  —  2026-08-03
 - **What changed:** (user, S1) ① client account timeline: visit charges with NO generated
   invoice document now render as **BILL** (cyan, ref "BILL · Visit #x"); only a real
