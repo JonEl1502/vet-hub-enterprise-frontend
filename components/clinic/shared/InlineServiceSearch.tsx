@@ -30,6 +30,9 @@ interface Props {
   procedures?: SearchableProcedure[];
   onAddProcedure?: (p: SearchableProcedure) => void;
   disabled?: boolean;
+  /** Restrict results to categories matching this pattern — e.g. /groom/i on
+   * the grooming report card, where only grooming services make sense. */
+  categoryFilter?: RegExp;
 }
 
 const MAX_RESULTS = 8;
@@ -45,7 +48,7 @@ const MAX_RESULTS = 8;
  * still exists for browsing the whole catalogue by category.
  */
 const InlineServiceSearch: React.FC<Props> = ({
-  onAdd, addedNames, currency = 'KES', placeholder = 'Search a service to add…', procedures, onAddProcedure, disabled,
+  onAdd, addedNames, currency = 'KES', placeholder = 'Search a service to add…', procedures, onAddProcedure, disabled, categoryFilter,
 }) => {
   const { categories, services } = useReferenceData();
   const [q, setQ] = useState('');
@@ -59,10 +62,11 @@ const InlineServiceSearch: React.FC<Props> = ({
   const results = useMemo(() => {
     if (!query) return []; // no list before typing (user, 2026-08-02)
     return services
+      .filter(s => !categoryFilter || categoryFilter.test(catName(s.categoryId)))
       .filter(s => s.name.toLowerCase().includes(query) || catName(s.categoryId).toLowerCase().includes(query))
       .slice(0, MAX_RESULTS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, services, categories]);
+  }, [query, services, categories, categoryFilter]);
 
   const procResults = useMemo(() => {
     if (!query || !procedures?.length || !onAddProcedure) return [];

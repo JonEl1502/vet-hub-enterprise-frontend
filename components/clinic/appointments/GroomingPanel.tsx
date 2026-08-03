@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Scissors, Save, Loader2, ImagePlus, X, CheckCircle2 } from 'lucide-react';
 import { Visit } from '../../../types';
-import { visitsAPI, groomingAPI, GroomingRecord } from '../../../services';
+import { visitsAPI, groomingAPI, GroomingRecord, toast } from '../../../services';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
+import InlineServiceSearch from '../shared/InlineServiceSearch';
 
 interface Props {
   appointment: Visit;
@@ -204,7 +205,33 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
 
         {!recordsLoaded && <div className="py-3 flex items-center gap-2 text-[11px] text-slate-400"><Loader2 size={13} className="animate-spin" /> Loading services…</div>}
         {recordsLoaded && records.length === 0 && (
-          <p className="text-[11px] text-slate-400 py-2">No grooming services on this visit yet — add them via the visit's "Add service" or from a boarding/inpatient chart.</p>
+          <p className="text-[11px] text-slate-400 py-2">No grooming services on this visit yet — add one below.</p>
+        )}
+
+        {/* Add a grooming service in place (user, 2026-08-03: "add btn for add
+            grooming, in both views" — this panel serves the wizard step AND
+            the grooming record page). The pick lands on the visit's bill in
+            its grooming category; its grooming record then syncs in. */}
+        {!locked && (
+          <InlineServiceSearch
+            placeholder="Add a grooming service — search…"
+            categoryFilter={/groom/i}
+            addedNames={new Set(records.map(r => (r.serviceName || '').toLowerCase()))}
+            onAdd={async (svc, categoryName) => {
+              try {
+                await visitsAPI.addTask(Number(appointment.id), {
+                  name: svc.name, category: categoryName,
+                  price: Number(svc.defaultPrice ?? 0), status: 'PENDING', serviceId: svc.id,
+                } as any);
+                // The record syncs from the category server-side — re-list so
+                // the new service's card appears without leaving the panel.
+                const r = await groomingAPI.list({ appointmentId: appointment.id });
+                if (r.success && r.data?.records) setRecords(r.data.records);
+                toast.success(`${svc.name} added to this visit`);
+                onSaved?.();
+              } catch (e: any) { toast.error(e?.message || 'Failed to add the service'); }
+            }}
+          />
         )}
 
         {records.map(r => {
