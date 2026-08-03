@@ -3,14 +3,16 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Client, FULL_ACCESS_ROLES, UserRole } from '../../../types';
 import { Transaction } from '../../../services/modules/transactions.api';
-import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Building2, UserX, UserCheck, MapPin, CreditCard, MessageCircle } from 'lucide-react';
+import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Building2, UserX, UserCheck, MapPin, CreditCard, MessageCircle, BellRing } from 'lucide-react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import DuplicateClientsModal from './DuplicateClientsModal';
 import TransferClinicModal from '../clinic-mgmt/TransferClinicModal';
 import { useData } from '../../../contexts/DataContext';
 import WalkInModal from './WalkInModal';
 import { Zap } from 'lucide-react';
-import { clientsAPI } from '../../../services';
+import { clientsAPI, remindersAPI } from '../../../services';
+import type { Reminder } from '../../../services';
+import PetAvatar from '../shared/PetAvatar';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
@@ -215,6 +217,34 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   };
 
   const getClientPets = (clientId: number) => pets.filter(p => p.ownerId === clientId);
+
+  /**
+   * Card badges (user, 2026-08-03): the two things a front desk actually looks
+   * for on a client row are "is anyone here today?" and "is anything due?".
+   * Reminders are loaded once for the clinic and grouped by pet, same as the
+   * patients list; today's visit comes off the appointments already in context.
+   */
+  const [reminders, setReminders] = useState<Reminder[]>([]);
+  useEffect(() => {
+    let alive = true;
+    remindersAPI.list({ status: 'PENDING' })
+      .then(r => { if (alive && r.success && r.data?.reminders) setReminders(r.data.reminders); })
+      .catch(() => { /* badges are best-effort */ });
+    return () => { alive = false; };
+  }, []);
+  const nextReminderByPet = useMemo(() => {
+    const m: Record<string, Reminder> = {};
+    for (const r of reminders) {
+      const cur = m[r.petId];
+      if (!cur || new Date(r.dueAt).getTime() < new Date(cur.dueAt).getTime()) m[r.petId] = r;
+    }
+    return m;
+  }, [reminders]);
+  const isToday = (iso?: string | null) => {
+    if (!iso) return false;
+    const d = new Date(iso); const n = new Date();
+    return d.getFullYear() === n.getFullYear() && d.getMonth() === n.getMonth() && d.getDate() === n.getDate();
+  };
 
   /** Returns all upcoming scheduled visits across a client's pets, sorted by date */
   const getUpcomingClientAlerts = (clientId: number) => {
@@ -570,6 +600,17 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               const nextApptDate = alert?.visit?.date || null;
               const location = [(client as any).address, (client as any).region, (client as any).country].filter(Boolean).join(', ');
               const visitCount = clientAppts.length;
+              // Today's visit and the soonest reminder across this client's pets.
+              const todaysVisit = clientAppts
+                .filter(v => isToday(v.date) && v.status !== ApptStatus.CANCELLED)
+                .sort((x, y) => new Date(x.date).getTime() - new Date(y.date).getTime())[0] ?? null;
+              const todaysPet = todaysVisit ? clientPets.find(p => p.id === todaysVisit.petId) : null;
+              const dueReminder = clientPets
+                .map(p => nextReminderByPet[String(p.id)])
+                .filter(Boolean)
+                .sort((x, y) => new Date(x.dueAt).getTime() - new Date(y.dueAt).getTime())[0] ?? null;
+              const reminderOverdue = dueReminder ? new Date(dueReminder.dueAt).getTime() < Date.now() : false;
+              const currency = client.currency || 'KES';
 
               return (
                 <motion.div
@@ -634,22 +675,47 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                         </div>
                       </div>
 
-                      <div className="space-y-1.5 mb-2.5">
-                        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800 px-3 py-1 rounded-lg">
-                          <Mail size={12} className="opacity-60 shrink-0" />
-                          <span className="truncate">{String(client.email || 'No email')}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800 px-3 py-1 rounded-lg">
-                          <Phone size={12} className="opacity-60 shrink-0" />
-                          <span>{String(client.phone || 'No phone')}</span>
-                        </div>
+                      {/* Contact — plain lines. Three grey pills for three
+                          short strings was three boxes doing a caption's job. */}
+                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mb-2.5 text-[11px] font-medium text-slate-500 dark:text-zinc-400">
+                        <span className="inline-flex items-center gap-1.5 min-w-0">
+                          <Mail size={11} className="opacity-50 shrink-0" />
+                          <span className="truncate">{String(client.email || '—')}</span>
+                        </span>
+                        <span className="inline-flex items-center gap-1.5">
+                          <Phone size={11} className="opacity-50 shrink-0" />
+                          {String(client.phone || '—')}
+                        </span>
                         {location && (
-                          <div className="flex items-center gap-2 text-xs text-slate-600 dark:text-zinc-400 bg-slate-50 dark:bg-zinc-800 px-3 py-1 rounded-lg">
-                            <MapPin size={12} className="opacity-60 shrink-0" />
+                          <span className="inline-flex items-center gap-1.5 min-w-0">
+                            <MapPin size={11} className="opacity-50 shrink-0" />
                             <span className="truncate">{location}</span>
-                          </div>
+                          </span>
                         )}
                       </div>
+
+                      {/* What's happening — the two lines the front desk scans
+                          for: someone in today, and anything falling due. */}
+                      {(todaysVisit || dueReminder) && (
+                        <div className="flex flex-wrap items-center gap-1.5 mb-2.5">
+                          {todaysVisit && (
+                            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan/10 text-cyan ring-1 ring-cyan/25 text-[9px] font-black uppercase tracking-wider">
+                              <Calendar size={9} className="shrink-0" />
+                              Today{todaysPet ? ` · ${todaysPet.name}` : ''}
+                            </span>
+                          )}
+                          {dueReminder && (
+                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ring-1 ${
+                              reminderOverdue
+                                ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-red-200 dark:ring-red-700/50'
+                                : 'bg-seafoam/10 text-seafoam ring-seafoam/25'
+                            }`}>
+                              <BellRing size={9} className="shrink-0" />
+                              {reminderOverdue ? 'Reminder overdue' : `Reminder ${formatDate(dueReminder.dueAt)}`}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
 
                     {/* RIGHT COLUMN: badge + single combined menu icon */}
@@ -794,66 +860,71 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                     </div>
                   </div>
 
-                  {/* Stats — detailed row (3 across; wraps to 2 rows in the 2-col layout) */}
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 pt-3 border-t border-slate-100 dark:border-zinc-800">
-                    {/* Outstanding / debt */}
-                    <div className={`p-3 rounded-xl ${outstanding > 0 ? 'bg-rose-50 dark:bg-rose-950/20' : 'bg-slate-100 dark:bg-zinc-800'}`}>
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Outstanding</p>
-                      <p className={`text-sm font-semibold ${outstanding > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-slate-600 dark:text-zinc-300'}`}>
-                        {outstanding > 0 ? `KES ${outstanding.toLocaleString()}` : 'Settled'}
+                  {/* Money leads. Six equal tiles gave the joined-on date the
+                      same weight as an unpaid balance (user, 2026-08-03: "weak
+                      hierarchy", "too many boxes"). The balance is now the
+                      headline; everything else is a caption beside it, and the
+                      dates that nobody acts on moved into the meta line. */}
+                  <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">
+                        {outstanding > 0 ? 'Outstanding' : 'Balance'}
                       </p>
-                    </div>
-                    {/* Value (full access) or Next-appt CTA */}
-                    {hasFullAccess ? (
-                      <div className="bg-emerald-50 dark:bg-emerald-900/30 p-2.5 rounded-xl">
-                        <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Value (YTD)</p>
-                        <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400">KES {(client.totalSpent || 0).toLocaleString()}</p>
-                      </div>
-                    ) : (
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-2.5 rounded-xl">
-                        <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Next Appt</p>
-                        {alert ? (
-                          <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 truncate">{formatDate(alert.visit.date)}</p>
-                        ) : client.isActive === false ? (
-                          <span className="text-[9px] font-black text-amber-600 uppercase tracking-widest">Deactivated</span>
-                        ) : (() => {
-                          const firstAlivePet = clientPets.find(p => p.isAlive !== false);
-                          if (!firstAlivePet) return <span className="text-[9px] font-black text-red-500 uppercase tracking-widest">No living patients</span>;
-                          return (
-                            <button onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, firstAlivePet.id); }} className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-700">+ Schedule</button>
-                          );
-                        })()}
-                      </div>
-                    )}
-                    {/* Pets */}
-                    <div className="bg-slate-100 dark:bg-zinc-800 p-2.5 rounded-xl">
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Pets</p>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-white truncate">
-                        {clientPets.length > 0 ? `${clientPets.length} · ${clientPets.slice(0, 2).map(p => p.name).join(', ')}${clientPets.length > 2 ? '…' : ''}` : 'None'}
+                      <p className={`text-2xl font-black font-mono leading-none tracking-tight ${
+                        outstanding > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
+                      }`}>
+                        {outstanding > 0 ? `${currency} ${outstanding.toLocaleString()}` : 'Settled'}
                       </p>
+                      {hasFullAccess && (
+                        <p className="text-[10px] font-bold text-slate-400 mt-1">
+                          {currency} {(client.totalSpent || 0).toLocaleString()} lifetime · {visitCount} visit{visitCount === 1 ? '' : 's'}
+                        </p>
+                      )}
                     </div>
-                    {/* Last visit */}
-                    <div className="bg-slate-100 dark:bg-zinc-800 p-2.5 rounded-xl">
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Last Visit</p>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-white truncate">{lastVisit ? formatDate(lastVisit) : '—'}</p>
-                      <p className="text-[8px] text-slate-400 mt-0.5">{visitCount} visit{visitCount === 1 ? '' : 's'}</p>
+
+                    {/* Pets — the reason the client exists, so they are faces,
+                        not a comma-separated string in a tile. */}
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                        {clientPets.length} Patient{clientPets.length === 1 ? '' : 's'}
+                      </p>
+                      {clientPets.length > 0 ? (
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          {clientPets.slice(0, 4).map(p => (
+                            <button
+                              key={p.id}
+                              title={`${p.name} · ${p.species}${p.breed ? ` · ${p.breed}` : ''}`}
+                              onClick={(e) => { e.stopPropagation(); onViewPet?.(p.id); }}
+                              className="hover:scale-110 transition-transform"
+                            >
+                              <PetAvatar pet={p} size={22} rounded="rounded-lg" />
+                            </button>
+                          ))}
+                          {clientPets.length > 4 && (
+                            <span className="text-[10px] font-black text-slate-400">+{clientPets.length - 4}</span>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="text-[11px] font-bold text-slate-400">None</p>
+                      )}
                     </div>
-                    {/* Next appointment */}
-                    <div className={`p-3 rounded-xl ${nextApptDate ? 'bg-blue-50 dark:bg-blue-900/20' : 'bg-slate-100 dark:bg-zinc-800'}`}>
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Next Appt</p>
+
+                    <div className="min-w-0">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Next Appt</p>
                       {nextApptDate ? (
-                        <p className="text-sm font-semibold text-blue-600 dark:text-blue-400 truncate">{formatDate(nextApptDate)}{extraAlerts > 0 ? ` +${extraAlerts}` : ''}</p>
+                        <p className="text-sm font-black text-blue-600 dark:text-blue-400 truncate">
+                          {formatDate(nextApptDate)}{extraAlerts > 0 ? ` +${extraAlerts}` : ''}
+                        </p>
                       ) : client.isActive !== false ? (() => {
                           const firstAlivePet = clientPets.find(p => p.isAlive !== false);
                           return firstAlivePet
-                            ? <button onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, firstAlivePet.id); }} className="text-[9px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-700">+ Schedule</button>
-                            : <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">—</span>;
-                        })() : <span className="text-sm font-semibold text-slate-400">—</span>}
-                    </div>
-                    {/* Joined */}
-                    <div className="bg-slate-100 dark:bg-zinc-800 p-2.5 rounded-xl">
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-1">Joined On</p>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-white truncate">{formatDate(client.joinDate)}</p>
+                            ? <button onClick={(e) => { e.stopPropagation(); onPrebookAppointment(client.id, firstAlivePet.id); }}
+                                className="text-[10px] font-black text-blue-500 uppercase tracking-widest hover:text-blue-700">+ Schedule</button>
+                            : <span className="text-sm font-black text-slate-400">—</span>;
+                        })() : <span className="text-sm font-black text-slate-400">—</span>}
+                      <p className="text-[10px] font-bold text-slate-400 mt-1">
+                        Last visit {lastVisit ? formatDate(lastVisit) : '—'} · joined {formatDate(client.joinDate)}
+                      </p>
                     </div>
                   </div>
 

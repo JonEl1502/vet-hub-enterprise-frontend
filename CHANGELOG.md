@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: client card rebuilt — money leads, fewer boxes, today's visit + due reminder  —  2026-08-03
+- **What changed:** (user: "too many boxes", "weak hierarchy", "general outlook n feel n
+  can have most important data eg reminders, today's visit shown if exist")
+  ① the three grey contact pills become plain icon lines. ② the six equal stat tiles
+  become **one hierarchy**: the balance is the headline (2xl mono, rose when owed /
+  emerald when settled) with lifetime + visit count as its caption; patients render as
+  clickable **avatars** rather than a comma-joined string; Next Appt keeps its own column
+  with last-visit and joined-on demoted to a meta line. ③ new chips show **Today · <pet>**
+  when the client has a visit today and **Reminder <date> / Reminder overdue** for the
+  soonest pending reminder across their patients — `remindersAPI.list({status:'PENDING'})`
+  loaded once per view and grouped by pet, the same pattern the patients list uses.
+- **Record impact:** 🟢 None — reads only.
+- **Data dependency:** None. The reminder fetch is best-effort: if it fails the chips
+  simply don't render and the rest of the card is unaffected.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** Value (YTD) is no longer its own tile — lifetime spend now sits in the
+  caption under the balance, and is still `hasFullAccess`-gated.
+
 ### ui: patient card carries more, reminders move right; pet photos on the client profile  —  2026-08-03
 - **What changed:** (user) ① the appointment + reminder chips move out of the left column
   into the **right** column, under the upcoming-visit badge — left is identity + owner,
