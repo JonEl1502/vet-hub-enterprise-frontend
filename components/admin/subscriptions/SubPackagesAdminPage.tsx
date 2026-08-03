@@ -120,12 +120,26 @@ const SubPackagesAdminPage: React.FC = () => {
   // of this effect grabbed an id from the OUTGOING tab's table, which then
   // matched nothing and blanked the editor — user's screenshot, same day).
   useEffect(() => {
+    // Add-ons are CARDS, not an always-open editor (user, 2026-08-03) — the
+    // editor only opens from a card's menu there.
+    if (audience === 'addon') return;
     if (filteredPackages.length === 0) return;
     if (selectedId == null || !filteredPackages.some(p => p.id === selectedId)) {
       setSelectedId(filteredPackages[0].id);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filteredPackages, selectedId]);
+  }, [filteredPackages, selectedId, audience]);
+  useEffect(() => { if (audience === 'addon') setSelectedId(null); }, [audience]);
+
+  // Persist a partial change straight from an add-on card (audiences, active).
+  const patchPackage = async (id: string, patch: any) => {
+    try {
+      const res = await api.update(id, patch);
+      if (res.success && res.data?.package) {
+        setPackages(prev => prev.map(p => p.id === id ? res.data!.package : p));
+      }
+    } catch { /* api client surfaces the error */ }
+  };
 
   // Catalog toggles operate on the GATING array (featureKeys) — what the
   // access gate actually reads. Custom bullets stay in `features` (display).
@@ -410,6 +424,66 @@ const SubPackagesAdminPage: React.FC = () => {
           <div className="py-12 text-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl">
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">No packages</p>
           </div>
+        ) : audience === 'addon' ? (
+          /* ── Add-ons as CARDS (user, 2026-08-03): name/price/status + an
+             "offer to" audience picker right on the card — attach the add-on
+             to Clinic / Supplier / Client / Farm without opening an editor.
+             The full key editor stays one click away via "Open editor". ── */
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            {filteredPackages.map(pkg => {
+              const auds = (pkg.audiences && pkg.audiences.length > 0 ? pkg.audiences : ['CLINIC']) as string[];
+              return (
+                <div key={pkg.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm space-y-3 ${selectedId === pkg.id ? 'border-seafoam' : 'border-slate-200 dark:border-zinc-800'}`}>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{pkg.name}</p>
+                      <p className="text-[11px] font-black font-mono text-seafoam mt-0.5">{pkg.currency || 'KES'} {Number(pkg.price).toLocaleString()} <span className="text-slate-400 font-bold">/ {String((pkg as any).billingCycle || 'MONTHLY').toLowerCase()}</span></p>
+                    </div>
+                    <button
+                      onClick={() => patchPackage(pkg.id, { isActive: !pkg.isActive })}
+                      title={pkg.isActive ? 'Deactivate — stops being offered' : 'Activate'}
+                      className={`shrink-0 px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border transition-all ${
+                        pkg.isActive ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'
+                      }`}>
+                      {pkg.isActive ? 'Active' : 'Inactive'}
+                    </button>
+                  </div>
+                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{(pkg.featureKeys || []).length} feature key{(pkg.featureKeys || []).length === 1 ? '' : 's'}</p>
+                  <div>
+                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Offer to</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {([['CLINIC', 'Clinic'], ['SUPPLIER', 'Supplier'], ['CLIENT', 'Client'], ['LIVESTOCK', 'Farm']] as [string, string][]).map(([aud, label]) => {
+                        const on = auds.includes(aud);
+                        return (
+                          <button key={aud}
+                            onClick={() => {
+                              const next = on ? auds.filter(a => a !== aud) : [...auds, aud];
+                              if (next.length === 0) return; // keep at least one
+                              patchPackage(pkg.id, { audiences: next });
+                            }}
+                            className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                              on ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine border-pine dark:border-zinc-100' : 'bg-white dark:bg-zinc-950 text-slate-400 border-slate-200 dark:border-zinc-700 hover:border-pine'
+                            }`}>
+                            {label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                    <button onClick={() => setSelectedId(selectedId === pkg.id ? null : pkg.id)}
+                      className="flex-1 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:border-seafoam hover:text-seafoam transition-all">
+                      {selectedId === pkg.id ? 'Close editor' : 'Open editor'}
+                    </button>
+                    <button onClick={() => deletePackage(pkg.id)}
+                      className="px-3 py-1.5 rounded-lg border border-rose-200 dark:border-rose-900/50 text-[9px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all">
+                      Delete
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         ) : (
           <div className="flex flex-wrap gap-2 border-b border-slate-200 dark:border-zinc-800 pb-3">
             {filteredPackages.map(pkg => {
@@ -448,9 +522,12 @@ const SubPackagesAdminPage: React.FC = () => {
       <div>
         <main className="space-y-4">
           {!selected ? (
+            // Add-on tab: the cards ARE the UI — no placeholder needed below.
+            audience === 'addon' ? null : (
             <div className="py-32 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
               <p className="text-[11px] font-black text-slate-300 dark:text-zinc-600 uppercase tracking-[0.4em]">Select a package</p>
             </div>
+            )
           ) : (
             <>
               {/* Detail header */}

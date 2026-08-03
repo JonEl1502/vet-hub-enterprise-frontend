@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: admin Plans — Add-ons are CARDS with an "offer to" picker  —  2026-08-03
+- **What changed:** (user, S1) the Add-ons tab drops the always-open plan editor for a
+  card grid: each add-on shows name, price/cycle, an Active toggle, its key count, and
+  **Offer to** chips (Clinic / Supplier / Client / Farm) that write `audiences` straight
+  from the card — attach an add-on to an audience without opening anything. "Open editor"
+  reveals the classic key/pricing editor per card; Delete guarded as before. The dead
+  placeholder below the cards is gone.
+- **Record impact:** 🟢 — audience/active toggles persist via the existing update API.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the clinic add-on PURCHASE flow exists (AI Assist); supplier/client/
+  farm add-on purchase flows do not yet — offering to those audiences lists intent, and
+  the supplier base-plan list now explicitly excludes add-ons (backend same day) so one
+  can never be bought as a plan replacement.
+
+
 ### flow: "approve the bill on the visit" now takes you there and points at the button  —  2026-08-03
 - **What changed:** (user) on Financials → Bills, the amber **"Approve the bill on the
   visit to invoice it"** chip is a button: it opens that visit **on its Bill tab** and
