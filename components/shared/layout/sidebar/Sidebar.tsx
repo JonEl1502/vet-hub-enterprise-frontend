@@ -12,6 +12,7 @@ import {
   applyBillableItemsLayout,
 } from './menus';
 import AudienceSwitcher from './AudienceSwitcher';
+import { navViewFor } from './navParent';
 import ClinicSearchDropdown from './ClinicSearchDropdown';
 import { ROLE_DASHBOARD_ROLES } from '../../../clinic/dashboard/roles/RoleDashboard';
 import { canOpenView } from '../../../../constants/modulePermissions';
@@ -64,10 +65,16 @@ const SUPPLIER_SCOPED_VIEWS = new Set([
 ]);
 
 const Sidebar: React.FC<SidebarProps> = ({
-  activeView, setView, clinic, role, customPermissions = [],
+  activeView: rawActiveView, setView, clinic, role, customPermissions = [],
   isCollapsed, setIsCollapsed, isMobileOpen, setIsMobileOpen,
   isDarkMode, toggleDarkMode, subscription, planAllows,
 }) => {
+  // A DETAIL page keeps its own view id (`boarding-stay`, `client-profile`…),
+  // which matches no menu entry — so the sidebar went completely un-highlighted
+  // the moment you opened a record, and any group owning that record stayed
+  // collapsed. Resolve to the OWNING menu id for highlighting only; `setView`
+  // and every other consumer still work with the real view.
+  const activeView = navViewFor(rawActiveView);
   const { selectedClinics, selectedClinicIds } = useClinic();
   const supplierCtx = useSupplier();
   // A farm business (migration 160) is the same org row as a clinic and signs in
@@ -249,7 +256,9 @@ const Sidebar: React.FC<SidebarProps> = ({
             audience: an admin sitting on Tenants → Suppliers was being offered
             a CLINIC picker, which scopes nothing on that page. Never both.
             Each still self-hides at 0/1 entities. */}
-        {(audience === 'supplier' || SUPPLIER_SCOPED_VIEWS.has(activeView)) ? (
+        {/* RAW view here on purpose — this picks which nav to render, not what
+            to highlight, so it must test the view you are actually on. */}
+        {(audience === 'supplier' || SUPPLIER_SCOPED_VIEWS.has(rawActiveView)) ? (
           <SupplierSearchDropdown isCollapsed={isCollapsed && !isMobileOpen} />
         ) : (
           <ClinicSearchDropdown isCollapsed={isCollapsed && !isMobileOpen} />

@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the sidebar keeps the related menu item lit on DETAIL pages  —  2026-08-04
+- **What changed:** new `components/shared/layout/sidebar/navParent.ts` maps each detail view to
+  the menu entry that owns it (`boarding-stay` → Boarding, `client-profile` → Clients,
+  `surgery-record` → Surgery, `purchase-order-detail` → Purchase Orders, …). `Sidebar` resolves
+  `activeView` through it **for highlighting only**.
+- **Why:** the sidebar highlights on `activeView === item.id`, and a detail page carries its own
+  view id, which matches no entry. Opening any record un-highlighted the entire nav — you were
+  deep inside Boarding with nothing saying so — and a collapsed group (Medical, Patients &
+  Clients, Finance) stayed shut over the very page you were on (user, 2026-08-04: *"keep related
+  menu in sidebar even in detail pages or other in pgs"*).
+- **Record impact:** 🟢 None — UI only.
+- **Rollback:** revert; detail pages go back to an un-highlighted sidebar.
+- ⚠️ Mapping a detail view also **opens its group**, because `hasActiveChild` tests the same
+  resolved id.
+- ⚠️ Values must be real menu item ids from `menus.ts` — an invented id silently does nothing, and
+  **a new detail page must be added here by hand**; nothing warns you that it is missing.
+- ⚠️ The supplier-vs-clinic nav switch deliberately still tests the **raw** view: it chooses which
+  nav to render, not what to highlight.
+
 ### fix: the visit's vaccine picker offers the CLINIC'S catalogue, and shows what it will bill  —  2026-08-04
 - **What changed:** `VaccinationPanel` loads `servicesAPI.catalog()` and offers the clinic's own
   enabled services in a vaccination category, instead of only the hard-coded
