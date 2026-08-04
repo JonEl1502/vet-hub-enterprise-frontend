@@ -458,8 +458,11 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
             </div>
 
             {/* Action buttons — grouped so on mobile they share one row
-                instead of each pushing the filter further. */}
-            <div className="flex items-center gap-2 w-full sm:w-auto">
+                instead of each pushing the filter further.
+                flex-wrap because every button here is `shrink-0` +
+                `whitespace-nowrap`: four of them measured 46px wider than a
+                390px phone and the last one (Refresh) was clipped away. */}
+            <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
               <button
                 onClick={() => setShowWalkIn(true)}
                 className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-seafoam/40 text-seafoam hover:bg-seafoam/5 transition-all active:scale-95 px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"

@@ -59,6 +59,54 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the whole app was laying out WIDER THAN THE PHONE — one missing `min-w-0`  —  2026-08-04
+- **What changed:** `<main>` in `App.tsx` gains **`min-w-0`**. Plus two rows that still overflowed
+  after it (`ClientsView` action buttons, `PetProfileView` owner-row buttons) now `flex-wrap`.
+- **Why:** `flex-1` is `flex: 1 1 0%` — it does **not** reset a flex item's default
+  `min-width: auto`, so `<main>` could never shrink below the min-content width of the page inside
+  it. Measured on a 390px viewport (Pixel 7, logged in, staging), `<main>` rendered:
+
+  | page | document width | | page | document width |
+  |---|---|---|---|---|
+  | Staff | **1369px** | | Inventory | **578px** |
+  | Clinic settings | **1047px** | | Clients | **469px** |
+  | Client profile | **969px** | | Partners | **418px** |
+  | Patient profile | **756px** | | Finance & BI | **413px** |
+  | Bills | **594px** | | | |
+
+  Two consequences, both reported by the user: `overflow-x-clip` on `<main>` clipped **nothing**
+  (the box itself had grown, so there was no overflow left to clip), and the `fixed` navbar
+  stretched to the document width — which is why the top bar looked cut off on both sides. Every
+  page had to be pinch-zoomed out to read.
+- **Verified:** all 23 URL-addressable views + 31 module views + client profile (7 tabs), patient
+  profile, boarding stay (incl. the expanded day editor) and surgery record now measure **exactly
+  390px** at a 390px viewport. Harness + before/after numbers in the commit body.
+- **Record impact:** 🟢 None — CSS only.
+- **Data dependency:** none.
+- **Rollback:** revert; every page goes wide again.
+- ⚠️ **`min-w-0` is load-bearing — do not "clean it up".** With it, `<main>` clips, so genuinely
+  wide content (tables, long tab rows) MUST scroll in its own `overflow-x-auto` container or it
+  becomes unreachable rather than merely ugly.
+
+### feat: the pinned record action bar is a COLLAPSIBLE SHEET on a phone  —  2026-08-04
+- **What changed:** `RecordActionBar` (Boarding stay, Inpatient chart, Grooming record) starts
+  collapsed below `sm`: a grab handle plus the primary action (Check out / Discharge). Drag the
+  handle up — or tap it — and the sheet expands to reveal the status pills, the `slot` field
+  (e.g. discharge weight) and every secondary action, each on its own row. Drag down or tap to
+  collapse. Keyboard: the handle is focusable, Enter/Space toggles.
+- **Why:** the full bar does not fit one phone row, and letting it wrap turned it into a three-row
+  block covering a third of the screen (user, 2026-08-04: *"Stuck bottom and allow to open up n
+  collapse"*).
+- **Record impact:** 🟢 None — UI only.
+- **Data dependency:** none.
+- **Rollback:** revert; the bar wraps to multiple rows on a phone again.
+- ⚠️ **From `sm:` up the layout is byte-for-byte the old one-row bar** — the collapsible wrapper
+  becomes `display: contents` so its children rejoin the flex row. That is also why the collapse
+  classes carry `sm:` resets: `visibility` **inherits through a `contents` box**, so `invisible`
+  without `sm:visible` would blank the desktop bar.
+- ⚠️ The primary action lives **outside** the collapsible region on purpose — the one terminal
+  action of the record must never be a gesture away.
+
 ### feat: an ErrorBoundary so a render throw stops being a WHITE PAGE  —  2026-08-04
 - **What changed:** new `components/shared/common/ErrorBoundary.tsx` wraps `renderContent()` in
   `App.tsx`. A render-time throw now shows a panel naming the error, with the component stack behind

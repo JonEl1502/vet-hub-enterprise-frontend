@@ -1382,8 +1382,12 @@ const PetProfileView: React.FC<Props> = ({
                           (user, 2026-08-04) — they used to take a line of their
                           own, which is a whole row of card height for two
                           buttons. Still grouped, so they wrap as a pair rather
-                          than Book visit dropping alone when the name runs long. */}
-                      <div className="flex items-center gap-2 sm:ml-auto">
+                          than Book visit dropping alone when the name runs long.
+                          The pair itself still wraps internally — both buttons
+                          are `whitespace-nowrap`, so on a 390px phone the group
+                          measured 244px inside a 180px column and Book visit
+                          was clipped off the screen. */}
+                      <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
                         <button
                           onClick={() => onOpenMessaging(owner)}
                           className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam text-seafoam hover:bg-seafoam hover:text-white transition-all active:scale-95 whitespace-nowrap"
