@@ -545,7 +545,7 @@ const ClientAccountHub: React.FC<Props> = ({
                 <label className="field-label">Method</label>
                 <select value={advanceMethod} onChange={e => setAdvanceMethod(e.target.value)} className="field-select">
                   <option value="CASH">Cash</option>
-                  <option value="MPESA">M-Pesa</option>
+                  <option value="M_PESA">M-Pesa</option>
                   <option value="CARD">Card</option>
                   <option value="BANK_TRANSFER">Bank transfer</option>
                 </select>

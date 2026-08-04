@@ -12,7 +12,7 @@ import { clientsAPI, toast } from '../../../services';
  * "record", never "charge" — the front desk has already taken the money.
  */
 const METHODS = [
-  { id: 'MPESA', label: 'M-Pesa', icon: Smartphone },
+  { id: 'M_PESA', label: 'M-Pesa', icon: Smartphone },
   { id: 'CASH', label: 'Cash', icon: Banknote },
   { id: 'BANK_TRANSFER', label: 'Bank', icon: Landmark },
   { id: 'CARD', label: 'Card', icon: CreditCard },
@@ -28,11 +28,11 @@ const CreditTopUpModal: React.FC<{
   onDone: () => void;
 }> = ({ open, clientId, clientName, currency, currentCredit, onClose, onDone }) => {
   const [amount, setAmount] = React.useState('');
-  const [method, setMethod] = React.useState('MPESA');
+  const [method, setMethod] = React.useState('M_PESA');
   const [reference, setReference] = React.useState('');
   const [busy, setBusy] = React.useState(false);
 
-  React.useEffect(() => { if (open) { setAmount(''); setReference(''); setMethod('MPESA'); } }, [open]);
+  React.useEffect(() => { if (open) { setAmount(''); setReference(''); setMethod('M_PESA'); } }, [open]);
   if (!open) return null;
 
   const n = Number(amount);
@@ -58,7 +58,7 @@ const CreditTopUpModal: React.FC<{
   };
 
   return createPortal(
-    <div className="fixed inset-0 bg-pine/95 dark:bg-black/95 backdrop-blur-sm z-[850] flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
+    <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-sm z-[850] flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
         onClick={e => e.stopPropagation()}>
         <div className="bg-emerald-600 px-5 py-4 flex items-start justify-between gap-3">

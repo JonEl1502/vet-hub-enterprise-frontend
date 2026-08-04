@@ -344,7 +344,7 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
                 <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
                   className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none">
                   <option value="CASH">Cash</option>
-                  <option value="MPESA">M-Pesa</option>
+                  <option value="M_PESA">M-Pesa</option>
                   <option value="CARD">Card</option>
                   <option value="BANK_TRANSFER">Bank transfer</option>
                 </select>

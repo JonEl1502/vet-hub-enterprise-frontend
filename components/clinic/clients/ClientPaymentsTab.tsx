@@ -566,7 +566,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
           <select value={advanceMethod} onChange={e => setAdvanceMethod(e.target.value)}
             className="px-2 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-zinc-950 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none">
             <option value="CASH">Cash</option>
-            <option value="MPESA">M-Pesa</option>
+            <option value="M_PESA">M-Pesa</option>
             <option value="CARD">Card</option>
             <option value="BANK_TRANSFER">Bank transfer</option>
           </select>

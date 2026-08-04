@@ -1939,7 +1939,7 @@ const renderOverview = () => (
 
       {/* Payment Modal */}
       {showPaymentModal && selectedApptId && onProcessPayment && (
-        <div className="fixed inset-0 bg-pine/95 dark:bg-black/95 backdrop-blur-xl z-[800] flex items-center justify-center p-6 animate-in fade-in">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-xl z-[800] flex items-center justify-center p-6 animate-in fade-in">
            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full p-5 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200">
               <header className="text-center mb-8">
                  <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Process Payment</h2>

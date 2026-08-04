@@ -6096,7 +6096,7 @@ const VisitDetailInner: React.FC<Props> = ({
       )}
 
       {showPaymentModal && (
-        <div className="fixed inset-0 bg-pine/95 dark:bg-black/95 backdrop-blur-xl z-[800] flex items-center justify-center p-6 animate-in fade-in">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-xl z-[800] flex items-center justify-center p-6 animate-in fade-in">
            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full p-8 rounded-[2.5rem] shadow-2xl animate-in zoom-in-95 duration-200">
               <header className="text-center mb-8">
                  <h2 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tighter">Settlement</h2>
@@ -7009,7 +7009,7 @@ const VisitDetailInner: React.FC<Props> = ({
 
       {/* ── Payment posted — what the settle actually did ── */}
       {settleResult && createPortal(
-        <div className="fixed inset-0 bg-pine/95 dark:bg-black/95 backdrop-blur-sm z-[850] flex items-center justify-center p-4 animate-in fade-in"
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-sm z-[850] flex items-center justify-center p-4 animate-in fade-in"
           onClick={() => setSettleResult(null)}>
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
             onClick={e => e.stopPropagation()}>
@@ -7083,7 +7083,7 @@ const VisitDetailInner: React.FC<Props> = ({
           : discountVal;
         const finalTotal = Math.max(0, appointment.totalCost - discountAmount);
         return createPortal(
-          <div className="fixed inset-0 bg-pine dark:bg-black z-[800] flex items-center justify-center p-4 sm:p-6 animate-in fade-in overflow-y-auto" onClick={() => setShowSettleModal(false)}>
+          <div className="fixed inset-0 bg-slate-900/70 dark:bg-black/80 z-[800] flex items-center justify-center p-4 sm:p-6 animate-in fade-in overflow-y-auto" onClick={() => setShowSettleModal(false)}>
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full my-auto rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
               {/* Header */}
               <div className="bg-pine px-6 py-5 flex items-center justify-between">
@@ -7440,7 +7440,7 @@ const VisitDetailInner: React.FC<Props> = ({
 
       {/* Gateway payment status (Stripe / Mpesa async flows) */}
       {gatewayStatus && (
-        <div className="fixed inset-0 bg-pine/95 dark:bg-black/95 backdrop-blur-xl z-[900] flex items-center justify-center p-6 animate-in fade-in">
+        <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-xl z-[900] flex items-center justify-center p-6 animate-in fade-in">
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full rounded-2xl shadow-2xl overflow-hidden">
             <div className="bg-pine px-6 py-5">
               <p className="text-[8px] font-black text-white/50 uppercase tracking-[0.2em]">

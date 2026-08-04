@@ -59,6 +59,36 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: every M-Pesa payment 400'd — wrong enum spelling in four selects  —  2026-08-04
+- **What changed:** the payment-method selects sent **`MPESA`**, but the column is a Prisma
+  enum whose value is **`M_PESA`**. Prisma does not coerce — it threw
+  `PrismaClientValidationError`, which the error handler flattens to a bare
+  *"Invalid data provided"* / 400 with nothing naming the field. Fixed in
+  `CreditTopUpModal`, `ClientPaymentsTab`, `ClientAccountHub`, `AdmitInpatientModal`,
+  `AdmitBoardingModal`. The backend now also normalises the value at the controller edge
+  (`utils/paymentMethod.ts`), so old clients keep working and no future call site can get it wrong.
+- **Why it happened:** the app has **two correct spellings** of M-Pesa in different namespaces —
+  the *gateway provider* is `MPESA` (Daraja config, STK push) and the *payment method* stored on
+  a transaction is `M_PESA`. The provider spelling leaked into the method selects.
+  `ReportPaymentIssueModal` and `SupplierWallet` keep `MPESA` — those genuinely are providers.
+- **Record impact:** 🟢 None — these payments were failing outright; nothing was written.
+- **Data dependency:** None.
+- **Rollback:** revert; M-Pesa payments start 400ing again.
+- ⚠️ **Watch out:** reported from **prod** with a real 35,000 top-up. Cash / Card / Bank were
+  unaffected — only M-Pesa, which is the one method most clinics actually use.
+
+### ui: modal overlays are neutral, not brand-tinted  —  no migration
+- **What changed:** (user, 2026-08-04) the full-screen overlay behind modals was `bg-pine/95`,
+  which renders as the clinic's brand colour — a heavy maroon wash over the whole page on this
+  theme. Now `bg-slate-900/60 dark:bg-black/70` on the top-up, prompt, settle/payment, receipt
+  and profile-photo modals. The settle overlay was fully opaque `bg-pine`; it is now translucent
+  too, so you can still see the visit behind it.
+- **Record impact:** 🟢 None — presentation only.
+- **Data dependency:** None.
+- ⚠️ **Watch out:** the **guided-tour** overlays (`TourOverlay`, `TourMenu`) deliberately keep
+  the brand wash — that one is a spotlight, not a modal scrim.
+
+
 ### feat: claim a vaccination certificate from the admission gate — Pro and above  —  2026-08-04
 - **What changed:** (user, 2026-08-04) once at least one vaccine is ticked on the
   **admission gate**, a **"Claim a vaccination certificate"** checkbox appears. It is gated on
