@@ -3,7 +3,7 @@ import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, 
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
-import RecordPageHeader from '../shared/RecordPageHeader';
+import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import { formatDate, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import ShareWithClinics from '../shared/ShareWithClinics';
@@ -303,8 +303,16 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
             </div>
           </div>
 
+          {/* TWO COLUMNS, matching the inpatient chart (user, 2026-08-04).
+              ⚠️ This REVERSES the 2026-08-03 one-column call ("the context
+              column squeezed the thing staff actually work in into two
+              thirds"). What changed is that the rail is now STICKY — it
+              follows you down the care sheet instead of being a dead strip you
+              scroll past — so the column earns its width. The care sheet keeps
+              2/3, same split as inpatient. */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
           {/* MAIN — daily care logging + care log history */}
-          <div className="space-y-4">
+          <div className="lg:col-span-2 space-y-4">
             {/* ONE care card (§0f #2): log form ÷ consumables ÷ care-log history,
                 divided — not three cards a scroll-length apart. */}
             <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
@@ -539,10 +547,12 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
             </section>
           </div>
 
-          {/* Stay context, actions, checkout — full width, below the sheet.
-              The FACTS grid that used to open this card now sits at the top of
-              the page (user, 2026-08-04); what remains here is the actions. */}
-          <div className="space-y-4">
+          {/* SIDE RAIL — stay context: grooming on this visit, the vaccine
+              gate, the accruing charge, notes format. STICKY_RAIL carries the
+              load-bearing bits (self-start, own overflow) — see
+              RecordPageHeader.tsx. The FACTS grid that used to open this card
+              sits at the top of the page instead (user, 2026-08-04). */}
+          <div className={`space-y-4 ${STICKY_RAIL}`}>
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
               {/* Open visit · Add grooming service · Share all moved to the
                   PINNED bar (user, 2026-08-04: "move these too … to bottom
@@ -679,6 +689,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                   format" heading, so the card was printing it twice. */}
               <NotesFormatToggle value={stay.displayFormat || 'PARAGRAPH'} onChange={(v) => { boardingAPI.update(stayId, { displayFormat: v } as any).then(() => { load(); onChanged?.(); }); }} />
             </div>
+          </div>
           </div>
         </div>
       ) : (
