@@ -93,6 +93,7 @@ const GroomingRecordPage: React.FC<Props> = ({ appointment, onBack, onChanged, o
             categoryKeyword="groom"
             taskCategory="Grooming"
             existingNames={appointment.tasks.filter(tk => (tk.category || '').toLowerCase().includes('groom')).map(tk => tk.name)}
+            existing={appointment.tasks.filter(tk => (tk.category || '').toLowerCase().includes('groom')).map(tk => ({ id: tk.id, name: tk.name }))}
             label="Add grooming service"
             tone="pink"
             onAdded={async () => { onChanged(); const res = await groomingAPI.list({ appointmentId: appointment.id }).catch(() => null); if (res?.success) { setAllRecs(res.data?.records ?? []); setGRec(res.data?.records?.[0] ?? null); } }}

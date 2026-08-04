@@ -8,6 +8,7 @@ import ShareWithClinics from '../shared/ShareWithClinics';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
 import UpgradeGate from '../../shared/common/UpgradeGate';
 import { useClinic } from '../../../contexts/ClinicContext';
+import AddCategoryService from '../shared/AddCategoryService';
 
 // Full-page boarding stay — converted from the old right-side drawer so the
 // stay is a real navigable page (deep-linkable via nav param stayId).
@@ -55,17 +56,10 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   // Spawn a grooming service onto this stay's linked appointment so it surfaces
   // (with real name + price) on the visit's SERVICES list and is attended on the
   // Grooming page. Picks from the catalog's grooming category; generic fallback.
-  const [showGroomPicker, setShowGroomPicker] = useState(false);
-  const [groomServices, setGroomServices] = useState<{ id: string; name: string; defaultPrice?: number }[]>([]);
-  useEffect(() => {
-    if (showGroomPicker && groomServices.length === 0) {
-      servicesAPI.catalog()
-        .then(list => setGroomServices((list || [])
-          .filter((s: any) => String(s.categoryName || '').toLowerCase().includes('groom'))
-          .map((s: any) => ({ id: String(s.id), name: s.name, defaultPrice: (s.priceEffective ?? s.defaultPrice) ?? undefined }))))
-        .catch(() => {});
-    }
-  }, [showGroomPicker]);
+  // The picker itself is `AddCategoryService` now (shared with the Grooming and
+  // Surgery pages), so this page no longer keeps its own catalog copy — the two
+  // had already drifted: the shared one also matches a service's workflowScope,
+  // this one only its category name.
   // Grooming services already on the linked visit — shown below the actions
   // so staff see what was added and can jump to the Grooming page to detail it.
   const [groomTasks, setGroomTasks] = useState<{ id: number; name: string; status: string; price?: number }[]>([]);
@@ -80,24 +74,6 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
     } catch { /* non-blocking — the block just stays empty */ }
   }, []);
   useEffect(() => { if (linkedApptId) loadGroomTasks(linkedApptId); else setGroomTasks([]); }, [linkedApptId, loadGroomTasks]);
-
-  const groomAdded = (name: string) => groomTasks.some(t => t.name.trim().toLowerCase() === name.trim().toLowerCase());
-
-  const addGroomingService = async (svc?: { id?: string; name: string; defaultPrice?: number }) => {
-    const apptId = stay?.billing?.appointmentId || stay?.appointmentId;
-    if (!apptId) return;
-    const name = svc?.name || 'Grooming service';
-    // One instance per service — remove the existing one first to re-add.
-    if (groomAdded(name)) { toast.error(`"${name}" is already on this visit`); return; }
-    setBusy(true);
-    try {
-      await visitsAPI.addTask(Number(apptId), { name, category: 'Grooming', status: 'PENDING' as any, price: Number(svc?.defaultPrice ?? 0), serviceId: svc?.id } as any);
-      toast.success(`Added "${name}" — detail it on the Grooming page`);
-      loadGroomTasks(apptId);
-      onChanged?.();
-    } catch (e: any) { toast.error(e?.message || 'Failed to add grooming service'); }
-    finally { setBusy(false); }
-  };
 
   const removeGroomTask = async (taskId: number) => {
     const apptId = stay?.billing?.appointmentId || stay?.appointmentId;
@@ -610,38 +586,21 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                     <ExternalLink size={12} /> Open visit
                   </button>
                   {active && (
-                    <button onClick={() => setShowGroomPicker(v => !v)} disabled={busy}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-pink-300 dark:border-pink-900/50 bg-pink-50 dark:bg-pink-950/30 text-pink-600 dark:text-pink-400 text-[10px] font-black uppercase tracking-widest hover:bg-pink-100 transition-all disabled:opacity-50">
-                      <Scissors size={12} /> Add grooming service
-                    </button>
+                    <AddCategoryService
+                      appointmentId={(stay.billing?.appointmentId || stay.appointmentId)!}
+                      categoryKeyword="groom"
+                      taskCategory="Grooming"
+                      existingNames={groomTasks.map(t => t.name)}
+                      existing={groomTasks.map(t => ({ id: t.id, name: t.name }))}
+                      label="Add grooming service"
+                      tone="pink"
+                      onAdded={async () => { await load(); onChanged?.(); }}
+                    />
                   )}
                   <button onClick={() => setShowShare(true)}
                     className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:border-seafoam transition-all">
                     <Share2 size={12} /> Share{stay.allowedClinicIds && stay.allowedClinicIds.length > 0 ? ` · ${stay.allowedClinicIds.length}` : ''}
                   </button>
-                </div>
-              )}
-
-              {/* Grooming service picker — select real catalog services to add to
-                  the linked visit (shown under GROOMING, attended on Grooming page). */}
-              {showGroomPicker && active && (
-                <div className="rounded-xl border border-pink-200 dark:border-pink-900/40 bg-pink-50/50 dark:bg-pink-950/20 p-3 space-y-2">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-pink-600">Select grooming services</p>
-                  <div className="flex flex-wrap gap-1.5">
-                    {groomServices.map(s => groomAdded(s.name) ? (
-                      <span key={s.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
-                        {s.name} · Added
-                      </span>
-                    ) : (
-                      <button key={s.id} onClick={() => addGroomingService(s)} disabled={busy}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-pink-200 dark:border-pink-900/40 text-[10px] font-bold text-pine dark:text-zinc-100 hover:border-pink-400 transition-all disabled:opacity-50">
-                        {s.name}{s.defaultPrice ? <span className="text-pink-500 font-mono">· {s.defaultPrice.toLocaleString()}</span> : null}
-                      </button>
-                    ))}
-                    {groomServices.length === 0 && <span className="text-[10px] text-slate-400">No grooming services in your catalog yet.</span>}
-                    <button onClick={() => addGroomingService()} disabled={busy}
-                      className="px-3 py-1.5 rounded-lg border border-dashed border-pink-300 dark:border-pink-900/50 text-[10px] font-bold text-pink-600 hover:bg-pink-100 dark:hover:bg-pink-950/40 transition-all disabled:opacity-50">+ Custom</button>
-                  </div>
                 </div>
               )}
 

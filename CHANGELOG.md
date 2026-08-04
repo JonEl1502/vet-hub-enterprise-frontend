@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: added services can be removed again; boarding + surgery match grooming  —  2026-08-04
+- **What changed:** (user: "allow to remove too", "update like grooming", "this to the
+  bottom")
+  ① `AddCategoryService` chips can now be **taken off**: an "· Added" chip carries an ✕
+  that deletes the task. It needs the task id, so callers pass a new optional `existing`
+  ({id, name}) alongside `existingNames` — omit it and the chips stay add-only. Wired on
+  the **grooming**, **surgery** and **boarding** pages. The API answers 409 when a task
+  already carries work (a module record, logged consumables); that message is surfaced
+  rather than a bare failure.
+  ② the **boarding stay page uses the shared picker** instead of its own copy. The two had
+  already drifted — the shared one also matches a service's `workflowScope`, boarding's
+  only matched the category name, so some grooming services were pickable on one page and
+  not the other. ~40 lines of duplicated state/handler deleted.
+  ③ the **surgery record page goes one-column** like boarding and grooming: status,
+  timing, complexity, notes format and Save Record run full width **below** the record
+  instead of in a right rail.
+- **Record impact:** 🔵 Low — removing a chip DELETES that visit task (and any charge it
+  carried). It is a deliberate click on an explicit ✕, and the server refuses when work
+  already exists on the task.
+- **Data dependency:** None — `DELETE /appointments/:id/tasks/:taskId` is long live.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** removing a service removes its BILL LINE too. That is the point (it is
+  how a mis-added service gets undone), but it is the first place in these pickers where a
+  click destroys something — hence the 409 guard and the explicit ✕ rather than a
+  click-the-chip-to-toggle.
+
 ### page: Financials restructured — one tab row, cards above it, filters on top, balance settles  —  2026-08-04
 - **What changed:** (user, four items) on BOTH the client and patient profiles:
   ① the header's **Outstanding Balance** cell is a button — it opens Financials → Invoices,

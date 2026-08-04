@@ -201,6 +201,7 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
           categoryKeyword="surg"
           taskCategory="Surgery"
           existingNames={siblings.map(s => s.serviceName)}
+          existing={siblings.filter(s => s.taskId).map(s => ({ id: s.taskId!, name: s.serviceName }))}
           label="Add procedure"
           tone="rose"
           onAdded={load}
@@ -210,9 +211,9 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
       {loading && !rec ? (
         <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
       ) : rec ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        <div className="space-y-4">
           {/* MAIN — clinical narrative */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="space-y-4">
             <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
               {locked ? (
                 <>

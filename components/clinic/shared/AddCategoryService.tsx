@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Plus, Loader2 } from 'lucide-react';
+import { Plus, Loader2, X } from 'lucide-react';
 import { visitsAPI, servicesAPI } from '../../../services';
 import { toast } from '../../../services/utils/toast';
 
@@ -17,6 +17,12 @@ interface Props {
   taskCategory: string;
   // Names already on the visit for this category — duplicate guard + "Added" tags.
   existingNames: string[];
+  /**
+   * The same services WITH their task ids, so an "Added" chip can be taken off
+   * again (user, 2026-08-04: "allow to remove too"). Names alone could only
+   * ever add. Omit and the chips stay add-only, as before.
+   */
+  existing?: { id: string | number; name: string }[];
   label: string;
   tone?: 'pink' | 'rose';
   onAdded: () => void | Promise<void>;
@@ -41,7 +47,7 @@ const TONES = {
   },
 };
 
-const AddCategoryService: React.FC<Props> = ({ appointmentId, categoryKeyword, taskCategory, existingNames, label, tone = 'pink', onAdded }) => {
+const AddCategoryService: React.FC<Props> = ({ appointmentId, categoryKeyword, taskCategory, existingNames, existing, label, tone = 'pink', onAdded }) => {
   const t = TONES[tone];
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -63,7 +69,24 @@ const AddCategoryService: React.FC<Props> = ({ appointmentId, categoryKeyword, t
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
-  const added = (name: string) => existingNames.some(n => n.trim().toLowerCase() === name.trim().toLowerCase());
+  const norm = (n: string) => n.trim().toLowerCase();
+  const added = (name: string) => existingNames.some(n => norm(n) === norm(name));
+  const taskFor = (name: string) => (existing || []).find(e => norm(e.name) === norm(name));
+
+  const remove = async (name: string) => {
+    const task = taskFor(name);
+    if (!task) return;
+    setBusy(true);
+    try {
+      // The API answers 409 when the task already carries work (a module
+      // record, logged consumables) — surface that instead of a bare failure.
+      await visitsAPI.deleteTask(Number(appointmentId), Number(task.id));
+      toast.success(`Removed "${name}"`);
+      await onAdded();
+    } catch (e: any) {
+      toast.error(e?.message || `Could not remove "${name}" — it may already have work recorded on it`);
+    } finally { setBusy(false); }
+  };
 
   const add = async (svc?: { id?: string; name: string; defaultPrice?: number }) => {
     const name = svc?.name || `${taskCategory} service`;
@@ -92,6 +115,13 @@ const AddCategoryService: React.FC<Props> = ({ appointmentId, categoryKeyword, t
             {services.map(s => added(s.name) ? (
               <span key={s.id} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-900/40 text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
                 {s.name} · Added
+                {taskFor(s.name) && (
+                  <button type="button" disabled={busy} title={`Remove "${s.name}" from this visit`}
+                    onClick={() => remove(s.name)}
+                    className="ml-0.5 text-emerald-500/70 hover:text-rose-500 disabled:opacity-40 transition-colors">
+                    <X size={11} />
+                  </button>
+                )}
               </span>
             ) : (
               <button key={s.id} onClick={() => add(s)} disabled={busy}
