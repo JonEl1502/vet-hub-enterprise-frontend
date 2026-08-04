@@ -2872,6 +2872,10 @@ const VisitDetailInner: React.FC<Props> = ({
         petDeceased={pets.find(p => p.id === appointment.petId)?.isAlive === false}
         submitting={isSettlingBill}
         existing={visitReminder}
+        // An open stay means the patient is NOT leaving — discharge/check-out
+        // raise this same gate, so skipping here genuinely defers to it.
+        askAgainAt={(appointment as any).hospitalizationId ? 'at discharge'
+          : (appointment as any).boardingStayId ? 'at check-out' : undefined}
         onCancel={() => { void proceedWithSettle(); }}
         onConfirm={async (reminder) => {
           // Best-effort: a reminder that fails to save must not block the money.

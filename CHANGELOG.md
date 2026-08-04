@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: Skip now says whether it DEFERS the follow-up or drops it  —  2026-08-04
+- **What changed:** (user) "Skip for now" hid an important difference. **Inpatient
+  discharge and boarding check-out already raise this same gate**, so on a visit with an
+  open stay — the surgery→inpatient case — skipping at finalize genuinely defers: the
+  follow-up is asked again when the patient actually leaves. With no stay, nothing asks
+  again and the follow-up is simply gone. The gate takes a new `askAgainAt` prop and the
+  panel now states which of the two is happening: *"Skipping is fine here — this patient
+  isn't leaving yet, so you'll be asked again at discharge"* vs. an amber *"Skipping
+  leaves this visit with no follow-up…"*. `VisitDetailView`'s pre-receipt gate (the one
+  hit when coming off surgery to take payment) derives it from
+  `hospitalizationId` / `boardingStayId`.
+- **Record impact:** 🟢 None — copy and a hint; the skip path is unchanged.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the deferral is a consequence of the discharge/check-out gates
+  existing, **not** a stored flag. If either of those gates is ever made optional, a
+  skipped follow-up on a stay becomes silently lost and this copy becomes a lie.
+
 ### fix: logged consumables were INVISIBLE on the running bill — and missing from its total  —  no migration
 - **What changed:** (user, 2026-08-04: "i added gloves here and not showing") the workflow's
   Running Bill rail listed only `visit.tasks`, so a consumable logged **without a parent

@@ -27,6 +27,14 @@ interface Props {
   petDeceased: boolean;
   submitting: boolean;
   existing?: ExistingReminder | null;
+  /**
+   * Where this visit will be asked for the follow-up AGAIN if it is skipped
+   * here — e.g. "at discharge" when an inpatient stay is open, "at check-out"
+   * for boarding. Both of those already raise this same gate, so skipping
+   * DEFERS rather than drops. Leave undefined when nothing will ask again and
+   * the Skip button says so instead of implying a safety net that isn't there.
+   */
+  askAgainAt?: string;
   onCancel: () => void;
   // null = deceased bypass (finalize with no reminder)
   onConfirm: (reminder: ReminderDraft | null) => void;
@@ -53,7 +61,7 @@ const dateInDays = (days: number) => {
  * stay) and the user only came to take payment, so there is now a **Skip for
  * now** (user, 2026-08-04). Rendered full-screen.
  */
-const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, encounterType, petDeceased, submitting, existing, onCancel, onConfirm }) => {
+const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, encounterType, petDeceased, submitting, existing, askAgainAt, onCancel, onConfirm }) => {
   const initialService = defaultServiceFor(encounterType);
   const [serviceType, setServiceType] = useState<ReminderServiceType>(initialService);
   const [dueAt, setDueAt] = useState<string>(dateInDays(REMINDER_SERVICE_META[initialService].days));
@@ -166,7 +174,9 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
               <button
                 onClick={() => onConfirm(null)}
                 disabled={submitting}
-                title="Finalize now — set the follow-up later from Reminders or the visit"
+                title={askAgainAt
+                  ? `Finalize now — you'll be asked for the follow-up again ${askAgainAt}`
+                  : 'Finalize now with NO follow-up — nothing will ask again'}
                 className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 hover:border-seafoam hover:text-seafoam disabled:opacity-50"
               >
                 Skip for now
@@ -179,6 +189,14 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
                 {submitting ? <Loader2 size={14} className="animate-spin" /> : <BellRing size={14} />} {isUpdate ? 'Update reminder & continue' : 'Set reminder & finalize'}
               </button>
             </div>
+            {/* Say what Skip actually does. Deferring to a real later prompt and
+                dropping the follow-up entirely are very different outcomes and
+                the button alone cannot tell them apart. */}
+            <p className={`text-[10px] font-bold leading-relaxed ${askAgainAt ? 'text-slate-400' : 'text-amber-600 dark:text-amber-400'}`}>
+              {askAgainAt
+                ? `Skipping is fine here — this patient isn't leaving yet, so you'll be asked again ${askAgainAt}.`
+                : 'Skipping leaves this visit with no follow-up: it won\u2019t appear on the Reminders page and won\u2019t drive a next appointment.'}
+            </p>
           </div>
         )}
       </div>
