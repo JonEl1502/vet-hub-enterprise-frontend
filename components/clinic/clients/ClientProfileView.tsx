@@ -32,7 +32,7 @@ import ClientPaymentsTab from './ClientPaymentsTab';
 import PetAvatar from '../shared/PetAvatar';
 import ClientBillsTab from './ClientBillsTab';
 import { AccountStatCards, AccountFilterBar, useAccountFilters } from './ClientAccountHub';
-import ClientAccountHub, { ClientStatementTab, ClientFilesTab, preferredMethod } from './ClientAccountHub';
+import ClientAccountHub, { ClientStatementTab, ClientFilesTab, preferredMethod, isSettled } from './ClientAccountHub';
 import { ClientBilling } from '../../../services/modules/clients.api';
 import { formatDate, formatDateTime } from '../../../services/utils/dateFormatter';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -152,6 +152,16 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
     .filter(p => p.status !== 'VOIDED')
     .sort((a, b) => new Date(b.settledAt || b.createdAt).getTime() - new Date(a.settledAt || a.createdAt).getTime())[0] ?? null;
   const headerOutstanding = billing?.outstanding ?? client.outstandingBalance ?? 0;
+  /**
+   * Where a visit sits on Bill → Invoice → Payment, for the visit-card menu.
+   * The menu used to offer "Process Payment" and "Invoice" on every visit,
+   * including one still IN_PROGRESS (user, 2026-08-04: "menu is old old") —
+   * actions that either 400 or print a document that does not exist yet.
+   */
+  const billRowFor = React.useCallback(
+    (visitId: number | string) => (billing?.invoices ?? []).find(i => String(i.visitId) === String(visitId)),
+    [billing],
+  );
 
   const loadDiscounts = useCallback(async () => {
     setDiscountsLoading(true);
@@ -1078,38 +1088,67 @@ const renderOverview = () => (
         )}
         {activeTab === 'pets' && (
            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4">
-              {pets.length > 0 ? pets.map(pet => (
-                <div key={pet.id} onClick={() => onViewPet(pet.id)} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-6 hover:border-seafoam transition-all cursor-pointer group shadow-sm">
-                   <div className="flex items-center gap-4 mb-6">
-                      <PetAvatar pet={pet} size={48} rounded="rounded-2xl" className="group-hover:scale-110 transition-transform" />
+              {pets.length > 0 ? pets.map(pet => {
+                const petVisits = appointments.filter(a => a.petId === pet.id);
+                const petScheduled = petVisits.filter(a => a.status === ApptStatus.SCHEDULED);
+                const alerts = [...(pet.allergies ?? []), ...(pet.chronicConditions ?? []), ...((pet as any).healthAlerts ?? [])];
+                return (
+                <div key={pet.id} onClick={() => onViewPet(pet.id)}
+                  className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 hover:border-seafoam hover:shadow-md transition-all cursor-pointer group shadow-sm">
+                   {/* Identity — photo, name, and what it IS, on one line. The
+                       card used to spend a third of its height on an avatar and
+                       then list four key/value rows (user, 2026-08-04). */}
+                   <div className="flex items-start gap-3">
+                      <PetAvatar pet={pet} size={44} rounded="rounded-xl" className="group-hover:scale-105 transition-transform" />
                       <div className="min-w-0 flex-1">
-                         <p className="text-pine dark:text-zinc-100 font-black text-lg truncate uppercase">{pet.name}</p>
-                         <p className="text-seafoam text-[9px] font-black uppercase tracking-widest">{pet.breed}</p>
+                         <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="text-pine dark:text-zinc-100 font-black text-base truncate uppercase leading-none">{pet.name}</p>
+                            {pet.isAlive === false && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-500 text-[8px] font-black uppercase tracking-widest">Deceased</span>
+                            )}
+                            {petScheduled.length > 0 && (
+                              <span className="px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-600 text-[8px] font-black uppercase tracking-widest">
+                                {petScheduled.length} scheduled
+                              </span>
+                            )}
+                         </div>
+                         <p className="text-[9px] font-black uppercase tracking-widest text-seafoam mt-1 truncate">
+                           {[pet.breed, pet.species].filter(Boolean).join(' · ')}
+                         </p>
+                         <p className="text-[9px] font-bold text-slate-400 mt-0.5 truncate">
+                           {[pet.gender, pet.age, pet.weight].filter(Boolean).join(' · ') || '—'}
+                         </p>
                       </div>
+                      <ChevronRight size={14} className="text-slate-200 dark:text-zinc-700 group-hover:text-seafoam shrink-0 mt-1" />
                    </div>
-                   <div className="space-y-2 pt-4 border-t border-slate-100 dark:border-zinc-800">
-                      <div className="flex justify-between items-center">
-                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Species</span>
-                         <span className="text-[9px] font-black text-pine dark:text-zinc-200 uppercase">{pet.species}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Age</span>
-                         {/* age/weight arrive pre-formatted with units — don't append more */}
-                         <span className="text-[9px] font-black text-pine dark:text-zinc-200 uppercase">{pet.age}</span>
-                      </div>
-                      {(pet as any).gender && (
-                        <div className="flex justify-between items-center">
-                           <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Sex</span>
-                           <span className="text-[9px] font-black text-pine dark:text-zinc-200 uppercase">{(pet as any).gender}</span>
+
+                   {/* The numbers a client's pet card should answer for. */}
+                   <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                      {[
+                        { l: 'Visits', v: String(petVisits.length), cls: 'text-pine dark:text-zinc-100' },
+                        { l: 'Vaccines', v: String((pet as any).vaccinationCount ?? pet.vaccinations?.length ?? 0), cls: 'text-indigo-600 dark:text-indigo-400' },
+                        { l: 'Weight', v: pet.weight || '—', cls: 'text-emerald-600 dark:text-emerald-400' },
+                      ].map(t => (
+                        <div key={t.l} className="bg-slate-50 dark:bg-zinc-800/60 rounded-xl px-2 py-2 text-center">
+                           <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{t.l}</p>
+                           <p className={`text-sm font-black truncate ${t.cls}`}>{t.v}</p>
                         </div>
-                      )}
-                      <div className="flex justify-between items-center">
-                         <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Weight</span>
-                         <span className="text-[9px] font-black text-pine dark:text-zinc-200 uppercase">{pet.weight}</span>
-                      </div>
+                      ))}
                    </div>
+
+                   {alerts.length > 0 && (
+                     <div className="flex flex-wrap gap-1 mt-2">
+                       {alerts.slice(0, 3).map(a => (
+                         <span key={a} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 ring-1 ring-amber-200/70 dark:ring-amber-800/40 text-[8px] font-black uppercase tracking-wider">
+                           {a}
+                         </span>
+                       ))}
+                       {alerts.length > 3 && <span className="text-[8px] font-black text-slate-400">+{alerts.length - 3}</span>}
+                     </div>
+                   )}
                 </div>
-              )) : (
+                );
+              }) : (
                  <div className="col-span-full py-16 flex flex-col items-center justify-center gap-4 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
                    <PawPrint size={32} className="text-slate-200 dark:text-zinc-700" />
                    <p className="uppercase font-black text-[10px] tracking-[0.2em] text-slate-300 dark:text-zinc-600">No patients registered</p>
@@ -1177,22 +1216,55 @@ const renderOverview = () => (
                                 <Eye size={13} /> View Visit
                               </button>
                             )}
-                            {hasFullAccess && !appt.isPaid && onProcessPayment && (
-                              <button onClick={() => { setSelectedApptId(appt.id); setShowPaymentModal(true); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all">
-                                <CreditCard size={13} /> Process Payment
-                              </button>
-                            )}
-                            <div className="mx-3 my-1 border-t border-slate-100 dark:border-zinc-800" />
-                            {hasFullAccess && (
-                              <button onClick={() => { setDocModal({ type: 'invoice', appt }); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all">
-                                <Printer size={13} /> Invoice
-                              </button>
-                            )}
-                            {hasFullAccess && appt.isPaid && (
-                              <button onClick={() => { setDocModal({ type: 'receipt', appt }); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-all">
-                                <Receipt size={13} /> Receipt
-                              </button>
-                            )}
+                            {/* ONE money action, and it is the next act in the
+                                chain for THIS visit — not every action at once. */}
+                            {hasFullAccess && (() => {
+                              const row = billRowFor(appt.id);
+                              const settled = row ? isSettled(row as any) : !!appt.isPaid;
+                              const invoiced = (row?.invoices?.length ?? 0) > 0;
+                              const finalized = !!row?.collectable || settled;
+                              const item = (icon: any, label: string, cls: string, run: () => void) => (
+                                <button onClick={() => { run(); setOpenMenuId(null); }}
+                                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all ${cls}`}>
+                                  {React.createElement(icon, { size: 13 })} {label}
+                                </button>
+                              );
+                              if (settled) {
+                                return (
+                                  <>
+                                    <div className="mx-3 my-1 border-t border-slate-100 dark:border-zinc-800" />
+                                    {item(Receipt, 'Receipt', 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20',
+                                      () => setDocModal({ type: 'receipt', appt }))}
+                                    {item(Printer, 'Invoice', 'text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800',
+                                      () => setDocModal({ type: 'invoice', appt }))}
+                                  </>
+                                );
+                              }
+                              if (!finalized) {
+                                // Nothing to bill against yet — say so instead of
+                                // offering payment on an unfinalized visit.
+                                return (
+                                  <>
+                                    <div className="mx-3 my-1 border-t border-slate-100 dark:border-zinc-800" />
+                                    <p className="px-3 py-2 text-[9px] font-bold text-slate-400 leading-relaxed">
+                                      Not finalized — finish the visit to raise its bill.
+                                    </p>
+                                  </>
+                                );
+                              }
+                              return (
+                                <>
+                                  <div className="mx-3 my-1 border-t border-slate-100 dark:border-zinc-800" />
+                                  {invoiced
+                                    ? item(CreditCard, 'Settle invoice', 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20',
+                                        () => setActiveTab('invoices'))
+                                    : item(FileText, 'Generate invoice', 'text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20',
+                                        () => (onOpenVisitBill ?? onViewAppointment)?.(appt.id))}
+                                  {invoiced && item(Printer, 'Invoice', 'text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800',
+                                    () => setDocModal({ type: 'invoice', appt }))}
+                                </>
+                              );
+                            })()}
                             <button onClick={() => { setDocModal({ type: 'medical_record', appt }); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-cyan hover:bg-cyan/10 transition-all">
                               <Award size={13} /> Health Certificate
                             </button>

@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: visit-card menu follows the chain; richer pet card  —  2026-08-04
+- **What changed:** (user: "menu is old old"; "improve card ui")
+  ① the client profile's visit-card menu offered **Process Payment** and **Invoice** on
+  every visit — including one still `IN_PROGRESS`, where paying 400s and the invoice does
+  not exist. It now shows the ONE next act for that visit, read from the billing payload
+  the page already loads: not finalized → *"Not finalized — finish the visit to raise its
+  bill"*; finalized, no invoice → **Generate invoice** (into the visit's Bill tab, action
+  pulsed); invoiced → **Settle invoice**; settled → **Receipt** + Invoice. Settlement is
+  judged by `isSettled()` on the money, not the stale `isPaid` flag.
+  ② the Pets tab card stopped being an avatar and four key/value rows: photo, name,
+  deceased / scheduled chips, breed · species, sex · age · weight, three stat tiles
+  (Visits · Vaccines · Weight) and any allergy / chronic-condition / health-alert chips.
+  Card radius and padding pulled in to match the rest of the app.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the menu now depends on the billing payload having loaded. Before it
+  arrives a visit falls back to `appt.isPaid`, so an unfinalized visit briefly shows the
+  "not finalized" note rather than a wrong action — the safe direction.
+
 ### feat: revenue workflow queue on the front-office dashboard  —  2026-08-04
 - **What changed:** the front desk gets its money to-do list, in the order the chain runs:
   **Bills awaiting review · Bills ready for invoice · Visits awaiting payment**, each with
