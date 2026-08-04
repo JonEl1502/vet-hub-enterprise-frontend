@@ -143,7 +143,10 @@ import ReceivablesView from './components/clinic/billing/ReceivablesView';
 import ExpensesView from './components/clinic/billing/ExpensesView';
 import ToastContainer from './components/shared/common/ToastContainer';
 import GlobalAIAssistant from './components/shared/ai/GlobalAIAssistant';
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- kept for the
+// commented-out day agenda on the dashboard's first tab (user, 2026-08-04).
 import ClinicTodayView from './components/clinic/dashboard/ClinicTodayView';
+import OwnerDashboard from './components/clinic/dashboard/roles/OwnerDashboard';
 import LoadingSpinner from './components/shared/common/LoadingSpinner';
 import TourOverlay from './components/shared/common/tours/TourOverlay';
 import TourMenu from './components/shared/common/tours/TourMenu';
@@ -2127,15 +2130,24 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           {/* Finance Overview moved into Clinic Finance → Statistics (its first tab). */}
           {dashboardTab === 'today'
             ? (
-              // Tab order (user, 2026-08-01): conversion-pulse band → date
-              // picker (defaults to today) → operational cards → day agenda.
-              // ClinicTodayView owns the layout; the cards pass through.
+              // The owner/admin now gets the SAME arrangement as every other
+              // role (user, 2026-08-04): work-in-progress strip → stat tiles →
+              // cards, with a wider owner stat set. The clinic-wide bands
+              // (pulse, checkouts, partner requests, staff activity) are kept
+              // inside OwnerDashboard; the operational cards pass through.
+              <OwnerDashboard
+                cards={<StaffDashboard onNavigate={(view, params) => navigateTo(view, params)} />}
+                onNavigate={(view, params) => navigateTo(view, params)}
+              />
+              /* Previous first tab — kept, not deleted (user asked for
+                 comment-only), in case the day agenda is wanted back:
               <ClinicTodayView
                 cards={<StaffDashboard onNavigate={(view, params) => navigateTo(view, params)} />}
                 onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })}
                 onOpenBookings={() => navigateTo('appointment-bookings')}
                 onOpenReminders={() => navigateTo('reminders')}
               />
+              */
             )
             : dashboardTab === 'b2b'
             ? renderB2BStats()

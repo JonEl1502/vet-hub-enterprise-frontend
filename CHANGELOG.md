@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: the owner's dashboard first tab now uses the role-dashboard arrangement, with more stats  —  2026-08-04
+- **What changed:** (user) full-access roles (owner / manager / admin) open the Dashboard's
+  **Clinic Today** tab onto the same layout every other role already gets — *today's work in
+  progress* strip → stat tiles → cards — instead of the day agenda. New
+  `components/clinic/dashboard/roles/OwnerDashboard.tsx`.
+  Because the owner is the one person who wants the day AND the money AND what needs
+  chasing at a glance, the tile set is **twice as wide as the front desk's**: row 1 =
+  visits today (in-progress · done), walk-ins, waiting to be seen, new clients, revenue
+  today, month to date; row 2 = pending payments, outstanding AR, bills to action, average
+  bill, reminders due (overdue count), stock alerts (out · low). Tiles deep-link to
+  Visits / Clients / Billing / Reminders / Inventory.
+  Cards: bills needing action · awaiting payment · paid today, then owner's-day checklist ·
+  waiting to be seen, then the existing reminders / today's appointments / inventory-alerts
+  lists. The clinic-wide bands are **kept**: conversion pulse, patient checkouts, partner
+  requests and staff activity all still render (they are exported from `ClinicTodayView`).
+- **What was replaced:** the `<ClinicTodayView>` day agenda + date range picker on that tab.
+  Per the user it is **commented out in `App.tsx`, not deleted** — the component and its
+  import are untouched, so putting it back is uncommenting one block.
+- **Record impact:** 🟢 None — read-only dashboard; the day checklist is localStorage only.
+- **Data dependency:** None new. Uses `GET /bills`, `GET /receivables/ageing`,
+  `GET /reminders/today` and `GET /summaries/conversions` — all already live.
+- **Rollback:** revert the commit, or swap the two blocks in `App.tsx` back.
+- ⚠️ **Watch out:** *Month to date* and *Average bill* are derived from the visits already
+  in DataContext, not from the ledger — they are a pulse, not the books. **Finance & BI**
+  (tab 2) remains the authority on revenue.
+
 ### page: boarding care sheet reads as rounds; one column; rate inherits the clinic default  —  2026-08-03
 - **What changed:** (user, three items)
   ① **Daily sheet = timed entries.** Each day is now ONE block listing its rounds —
