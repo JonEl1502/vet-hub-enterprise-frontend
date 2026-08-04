@@ -66,14 +66,17 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
           <h1 className="page-header">Staff Directory</h1>
           <p className="page-subheader mt-1">Authorized Medical & Administrative Personnel</p>
         </div>
-        <div className="flex gap-3">
-          <div className="relative group">
+        {/* The search box was a hard `w-64` next to a nowrap button — 368px of
+            content in the 328px a 360px phone leaves, so Register Staff was
+            clipped off the screen. Fluid below sm:, fixed from sm: up. */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative group flex-1 min-w-0 sm:flex-initial">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam" />
             <input
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
               placeholder="Filter cluster..."
-              className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none w-64 transition-all font-bold shadow-sm"
+              className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-4 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none w-full sm:w-64 transition-all font-bold shadow-sm"
             />
           </div>
           <button onClick={onAddStaff} className="compact-button bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg flex items-center gap-2 active:scale-95 transition-all">
