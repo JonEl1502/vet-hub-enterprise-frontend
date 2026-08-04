@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: void/delete payment use a branded modal, not the browser's prompt  —  2026-08-04
+- **What changed:** (user: "modal please with logo") voiding or deleting a payment called
+  native `prompt()`, so the confirmation appeared as the browser's own
+  **"app.vethubcore.com says"** box — unbranded, unstyleable, and visually indistinguishable
+  from a phishing dialog on a page that is about to reverse money. New
+  `dialog.prompt()` on the global dialog manager plus a `PromptDialog` carrying the
+  **BrandMark**, a danger header, the consequence text and a reason field. Delete requires
+  a reason; void leaves it optional. Cancel resolves `null`, so a deliberately blank
+  reason stays distinguishable from dismissing.
+- **Record impact:** 🟢 None — same calls, same confirmations.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** `dialog.prompt()` is now available app-wide. Four other native
+  `window.prompt()` call sites remain (admin transfers, admin plans, supplier payables,
+  the client portal's pet memories) — they should move to it too, but they are other
+  lanes' files.
+
 ### feat: stage a service for SOME animals on a group visit  —  2026-08-04
 - **What changed:** (user: "i can state for each patient or all taking one vaccination") a
   group visit sent **one task list to every animal**, so a vaccination staged for one

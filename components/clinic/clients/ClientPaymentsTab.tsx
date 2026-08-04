@@ -4,7 +4,7 @@ import {
   Receipt, FileText, CreditCard, Loader2, CheckCircle2, Ban, AlertTriangle, Link2, Trash2,
   Search, X, Wallet,
 } from 'lucide-react';
-import { clientsAPI, transactionsAPI, invoicesAPI } from '../../../services';
+import { clientsAPI, transactionsAPI, invoicesAPI, dialog } from '../../../services';
 import type { InvoiceRow } from '../../../services/modules/invoices.api';
 import { printElementAsPdf } from '../shared/printPdf';
 import { ClientBilling } from '../../../services/modules/clients.api';
@@ -411,9 +411,15 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   // duplicate, wrong amount), where a void would leave a confusing ghost on the
   // statement. Void stays the default for genuine reversals.
   const deletePayment = async (id: string, coveredCount: number) => {
-    const reason = prompt(
-      `DELETE this payment permanently?\n\nUse Void instead if the payment was real and is being reversed — a void keeps the history.\nDelete only for a mistaken entry (wrong client, duplicate, wrong amount).\n\n${coveredCount} invoice${coveredCount === 1 ? '' : 's'} will go back to unpaid and the wallet credit is reversed.\n\nReason:`,
-    );
+    const reason = await dialog.prompt({
+      title: 'Delete this payment permanently?',
+      variant: 'danger',
+      message: `Use Void instead if the payment was real and is being reversed — a void keeps the history.\nDelete only for a mistaken entry (wrong client, duplicate, wrong amount).\n\n${coveredCount} invoice${coveredCount === 1 ? '' : 's'} will go back to unpaid and the wallet credit is reversed.`,
+      label: 'Reason',
+      placeholder: 'Why is this being deleted?',
+      confirmLabel: 'Delete permanently',
+      required: true,
+    });
     if (reason === null) return;
     setBusy(true);
     try {
@@ -424,9 +430,14 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   };
 
   const voidPayment = async (id: string, coveredCount: number) => {
-    const reason = prompt(
-      `Void this payment?\n\nIt covers ${coveredCount} invoice${coveredCount === 1 ? '' : 's'} — all of them go back to unpaid and the wallet credit is reversed.\n\nReason (optional):`,
-    );
+    const reason = await dialog.prompt({
+      title: 'Void this payment?',
+      variant: 'danger',
+      message: `It covers ${coveredCount} invoice${coveredCount === 1 ? '' : 's'} — all of them go back to unpaid and the wallet credit is reversed.`,
+      label: 'Reason (optional)',
+      placeholder: 'e.g. entered twice, wrong client',
+      confirmLabel: 'Void payment',
+    });
     if (reason === null) return; // cancelled
     setBusy(true);
     try {

@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { dialog, DialogRequest } from '../../../services/utils/dialog';
 import ConfirmDialog from './ConfirmDialog';
 import DeleteConfirmationDialog from './DeleteConfirmationDialog';
+import PromptDialog from './PromptDialog';
 
 /**
  * Mounted once at the top of App.tsx. Subscribes to the global dialog
@@ -28,6 +29,17 @@ const DialogHost: React.FC = () => {
         entityLabel={active.opts.entityLabel}
         warning={active.opts.warning}
         tone={active.opts.tone}
+      />
+    );
+  }
+
+  if (active.kind === 'prompt') {
+    return (
+      <PromptDialog
+        open
+        opts={active.opts}
+        onCancel={() => dialog.finish(active.id, false)}
+        onConfirm={(v) => dialog.finish(active.id, true, v)}
       />
     );
   }
