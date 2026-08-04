@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: Visit team dead-ended on a visit with no encounter  —  2026-08-04
+- **What changed:** (user: "i cant add or remove staff from visit") staff are recorded
+  against an **encounter** (`visit_encounter_staff`), not the visit — the groomer attended
+  the groom, the vet attended the consult, and one visit-level "attending staff" cannot
+  express that. But a visit with **no encounter yet** had nothing to attach anyone to, and
+  the panel just said "add one in Clinical Workflow" and stopped. The empty state now
+  explains why, and offers **Add &lt;type&gt; encounter** — creating the visit's primary
+  encounter from its own `encounterType` via `POST /appointments/:id/encounters`, after
+  which the normal picker works. Hidden when the record is locked.
+- **Record impact:** 🔵 Low — the button CREATES an encounter on the visit (the same row
+  Clinical Workflow would have made). Nothing else is written.
+- **Data dependency:** None — the endpoint is long live.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** it creates the PRIMARY encounter for the visit's own type. If the work
+  was actually a different type (a groom on a vet visit), add that encounter in Clinical
+  Workflow instead so the record reads correctly — this button is the "the visit is what
+  it says it is" shortcut, not a type picker.
+
 ### fix: the LAST result in the service search couldn't be clicked  —  no migration
 - **What changed:** (user, 2026-08-04: "i cant add the last option") `InlineServiceSearch`
   rendered its dropdown as an `absolute` child. That works everywhere except the place it

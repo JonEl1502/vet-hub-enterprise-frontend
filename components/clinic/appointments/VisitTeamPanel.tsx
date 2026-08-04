@@ -49,6 +49,12 @@ const VisitTeamPanel: React.FC<Props> = ({ visitId, readOnly }) => {
   // Services/procedures on this visit, so staff can be credited per line. A
   // procedure anchors to a task, so both appear here and use the same endpoint.
   const [tasks, setTasks] = React.useState<{ id: string; name: string; encounterId: string | null; attendance?: any[] }[]>([]);
+  // The visit's own type, so a visit with NO encounter can be given its primary
+  // one from here instead of dead-ending (user, 2026-08-04: "i cant add or
+  // remove staff from visit"). Attribution hangs off encounters, so with none
+  // there was literally nothing to attach a person to.
+  const [visitType, setVisitType] = React.useState<{ encounterType: string; visitType: string | null } | null>(null);
+  const [creating, setCreating] = React.useState(false);
 
   const load = React.useCallback(async () => {
     try {
@@ -60,7 +66,9 @@ const VisitTeamPanel: React.FC<Props> = ({ visitId, readOnly }) => {
         setEncounters(r.data.encounters || []);
         setRegisteredBy(r.data.registeredBy ?? null);
       }
-      const vt = (v as any)?.data?.appointment?.tasks ?? (v as any)?.data?.tasks ?? [];
+      const appt = (v as any)?.data?.appointment ?? (v as any)?.data ?? null;
+      if (appt) setVisitType({ encounterType: String(appt.encounterType || 'VET_VISIT'), visitType: appt.visitType ?? null });
+      const vt = appt?.tasks ?? [];
       setTasks(Array.isArray(vt) ? vt.map((t: any) => ({
         id: String(t.id), name: t.name, encounterId: t.encounterId != null ? String(t.encounterId) : null, attendance: t.attendance ?? [],
       })) : []);
@@ -123,6 +131,19 @@ const VisitTeamPanel: React.FC<Props> = ({ visitId, readOnly }) => {
     } finally { setSavingId(null); }
   };
 
+  /** Give a bare visit its primary encounter so a team can be recorded. */
+  const startEncounter = async () => {
+    setCreating(true);
+    try {
+      const r = await visitsAPI.addEncounter(visitId, {
+        encounterType: visitType?.encounterType || 'VET_VISIT',
+        visitType: visitType?.visitType ?? undefined,
+      });
+      if (r.success) { toast.success('Encounter added — assign the team below'); await load(); }
+    } catch (e: any) { toast.error(e?.message || 'Could not add the encounter'); }
+    finally { setCreating(false); }
+  };
+
   const makeLead = (enc: VisitEncounter, userId: string) => {
     const cur = enc.attendingStaff ?? [];
     save(enc, cur.map(s => ({ ...s, isLead: String(s.userId) === String(userId) })));
@@ -162,7 +183,21 @@ const VisitTeamPanel: React.FC<Props> = ({ visitId, readOnly }) => {
       </div>
 
       {encounters.length === 0 && (
-        <p className="text-[11px] text-slate-400 font-medium">No encounters on this visit yet — add one in Clinical Workflow and its team appears here.</p>
+        <div className="rounded-xl border border-dashed border-slate-200 dark:border-zinc-800 p-4 space-y-2.5">
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
+            Staff are recorded against an <b>encounter</b> — the consult, the groom, the surgery —
+            because that is the unit the work happened in. This visit has none yet, so there is
+            nothing to assign anyone to.
+          </p>
+          {!readOnly && (
+            <button type="button" onClick={startEncounter} disabled={creating}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/90 disabled:opacity-50 transition-all">
+              {creating ? <Loader2 size={12} className="animate-spin" /> : <UserPlus size={12} />}
+              Add {String(visitType?.encounterType || 'visit').replace(/_/g, ' ').toLowerCase()} encounter
+            </button>
+          )}
+          <p className="text-[10px] text-slate-400">Or add one in Clinical Workflow — either way its team appears here.</p>
+        </div>
       )}
 
       {encounters.map(enc => {
