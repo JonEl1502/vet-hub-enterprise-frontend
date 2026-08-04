@@ -4,6 +4,7 @@ import { StepProps } from '../types';
 import { Section, L, showsField } from '../fields';
 import AppliedProcedurePanel from '../../../shared/AppliedProcedurePanel';
 import VaccinationPanel from '../../VaccinationPanel';
+import TreatmentPlanPanel from '../../../inpatient/TreatmentPlanPanel';
 import QtyUnitControl, { sellUnitOf } from '../../../shared/QtyUnitControl';
 import VisitFeeLines from '../../VisitFeeLines';
 import { billsAPI } from '../../../../../services';
@@ -309,6 +310,21 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
           </>
         )}
       </div>
+      {/* INPATIENT TREATMENT PLAN, started right here (user, 2026-08-04).
+          Only once the admission exists — the plan hangs off a hospitalization,
+          and there is nothing to attach it to before admit.
+          Entirely OPTIONAL: leave it blank and fill it from the daily log
+          instead. Same panel and same data as the inpatient chart, so whichever
+          end it is started from, it is one plan. */}
+      {visit.hospitalizationId && (
+        <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 bg-white dark:bg-zinc-900">
+          <TreatmentPlanPanel hospitalizationId={visit.hospitalizationId} />
+          <p className="mt-2 text-[9px] font-bold text-slate-400">
+            Optional here — the same plan can be built or added to from the daily log on the chart.
+          </p>
+        </div>
+      )}
+
       {isVaccinationFlow && (
         <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 bg-white dark:bg-zinc-900">
           <VaccinationPanel appointment={visit} petId={pet.id} onSaved={() => refreshVisit?.()} />

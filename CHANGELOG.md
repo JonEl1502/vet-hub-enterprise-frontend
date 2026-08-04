@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: start the inpatient treatment plan from the visit's Treatment step  —  backend 132
+- **What changed:** (user, 2026-08-04) the vet-visit wizard's **Treatment** step now shows the
+  same **Treatment plan** panel as the inpatient chart, so the plan can be drafted at the
+  moment the vet decides to admit — or left blank and filled in later from the daily log.
+- **Only once the admission exists** (`visit.hospitalizationId`): the plan hangs off a
+  hospitalization, so before admit there is nothing to attach it to. The step already knew
+  this state — it renders the "Inpatient — chart runs on the Admission step" badge from the
+  same field.
+- **Same panel, same data** — whichever end it is started from, it is one plan, not a second
+  copy that could drift from the chart's.
+- Labelled optional on the step, because leaving it blank is a legitimate workflow.
+- **Record impact:** 🟢 None — reuses the existing plan endpoints.
+
+
 ### flow: Skip now says whether it DEFERS the follow-up or drops it  —  2026-08-04
 - **What changed:** (user) "Skip for now" hid an important difference. **Inpatient
   discharge and boarding check-out already raise this same gate**, so on a visit with an
