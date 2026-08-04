@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: the follow-up reminder can be skipped — a visit that isn't ending shouldn't be gated  —  2026-08-04
+- **What changed:** (user: "the flow is ruined by it … can we even avoid reminder till the
+  visit is to close and here another encounter is about to start") `FinalizeReminderGate`
+  was a STRICT gate — no reminder, no finalize, with a deceased patient the only bypass.
+  It now offers **Skip for now**. The trigger case: coming off a surgery to take payment,
+  where the visit immediately carries on into an inpatient stay with its own treatment and
+  feeding plan — nothing is closing, so demanding "the next follow-up" interrupts the one
+  thing the user came to do. Skip sends `null`, the same "finalize with no reminder"
+  signal the deceased bypass already used, so every call site (visit detail, inpatient
+  chart, grooming drawer, boarding stay) handles it with no plumbing. The amber banner
+  stops claiming a reminder is required and says to skip when the visit is carrying on.
+- **Record impact:** 🟢 None — skipping writes nothing; it just doesn't create a reminder.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** a skipped visit has **no follow-up reminder at all** — it will not
+  appear on the Reminders page or drive a next appointment. That is the point, but it
+  removes the safety net that made every finalized visit produce one, so a clinic relying
+  on the gate for recall will now see gaps unless staff set them at discharge.
+
 ### feat: added services can be removed again; boarding + surgery match grooming  —  2026-08-04
 - **What changed:** (user: "allow to remove too", "update like grooming", "this to the
   bottom")

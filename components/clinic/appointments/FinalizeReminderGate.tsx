@@ -47,8 +47,11 @@ const dateInDays = (days: number) => {
 };
 
 /**
- * Strict pre-finalize gate. A visit cannot be finalized without a follow-up
- * reminder — the only bypass is a deceased patient. Rendered full-screen.
+ * Pre-finalize follow-up prompt. It used to be a STRICT gate — no reminder, no
+ * finalize — with a deceased patient the only bypass. That broke the common
+ * case where a visit is not ending at all (surgery handing over to an inpatient
+ * stay) and the user only came to take payment, so there is now a **Skip for
+ * now** (user, 2026-08-04). Rendered full-screen.
  */
 const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, encounterType, petDeceased, submitting, existing, onCancel, onConfirm }) => {
   const initialService = defaultServiceFor(encounterType);
@@ -119,7 +122,7 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
           <div className="p-5 space-y-4">
             <div className="flex items-start gap-2.5 px-3.5 py-2.5 bg-amber-50/70 dark:bg-amber-900/10 border border-amber-200/60 dark:border-amber-900/30 rounded-xl">
               <ShieldAlert size={15} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
-              <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">{isUpdate ? 'A reminder is already set for this visit — adjust it below to add more detail. It won’t create a duplicate.' : 'A follow-up reminder is required before this visit can be finalized. It drives the next appointment and shows on the Reminders page.'}</p>
+              <p className="text-[11px] text-amber-800 dark:text-amber-300 leading-relaxed">{isUpdate ? 'A reminder is already set for this visit — adjust it below to add more detail. It won’t create a duplicate.' : 'A follow-up reminder drives the next appointment and shows on the Reminders page. If this visit is carrying on — into a stay, say — skip it and set one when the patient actually leaves.'}</p>
             </div>
 
             <div>
@@ -152,8 +155,22 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
               <textarea rows={2} className={fieldCls} placeholder="e.g. recheck wound, next booster, etc." value={notes} onChange={e => setNotes(e.target.value)} />
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-1">
+            <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
               <button onClick={onCancel} disabled={submitting} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50">Cancel</button>
+              {/* Skip (user, 2026-08-04): a visit that is continuing — surgery
+                  handing over to an inpatient stay, say — is not "closing", and
+                  demanding the follow-up there interrupts the reason the user
+                  actually came (take payment). `null` is the same "finalize
+                  with no reminder" signal the deceased bypass already sends,
+                  so every call site handles it. */}
+              <button
+                onClick={() => onConfirm(null)}
+                disabled={submitting}
+                title="Finalize now — set the follow-up later from Reminders or the visit"
+                className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 hover:border-seafoam hover:text-seafoam disabled:opacity-50"
+              >
+                Skip for now
+              </button>
               <button
                 onClick={() => onConfirm({ serviceType, dueAt: new Date(dueAt).toISOString(), title: title.trim(), notes: notes.trim() })}
                 disabled={submitting || !valid}
