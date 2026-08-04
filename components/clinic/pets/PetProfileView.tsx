@@ -1895,6 +1895,8 @@ const PetProfileView: React.FC<Props> = ({
                   canCollect={hasFullAccess}
                   onViewVisit={onViewAppointment}
                   onChanged={loadBilling}
+                  clientName={owner.name}
+                  clientPhone={owner.phone}
                   only={financeSubTab}
                   petId={pet.id}
                 />

@@ -42,6 +42,9 @@ interface Props {
    * client's account, so a payment raised here can only cover this pet's bills.
    */
   petId?: string | number;
+  /** For the invoice/receipt document header — the client it is addressed to. */
+  clientName?: string;
+  clientPhone?: string;
 }
 
 const METHODS = ['CASH', 'M_PESA', 'CARD', 'BANK_TRANSFER'];
@@ -51,7 +54,7 @@ const money = (n: number, c: string) =>
 
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
-const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, onViewVisit, onChanged, only, petId }) => {
+const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, onViewVisit, onChanged, only, petId, clientName, clientPhone }) => {
   const { user } = useAuth();
   // Permanent deletion is owner/manager/admin only — mirrors the server's
   // role gate on DELETE /transactions/:id so the button isn't offered to
@@ -946,31 +949,63 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                           <button onClick={() => printElementAsPdf(`inv-print-${inv.visitId}`, `Invoice ${expandedDoc.number || ''}`, false)}
                             className="px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine">🖨 Print / download</button>
                         </div>
-                        <div id={`inv-print-${inv.visitId}`} className="rounded-xl border border-slate-200 dark:border-zinc-800 overflow-hidden">
-                          <div className="bg-pine text-white px-4 py-3 flex items-center justify-between">
-                            <div>
-                              <p className="text-[8px] font-black uppercase tracking-[0.2em] text-white/60">Invoice</p>
-                              <p className="text-sm font-black">{expandedDoc.number || `INV #${expandedDoc.id}`}</p>
+                        {/* The invoice AS A DOCUMENT (user, 2026-08-04) — who it
+                            is for, what was done, what it settles to. It was a
+                            header strip and a line list before. */}
+                        <div id={`inv-print-${inv.visitId}`} className="rounded-xl border border-slate-200 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900">
+                          <div className="bg-pine text-white px-4 py-4 flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <p className="text-lg font-black uppercase tracking-tight leading-none">Invoice</p>
+                              <p className="text-[9px] font-bold text-white/60 mt-1">
+                                {expandedDoc.number || `INV #${expandedDoc.id}`} · Visit #{inv.visitId} · {fmt(expandedDoc.issuedAt || expandedDoc.createdAt || inv.date)}
+                              </p>
                             </div>
-                            <div className="text-right text-[9px] font-bold text-white/70">
-                              {inv.pet?.name ? <p>{inv.pet.name}</p> : null}
-                              <p>{fmt(expandedDoc.createdAt || inv.date)}</p>
-                              {expandedDoc.scope && expandedDoc.scope !== 'FULL' && <p className="uppercase">{String(expandedDoc.scope).toLowerCase()} split</p>}
+                            <div className="text-right shrink-0">
+                              <p className="text-[11px] font-black uppercase tracking-tight">{clinicName || '—'}</p>
+                              {expandedDoc.scope && expandedDoc.scope !== 'FULL' && (
+                                <p className="text-[8px] font-black uppercase tracking-widest text-white/60 mt-0.5">{String(expandedDoc.scope).toLowerCase()} split</p>
+                              )}
                             </div>
                           </div>
-                          <div className="p-4 bg-white dark:bg-zinc-900">
-                            {(expandedDoc.lines || []).map((l: any) => (
-                              <div key={l.id} className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
-                                <span className="text-xs font-bold text-pine dark:text-zinc-100">{l.name}{l.quantity !== 1 ? ` × ${l.quantity}` : ''}{l.category ? <span className="ml-2 text-[8px] font-black uppercase text-slate-400">{l.category}</span> : null}</span>
-                                <span className="text-xs font-black font-mono text-pine dark:text-zinc-100">{money(Number(l.lineTotal), currency)}</span>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-zinc-800 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/40">
+                            {[
+                              { l: 'Patient', a: inv.pet?.name || '—', b: [inv.pet?.species].filter(Boolean).join(' · ') },
+                              { l: 'Client', a: clientName || '—', b: clientPhone || '' },
+                              { l: 'Clinic', a: clinicName || '—', b: '' },
+                            ].map(c => (
+                              <div key={c.l} className="px-4 py-2.5 min-w-0">
+                                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{c.l}</p>
+                                <p className="text-[12px] font-black text-pine dark:text-zinc-100 truncate uppercase">{c.a}</p>
+                                {c.b && <p className="text-[9px] font-bold text-slate-400 truncate">{c.b}</p>}
                               </div>
                             ))}
-                            <div className="flex justify-between items-end pt-2">
-                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total{Number(expandedDoc.discount) > 0 ? ` · discount ${money(Number(expandedDoc.discount), currency)}` : ''}</span>
-                              <span className="text-lg font-black font-mono text-pine dark:text-zinc-100">{money(Number(expandedDoc.total), currency)}</span>
+                          </div>
+
+                          <div className="p-4">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-2">Services &amp; items</p>
+                            {(expandedDoc.lines || []).map((l: any) => (
+                              <div key={l.id} className="flex justify-between items-center gap-3 py-2 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
+                                <span className="min-w-0 text-[13px] font-bold text-pine dark:text-zinc-100">
+                                  {l.name}{Number(l.quantity) !== 1 ? ` ×${l.quantity}` : ''}
+                                  {l.category && <span className="ml-2 text-[8px] font-black uppercase tracking-widest text-slate-400">{l.category}</span>}
+                                </span>
+                                <span className="shrink-0 text-[13px] font-black font-mono text-pine dark:text-zinc-100">{money(Number(l.lineTotal), currency)}</span>
+                              </div>
+                            ))}
+                          </div>
+
+                          <div className="border-t-2 border-pine dark:border-zinc-100 bg-slate-50 dark:bg-zinc-950 px-4 py-3">
+                            <div className="flex items-end justify-between gap-3">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                                Total settlement{Number(expandedDoc.discount) > 0 ? ` · discount ${money(Number(expandedDoc.discount), currency)}` : ''}
+                              </span>
+                              <span className="text-xl font-black font-mono text-pine dark:text-zinc-100">{money(Number(expandedDoc.total), currency)}</span>
                             </div>
                             {Number(expandedDoc.amountPaid) > 0 && (
-                              <p className="text-right text-[9px] font-bold text-slate-400 mt-0.5">paid {money(Number(expandedDoc.amountPaid), currency)} · {money(Number(expandedDoc.outstanding ?? (Number(expandedDoc.total) - Number(expandedDoc.amountPaid))), currency)} outstanding</p>
+                              <p className="text-right text-[9px] font-bold text-slate-400 mt-1">
+                                paid {money(Number(expandedDoc.amountPaid), currency)} · {money(Number(expandedDoc.outstanding ?? (Number(expandedDoc.total) - Number(expandedDoc.amountPaid))), currency)} outstanding
+                              </p>
                             )}
                           </div>
                         </div>

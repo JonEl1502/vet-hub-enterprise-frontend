@@ -223,42 +223,67 @@ const ClientBillsTab: React.FC<Props> = ({
                         </div>
                       )}
 
+                      {/* THE BILL AS ONE DOCUMENT (user, 2026-08-04) — grouped by
+                          what the line IS, each section carrying its own
+                          subtotal, and signed off at the bottom. A flat list of
+                          mixed services, drugs and consumables is what a vet has
+                          to read line by line to check. */}
                       <div className="rounded-xl border border-slate-200 dark:border-zinc-800 overflow-hidden bg-white dark:bg-zinc-900">
-                        <div className="overflow-x-auto">
-                          <table className="w-full text-left">
-                            <thead className="bg-slate-50 dark:bg-zinc-950">
-                              <tr className="text-[8px] font-black uppercase tracking-widest text-slate-400">
-                                <th className="px-3 py-2">Item</th>
-                                <th className="px-2 py-2 w-24">Kind</th>
-                                <th className="px-2 py-2 w-16 text-right">Qty</th>
-                                <th className="px-2 py-2 w-24 text-right">Unit</th>
-                                <th className="px-3 py-2 w-28 text-right">Line</th>
-                              </tr>
-                            </thead>
-                            <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-                              {doc.lines.length === 0 && (
-                                <tr><td colSpan={5} className="px-3 py-4 text-[11px] text-slate-400 text-center">Nothing has been charged to this visit yet.</td></tr>
-                              )}
-                              {doc.lines.map(l => (
-                                <tr key={l.id} className="text-[11px]">
-                                  <td className="px-3 py-1.5">
-                                    <span className="font-bold text-pine dark:text-zinc-100">{l.name}</span>
+                        {(['SERVICE', 'MEDICATION', 'CONSUMABLE', 'OTHER'] as const).map(kind => {
+                          const group = doc.lines.filter(l => (l.kind || 'OTHER') === kind);
+                          if (group.length === 0) return null;
+                          const sub = group.reduce((n, l) => n + Number(l.lineTotal || 0), 0);
+                          return (
+                            <div key={kind} className="border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
+                              <div className="flex items-center justify-between gap-2 px-3 py-1.5 bg-slate-50 dark:bg-zinc-950">
+                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">
+                                  {KIND_LABEL[kind] ?? kind}{group.length > 1 ? ` · ${group.length}` : ''}
+                                </span>
+                                <span className="text-[10px] font-black font-mono text-slate-500 dark:text-zinc-400">{money(sub, currency)}</span>
+                              </div>
+                              {group.map(l => (
+                                <div key={l.id} className="flex items-center justify-between gap-3 px-3 py-1.5">
+                                  <span className="min-w-0">
+                                    <span className="text-[12px] font-bold text-pine dark:text-zinc-100">{l.name}</span>
+                                    {Number(l.quantity) !== 1 && <span className="text-[10px] font-bold text-slate-400"> ×{l.quantity}</span>}
                                     {l.category && <span className="block text-[9px] font-bold text-slate-400">{l.category}</span>}
-                                  </td>
-                                  <td className="px-2 py-1.5 text-[9px] font-black uppercase tracking-wider text-slate-400">{KIND_LABEL[l.kind] ?? l.kind}</td>
-                                  <td className="px-2 py-1.5 text-right">{l.quantity}</td>
-                                  <td className="px-2 py-1.5 text-right">{money(l.unitPrice, currency)}</td>
-                                  <td className="px-3 py-1.5 text-right font-black text-pine dark:text-zinc-100">{money(l.lineTotal, currency)}</td>
-                                </tr>
+                                  </span>
+                                  <span className="shrink-0 text-[12px] font-black font-mono text-pine dark:text-zinc-100">{money(l.lineTotal, currency)}</span>
+                                </div>
                               ))}
-                            </tbody>
-                            <tfoot className="bg-slate-50 dark:bg-zinc-950">
-                              <tr>
-                                <td colSpan={4} className="px-3 py-2 text-[9px] font-black uppercase tracking-widest text-slate-400">Total</td>
-                                <td className="px-3 py-2 text-right text-sm font-black font-mono text-pine dark:text-zinc-100">{money(doc.total, currency)}</td>
-                              </tr>
-                            </tfoot>
-                          </table>
+                            </div>
+                          );
+                        })}
+                        {doc.lines.length === 0 && (
+                          <p className="px-3 py-4 text-[11px] text-slate-400 text-center">Nothing has been charged to this visit yet.</p>
+                        )}
+
+                        {/* Totals */}
+                        <div className="border-t-2 border-pine dark:border-zinc-100 bg-slate-50 dark:bg-zinc-950 px-3 py-2.5 space-y-1">
+                          {Number(doc.discount) > 0 && (
+                            <div className="flex items-center justify-between">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-amber-600">Discount</span>
+                              <span className="text-[11px] font-black font-mono text-amber-600">− {money(doc.discount, currency)}</span>
+                            </div>
+                          )}
+                          <div className="flex items-end justify-between">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Total</span>
+                            <span className="text-xl font-black font-mono text-pine dark:text-zinc-100">{money(doc.total, currency)}</span>
+                          </div>
+                        </div>
+
+                        {/* Sign-off — who stands behind these charges. */}
+                        <div className="px-3 py-2.5 border-t border-slate-100 dark:border-zinc-800 flex flex-wrap items-center justify-between gap-2">
+                          <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">Signed off</span>
+                          {doc.approvedAt ? (
+                            <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                              Approved {fmt(doc.approvedAt)}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                              Not signed off — the vet approves this on the visit
+                            </span>
+                          )}
                         </div>
                       </div>
 

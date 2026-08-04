@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: invoice and bill are proper documents  —  2026-08-04
+- **What changed:** (user: "invoice collapsed can look like this too"; "a look and feel for
+  a Bill all in one bill sectioned inside signed off at the bottom")
+  ① the expanded **invoice** gains a document header — **Patient · Client · Clinic** —
+  a *Services & items* section with each line's category, and a **Total settlement** band.
+  It was a header strip and a bare line list. `ClientPaymentsTab` takes `clientName` /
+  `clientPhone` so the document can name who it is addressed to; both profiles pass them.
+  ② the expanded **bill** is now one sectioned document: lines grouped by what they ARE —
+  Service · Medication · Consumable · Other — each with its own subtotal, then discount and
+  total, then a **Signed off** footer reading *Approved &lt;date&gt;* or *"Not signed off —
+  the vet approves this on the visit."* A flat list of mixed services, drugs and
+  consumables is what a vet had to check line by line.
+- **Record impact:** 🟢 None — presentation of what is already loaded.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### feat: receipts open the REAL document; full settle returns its receipt  —  2026-08-04
 - **What changed:** (user: "open actual recept"; "make the full settle return its receipt too")
   ① expanding a receipt now renders `ReconciliationDocument` — the same document the visit

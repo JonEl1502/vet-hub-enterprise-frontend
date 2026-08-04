@@ -1477,6 +1477,8 @@ const renderOverview = () => (
             canCollect={hasFullAccess}
             onViewVisit={onViewAppointment}
             onChanged={loadBilling}
+            clientName={client.name}
+            clientPhone={client.phone}
             only="payments"
           />
         )}
@@ -1501,6 +1503,8 @@ const renderOverview = () => (
             canCollect={hasFullAccess}
             onViewVisit={onViewAppointment}
             onChanged={loadBilling}
+            clientName={client.name}
+            clientPhone={client.phone}
             only="invoices"
           />
         )}
@@ -1511,6 +1515,8 @@ const renderOverview = () => (
             canCollect={hasFullAccess}
             onViewVisit={onViewAppointment}
             onChanged={loadBilling}
+            clientName={client.name}
+            clientPhone={client.phone}
             only="receipts"
           />
         )}
