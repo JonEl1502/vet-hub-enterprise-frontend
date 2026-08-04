@@ -554,6 +554,38 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
               sits at the top of the page instead (user, 2026-08-04). */}
           <div className={`space-y-4 ${STICKY_RAIL}`}>
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
+              {/* Secondary actions live HERE, not in the pinned bar (user,
+                  2026-08-05) — mirrors the inpatient rail. */}
+              <div className="flex flex-wrap items-center gap-2">
+                {linkedApptId && (
+                  <button onClick={() => onOpenAppointment?.(linkedApptId)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-seafoam/40 bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/20 transition-all">
+                    <ExternalLink size={12} /> Open visit
+                  </button>
+                )}
+                {linkedApptId && (
+                  <AddCategoryService
+                    appointmentId={linkedApptId}
+                    categoryKeyword="groom"
+                    taskCategory="Grooming"
+                    existingNames={groomTasks.map(t => t.name)}
+                    existing={groomTasks.map(t => ({ id: t.id, name: t.name }))}
+                    label="Add grooming service"
+                    tone="pink"
+                    onAdded={async () => { await load(); onChanged?.(); }}
+                  />
+                )}
+                <button onClick={() => setShowShare(true)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:border-seafoam transition-all">
+                  <Share2 size={12} /> Share{stay.allowedClinicIds && stay.allowedClinicIds.length > 0 ? ` · ${stay.allowedClinicIds.length}` : ''}
+                </button>
+                {active && (
+                  <button onClick={openPricing}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:border-seafoam transition-all">
+                    <Plus size={12} /> {pricingOpen ? 'Close pricing' : 'Edit stay & food pricing'}
+                  </button>
+                )}
+              </div>
               {/* Open visit · Add grooming service · Share all moved to the
                   PINNED bar (user, 2026-08-04: "move these too … to bottom
                   bar") — they are actions, and on a long care log they sat
@@ -704,45 +736,25 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
           <RecordActionBar
             hint={stay.intakeWeight != null ? `Intake ${stay.intakeWeight} kg` : 'Weigh on the way out to record the change'}
             actions={[
-              // Every action on this record now lives here (user, 2026-08-04).
-              ...(linkedApptId ? [{
-                key: 'visit', label: 'Open visit', icon: ExternalLink, tone: 'seafoam' as const,
-                onClick: () => onOpenAppointment?.(linkedApptId),
-              }] : []),
-              {
-                key: 'pricing', label: pricingOpen ? 'Close pricing' : 'Edit stay & food pricing',
-                icon: Plus, onClick: openPricing,
-              },
-              {
-                key: 'share',
-                label: `Share${stay.allowedClinicIds && stay.allowedClinicIds.length > 0 ? ` · ${stay.allowedClinicIds.length}` : ''}`,
-                icon: Share2, onClick: () => setShowShare(true),
-              },
+              // ONLY the terminal action is pinned (user, 2026-08-05) — the
+              // same rule the inpatient chart follows, where the rail carries
+              // Open visit / Add grooming / Share and the bar carries just
+              // Discharge. Everything on 2026-08-04 was moved INTO the bar,
+              // which left the bar crowded and the rail nearly empty; the
+              // secondary actions have gone back to the rail. Check out stays
+              // here with the discharge-weight input, which it consumes.
               { key: 'checkout', label: busy ? 'Checking out…' : 'Check out', icon: LogOut, onClick: () => checkOut(null), primary: true, disabled: busy },
             ]}
             slot={(
-              <>
-                {/* AddCategoryService owns its own trigger + popover, which is
-                    exactly what `slot` exists for. */}
-                {linkedApptId && (
-                  <AddCategoryService
-                    appointmentId={linkedApptId}
-                    categoryKeyword="groom"
-                    taskCategory="Grooming"
-                    existingNames={groomTasks.map(t => t.name)}
-                    existing={groomTasks.map(t => ({ id: t.id, name: t.name }))}
-                    label="Add grooming service"
-                    tone="pink"
-                    onAdded={async () => { await load(); onChanged?.(); }}
-                  />
-                )}
-                <div className="flex items-center gap-1.5">
-                  <Scale size={14} className="text-slate-400 shrink-0" />
-                  <input type="number" min="0" step="0.1" placeholder="Discharge weight (kg)" value={dischargeWeight}
-                    onChange={e => setDischargeWeight(e.target.value)}
-                    className="w-40 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
-                </div>
-              </>
+              /* The discharge weight stays in the BAR, not the rail: Check out
+                 consumes it, so the two belong together. `slot` exists for
+                 controls that aren't buttons. */
+              <div className="flex items-center gap-1.5">
+                <Scale size={14} className="text-slate-400 shrink-0" />
+                <input type="number" min="0" step="0.1" placeholder="Discharge weight (kg)" value={dischargeWeight}
+                  onChange={e => setDischargeWeight(e.target.value)}
+                  className="w-40 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+              </div>
             )}
           />
         </>
