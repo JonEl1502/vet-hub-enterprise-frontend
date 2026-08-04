@@ -6,7 +6,8 @@ import { useData } from '../../../contexts/DataContext';
 import GroomingPanel from '../appointments/GroomingPanel';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
 import { RecordActionProvider, useRecordActionSlot } from '../shared/RecordActionContext';
-import RecordPageHeader from '../shared/RecordPageHeader';
+import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
+import NotesFormatToggle from '../shared/NotesFormatToggle';
 import AddCategoryService from '../shared/AddCategoryService';
 import { deriveVisitStatus, STATUS_LABEL, STATUS_STYLE } from '../shared/visitStatus';
 
@@ -53,6 +54,32 @@ const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChang
   const owner = clients.find(c => c.id === appointment.clientId);
   const locked = !!appointment.isPaid || (appointment.status as string) === 'COMPLETED';
 
+  /**
+   * The rail's service lines. A grooming RECORD carries the service name and
+   * whether it is billable; the visit TASK carries the price — so the figure
+   * has to come from the join, not from either alone.
+   *
+   * ⚠️ Matched on NAME, which is the same fragile join `GroomingPanel` already
+   * uses for per-service consumables (`notes === serviceTag`). Renaming a
+   * grooming service breaks the price lookup here and it falls back to 0 —
+   * a DISPLAY gap, never a billing one: the bill is built server-side from the
+   * tasks themselves. Fixing it properly needs a stable key, same class as
+   * the category-key rule.
+   */
+  const groomTasks = (appointment.tasks || []).filter(t => (t.category || '').toLowerCase().includes('groom'));
+  const ccy = 'KES';
+  const groomLines = allRecs.map((r: any, i: number) => {
+    const t = groomTasks.find(tk => (tk.name || '').toLowerCase() === String(r.serviceName || '').toLowerCase());
+    return {
+      key: String(r.id ?? i),
+      name: r.serviceName || t?.name || 'Grooming service',
+      status: r.status,
+      billable: r.billable !== false,
+      price: Number((t as any)?.price) || 0,
+    };
+  });
+  const groomTotal = groomLines.filter(l => l.billable).reduce((sum, l) => sum + l.price, 0);
+
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
       <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all">
@@ -74,17 +101,82 @@ const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChang
         }
       />
 
-      {/* One column (user, 2026-08-03), matching the boarding stay: the report
-          card gets the full width and the controls run under it. */}
-      <div className="space-y-4">
+      {/* TWO COLUMNS, matching the inpatient chart and boarding stay
+          (user, 2026-08-05). Reverses the 2026-08-03 one-column call for the
+          same reason boarding did: the rail is STICKY, so it follows you down
+          a long report instead of being a strip you scroll past. */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
         {/* Report card — intake, before/after, groomer notes, consumables. */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-2.5 sm:p-4 shadow-sm">
+        <div className="lg:col-span-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-2.5 sm:p-4 shadow-sm">
           <GroomingPanel appointment={appointment} onSaved={onChanged}
-            notesFormat={gRec ? { value: gRec.displayFormat || 'PARAGRAPH', onChange: (v) => patchRec({ displayFormat: v }) } : undefined}
             onFinalize={locked ? undefined : () => onOpenAppointment?.(String(appointment.id))} />
         </div>
 
-        {/* Status / share / linked-visit controls — full width, below. */}
+        {/* SIDE RAIL — what's on this visit and what it comes to, plus the
+            notes format. The inpatient rail's equivalent is its accruing
+            charge; this is the grooming answer to "what will this bill?".
+            Built from `allRecs` (the grooming records) joined to the visit's
+            grooming TASKS, which is where the money lives — a record carries
+            the service name and its billable flag, the task carries the price. */}
+        <div className={`space-y-4 ${STICKY_RAIL}`}>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5">
+                <Scissors size={13} /> Services
+              </p>
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                {groomLines.length || 0} on this visit
+              </span>
+            </div>
+
+            {groomLines.length === 0 ? (
+              <p className="text-[11px] text-slate-400 dark:text-zinc-500">
+                No grooming services yet — add one from the bar below.
+              </p>
+            ) : (
+              <div className="divide-y divide-slate-100 dark:divide-zinc-800/60">
+                {groomLines.map(l => (
+                  <div key={l.key} className="py-2 flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{l.name}</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                        {String(l.status || 'PENDING').replace(/_/g, ' ')}
+                        {!l.billable && ' · not billed'}
+                      </p>
+                    </div>
+                    <span className={`text-[11px] font-black shrink-0 ${l.billable ? 'text-pine dark:text-zinc-100' : 'text-slate-400 line-through'}`}>
+                      {ccy} {l.price.toLocaleString()}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Billable only — a non-billable service is deliberately excluded
+                from the figure, not just struck through in the list. */}
+            {groomLines.length > 0 && (
+              <div className="pt-1 flex items-center justify-between border-t border-slate-100 dark:border-zinc-800">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Bills at</span>
+                <span className="text-sm font-black text-pine dark:text-zinc-100">{ccy} {groomTotal.toLocaleString()}</span>
+              </div>
+            )}
+            <p className="text-[9px] text-slate-400 dark:text-zinc-500">
+              Settled on the visit workflow, not here.
+            </p>
+          </div>
+
+          {/* Moved out of the report card so the rail carries the record's
+              controls, as inpatient's does. NotesFormatToggle renders its own
+              heading — do not add a label above it. */}
+          {gRec && (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
+              <NotesFormatToggle
+                value={gRec.displayFormat || 'PARAGRAPH'}
+                onChange={(v) => patchRec({ displayFormat: v })}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Actions + status are PINNED (user, 2026-08-04). They used to sit in a
