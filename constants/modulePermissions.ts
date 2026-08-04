@@ -63,8 +63,9 @@ const CRUD: ModuleActionDef[] = [
 ];
 
 export const INVENTORY_BILLABLES_GROUP = 'Inventory & Billables';
+export const CLINICAL_GROUP = 'Clinical';
 
-export const PERMISSION_MODULES: ModuleDef[] = [
+const INVENTORY_MODULES: ModuleDef[] = [
   {
     id: 'products',
     label: 'Products',
@@ -122,6 +123,105 @@ export const PERMISSION_MODULES: ModuleDef[] = [
   },
 ];
 
+// ── Clinical group ───────────────────────────────────────────────────────────
+//
+// The reason this migration happened (user, 2026-08-04): "front office desk user
+// has not permission to edit clinical workflow, just reminder, bill invoice".
+// That rule is not special-cased anywhere — it is simply what the front-desk
+// PRESET holds: `clinical:view` without `clinical:edit`.
+//
+// ⚠️ Before this, EVERY clinical router had zero role guards (only plan-feature
+// gates), so any authenticated clinic user — cashier, driver, accountant —
+// could write SOAP, surgery records and discharges.
+
+const CLINICAL_MODULES: ModuleDef[] = [
+  {
+    id: 'clinical',
+    label: 'Clinical records',
+    group: CLINICAL_GROUP,
+    hint: 'The visit record itself — SOAP, vitals, triage, workflow forms, vaccination & deworming entries, medications given',
+    // Not a sidebar page: it is the visit's own tabs. `:view` therefore gates
+    // nothing on its own — `:edit` is the one that matters.
+    views: [],
+    actions: [
+      { id: 'view', label: 'See records' },
+      { id: 'edit', label: 'Write records', hint: 'Fill in and change the clinical record. Without this the clinical tabs open read-only.' },
+    ],
+  },
+  {
+    id: 'visits',
+    label: 'Visits',
+    group: CLINICAL_GROUP,
+    hint: 'The visit list and a visit\'s details — booking, check-in, status',
+    views: ['appointments'],
+    actions: [
+      { id: 'view', label: 'Access page' },
+      { id: 'create', label: 'Start a visit' },
+      { id: 'edit', label: 'Edit visit' },
+      { id: 'delete', label: 'Delete' },
+    ],
+  },
+  {
+    id: 'reminders',
+    label: 'Reminders',
+    group: CLINICAL_GROUP,
+    hint: 'Due reminders and follow-ups',
+    views: ['reminders'],
+    actions: CRUD,
+  },
+  {
+    id: 'inpatient',
+    label: 'Inpatient',
+    group: CLINICAL_GROUP,
+    hint: 'Admissions, the inpatient chart and discharge',
+    views: ['inpatient', 'inpatient-chart'],
+    actions: CRUD,
+  },
+  {
+    id: 'boarding',
+    label: 'Boarding',
+    group: CLINICAL_GROUP,
+    hint: 'Boarding stays and the daily care sheet',
+    views: ['boarding', 'boarding-stay'],
+    actions: CRUD,
+  },
+  {
+    id: 'grooming',
+    label: 'Grooming',
+    group: CLINICAL_GROUP,
+    hint: 'Grooming bookings and their records',
+    views: ['grooming'],
+    actions: CRUD,
+  },
+  {
+    id: 'surgery',
+    label: 'Surgery',
+    group: CLINICAL_GROUP,
+    hint: 'Surgery list and operation records',
+    views: ['surgery', 'surgery-record'],
+    actions: CRUD,
+  },
+  {
+    id: 'laboratory',
+    label: 'Laboratory',
+    group: CLINICAL_GROUP,
+    hint: 'Lab requests and results',
+    views: ['laboratory'],
+    actions: CRUD,
+  },
+  {
+    id: 'imaging',
+    label: 'Imaging',
+    group: CLINICAL_GROUP,
+    hint: 'Imaging requests and reports',
+    views: ['imaging'],
+    actions: CRUD,
+  },
+];
+
+/** The whole catalog, in sidebar order. */
+export const PERMISSION_MODULES: ModuleDef[] = [...INVENTORY_MODULES, ...CLINICAL_MODULES];
+
 export const MODULE_BY_ID: Record<string, ModuleDef> =
   Object.fromEntries(PERMISSION_MODULES.map(m => [m.id, m]));
 
@@ -170,6 +270,16 @@ export const LEGACY_GRANT_MAP: Record<string, string[]> = {
 // and are not listed here.
 
 const VIEW_ALL: string[] = PERMISSION_MODULES.map(m => `${m.id}:view`);
+const CLINICAL_IDS = CLINICAL_MODULES.map(m => m.id);
+/** Full write on every clinical module — what a clinician actually needs. */
+const CLINICAL_WRITE: string[] = CLINICAL_IDS.flatMap(id => [`${id}:create`, `${id}:edit`]);
+/** The front desk's clinical stance: see everything, write nothing clinical. */
+const CLINICAL_READ_ONLY: string[] = CLINICAL_IDS.map(id => `${id}:view`);
+/** Booking and chasing IS the front desk's job — those stay full write. */
+const DESK_WRITE: string[] = [
+  'visits:create', 'visits:edit',
+  'reminders:create', 'reminders:edit', 'reminders:delete',
+];
 const writes = (moduleId: string, ...actions: ModuleActionId[]) =>
   actions.map(a => `${moduleId}:${a}`);
 
@@ -177,35 +287,69 @@ export const MODULE_ROLE_PRESETS: Partial<Record<UserRole, string[]>> = {
   // Clinical leads shape what the clinic sells and how a visit is recorded.
   [UserRole.VET]: [
     ...VIEW_ALL,
+    ...CLINICAL_WRITE,
+    ...writes('clinical', 'edit'),
+    ...writes('visits', 'delete'),
     ...writes('products', 'create', 'edit', 'stock'),
     ...writes('services', 'create', 'edit'),
     ...writes('procedures', 'create', 'edit', 'delete'),
     ...writes('workflows', 'create', 'edit'),
     ...writes('packages', 'create', 'edit'),
   ],
-  [UserRole.VET_NURSE]: [...VIEW_ALL, ...writes('products', 'stock')],
-  [UserRole.LAB_TECH]:  [...VIEW_ALL, ...writes('products', 'stock')],
+  // A nurse works patients up and records what they did — everything except
+  // deleting a visit.
+  [UserRole.VET_NURSE]: [...VIEW_ALL, ...CLINICAL_WRITE, ...writes('clinical', 'edit'), ...writes('products', 'stock')],
+  // Lab/imaging is their bench; the rest of the record is read-only to them.
+  [UserRole.LAB_TECH]: [
+    ...VIEW_ALL, ...CLINICAL_READ_ONLY,
+    ...writes('laboratory', 'create', 'edit'), ...writes('imaging', 'create', 'edit'),
+    ...writes('clinical', 'edit'),
+    ...writes('products', 'stock'),
+  ],
   // Dispensary owns the shelf: items and their movements, and what a package
   // contains — but not the service catalog or the visit workflow.
   [UserRole.PHARMACIST]: [
-    ...VIEW_ALL,
+    ...VIEW_ALL, ...CLINICAL_READ_ONLY,
+    // Dispensing is recorded on the visit, so the record stays writable.
+    ...writes('clinical', 'edit'),
     ...writes('products', 'create', 'edit', 'delete', 'stock'),
     ...writes('packages', 'create', 'edit'),
   ],
-  // Front desk and money roles read prices; they do not shape the catalog.
-  [UserRole.FRONT_OFFICE]: VIEW_ALL,
-  [UserRole.RECEPTIONIST]: VIEW_ALL,
-  [UserRole.CASHIER]:      VIEW_ALL,
-  [UserRole.ACCOUNTANT]:   VIEW_ALL,
-  [UserRole.GROOMER]:      VIEW_ALL,
-  [UserRole.KENNEL_ATTENDANT]: [...VIEW_ALL, ...writes('products', 'stock')],
-  [UserRole.DRIVER]:       VIEW_ALL,
-  [UserRole.CLINIC_VIEWER]: VIEW_ALL,
-  [UserRole.FREELANCER]:   VIEW_ALL,
+  // ── The front desk (user, 2026-08-04) ──────────────────────────────────
+  // "no permission to edit clinical workflow, just reminder, bill invoice."
+  // They SEE every clinical page — the desk answers questions about them all
+  // day — but the clinical record is read-only. Booking visits and working
+  // reminders stay full write; billing lives in the legacy catalog for now and
+  // is untouched, so invoicing keeps working exactly as it does today.
+  [UserRole.FRONT_OFFICE]: [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...DESK_WRITE],
+  [UserRole.RECEPTIONIST]: [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...DESK_WRITE],
+  [UserRole.CASHIER]:      [...VIEW_ALL, ...CLINICAL_READ_ONLY],
+  [UserRole.ACCOUNTANT]:   [...VIEW_ALL, ...CLINICAL_READ_ONLY],
+  // Their own room is theirs to run; the rest of the record is not.
+  [UserRole.GROOMER]: [
+    ...VIEW_ALL, ...CLINICAL_READ_ONLY,
+    ...writes('grooming', 'create', 'edit'), ...writes('clinical', 'edit'),
+  ],
+  [UserRole.KENNEL_ATTENDANT]: [
+    ...VIEW_ALL, ...CLINICAL_READ_ONLY,
+    ...writes('boarding', 'create', 'edit'), ...writes('clinical', 'edit'),
+    ...writes('products', 'stock'),
+  ],
+  [UserRole.DRIVER]:        [...VIEW_ALL, ...CLINICAL_READ_ONLY],
+  [UserRole.CLINIC_VIEWER]: [...VIEW_ALL, ...CLINICAL_READ_ONLY],
+  // An external vet works clinically, on the visits they are given.
+  [UserRole.FREELANCER]:    [...VIEW_ALL, ...CLINICAL_WRITE, ...writes('clinical', 'edit')],
   // General staff keep the stock work they do today; catalog writes become a
   // grant. `requireRole` treats every designation above as STAFF server-side,
   // which is exactly why the presets have to be explicit here.
-  [UserRole.STAFF]: [...VIEW_ALL, ...writes('products', 'create', 'edit', 'stock')],
+  // Generic STAFF keeps clinical write. It is the bucket every unlabelled
+  // clinic user sits in, and `requireRole` has always treated it as "real
+  // staff" — narrowing it here would lock out working clinics that never set
+  // job titles. Give someone a job title to narrow them.
+  [UserRole.STAFF]: [
+    ...VIEW_ALL, ...CLINICAL_WRITE, ...writes('clinical', 'edit'),
+    ...writes('products', 'create', 'edit', 'stock'),
+  ],
 };
 
 // ── Runtime gate ─────────────────────────────────────────────────────────────

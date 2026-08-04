@@ -75,6 +75,7 @@ import KeyboardShortcutsHelp from '../../shared/common/KeyboardShortcutsHelp';
 import { useData } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import ErrorDialog from '../../shared/common/ErrorDialog';
+import { can } from '../../../constants/modulePermissions';
 
 interface Props {
   appointment: Visit;
@@ -1094,6 +1095,10 @@ const VisitDetailInner: React.FC<Props> = ({
   // gateways"). Non-owners just get no online-gateway options (cash/wallet still work).
   const { user: currentUser } = useAuth();
   const canManageGateways = !!currentUser && ['SUPER_ADMIN', 'MERCHANT_ADMIN', 'CLINIC_OWNER'].includes(currentUser.role as string);
+  // May this user WRITE the clinical record? (user, 2026-08-04) The front desk
+  // holds `clinical:view` without `clinical:edit`, so the clinical tabs render
+  // read-only for them. Mirrored on every clinical write route server-side.
+  const canWriteClinical = can(currentUser, 'clinical:edit');
   useEffect(() => {
     if (!appointment.clinicId || !canManageGateways) { setGatewayConfigs([]); return; }
     paymentGatewaysAPI.list(appointment.clinicId, { showError: false })
@@ -3380,6 +3385,10 @@ const VisitDetailInner: React.FC<Props> = ({
           emergency the wizard stays locked behind an overlay until triage
           stabilizes the patient. */}
       {workflowTab === 'clinical' && (
+      /* Clinical tabs stay VISIBLE and go read-only for anyone without
+         `clinical:edit` (user, 2026-08-04) — the front desk answers questions
+         about the record all day, they just may not write it. The same grant is
+         enforced on `PUT /visits/:id/workflow`, so this is the courtesy. */
       <div className="relative">
         <div className={isEmergency && !triageStabilized ? 'pointer-events-none select-none blur-[2px] opacity-50' : ''} aria-hidden={isEmergency && !triageStabilized}>
         {/* Lets panels inside the wizard add a service inline instead of opening
@@ -3410,7 +3419,11 @@ const VisitDetailInner: React.FC<Props> = ({
           staff={staffMembers.map(s => ({ id: s.id, name: s.name }))}
           activeClinic={activeClinic}
           wiz={wiz}
-          locked={visitClosed}
+          /* `clinical:edit` (user, 2026-08-04) joins "the visit is billed" as a
+             reason to lock. The wizard's locked mode keeps step navigation
+             live, so the front desk can still READ the whole record. */
+          locked={visitClosed || !canWriteClinical}
+          lockReason={!visitClosed && !canWriteClinical ? 'permission' : 'billed'}
           goServices={() => setWorkflowTab('billing')}
           goBilling={() => { setWorkflowTab('records'); setActiveBottomTab('invoice'); }}
           onAddService={!isFinalized ? () => setShowInjectModal(true) : undefined}
@@ -3515,7 +3528,9 @@ const VisitDetailInner: React.FC<Props> = ({
           staff={staffMembers.map(s => ({ id: s.id, name: s.name }))}
           onStatusChange={(rec) => setTriageStabilized(rec.status === 'STABILIZED' || ['STABILIZED', 'IMPROVED', 'HOSPITALIZED'].includes(rec.outcome || ''))}
           onDischarged={handleTriageDischarged}
-          readOnly={!isEmergency}
+          /* Its own read-only mode rather than a fence — the panel already
+             supports it, and it keeps its navigation live (2026-08-04). */
+          readOnly={!isEmergency || !canWriteClinical}
         />
       )}
 

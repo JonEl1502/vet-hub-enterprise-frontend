@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: clinical pages join the grouped permissions; the visit record goes read-only without the grant  —  2026-08-04
+- **What changed:** (user) the catalog gains a **Clinical** group — Clinical records, Visits,
+  Reminders, Inpatient, Boarding, Grooming, Surgery, Laboratory, Imaging — each with
+  access-page + create/edit/delete, and all of it appears in the staff Permissions editor
+  automatically (it renders whatever the catalog defines, grouped the way the sidebar reads).
+- **The visit's clinical tabs go read-only** for anyone without `clinical:edit`. Rather than
+  a new fence, this reuses the wizard's OWN `locked` mode — *"Navigate the steps to review"* —
+  so a front-desk user can still read the whole record, step by step, and only editing is
+  off. Its banner gained a `lockReason`: a permission lock says *"Read-only — clinical
+  records"* instead of the billed lock's *"Visit closed & billed"*, which would have sent
+  someone hunting a bug that isn't there. Emergency triage uses its existing `readOnly` prop
+  for the same reason.
+- **Page gating now actually bites.** The module check moved to the TOP of `App.canAccess`:
+  `openViews` and the category-scope check both return `true` early, so a revoked clinical
+  page would have opened anyway. Every preset still grants view on every module, so nothing
+  changes until an owner takes one away.
+- **Record impact:** 🟢 None — read-only gating.
+- **Data dependency:** the backend's `requireModule` on the clinical write routes. Deploy
+  together: FE-only leaves the writes open, BE-only shows controls that 403.
+- **Rollback:** revert both commits together.
+- ⚠️ **Still to do:** the module RECORD PANELS (vaccination, deworming, boarding care sheet,
+  inpatient chart, surgery record) do not hide their own buttons yet — their writes are
+  blocked server-side with a clear message, but the buttons still render for a read-only
+  user. The visit workflow, the main clinical surface, is fully handled.
+
 ### feat: Visit team panel — see and reassign who worked the visit  —  backend 127
 - **What changed:** (user, 2026-08-04) a **Visit team** panel fills the empty half of the
   visit's Follow-Up & Reminders tab: who **registered** the visit (front desk) plus, per

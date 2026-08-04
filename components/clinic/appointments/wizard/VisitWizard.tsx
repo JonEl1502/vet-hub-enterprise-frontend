@@ -3,7 +3,7 @@ import {
   ChevronLeft, ChevronRight, CheckCircle2, Clock, Receipt,
   PanelRightClose, PanelRightOpen, RefreshCw,
   ExternalLink, AlertTriangle, Loader2, Siren,
-  Workflow,
+  Workflow, Lock,
 } from 'lucide-react';
 import { Visit, Pet, Client, Clinic } from '../../../../types';
 import { STEP_DEFS } from './entryPoints';
@@ -44,6 +44,12 @@ interface Props {
   // edits, no add-service / complete / reset actions. Navigation stays live
   // so past steps can still be read.
   locked?: boolean;
+  /**
+   * WHY it is locked, so the banner tells the truth (user, 2026-08-04). A
+   * front-desk user seeing "Visit closed & billed" on an open visit would file
+   * a bug — the visit is fine, they simply may not write clinical records.
+   */
+  lockReason?: 'billed' | 'permission';
   goServices?: () => void;
   goBilling?: () => void;
   onAddService?: () => void;
@@ -138,7 +144,7 @@ const StepActionSlot: React.FC = () => {
   );
 };
 
-const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onUpdateTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
+const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, lockReason = 'billed', goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onUpdateTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry, templateStages, templateFields, template, setVisitTemplate } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   // Inline add-service search on the Running Bill card (user, 2026-08-01).
@@ -372,15 +378,27 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
 
       {/* ── Closed banner — visit is billed & done, workflow is view-only ── */}
       {locked && (
-        <div className="px-4 py-2 border-b border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/20 flex items-center gap-2">
-          <CheckCircle2 size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
-          <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
-            Visit closed &amp; billed — view only
-          </span>
-          <span className="text-[9px] font-bold text-emerald-600/70 dark:text-emerald-500/70 hidden sm:block">
-            Navigate the steps to review; editing is locked.
-          </span>
-        </div>
+        lockReason === 'permission' ? (
+          <div className="px-4 py-2 border-b border-amber-200 dark:border-amber-900/50 bg-amber-50 dark:bg-amber-950/20 flex items-center gap-2">
+            <Lock size={13} className="text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
+              Read-only — clinical records
+            </span>
+            <span className="text-[9px] font-bold text-amber-600/70 dark:text-amber-500/70 hidden sm:block">
+              Navigate the steps to review. Ask your clinic owner for permission to write.
+            </span>
+          </div>
+        ) : (
+          <div className="px-4 py-2 border-b border-emerald-200 dark:border-emerald-900/50 bg-emerald-50 dark:bg-emerald-950/20 flex items-center gap-2">
+            <CheckCircle2 size={13} className="text-emerald-600 dark:text-emerald-400 shrink-0" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+              Visit closed &amp; billed — view only
+            </span>
+            <span className="text-[9px] font-bold text-emerald-600/70 dark:text-emerald-500/70 hidden sm:block">
+              Navigate the steps to review; editing is locked.
+            </span>
+          </div>
+        )
       )}
 
       {/* ── Encounter toolbar: workflow chips · transfer · escalations.

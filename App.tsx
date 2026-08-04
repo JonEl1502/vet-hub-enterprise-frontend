@@ -2181,6 +2181,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     // Emergency is full access — reachable by every clinic user, always.
     if (view === 'emergency') return true;
 
+    // Grouped module permissions decide FIRST for the views they own (user,
+    // 2026-08-04). `<module>:view` is the page grant. This has to run ahead of
+    // `openViews` and the category-scope check below, because both return true
+    // early — a page an owner revoked would otherwise still open. Every role
+    // preset grants view on every module, so nothing changes until someone
+    // takes one away.
+    if (VIEW_TO_MODULE[view]) return canOpenView(user, view);
+
     // Views always open to all authenticated clinic users. Per-visit and
     // per-client detail pages (boarding-stay, inpatient-chart, vaccinations,
     // edit-client, messaging) are open too: visits are open to every staffer,
@@ -2206,11 +2214,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     // with a bespoke role dashboard, which is their own workspace.
     if (view === 'dashboard') return hasPerm(Permission.VIEW_DASHBOARD) || ROLE_DASHBOARD_ROLES.has(String(role));
 
-    // Inventory & Billables — grouped module permissions (user, 2026-08-04).
-    // `<module>:view` IS the page grant; every role preset still grants view on
-    // all six, so this only bites once an owner takes one away. Procurement
-    // pages (purchase orders) stay open until that group is migrated too.
-    if (VIEW_TO_MODULE[view]) return canOpenView(user, view);
     if (['purchase-orders', 'purchase-order-detail', 'purchase-order-form'].includes(view))
       return true;
 
