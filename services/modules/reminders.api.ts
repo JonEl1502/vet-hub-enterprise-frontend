@@ -22,6 +22,12 @@ export interface Reminder {
   dueAt: string;
   status: ReminderStatus;
   recurrence: string | null;
+  /**
+   * Follow-up plan key (backend 134). Reminders sharing it were written as one
+   * plan on one visit; each is still its own row with its own due date and
+   * status. Null on anything created outside a plan.
+   */
+  groupId: string | null;
   meta: Record<string, any>;
   contactedAt: string | null;
   completedAt: string | null;
@@ -42,6 +48,8 @@ export interface CreateReminderPayload {
   recurrence?: string | null;
   meta?: Record<string, any>;
   originAppointmentId?: string | number;
+  /** Ties several points created together into one follow-up plan (134). */
+  groupId?: string;
 }
 
 export type ReminderScope = 'upcoming' | 'past' | 'today' | 'all';

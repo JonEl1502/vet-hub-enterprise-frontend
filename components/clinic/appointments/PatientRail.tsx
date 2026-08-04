@@ -237,6 +237,12 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
     const valid = planPoints.filter(p => p.title.trim() && p.dueDate);
     if (!valid.length) { toast.error('No reminder points to create'); return; }
     setCreatingReminders(true);
+    // ONE plan key for this whole set (backend 134). The loop already created a
+    // reminder per point — what was missing is that the points had nothing
+    // tying them together, so a plan of three read as three unrelated recalls.
+    // Each point stays its own reminder with its own due date and status; the
+    // key only says they were written as one plan.
+    const groupId = `plan-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
     try {
       let ok = 0;
       for (const p of valid) {
@@ -249,6 +255,9 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
           notes: p.description?.trim() || 'From the doctor’s follow-up plan',
           // Assignee → drives the "set this reminder" notification in their bell.
           meta: p.assignTo ? { assignedToId: p.assignTo, assignedToName: p.assignToName || '', source: 'doctor-followup' } : { source: 'doctor-followup' },
+          // Only group a REAL plan — a single point is not a plan, and giving
+          // it a key would make every lone reminder look like one.
+          ...(valid.length > 1 ? { groupId } : {}),
         }).catch(() => null);
         if (res?.success) ok++;
       }
@@ -316,11 +325,31 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
           {(createdReminders.length > 0 || upcomingBookings.length > 0) && (
             <div className="space-y-1">
               <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Created — reminders &amp; appointments</p>
+              {/* A plan's points were created together (134). Saying so turns
+                  three unrelated-looking recalls back into the one plan the vet
+                  actually wrote — without changing what any of them IS. */}
+              {(() => {
+                const groups = new Map<string, number>();
+                for (const r of createdReminders as any[]) if (r.groupId) groups.set(r.groupId, (groups.get(r.groupId) ?? 0) + 1);
+                const plans = [...groups.values()].filter(n => n > 1);
+                if (plans.length === 0) return null;
+                return (
+                  <p className="text-[8px] font-bold text-amber-600 dark:text-amber-400">
+                    {plans.length === 1
+                      ? `One follow-up plan · ${plans[0]} points`
+                      : `${plans.length} follow-up plans · ${plans.reduce((a2, b2) => a2 + b2, 0)} points`}
+                  </p>
+                );
+              })()}
               {createdReminders.map((r: any) => (
                 <button key={`r-${r.id}`} type="button" onClick={() => setViewItem({ type: 'reminder', data: r })}
                   className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-left hover:border-amber-400 transition-all group">
                   <Bell size={10} className="text-amber-500 shrink-0" />
                   <span className="flex-1 text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{r.title}</span>
+                  {r.groupId && (
+                    <span title="Part of one follow-up plan"
+                      className="shrink-0 px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[7px] font-black uppercase tracking-wider">Plan</span>
+                  )}
                   <span className="text-[8px] font-black uppercase text-amber-600 shrink-0">{formatDate(r.dueAt)} · {String(r.status || '').toLowerCase()}</span>
                   {!readOnly && (
                     <span role="button" title="Delete reminder"

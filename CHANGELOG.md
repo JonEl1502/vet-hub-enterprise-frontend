@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: a follow-up plan's points are tied together  —  2026-08-04
+- **What changed:** the Follow-up Plan already created **one reminder per point** — what it
+  did not do was record that they belonged to the same plan, so a vet's three-point recall
+  read as three unrelated reminders everywhere afterwards. Creating a plan of 2+ points now
+  stamps them all with one `groupId` (backend **134**), and the Created list says
+  *"One follow-up plan · 3 points"* with a **Plan** tag on each row.
+- **Record impact:** 🟢 None — the same reminders are created; they now carry a key.
+- **Data dependency:** backend **134** (live on staging and prod; column applied to both
+  databases).
+- **Rollback:** revert the commit and rebuild; existing keys become inert.
+- ⚠️ **Watch out:** a SINGLE point is deliberately left ungrouped — one reminder is not a
+  plan, and keying it would make every lone reminder render as one. The Reminders page
+  does not group yet either; it still lists points individually, which is correct
+  behaviour (each has its own due date and status) but means the plan is only visible on
+  the visit for now.
+
 ### ui: finalize lands on Bill & Invoice, and the header shows where the visit IS on the chain  —  no migration
 - **What changed:** (user, 2026-08-04)
   1. Finalizing a visit now switches to the **Bill & Invoice** tab. Finalizing *is* generating
