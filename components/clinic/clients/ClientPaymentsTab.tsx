@@ -531,6 +531,45 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                       : `${money(surplus, currency)} more than the selection — the surplus is saved as client credit`}
                 </p>
               )}
+
+              {/* BEFORE / AFTER — what this payment does to the account, spelled
+                  out before it is posted (user, 2026-08-04, reference design).
+                  Every figure is derived from the same numbers the collect call
+                  uses, so the preview and the outcome cannot disagree. */}
+              {selected.size > 0 && fundsTotal > 0 && (
+                <div className="w-full grid grid-cols-2 sm:grid-cols-4 rounded-xl border border-slate-200 dark:border-zinc-800 divide-y sm:divide-y-0 sm:divide-x divide-slate-200 dark:divide-zinc-800 overflow-hidden bg-white dark:bg-zinc-900">
+                  {[
+                    { l: 'Outstanding before', v: money(selectedTotal, currency), cls: 'text-pine dark:text-zinc-100' },
+                    { l: 'Payment amount', v: money(fundsTotal, currency), cls: 'text-pine dark:text-zinc-100' },
+                    {
+                      l: 'Outstanding after',
+                      v: money(Math.max(0, round2(selectedTotal - fundsTotal)), currency),
+                      cls: isShort ? 'text-rose-500' : 'text-emerald-600 dark:text-emerald-400',
+                    },
+                    {
+                      // Credit drawn REDUCES the balance; a surplus ADDS to it.
+                      l: 'Client credit after',
+                      v: money(Math.max(0, round2(credit - creditDraw + surplus)), currency),
+                      cls: 'text-purple-500',
+                    },
+                  ].map(c => (
+                    <div key={c.l} className="px-3 py-2 text-center">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{c.l}</p>
+                      <p className={`text-xs font-black font-mono ${c.cls}`}>{c.v}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Who the server will record as having taken the money. Shown,
+                  not typed: it is `req.user` on the API, so a free-text name
+                  here would be a different person from the one on the record. */}
+              {user && (
+                <p className="w-full text-[9px] font-bold text-slate-400">
+                  Received by <span className="text-slate-600 dark:text-zinc-300 font-black">{(user as any).name || (user as any).email}</span>
+                  {surplus > 0.005 ? ' · the unallocated surplus is saved as client credit' : ''}
+                </p>
+              )}
             </div>
           )}
 

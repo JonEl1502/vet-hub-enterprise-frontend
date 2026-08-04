@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: collect shows before/after and who is recorded as receiving  —  2026-08-04
+- **What changed:** (user, "Receive Payment" reference design) the collect bar gains the
+  mockup's summary strip — **Outstanding before · Payment amount · Outstanding after ·
+  Client credit after** — derived from the same numbers the collect call itself uses, so
+  the preview and the outcome cannot disagree (credit drawn reduces the balance, a surplus
+  adds to it). It also names **who the payment will be recorded against**.
+- **Record impact:** 🟢 None — display only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Two fields from the mockup were deliberately NOT built, because the API cannot
+  honour them:** ① **Reference** — `POST /clients/:id/collect` accepts no reference; the
+  transaction's `reference` is derived from the receipt number. A box here would silently
+  discard whatever was typed, so it needs a backend field first (revenue-cycle lane).
+  ② **Received By** as an INPUT — the server records `req.user`, so a free-text name would
+  put a different person on screen than on the record. It is shown, not typed. The rest of
+  the mockup already exists: amount, method, per-invoice apply amounts, automatic /
+  manual / selected allocation, and surplus-to-credit.
+
 ### feat: receipts open in place as the actual document  —  2026-08-04
 - **What changed:** (user chose collapsibles over draggable windows) a receipt row showed
   a number and a total and nothing else. Clicking **Open** now expands it in place into the
