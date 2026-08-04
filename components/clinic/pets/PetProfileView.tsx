@@ -20,7 +20,7 @@ import { Heart, Activity, Calendar, CalendarPlus, Clipboard, Network, ArrowLeft,
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useAuth } from '../../../contexts/AuthContext';
-import ClientAccountHub, { ClientStatementTab, preferredMethod } from '../clients/ClientAccountHub';
+import ClientAccountHub, { ClientStatementTab, preferredMethod, AccountStatCards, AccountFilterBar, useAccountFilters } from '../clients/ClientAccountHub';
 import ClientPaymentsTab from '../clients/ClientPaymentsTab';
 import ClientBillsTab from '../clients/ClientBillsTab';
 import type { ClientBilling } from '../../../services/modules/clients.api';
@@ -92,7 +92,8 @@ const PetProfileView: React.FC<Props> = ({
   );
   const [vaccineTab, setVaccineTab] = useState<'timeline' | 'history'>('timeline');
   // Financials sub-views — the same five the client profile has.
-  const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'bills' | 'invoices' | 'receipts' | 'statements' | 'discounts'>('overview');
+  const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'bills' | 'invoices' | 'payments' | 'receipts' | 'credits' | 'refunds' | 'statements' | 'discounts'>('overview');
+  const [accountFilters, setAccountFilters] = useAccountFilters();
   // Records sub-tabs: all visits · clinical records · vaccinations ·
   // deworming · grooming · boarding · inpatient.
   // A deep-linked visit (initialVisitId) lands on Clinical Records with that
@@ -1419,10 +1420,18 @@ const PetProfileView: React.FC<Props> = ({
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Spend (Lifetime)</p>
                       <p className="text-sm font-black font-mono text-pine dark:text-zinc-100 whitespace-nowrap">{money2(petSpend)}</p>
                     </div>
-                    <div className="px-4 py-3 text-center">
+                    <button
+                      type="button"
+                      onClick={() => { setActiveTab('financials'); setFinanceSubTab('invoices'); }}
+                      title={petOutstanding > 0 ? 'Settle outstanding invoices' : 'Open invoices'}
+                      className="px-4 py-3 text-center transition-all hover:bg-rose-50/60 dark:hover:bg-rose-950/20 active:scale-[0.98]"
+                    >
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Outstanding Balance</p>
                       <p className={`text-sm font-black font-mono whitespace-nowrap ${petOutstanding > 0 ? 'text-rose-500' : 'text-pine dark:text-zinc-100'}`}>{money2(petOutstanding)}</p>
-                    </div>
+                      {petOutstanding > 0 && (
+                        <p className="text-[7px] font-black uppercase tracking-widest text-rose-400 mt-0.5">Click to settle</p>
+                      )}
+                    </button>
                     <div className="px-4 py-3 text-center">
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Owner Credit</p>
                       <p className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{money2(creditBalance)}</p>
@@ -1808,26 +1817,41 @@ const PetProfileView: React.FC<Props> = ({
         {activeTab === 'financials' && hasFullAccess && (
           owner ? (
             <>
-              <div className="flex flex-wrap items-center gap-1.5 mb-4">
-                {[
-                  { id: 'overview', label: 'Overview' },
-                  { id: 'bills', label: 'Bills' },
-                  { id: 'invoices', label: 'Invoices' },
-                  { id: 'receipts', label: 'Receipts' },
-                  { id: 'statements', label: 'Statements' },
-                  { id: 'discounts', label: 'Discounts & Credits' },
-                ].map(t => (
-                  <button key={t.id} type="button" onClick={() => setFinanceSubTab(t.id as any)}
-                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
-                      financeSubTab === t.id
-                        ? 'bg-seafoam text-white border-seafoam'
-                        : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:text-seafoam'
-                    }`}>
-                    {t.label}
-                  </button>
-                ))}
+              {/* Filters → cards → ONE tab row, matching the client profile. */}
+              <div className="space-y-4 mb-4">
+                <AccountFilterBar value={accountFilters} onChange={setAccountFilters} currency={currency} />
+                <AccountStatCards
+                  client={owner}
+                  billing={billing}
+                  credit={creditBalance}
+                  currency={currency}
+                  petId={pet.id}
+                  onSettle={() => setFinanceSubTab('invoices')}
+                />
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {[
+                    { id: 'overview', label: 'Overview' },
+                    { id: 'bills', label: 'Bills' },
+                    { id: 'invoices', label: 'Invoices' },
+                    { id: 'payments', label: 'Payments' },
+                    { id: 'receipts', label: 'Receipts' },
+                    { id: 'credits', label: 'Credits' },
+                    { id: 'refunds', label: 'Refunds' },
+                    { id: 'statements', label: 'Statements' },
+                    { id: 'discounts', label: 'Discounts & Credits' },
+                  ].map(t => (
+                    <button key={t.id} type="button" onClick={() => setFinanceSubTab(t.id as any)}
+                      className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                        financeSubTab === t.id
+                          ? 'bg-seafoam text-white border-seafoam'
+                          : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:text-seafoam'
+                      }`}>
+                      {t.label}
+                    </button>
+                  ))}
+                </div>
               </div>
-              {financeSubTab === 'overview' && (
+              {(financeSubTab === 'overview' || financeSubTab === 'credits' || financeSubTab === 'refunds') && (
                 <ClientAccountHub
                   client={owner}
                   billing={billing}
@@ -1845,6 +1869,8 @@ const PetProfileView: React.FC<Props> = ({
                   }}
                   petId={pet.id}
                   petName={pet.name}
+                  filters={accountFilters}
+                  kind={financeSubTab === 'credits' ? 'CREDIT' : financeSubTab === 'refunds' ? 'REFUND' : 'ALL'}
                 />
               )}
               {/* Stage one: the bill document per visit, and the button that
@@ -1862,7 +1888,7 @@ const PetProfileView: React.FC<Props> = ({
               )}
               {/* Collecting from here settles the OWNER's account — the list is
                   simply narrowed to this patient's bills. */}
-              {(financeSubTab === 'invoices' || financeSubTab === 'receipts') && (
+              {(financeSubTab === 'invoices' || financeSubTab === 'payments' || financeSubTab === 'receipts') && (
                 <ClientPaymentsTab
                   clientId={owner.id}
                   currency={currency}

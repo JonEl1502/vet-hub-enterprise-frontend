@@ -3,6 +3,23 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Client, Pet, Visit, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole, ClientType, ClientDiscount } from '../../../types';
 import { CLIENT_TYPES, COUNTRIES } from '../../../constants';
 
+/**
+ * Financials sub-views — ONE row (user, 2026-08-04). It used to be a tab row
+ * plus a "Show" chip row that repeated Bills / Invoices / Payments; Payments is
+ * a real view now, and Credits / Refunds pin the timeline to that kind.
+ */
+const FINANCE_TABS = [
+  { id: 'transactions', label: 'Overview' },
+  { id: 'bills', label: 'Bills' },
+  { id: 'invoices', label: 'Invoices' },
+  { id: 'payments', label: 'Payments' },
+  { id: 'receipts', label: 'Receipts' },
+  { id: 'credits', label: 'Credits' },
+  { id: 'refunds', label: 'Refunds' },
+  { id: 'statements', label: 'Statements' },
+  { id: 'discounts', label: 'Discounts & Credits' },
+];
+
 const TITLE_OPTIONS = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Hon'];
 import { Transaction } from '../../../services/modules/transactions.api';
 import ReconciliationDocument from '../receipts/ReconciliationDocument';
@@ -14,6 +31,7 @@ import RemindersApptsTab from '../shared/RemindersApptsTab';
 import ClientPaymentsTab from './ClientPaymentsTab';
 import PetAvatar from '../shared/PetAvatar';
 import ClientBillsTab from './ClientBillsTab';
+import { AccountStatCards, AccountFilterBar, useAccountFilters } from './ClientAccountHub';
 import ClientAccountHub, { ClientStatementTab, ClientFilesTab, preferredMethod } from './ClientAccountHub';
 import { ClientBilling } from '../../../services/modules/clients.api';
 import { formatDate, formatDateTime } from '../../../services/utils/dateFormatter';
@@ -48,6 +66,8 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const { selectedClinics } = useClinic();
   const receiptClinicName = selectedClinics[0]?.name ?? '';
   const [activeTab, setActiveTab] = useState(initialTab);
+  // Timeline filters live here so the bar can sit above the cards and tabs.
+  const [accountFilters, setAccountFilters] = useAccountFilters();
   // "Collect payment" deep-links here with the visits list pre-filtered to unpaid.
   const [unpaidOnly, setUnpaidOnly] = useState(appointmentsUnpaidOnly);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -972,10 +992,20 @@ const renderOverview = () => (
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Spend (Lifetime)</p>
                       <p className="text-sm font-black font-mono text-pine dark:text-zinc-100 whitespace-nowrap">{money2(client.totalSpent || 0)}</p>
                     </div>
-                    <div className="px-4 py-3 text-center">
+                    {/* The number you owe is the number you click (user,
+                        2026-08-04) — straight to the invoices you can settle. */}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab('invoices')}
+                      title={headerOutstanding > 0 ? 'Settle outstanding invoices' : 'Open invoices'}
+                      className="px-4 py-3 text-center transition-all hover:bg-rose-50/60 dark:hover:bg-rose-950/20 active:scale-[0.98]"
+                    >
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Outstanding Balance</p>
                       <p className={`text-sm font-black font-mono whitespace-nowrap ${headerOutstanding > 0 ? 'text-rose-500' : 'text-pine dark:text-zinc-100'}`}>{money2(headerOutstanding)}</p>
-                    </div>
+                      {headerOutstanding > 0 && (
+                        <p className="text-[7px] font-black uppercase tracking-widest text-rose-400 mt-0.5">Click to settle</p>
+                      )}
+                    </button>
                     <div className="px-4 py-3 text-center">
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Available Credit</p>
                       <p className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{money2(creditBalance)}</p>
@@ -1326,28 +1356,34 @@ const renderOverview = () => (
         {/* Payments (tab id stays 'transactions' for deep links): the account
             hub — stat cards, timeline, summary donut, quick actions. */}
         {/* Financials — one tab, five sub-views. */}
-        {['transactions', 'bills', 'invoices', 'receipts', 'statements', 'discounts'].includes(activeTab) && (
-          <div className="flex flex-wrap items-center gap-1.5 mb-4">
-            {[
-              { id: 'transactions', label: 'Overview' },
-              { id: 'bills', label: 'Bills' },
-              { id: 'invoices', label: 'Invoices' },
-              { id: 'receipts', label: 'Receipts' },
-              { id: 'statements', label: 'Statements' },
-              { id: 'discounts', label: 'Discounts & Credits' },
-            ].map(t => (
-              <button key={t.id} type="button" onClick={() => setActiveTab(t.id)}
-                className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
-                  activeTab === t.id
-                    ? 'bg-seafoam text-white border-seafoam'
-                    : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:text-seafoam'
-                }`}>
-                {t.label}
-              </button>
-            ))}
+        {FINANCE_TABS.some(t => t.id === activeTab) && (
+          <div className="space-y-4 mb-4">
+            {/* Filters first (user, 2026-08-04), then the account cards, then
+                ONE tab row — the old sub-tabs and "Show" chips were two rows
+                saying Bills / Invoices / Payments twice. */}
+            <AccountFilterBar value={accountFilters} onChange={setAccountFilters} currency={client.currency || 'KES'} />
+            <AccountStatCards
+              client={client}
+              billing={billing}
+              credit={creditBalance}
+              currency={client.currency || 'KES'}
+              onSettle={() => setActiveTab('invoices')}
+            />
+            <div className="flex flex-wrap items-center gap-1.5">
+              {FINANCE_TABS.map(t => (
+                <button key={t.id} type="button" onClick={() => setActiveTab(t.id)}
+                  className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                    activeTab === t.id
+                      ? 'bg-seafoam text-white border-seafoam'
+                      : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:text-seafoam'
+                  }`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
           </div>
         )}
-        {activeTab === 'transactions' && (
+        {(activeTab === 'transactions' || activeTab === 'credits' || activeTab === 'refunds') && (
           <ClientAccountHub
             client={client}
             billing={billing}
@@ -1358,6 +1394,18 @@ const renderOverview = () => (
             onRefresh={loadBilling}
             onViewVisit={onViewAppointment}
             onGoTab={setActiveTab}
+            filters={accountFilters}
+            kind={activeTab === 'credits' ? 'CREDIT' : activeTab === 'refunds' ? 'REFUND' : 'ALL'}
+          />
+        )}
+        {activeTab === 'payments' && (
+          <ClientPaymentsTab
+            clientId={client.id}
+            currency={client.currency || 'KES'}
+            canCollect={hasFullAccess}
+            onViewVisit={onViewAppointment}
+            onChanged={loadBilling}
+            only="payments"
           />
         )}
         {/* Bills — stage one of Bill → Invoice → Payment → Receipt: the bill

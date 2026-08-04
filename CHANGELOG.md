@@ -59,6 +59,30 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Financials restructured — one tab row, cards above it, filters on top, balance settles  —  2026-08-04
+- **What changed:** (user, four items) on BOTH the client and patient profiles:
+  ① the header's **Outstanding Balance** cell is a button — it opens Financials → Invoices,
+  the view that can actually take the money — and says "click to settle" when something is
+  owed. The **Current Balance** stat card does the same.
+  ② the five **stat cards moved above the tab row**: they describe the account, so they now
+  stay in view on every sub-view instead of living inside Overview.
+  ③ **the two chip rows became one.** The sub-tabs (Overview · Bills · Invoices · Receipts ·
+  Statements · Discounts & Credits) and the timeline's "Show" chips (Everything · Bills ·
+  Invoices · Payments · Credits · Refunds) said the same words twice. One row now:
+  **Overview · Bills · Invoices · Payments · Receipts · Credits · Refunds · Statements ·
+  Discounts & Credits**. Payments became a real view (`ClientPaymentsTab only="payments"`);
+  Credits and Refunds pin the timeline to that kind via the hub's new `kind` prop.
+  ④ the **date picker + Filters sit at the very top**, above the cards, and Filters opens a
+  **collapsible panel in the page flow** (theme card, From/To/min-amount/outstanding-only
+  plus 30d/90d/YTD presets) instead of a floating popover. Filter state lifted out of the
+  hub into the page (`useAccountFilters`).
+- **Record impact:** 🟢 None — layout, navigation and read-side filtering only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** `ClientAccountHub` no longer renders its own stat cards or filter bar —
+  a page mounting it must render `AccountStatCards` / `AccountFilterBar` itself and pass
+  `filters`. Both profiles do; any new call site must too, or it gets a bare timeline.
+
 ### feat: assign staff to a SERVICE or PROCEDURE from the Visit team panel  —  backend 106+125
 - **What changed:** (user, 2026-08-04) each encounter in the Visit team panel now lists its
   **services & procedures** with an optional staff picker, plus a **Via services** section

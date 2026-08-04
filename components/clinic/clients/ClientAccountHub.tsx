@@ -37,6 +37,10 @@ interface Props {
    */
   petId?: string | number;
   petName?: string;
+  /** Timeline filters, owned by the page so the bar can sit above the cards. */
+  filters?: AccountFilters;
+  /** Which kind the timeline is pinned to — the tab row drives this now. */
+  kind?: 'ALL' | TimelineKind;
 }
 
 const money = (n: number, c: string) =>
@@ -80,6 +84,19 @@ const STATUS_BADGE: Record<TimelineEntry['status'], string> = {
 const PAGE = 8;
 
 /**
+ * Timeline filters, lifted out of the hub (user, 2026-08-04) so the date picker
+ * and Filters button can sit ABOVE the stat cards and the tab row, while the
+ * timeline they drive lives further down the page.
+ */
+export interface AccountFilters {
+  from: string; to: string; minAmount: string; unpaidOnly: boolean;
+}
+export const EMPTY_ACCOUNT_FILTERS: AccountFilters = { from: '', to: '', minAmount: '', unpaidOnly: false };
+export const useAccountFilters = () => React.useState<AccountFilters>(EMPTY_ACCOUNT_FILTERS);
+export const activeFilterCount = (f: AccountFilters) =>
+  (f.from || f.to ? 1 : 0) + (f.minAmount ? 1 : 0) + (f.unpaidOnly ? 1 : 0);
+
+/**
  * A receivable is settled when nothing is outstanding on it — `isPaid` alone
  * lies whenever the flag was not flipped (see the timeline comment below).
  * `total > 0` keeps a zero-value visit from reading as "paid".
@@ -89,9 +106,9 @@ export const isSettled = (i: { isPaid?: boolean; total?: number; paid?: number; 
 
 const ClientAccountHub: React.FC<Props> = ({
   client, billing, credit, loading, currency, canCollect, onRefresh, onViewVisit, onGoTab,
-  petId, petName,
+  petId, petName, filters, kind = 'ALL',
 }) => {
-  const [filter, setFilter] = React.useState<'ALL' | TimelineKind>('ALL');
+  const filter = kind;
   const [shown, setShown] = React.useState(PAGE);
   const [newTxOpen, setNewTxOpen] = React.useState(false);
 
@@ -194,11 +211,7 @@ const ClientAccountHub: React.FC<Props> = ({
   // Date-range filter (user, 2026-08-02: the chip used to be a static LABEL of
   // the data's own span and "Filters" only toasted "coming soon"). `from`/`to`
   // are yyyy-mm-dd; `to` is compared inclusively to the end of that day.
-  const [from, setFrom] = React.useState('');
-  const [to, setTo] = React.useState('');
-  const [rangeOpen, setRangeOpen] = React.useState(false);
-  const [minAmount, setMinAmount] = React.useState('');
-  const [unpaidOnly, setUnpaidOnly] = React.useState(false);
+  const { from, to, minAmount, unpaidOnly } = filters ?? EMPTY_ACCOUNT_FILTERS;
 
   const inRange = React.useCallback((iso: string) => {
     const t = new Date(iso).getTime();
@@ -213,17 +226,7 @@ const ClientAccountHub: React.FC<Props> = ({
     && (!minAmount || Math.abs(e.amount) >= Number(minAmount))
     && (!unpaidOnly || (e.status !== 'PAID' && e.status !== 'VOIDED')));
 
-  const activeFilterCount = (from || to ? 1 : 0) + (minAmount ? 1 : 0) + (unpaidOnly ? 1 : 0);
-  const clearFilters = () => { setFrom(''); setTo(''); setMinAmount(''); setUnpaidOnly(false); };
-  // Quick presets — the common questions ("what happened this month?").
-  const applyPreset = (days: number | 'ytd') => {
-    const now = new Date();
-    const end = now.toISOString().slice(0, 10);
-    const start = days === 'ytd'
-      ? `${now.getFullYear()}-01-01`
-      : new Date(now.getTime() - days * 86400000).toISOString().slice(0, 10);
-    setFrom(start); setTo(end); setShown(PAGE);
-  };
+  const nFilters = activeFilterCount(filters ?? EMPTY_ACCOUNT_FILTERS);
   const visible = filtered.slice(0, shown);
   // The chip reads the CHOSEN range when there is one; otherwise it keeps
   // describing the data's own span (which is all it ever did).
@@ -306,122 +309,13 @@ const ClientAccountHub: React.FC<Props> = ({
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
-      {/* ── Stat cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-        {STAT_CARDS.map(card => (
-          <div key={card.label} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 flex items-start gap-3">
-            <div className={`p-2.5 rounded-xl shrink-0 ${card.chip}`}><card.icon size={16} /></div>
-            <div className="min-w-0">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{card.label}</p>
-              <p className={`text-base font-black font-mono leading-tight truncate ${card.valueCls}`}>{card.value}</p>
-              <p className="text-[9px] font-bold text-slate-400 mt-0.5">{card.sub}</p>
-            </div>
-          </div>
-        ))}
-      </div>
+      {/* The stat cards moved OUT of here (user, 2026-08-04): they describe the
+          whole account, so they belong above the tab row where every sub-view
+          can see them, not inside the Overview sub-view. See AccountStatCards. */}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
         {/* ── Left: filters + account timeline ── */}
         <div className="lg:col-span-2 space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            {/* These are TIMELINE FILTERS, not navigation. Styled as tabs they
-                read as duplicates of the page's own Invoices / Payments /
-                Receipts tabs directly above (user, 2026-08-03: "tab
-                repetition"), so they are chips behind a "Show" label — same
-                behaviour, no longer pretending to be a second tab bar. */}
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mr-0.5">Show</span>
-              {([
-                { id: 'ALL' as const, label: 'Everything' },
-                { id: 'BILL' as const, label: 'Bills' },
-                { id: 'INVOICE' as const, label: 'Invoices' },
-                { id: 'PAYMENT' as const, label: 'Payments' },
-                { id: 'CREDIT' as const, label: 'Credits' },
-                { id: 'REFUND' as const, label: 'Refunds' },
-              ]).map(f => (
-                <button key={f.id} onClick={() => { setFilter(f.id); setShown(PAGE); }}
-                  className={`px-2.5 py-1 rounded-full text-[9px] font-black uppercase tracking-widest whitespace-nowrap border transition-all ${
-                    filter === f.id
-                      ? 'bg-seafoam text-white border-seafoam'
-                      : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:text-seafoam'
-                  }`}>
-                  {f.label}
-                </button>
-              ))}
-            </div>
-            <div className="ml-auto flex items-center gap-2 relative">
-              <button type="button" onClick={() => setRangeOpen(o => !o)}
-                title="Filter the timeline by date"
-                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border bg-white dark:bg-zinc-900 text-[9px] font-black uppercase tracking-widest transition-all ${
-                  (from || to)
-                    ? 'border-seafoam text-seafoam'
-                    : 'border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam'
-                }`}>
-                <CalendarRange size={12} /> {rangeLabel}
-              </button>
-              <button type="button" onClick={() => setRangeOpen(o => !o)}
-                className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border bg-white dark:bg-zinc-900 text-[9px] font-black uppercase tracking-widest transition-all ${
-                  activeFilterCount > 0
-                    ? 'border-seafoam text-seafoam'
-                    : 'border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam'
-                }`}>
-                <Filter size={12} /> Filters{activeFilterCount > 0 ? ` · ${activeFilterCount}` : ''}
-              </button>
-
-              {rangeOpen && (
-                <>
-                  <div className="fixed inset-0 z-20" onClick={() => setRangeOpen(false)} />
-                  <div className="absolute right-0 top-full mt-1.5 z-30 w-72 p-3 space-y-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl animate-in fade-in zoom-in-95 duration-100">
-                    <div className="flex flex-wrap gap-1.5">
-                      {([['30 days', 30], ['90 days', 90], ['Year to date', 'ytd']] as const).map(([label, v]) => (
-                        <button key={label} type="button" onClick={() => applyPreset(v as any)}
-                          className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-seafoam hover:text-white transition-all">
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <label className="space-y-1">
-                        <span className="field-label">From</span>
-                        <input type="date" value={from} max={to || undefined}
-                          onChange={e => { setFrom(e.target.value); setShown(PAGE); }}
-                          className="field-input !py-1.5 text-[11px]" />
-                      </label>
-                      <label className="space-y-1">
-                        <span className="field-label">To</span>
-                        <input type="date" value={to} min={from || undefined}
-                          onChange={e => { setTo(e.target.value); setShown(PAGE); }}
-                          className="field-input !py-1.5 text-[11px]" />
-                      </label>
-                    </div>
-                    <label className="space-y-1 block">
-                      <span className="field-label">Minimum amount ({currency})</span>
-                      <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="Any"
-                        value={minAmount}
-                        onChange={e => { setMinAmount(e.target.value); setShown(PAGE); }}
-                        className="field-input !py-1.5 text-[11px]" />
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input type="checkbox" checked={unpaidOnly}
-                        onChange={e => { setUnpaidOnly(e.target.checked); setShown(PAGE); }}
-                        className="w-3.5 h-3.5 rounded border-slate-300 text-seafoam focus:ring-seafoam" />
-                      <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300">Outstanding only</span>
-                    </label>
-                    <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-zinc-800">
-                      <button type="button" onClick={clearFilters} disabled={activeFilterCount === 0}
-                        className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 disabled:opacity-40 transition-all">
-                        Clear all
-                      </button>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                        {filtered.length} of {entries.length}
-                      </span>
-                    </div>
-                  </div>
-                </>
-              )}
-            </div>
-          </div>
-
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5">
             <div className="mb-4">
               <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Account Timeline</h3>
@@ -434,7 +328,7 @@ const ClientAccountHub: React.FC<Props> = ({
 
             {visible.length === 0 && (
               <div className="py-14 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-3xl opacity-40 uppercase font-black text-[10px] tracking-[0.2em]">
-                No transactions {activeFilterCount > 0 ? 'match these filters' : filter !== 'ALL' ? 'of this type' : 'yet'}
+                No transactions {nFilters > 0 ? 'match these filters' : filter !== 'ALL' ? 'of this type' : 'yet'}
               </div>
             )}
 
@@ -897,6 +791,182 @@ export const ClientFilesTab: React.FC<{ clientId: number | string; canEdit?: boo
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Account stat cards — rendered by the PAGE, above the Financials tab row, so
+ * the balance is in view whichever sub-view you are on (user, 2026-08-04:
+ * "move cards above the tabs").
+ */
+export const AccountStatCards: React.FC<{
+  client: Client;
+  billing: ClientBilling | null;
+  credit: number;
+  currency: string;
+  petId?: string | number;
+  /** Clicking Current Balance goes to the invoices you can actually settle. */
+  onSettle?: () => void;
+}> = ({ client, billing, credit, currency, petId, onSettle }) => {
+  const petKey = petId != null ? String(petId) : null;
+  const invoices = (billing?.invoices ?? []).filter(i => !petKey || String(i.pet?.id ?? '') === petKey);
+  const appliedByPayment = new Map<string, number>();
+  for (const inv of invoices) for (const ip of inv.payments || []) {
+    appliedByPayment.set(String(ip.id), (appliedByPayment.get(String(ip.id)) || 0) + (ip.amountApplied || 0));
+  }
+  const payments = petKey
+    ? (billing?.payments ?? []).filter(p => appliedByPayment.has(String(p.id)))
+    : (billing?.payments ?? []);
+  const paidOf = (p: { id: string; amount: number }) =>
+    petKey ? (appliedByPayment.get(String(p.id)) ?? 0) : (p.amount || 0);
+
+  const outstanding = petKey
+    ? invoices.reduce((s, i) => s + (i.outstanding ?? 0), 0)
+    : (billing?.outstanding ?? client.outstandingBalance ?? 0);
+  const openCount = invoices.filter(i => !isSettled(i)).length;
+  const yearAgo = (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.getTime(); })();
+  const billed12 = invoices.filter(i => new Date(i.date).getTime() >= yearAgo).reduce((s, i) => s + (i.total || 0), 0);
+  const paid12 = payments.filter(p => p.status !== 'VOIDED' && new Date(p.settledAt || p.createdAt).getTime() >= yearAgo)
+    .reduce((s, p) => s + paidOf(p), 0);
+  const billedAll = invoices.reduce((s, i) => s + (i.total || 0), 0);
+  const paidAll = payments.filter(p => p.status !== 'VOIDED').reduce((s, p) => s + paidOf(p), 0);
+  const reliability = billedAll > 0 ? Math.min(100, Math.round((paidAll / billedAll) * 100)) : null;
+
+  const cards = [
+    {
+      label: petKey ? 'Balance On This Patient' : 'Current Balance', icon: Wallet, chip: 'bg-rose-500/10 text-rose-500',
+      value: money(outstanding, currency), valueCls: outstanding > 0 ? 'text-rose-500' : 'text-pine dark:text-zinc-100',
+      sub: openCount > 0 ? `From ${openCount} bill${openCount === 1 ? '' : 's'}` : 'Nothing outstanding',
+      onClick: outstanding > 0 ? onSettle : undefined,
+    },
+    {
+      label: petKey ? 'Owner Credit' : 'Credit Available', icon: PiggyBank, chip: 'bg-emerald-500/10 text-emerald-500',
+      value: money(credit, currency), valueCls: 'text-pine dark:text-zinc-100',
+      sub: petKey ? `On ${client.name}'s account`
+        : client.maxDebt != null ? `Credit Limit: ${money(client.maxDebt, currency)}` : 'No credit limit set',
+    },
+    { label: 'Total Billed', icon: FileText, chip: 'bg-indigo-500/10 text-indigo-500',
+      value: money(billed12, currency), valueCls: 'text-pine dark:text-zinc-100', sub: 'Last 12 months' },
+    { label: 'Total Paid', icon: Banknote, chip: 'bg-seafoam/10 text-seafoam',
+      value: money(paid12, currency), valueCls: 'text-pine dark:text-zinc-100', sub: 'Last 12 months' },
+    {
+      label: 'Payment Reliability', icon: TrendingUp, chip: 'bg-emerald-500/10 text-emerald-500',
+      value: reliability == null ? '—' : `${reliability} %`,
+      valueCls: reliability != null && reliability >= 90 ? 'text-emerald-600 dark:text-emerald-400' : 'text-pine dark:text-zinc-100',
+      sub: reliability == null ? 'No history' : reliability >= 90 ? 'Excellent' : reliability >= 70 ? 'Good' : reliability >= 50 ? 'Fair' : 'Poor',
+    },
+  ];
+
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+      {cards.map(card => {
+        const Tag: any = card.onClick ? 'button' : 'div';
+        return (
+          <Tag key={card.label} onClick={card.onClick}
+            title={card.onClick ? 'Settle the outstanding invoices' : undefined}
+            className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 flex items-start gap-3 text-left w-full ${
+              card.onClick ? 'cursor-pointer hover:border-rose-400 hover:shadow-md transition-all active:scale-[0.99]' : ''
+            }`}>
+            <div className={`p-2.5 rounded-xl shrink-0 ${card.chip}`}><card.icon size={16} /></div>
+            <div className="min-w-0">
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{card.label}</p>
+              <p className={`text-base font-black font-mono leading-tight truncate ${card.valueCls}`}>{card.value}</p>
+              <p className="text-[9px] font-bold text-slate-400 mt-0.5">
+                {card.sub}{card.onClick ? ' · click to settle' : ''}
+              </p>
+            </div>
+          </Tag>
+        );
+      })}
+    </div>
+  );
+};
+
+/**
+ * Date range + Filters, rendered ABOVE the cards. "Filters" opens a COLLAPSIBLE
+ * in the page flow rather than a floating popover (user, 2026-08-04).
+ */
+export const AccountFilterBar: React.FC<{
+  value: AccountFilters;
+  onChange: (v: AccountFilters) => void;
+  currency: string;
+}> = ({ value, onChange, currency }) => {
+  const [open, setOpen] = React.useState(false);
+  const n = activeFilterCount(value);
+  const set = (patch: Partial<AccountFilters>) => onChange({ ...value, ...patch });
+  const label = (value.from || value.to)
+    ? `${value.from ? fmt(value.from) : 'Start'} – ${value.to ? fmt(value.to) : 'Today'}`
+    : 'All dates';
+  const preset = (days: number | 'ytd') => {
+    const now = new Date();
+    const end = now.toISOString().slice(0, 10);
+    const start = days === 'ytd' ? `${now.getFullYear()}-01-01`
+      : new Date(now.getTime() - days * 86400000).toISOString().slice(0, 10);
+    set({ from: start, to: end });
+  };
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" onClick={() => setOpen(o => !o)}
+          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border bg-white dark:bg-zinc-900 text-[9px] font-black uppercase tracking-widest transition-all ${
+            (value.from || value.to) ? 'border-seafoam text-seafoam'
+              : 'border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam'
+          }`}>
+          <CalendarRange size={12} /> {label}
+        </button>
+        <button type="button" onClick={() => setOpen(o => !o)}
+          className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border bg-white dark:bg-zinc-900 text-[9px] font-black uppercase tracking-widest transition-all ${
+            n > 0 ? 'border-seafoam text-seafoam'
+              : 'border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam'
+          }`}>
+          <Filter size={12} /> Filters{n > 0 ? ` · ${n}` : ''}
+          <ChevronDown size={11} className={open ? 'rotate-180 transition-transform' : 'transition-transform'} />
+        </button>
+        {n > 0 && (
+          <button type="button" onClick={() => onChange(EMPTY_ACCOUNT_FILTERS)}
+            className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 transition-all">
+            Clear all
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 sm:p-4 animate-in fade-in slide-in-from-top-2 duration-150">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <label className="space-y-1">
+              <span className="field-label">From</span>
+              <input type="date" value={value.from} max={value.to || undefined}
+                onChange={e => set({ from: e.target.value })} className="field-input !py-1.5 text-[11px]" />
+            </label>
+            <label className="space-y-1">
+              <span className="field-label">To</span>
+              <input type="date" value={value.to} min={value.from || undefined}
+                onChange={e => set({ to: e.target.value })} className="field-input !py-1.5 text-[11px]" />
+            </label>
+            <label className="space-y-1">
+              <span className="field-label">Minimum amount ({currency})</span>
+              <input type="number" min={0} step="0.01" inputMode="decimal" placeholder="Any"
+                value={value.minAmount} onChange={e => set({ minAmount: e.target.value })}
+                className="field-input !py-1.5 text-[11px]" />
+            </label>
+            <label className="flex items-end gap-2 cursor-pointer select-none pb-1">
+              <input type="checkbox" checked={value.unpaidOnly}
+                onChange={e => set({ unpaidOnly: e.target.checked })}
+                className="w-3.5 h-3.5 rounded border-slate-300 text-seafoam focus:ring-seafoam" />
+              <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300">Outstanding only</span>
+            </label>
+          </div>
+          <div className="flex flex-wrap gap-1.5 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+            {([['30 days', 30], ['90 days', 90], ['Year to date', 'ytd']] as const).map(([l, v]) => (
+              <button key={l} type="button" onClick={() => preset(v as any)}
+                className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-seafoam hover:text-white transition-all">
+                {l}
+              </button>
+            ))}
+          </div>
         </div>
       )}
     </div>
