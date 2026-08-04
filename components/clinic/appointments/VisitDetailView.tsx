@@ -1033,6 +1033,15 @@ const VisitDetailInner: React.FC<Props> = ({
   const [settlePaymentMethod, setSettlePaymentMethod] = useState<string | null>(null);
   const [settleDiscountType, setSettleDiscountType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
   const [settleDiscountValue, setSettleDiscountValue] = useState<string>('');
+  /**
+   * Amount actually handed over. Blank = settle in full, which is the path this
+   * modal has always taken. A SHORT amount is a real part payment (user,
+   * 2026-08-04: "client might not pay in full so log outstanding") and routes
+   * through `clients/:id/collect`, the endpoint that already records money on
+   * the CLIENT ACCOUNT and then applies it to this visit's receivable — which
+   * is exactly the trail the user wants to be able to follow.
+   */
+  const [settleAmountPaid, setSettleAmountPaid] = useState<string>('');
   const [clientDiscounts, setClientDiscounts] = useState<ClientDiscount[]>([]);
   const [selectedClientDiscount, setSelectedClientDiscount] = useState<ClientDiscount | null>(null);
   const [settleWallets, setSettleWallets] = useState<WalletData[]>([]);
@@ -2557,7 +2566,7 @@ const VisitDetailInner: React.FC<Props> = ({
     }
   };
 
-  const handleSettleBill = async (paymentMethod: string, discountType?: 'PERCENTAGE' | 'FIXED', discountValue?: number, walletId?: string | null) => {
+  const handleSettleBill = async (paymentMethod: string, discountType?: 'PERCENTAGE' | 'FIXED', discountValue?: number, walletId?: string | null, amountPaid?: number) => {
     // Re-entry guard — covers (a) rapid Confirm-button double-clicks, and
     // (b) the gateway path which used to return without setting the React
     // settling state, leaving the button live during the STK push.
@@ -2583,6 +2592,35 @@ const VisitDetailInner: React.FC<Props> = ({
     }
 
     setShowSettleModal(false);
+
+    // PART PAYMENT — money lands on the client's account and is applied to this
+    // visit, leaving a real balance rather than a visit that pretends to be
+    // paid. `onProcessPayment` has no amount at all, so it can only ever settle
+    // in full; the account collect endpoint is the one that can do this.
+    if (amountPaid != null && amountPaid > 0) {
+      try {
+        const res = await clientsAPI.collect(appointment.clientId, {
+          visitIds: [appointment.id],
+          paymentMethod,
+          amountTendered: amountPaid,
+          ...(walletId ? { walletId } : {}),
+          ...(discountType && discountValue ? { discountType, discountValue } : {}),
+        });
+        if (res.success) {
+          const left = res.data?.allocations?.[0]?.outstandingAfter;
+          toast.success(left != null && left > 0.005
+            ? `${activeClinic.currency} ${amountPaid.toLocaleString()} received — ${activeClinic.currency} ${Number(left).toLocaleString()} still outstanding on this visit`
+            : 'Bill settled successfully.');
+          await onRefreshDashboard?.();
+        }
+      } catch (error: any) {
+        toast.error(error?.message || 'Failed to record the payment');
+      } finally {
+        settlingLockRef.current = false;
+        setIsSettlingBill(false);
+      }
+      return;
+    }
 
     // The reminder question, moved here from the finalize gate. Asked BEFORE the
     // receipt because that is the last point the client is still present — and
@@ -2701,7 +2739,16 @@ const VisitDetailInner: React.FC<Props> = ({
     if (client) {
       clientsAPI.getBilling(client.id, { silent: true } as any).then(r => {
         const rows = (r.data?.invoices || [])
-          .filter(iv => Number(iv.outstanding) > 0 && String(iv.visitId) !== String(appointment.id))
+          .filter(iv =>
+            Number(iv.outstanding) > 0
+            && String(iv.visitId) !== String(appointment.id)
+            // Only INVOICED visits belong here (user, 2026-08-04: "if the
+            // visits are not invoiced dont show them here"). Ticking an
+            // unfinalized one sent it to collect and came back 400 — "3 of the
+            // selected invoices are not finalized yet" — which is the server
+            // refusing work the UI should never have offered.
+            && (iv.invoices?.length ?? 0) > 0
+            && iv.collectable)
           .map(iv => ({ visitId: String(iv.visitId), date: iv.date, outstanding: Number(iv.outstanding) }));
         setSettleOthers(rows);
       }).catch(() => {});
@@ -7168,7 +7215,16 @@ const VisitDetailInner: React.FC<Props> = ({
                       finally { setIsSettlingBill(false); }
                       return;
                     }
-                    await handleSettleBill(settlePaymentMethod, discountVal > 0 ? settleDiscountType : undefined, discountVal > 0 ? discountVal : undefined, pickedWalletId);
+                    const paidNum = parseFloat(settleAmountPaid);
+                    await handleSettleBill(
+                      settlePaymentMethod,
+                      discountVal > 0 ? settleDiscountType : undefined,
+                      discountVal > 0 ? discountVal : undefined,
+                      pickedWalletId,
+                      // Only a DIFFERENT amount takes the collect path; blank or
+                      // exactly-the-total keeps the original settle-in-full flow.
+                      Number.isFinite(paidNum) && paidNum > 0 && Math.abs(paidNum - finalTotal) > 0.005 ? paidNum : undefined,
+                    );
                   }}
                   disabled={isSettlingBill}
                   className="w-full py-3.5 bg-seafoam text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-seafoam/90 active:scale-95 transition-all shadow-lg hover:shadow-seafoam/30 disabled:opacity-60 disabled:cursor-not-allowed"

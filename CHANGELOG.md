@@ -59,6 +59,30 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: part payment on the visit; only invoiced visits offered alongside it  —  2026-08-04
+- **What changed:** (user: "client might not pay in full so log outstanding but remember
+  amount goes to client account then pays for this visit"; "if the visits are not invoiced
+  dont show them here")
+  ① the Settle Bill modal gains **Amount paid**. Blank (or exactly the total) keeps the
+  original settle-in-full path untouched. A SHORT amount routes through
+  `POST /clients/:id/collect` — the endpoint that records the money on the **client
+  account** and then applies it to this visit's receivable — so the visit keeps a real
+  balance instead of being marked settled. The field states the consequence live:
+  *"KES 1,200 stays outstanding on this visit. The KES 2,000 is recorded on Charity's
+  account and applied here, so both sides reconcile."* Overpaying says the excess lands as
+  credit. `onProcessPayment` has no amount parameter at all, which is why it could only
+  ever settle in full.
+  ② **Other outstanding** now lists only visits that are BOTH invoiced and collectable.
+  Ticking an unfinalized one sent it to collect and came back **400 — "3 of the selected
+  invoices are not finalized yet"**: the server refusing work the UI should not have
+  offered.
+- **Record impact:** 🔵 Low — a part payment writes a transaction + settlement against the
+  client account, exactly as the Financials collect flow does.
+- **Data dependency:** None — `collect` already accepted `amountTendered`.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the part-payment path does NOT go through the payment gateway. A short
+  amount is recorded directly; STK/card remains full-settlement only.
+
 ### fix: Invoice tab appeared on an approved-but-uninvoiced bill; pages go full width  —  2026-08-04
 - **What changed:** (user) ① the visit's **Invoice** tab was gated on
   `!liveBill.editable` — but an APPROVED bill is already locked, so the tab appeared the
