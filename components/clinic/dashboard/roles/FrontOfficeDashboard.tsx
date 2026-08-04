@@ -88,6 +88,39 @@ const FrontOfficeDashboard: React.FC<Props> = ({ visits, clients, currency, onNa
         { label: 'Revenue today', value: `${currency} ${Math.round(revenueToday).toLocaleString()}`, tone: 'good', sub: `${paidToday.length} paid` },
       ]} />
 
+      {/* REVENUE WORKFLOW — the front desk's money to-do list, in the order the
+          chain runs. Counts come from the bill queue already loaded above, so
+          this costs no extra request (user, 2026-08-04). Each row opens the
+          place the work is actually done. */}
+      {bills !== null && (() => {
+        const awaitingReview = bills.filter(b => b.status === 'PENDING_REVIEW' || b.status === 'DRAFT');
+        const awaitingInvoice = bills.filter(b => b.status === 'APPROVED');
+        const rows = [
+          { dot: 'bg-amber-500', label: 'Bills awaiting review', n: awaitingReview.length, cta: 'Open', go: () => onNavigate?.('bills') },
+          { dot: 'bg-emerald-500', label: 'Bills ready for invoice', n: awaitingInvoice.length, cta: 'Generate', go: () => onNavigate?.('bills') },
+          { dot: 'bg-sky-500', label: 'Visits awaiting payment', n: awaitingPayment.length, cta: 'Collect', go: () => onNavigate?.('appointments') },
+        ].filter(r => r.n > 0);
+        if (rows.length === 0) return null;
+        return (
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-3">Revenue workflow</p>
+            <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+              {rows.map(r => (
+                <button key={r.label} onClick={r.go}
+                  className="w-full flex items-center gap-3 py-2.5 text-left group">
+                  <span className={`w-2 h-2 rounded-full shrink-0 ${r.dot}`} />
+                  <span className="text-lg font-black text-pine dark:text-zinc-100 w-8 shrink-0">{r.n}</span>
+                  <span className="min-w-0 flex-1 text-[11px] font-bold text-slate-600 dark:text-zinc-300 truncate">{r.label}</span>
+                  <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-slate-400 group-hover:text-seafoam transition-colors">
+                    {r.cta} →
+                  </span>
+                </button>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
+
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
         <RoleCard
           title="Bills needing action"

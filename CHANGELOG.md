@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: revenue workflow queue on the front-office dashboard  —  2026-08-04
+- **What changed:** the front desk gets its money to-do list, in the order the chain runs:
+  **Bills awaiting review · Bills ready for invoice · Visits awaiting payment**, each with
+  a count and a button into the place the work is done. Counts come from the bill queue the
+  dashboard already loads, so it costs no extra request, and rows with a count of zero are
+  hidden rather than shown as empty noise.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### feat: one revenue-status chip, a payment-posted panel, and the settlement trail  —  2026-08-04
 - **What changed:** (user: "go") the last three gaps from the design audit.
   ① **`RevenueStatusChip`** — one component, one derivation, seven states
