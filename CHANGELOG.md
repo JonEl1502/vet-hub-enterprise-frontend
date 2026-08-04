@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: stage a service for SOME animals on a group visit  —  2026-08-04
+- **What changed:** (user: "i can state for each patient or all taking one vaccination") a
+  group visit sent **one task list to every animal**, so a vaccination staged for one
+  patient was created — and billed — on all three visits. Each staged service now carries
+  `petIds`: a **For: All · Hazel5 · Hazel · Jasper** chip row appears on the service card
+  whenever the roster holds more than one animal, and `App.tsx`'s per-member create loop
+  gives each visit only the lines staged for it (recomputing that visit's total from them).
+  Absent or empty = every animal, which is the old behaviour, so nothing changes for a
+  single-patient visit.
+- **Record impact:** 🔵 Low — it changes WHICH visits get which task at registration. It
+  can only ever narrow a line to fewer animals than before.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the chip row is per SERVICE, not per category — staging two vaccines
+  for different animals is two lines, each with its own targets. And the roster's own
+  per-animal totals now differ, so the estimated bill on the right is the combined figure,
+  not what any one owner pays.
+
 ### feat: credit top-up; the report signs off once, at the bottom  —  2026-08-04
 - **What changed:** (user)
   ① **Credit is toppable up from both places it is shown** — the header's *Available

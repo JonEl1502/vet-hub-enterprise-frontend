@@ -1169,7 +1169,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     // unmounts (the parent navigates away), so it must NOT be cleared in a
     // finally — that would re-arm the button for the moment before unmount.
     const releaseSubmit = () => { submittingRef.current = false; setSubmitting(false); };
-    const tasks = selectedCategories.flatMap(cat => {
+    // Explicitly typed: `petIds` is optional (only staged services carry it),
+    // and inference would otherwise make it required for the later pushes.
+    const tasks: Array<Record<string, any>> = selectedCategories.flatMap(cat => {
       const catName = categoriesWithIcons.find(c => c.id === cat.categoryId)?.name || 'General';
       return cat.services.map(svc => ({
         id: Math.floor(Math.random() * 1000000),
@@ -1181,7 +1183,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         status: svc.isNotApplicable ? TaskStatus.COMPLETED : TaskStatus.PENDING,
         price: svc.isNotApplicable ? 0 : svc.price,
         notes: svc.isNotApplicable ? 'Not applicable' : '',
-        assignedStaffId: svc.assignedStaffId || autoAssignStaff(catName)
+        assignedStaffId: svc.assignedStaffId || autoAssignStaff(catName),
+        // Which animals in a group roster this line is for. Empty/absent = all.
+        petIds: (svc as any).petIds,
       }));
     });
 
@@ -1311,7 +1315,19 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       petId: isRealGroup ? members[0].petId : selectedPetId,
       // Multi-animal registration (077): the caller loops these, one create
       // per member with THAT member's owner as the billed client.
-      groupMembers: isRealGroup ? members.map(m => ({ petId: m.petId, clientId: m.clientId })) : undefined,
+      groupMembers: isRealGroup
+        ? members.map(m => ({
+            petId: m.petId,
+            clientId: m.clientId,
+            // Only the tasks staged FOR this animal (or for everyone). A
+            // vaccination picked for one patient should not appear on the
+            // other two visits (user, 2026-08-04).
+            tasks: tasks.filter(t => {
+              const only = (t as any).petIds as (number | string)[] | undefined;
+              return !only || only.length === 0 || only.map(String).includes(String(m.petId));
+            }),
+          }))
+        : undefined,
       groupVisitId: isRealGroup
         ? `grp-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
         : undefined,
@@ -2186,6 +2202,44 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                                           className="w-24 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-700 rounded-lg px-2 py-1 text-[11px] font-black text-emerald-700 dark:text-emerald-300 outline-none focus:ring-2 focus:ring-emerald-400/30"
                                         />
                                       </div>
+                                    </div>
+                                  )}
+
+                                  {/* WHICH ANIMALS this line is for. Only a real
+                                      group roster can differ; a single-patient
+                                      visit has nothing to choose. */}
+                                  {isGroupVisit && groupMembers.filter(m => m.petId).length > 1 && (
+                                    <div className="flex flex-wrap items-center gap-1 pt-0.5">
+                                      <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 mr-0.5">For</span>
+                                      {(() => {
+                                        const only = ((svc as any).petIds ?? []) as (number | string)[];
+                                        const all = only.length === 0;
+                                        const setOnly = (next: (number | string)[]) =>
+                                          setSelectedCategories(prev => prev.map(c => c.categoryId !== sc.categoryId ? c : ({
+                                            ...c,
+                                            services: c.services.map(x => x.id === svc.id ? ({ ...x, petIds: next } as any) : x),
+                                          })));
+                                        return (
+                                          <>
+                                            <button type="button" onClick={() => setOnly([])}
+                                              className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider border transition-all ${
+                                                all ? 'bg-seafoam text-white border-seafoam' : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam'
+                                              }`}>All</button>
+                                            {groupMembers.filter(m => m.petId).map(m => {
+                                              const on = only.map(String).includes(String(m.petId));
+                                              return (
+                                                <button key={m.petId} type="button"
+                                                  onClick={() => setOnly(on ? only.filter(x => String(x) !== String(m.petId)) : [...only, m.petId!])}
+                                                  className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider border transition-all ${
+                                                    on ? 'bg-seafoam text-white border-seafoam' : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam'
+                                                  }`}>
+                                                  {m.petName || `#${m.petId}`}
+                                                </button>
+                                              );
+                                            })}
+                                          </>
+                                        );
+                                      })()}
                                     </div>
                                   )}
 

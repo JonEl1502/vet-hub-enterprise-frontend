@@ -2412,7 +2412,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               // Members may belong to DIFFERENT clients: each visit is created
               // with THAT member's owner, so every owner bills separately.
               const { groupMembers, ...baseData } = appointmentData;
-              const groupTargets: { petId: number; clientId: number }[] =
+              // A member may carry its OWN task list — a vaccination staged for
+              // one animal in the roster must not be billed to all three
+              // (user, 2026-08-04). Falls back to the shared list.
+              const groupTargets: { petId: number; clientId: number; tasks?: any[] }[] =
                 Array.isArray(groupMembers) && groupMembers.length > 1 ? groupMembers : [];
 
               if (groupTargets.length > 0) {
@@ -2420,7 +2423,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                 const failed: number[] = [];
                 for (const m of groupTargets) {
                   try {
-                    const r = await visitsAPI.create({ ...baseData, petId: m.petId, clientId: m.clientId });
+                    const r = await visitsAPI.create({
+                      ...baseData,
+                      petId: m.petId,
+                      clientId: m.clientId,
+                      ...(m.tasks ? { tasks: m.tasks, totalCost: m.tasks.reduce((n: number, t: any) => n + Number(t.price || 0), 0) } : {}),
+                    });
                     const vid = (r.data as any)?.appointment?.id ?? (r.data as any)?.visit?.id;
                     if (r.success && vid) { createdIds.push(String(vid)); stashWorkflowPick(vid); stashGateCheck(vid); void applyPickedProcedure(vid); }
                     else failed.push(m.petId);
