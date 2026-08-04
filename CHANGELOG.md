@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: structured TREATMENT PLAN on the inpatient chart  —  backend 132
+- **What changed:** (user, 2026-08-04) the inpatient chart gains a **Treatment plan** panel:
+  sections the clinic names itself — *Medication plan*, *Feeding plan*, anything — each
+  holding planned items searched straight out of inventory (drugs, food, any consumable),
+  with quantity, frequency, route and AM/MIDDAY/PM/NIGHT slots.
+- **Free-text items are allowed** alongside catalogue ones, so "boiled chicken" is a valid
+  plan line with no inventory row behind it.
+- **⚠️ Labelled "Plan only · not billed" on the panel itself.** A screen listing drugs and
+  quantities *looks* billable; nothing here charges or deducts stock. Administration stays on
+  the MAR / consumables path, which is what reaches the bill.
+- The original free-text `feedingInstructions` / `medicationInstructions` are **still shown**:
+  132 copied them into sections verbatim, and an admission written before the structured plan
+  must not look as though it lost its instructions.
+- Read-only once discharged — the plan is part of the record.
+- **Record impact:** 🟢 None — reads/writes the new plan tables only.
+
+
 ### flow: the follow-up reminder can be skipped — a visit that isn't ending shouldn't be gated  —  2026-08-04
 - **What changed:** (user: "the flow is ruined by it … can we even avoid reminder till the
   visit is to close and here another encounter is about to start") `FinalizeReminderGate`

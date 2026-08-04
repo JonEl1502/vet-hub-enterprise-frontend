@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2 } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
+import TreatmentPlanPanel from './TreatmentPlanPanel';
 import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import { formatDate, formatTime, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
@@ -551,12 +552,22 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                   {h.weightChange != null && <span className={`px-2 py-1 rounded-lg ${h.weightChange >= 0 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{h.weightChange >= 0 ? '+' : ''}{h.weightChange.toFixed(1)} kg</span>}
                 </div>
               )}
+              {/* The ORIGINAL free-text instructions. Kept visible rather than
+                  dropped: 132 copied them into plan sections verbatim, and an
+                  admission written before the structured plan must not look as
+                  though it lost its instructions. */}
               {(h.feedingInstructions || h.medicationInstructions) && (
                 <div className="space-y-1 text-[11px] text-slate-600 dark:text-zinc-300">
                   {h.feedingInstructions && <p><span className="font-black uppercase text-[9px] tracking-widest text-amber-600 mr-1.5">Feeding</span>{h.feedingInstructions}</p>}
                   {h.medicationInstructions && <p><span className="font-black uppercase text-[9px] tracking-widest text-indigo-500 mr-1.5">Meds</span>{h.medicationInstructions}</p>}
                 </div>
               )}
+
+              {/* Structured treatment plan (132) — sections the clinic names
+                  itself, each holding planned meds / food / consumables. */}
+              <div className="pt-3 mt-3 border-t border-slate-100 dark:border-zinc-800">
+                <TreatmentPlanPanel hospitalizationId={h.id} readOnly={!!h.dischargedAt} />
+              </div>
 
               {/* Calendar dates crossed since admission — same maths as the
                   backend's computeNights. */}

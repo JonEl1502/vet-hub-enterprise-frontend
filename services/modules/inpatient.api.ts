@@ -1,7 +1,7 @@
 /**
  * Inpatient / hospitalization API. Shapes mirror inpatient.service transforms.
  */
-import { get, post, patch } from '../api/client';
+import { get, post, patch, del } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
 
@@ -40,7 +40,36 @@ export interface Hospitalization {
   medsDue?: number; tasksDue?: number;
 }
 
+/** A user-named section of the inpatient treatment plan (132). */
+export interface TreatmentPlanItem {
+  id: string; sectionId: string; inventoryItemId: string | null; name: string;
+  quantity: number | null; unit: string | null; frequency: string | null; route: string | null;
+  timesOfDay: string[]; startsOn: string | null; endsOn: string | null; notes: string | null; sortOrder: number;
+  inventoryItem: { id: string; name: string; unit: string | null; quantity: number } | null;
+}
+export interface TreatmentPlanSection {
+  id: string; hospitalizationId: string; name: string; notes: string | null; sortOrder: number;
+  items: TreatmentPlanItem[];
+}
+
 export const inpatientAPI = {
+  // ── Treatment plan (132). A PLAN, not a charge: nothing here bills or moves
+  // stock — administration goes through the MAR / consumable path.
+  getPlan: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ sections: TreatmentPlanSection[] }>> =>
+    get(`/inpatient/${id}/plan`, { cache: false, ...options }),
+  addPlanSection: async (id: string | number, data: { name: string; notes?: string | null }, options?: RequestOptions): Promise<ApiResponse<{ section: TreatmentPlanSection }>> =>
+    post(`/inpatient/${id}/plan/sections`, data, { showError: true, ...options }),
+  updatePlanSection: async (id: string | number, sectionId: string | number, data: { name?: string; notes?: string | null }, options?: RequestOptions): Promise<ApiResponse<{ section: TreatmentPlanSection }>> =>
+    patch(`/inpatient/${id}/plan/sections/${sectionId}`, data, { showError: true, ...options }),
+  removePlanSection: async (id: string | number, sectionId: string | number, options?: RequestOptions): Promise<ApiResponse<any>> =>
+    del(`/inpatient/${id}/plan/sections/${sectionId}`, { showError: true, ...options }),
+  addPlanItem: async (id: string | number, sectionId: string | number, data: Record<string, any>, options?: RequestOptions): Promise<ApiResponse<{ item: TreatmentPlanItem }>> =>
+    post(`/inpatient/${id}/plan/sections/${sectionId}/items`, data, { showError: true, ...options }),
+  updatePlanItem: async (id: string | number, itemId: string | number, data: Record<string, any>, options?: RequestOptions): Promise<ApiResponse<{ item: TreatmentPlanItem }>> =>
+    patch(`/inpatient/${id}/plan/items/${itemId}`, data, { showError: true, ...options }),
+  removePlanItem: async (id: string | number, itemId: string | number, options?: RequestOptions): Promise<ApiResponse<any>> =>
+    del(`/inpatient/${id}/plan/items/${itemId}`, { showError: true, ...options }),
+
   board: async (options?: RequestOptions): Promise<ApiResponse<{ totalInpatients: number; board: Hospitalization[] }>> =>
     get(ENDPOINTS.INPATIENT.BOARD, { cache: false, ...options }),
 
