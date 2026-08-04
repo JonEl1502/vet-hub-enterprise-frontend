@@ -1,4 +1,5 @@
 import { useRegisterStepAction } from './wizard/StepActionContext';
+import { useRegisterRecordActions, useHasRecordActionBar } from '../shared/RecordActionContext';
 import React, { useState, useEffect } from 'react';
 import { Scissors, Save, Loader2, ImagePlus, X, CheckCircle2, Trash2 } from 'lucide-react';
 import { Visit } from '../../../types';
@@ -205,9 +206,31 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
   };
 
 
+  // Save the report, mark every grooming service finished (the backend then
+  // completes the matching visit tasks) and open the visit workflow. Finalize +
+  // settle happen THERE, never here. Named so the bar can call it too.
+  const checkout = async () => {
+    await save();
+    try { await Promise.all(records.filter(r => r.status !== 'COMPLETED').map(r => groomingAPI.update(r.id, { status: 'COMPLETED' }))); } catch { /* non-fatal — workflow still opens */ }
+    onSaved?.();
+    onFinalize?.();
+  };
+
   // Hand the save to the wizard's bottom bar when we're inside it.
   useRegisterStepAction('grooming-save', inWizard && !locked
     ? { label: 'Save report', onClick: save, busy: saving, note: saved ? 'Saved ✓' : undefined }
+    : null);
+
+  // Outside the wizard, hand BOTH to the record page's pinned RecordActionBar
+  // (user, 2026-08-04). Registering is a no-op when no page provides one, so
+  // the panel still works standalone — see the inline fallbacks below, which
+  // render only when there is no bar to hand them to.
+  const hasBar = useHasRecordActionBar();
+  useRegisterRecordActions('grooming', !inWizard && !locked
+    ? [
+        { key: 'grooming-save', label: 'Save report', onClick: save, icon: Save, busy: saving, disabled: saving, note: saved ? 'Saved ✓' : undefined },
+        ...(onFinalize ? [{ key: 'grooming-checkout', label: 'Checkout', onClick: checkout, icon: CheckCircle2, primary: true, disabled: saving }] : []),
+      ]
     : null);
 
   return (
@@ -341,9 +364,10 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
       </section>
 
       {/* Save moved to the wizard's bottom bar (user, 2026-08-03) — two
-          competing action bars on one screen meant the save got missed.
-          Outside the wizard there is no bar, so the button stays here. */}
-      {!locked && !inWizard && (
+          competing action bars on one screen meant the save got missed. Since
+          2026-08-04 the record PAGE has a pinned bar too, so the inline copy
+          renders only when neither exists (a standalone/embedded host). */}
+      {!locked && !inWizard && !hasBar && (
         <div className="flex items-center gap-3">
           <button type="button" onClick={save} disabled={saving} className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 disabled:opacity-50">
             {saving ? <><Loader2 size={14} className="animate-spin" /> Saving…</> : <><Save size={14} /> Save report</>}
@@ -355,13 +379,8 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
       {/* Checkout — saves the report, marks every grooming service finished (the
           backend then completes the matching visit tasks), and opens the visit
           workflow. Finalize + settle happen there, NOT here. */}
-      {!locked && onFinalize && (
-        <button type="button" onClick={async () => {
-          await save();
-          try { await Promise.all(records.filter(r => r.status !== 'COMPLETED').map(r => groomingAPI.update(r.id, { status: 'COMPLETED' }))); } catch { /* non-fatal — workflow still opens */ }
-          onSaved?.();
-          onFinalize();
-        }} disabled={saving}
+      {!locked && onFinalize && !hasBar && (
+        <button type="button" onClick={checkout} disabled={saving}
           className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
           <CheckCircle2 size={15} /> Checkout
         </button>

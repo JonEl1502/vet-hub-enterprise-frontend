@@ -5,6 +5,7 @@ import { groomingAPI } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
 import GroomingPanel from '../appointments/GroomingPanel';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
+import { RecordActionProvider, useRecordActionSlot } from '../shared/RecordActionContext';
 import AddCategoryService from '../shared/AddCategoryService';
 import { deriveVisitStatus, STATUS_LABEL, STATUS_STYLE } from '../shared/visitStatus';
 
@@ -21,7 +22,11 @@ interface Props {
  * card (intake, before/after photos, groomer notes, consumables) has proper
  * space. Same drawer→page migration as Lab and Imaging.
  */
-const GroomingRecordPage: React.FC<Props> = ({ appointment, onBack, onChanged, onOpenAppointment }) => {
+const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChanged, onOpenAppointment }) => {
+  // Terminal actions the report panel owns (Save report · Checkout). It holds
+  // the handlers and the dirty/saving state; this page holds the bar. Empty
+  // until the panel registers, so the bar simply renders without them.
+  const panelActions = useRecordActionSlot();
   const { pets, clients } = useData();
   // The grooming record for this visit (carries Status + Notes-format).
   const [gRec, setGRec] = useState<any | null>(null);
@@ -82,11 +87,14 @@ const GroomingRecordPage: React.FC<Props> = ({ appointment, onBack, onChanged, o
       {/* Actions + status are PINNED (user, 2026-08-04). They used to sit in a
           card at the very bottom, so on a long report you had to scroll past
           everything to change the status or jump to the visit. Anything beyond
-          the inline limit collapses into "More" so the bar never wraps. */}
+          the inline limit collapses into "More" so the bar never wraps.
+          Save report + Checkout join them here — the panel registers them
+          through RecordActionContext, because it owns the handlers while the
+          bar belongs to this page (user, 2026-08-04). */}
       <RecordActionBarSpacer />
       <RecordActionBar
         status={gRec ? { value: gRec.status || 'PENDING', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: setAllStatus, disabled: locked } : undefined}
-        hint="Finalize & settle live on the visit workflow"
+        hint={panelActions.find(a => a.note)?.note || 'Finalize & settle live on the visit workflow'}
         slot={!locked ? (
           <AddCategoryService
             appointmentId={appointment.id}
@@ -100,6 +108,16 @@ const GroomingRecordPage: React.FC<Props> = ({ appointment, onBack, onChanged, o
           />
         ) : undefined}
         actions={[
+          // Panel-owned terminal actions first — Save report / Checkout are what
+          // you reach for; `primary` keeps Checkout inline when the rest overflow.
+          ...panelActions.map(a => ({
+            key: a.key,
+            label: a.busy ? `${a.label}…` : a.label,
+            icon: a.icon as React.ElementType | undefined,
+            onClick: a.onClick,
+            primary: a.primary,
+            disabled: a.disabled,
+          })),
           ...(appointment.id != null && onOpenAppointment ? [{
             key: 'linked', label: 'Linked appointment', icon: ExternalLink, tone: 'seafoam' as const,
             onClick: () => onOpenAppointment(String(appointment.id), false),
@@ -109,5 +127,17 @@ const GroomingRecordPage: React.FC<Props> = ({ appointment, onBack, onChanged, o
     </div>
   );
 };
+
+/**
+ * The provider must sit ABOVE both the panel (which registers) and the bar
+ * (which renders), so the page body is an inner component — a hook called in
+ * the same component that renders the provider would read the default,
+ * empty context and the buttons would never appear.
+ */
+const GroomingRecordPage: React.FC<Props> = (props) => (
+  <RecordActionProvider>
+    <GroomingRecordPageInner {...props} />
+  </RecordActionProvider>
+);
 
 export default GroomingRecordPage;
