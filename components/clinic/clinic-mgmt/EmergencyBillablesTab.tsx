@@ -8,7 +8,8 @@ import {
 import { VISIT_FEE_DEFS, loadVisitFees, saveVisitFees, VisitFeesConfig, loadVisitFeeServices, saveVisitFeeServices, VisitFeeServicesConfig, loadVisitFeeRates, saveVisitFeeRates, VisitFeeRatesConfig, loadVisitFeeMeta, saveVisitFeeMeta, VisitFeeMeta, DistanceUnit, HOUSE_CALL_DISTANCE_KEY } from '../shared/visitFees';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import DefaultRateEditor from '../shared/DefaultRateEditor';
-import { SERVICE_CHARGE_DEFS, loadServiceCharges, saveServiceCharges, ServiceChargesConfig } from '../shared/serviceCharges';
+import { SERVICE_CHARGE_DEFS, chargesFromClinic, legacyLocalCharges, clearLegacyLocalCharges, CLINIC_FEE_FIELD, ServiceChargesConfig, ServiceChargeDef } from '../shared/serviceCharges';
+import { useClinic } from '../../../contexts/ClinicContext';
 import WorkingHoursEditor from '../shared/WorkingHoursEditor';
 import QtyUnitControl, { sellUnitOf } from '../shared/QtyUnitControl';
 
@@ -20,6 +21,8 @@ import QtyUnitControl, { sellUnitOf } from '../shared/QtyUnitControl';
  * UI-ONLY phase: config persists in localStorage; a clinic settings
  * column takes over in the API phase.
  */
+type ServiceChargeKey = ServiceChargeDef['key'];
+
 const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | number | null }> = ({ currency = 'KES', clinicId }) => {
   const { inventory } = useData();
   const [cfg, setCfg] = useState<EmergencyBillablesConfig>(() => loadEmergencyBillables(clinicId));
@@ -37,15 +40,45 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
     });
   };
   // Clinic-wide DEFAULT service charges — what a new product's fee fields open
-  // with, so the same four numbers aren't retyped per product.
-  const [svcCharges, setSvcCharges] = useState<ServiceChargesConfig>(() => loadServiceCharges());
-  const setSvcCharge = (key: ServiceChargesConfig extends infer _ ? keyof ServiceChargesConfig : never, v: string) => {
+  // with, so the same four numbers aren't retyped per product. Stored on the
+  // CLINIC (177), not this browser, so colleagues and other devices see them.
+  const { selectedClinics, updateClinic } = useClinic();
+  const svcClinic = selectedClinics[0] ?? null;
+  const savedCharges = chargesFromClinic(svcClinic);
+  // Seed from this browser's pre-177 copy ONLY when the clinic has nothing set,
+  // so numbers typed before the move aren't silently lost — they are saved to
+  // the clinic on the first edit, which is when the local copy is dropped.
+  const hasSaved = Object.keys(savedCharges).length > 0;
+  const [svcCharges, setSvcCharges] = useState<ServiceChargesConfig>(
+    () => (hasSaved ? savedCharges : legacyLocalCharges()),
+  );
+  const [svcSaving, setSvcSaving] = useState(false);
+  // Track the clinic's own values so switching clinics re-reads them rather
+  // than showing the previous clinic's numbers.
+  const savedKey = JSON.stringify(savedCharges);
+  useEffect(() => {
+    if (hasSaved) setSvcCharges(savedCharges);
+  }, [savedKey, svcClinic?.id]);
+
+  const setSvcCharge = (key: ServiceChargeKey, v: string) => {
     setSvcCharges(prev => {
       const next = { ...prev };
       if (v === '') delete next[key]; else next[key] = Number(v) || 0;
-      saveServiceCharges(next);
       return next;
     });
+  };
+
+  /** Persist on blur/Enter — one PATCH per field, like DefaultRateEditor. */
+  const commitSvcCharge = async (key: ServiceChargeKey, v: string) => {
+    if (!svcClinic) return;
+    const next = v === '' ? null : Number(v) || 0;
+    if ((savedCharges[key] ?? null) === next) return; // nothing changed
+    setSvcSaving(true);
+    try {
+      await updateClinic(svcClinic.id, { [CLINIC_FEE_FIELD[key]]: next } as any);
+      clearLegacyLocalCharges();
+    } catch { /* updateClinic surfaces its own error */ }
+    finally { setSvcSaving(false); }
   };
 
   // Per-fee time rates (per hour / per minute) + the clinic distance unit.
@@ -145,10 +178,14 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
       <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-zinc-800 pb-3">
         <div className="p-1.5 bg-seafoam text-white rounded-lg shadow-md"><Stethoscope size={16} /></div>
         <div className="flex-1">
-          <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Default Service Charges</h2>
+          <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">
+            Default Service Charges
+            {svcSaving && <span className="ml-2 text-[9px] font-black uppercase tracking-widest text-slate-400">Saving…</span>}
+          </h2>
           <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
             Per-dispense fees a <strong>new</strong> product's form opens with. Leave blank for no default.
             Products already saved keep their own charges — changing a default never re-prices existing stock.
+            Saved on the clinic, so the whole team sees the same numbers.
           </p>
         </div>
       </div>
@@ -163,8 +200,11 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
                 type="number" min={0} step="0.01" inputMode="decimal"
                 value={svcCharges[def.key] ?? ''}
                 onChange={e => setSvcCharge(def.key, e.target.value)}
+                onBlur={e => commitSvcCharge(def.key, e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                 placeholder="—"
-                className="field-input py-1.5 text-xs font-mono w-full"
+                disabled={!svcClinic}
+                className="field-input py-1.5 text-xs font-mono w-full disabled:opacity-50"
               />
             </div>
           </div>

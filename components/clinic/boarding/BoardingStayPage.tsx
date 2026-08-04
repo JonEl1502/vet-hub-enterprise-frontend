@@ -246,6 +246,26 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
         // column used to sit beside the care sheet, squeezing the thing staff
         // actually work in into two thirds. It runs full width UNDER it now.
         <div className="space-y-4">
+          {/* Stay facts FIRST (user, 2026-08-04): status / kennel / check-in /
+              expected pickup are what you check on opening the page, so they
+              lead rather than sitting under a scroll-length of care sheet.
+              After check-out the grid shows the real check-in → check-out range
+              and the billed day count. */}
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Fact label="Status" value={stay.status === 'ADMITTED'
+                ? `Day ${Math.max(0, calendarDaysBetween(stay.dropOffAt)) + 1}`
+                : stay.status === 'CHECKED_OUT' && stay.actualPickupAt
+                  ? (() => { const d = Math.max(1, calendarDaysBetween(stay.dropOffAt, stay.actualPickupAt)); return `Checked out · ${d} day${d === 1 ? '' : 's'}`; })()
+                  : stay.status} />
+              <Fact label="Kennel" value={stay.kennel || '—'} />
+              <Fact label="Check-in" value={`${formatDate(stay.dropOffAt)} · ${new Date(stay.dropOffAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`} />
+              {stay.status === 'CHECKED_OUT' && stay.actualPickupAt
+                ? <Fact label="Check-out" value={`${formatDate(stay.actualPickupAt)} · ${new Date(stay.actualPickupAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`} />
+                : <Fact label="Expected pickup" value={stay.expectedPickupAt ? `${formatDate(stay.expectedPickupAt)} · ${new Date(stay.expectedPickupAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '—'} />}
+            </div>
+          </div>
+
           {/* MAIN — daily care logging + care log history */}
           <div className="space-y-4">
             {/* ONE care card (§0f #2): log form ÷ consumables ÷ care-log history,
@@ -482,24 +502,11 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
             </section>
           </div>
 
-          {/* Stay context, actions, checkout — full width, below the sheet. */}
+          {/* Stay context, actions, checkout — full width, below the sheet.
+              The FACTS grid that used to open this card now sits at the top of
+              the page (user, 2026-08-04); what remains here is the actions. */}
           <div className="space-y-4">
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
-              {/* Stay facts — after check-out the grid shows the real
-                  check-in → check-out range and the billed day count. */}
-              <div className="grid grid-cols-2 gap-3">
-                <Fact label="Status" value={stay.status === 'ADMITTED'
-                  ? `Day ${Math.max(0, calendarDaysBetween(stay.dropOffAt)) + 1}`
-                  : stay.status === 'CHECKED_OUT' && stay.actualPickupAt
-                    ? (() => { const d = Math.max(1, calendarDaysBetween(stay.dropOffAt, stay.actualPickupAt)); return `Checked out · ${d} day${d === 1 ? '' : 's'}`; })()
-                    : stay.status} />
-                <Fact label="Kennel" value={stay.kennel || '—'} />
-                <Fact label="Check-in" value={`${formatDate(stay.dropOffAt)} · ${new Date(stay.dropOffAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`} />
-                {stay.status === 'CHECKED_OUT' && stay.actualPickupAt
-                  ? <Fact label="Check-out" value={`${formatDate(stay.actualPickupAt)} · ${new Date(stay.actualPickupAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`} />
-                  : <Fact label="Expected pickup" value={stay.expectedPickupAt ? `${formatDate(stay.expectedPickupAt)} · ${new Date(stay.expectedPickupAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '—'} />}
-              </div>
-
               {/* Which appointment this stay belongs to + spawn a grooming service */}
               {(stay.billing?.appointmentId || stay.appointmentId) && (
                 <div className="flex flex-wrap items-center gap-2">

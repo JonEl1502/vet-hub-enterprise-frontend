@@ -39,6 +39,11 @@ interface Clinic {
   city?: string | null;
   boardingDayRate?: number | null;
   inpatientDayRate?: number | null;
+  /** Clinic-wide DEFAULT service charges (177) — null means "not set". */
+  feeService?: number | null;
+  feeAdmin?: number | null;
+  feeInjection?: number | null;
+  feePrescription?: number | null;
   prodTest?: boolean;
   /** FARM org (160) — drives the app audience. */
   isLivestock?: boolean;
@@ -87,6 +92,13 @@ const transformApiClinic = (clinic: any): Clinic => ({
   city: clinic.city ?? null,
   boardingDayRate: clinic.boardingDayRate != null ? Number(clinic.boardingDayRate) : null,
   inpatientDayRate: clinic.inpatientDayRate != null ? Number(clinic.inpatientDayRate) : null,
+  // Default service charges (177). Field-by-field mapper — omit one and the
+  // product form silently opens with that fee off, whatever the API returned.
+  // `!= null` not `||`: a legitimate 0 must survive, and "not set" must stay null.
+  feeService: clinic.feeService != null ? Number(clinic.feeService) : null,
+  feeAdmin: clinic.feeAdmin != null ? Number(clinic.feeAdmin) : null,
+  feeInjection: clinic.feeInjection != null ? Number(clinic.feeInjection) : null,
+  feePrescription: clinic.feePrescription != null ? Number(clinic.feePrescription) : null,
   prodTest: clinic.prodTest === true,
   // FARM org (160) — the sidebar picks its audience from this. Field-by-field
   // mapper: omit it and a farm org reads as a clinic no matter what the API says.

@@ -59,6 +59,50 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: an ErrorBoundary so a render throw stops being a WHITE PAGE  —  2026-08-04
+- **What changed:** new `components/shared/common/ErrorBoundary.tsx` wraps `renderContent()` in
+  `App.tsx`. A render-time throw now shows a panel naming the error, with the component stack behind
+  a **Technical detail** toggle, plus **Try again** and **Reload**.
+- **Why:** there was **no boundary anywhere in the tree** — zero matches repo-wide for
+  `ErrorBoundary`/`componentDidCatch`/`getDerivedStateFromError`. `App.tsx` dispatches views from a
+  plain switch, so any throw unmounted the whole app to a blank `#root`. Three features have shipped
+  as white pages this way; the most recent was a one-line missing import in `InventoryView` that
+  threw a `ReferenceError` and gave no clue where to look.
+- **Record impact:** 🟢 None — UI only.
+- **Rollback:** revert; throws blank the page again.
+- ⚠️ **Keyed on `activeView`.** Without the key the boundary stays latched after a failure and every
+  page you navigate to afterwards renders the OLD error — turning one broken page into a broken app.
+- ⚠️ A boundary catches **render**, lifecycle and constructor throws. It does **not** catch event
+  handlers, async rejections or `setTimeout` callbacks. It is a net, not a substitute for handling
+  errors where they happen.
+
+### feat: default service charges are stored on the CLINIC, not in localStorage (177)  —  2026-08-04
+- **What changed:** the four Billables defaults (Service / Administration / Injection /
+  Prescription) now read and write `clinics.fee_*` via `updateClinic`, saving on blur/Enter — the
+  same mechanism `DefaultRateEditor` uses for daily rates. `defaultItemFees()` takes the clinic;
+  `chargesFromClinic()` replaces `loadServiceCharges()`.
+- **Why:** they were in `localStorage` (`vethub.serviceCharges.v1`) and **not keyed by clinic**, so
+  they were browser-scoped, not clinic-scoped: a colleague saw nothing, a second device saw nothing,
+  and the Managing switcher didn't change them. Since `metadata.fees` is read **and billed**, two
+  people could create the same product at different prices with neither aware.
+- **Record impact:** 🟢 None on the frontend (see backend 177 for the columns).
+- **Rollback:** revert; the editor goes back to browser-local values.
+- ⚠️ **Needs migration 177 applied first**, or the four fields silently read/write nothing.
+- ℹ️ The pre-177 browser copy **seeds the editor** when the clinic has nothing set, so numbers typed
+  before the move aren't lost — first save writes them to the clinic and drops the local copy. There
+  is no server-side backfill; that data only ever existed in individual browsers.
+- ⚠️ Four fields added to **three** places (`clinics.api.ts` type, `ClinicContext` type **and its
+  field-by-field mapper**). Missing the mapper is the standing footgun — the field never reaches the
+  app whatever the API returns.
+
+### fix: boarding stay facts lead the page  —  2026-08-04
+- **What changed:** the STATUS / KENNEL / CHECK-IN / EXPECTED PICKUP grid moved out of the actions
+  card and to the **top** of `BoardingStayPage`, in its own card, widened to 4-up on `sm+`.
+- **Why:** completes the 2026-08-04 handover — it was still under a scroll-length of care sheet,
+  and it is what staff check on opening the page.
+- **Record impact:** 🟢 None — layout only.
+- **Rollback:** revert.
+
 ### feat: close a whole follow-up plan in one action  —  2026-08-04
 - **What changed:** the **Plan · N points** card gained a menu with **Mark plan done** and **Dismiss
   plan**, each confirming first and reporting *"N open of M"*. It touches only the **open** points;

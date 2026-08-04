@@ -36,6 +36,11 @@ export interface Clinic {
   isMain?: boolean;
   boardingDayRate?: number | null;
   inpatientDayRate?: number | null;
+  /** Clinic-wide DEFAULT service charges (177) — null means "not set". */
+  feeService?: number | null;
+  feeAdmin?: number | null;
+  feeInjection?: number | null;
+  feePrescription?: number | null;
   workingHours?: Record<string, { open: string; close: string; closed: boolean }> | null;
   prodTest?: boolean;
   /** FARM org (160) — drives the plan catalogue and the app audience. */

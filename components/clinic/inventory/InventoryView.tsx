@@ -586,7 +586,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       // Billables) so the same four numbers aren't retyped per product. Only
       // applied to a NEW item — `startEdit` reads the item's own saved fees, so
       // editing a product never silently re-inherits a changed default.
-      ...defaultItemFees(),
+      ...defaultItemFees(clinic),
     });
     setIsAddModalOpen(true);
   };

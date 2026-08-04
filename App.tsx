@@ -135,6 +135,7 @@ import HandshakeDetailView, { HandshakeDetailPage } from './components/clinic/pa
 import CreatePartnershipPage from './components/clinic/partnerships/CreatePartnershipPage';
 import DeleteConfirmationDialog from './components/shared/common/DeleteConfirmationDialog';
 import DialogHost from './components/shared/common/DialogHost';
+import ErrorBoundary from './components/shared/common/ErrorBoundary';
 import ClinicSwitcherModal from './components/clinic/clinic-mgmt/ClinicSwitcherModal';
 import InitialClinicSelection from './components/clinic/clinic-mgmt/InitialClinicSelection';
 import TransactionsView from './components/clinic/billing/TransactionsView';
@@ -3309,8 +3310,22 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             containing block without being the scroller, so position:sticky
             never engaged anywhere in the app (the inventory Order Summary
             rail scrolled away, user 2026-08-03). clip still cuts horizontal
-            overflow but creates no scroll container — sticky works. */}
-        <main className={`relative flex-1 transition-all duration-500 overflow-x-clip mt-16 ml-0 ${isDesktopCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
+            overflow but creates no scroll container — sticky works.
+
+            ⚠️ min-w-0 is LOAD-BEARING, and was missing until 2026-08-04.
+            `flex-1` is `flex: 1 1 0%` — it does NOT reset the flex item's
+            default `min-width: auto`, so <main> could never shrink below the
+            min-content width of whatever page was inside it. Any page with a
+            wide table or a long unbreakable row grew <main> itself (Staff
+            measured 1368px inside a 390px phone), which meant:
+              · overflow-x-clip clipped nothing — the BOX had grown, so there
+                was no overflow left to clip;
+              · the whole document went wide, so the `fixed` navbar stretched
+                to 1369px and the user had to pinch-zoom out to read any page.
+            With min-w-0 the item shrinks to the viewport and clip does its
+            job. Wide content must then scroll in its OWN container — see the
+            `.table-scroll` / `overflow-x-auto` wrappers on list pages. */}
+        <main className={`relative flex-1 min-w-0 transition-all duration-500 overflow-x-clip mt-16 ml-0 ${isDesktopCollapsed ? 'md:ml-20' : 'md:ml-64'}`}>
           {/* AMBER ALERT — rides above every page while any patient is still in
               emergency triage, and removes itself once the last one is
               stabilised. Inside <main> so it doesn't cover the nav, sticky so
@@ -3344,7 +3359,15 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             // the old 1800px cap left a wide monitor with a dead band on the
             // right while bill tables and card grids stayed cramped.
             <div className="p-4 md:p-6 w-full">
-              {renderContent()}
+              {/* A render throw used to unmount the whole app to a blank #root —
+                  there was no boundary anywhere in the tree, which is why three
+                  separate features shipped as white pages. Keyed on activeView
+                  so navigating away CLEARS the error: without the key the
+                  boundary stays latched and every later page renders the old
+                  failure, turning one broken page into a broken app. */}
+              <ErrorBoundary key={activeView} label={activeView}>
+                {renderContent()}
+              </ErrorBoundary>
             </div>
           )}
         </main>
