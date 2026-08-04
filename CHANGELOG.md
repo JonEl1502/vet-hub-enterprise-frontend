@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: finalize lands on Bill & Invoice, and the header shows where the visit IS on the chain  —  no migration
+- **What changed:** (user, 2026-08-04)
+  1. Finalizing a visit now switches to the **Bill & Invoice** tab. Finalizing *is* generating
+     the bill, so the next thing anyone does is look at it — staying on the clinical tab meant
+     hunting for a tab to see what you had just produced. It also forces the billing sub-tab to
+     **Bill**, because that tab remembers its last sub-tab and a visit finalized after viewing a
+     receipt would otherwise open on Receipt.
+  2. The header's Bill card now shows a **Finalize → Bill → Invoice → Settle** chain with the
+     completed steps ticked and the next one highlighted, plus the precise stage label
+     ("Bill · draft", "Bill approved · awaiting invoice", "Invoiced · awaiting payment"…).
+- **Why:** the card showed one flat badge — "Awaiting payment" — which says nothing about
+  whether the bill still needs *approving* or an invoice still needs *generating*. Staff could
+  not tell what to do next without opening the Bill tab.
+- **Derived from `billStage`, the same source the footer button uses**, so the header and footer
+  can never disagree. That divergence is exactly what previously produced "Awaiting payment ·
+  Settle bill" sitting over a DRAFT bill.
+- **Record impact:** 🟢 None — presentational.
+
+
 ### feat: a client's discount is surfaced where the money is taken  —  2026-08-04
 - **What changed:** (user: "in payment here n elsewhere detect client has discount and
   display") the collect flow could ALWAYS send a discount, but nothing told the front desk

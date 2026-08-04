@@ -2536,6 +2536,14 @@ const VisitDetailInner: React.FC<Props> = ({
 
       toast.success('Visit finalized. Ready to settle bill.');
       setShowFinalizeGate(false);
+      // Land on Bill & Invoice (user, 2026-08-04). Finalizing IS generating the
+      // bill, so the next thing anyone does is look at it — leaving them on the
+      // clinical tab meant hunting for a tab to see what they just produced.
+      // `setActiveBottomTab('bill')` too: the billing tab remembers its last
+      // sub-tab, so without it a visit finalized after viewing a receipt would
+      // open on Receipt.
+      setWorkflowTab('billing');
+      setActiveBottomTab('bill');
       refreshInventory().catch(() => {});
     } catch (err: any) {
       // The API layer already toasts the server's message (showError) — don't
@@ -3314,9 +3322,59 @@ const VisitDetailInner: React.FC<Props> = ({
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[9px] font-black uppercase tracking-widest text-white/60 flex items-center gap-1.5"><Receipt size={11} /> Bill</span>
                 <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest ${appointment.isPaid ? 'bg-emerald-500/20 text-emerald-200' : isFinalized ? 'bg-amber-500/20 text-amber-200' : 'bg-white/10 text-white/70'}`}>
-                  {appointment.isPaid ? `Settled · ${appointment.paymentMethod}` : isFinalized ? 'Awaiting payment' : 'Not finalized'}
+                  {appointment.isPaid ? `Settled · ${appointment.paymentMethod}` : billStageLabel}
                 </span>
               </div>
+
+              {/* WHERE THIS VISIT IS on Finalize → Bill → Invoice → Settle, and
+                  what comes next (user, 2026-08-04). The card previously showed
+                  one flat badge — "Awaiting payment" — which says nothing about
+                  whether the bill still needs approving or an invoice still
+                  needs generating, so staff could not tell what to do next
+                  without opening the Bill tab.
+                  Derived from `billStage`, the SAME source the footer button
+                  uses, so the header and the footer can never disagree — that
+                  divergence is exactly what produced "Awaiting payment · Settle
+                  bill" over a DRAFT bill. */}
+              {!isTransferVisit && (() => {
+                const done = (n: number) => {
+                  if (appointment.isPaid) return true;
+                  const reached =
+                    billStage === 'NONE' ? (isFinalized ? 1 : 0)
+                    : billStage === 'APPROVE' ? 1
+                    : billStage === 'INVOICE' ? 2
+                    : (billStage === 'SETTLE' || billStage === 'PAY_FIRST') ? 3
+                    : 4;
+                  return n <= reached;
+                };
+                const currentIdx = appointment.isPaid ? 4
+                  : billStage === 'NONE' ? (isFinalized ? 1 : 0)
+                  : billStage === 'APPROVE' ? 1
+                  : billStage === 'INVOICE' ? 2
+                  : (billStage === 'SETTLE' || billStage === 'PAY_FIRST') ? 3 : 4;
+                const STEPS = ['Finalize', 'Bill', 'Invoice', 'Settle'];
+                return (
+                  <div className="flex items-center gap-1">
+                    {STEPS.map((label, i) => {
+                      const isDone = done(i + 1);
+                      const isCurrent = i === currentIdx;
+                      return (
+                        <React.Fragment key={label}>
+                          {i > 0 && <span className={`h-px flex-1 ${isDone ? 'bg-emerald-300/50' : 'bg-white/15'}`} />}
+                          <span
+                            title={isCurrent ? 'Next step' : isDone ? 'Done' : 'Not yet'}
+                            className={`px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest whitespace-nowrap ${
+                              isDone ? 'bg-emerald-500/25 text-emerald-100'
+                              : isCurrent ? 'bg-amber-400 text-amber-950'
+                              : 'bg-white/10 text-white/40'}`}>
+                            {isDone ? '✓ ' : ''}{label}
+                          </span>
+                        </React.Fragment>
+                      );
+                    })}
+                  </div>
+                );
+              })()}
               <div className="flex flex-wrap gap-2 mt-auto">
                 {!isFinalized && !isFinalizing && (
                   <button onClick={openFinalizeGate} title="Generate the bill for this visit — this finalizes it" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
