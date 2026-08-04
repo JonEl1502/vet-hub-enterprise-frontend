@@ -430,6 +430,30 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isVaccinationVisit]);
 
+  /**
+   * VACCINATION PROCEDURE RECIPES at registration.
+   *
+   * ⚠️ The general "Procedure / recipe (optional)" picker was REMOVED here on
+   * 2026-07-29 because registration should capture who is being seen and why,
+   * not stage a protocol before anyone has looked at the patient. This is
+   * deliberately NOT a reinstatement of that: it is scoped to VACCINATION
+   * visits only, where the protocol IS the reason for the visit — you know a
+   * rabies shot is being given before the patient is examined. It sits beside
+   * the vaccine and package chips that already stage services here.
+   *
+   * Loaded only for vaccination visits, so no network call is added to a normal
+   * registration mount (the reason the old list was deleted rather than left).
+   */
+  const [vaccineRecipeList, setVaccineRecipeList] = useState<any[]>([]);
+  const [pickedRecipeId, setPickedRecipeId] = useState<string | null>(null);
+  useEffect(() => {
+    if (!isVaccinationVisit || vaccineRecipeList.length > 0) return;
+    procedureTemplatesAPI.list(false, { silent: true } as any)
+      .then(r => { if (r.success && r.data?.templates) setVaccineRecipeList(r.data.templates); })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVaccinationVisit]);
+
   // Auto-populate client when pet is selected (checks local + API pets).
   // NOT in group mode — the roster spans owners and the registrar browses
   // freely between clients; snapping back to the first member's owner made
@@ -972,6 +996,31 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     return pets.find(p => p.id === selectedPetId) ?? apiPetResults.find(p => p.id === selectedPetId) ?? null;
   }, [selectedPetId, pets, apiPetResults]);
 
+  /**
+   * The recipes actually offerable for THIS patient.
+   *
+   * Filtered on the STABLE category key, never the display name — a clinic can
+   * rename "Vaccination" and a name match would silently stop finding anything
+   * (project_category_stable_keys). Species is matched too, so a cat visit is
+   * not offered the dog protocol; an empty `species` on a recipe means "any".
+   *
+   * ⚠️ A vaccination recipe with NO category is invisible here by design.
+   * Guessing from the name would reintroduce exactly the fragile matching the
+   * stable-key rule exists to prevent. On prod today that is "Rabbits
+   * vaccination" (template 3) — a data gap to fix by categorising it, not code.
+   */
+  const vaccineRecipes = useMemo(() => {
+    if (!isVaccinationVisit) return [];
+    const sp = (selectedPet?.species || '').toString().trim().toLowerCase();
+    return vaccineRecipeList.filter((t: any) => {
+      if (t.isActive === false) return false;
+      if ((t.categoryKey || '').toUpperCase() !== 'VACCINATION') return false;
+      const list: string[] = Array.isArray(t.species) ? t.species : [];
+      if (!list.length || !sp) return true;
+      return list.some(x => String(x).trim().toLowerCase() === sp);
+    });
+  }, [isVaccinationVisit, vaccineRecipeList, selectedPet]);
+
   // Owner record for the selected client (when resolvable).
   const selectedOwner = useMemo(() => {
     if (!selectedClientId) return null;
@@ -1289,10 +1338,13 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       // Carried to the visit so the wizard opens on the workflow chosen here
       // rather than re-resolving one. Consumed by App -> VisitDetailView.
       workflowTemplateId: pickedTemplateId,
-      // No recipe is staged at registration any more (user, 2026-07-29) — the
-      // field stays in the payload contract, always null, because App's create
-      // handler and the backend still accept it from other callers.
-      procedureTemplateId: null,
+      // A VACCINATION visit may stage one vaccination-category recipe (see the
+      // picker above). Everything else still sends null — the 2026-07-29 removal
+      // stands for general visits. App's create handler applies this after the
+      // visit exists, via the same endpoint auto-apply uses, so stock, billing
+      // and deferred deduction behave identically to picking the trigger
+      // service by hand.
+      procedureTemplateId: isVaccinationVisit ? pickedRecipeId : null,
       // Escalate to in-patient (vet visits only) — links a hospitalization.
       onboardInpatient: encounterType === 'VET_VISIT' && onboardInpatient,
     });
@@ -2208,6 +2260,28 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                                      onClick={() => staged ? handleRemoveService(sc.categoryId, staged.id) : handleAddService(sc.categoryId, s.name, s.defaultPrice || 0)}
                                      className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${staged ? 'border-seafoam bg-seafoam/10 text-pine dark:text-zinc-100' : 'border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 hover:border-seafoam'}`}>
                                      {staged ? '✓ ' : ''}💉 {s.name}{s.defaultPrice ? ` · ${currency} ${s.defaultPrice.toLocaleString()}` : ''}
+                                   </button>
+                                 );
+                               })}
+
+                               {/* Vaccination PROTOCOL recipes — one whole
+                                   protocol (fees, products, diagnostics) rather
+                                   than a single vaccine line. Single-select:
+                                   two protocols on one visit would double the
+                                   shared fees, and the visit can always apply
+                                   another from its own applied-procedure panel.
+                                   Filtered to this patient's species. */}
+                               {vaccineRecipes.map((t: any) => {
+                                 const picked = pickedRecipeId === String(t.id);
+                                 return (
+                                   <button key={`rec-${t.id}`} type="button"
+                                     title={picked ? 'Staged — click to unstage' : 'Applies the whole protocol when the visit is created'}
+                                     onClick={() => setPickedRecipeId(picked ? null : String(t.id))}
+                                     className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${picked
+                                       ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300'
+                                       : 'border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-zinc-900 text-indigo-700 dark:text-indigo-300 hover:border-indigo-400'}`}>
+                                     {picked ? '✓ ' : ''}📋 {t.name}
+                                     {t.estimatedTotal ? ` · ${currency} ${Number(t.estimatedTotal).toLocaleString()}` : ''}
                                    </button>
                                  );
                                })}

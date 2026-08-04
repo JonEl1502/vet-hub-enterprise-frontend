@@ -59,6 +59,33 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: stage a vaccination PROTOCOL at visit creation  —  backend categoryKey
+- **What changed:** a vaccination visit's staging area now offers **vaccination-category
+  procedure recipes** as chips, beside the vaccine and package chips already there. Picking
+  one applies the whole protocol (fees, products, diagnostics) when the visit is created.
+- **⚠️ This is NOT a reinstatement of the picker removed on 2026-07-29.** That one was
+  removed because "registration should capture who is being seen and why, not stage a
+  protocol before anyone has looked at the patient" — and that still stands for general
+  visits, which continue to send `procedureTemplateId: null`. This is scoped to
+  **VACCINATION visits only**, where the protocol *is* the reason for the visit: you know a
+  rabies shot is being given before the patient is examined.
+- **Filtered on the STABLE category key**, never the display name — a clinic can rename
+  "Vaccination" and a name match would silently find nothing (`project_category_stable_keys`).
+  **Species-filtered** too, so a cat visit isn't offered the dog protocol; a recipe with no
+  species means "any".
+- **Single-select on purpose:** two protocols on one visit would double the shared fees, and
+  the visit can still apply another from its own applied-procedure panel afterwards.
+- **Loaded only for vaccination visits**, so no network call is added to a normal
+  registration mount — the reason the old recipe list was deleted rather than left dangling.
+- Applied via the existing `procedureTemplateId` contract, which App's create handler already
+  honours through the same endpoint auto-apply uses, so stock, billing and deferred deduction
+  behave identically to picking the trigger service by hand.
+- **⚠️ A vaccination recipe with NO category stays invisible here, by design** — guessing from
+  the name is the fragile matching the stable-key rule exists to prevent. On prod that is one
+  row ("Rabbits vaccination"), a data gap to fix by categorising it, not in code.
+- **Record impact:** 🟢 None — reuses existing endpoints.
+
+
 ### feat: overdue invoices, invoice counters, and a payer reference on collect  —  2026-08-04
 - **What changed:** (user: "handle these then" — the top gaps from the design audit)
   ① **Overdue now exists.** `invoices.due_date` and its whole controller→service path were

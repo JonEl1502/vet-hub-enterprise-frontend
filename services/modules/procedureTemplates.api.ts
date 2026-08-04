@@ -73,6 +73,9 @@ export interface ProcedureTemplate {
   type: string | null;
   categoryId: string | null;
   categoryName: string | null;
+  /** STABLE category slug (e.g. 'VACCINATION'). Filter on this, never on the
+   *  display name — a clinic can rename a category. */
+  categoryKey?: string | null;
   species: string[];
   defaultDurationMin: number | null;
   triggerServiceId: string | null;
