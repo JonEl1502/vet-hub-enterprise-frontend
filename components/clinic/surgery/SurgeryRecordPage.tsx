@@ -340,7 +340,11 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
               )}
             </div>
 
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+            {/* Sticky save bar (user, 2026-08-04). Going one-column pushed Save
+                below a long record, so the action you came to perform was a
+                scroll away from the fields you just filled in. */}
+            <div className="sticky bottom-0 z-30 -mx-2 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 bg-gradient-to-t from-white via-white dark:from-zinc-950 dark:via-zinc-950 to-transparent">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 sm:p-4 shadow-lg">
               {locked ? (
                 billFinalized ? (
                   <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1.5">
@@ -356,6 +360,7 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
                   {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Save record
                 </button>
               )}
+              </div>
             </div>
           </div>
         </div>

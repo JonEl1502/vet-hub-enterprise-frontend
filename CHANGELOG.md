@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: surgery record's save bar sticks to the bottom  —  2026-08-04
+- **What changed:** (user) making the surgery record one-column pushed **Save record**
+  below a long form, so the action you came to perform sat a scroll away from the fields
+  you had just filled in. The block (Save · Reopen · the locked notice) is now
+  `sticky bottom-0` with a fade behind it and safe-area padding, so it stays in reach
+  while you work down the record.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### ui: void/delete payment use a branded modal, not the browser's prompt  —  2026-08-04
 - **What changed:** (user: "modal please with logo") voiding or deleting a payment called
   native `prompt()`, so the confirmation appeared as the browser's own
