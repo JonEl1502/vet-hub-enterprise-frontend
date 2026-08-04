@@ -6,8 +6,8 @@ import { BillQueueRow } from '../../../../services/modules/bills.api';
 import { receivablesAPI, ArAgeing } from '../../../../services/modules/receivables.api';
 import { formatTime } from '../../../../services/utils/dateFormatter';
 import {
-  StatRow, RoleCard, EmptyNote, Spinner, todaysVisits, isToday,
-  useDayTasks, TaskChecklist,
+  StatRow, RoleCard, EmptyNote, Spinner, visitsInRange, inDayRange,
+  useDayTasks, TaskChecklist, DayRange,
 } from './roleShared';
 
 /**
@@ -23,6 +23,8 @@ interface Props {
   clients: Client[];
   currency: string;
   onNavigate?: (view: string, params?: any) => void;
+  /** Day the dashboard is pointed at — the shell owns the picker. */
+  range?: DayRange;
 }
 
 const TASKS = [
@@ -33,7 +35,7 @@ const TASKS = [
   'Reconcile the cash drawer',
 ];
 
-const FrontOfficeDashboard: React.FC<Props> = ({ visits, clients, currency, onNavigate }) => {
+const FrontOfficeDashboard: React.FC<Props> = ({ visits, clients, currency, onNavigate, range }) => {
   const [bills, setBills] = React.useState<BillQueueRow[] | null>(null);
   const [ar, setAr] = React.useState<ArAgeing | null>(null);
   const { tasks, done, toggle } = useDayTasks('frontoffice', TASKS);
@@ -51,10 +53,10 @@ const FrontOfficeDashboard: React.FC<Props> = ({ visits, clients, currency, onNa
     return () => { alive = false; };
   }, []);
 
-  const today = todaysVisits(visits);
+  const today = visitsInRange(visits, range);
   const walkIns = today.filter(v => (v as any).isWalkIn);
   const waiting = today.filter(v => v.status === ApptStatus.SCHEDULED);
-  const newClients = (clients || []).filter(c => isToday((c as any).joinedAt || (c as any).createdAt));
+  const newClients = (clients || []).filter(c => inDayRange(range, (c as any).joinedAt || (c as any).createdAt));
   const awaitingPayment = today.filter(v => v.status === ApptStatus.PENDING_PAYMENT && !v.isPaid);
   const paidToday = today.filter(v => v.isPaid);
   const revenueToday = paidToday.reduce((s, v) => s + Number(v.totalCost || 0), 0);
@@ -72,7 +74,7 @@ const FrontOfficeDashboard: React.FC<Props> = ({ visits, clients, currency, onNa
       <StatRow stats={[
         { label: 'Walk-ins', value: walkIns.length, sub: `${waiting.length} waiting` },
         { label: 'Appointments', value: today.length, sub: `${today.filter(v => v.status === ApptStatus.COMPLETED || v.status === ApptStatus.PENDING_PAYMENT).length} completed` },
-        { label: 'New clients', value: newClients.length, sub: 'Registered today' },
+        { label: 'New clients', value: newClients.length, sub: range && !range.isToday ? `Registered ${range.label.toLowerCase()}` : 'Registered today' },
         {
           label: 'Pending payments', value: awaitingPayment.length, tone: awaitingPayment.length ? 'warn' : 'default',
           sub: `${currency} ${Math.round(dueToday).toLocaleString()}`,
@@ -123,7 +125,7 @@ const FrontOfficeDashboard: React.FC<Props> = ({ visits, clients, currency, onNa
           )}
         </RoleCard>
 
-        <RoleCard title="Awaiting payment" subtitle="Finalized today, not yet settled">
+        <RoleCard title="Awaiting payment" subtitle={`Finalized ${range && !range.isToday ? range.label.toLowerCase() : 'today'}, not yet settled`}>
           {awaitingPayment.length === 0 ? <EmptyNote>Everything settled</EmptyNote> : (
             <div className="space-y-1.5">
               {awaitingPayment.slice(0, 6).map(v => (
@@ -142,7 +144,7 @@ const FrontOfficeDashboard: React.FC<Props> = ({ visits, clients, currency, onNa
           )}
         </RoleCard>
 
-        <RoleCard title="Paid today" subtitle={`${paidToday.length} settled`}>
+        <RoleCard title={range && !range.isToday ? 'Paid' : 'Paid today'} subtitle={`${paidToday.length} settled`}>
           {paidToday.length === 0 ? <EmptyNote>No payments yet</EmptyNote> : (
             <div className="space-y-1.5">
               {paidToday.slice(0, 6).map(v => (

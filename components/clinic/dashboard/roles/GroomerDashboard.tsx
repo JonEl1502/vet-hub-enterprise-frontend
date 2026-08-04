@@ -4,7 +4,7 @@ import { Visit, ApptStatus } from '../../../../types';
 import { formatTime } from '../../../../services/utils/dateFormatter';
 import {
   StatRow, RoleCard, EmptyNote, QueueColumn, QueueRow, GoalBar,
-  todaysVisits, hasCategory, useDayTasks, TaskChecklist,
+  visitsInRange, hasCategory, useDayTasks, TaskChecklist, DayRange,
 } from './roleShared';
 
 /**
@@ -19,6 +19,8 @@ interface Props {
   /** Daily grooming target; falsy hides the goal bar rather than inventing one. */
   goal?: number;
   onNavigate?: (view: string, params?: any) => void;
+  /** Day the dashboard is pointed at — the shell owns the picker. */
+  range?: DayRange;
 }
 
 const TASKS = [
@@ -31,10 +33,10 @@ const TASKS = [
 
 const isGrooming = (v: Visit) => v.encounterType === 'GROOMING' || hasCategory(v, 'groom');
 
-const GroomerDashboard: React.FC<Props> = ({ visits, currency, goal = 0, onNavigate }) => {
+const GroomerDashboard: React.FC<Props> = ({ visits, currency, goal = 0, onNavigate, range }) => {
   const { tasks, done, toggle } = useDayTasks('groomer', TASKS);
 
-  const all = todaysVisits(visits, true).filter(isGrooming);
+  const all = visitsInRange(visits, range, true).filter(isGrooming);
   const cancelled = all.filter(v => v.status === ApptStatus.CANCELLED);
   const live = all.filter(v => v.status !== ApptStatus.CANCELLED);
   const waiting = live.filter(v => v.status === ApptStatus.SCHEDULED);

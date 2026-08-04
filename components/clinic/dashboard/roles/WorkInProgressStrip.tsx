@@ -1,7 +1,7 @@
 import React from 'react';
 import { Home, Stethoscope, Scissors, BedDouble, Syringe } from 'lucide-react';
 import { Visit, ApptStatus } from '../../../../types';
-import { todaysVisits, hasCategory } from './roleShared';
+import { visitsInRange, hasCategory, DayRange } from './roleShared';
 
 /**
  * "Today's work in progress" — the one strip every role sees, so a groomer and
@@ -13,6 +13,8 @@ import { todaysVisits, hasCategory } from './roleShared';
 interface Props {
   visits: Visit[];
   onOpen?: (filter: string) => void;
+  /** Day the dashboard is pointed at. Omitted = today (user, 2026-08-04). */
+  range?: DayRange;
 }
 
 const BLOCKS = [
@@ -43,13 +45,13 @@ const BLOCKS = [
   },
 ];
 
-const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen }) => {
-  const today = todaysVisits(visits);
+const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
+  const today = visitsInRange(visits, range);
 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
       <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-3">
-        Today's work in progress
+        {range && !range.isToday ? `Work in progress · ${range.label}` : "Today's work in progress"}
       </p>
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
         {BLOCKS.map(b => {

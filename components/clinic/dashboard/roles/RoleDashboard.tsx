@@ -5,6 +5,7 @@ import { useClinic } from '../../../../contexts/ClinicContext';
 import { UserRole } from '../../../../types';
 import StaffDashboard from '../StaffDashboard';
 import WorkInProgressStrip from './WorkInProgressStrip';
+import { useDayRange, DayRangeControl } from './roleShared';
 import FrontOfficeDashboard from './FrontOfficeDashboard';
 import GroomerDashboard from './GroomerDashboard';
 import VetDashboard from './VetDashboard';
@@ -53,19 +54,22 @@ const RoleDashboard: React.FC<Props> = ({ onNavigate }) => {
     || 'KES';
 
   const visits = appointments || [];
-  const generic = <StaffDashboard onNavigate={onNavigate} />;
+  // Every dashboard has a day picker (user, 2026-08-04) — defaults to today,
+  // clearing snaps back. The shell owns it so all four role views agree.
+  const { range, onChange: onRangeChange } = useDayRange();
+  const generic = <StaffDashboard onNavigate={onNavigate} range={range} />;
 
   const view = (() => {
     switch (role) {
       case UserRole.FRONT_OFFICE:
       case UserRole.RECEPTIONIST:
       case UserRole.CASHIER:
-        return <FrontOfficeDashboard visits={visits} clients={clients || []} currency={currency} onNavigate={onNavigate} />;
+        return <FrontOfficeDashboard visits={visits} clients={clients || []} currency={currency} onNavigate={onNavigate} range={range} />;
       case UserRole.GROOMER:
-        return <GroomerDashboard visits={visits} currency={currency} onNavigate={onNavigate} />;
+        return <GroomerDashboard visits={visits} currency={currency} onNavigate={onNavigate} range={range} />;
       case UserRole.VET:
       case UserRole.VET_NURSE:
-        return <VetDashboard visits={visits} currency={currency} vetUserId={user?.id} onNavigate={onNavigate} />;
+        return <VetDashboard visits={visits} currency={currency} vetUserId={user?.id} onNavigate={onNavigate} range={range} />;
       default:
         return null;
     }
@@ -87,11 +91,16 @@ const RoleDashboard: React.FC<Props> = ({ onNavigate }) => {
         <h2 className="page-header">
           {greeting}{firstName ? `, ${firstName}` : ''}
         </h2>
-        <p className="page-subheader">Your {roleLabel} view — here's today.</p>
+        <p className="page-subheader">
+          Your {roleLabel} view — {range.isToday ? "here's today" : `showing ${range.label.toLowerCase()}`}.
+        </p>
       </div>
 
+      {/* Day picker — same control as the owner dashboard and the Visits list. */}
+      <DayRangeControl range={range} onChange={onRangeChange} />
+
       {/* Shared across every role: what the clinic is doing right now. */}
-      <WorkInProgressStrip visits={visits} onOpen={() => onNavigate?.('appointments')} />
+      <WorkInProgressStrip visits={visits} range={range} onOpen={() => onNavigate?.('appointments')} />
 
       {view}
     </div>

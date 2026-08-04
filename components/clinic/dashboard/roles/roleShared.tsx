@@ -1,6 +1,7 @@
 import React from 'react';
-import { Loader2 } from 'lucide-react';
+import { Loader2, CalendarDays } from 'lucide-react';
 import { Visit, ApptStatus } from '../../../../types';
+import DateRangePicker from '../../../shared/common/DateRangePicker';
 
 /**
  * Shared furniture for the role dashboards (Front Office / Groomer / Vet).
@@ -23,10 +24,105 @@ export const todaysVisits = (visits: Visit[] | undefined, includeCancelled = fal
   (visits || []).filter(v =>
     isToday(v.date) && (includeCancelled || v.status !== ApptStatus.CANCELLED));
 
+// ── Day range ──────────────────────────────────────────────────────────────
+//
+// Every dashboard is pinned to "today" by default but can be pointed at any
+// day or span (user, 2026-08-04). The range is compared as local YYYY-MM-DD
+// strings, NOT timestamps — a Nairobi evening must not fall into tomorrow, and
+// the picker hands back an end-of-day that a `<=` on Date would still miss.
+
+export interface DayRange {
+  /** Local YYYY-MM-DD, inclusive. */
+  start: string;
+  end: string;
+  /** True when the range is exactly today — lets copy stay "today". */
+  isToday: boolean;
+  /** "Today" · "12 Aug" · "12 Aug – 18 Aug" */
+  label: string;
+}
+
+const shortDay = (key: string) => {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d).toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+};
+
+export const makeDayRange = (start?: Date | null, end?: Date | null): DayRange => {
+  const s = start ? localDay(start) : localDay();
+  const e = end ? localDay(end) : s;
+  const [lo, hi] = s <= e ? [s, e] : [e, s];
+  const today = localDay();
+  const isTodayOnly = lo === today && hi === today;
+  return {
+    start: lo,
+    end: hi,
+    isToday: isTodayOnly,
+    label: isTodayOnly ? 'Today' : lo === hi ? shortDay(lo) : `${shortDay(lo)} – ${shortDay(hi)}`,
+  };
+};
+
+export const TODAY_RANGE = () => makeDayRange();
+
+/** Is this date inside the range? Accepts anything with a leading YYYY-MM-DD. */
+export const inDayRange = (range: DayRange | undefined, d?: string | Date | null): boolean => {
+  if (!d) return false;
+  if (!range) return isToday(d);
+  const key = localDay(d);
+  return key >= range.start && key <= range.end;
+};
+
+/** Visits inside the range (defaults to today), cancelled excluded unless asked. */
+export const visitsInRange = (
+  visits: Visit[] | undefined,
+  range?: DayRange,
+  includeCancelled = false,
+) => (visits || []).filter(v =>
+  inDayRange(range, v.date) && (includeCancelled || v.status !== ApptStatus.CANCELLED));
+
+/**
+ * The picker + its state, so every dashboard gets the same control rather than
+ * four takes on it. Clearing snaps back to today.
+ */
+export const useDayRange = () => {
+  const [range, setRange] = React.useState<DayRange>(TODAY_RANGE);
+  const onChange = (r: { start: Date | null; end: Date | null } | null) =>
+    setRange(r?.start ? makeDayRange(r.start, r.end ?? r.start) : TODAY_RANGE());
+  return { range, setRange, onChange };
+};
+
 /** Does any service line on the visit match these category keywords? */
 export const hasCategory = (v: Visit, ...keys: string[]) =>
   (v.tasks || []).some((t: any) =>
     keys.some(k => String(t.category || '').toLowerCase().includes(k)));
+
+const dayToDate = (key: string) => {
+  const [y, m, d] = key.split('-').map(Number);
+  return new Date(y, m - 1, d);
+};
+
+/**
+ * The dashboard's day control. Same picker the Visits list and the old Clinic
+ * Today tab use, so the calendar looks and behaves identically everywhere.
+ */
+export const DayRangeControl: React.FC<{
+  range: DayRange;
+  onChange: (r: { start: Date | null; end: Date | null } | null) => void;
+  /** Shown to the left of the picker — what the numbers below are counting. */
+  note?: React.ReactNode;
+}> = ({ range, onChange, note }) => (
+  <div className="flex flex-wrap items-center justify-between gap-2">
+    <div className="flex items-center gap-2 min-w-0">
+      <CalendarDays size={15} className="text-seafoam shrink-0" />
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 truncate">
+        {range.label}
+        {note ? <span className="text-slate-400 font-bold normal-case tracking-normal"> · {note}</span> : null}
+      </p>
+    </div>
+    <DateRangePicker
+      value={{ start: dayToDate(range.start), end: dayToDate(range.end) }}
+      onChange={onChange}
+    />
+  </div>
+);
 
 // ── Stat tile ──────────────────────────────────────────────────────────────
 

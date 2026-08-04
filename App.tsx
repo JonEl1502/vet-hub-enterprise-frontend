@@ -2138,10 +2138,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               // cards, with a wider owner stat set. The clinic-wide bands
               // (pulse, checkouts, partner requests, staff activity) are kept
               // inside OwnerDashboard; the operational cards pass through.
-              <OwnerDashboard
-                cards={<StaffDashboard onNavigate={(view, params) => navigateTo(view, params)} />}
-                onNavigate={(view, params) => navigateTo(view, params)}
-              />
+              <OwnerDashboard onNavigate={(view, params) => navigateTo(view, params)} />
               /* Previous first tab — kept, not deleted (user asked for
                  comment-only), in case the day agenda is wanted back:
               <ClinicTodayView

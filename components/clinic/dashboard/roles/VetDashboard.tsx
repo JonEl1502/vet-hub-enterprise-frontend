@@ -5,7 +5,7 @@ import { remindersAPI, Reminder } from '../../../../services';
 import { formatTime } from '../../../../services/utils/dateFormatter';
 import {
   StatRow, RoleCard, EmptyNote, QueueColumn, QueueRow,
-  todaysVisits, hasCategory, isToday, useDayTasks, TaskChecklist,
+  visitsInRange, hasCategory, isToday, useDayTasks, TaskChecklist, DayRange,
 } from './roleShared';
 
 /**
@@ -22,6 +22,8 @@ interface Props {
   /** When set, the queue leads with this vet's own patients. */
   vetUserId?: string | number | null;
   onNavigate?: (view: string, params?: any) => void;
+  /** Day the dashboard is pointed at — the shell owns the picker. */
+  range?: DayRange;
 }
 
 const TASKS = [
@@ -32,7 +34,7 @@ const TASKS = [
   'Update medical records',
 ];
 
-const VetDashboard: React.FC<Props> = ({ visits, currency, vetUserId, onNavigate }) => {
+const VetDashboard: React.FC<Props> = ({ visits, currency, vetUserId, onNavigate, range }) => {
   const { tasks, done, toggle } = useDayTasks('vet', TASKS);
   const [reminders, setReminders] = React.useState<Reminder[]>([]);
 
@@ -44,7 +46,7 @@ const VetDashboard: React.FC<Props> = ({ visits, currency, vetUserId, onNavigate
     return () => { alive = false; };
   }, []);
 
-  const today = todaysVisits(visits);
+  const today = visitsInRange(visits, range);
   // "Mine" when the visit names this vet as lead; otherwise the whole day.
   const mine = vetUserId
     ? today.filter(v => String((v as any).leadStaffId ?? '') === String(vetUserId))

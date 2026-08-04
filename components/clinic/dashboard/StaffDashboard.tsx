@@ -5,9 +5,12 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { remindersAPI, Reminder, REMINDER_SERVICE_META, stockMovementsAPI, toast } from '../../../services';
 import { formatTime, formatDate } from '../../../services/utils/dateFormatter';
 import { FULL_ACCESS_ROLES, UserRole } from '../../../types';
+import { DayRange, inDayRange } from './roles/roleShared';
 
 interface Props {
   onNavigate?: (view: string, params?: any) => void;
+  /** Day the dashboard is pointed at (user, 2026-08-04). Omitted = today. */
+  range?: DayRange;
 }
 
 /**
@@ -15,7 +18,7 @@ interface Props {
  * today's appointments, and inventory alerts. The financial overview stays
  * reserved for owner / admin / manager (Epic G).
  */
-const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
+const StaffDashboard: React.FC<Props> = ({ onNavigate, range }) => {
   const { appointments, inventory, refreshInventory } = useData() as any;
   const { user } = useAuth();
   const [reminders, setReminders] = useState<Reminder[]>([]);
@@ -97,16 +100,28 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
     finally { setRestockBusy(false); }
   };
 
+  // `/reminders/today` can only answer for today, so a picked day falls back to
+  // the full list filtered locally — same rows, one extra read only when needed.
   useEffect(() => {
-    remindersAPI.today().then(r => { if (r.success && r.data?.reminders) setReminders(r.data.reminders); }).catch(() => {});
-  }, []);
+    let alive = true;
+    const req = !range || range.isToday
+      ? remindersAPI.today()
+      : remindersAPI.list({ scope: 'all' } as any);
+    req.then((r: any) => {
+      if (!alive || !r?.success || !r.data?.reminders) return;
+      const rows = r.data.reminders as Reminder[];
+      setReminders(range && !range.isToday
+        ? rows.filter(x => inDayRange(range, (x as any).dueAt) && x.status === 'PENDING')
+        : rows);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [range?.start, range?.end, range?.isToday]);
 
-  const todayAppts = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10);
-    return (appointments || [])
-      .filter((a: any) => (a.date || '').slice(0, 10) === today && a.status !== 'CANCELLED')
-      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
-  }, [appointments]);
+  const todayAppts = useMemo(() =>
+    (appointments || [])
+      .filter((a: any) => inDayRange(range, a.date) && a.status !== 'CANCELLED')
+      .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime()),
+  [appointments, range?.start, range?.end]);
 
   const stockAlerts = useMemo(() => {
     const soon = Date.now() + 30 * 86400000;
@@ -139,8 +154,8 @@ const StaffDashboard: React.FC<Props> = ({ onNavigate }) => {
         })}
       </Card>
 
-      <Card title="Today's appointments" icon={CalendarClock} tone="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" count={todayAppts.length} onAll={() => onNavigate?.('appointments')}>
-        {todayAppts.length === 0 ? <p className="text-[11px] text-slate-400 text-center py-4">No appointments today.</p> : todayAppts.map((a: any) => (
+      <Card title={range && !range.isToday ? `Appointments · ${range.label}` : "Today's appointments"} icon={CalendarClock} tone="bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" count={todayAppts.length} onAll={() => onNavigate?.('appointments')}>
+        {todayAppts.length === 0 ? <p className="text-[11px] text-slate-400 text-center py-4">No appointments {range && !range.isToday ? 'that day' : 'today'}.</p> : todayAppts.map((a: any) => (
           <button key={a.id} onClick={() => onNavigate?.('appointment-detail', { appointmentId: a.id })} className="w-full flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg hover:bg-slate-50 dark:hover:bg-zinc-800/50 text-left">
             <span className="min-w-0"><span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{a.pet?.name ?? 'Patient'}</span><span className="block text-[10px] text-slate-400 truncate">{(a.encounterType || 'VISIT').replace('_', ' ')} · {a.tasks?.length ?? 0} svc</span></span>
             <span className="flex items-center gap-1 text-[10px] font-bold text-slate-400 shrink-0"><Clock size={11} /> {formatTime(a.date)}</span>

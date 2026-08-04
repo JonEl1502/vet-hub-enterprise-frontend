@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: a day picker on every dashboard, for every role  —  2026-08-04
+- **What changed:** (user) the date-range picker that used to sit on the old Clinic Today
+  tab is back, and now every dashboard has one — owner/admin **and** the front office, vet,
+  groomer and generic staff views. Same control as the Visits list. Defaults to today;
+  clearing it snaps back to today; a range (not just a single day) works.
+- **What follows the picker:** the work-in-progress strip, every stat tile derived from the
+  day (visits, walk-ins, waiting, new clients, revenue, average bill, pending/awaiting/paid),
+  the bills/awaiting/paid cards, and the reminders + appointments lists. Copy follows too —
+  "Visits today" becomes "Visits", "Paid today" becomes "Paid", and the subtitles name the
+  day, so a screen showing last Tuesday never claims to be today.
+- **Deliberately NOT re-scoped:** the conversion-pulse band, patient checkouts, partner
+  requests and staff activity. Those are server-computed over a fixed 7-day window
+  (`/summaries/conversions`), so pointing them at an arbitrary day would need an API change,
+  not a filter. Same for outstanding AR and stock alerts, which are "as of now" by nature.
+- **Also fixed:** the generic staff dashboard picked today with `toISOString().slice(0,10)`
+  — UTC — so a Nairobi evening (GMT+3) counted as *tomorrow's* appointments from 21:00. It
+  now uses the same local-day comparison as everything else.
+- **Record impact:** 🟢 None — filtering only.
+- **Data dependency:** none new. A non-today selection reads `GET /reminders` (list) instead
+  of `GET /reminders/today`, which cannot answer for another date; both already exist.
+- **Rollback:** revert the commit.
+- ⚠️ **Watch out:** the tiles filter the visits **already in DataContext**, which is the
+  clinic's loaded working set — not a server query for that date. Go far enough back and the
+  numbers thin out because those visits were never fetched, not because nothing happened.
+  Finance & BI remains the authority for historical revenue.
+
 ### feat: grouped page permissions — "access page + create/edit/delete", the way the sidebar reads  —  2026-08-04
 - **What changed:** (user) one permission vocabulary replacing two that never met. New
   `constants/modulePermissions.ts`: a grant is `module:action` — `procedures:view` (access

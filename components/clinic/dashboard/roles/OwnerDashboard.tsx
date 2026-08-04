@@ -11,9 +11,10 @@ import {
   ConversionPulse, CheckoutsCard, PartnerRequestsCard, StaffTalliesCard,
 } from '../ClinicTodayView';
 import WorkInProgressStrip from './WorkInProgressStrip';
+import StaffDashboard from '../StaffDashboard';
 import {
-  StatRow, RoleCard, EmptyNote, Spinner, todaysVisits, isToday, localDay,
-  useDayTasks, TaskChecklist,
+  StatRow, RoleCard, EmptyNote, Spinner, visitsInRange, inDayRange, localDay,
+  useDayTasks, TaskChecklist, useDayRange, DayRangeControl,
 } from './roleShared';
 
 /**
@@ -35,8 +36,6 @@ import {
 
 interface Props {
   onNavigate?: (view: string, params?: any) => void;
-  /** Operational lists (reminders · today's appointments · inventory alerts). */
-  cards?: React.ReactNode;
 }
 
 const TASKS = [
@@ -48,7 +47,7 @@ const TASKS = [
   'Walk the floor — inpatients & boarders',
 ];
 
-const OwnerDashboard: React.FC<Props> = ({ onNavigate, cards }) => {
+const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
   const { appointments, clients, inventory } = useData() as any;
   const clinicCtx = useClinic() as any;
   const visits: Visit[] = appointments || [];
@@ -56,6 +55,10 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate, cards }) => {
   const currency = clinicCtx?.activeClinic?.currency
     || clinicCtx?.clinics?.[0]?.currency
     || 'KES';
+
+  // The day the dashboard is pointed at — defaults to today, clearing snaps
+  // back (user, 2026-08-04). Everything day-derived below reads it.
+  const { range, onChange: onRangeChange } = useDayRange();
 
   const [bills, setBills] = React.useState<BillQueueRow[] | null>(null);
   const [ar, setAr] = React.useState<ArAgeing | null>(null);
@@ -77,13 +80,13 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate, cards }) => {
     return () => { alive = false; };
   }, []);
 
-  const today = todaysVisits(visits);
+  const today = visitsInRange(visits, range);
   const walkIns = today.filter(v => (v as any).isWalkIn);
   const waiting = today.filter(v => v.status === ApptStatus.SCHEDULED);
   const inProgress = today.filter(v => v.status === ApptStatus.IN_PROGRESS);
   const closed = today.filter(v =>
     v.status === ApptStatus.COMPLETED || v.status === ApptStatus.PENDING_PAYMENT);
-  const newClients = (clients || []).filter(c => isToday((c as any).joinedAt || (c as any).createdAt));
+  const newClients = (clients || []).filter(c => inDayRange(range, (c as any).joinedAt || (c as any).createdAt));
   const awaitingPayment = today.filter(v => v.status === ApptStatus.PENDING_PAYMENT && !v.isPaid);
   const paidToday = today.filter(v => v.isPaid);
   const revenueToday = paidToday.reduce((s, v) => s + Number(v.totalCost || 0), 0);
@@ -92,7 +95,7 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate, cards }) => {
 
   // Month to date, from the visits already loaded — a trend line, not the
   // ledger. Finance & BI is the authority on revenue; this is the pulse.
-  const monthKey = localDay().slice(0, 7);
+  const monthKey = range.start.slice(0, 7);
   const mtd = (visits || []).filter(v => v.isPaid && String(v.date || '').slice(0, 7) === monthKey);
   const mtdRevenue = mtd.reduce((s, v) => s + Number(v.totalCost || 0), 0);
 
@@ -114,16 +117,25 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate, cards }) => {
 
   return (
     <div className="space-y-4">
+      {/* Day control — every dashboard has one (user, 2026-08-04). The pulse
+          band and the clinic-wide cards below are server-computed over a fixed
+          7-day window, so they are deliberately NOT re-scoped by it. */}
+      <DayRangeControl
+        range={range}
+        onChange={onRangeChange}
+        note={range.isToday ? 'live' : 'the tiles and cards below follow this'}
+      />
+
       {/* Conversion pulse — the day's numbers and conversion rates. */}
       {scopeId != null && <ConversionPulse scopeId={scopeId} />}
 
       {/* Same strip every role sees: what the clinic is doing right now. */}
-      <WorkInProgressStrip visits={visits} onOpen={() => onNavigate?.('appointments')} />
+      <WorkInProgressStrip visits={visits} range={range} onOpen={() => onNavigate?.('appointments')} />
 
       {/* Row 1 — the day. Row 2 — the money and what needs chasing. */}
       <StatRow stats={[
         {
-          label: 'Visits today', value: today.length,
+          label: range.isToday ? 'Visits today' : 'Visits', value: today.length,
           sub: `${inProgress.length} in progress · ${closed.length} done`,
           onClick: () => onNavigate?.('appointments'),
         },
@@ -134,11 +146,18 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate, cards }) => {
           onClick: () => onNavigate?.('appointments'),
         },
         {
-          label: 'New clients', value: newClients.length, sub: 'Registered today',
+          label: 'New clients', value: newClients.length,
+          sub: range.isToday ? 'Registered today' : `Registered ${range.label.toLowerCase()}`,
           onClick: () => onNavigate?.('clients'),
         },
-        { label: 'Revenue today', value: money(revenueToday), tone: 'good', sub: `${paidToday.length} paid` },
-        { label: 'Month to date', value: money(mtdRevenue), tone: 'good', sub: `${mtd.length} paid visits` },
+        {
+          label: range.isToday ? 'Revenue today' : 'Revenue', value: money(revenueToday),
+          tone: 'good', sub: `${paidToday.length} paid · ${range.label.toLowerCase()}`,
+        },
+        {
+          label: range.isToday ? 'Month to date' : 'That month', value: money(mtdRevenue),
+          tone: 'good', sub: `${mtd.length} paid visits`,
+        },
       ]} />
 
       <StatRow stats={[
@@ -157,7 +176,7 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate, cards }) => {
           tone: needsAction.length ? 'warn' : 'default', sub: 'Raise · approve · invoice',
           onClick: () => onNavigate?.('billing'),
         },
-        { label: 'Average bill', value: money(avgBill), sub: 'Per settled visit today' },
+        { label: 'Average bill', value: money(avgBill), sub: `Per settled visit · ${range.label.toLowerCase()}` },
         {
           label: 'Reminders due', value: reminders.length,
           tone: overdueReminders ? 'bad' : 'default', sub: `${overdueReminders} overdue`,
@@ -208,7 +227,7 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate, cards }) => {
           )}
         </RoleCard>
 
-        <RoleCard title="Awaiting payment" subtitle="Finalized today, not yet settled">
+        <RoleCard title="Awaiting payment" subtitle={`Finalized ${range.label.toLowerCase()}, not yet settled`}>
           {awaitingPayment.length === 0 ? <EmptyNote>Everything settled</EmptyNote> : (
             <div className="space-y-1.5">
               {awaitingPayment.slice(0, 6).map(v => (
@@ -227,7 +246,7 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate, cards }) => {
           )}
         </RoleCard>
 
-        <RoleCard title="Paid today" subtitle={`${paidToday.length} settled`}>
+        <RoleCard title={range.isToday ? 'Paid today' : 'Paid'} subtitle={`${paidToday.length} settled · ${range.label.toLowerCase()}`}>
           {paidToday.length === 0 ? <EmptyNote>No payments yet</EmptyNote> : (
             <div className="space-y-1.5">
               {paidToday.slice(0, 6).map(v => (
@@ -291,8 +310,10 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate, cards }) => {
         </RoleCard>
       </div>
 
-      {/* Operational lists — reminders due · today's appointments · stock alerts. */}
-      {cards}
+      {/* Operational lists — reminders due · appointments · stock alerts.
+          Rendered here rather than passed in from App so the day picker above
+          reaches them (they were a `cards` prop until 2026-08-04). */}
+      <StaffDashboard onNavigate={onNavigate} range={range} />
     </div>
   );
 };
