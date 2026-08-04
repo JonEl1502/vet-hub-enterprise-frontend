@@ -733,16 +733,20 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                   <div className="grid grid-cols-4 pt-3 mt-1 border-t border-slate-100 dark:border-zinc-800 divide-x divide-slate-100 dark:divide-zinc-800">
                     {(() => {
                       const vaccines = Number(pet.vaccinationCount ?? pet.vaccinations?.length ?? 0);
-                      const cells: { label: string; value: string; muted?: boolean }[] = [
-                        { label: 'Weight', value: pet.weight ? String(pet.weight) : '—', muted: !pet.weight },
-                        { label: 'Visits', value: String(pet.appointmentCount || 0), muted: !pet.appointmentCount },
-                        { label: 'Vaccines', value: String(vaccines), muted: vaccines === 0 },
-                        { label: 'Sex', value: `${pet.gender || '—'}${pet.isNeutered ? ' ·N' : ''}`, muted: !pet.gender },
+                      const cells: { label: string; value: string; tone: string; muted?: boolean }[] = [
+                        { label: 'Weight', value: pet.weight ? String(pet.weight) : '—', tone: 'text-emerald-600 dark:text-emerald-400', muted: !pet.weight },
+                        { label: 'Visits', value: String(pet.appointmentCount || 0), tone: 'text-cyan-600 dark:text-cyan-400', muted: !pet.appointmentCount },
+                        { label: 'Vaccines', value: String(vaccines), tone: 'text-indigo-600 dark:text-indigo-400', muted: vaccines === 0 },
+                        { label: 'Sex', value: `${pet.gender || '—'}${pet.isNeutered ? ' ·N' : ''}`, tone: 'text-amber-600 dark:text-amber-400', muted: !pet.gender },
                       ];
                       return cells.map(c => (
                         <div key={c.label} className="px-2.5 first:pl-0 last:pr-0 min-w-0">
+                          {/* Colour on the NUMBER, not behind it — the value is
+                              what you scan, and four tinted panels behind four
+                              numbers is what made the card noisy. A stat with
+                              nothing on file greys out instead of shouting. */}
                           <p className={`font-display text-base font-black leading-none truncate ${
-                            c.muted ? 'text-slate-300 dark:text-zinc-600' : 'text-pine dark:text-zinc-100'
+                            c.muted ? 'text-slate-300 dark:text-zinc-600' : c.tone
                           }`}>
                             {c.value}
                           </p>
