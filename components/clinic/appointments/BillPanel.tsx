@@ -316,7 +316,10 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
             <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300">
               This visit now carries {currency} {visitTotal.toLocaleString()} of services, but the bill was
               approved at {currency} {billTotal.toLocaleString()} — {currency} {gap.toLocaleString()} was added afterwards
-              and is <span className="underline">not billed</span>. Reopen the bill to pick it up, or remove what should not be there.
+              and is <span className="underline">not billed</span>.{' '}
+              {invoice && !invoice.voidedAt && Number(invoice.amountPaid ?? 0) > 0.005
+                ? `${invoice.number || 'The invoice'} has already been part-paid, so it cannot be reopened — bill the difference on a new visit or refund first.`
+                : 'Reopen the bill to pick it up (its invoice is voided and reissued), or remove what should not be there.'}
             </p>
           </div>
         );
@@ -590,8 +593,33 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
           </>
         )}
 
+        {/* An issued invoice blocks the reopen — correctly, but the refusal used
+            to be a dead end: a toast telling you to void it "on the Bill &
+            Invoice tab", which is the tab you are already on (user, 2026-08-04).
+            Offer the void here instead, as one confirmed step. An invoice with
+            money against it is NOT offered — that is a refund, not an edit. */}
         {!editable && bill.status !== 'PAID' && bill.status !== 'RECONCILED' && (
-          <button type="button" onClick={() => run(() => billsAPI.reopen(visit.id), 'Bill reopened')} disabled={busy}
+          <button type="button" disabled={busy}
+            onClick={async () => {
+              const blocking = invoice && !invoice.voidedAt && Number(invoice.amountPaid ?? 0) <= 0.005 ? invoice : null;
+              if (blocking) {
+                const ok = await dialog.confirm({
+                  title: `Void ${blocking.number || 'the invoice'} to reopen the bill?`,
+                  message: 'An issued invoice cannot be edited — it is voided and reissued. Nothing has been paid against this one, so voiding costs nothing: fix the bill, approve it and generate a fresh invoice.',
+                  confirmLabel: 'Void & reopen',
+                  cancelLabel: 'Cancel',
+                  variant: 'danger',
+                });
+                if (!ok) return;
+                await run(async () => {
+                  await invoicesAPI.void(blocking.id, 'Voided to reopen the bill for correction');
+                  setInvoice(null);
+                  return billsAPI.reopen(visit.id);
+                }, 'Invoice voided — bill reopened');
+                return;
+              }
+              run(() => billsAPI.reopen(visit.id), 'Bill reopened');
+            }}
             title="Unlock the clinical record and edit the bill again"
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-slate-600 dark:text-zinc-300 hover:border-seafoam disabled:opacity-40">
             <Unlock size={11} /> Reopen bill

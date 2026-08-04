@@ -892,8 +892,16 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                     </span>
                   )}
                   <span className="shrink-0 w-28 text-right">
+                    {/* An INVOICE row quotes the INVOICE, not the visit. They
+                        diverge the moment work is added after the invoice was
+                        issued: visit 131 read 1,717 against a 1,517 invoice
+                        (user, 2026-08-04). The document is what the client owes. */}
                     <span className="block text-sm font-black font-mono text-pine dark:text-zinc-100">
-                      {money(partly ? inv.outstanding : inv.total, currency)}
+                      {(() => {
+                        const doc = only === 'invoices' ? docByVisit.get(String(inv.visitId)) : null;
+                        if (doc) return money(Number(doc.outstanding) > 0.005 ? doc.outstanding : doc.total, currency);
+                        return money(partly ? inv.outstanding : inv.total, currency);
+                      })()}
                     </span>
                     {/* Face value stays visible on a part-paid bill — the big
                         number is what is still owed, which is what you collect. */}
@@ -968,16 +976,26 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                       PENDING_PAYMENT/COMPLETED because its total can still move
                       — so that row sends you to the visit to generate the bill
                       rather than offering a button that would just 400. */}
-                  {/* Every row here IS finalized and billed, so Settle is the
-                      only action — the old "Finalize to settle" fallback is
-                      unreachable now that open visits are excluded. */}
-                  {canCollect && !settled && (
+                  {/* A row can carry an invoice DOCUMENT and still not be
+                      collectable — visit 131 was invoiced, then reopened back to
+                      IN_PROGRESS, so the server refuses to collect on it while
+                      the UI kept offering a live Settle button that silently did
+                      nothing (user, 2026-08-04: "this settle not working").
+                      `inv.collectable` is the server's own signal; gate on it and
+                      say why instead of failing on click. */}
+                  {canCollect && !settled && (inv.collectable ? (
                     <button onClick={() => settleOne(inv.visitId)}
                       title={`Settle ${money(inv.outstanding ?? inv.total, currency)} on visit #${inv.visitId}`}
                       className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-pine transition-all">
                       <CreditCard size={10} /> Settle
                     </button>
-                  )}
+                  ) : (
+                    <button disabled
+                      title={`Visit #${inv.visitId} is open again, so its total can still change — finalize it before taking payment.`}
+                      className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-400 cursor-not-allowed">
+                      <CreditCard size={10} /> Finalize first
+                    </button>
+                  ))}
                   {onViewVisit && (
                     <button onClick={() => onViewVisit(Number(inv.visitId))}
                       className="shrink-0 text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70">View →</button>

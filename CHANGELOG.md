@@ -59,6 +59,33 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: Settle did nothing on an invoiced-then-reopened visit  —  2026-08-04
+- **What changed:** the per-row **Settle** button on Financials → Invoices now respects
+  `inv.collectable` — the server's own "this visit is finalized" signal. When it is false the
+  button reads **Finalize first** and is disabled, with a tooltip saying the visit is open again.
+  The row's amount on the Invoices view now quotes the **invoice document**, not the visit total.
+- **Why:** a visit can carry an issued invoice and still be open — 131 was invoiced, then reopened
+  to `IN_PROGRESS`. The row showed a live Settle button that silently did nothing, because
+  `collect` refuses an unfinalized visit (user, 2026-08-04: *"this settle not working"*). The same
+  divergence made the row read **1,717** against a **1,517** invoice: the row was quoting the
+  visit, which had grown after the invoice was issued.
+- **Record impact:** 🟢 None — it stops offering an action the server rejects.
+- **Data dependency:** None — `collectable` is already on the payload.
+- ⚠️ **Watch out:** the comment above that button used to claim *"every row here IS finalized"*.
+  It was true when the Invoices view was filtered to invoice documents, and stopped being true the
+  moment a bill could be reopened. Don't re-derive finalized-ness in the UI; read `collectable`.
+
+### feat: reopening a bill offers to void the invoice blocking it  —  2026-08-04
+- **What changed:** **Reopen bill** on a bill whose invoice is issued-but-unpaid now asks
+  *"Void INV-… to reopen the bill?"* and does both in one step. An invoice with money against it is
+  never offered — that is a refund, not an edit — and the un-billed banner says so instead.
+- **Why:** the refusal was a dead end: a toast reading *"void it (Bill & Invoice tab) before
+  reopening"* — naming the tab you are already on — while the banner one line above told you to
+  reopen the bill (user, 2026-08-04).
+- **Record impact:** 🔵 Low — voids an invoice and unlocks the bill, both already-supported ops.
+- **Data dependency:** None.
+
+
 ### fix: the same procedure recipe could be applied to a visit many times over  —  2026-08-04
 - **What changed:** applying a procedure template that is **already on the visit** now returns
   **409** and the UI asks *"Applying it again adds a SECOND full set of services and products to
