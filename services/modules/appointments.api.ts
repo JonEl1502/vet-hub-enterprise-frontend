@@ -72,6 +72,9 @@ export interface VisitEncounter {
   attendingStaff?: { id: string; userId: string; role: string | null; fee: number | null; isLead?: boolean; name?: string }[];
 }
 
+/** Who REGISTERED the visit (127) — front desk. Null on visits created before 127. */
+export interface VisitRegisteredBy { id: string; role: string | null; name: string | null }
+
 export type VisitLinkType = 'ESCALATION' | 'TRANSFER' | 'SAME_DAY';
 
 export interface LinkedVisitRow {
@@ -437,8 +440,23 @@ export const visitsAPI = {
   listEncounters: async (
     appointmentId: number | string,
     options?: RequestOptions
-  ): Promise<ApiResponse<{ encounters: VisitEncounter[] }>> => {
+  ): Promise<ApiResponse<{ encounters: VisitEncounter[]; registeredBy: VisitRegisteredBy | null }>> => {
     return get(`/appointments/${appointmentId}/encounters`, { cache: false, silent: true, ...options });
+  },
+
+  /**
+   * Assign / reassign who attended an encounter. REPLACE semantics — send the
+   * WHOLE list; anyone omitted is removed. The server keeps
+   * `visit_encounters.lead_staff_id` in sync with the flagged lead.
+   * `fee` is INTERNAL clinic cost and is never billed (rule from 106).
+   */
+  setEncounterStaff: async (
+    appointmentId: number | string,
+    encounterId: string | number,
+    staff: { userId: string | number; role?: string | null; fee?: number | null; isLead?: boolean }[],
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ encounter: VisitEncounter }>> => {
+    return put(`/appointments/${appointmentId}/encounters/${encounterId}/staff`, { staff }, { showError: true, ...options });
   },
 
   addEncounter: async (

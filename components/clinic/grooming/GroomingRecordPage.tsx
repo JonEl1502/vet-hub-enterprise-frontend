@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Scissors, Dog } from 'lucide-react';
+import { ArrowLeft, Scissors, Dog, ExternalLink } from 'lucide-react';
 import { Visit } from '../../../types';
 import { groomingAPI } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
 import GroomingPanel from '../appointments/GroomingPanel';
-import StandardRecordControls from '../shared/StandardRecordControls';
+import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
 import AddCategoryService from '../shared/AddCategoryService';
 import { deriveVisitStatus, STATUS_LABEL, STATUS_STYLE } from '../shared/visitStatus';
 
@@ -77,32 +77,34 @@ const GroomingRecordPage: React.FC<Props> = ({ appointment, onBack, onChanged, o
         </div>
 
         {/* Status / share / linked-visit controls — full width, below. */}
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
-          {/* Add another grooming service to THIS visit — the category trigger
-              creates its record so the new service appears on the report card. */}
-          {!locked && (
-            <AddCategoryService
-              appointmentId={appointment.id}
-              categoryKeyword="groom"
-              taskCategory="Grooming"
-              existingNames={appointment.tasks.filter(tk => (tk.category || '').toLowerCase().includes('groom')).map(tk => tk.name)}
-              label="Add grooming service"
-              tone="pink"
-              onAdded={async () => { onChanged(); const res = await groomingAPI.list({ appointmentId: appointment.id }).catch(() => null); if (res?.success) { setAllRecs(res.data?.records ?? []); setGRec(res.data?.records?.[0] ?? null); } }}
-            />
-          )}
-          {gRec ? (
-            <StandardRecordControls
-              appointmentId={appointment.id != null ? String(appointment.id) : null}
-              onOpenAppointment={onOpenAppointment}
-              status={{ value: gRec.status || 'PENDING', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: setAllStatus, disabled: locked }}
-            />
-          ) : (
-            <p className="text-[10px] text-slate-400">Loading record…</p>
-          )}
-          <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">Finalize &amp; settle live on the visit workflow — use Linked appointment.</p>
-        </div>
       </div>
+
+      {/* Actions + status are PINNED (user, 2026-08-04). They used to sit in a
+          card at the very bottom, so on a long report you had to scroll past
+          everything to change the status or jump to the visit. Anything beyond
+          the inline limit collapses into "More" so the bar never wraps. */}
+      <RecordActionBarSpacer />
+      <RecordActionBar
+        status={gRec ? { value: gRec.status || 'PENDING', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: setAllStatus, disabled: locked } : undefined}
+        hint="Finalize & settle live on the visit workflow"
+        slot={!locked ? (
+          <AddCategoryService
+            appointmentId={appointment.id}
+            categoryKeyword="groom"
+            taskCategory="Grooming"
+            existingNames={appointment.tasks.filter(tk => (tk.category || '').toLowerCase().includes('groom')).map(tk => tk.name)}
+            label="Add grooming service"
+            tone="pink"
+            onAdded={async () => { onChanged(); const res = await groomingAPI.list({ appointmentId: appointment.id }).catch(() => null); if (res?.success) { setAllRecs(res.data?.records ?? []); setGRec(res.data?.records?.[0] ?? null); } }}
+          />
+        ) : undefined}
+        actions={[
+          ...(appointment.id != null && onOpenAppointment ? [{
+            key: 'linked', label: 'Linked appointment', icon: ExternalLink, tone: 'seafoam' as const,
+            onClick: () => onOpenAppointment(String(appointment.id), false),
+          }] : []),
+        ]}
+      />
     </div>
   );
 };

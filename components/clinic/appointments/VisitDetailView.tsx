@@ -65,6 +65,7 @@ import MedicalReport from './MedicalReport';
 import SwapServiceDialog from './SwapServiceDialog';
 import AttendingStaffEditor from './AttendingStaffEditor';
 import PatientRail from './PatientRail';
+import VisitTeamPanel from './VisitTeamPanel';
 import AppointmentCreateModal from './AppointmentCreateModal';
 import { loadVisitFees, entryFeeFor } from '../shared/visitFees';
 
@@ -3647,6 +3648,17 @@ const VisitDetailInner: React.FC<Props> = ({
           <div className="space-y-4">
             {followUpPanel}
             {patientRail}
+          </div>
+
+          {/* WHO WORKED THIS VISIT (user, 2026-08-04). Sits in the empty half of
+              this tab: the attribution data already existed
+              (`visit_encounter_staff` 106/172, plus `created_by` from 127) and
+              had no screen. Assignment is per ENCOUNTER because that is the unit
+              the work happened in — the groomer attended the groom, the vet the
+              consult. Read-only once the record locks; attribution is part of
+              the record. */}
+          <div className="lg:col-span-2">
+            <VisitTeamPanel visitId={appointment.id} readOnly={isFinalized} />
           </div>
         </div>
       )}

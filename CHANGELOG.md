@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Visit team panel — see and reassign who worked the visit  —  backend 127
+- **What changed:** (user, 2026-08-04) a **Visit team** panel fills the empty half of the
+  visit's Follow-Up & Reminders tab: who **registered** the visit (front desk) plus, per
+  encounter, who attended — with assign, remove and star-to-make-lead.
+- **Per encounter, not per visit**, because that is the unit the work happened in: the
+  groomer attended the groom, the vet the consult.
+- Optimistic updates, reverted from the server response so a rejected save can't leave a
+  phantom assignee. Read-only once the record locks — attribution is part of the record.
+- **⚠️ Staff fees are INTERNAL and never billed** (rule from 106), so no money is shown.
+- **Record impact:** 🟢 None — reads the existing attribution tables.
+
+### ui: grooming record — actions and status pinned to a fixed bottom bar  —  no migration
+- **What changed:** (user: "move the side panel down and fixed bottom … if many button some
+  can open as menu") the bottom card on the grooming record page becomes a **fixed bottom
+  action bar** (`components/clinic/shared/RecordActionBar.tsx`, reusable by the other module
+  record pages). Status chips sit left, actions right, and anything past the inline limit
+  collapses into a **More** menu so the bar never wraps into a second row.
+- **Why:** on a long report you had to scroll past everything to change the status or jump to
+  the visit.
+- Offset by `--vh-sidebar-w` so it doesn't sit under the nav, with `env(safe-area-inset-bottom)`
+  padding; `RecordActionBarSpacer` keeps the bar from covering the last of the content.
+- The menu closes on outside click — a fixed menu left open while the page scrolls beneath
+  reads as a stuck overlay.
+- **Record impact:** 🟢 None — presentational.
+
+
 ### page: the pulse band follows the day picker; staff get their own band; attendance defaults to you  —  2026-08-04
 - **The pulse band now follows the picker.** `ConversionPulse`, `CheckoutsCard` and
   `StaffTalliesCard` send the picked day to the server as `start`/`end`, which REPLACES the
