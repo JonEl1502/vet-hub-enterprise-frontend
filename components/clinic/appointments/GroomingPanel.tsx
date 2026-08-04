@@ -1,8 +1,8 @@
 import { useRegisterStepAction } from './wizard/StepActionContext';
 import React, { useState, useEffect } from 'react';
-import { Scissors, Save, Loader2, ImagePlus, X, CheckCircle2 } from 'lucide-react';
+import { Scissors, Save, Loader2, ImagePlus, X, CheckCircle2, Trash2 } from 'lucide-react';
 import { Visit } from '../../../types';
-import { visitsAPI, groomingAPI, GroomingRecord, toast } from '../../../services';
+import { visitsAPI, groomingAPI, GroomingRecord, toast, dialog } from '../../../services';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
 import InlineServiceSearch from '../shared/InlineServiceSearch';
@@ -20,8 +20,8 @@ interface Props {
 
 const TEMPERAMENTS = ['Calm', 'Anxious', 'Aggressive', 'Fractious'];
 const VACC = ['Current', 'Expired', 'Unknown'];
-const fieldCls = 'w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
-const labelCls = 'block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5';
+const fieldCls = 'w-full px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
+const labelCls = 'block text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1';
 
 // Downscale an image file to a compact JPEG data URL (keeps the report small
 // and works without object storage; swaps to R2 uploads once that's configured).
@@ -65,18 +65,18 @@ const PhotoStrip: React.FC<{ label: string; urls: string[]; onChange: (urls: str
   return (
     <div>
       <label className={labelCls}>{label}</label>
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap gap-1.5">
         {urls.map((u, i) => (
-          <div key={i} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-700 group">
+          <div key={i} className="relative w-12 h-12 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-700 group">
             <img src={u} alt="" className="w-full h-full object-cover" />
             {!disabled && <button type="button" onClick={() => onChange(urls.filter((_, idx) => idx !== i))} className="absolute top-0.5 right-0.5 bg-black/60 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"><X size={10} className="text-white" /></button>}
           </div>
         ))}
         {urls.length === 0 && disabled && <span className="text-[10px] text-slate-400">No photos</span>}
         {!disabled && (
-          <label className="w-16 h-16 rounded-lg border border-dashed border-slate-300 dark:border-zinc-700 flex items-center justify-center cursor-pointer hover:border-seafoam bg-slate-50 dark:bg-zinc-800">
+          <label className="w-12 h-12 rounded-lg border border-dashed border-slate-300 dark:border-zinc-700 flex items-center justify-center cursor-pointer hover:border-seafoam bg-slate-50 dark:bg-zinc-800">
             <input type="file" accept="image/*" className="hidden" disabled={uploading} onChange={e => add(e.target.files?.[0] ?? null)} />
-            {uploading ? <Loader2 size={16} className="animate-spin text-seafoam" /> : <ImagePlus size={16} className="text-slate-400" />}
+            {uploading ? <Loader2 size={14} className="animate-spin text-seafoam" /> : <ImagePlus size={14} className="text-slate-400" />}
           </label>
         )}
       </div>
@@ -120,6 +120,15 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
     try { await visitsAPI.updateTask(Number(appointment.id), Number(t.id), { status: want } as any); onSaved?.(); } catch { /* non-fatal */ }
   };
 
+  // Re-list whenever the visit's GROOMING TASKS change, not just when the visit
+  // id does (user, 2026-08-04: "deleted and still there"). Services can be added
+  // or removed from three places — this panel, the wizard's bottom picker, and
+  // the visit's services list — and only this signature changes for all three.
+  // Without it the card for a deleted service sat there until a full remount.
+  const groomTaskSig = (appointment.tasks || [])
+    .filter((t: any) => /groom/i.test(String(t.category || '')))
+    .map((t: any) => t.id).sort().join(',');
+
   useEffect(() => {
     let alive = true;
     groomingAPI.list({ appointmentId: appointment.id })
@@ -133,7 +142,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
       })
       .catch(() => { if (alive) setRecordsLoaded(true); });
     return () => { alive = false; };
-  }, [appointment.id]);
+  }, [appointment.id, groomTaskSig]);
 
   const patchRecord = (id: string, patch: Partial<GroomingRecord>) => setRecords(rs => rs.map(r => r.id === id ? { ...r, ...patch } : r));
   // Per-service status — persisted immediately so the backend syncs it to the
@@ -145,6 +154,35 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
     try { await groomingAPI.update(id, { status } as any); onSaved?.(); } catch { /* non-fatal */ }
     await syncVisitTask(rec as any, status);
   };
+  // Remove a grooming service from the visit (user, 2026-08-04). The visit task
+  // is what we delete — the grooming record cascades off it (task_id FK, ON
+  // DELETE CASCADE), and so does its charge on the bill. Deleting the record
+  // alone would leave the line billed with nothing to show for it.
+  const removeService = async (r: GroomingRecord) => {
+    if (locked) return;
+    const ok = await dialog.confirm({
+      title: `Remove ${r.serviceName} from this visit?`,
+      message: 'This deletes the service, its charge on the bill and everything recorded against it — steps, photos and any products logged. This cannot be undone.',
+      confirmLabel: 'Remove service',
+      cancelLabel: 'Keep',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    try {
+      if (r.taskId) {
+        await visitsAPI.deleteTask(Number(appointment.id), Number(r.taskId));
+      } else {
+        // A record with no task predates the task link — delete it directly.
+        await groomingAPI.remove(r.id);
+      }
+      setRecords(rs => rs.filter(x => x.id !== r.id));
+      toast.success(`${r.serviceName} removed`);
+      onSaved?.();
+    } catch (e: any) {
+      toast.error(e?.message || `Could not remove ${r.serviceName} — a settled bill is locked`);
+    }
+  };
+
   const taskPrice = (taskId: string | null) => {
     const t = (appointment.tasks || []).find((x: any) => String(x.id) === String(taskId));
     return Number((t as any)?.price) || 0;
@@ -173,12 +211,12 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
     : null);
 
   return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-3">
+    <div className="space-y-3">
+      <div className="flex items-center justify-between border-b border-slate-200 dark:border-zinc-800 pb-2">
         <div className="flex items-center gap-2">
-          <Scissors size={18} className="text-seafoam" />
+          <Scissors size={15} className="text-seafoam" />
           <div>
-            <h4 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Grooming Report Card</h4>
+            <h4 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Grooming Report Card</h4>
             <p className="text-[10px] text-slate-400 dark:text-zinc-500 font-medium">Before/after photos, services & groomer notes</p>
           </div>
         </div>
@@ -194,23 +232,23 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
           untouched so older records don't lose data. */}
 
       {/* Photos */}
-      <section className="bg-slate-50/60 dark:bg-zinc-950/30 sm:border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-2.5 sm:p-4 space-y-3">
-        <p className="text-[10px] font-black uppercase tracking-widest text-seafoam">Before &amp; after</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <section className="bg-slate-50/60 dark:bg-zinc-950/30 sm:border border-slate-100 dark:border-zinc-800/60 rounded-xl p-2 sm:p-3 space-y-2.5">
+        <p className="text-[9px] font-black uppercase tracking-widest text-seafoam">Before &amp; after</p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <PhotoStrip label="Before photos" urls={beforePhotos} onChange={setBeforePhotos} disabled={locked} />
           <PhotoStrip label="After photos" urls={afterPhotos} onChange={setAfterPhotos} disabled={locked} />
         </div>
         <div>
           {notesFormat && <NotesFormatToggle value={notesFormat.value} onChange={notesFormat.onChange} className="mb-2.5" />}
           <label className={labelCls}>Groomer notes</label>
-          <textarea className={fieldCls} rows={3} value={groomerNotes} onChange={e => setGroomerNotes(e.target.value)} disabled={locked} placeholder="Full groom completed; recommend de-shed treatment next visit" />
+          <textarea className={fieldCls} rows={2} value={groomerNotes} onChange={e => setGroomerNotes(e.target.value)} disabled={locked} placeholder="Full groom completed; recommend de-shed treatment next visit" />
         </div>
       </section>
 
       {/* Grooming settings — one record per grooming service (grooming_records). */}
-      <section className="bg-slate-50/60 dark:bg-zinc-950/30 sm:border border-slate-100 dark:border-zinc-800/60 rounded-2xl p-2.5 sm:p-4 space-y-3">
-        <p className="text-[10px] font-black uppercase tracking-widest text-seafoam">Service details</p>
-        <p className="text-[10px] text-slate-400 -mt-1">The grooming services on this visit. Open each to record its details &amp; products.</p>
+      <section className="bg-slate-50/60 dark:bg-zinc-950/30 sm:border border-slate-100 dark:border-zinc-800/60 rounded-xl p-2 sm:p-3 space-y-2">
+        <p className="text-[9px] font-black uppercase tracking-widest text-seafoam">Service details</p>
+        <p className="text-[9px] text-slate-400 -mt-1">The grooming services on this visit. Open each to record its details &amp; products.</p>
 
         {!recordsLoaded && <div className="py-3 flex items-center gap-2 text-[11px] text-slate-400"><Loader2 size={13} className="animate-spin" /> Loading services…</div>}
         {recordsLoaded && records.length === 0 && (
@@ -250,8 +288,8 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
           // reopen it). A newly-added service (PENDING) stays editable.
           const recLocked = locked || r.status === 'COMPLETED';
           return (
-            <details key={r.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden" open>
-              <summary className="flex items-center justify-between gap-2 px-3 py-2.5 cursor-pointer list-none">
+            <details key={r.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg overflow-hidden" open>
+              <summary className="flex items-center justify-between gap-2 px-2.5 py-1.5 cursor-pointer list-none">
                 <span className="flex items-center gap-2 min-w-0">
                   <span className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-wide truncate">{r.serviceName}</span>
                   {/* Per-service status */}
@@ -268,9 +306,16 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
                     className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${r.billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
                     {r.billable ? 'Billable' : 'Non-billable'}
                   </button>
+                  {!locked && (
+                    <button type="button" title={`Remove ${r.serviceName}`}
+                      onClick={(ev) => { ev.preventDefault(); removeService(r); }}
+                      className="p-1 rounded-lg text-slate-300 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors">
+                      <Trash2 size={13} />
+                    </button>
+                  )}
                 </span>
               </summary>
-              <div className="px-3 pb-3 space-y-3 border-t border-slate-100 dark:border-zinc-800/60 pt-3">
+              <div className="px-2.5 pb-2.5 space-y-2 border-t border-slate-100 dark:border-zinc-800/60 pt-2">
                 {/* Temp/Weight live at the visit/intake (category) level, not per service. */}
                 <div className="flex items-center gap-3">
                   <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 w-16 shrink-0">Difficulty</span>
@@ -278,7 +323,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
                   <span className="w-7 text-center text-sm font-black text-pine dark:text-zinc-100">{difficulty}</span>
                 </div>
                 <input className={fieldCls} disabled={recLocked} placeholder="Steps taken (e.g. de-mat, clip #4, sanitary trim)" value={r.steps ?? ''} onChange={ev => patchRecord(r.id, { steps: ev.target.value })} />
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-2 gap-2">
                   <PhotoStrip label="Before" urls={r.beforePhotos} onChange={urls => patchRecord(r.id, { beforePhotos: urls })} disabled={recLocked} />
                   <PhotoStrip label="After" urls={r.afterPhotos} onChange={urls => patchRecord(r.id, { afterPhotos: urls })} disabled={recLocked} />
                 </div>

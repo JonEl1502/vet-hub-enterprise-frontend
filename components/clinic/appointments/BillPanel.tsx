@@ -299,6 +299,29 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
         {meta && <span className={`shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest ${meta.cls}`}>{meta.label}</span>}
       </div>
 
+      {/* A locked bill is a SNAPSHOT. Services added to the visit after it was
+          approved (a second procedure application, a late consumable) are NOT
+          on it, and nothing said so — prod visit 131 carried 4,751 of tasks
+          against a 1,517 invoice (user, 2026-08-04: "is this correct").
+          Only warn on a locked bill: while it is editable, the panel already
+          re-materializes from the visit on every load. */}
+      {!editable && (() => {
+        const billTotal = Number(bill.total ?? 0);
+        const visitTotal = (visit.tasks || []).reduce((sum: number, t: any) => sum + (Number(t.price) || 0), 0);
+        const gap = visitTotal - billTotal;
+        if (!(gap > 0.5)) return null;
+        return (
+          <div className="flex items-start gap-2 px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/60 dark:bg-amber-950/20">
+            <AlertTriangle size={13} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+            <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300">
+              This visit now carries {currency} {visitTotal.toLocaleString()} of services, but the bill was
+              approved at {currency} {billTotal.toLocaleString()} — {currency} {gap.toLocaleString()} was added afterwards
+              and is <span className="underline">not billed</span>. Reopen the bill to pick it up, or remove what should not be there.
+            </p>
+          </div>
+        );
+      })()}
+
       {bill.isSynthetic && (
         <div className="flex items-start gap-2 px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/60 dark:bg-amber-950/20">
           <AlertTriangle size={13} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />

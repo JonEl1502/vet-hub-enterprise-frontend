@@ -178,7 +178,7 @@ export const procedureTemplatesAPI = {
   preview: async (id: string | number, body: { petId?: string | number; weightKg?: number; flags?: ProcedureFlags }, options?: RequestOptions): Promise<ApiResponse<{ preview: ProcedurePreview }>> =>
     post(ENDPOINTS.PROCEDURE_TEMPLATES.PREVIEW(id), body, options),
 
-  apply: async (id: string | number, body: { appointmentId: string | number; taskId?: string | number; weightKg?: number; flags?: ProcedureFlags }, options?: RequestOptions): Promise<ApiResponse<{ applied: boolean; applicationId: string; created: { tasks: number; products: number; adjustments: number }; skipped: any[]; total: number }>> =>
+  apply: async (id: string | number, body: { appointmentId: string | number; taskId?: string | number; weightKg?: number; flags?: ProcedureFlags; allowDuplicate?: boolean }, options?: RequestOptions): Promise<ApiResponse<{ applied: boolean; applicationId: string; created: { tasks: number; products: number; adjustments: number }; skipped: any[]; total: number }>> =>
     post(ENDPOINTS.PROCEDURE_TEMPLATES.APPLY(id), body, { showError: true, ...options }),
 
   listApplications: async (appointmentId: string | number, options?: RequestOptions): Promise<ApiResponse<{ applications: ProcedureApplication[] }>> =>

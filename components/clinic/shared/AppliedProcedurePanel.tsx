@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ClipboardList, Loader2, Trash2, Check, Zap, AlertTriangle, Plus, Calculator, ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { procedureTemplatesAPI, consumablesAPI, ProcedureApplication, ProcedureTemplate } from '../../../services';
+import { procedureTemplatesAPI, consumablesAPI, ProcedureApplication, ProcedureTemplate, dialog } from '../../../services';
 import QtyUnitControl from './QtyUnitControl';
 
 interface Props {
@@ -88,23 +88,53 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
     setApps(prev => prev.map(a => a.id === updated.id ? updated : a));
   };
 
-  const applyTemplate = async (templateId: string) => {
+  const applyTemplate = async (templateId: string, allowDuplicate = false) => {
     if (!templateId) return;
+    if (applying) return; // a second click while the first is in flight is how duplicates happened
     setApplying(true);
     try {
-      const res = await procedureTemplatesAPI.apply(templateId, { appointmentId, taskId: taskId ?? undefined });
+      const res = await procedureTemplatesAPI.apply(
+        templateId,
+        { appointmentId, taskId: taskId ?? undefined, ...(allowDuplicate ? { allowDuplicate: true } : {}) },
+        { showError: false } as any,
+      );
       if (res.success) {
         toast.success(`Procedure applied · ${res.data?.created?.tasks ?? 0} services, ${res.data?.created?.products ?? 0} products`);
         if (res.data?.skipped?.length) toast(`${res.data.skipped.length} component(s) skipped — see warnings on the panel`, { icon: '⚠️' });
         await load();
         onChanged?.();
       }
-    } catch (e: any) { toast.error(e?.message || 'Failed to apply procedure'); }
+    } catch (e: any) {
+      // 409 = this recipe is already on the visit. Applying it twice is a real
+      // thing (two limbs, two doses) so we ask rather than refuse — but we ask,
+      // because the usual cause is a double-click, and every accidental copy
+      // drags a full set of billable lines behind it.
+      if (e?.status === 409 || e?.response?.status === 409 || /already applied to this visit/i.test(String(e?.message))) {
+        const again = await dialog.confirm({
+          title: 'This procedure is already on the visit',
+          message: 'Applying it again adds a SECOND full set of services and products to the bill. Do that only if it really was performed twice — otherwise re-evaluate the existing one.',
+          confirmLabel: 'Apply again',
+          cancelLabel: 'Cancel',
+          variant: 'danger',
+        });
+        setApplying(false);
+        if (again) await applyTemplate(templateId, true);
+        return;
+      }
+      toast.error(e?.message || 'Failed to apply procedure');
+    }
     finally { setApplying(false); }
   };
 
   const removeApp = async (app: ProcedureApplication) => {
-    if (!confirm(`Remove "${app.templateName}" and all its un-billed lines from this visit?`)) return;
+    const ok = await dialog.confirm({
+      title: `Remove ${app.templateName}?`,
+      message: 'This deletes the procedure and every un-billed line it added to this visit. Lines already on an issued bill stay put.',
+      confirmLabel: 'Remove procedure',
+      cancelLabel: 'Keep',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setBusy(app.id);
     try {
       const res = await procedureTemplatesAPI.removeApplication(app.id);
@@ -162,7 +192,16 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
   };
 
   const removeLine = async (prodId: string, name: string, isDeducted: boolean) => {
-    if (!confirm(`Remove "${name}" from this visit?${isDeducted ? ' Its stock will be returned.' : ''}`)) return;
+    const ok = await dialog.confirm({
+      title: `Remove ${name}?`,
+      message: isDeducted
+        ? 'This line already deducted stock — removing it returns that stock to inventory.'
+        : 'This removes the line from the visit.',
+      confirmLabel: 'Remove line',
+      cancelLabel: 'Keep',
+      variant: 'danger',
+    });
+    if (!ok) return;
     setBusy(`line:${prodId}`);
     try {
       const res = await consumablesAPI.remove(prodId);

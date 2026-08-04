@@ -2907,7 +2907,7 @@ const VisitDetailInner: React.FC<Props> = ({
             <button
               onClick={() => { setPayGate(null); openSettleModal(); }}
               className="w-full flex items-center justify-center gap-2 py-3 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all">
-              <CreditCard size={14} /> Settle bill now
+              <CreditCard size={14} /> Settle invoice now
             </button>
             {GATE_OVERRIDE_ROLES.includes(String(currentUser?.role)) && (
               <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-2">
@@ -3376,16 +3376,43 @@ const VisitDetailInner: React.FC<Props> = ({
                 );
               })()}
               <div className="flex flex-wrap gap-2 mt-auto">
-                {!isFinalized && !isFinalizing && (
+                {/* The header's action follows `billStage` — the SAME machine as
+                    the footer and the chain above it (user, 2026-08-04: the card
+                    offered "Settle bill" while the chip beside it read "Bill
+                    approved · awaiting invoice"). It used to gate on the VISIT
+                    status alone, so any finalized-but-uninvoiced visit showed a
+                    settle button, and settling before an invoice exists is not a
+                    thing you can do — you would be taking money against nothing.
+                    You settle an INVOICE, never a bill. */}
+                {billStage === 'APPROVE' ? (
+                  <button onClick={() => { setActiveBottomTab('bill'); setPulseBillAction(n => n + 1); }}
+                    title="Approve the bill — the vet's sign-off, on the Bill tab"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all">
+                    <FileText size={12} /> Approve bill
+                  </button>
+                ) : billStage === 'INVOICE' ? (
+                  <button onClick={() => { setActiveBottomTab('bill'); setPulseBillAction(n => n + 1); }}
+                    title="Turn the approved bill into an invoice — on the Bill tab"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all">
+                    <FileText size={12} /> Generate invoice
+                  </button>
+                ) : billStage === 'SETTLE' ? (
+                  <button onClick={openSettleModal} disabled={isSettlingBill}
+                    title="Take payment against this invoice"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50">
+                    <CreditCard size={12} /> Settle invoice
+                  </button>
+                ) : billStage === 'PAY_FIRST' ? (
+                  <button onClick={openSettleModal} disabled={isSettlingBill}
+                    title="Pay-first: this bill was issued as a quote"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50">
+                    <CreditCard size={12} /> Collect pay-first
+                  </button>
+                ) : !isFinalized && !isFinalizing ? (
                   <button onClick={openFinalizeGate} title="Generate the bill for this visit — this finalizes it" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                     <FileText size={12} /> Generate bill
                   </button>
-                )}
-                {!appointment.isPaid && (appointment.status === ApptStatus.PENDING_PAYMENT || appointment.status === ApptStatus.COMPLETED) && (
-                  <button onClick={openSettleModal} disabled={isSettlingBill} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50">
-                    <CreditCard size={12} /> Settle bill
-                  </button>
-                )}
+                ) : null}
                 {/* PAY-FIRST signpost (user, 2026-07-30 — the "hard to settle"
                     complaint). Taking money on an OPEN visit already works
                     end-to-end: issue the bill for pay-first and a Collect button
@@ -7088,7 +7115,9 @@ const VisitDetailInner: React.FC<Props> = ({
               {/* Header */}
               <div className="bg-pine px-6 py-5 flex items-center justify-between">
                 <div>
-                  <p className="text-[8px] font-black text-white/50 uppercase tracking-[0.2em]">Settle Bill</p>
+                  {/* You settle an INVOICE, not a bill — the modal is only reachable
+                      once one exists (or on a pay-first quote). */}
+                  <p className="text-[8px] font-black text-white/50 uppercase tracking-[0.2em]">{billStage === 'PAY_FIRST' ? 'Collect pay-first' : 'Settle invoice'}</p>
                   <p className="text-lg font-black text-white uppercase tracking-tight leading-tight">#{appointment.id} — {pet.name}</p>
                 </div>
                 <button onClick={() => setShowSettleModal(false)} className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-all"><X size={16} /></button>

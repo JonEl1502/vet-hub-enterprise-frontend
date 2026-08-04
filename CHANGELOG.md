@@ -59,6 +59,62 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the same procedure recipe could be applied to a visit many times over  —  2026-08-04
+- **What changed:** applying a procedure template that is **already on the visit** now returns
+  **409** and the UI asks *"Applying it again adds a SECOND full set of services and products to
+  the bill"* before proceeding. The apply button also ignores a click while one is in flight.
+  Applying twice on purpose (two limbs, two doses) still works — you confirm it.
+- **Why:** the backend only guarded duplicates **when the application was anchored to a task**;
+  `task_id` is `UNIQUE` but **NULLABLE**, so Postgres accepted unlimited anchorless rows.
+  Prod visit **131** ended up with three identical *Rabies Vaccination (Dog)* applications — two
+  created **three seconds apart**, i.e. a double-fire — dragging 13 billable tasks worth
+  **4,751** behind a **1,517** bill.
+- **Record impact:** 🟢 None — this only prevents new duplicates. Existing ones are untouched;
+  remove them from the panel.
+- **Data dependency:** backend `allowDuplicate` on `POST /procedure-templates/:id/apply` (shipping
+  in the same push). **Graceful fallback** — an older backend just never 409s.
+- ⚠️ **Watch out:** the guard is per `(visit, template)` for **anchorless** applications only.
+  A task-anchored application is still one-per-task, as before.
+
+### feat: a locked bill warns when the visit has grown past it  —  2026-08-04
+- **What changed:** an approved/invoiced bill is a **snapshot**. Anything added to the visit
+  afterwards was silently missing from it. The Bill panel now shows an amber banner naming the
+  gap: *"This visit now carries KES 4,751 of services, but the bill was approved at KES 1,517 —
+  KES 3,234 was added afterwards and is not billed."*
+- **Record impact:** 🟢 None — it reads what is already there.
+- **Data dependency:** None.
+- ⚠️ **Watch out:** only shown on a **locked** bill. While editable, the panel already
+  re-materializes from the visit on every load, so a gap there would be a rendering bug, not a
+  billing one.
+
+### ui: branded dialogs on the procedure panel; grooming services can be removed  —  2026-08-04
+- **What changed:** (user, 2026-08-04)
+  1. The two native `window.confirm()` boxes on the applied-procedure panel are now branded
+     `dialog.confirm()` — remove-procedure and remove-line.
+  2. **Grooming:** each service card has a **delete** button. It deletes the visit *task*, so the
+     grooming record cascades off it (`task_id` FK) **and** the charge leaves the bill; deleting
+     the record alone would have left the line billed with nothing behind it.
+  3. **Grooming:** the panel now re-lists whenever the visit's grooming tasks change, not just
+     when the visit id does (user: *"deleted and still there"*) — a service removed from the
+     wizard's bottom picker left its card on screen until a full remount.
+  4. **Grooming:** tighter — smaller photo tiles, denser cards, less section padding.
+- **Record impact:** 🔵 Low — the delete removes a task, its module record and its bill line.
+- **Data dependency:** None.
+- ⚠️ **Watch out:** deletion 409s when the bill is settled; the toast says so.
+
+### fix: the visit header offered "Settle bill" before an invoice existed  —  2026-08-04
+- **What changed:** the header Bill card's action now follows **`billStage`** — the same machine as
+  the footer and the Finalize → Bill → Invoice → Settle chain drawn right above it. It shows
+  *Approve bill* / *Generate invoice* / *Settle invoice* / *Collect pay-first* to match. The settle
+  modal is titled **Settle invoice** (or *Collect pay-first*), never "Settle Bill".
+- **Why:** the header gated on the **visit status** alone, so any finalized-but-uninvoiced visit
+  showed a settle button — sitting directly beneath a chip reading *"Bill approved · awaiting
+  invoice"* (user, 2026-08-04: *"this is wrong, for i have not generated invoice yet"*).
+  You settle an invoice; there is nothing to settle before one exists.
+- **Record impact:** 🟢 None — presentation and navigation.
+- **Data dependency:** None.
+
+
 ### fix: every M-Pesa payment 400'd — wrong enum spelling in four selects  —  2026-08-04
 - **What changed:** the payment-method selects sent **`MPESA`**, but the column is a Prisma
   enum whose value is **`M_PESA`**. Prisma does not coerce — it threw
