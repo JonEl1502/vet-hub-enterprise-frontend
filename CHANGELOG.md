@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: close a whole follow-up plan in one action  —  2026-08-04
+- **What changed:** the **Plan · N points** card gained a menu with **Mark plan done** and **Dismiss
+  plan**, each confirming first and reporting *"N open of M"*. It touches only the **open** points;
+  ones already done or dismissed keep the record of how they ended.
+- **Why:** closing a plan meant opening each point in turn (user, 2026-08-04).
+- **Record impact:** 🔵 Low — sets `status` on every open reminder in the group. Nothing is deleted,
+  and appointments already booked from a point stay booked.
+- **Data dependency:** `reminders.group_id` (backend **134**, live).
+- ⚠️ **Watch out:** two things this deliberately does NOT do —
+  1. **Done and dismissed are not interchangeable.** Done = the rechecks happened; dismissed = the
+     plan was abandoned. Collapsing them into one "close" button would erase the distinction that
+     makes `remindersClosed` and the conversion rate mean anything.
+  2. **Partial failures are reported, not swallowed.** Each point is a separate request; if 3 of 4
+     succeed the toast says so and names the remainder as still open. Saying "plan closed" over a
+     point that is still live in the queue is how a recheck gets missed.
+
+
 ### feat: the Reminders page shows a follow-up plan as ONE card  —  2026-08-04
 - **What changed:** reminders sharing a `groupId` (backend **134**) now render as a single **Plan ·
   N points** card: the patient once, then each point as a compact row with its own due date, overdue

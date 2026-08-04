@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
-import { BellRing, Loader2, CalendarPlus, Check, X, Search, AlertCircle, CheckCircle2, PhoneCall, ExternalLink, MoreVertical } from 'lucide-react';
+import { BellRing, Loader2, CalendarPlus, Check, X, Search, AlertCircle, CheckCircle2, PhoneCall, ExternalLink, MoreVertical, CheckCheck } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { remindersAPI, appointmentsAPI, Reminder, ReminderScope, ReminderServiceType, REMINDER_SERVICE_META } from '../../../services';
+import { remindersAPI, appointmentsAPI, Reminder, ReminderScope, ReminderServiceType, REMINDER_SERVICE_META, dialog } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import { useData } from '../../../contexts/DataContext';
 import ReasonModal from '../shared/ReasonModal';
@@ -204,6 +204,49 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
     finally { setBusyId(null); }
   };
 
+  /**
+   * Close a whole follow-up plan in one action (user, 2026-08-04). Only OPEN
+   * points are touched — a point already done or dismissed keeps the record of
+   * how it ended. Failures are collected rather than swallowed: closing 3 of 4
+   * and reporting success would leave a point silently live in the queue.
+   *
+   * DONE and DISMISSED are NOT interchangeable. Done = the rechecks happened;
+   * dismissed = the plan was abandoned, and the reason is worth writing down.
+   */
+  const [closingPlan, setClosingPlan] = React.useState<string | null>(null);
+  const closePlan = async (groupId: string, points: Reminder[], status: 'DONE' | 'DISMISSED') => {
+    const open = points.filter(p => p.status === 'PENDING');
+    if (!open.length) return;
+    const ok = await dialog.confirm({
+      title: status === 'DONE' ? `Mark all ${open.length} open points done?` : `Dismiss all ${open.length} open points?`,
+      message: status === 'DONE'
+        ? 'Every point still open on this plan is marked done. Points already done or dismissed keep the record of how they ended.'
+        : 'Every point still open on this plan is dismissed — use this when the plan was abandoned, not when the rechecks happened. Any appointments already booked from it stay booked.',
+      confirmLabel: status === 'DONE' ? 'Mark plan done' : 'Dismiss plan',
+      cancelLabel: 'Cancel',
+      variant: status === 'DONE' ? 'info' as const : 'danger' as const,
+    });
+    if (!ok) return;
+    setClosingPlan(groupId);
+    const failed: string[] = [];
+    try {
+      for (const p of open) {
+        try {
+          const res = status === 'DONE' ? await remindersAPI.markDone(p.id) : await remindersAPI.dismiss(p.id);
+          if (!res.success) failed.push(String(p.id));
+        } catch { failed.push(String(p.id)); }
+      }
+      if (failed.length === 0) {
+        toast.success(status === 'DONE' ? `Plan closed — ${open.length} points marked done` : `Plan dismissed — ${open.length} points`);
+      } else if (failed.length === open.length) {
+        toast.error('Could not close the plan — nothing changed');
+      } else {
+        toast.error(`${open.length - failed.length} of ${open.length} points closed — ${failed.length} failed, still open`);
+      }
+      await load();
+    } finally { setClosingPlan(null); }
+  };
+
   const toggleContacted = async (r: Reminder) => {
     setBusyId(r.id);
     try {
@@ -343,6 +386,33 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
                       className={`p-2 rounded-lg disabled:opacity-50 ${next.contactedAt ? 'bg-cyan-100 dark:bg-cyan-950/40 text-cyan-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 hover:bg-slate-200'}`}>
                       <PhoneCall size={13} />
                     </button>
+                    {/* Close the WHOLE plan (user, 2026-08-04) — marking a plan
+                        done meant opening each point in turn. */}
+                    <div className="relative">
+                      <button onClick={() => setMenuFor(menuFor === `plan-${g.id}` ? null : `plan-${g.id}`)}
+                        disabled={closingPlan === g.id} title="Close the plan"
+                        className="p-2 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-400 hover:bg-slate-200 disabled:opacity-50">
+                        {closingPlan === g.id ? <Loader2 size={13} className="animate-spin" /> : <MoreVertical size={13} />}
+                      </button>
+                      {menuFor === `plan-${g.id}` && (
+                        <>
+                          <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
+                          <div className="absolute right-0 bottom-full mb-1 z-20 w-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl overflow-hidden">
+                            <button onClick={() => { setMenuFor(null); closePlan(g.id, g.points, 'DONE'); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-950/30">
+                              <CheckCheck size={12} /> Mark plan done
+                            </button>
+                            <button onClick={() => { setMenuFor(null); closePlan(g.id, g.points, 'DISMISSED'); }}
+                              className="w-full flex items-center gap-2 px-3 py-2 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 border-t border-slate-100 dark:border-zinc-800">
+                              <X size={12} /> Dismiss plan
+                            </button>
+                            <p className="px-3 py-1.5 text-[9px] font-bold text-slate-400 border-t border-slate-100 dark:border-zinc-800">
+                              {openPoints.length} open of {g.points.length}
+                            </p>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
