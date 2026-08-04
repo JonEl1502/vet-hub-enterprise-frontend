@@ -721,25 +721,37 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                       less than the row already knows (user, 2026-08-03: "the pet
                       card can hv more data"). Sex/neutered, vaccination count
                       and records count come free with the patient payload. */}
-                  <div className="grid grid-cols-4 gap-1.5 pt-2 border-t border-slate-100 dark:border-zinc-800">
-                    <div className="bg-emerald-50 dark:bg-emerald-900/30 p-2.5 rounded-xl">
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-0.5">Weight</p>
-                      <p className="text-sm font-semibold text-emerald-600 dark:text-emerald-400 truncate">{pet.weight || '—'}</p>
-                    </div>
-                    <div className="bg-slate-100 dark:bg-zinc-800 p-2.5 rounded-xl">
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-0.5">Visits</p>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-white">{String(pet.appointmentCount || 0)}</p>
-                    </div>
-                    <div className="bg-indigo-50 dark:bg-indigo-900/25 p-2.5 rounded-xl">
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-0.5">Vaccines</p>
-                      <p className="text-sm font-semibold text-indigo-600 dark:text-indigo-400">{String(pet.vaccinationCount ?? pet.vaccinations?.length ?? 0)}</p>
-                    </div>
-                    <div className="bg-slate-100 dark:bg-zinc-800 p-2.5 rounded-xl">
-                      <p className="text-[9px] uppercase tracking-wider text-slate-500 mb-0.5">Sex</p>
-                      <p className="text-sm font-semibold text-slate-700 dark:text-white truncate">
-                        {pet.gender || '—'}{pet.isNeutered ? ' ·N' : ''}
-                      </p>
-                    </div>
+                  {/* One stat STRIP, not four nested cards (user, 2026-08-04:
+                      "these inner cards are not making it beautiful").
+                      Four filled boxes inside an already-bordered card read as
+                      boxes-in-a-box, and each carried its own tint — emerald,
+                      slate, indigo, slate — so a row of pets looked like a
+                      colour chart. Now: hairline dividers, no fills, value
+                      first and label under it, so the numbers are what you
+                      scan. Colour is reserved for MEANING — a patient with no
+                      vaccines on file greys out rather than glowing indigo. */}
+                  <div className="grid grid-cols-4 pt-3 mt-1 border-t border-slate-100 dark:border-zinc-800 divide-x divide-slate-100 dark:divide-zinc-800">
+                    {(() => {
+                      const vaccines = Number(pet.vaccinationCount ?? pet.vaccinations?.length ?? 0);
+                      const cells: { label: string; value: string; muted?: boolean }[] = [
+                        { label: 'Weight', value: pet.weight ? String(pet.weight) : '—', muted: !pet.weight },
+                        { label: 'Visits', value: String(pet.appointmentCount || 0), muted: !pet.appointmentCount },
+                        { label: 'Vaccines', value: String(vaccines), muted: vaccines === 0 },
+                        { label: 'Sex', value: `${pet.gender || '—'}${pet.isNeutered ? ' ·N' : ''}`, muted: !pet.gender },
+                      ];
+                      return cells.map(c => (
+                        <div key={c.label} className="px-2.5 first:pl-0 last:pr-0 min-w-0">
+                          <p className={`font-display text-base font-black leading-none truncate ${
+                            c.muted ? 'text-slate-300 dark:text-zinc-600' : 'text-pine dark:text-zinc-100'
+                          }`}>
+                            {c.value}
+                          </p>
+                          <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mt-1.5 truncate">
+                            {c.label}
+                          </p>
+                        </div>
+                      ));
+                    })()}
                   </div>
                   {/* Clinical flags — allergies and chronic conditions are the
                       two a vet wants BEFORE opening the record. */}
