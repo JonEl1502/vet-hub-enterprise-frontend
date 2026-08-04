@@ -7139,6 +7139,43 @@ const VisitDetailInner: React.FC<Props> = ({
                   </div>
                 </div>
 
+                {/* AMOUNT PAID — a client who pays part of the bill should leave
+                    a real balance, not a visit marked settled. Blank = in full,
+                    which is what this modal always did. */}
+                <div>
+                  <div className="flex items-baseline justify-between mb-2">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Amount paid</p>
+                    <button type="button" onClick={() => setSettleAmountPaid('')}
+                      className={`text-[9px] font-black uppercase tracking-widest ${settleAmountPaid.trim() === '' ? 'text-seafoam' : 'text-slate-400 hover:text-seafoam'}`}>
+                      Paying in full
+                    </button>
+                  </div>
+                  <input
+                    type="number" min="0" step="any" inputMode="decimal"
+                    placeholder={`${client?.currency || 'KES'} ${finalTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} — full`}
+                    value={settleAmountPaid}
+                    onChange={e => setSettleAmountPaid(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                  />
+                  {(() => {
+                    const paid = parseFloat(settleAmountPaid);
+                    if (!Number.isFinite(paid) || paid <= 0) return null;
+                    const left = Math.round((finalTotal - paid) * 100) / 100;
+                    if (left > 0.005) return (
+                      <p className="mt-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 leading-relaxed">
+                        {client?.currency || 'KES'} {left.toLocaleString(undefined, { maximumFractionDigits: 2 })} stays outstanding on this visit.
+                        The {client?.currency || 'KES'} {paid.toLocaleString(undefined, { maximumFractionDigits: 2 })} is recorded on {client?.name || 'the client'}&apos;s account and applied here, so both sides reconcile.
+                      </p>
+                    );
+                    if (left < -0.005) return (
+                      <p className="mt-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 leading-relaxed">
+                        {client?.currency || 'KES'} {Math.abs(left).toLocaleString(undefined, { maximumFractionDigits: 2 })} over — the extra stays on the account as credit.
+                      </p>
+                    );
+                    return <p className="mt-1.5 text-[10px] font-bold text-slate-400">Settles this visit in full.</p>;
+                  })()}
+                </div>
+
                 {/* Other outstanding balances — tick to pay together (one
                     payment, one receipt run, many invoices). */}
                 {settleOthers.length > 0 && (
