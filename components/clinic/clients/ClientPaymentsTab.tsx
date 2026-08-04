@@ -5,6 +5,7 @@ import {
   Search, X, Wallet,
 } from 'lucide-react';
 import { clientsAPI, transactionsAPI, invoicesAPI } from '../../../services';
+import type { InvoiceRow } from '../../../services/modules/invoices.api';
 import { printElementAsPdf } from '../shared/printPdf';
 import { ClientBilling } from '../../../services/modules/clients.api';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -106,6 +107,9 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
    */
   const [allocOrder, setAllocOrder] = React.useState<'OLDEST' | 'NEWEST' | 'HIGHEST' | 'LOWEST'>('OLDEST');
   const [search, setSearch] = React.useState('');
+  // The payer's own reference (M-Pesa code, cheque no.). Optional, and stored
+  // on the transaction's metadata so a repeated code cannot fail the payment.
+  const [reference, setReference] = React.useState('');
   const [manual, setManual] = React.useState<Record<string, string>>({});
 
   // Payment account (user, 2026-08-02): the client's derived credit — money
@@ -116,18 +120,45 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   const [advanceMethod, setAdvanceMethod] = React.useState('CASH');
   const [advanceBusy, setAdvanceBusy] = React.useState(false);
 
+  /**
+   * Invoice DOCUMENTS for this client. The billing payload carries the visit's
+   * bills and only a stub of each invoice ({id, number, scope, status, total}),
+   * with no due date — so "overdue" was not computable from it at all. This
+   * list has `dueDate`, `status` and `outstanding` per invoice, which is what
+   * the counters and the overdue badge read (user, 2026-08-04).
+   */
+  const [invoiceDocs, setInvoiceDocs] = React.useState<InvoiceRow[]>([]);
+
   const load = React.useCallback(async () => {
     setLoading(true);
     try {
-      const [res, cr] = await Promise.all([
+      const [res, cr, iv] = await Promise.all([
         clientsAPI.getBilling(clientId),
         clientsAPI.credit(clientId).catch(() => null),
+        invoicesAPI.list({ clientId }, { silent: true } as any).catch(() => null),
       ]);
       if (res.success && res.data) setData(res.data);
       if (cr?.success && cr.data) setCredit(Number(cr.data.balance) || 0);
+      if (iv?.success && iv.data?.invoices) setInvoiceDocs(iv.data.invoices);
     } catch { /* surfaced by the client */ }
     finally { setLoading(false); }
   }, [clientId]);
+
+  /** visitId → its invoice document, for due dates and status. */
+  const docByVisit = React.useMemo(() => {
+    const m = new Map<string, InvoiceRow>();
+    for (const d of invoiceDocs) if (d.visitId) m.set(String(d.visitId), d);
+    return m;
+  }, [invoiceDocs]);
+
+  // Overdue = money still owed PAST a due date someone actually set. An invoice
+  // with no due date is never overdue — the app does not invent payment terms.
+  const startOfToday = React.useMemo(() => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }, []);
+  const isOverdue = React.useCallback((visitId: string) => {
+    const d = docByVisit.get(String(visitId));
+    if (!d?.dueDate) return false;
+    return Number(d.outstanding) > 0.005 && new Date(d.dueDate).getTime() < startOfToday;
+  }, [docByVisit, startOfToday]);
   React.useEffect(() => { load(); }, [load]);
 
   // Patient scope: bills belong to a pet directly, payments and receipts only
@@ -282,6 +313,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
         // in BOTH directions (short pay and deliberate overpay-into-credit).
         ...(tendered.trim() !== '' ? { amountTendered: tenderedNum } : {}),
         ...(applyCredit && creditDraw > 0 ? { useCredit: true } : {}),
+        ...(reference.trim() ? { reference: reference.trim() } : {}),
         ...(allocMode === 'MANUAL' && isShort
           ? { allocations: [...selected].map(id => ({ visitId: id, amount: round2(Number(manual[id]) || 0) })).filter(a => a.amount > 0) }
           // A non-default order is expressed as explicit allocations — the
@@ -292,6 +324,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
           : {}),
       });
       if (res.success) {
+        setReference('');
         const settled = res.data?.settledVisitIds?.length ?? selected.size;
         const touched = res.data?.visitIds?.length ?? selected.size;
         toast.success(
@@ -430,6 +463,28 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
       {/* ── Invoices ── */}
       {sub === 'invoices' && (
         <div className="space-y-3">
+          {/* Where this client stands, in counts rather than money — the
+              question the front desk asks first is "how many are open, and is
+              anything late?" (user, 2026-08-04). */}
+          {invoiceable.length > 0 && (() => {
+            const openN = invoiceable.filter(i => !isSettled(i)).length;
+            const overdueN = invoiceable.filter(i => isOverdue(i.visitId)).length;
+            const paidN = invoiceable.filter(i => isSettled(i)).length;
+            return (
+              <div className="grid grid-cols-3 rounded-xl border border-slate-200 dark:border-zinc-800 divide-x divide-slate-200 dark:divide-zinc-800 overflow-hidden bg-white dark:bg-zinc-900">
+                {[
+                  { l: 'Open', v: openN, cls: openN > 0 ? 'text-amber-600' : 'text-slate-400' },
+                  { l: 'Overdue', v: overdueN, cls: overdueN > 0 ? 'text-rose-500' : 'text-slate-400' },
+                  { l: 'Paid', v: paidN, cls: 'text-emerald-600 dark:text-emerald-400' },
+                ].map(c => (
+                  <div key={c.l} className="px-3 py-2 text-center">
+                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{c.l}</p>
+                    <p className={`text-base font-black ${c.cls}`}>{c.v}</p>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
           {/* Open visits are NOT invoices yet — say so, rather than leaving the
               front desk wondering where a visit went. */}
           {notYetInvoiced.length > 0 && (
@@ -531,6 +586,14 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                       : `${money(surplus, currency)} more than the selection — the surplus is saved as client credit`}
                 </p>
               )}
+
+              <label className="inline-flex items-center gap-1.5">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Ref</span>
+                <input type="text" value={reference} onChange={e => setReference(e.target.value)}
+                  placeholder="M-Pesa code, cheque no."
+                  title="The payer's own reference — optional, stored with the payment"
+                  className="w-40 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[11px] font-bold text-pine dark:text-zinc-100" />
+              </label>
 
               {/* BEFORE / AFTER — what this payment does to the account, spelled
                   out before it is posted (user, 2026-08-04, reference design).
@@ -654,6 +717,20 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                       <FileText size={9} /> {d.number || `INV #${d.id}`}{d.scope && d.scope !== 'FULL' ? ` · ${String(d.scope).toLowerCase()}` : ''} · {String(d.status).toLowerCase()}
                     </span>
                   ))}
+                  {/* Past its due date and still owing. Only shows when a due
+                      date was actually set on the invoice. */}
+                  {!settled && isOverdue(inv.visitId) && (() => {
+                    const d = docByVisit.get(String(inv.visitId));
+                    const days = d?.dueDate
+                      ? Math.floor((startOfToday - new Date(d.dueDate).setHours(0, 0, 0, 0)) / 86400000)
+                      : 0;
+                    return (
+                      <span title={d?.dueDate ? `Due ${fmt(d.dueDate)}` : undefined}
+                        className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">
+                        <AlertTriangle size={9} /> Overdue{days > 0 ? ` · ${days}d` : ''}
+                      </span>
+                    );
+                  })()}
                   {settled ? (
                     <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400">
                       <CheckCircle2 size={9} /> {inv.prepaid ? 'Paid up front' : 'Paid'}
@@ -843,6 +920,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                     {fmt(p.settledAt || p.createdAt)}
                     {p.receiptNumber ? ` · ${p.receiptNumber}` : ''}
+                    {p.reference ? ` · ref ${p.reference}` : ''}
                     {voided && p.voidReason ? ` · voided: ${p.voidReason}` : ''}
                   </p>
                 </div>

@@ -69,6 +69,14 @@ const ClientBillsTab: React.FC<Props> = ({
   const [docInvoice, setDocInvoice] = React.useState<Invoice | null>(null);
   const [docLoading, setDocLoading] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
+  /**
+   * Due date for the invoice being generated. The column and the whole
+   * controller→service path already existed; the app simply never sent one, so
+   * EVERY invoice had `dueDate = null` and nothing could ever be overdue
+   * (user, 2026-08-04). Blank still means "due on receipt" — the app does not
+   * invent payment terms on the clinic's behalf.
+   */
+  const [dueDate, setDueDate] = React.useState('');
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -100,7 +108,7 @@ const ClientBillsTab: React.FC<Props> = ({
   const generateInvoice = async (visitId: string) => {
     setBusy(true);
     try {
-      const res = await invoicesAPI.generate(visitId);
+      const res = await invoicesAPI.generate(visitId, dueDate ? { dueDate: new Date(dueDate).toISOString() } : {});
       if (res.success && res.data?.invoice) {
         setDocInvoice(res.data.invoice);
         toast.success(`Invoice ${res.data.invoice.number ?? ''} generated`.trim());
@@ -279,11 +287,20 @@ const ClientBillsTab: React.FC<Props> = ({
                             <ChevronRight size={11} />
                           </button>
                         ) : canManage ? (
-                          <button onClick={() => generateInvoice(r.visitId)} disabled={busy}
-                            className="inline-flex items-center gap-2 px-4 py-2 bg-seafoam text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all shadow-sm disabled:opacity-50">
-                            {busy ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
-                            {busy ? 'Generating…' : 'Generate invoice'}
-                          </button>
+                          <>
+                            <label className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                              Due
+                              <input type="date" value={dueDate} min={new Date().toISOString().slice(0, 10)}
+                                onChange={e => setDueDate(e.target.value)}
+                                title="Leave blank for due on receipt. A due date is what makes an invoice able to fall overdue."
+                                className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[11px] font-bold text-pine dark:text-zinc-100 [color-scheme:light] dark:[color-scheme:dark]" />
+                            </label>
+                            <button onClick={() => generateInvoice(r.visitId)} disabled={busy}
+                              className="inline-flex items-center gap-2 px-4 py-2 bg-seafoam text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all shadow-sm disabled:opacity-50">
+                              {busy ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
+                              {busy ? 'Generating…' : 'Generate invoice'}
+                            </button>
+                          </>
                         ) : null}
                       </div>
                     </>

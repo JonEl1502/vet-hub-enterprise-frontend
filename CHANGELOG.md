@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: overdue invoices, invoice counters, and a payer reference on collect  —  2026-08-04
+- **What changed:** (user: "handle these then" — the top gaps from the design audit)
+  ① **Overdue now exists.** `invoices.due_date` and its whole controller→service path were
+  already there; the app simply **never sent one**, so every invoice had `dueDate = null`
+  and nothing could ever be overdue. Generate invoice gains an optional **Due** date, and
+  an invoice past it while still owing shows an **Overdue · Nd** badge. Blank still means
+  due on receipt — the app does not invent payment terms.
+  ② **Invoice counters** — Open · Overdue · Paid, as counts, above the invoice list
+  (the reference design's ask). Due dates come from `invoicesAPI.list({clientId})`, since
+  the billing payload's invoice stub carries no date.
+  ③ **Payer reference** — an optional Ref field on the collect bar (M-Pesa code, cheque
+  no.), shown on the payment row afterwards. Backend commit `3982f5b` stores it in the
+  transaction's metadata.
+- **Record impact:** 🔵 Low — a due date is written when generating an invoice; the
+  reference is written with a payment.
+- **Data dependency:** the reference needs backend `3982f5b`. Without it the field is
+  simply ignored — nothing breaks.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** existing invoices all have `dueDate = null`, so **nothing shows as
+  overdue until invoices are generated with a due date**. That is honest rather than
+  back-dating terms nobody agreed, but it means the Overdue counter reads 0 on historical
+  data.
+
 ### feat: collect shows before/after and who is recorded as receiving  —  2026-08-04
 - **What changed:** (user, "Receive Payment" reference design) the collect bar gains the
   mockup's summary strip — **Outstanding before · Payment amount · Outstanding after ·

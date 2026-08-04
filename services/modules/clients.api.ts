@@ -124,6 +124,8 @@ export interface ClientPayment {
   voidedAt?: string | null;
   voidReason?: string | null;
   receiptNumber?: string | null;
+  /** The payer's own reference — M-Pesa code, cheque no. — captured at collect. */
+  reference?: string | null;
   // Every bill this ONE payment covered — voiding it reverses them all.
   coveredVisitIds: string[];
   coveredCount: number;
@@ -221,6 +223,13 @@ export const clientsAPI = {
        * settle a bill entirely from credit.
        */
       useCredit?: boolean | number;
+      /**
+       * The payer's own reference (M-Pesa code, cheque number, bank slip).
+       * Stored on the transaction's metadata — deliberately NOT the `@unique`
+       * `reference_number` column, where a repeated code would fail the whole
+       * collection instead of just being a duplicate note.
+       */
+      reference?: string;
     },
     options?: RequestOptions,
   ): Promise<ApiResponse<{
