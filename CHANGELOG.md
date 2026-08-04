@@ -59,6 +59,30 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: the visit footer names the real stage; collect gains allocation order  —  2026-08-04
+- **What changed:** (user: "status inconsistencies … it is generate invoice here after
+  generate & approve bill, then moves to invoice tab to Settle Invoice not Bill … or just
+  add option oldest/highest amount, lowest amt, most recent")
+  ① the visit's sticky footer said **"Awaiting payment · Settle bill"** over a bill that
+  was still a DRAFT. It is now derived from the bill's own status and offers exactly one
+  next act along **Bill → Invoice → Payment**: `Bill · draft` → **Approve bill**;
+  `Bill approved · awaiting invoice` → **Generate invoice**; `Invoiced · awaiting payment`
+  → **Settle invoice**; `Issued · awaiting pay-first` → **Collect pay-first**; then
+  *Settled*. Approve and Generate jump to the Bill tab and pulse the real button (the
+  split-invoice choice lives there and is not duplicated).
+  ② the collect flow's AUTO split gains an **order**: Oldest first (the server's own
+  default), Most recent first, Highest amount first, Lowest amount first. Non-default
+  orders are computed client-side and sent as explicit `allocations`, because the server
+  only knows FIFO and would otherwise silently fall back to it.
+- **Record impact:** 🔵 Low — the allocation order changes WHICH invoices a short payment
+  clears. The amount taken is unchanged.
+- **Data dependency:** None — `collect` already accepted `allocations`.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** "Settle invoice" now only appears once an invoice EXISTS. A bill that
+  is approved but not invoiced offers Generate invoice instead — that is the chain the
+  user asked for, but it is one more click than the old footer, which would settle
+  anything.
+
 ### feat: start the inpatient treatment plan from the visit's Treatment step  —  backend 132
 - **What changed:** (user, 2026-08-04) the vet-visit wizard's **Treatment** step now shows the
   same **Treatment plan** panel as the inpatient chart, so the plan can be drafted at the

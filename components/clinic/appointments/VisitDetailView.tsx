@@ -237,6 +237,34 @@ const VisitDetailInner: React.FC<Props> = ({
   // same numbers. Lives here rather than in either component because both need
   // it and neither owns the other.
   const [liveBill, setLiveBill] = useState<Bill | null>(null);
+  // Bumped to re-pulse the Bill tab's action when the footer sends you there.
+  const [pulseBillAction, setPulseBillAction] = useState(0);
+
+  /**
+   * Where this visit sits on Bill → Invoice → Payment, and therefore what the
+   * single footer button should offer. Derived from the bill's own status so
+   * the footer can never again say "Awaiting payment · Settle bill" over a
+   * DRAFT (user, 2026-08-04: "status inconsistencies").
+   */
+  const billStage: 'NONE' | 'APPROVE' | 'INVOICE' | 'SETTLE' | 'PAY_FIRST' | 'DONE' = (() => {
+    const st = String(liveBill?.status ?? '');
+    if (!liveBill || st === '' || st === 'OPEN') return 'NONE';
+    if (st === 'DRAFT' || st === 'PENDING_REVIEW') return 'APPROVE';
+    if (st === 'APPROVED') return 'INVOICE';
+    if (st === 'INVOICED') return appointment.isPaid ? 'DONE' : 'SETTLE';
+    if (st === 'ISSUED') return appointment.isPaid ? 'DONE' : 'PAY_FIRST';
+    return 'DONE';                                        // PAID · RECONCILED · VOID
+  })();
+  const billStageLabel = (() => {
+    switch (billStage) {
+      case 'APPROVE': return liveBill?.status === 'PENDING_REVIEW' ? 'Bill · pending review' : 'Bill · draft';
+      case 'INVOICE': return 'Bill approved · awaiting invoice';
+      case 'SETTLE': return 'Invoiced · awaiting payment';
+      case 'PAY_FIRST': return 'Issued · awaiting pay-first';
+      case 'DONE': return appointment.isPaid ? 'Settled' : `Bill ${String(liveBill?.status ?? '').toLowerCase()}`;
+      default: return isFinalized ? 'Awaiting payment' : 'Total bill · not finalized';
+    }
+  })();
   // Per-workflow reports (077): a visit that carries grooming/boarding work
   // gets its own report tab — shown even when the data is still sparse.
   const hasGroomingWork = appointment.encounterType === 'GROOMING' || appointment.tasks.some(t => (t.category || '').toLowerCase().includes('groom'));
@@ -5262,7 +5290,8 @@ const VisitDetailInner: React.FC<Props> = ({
                          onCollect={openSettleModal}
                          onChanged={() => onRefreshDashboard?.()}
                          onBillChange={setLiveBill}
-                         highlightAction={highlightBillAction}
+                         highlightAction={highlightBillAction || pulseBillAction > 0}
+                         pulseNonce={pulseBillAction}
                        />
                        {/* Procedure recipes applied to this visit — stage
                            checklist, optional diagnostics, weight/flags re-quote.
@@ -7301,7 +7330,11 @@ const VisitDetailInner: React.FC<Props> = ({
               <div className="min-w-0">
                 {/* The live BILL total wins when a bill exists — the task total
                     misses consumable/custom lines (3,000 vs 5,209, visit 133). */}
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{(liveBill && liveBill.status && !['DRAFT', 'OPEN'].includes(String(liveBill.status))) ? `Bill ${String(liveBill.status).toLowerCase()}` : isFinalized ? 'Awaiting payment' : 'Total bill · not finalized'}</p>
+                {/* The footer used to say "Awaiting payment · Settle bill" on a
+                    bill that was still a DRAFT (user, 2026-08-04: "status
+                    inconsistencies"). It now names the actual stage of
+                    Bill → Invoice → Payment → Receipt. */}
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{billStageLabel}</p>
                 <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{activeClinic.currency} {Number(liveBill && (liveBill.lines?.length ?? 0) > 0 ? liveBill.total : appointment.totalCost).toLocaleString()}</p>
               </div>
               <div className="flex-1" />
@@ -7324,11 +7357,30 @@ const VisitDetailInner: React.FC<Props> = ({
               {/* An APPROVED/INVOICED bill means generation already happened —
                   offering "Generate bill" again (and the false gate behind it)
                   misled; the next act is PAYMENT (user, 2026-08-02). */}
-              {(liveBill && liveBill.status && !['DRAFT', 'OPEN'].includes(String(liveBill.status))) && !isFinalized ? (
+              {/* One button, and it is always the NEXT act in the chain. */}
+              {billStage === 'APPROVE' ? (
+                <button onClick={() => { setActiveBottomTab('bill'); setPulseBillAction(n => n + 1); }}
+                  title="Approve the bill — the vet's sign-off, on the Bill tab"
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 transition-all active:scale-95">
+                  <FileText size={13} /> Approve bill
+                </button>
+              ) : billStage === 'INVOICE' ? (
+                <button onClick={() => { setActiveBottomTab('bill'); setPulseBillAction(n => n + 1); }}
+                  title="Turn the approved bill into an invoice — on the Bill tab"
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-indigo-500 hover:bg-indigo-600 transition-all active:scale-95">
+                  <FileText size={13} /> Generate invoice
+                </button>
+              ) : billStage === 'SETTLE' ? (
                 <button onClick={openSettleModal} disabled={isSettlingBill}
-                  title="Take payment against this bill's invoice"
+                  title="Take payment against this invoice"
                   className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-seafoam hover:bg-pine disabled:opacity-40 transition-all active:scale-95">
-                  <CreditCard size={13} /> Make payment
+                  <CreditCard size={13} /> Settle invoice
+                </button>
+              ) : billStage === 'PAY_FIRST' ? (
+                <button onClick={openSettleModal} disabled={isSettlingBill}
+                  title="Pay-first: this bill was issued as a quote"
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-seafoam hover:bg-pine disabled:opacity-40 transition-all active:scale-95">
+                  <CreditCard size={13} /> Collect pay-first
                 </button>
               ) : !isFinalized ? (
                 <button onClick={openFinalizeGate} disabled={isFinalizing}
@@ -7336,12 +7388,7 @@ const VisitDetailInner: React.FC<Props> = ({
                   className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95">
                   <FileText size={13} /> {workflowTab === 'followup' ? 'Finalize visit & bill' : 'Generate bill'}
                 </button>
-              ) : (
-                <button onClick={openSettleModal} disabled={isSettlingBill}
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-seafoam hover:bg-pine disabled:opacity-40 transition-all active:scale-95">
-                  <CreditCard size={13} /> Settle bill
-                </button>
-              )}
+              ) : null}
             </div>
           </div>
         </>

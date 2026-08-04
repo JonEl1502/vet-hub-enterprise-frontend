@@ -94,6 +94,14 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   // before cash, oldest invoice first — server `useCredit`).
   const [applyCredit, setApplyCredit] = React.useState(false);
   const [allocMode, setAllocMode] = React.useState<'AUTO' | 'MANUAL'>('AUTO');
+  /**
+   * How AUTO orders the invoices when the money is short (user, 2026-08-04:
+   * "auto (oldest first) … or just add option oldest/highest amount, lowest
+   * amt, most recent"). OLDEST is the server's own default, so it is the only
+   * one that ships no `allocations` — the rest are computed here and sent
+   * explicitly.
+   */
+  const [allocOrder, setAllocOrder] = React.useState<'OLDEST' | 'NEWEST' | 'HIGHEST' | 'LOWEST'>('OLDEST');
   const [search, setSearch] = React.useState('');
   const [manual, setManual] = React.useState<Record<string, string>>({});
 
@@ -219,8 +227,14 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   // before it is committed rather than being a surprise on the receipt.
   // Mirrors the server's FIFO over what credit left behind.
   const autoSplit = React.useMemo(() => {
-    const picked = open.filter(i => selected.has(i.visitId))
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const due = (i: typeof open[number]) => (i.outstanding ?? i.total);
+    const order = {
+      OLDEST:  (a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime(),
+      NEWEST:  (a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+      HIGHEST: (a: any, b: any) => due(b) - due(a),
+      LOWEST:  (a: any, b: any) => due(a) - due(b),
+    }[allocOrder];
+    const picked = open.filter(i => selected.has(i.visitId)).sort(order);
     let left = appliedCash;
     const out: Record<string, number> = {};
     for (const inv of picked) {
@@ -233,7 +247,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
       if (apply > 0) { out[inv.visitId] = apply; left = round2(left - apply); }
     }
     return out;
-  }, [open, selected, appliedCash, creditSplit]);
+  }, [open, selected, appliedCash, creditSplit, allocOrder]);
 
   const manualTotal = round2(
     [...selected].reduce((s, id) => s + (Number(manual[id]) || 0), 0),
@@ -267,6 +281,11 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
         ...(applyCredit && creditDraw > 0 ? { useCredit: true } : {}),
         ...(allocMode === 'MANUAL' && isShort
           ? { allocations: [...selected].map(id => ({ visitId: id, amount: round2(Number(manual[id]) || 0) })).filter(a => a.amount > 0) }
+          // A non-default order is expressed as explicit allocations — the
+          // server only knows oldest-first, so anything else must be spelled
+          // out or it would quietly fall back to FIFO.
+          : allocMode === 'AUTO' && isShort && allocOrder !== 'OLDEST'
+          ? { allocations: Object.entries(autoSplit).map(([visitId, amount]) => ({ visitId, amount })).filter(a => a.amount > 0) }
           : {}),
       });
       if (res.success) {
@@ -461,16 +480,28 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
 
               {/* Only worth choosing a split once the money is short of the total. */}
               {isShort && selected.size > 1 && (
-                <div className="inline-flex rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800">
-                  {(['AUTO', 'MANUAL'] as const).map(m => (
-                    <button key={m} type="button" onClick={() => setAllocMode(m)}
-                      title={m === 'AUTO' ? 'Oldest invoice first' : 'Set each invoice by hand'}
-                      className={`px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${
-                        allocMode === m ? 'bg-seafoam text-white' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 hover:bg-slate-100'
-                      }`}>
-                      {m === 'AUTO' ? 'Oldest first' : 'Manual'}
-                    </button>
-                  ))}
+                <div className="inline-flex flex-wrap items-center gap-1.5">
+                  <div className="inline-flex rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800">
+                    {(['AUTO', 'MANUAL'] as const).map(m => (
+                      <button key={m} type="button" onClick={() => setAllocMode(m)}
+                        title={m === 'AUTO' ? 'Spread the money automatically' : 'Set each invoice by hand'}
+                        className={`px-2.5 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${
+                          allocMode === m ? 'bg-seafoam text-white' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 hover:bg-slate-100'
+                        }`}>
+                        {m === 'AUTO' ? 'Auto' : 'Manual'}
+                      </button>
+                    ))}
+                  </div>
+                  {allocMode === 'AUTO' && (
+                    <select value={allocOrder} onChange={e => setAllocOrder(e.target.value as any)}
+                      title="Which invoices the money clears first"
+                      className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300">
+                      <option value="OLDEST">Oldest first</option>
+                      <option value="NEWEST">Most recent first</option>
+                      <option value="HIGHEST">Highest amount first</option>
+                      <option value="LOWEST">Lowest amount first</option>
+                    </select>
+                  )}
                 </div>
               )}
 

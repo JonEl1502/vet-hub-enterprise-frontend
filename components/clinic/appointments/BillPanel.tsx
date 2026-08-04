@@ -40,6 +40,8 @@ interface Props {
    * for 1.5s so the eye lands on it instead of hunting the panel.
    */
   highlightAction?: boolean;
+  /** Bump to re-fire the pulse when the page sends you here again. */
+  pulseNonce?: number;
 }
 
 const money = (n: number, c: string) =>
@@ -60,7 +62,7 @@ const KIND_LABEL: Record<string, string> = {
   SERVICE: 'Service', CONSUMABLE: 'Consumable', MEDICATION: 'Medication', OTHER: 'Other',
 };
 
-const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange, highlightAction }) => {
+const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange, highlightAction, pulseNonce = 0 }) => {
   const { inventory } = useData() as any;
   const [bill, setBill] = React.useState<Bill | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -217,7 +219,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
     const t0 = setTimeout(() => actionsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 80);
     const t1 = setTimeout(() => setPulse(false), 1500);
     return () => { clearTimeout(t0); clearTimeout(t1); };
-  }, [highlightAction, loading, bill?.id]);
+  }, [highlightAction, loading, bill?.id, pulseNonce]);
   // Only one of Generate-invoice / Approve is ever rendered (they need opposite
   // bill states), so both may carry it.
   const pulseCls = pulse ? ' ring-4 ring-amber-400 ring-offset-2 dark:ring-offset-zinc-900 animate-pulse' : '';
