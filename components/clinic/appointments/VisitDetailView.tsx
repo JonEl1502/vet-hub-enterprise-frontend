@@ -616,11 +616,22 @@ const VisitDetailInner: React.FC<Props> = ({
         if (fresh.success && (fresh.data as any)?.encounters) liveRows = (fresh.data as any).encounters;
       } catch { /* fall back to the in-memory list */ }
       const row = rowPred ? liveRows.find(rowPred) : undefined;
-      if (row && !row.isPrimary) {
+      if (row?.isPrimary) {
+        // The API refuses to delete a PRIMARY encounter — it is what the visit
+        // IS. This branch used to reload and then toast "removed", so the chip
+        // stayed put while the app claimed success (user, 2026-08-04: "says
+        // deleted and not working"). Its services ARE gone; say exactly that.
+        await wiz.reloadEncounters();
+        onRefreshDashboard?.();
+        toast.error(
+          `${enc.label} is this visit's primary encounter, so it stays. Its services were removed — to change what the visit IS, add another encounter and make that one primary, or change the visit type.`,
+          { duration: 9000 } as any,
+        );
+        return;
+      }
+      if (row) {
         try { await visitsAPI.removeEncounter(appointment.id, row.id); await wiz.reloadEncounters(); }
         catch { /* tasks are gone; the chip clears on next reload */ }
-      } else if (row?.isPrimary) {
-        await wiz.reloadEncounters();
       }
       wiz.emit(`${enc.label} encounter removed from the visit`, 'alert');
       toast.success(`${enc.label} removed from this visit`);

@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: removing the PRIMARY encounter claimed success and changed nothing  —  2026-08-04
+- **What changed:** (user: "says deleted and not working") the encounter-chip ✕ ran its
+  removal, hit the `isPrimary` branch — where the API **refuses** to delete, by design,
+  because the primary encounter is what the visit IS — and then fell through to
+  `toast.success("… removed from this visit")` and a "removed" journey event anyway. The
+  chip stayed, the workflow stayed, and the app said it had gone. The code comment even
+  said *"Primary rows are refused by the API by design — surface that rather than
+  pretending"*; it then pretended. That branch now returns early with an explanation of
+  what actually happened — **its services were removed, the encounter stays** — and how to
+  change what the visit is.
+- **Record impact:** 🟢 None — the services were always being deleted; only the reporting
+  was wrong. No journey event is emitted for a removal that did not happen.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the ✕ on a primary chip still **deletes that encounter's services and
+  their charges** before discovering it cannot remove the encounter. That is pre-existing
+  behaviour and it is destructive — the message now says so instead of hiding it behind a
+  green tick, but the order (delete services, then find out) is worth fixing properly in
+  the workflow lane.
+
 ### fix: Visit team dead-ended on a visit with no encounter  —  2026-08-04
 - **What changed:** (user: "i cant add or remove staff from visit") staff are recorded
   against an **encounter** (`visit_encounter_staff`), not the visit — the groomer attended
