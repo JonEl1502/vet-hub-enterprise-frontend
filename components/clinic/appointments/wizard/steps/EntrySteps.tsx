@@ -212,7 +212,7 @@ const FORMS: Record<string, EntryFormDef> = {
 // (Register Visit renders it above Date & Time for grooming/boarding/admission).
 // When petId is given, "Vaccines verified" auto-ticks from the patient's
 // ADMINISTERED vaccination records, each showing its date administered.
-export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (patch: any) => void; petId?: number | string | null; pet?: any }> = ({ formKey, data, setData, petId, pet }) => {
+export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (patch: any) => void; petId?: number | string | null; pet?: any; addService?: () => void }> = ({ formKey, data, setData, petId, pet, addService }) => {
   const form = FORMS[formKey];
   const d = data || {};
   if (!form) return null;
@@ -281,6 +281,9 @@ export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (pat
                       ...(patch.recommended !== undefined ? { vaccinesRecommended: patch.recommended } : {}),
                       ...(patch.clientAgreed !== undefined ? { vaccineClientAgreed: patch.clientAgreed } : {}),
                     })}
+                    // Opens the Add Services drawer so the agreed vaccination
+                    // lands on the visit instead of only on the journey log.
+                    onAddVaccination={addService}
                   />
                 </div>
               );
@@ -295,8 +298,8 @@ export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (pat
   );
 };
 
-export const GenericEntryStep: React.FC<StepProps & { formKey: string }> = ({ formKey, data, setData, pet }) => (
-  <GateCheckForm formKey={formKey} data={data} setData={setData} petId={pet?.id} pet={pet} />
+export const GenericEntryStep: React.FC<StepProps & { formKey: string }> = ({ formKey, data, setData, pet, addService }) => (
+  <GateCheckForm formKey={formKey} data={data} setData={setData} petId={pet?.id} pet={pet} addService={addService} />
 );
 
 // Grooming attending step — embeds the REAL grooming report card (same

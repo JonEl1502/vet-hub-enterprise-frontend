@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: "client agreed to vaccinate" now reminds you to actually add it  —  2026-08-04
+- **What changed:** (user, 2026-08-04) ticking **"Client agreed — transfer to vet visit for
+  vaccination"** on the admission gate raises a violet callout: *"The client agreed to vaccinate.
+  Add it to this visit so it gets recorded and billed."* In the visit wizard it carries an **Add
+  vaccination** button (opens the Add Services drawer); everywhere else it points. **Skip**
+  dismisses it — the agreement stays logged on the journey either way.
+- **Why:** the tick was a **promise, not a booking**. Boarding/inpatient/grooming admits already
+  materialize vaccination tasks from it, but the wizard's gate step recorded the flag and stopped
+  there, so the vaccine the client had just agreed to was never added, recorded or billed.
+- **Record impact:** 🟢 None — the reminder writes nothing; the Add button uses the existing
+  add-service path.
+- **Data dependency:** None.
+- ⚠️ **Watch out:** deliberately **skippable and never blocking** — a gate that refuses admission
+  over a vaccine is a gate people learn to lie to. The reminder is per-mount, so it returns on the
+  next open until the vaccination is actually on the visit.
+
+
 ### ui: patient identity card is shorter, actions sit on the right  —  2026-08-04
 - **What changed:** (user, 2026-08-04) **Message owner** / **Book visit** moved to the right end
   of the owner row instead of taking a line of their own. Card padding, the avatar

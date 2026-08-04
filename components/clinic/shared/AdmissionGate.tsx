@@ -2,7 +2,7 @@ import React from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
 import { useFeature } from '../../../contexts/PlanAccessContext';
-import { Award, Lock } from 'lucide-react';
+import { Award, Lock, Syringe } from 'lucide-react';
 import GateVaccineRecommend from './GateVaccineRecommend';
 import { petsAPI } from '../../../services';
 
@@ -42,6 +42,13 @@ export interface AdmissionGateValue {
 }
 
 interface Props {
+  /**
+   * Ticking "client agreed" is a PROMISE, not a booking — it used to end there,
+   * and the vaccination was quietly never added (user, 2026-08-04). Pass this to
+   * turn the reminder into an action; without it the gate still reminds, it just
+   * points rather than does. Always skippable either way.
+   */
+  onAddVaccination?: () => void;
   value: AdmissionGateValue;
   onChange: (patch: Partial<AdmissionGateValue>) => void;
   /** Drives prefill. Omit to disable it (the gate still works, just empty). */
@@ -101,10 +108,10 @@ export async function fetchAdministeredVaccines(petId: number | string): Promise
 }
 
 const AdmissionGate: React.FC<Props> = ({
-  value, onChange, petId, petWeight, petWeightAt, showWeight = true, required = true, className = '',
-}) => {
+  value, onChange, petId, petWeight, petWeightAt, showWeight = true, required = true, className = '', onAddVaccination }) => {
   // Issuing certificates is a paid capability; the gate itself is not.
   const canCertify = useFeature('capability:vaccination-certificates');
+  const [agreedDismissed, setAgreedDismissed] = React.useState(false);
   const [dates, setDates] = React.useState<Record<string, string>>({});
   const [weightCopied, setWeightCopied] = React.useState(false);
   const prefilledFor = React.useRef<string | null>(null);
@@ -231,6 +238,32 @@ const AdmissionGate: React.FC<Props> = ({
             clientAgreed={!!value.clientAgreed}
             onAgreed={v => onChange({ clientAgreed: v })}
           />
+        )}
+
+        {/* Ticking "client agreed" is where this used to stop — a promise
+            recorded on the journey and nothing on the visit (user, 2026-08-04).
+            Remind, offer the action when the host can add it, and let it be
+            skipped: the gate must never block admission over a vaccine. */}
+        {!!value.clientAgreed && !agreedDismissed && (
+          <div className="mt-2 flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl border border-violet-200 dark:border-violet-900/50 bg-violet-50/60 dark:bg-violet-950/20">
+            <Syringe size={13} className="text-violet-600 shrink-0" />
+            <p className="text-[11px] font-bold text-violet-800 dark:text-violet-300 min-w-0 flex-1">
+              The client agreed to vaccinate. {onAddVaccination
+                ? 'Add it to this visit so it gets recorded and billed.'
+                : 'Add a vaccination service to the visit — agreeing here does not book it.'}
+            </p>
+            {onAddVaccination && (
+              <button type="button" onClick={onAddVaccination}
+                className="shrink-0 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-violet-600 text-white hover:bg-violet-700 transition-all active:scale-95">
+                Add vaccination
+              </button>
+            )}
+            <button type="button" onClick={() => setAgreedDismissed(true)}
+              title="Dismiss — the agreement stays logged either way"
+              className="shrink-0 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest text-violet-500 hover:bg-violet-100 dark:hover:bg-violet-900/30 transition-all">
+              Skip
+            </button>
+          </div>
         )}
       </div>
     </section>
