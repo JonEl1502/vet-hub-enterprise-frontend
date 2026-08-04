@@ -4868,10 +4868,17 @@ const VisitDetailInner: React.FC<Props> = ({
                          { id: 'bill', label: 'Bill', icon: ReceiptText },
                          // No Invoice tab until the Bill has GENERATED one
                          // (user, 2026-08-03: "we can't display Invoice before
-                         // Generate invoice is clicked") — same predicate as
-                         // BillBalanceCard: bill past its editable states and
-                         // not VOID. `isPaid` keeps legacy pre-bill visits.
-                         ...((liveBill && !liveBill.editable && String(liveBill.status) !== 'VOID') || appointment.isPaid
+                         // Generate invoice is clicked").
+                         //
+                         // "Not editable" was the wrong test: an APPROVED bill is
+                         // already locked, so the tab appeared the moment the vet
+                         // signed off — before any invoice existed (user,
+                         // 2026-08-04: "i have not generated invoice but i can
+                         // see it"). Only the statuses that come AFTER generation
+                         // count. ISSUED is deliberately absent: pay-first quotes
+                         // a bill without producing an invoice document.
+                         // `isPaid` keeps legacy pre-bill visits reachable.
+                         ...((liveBill && ['INVOICED', 'PAID', 'RECONCILED'].includes(String(liveBill.status))) || appointment.isPaid
                            ? [
                                { id: 'invoice', label: 'Invoice', icon: Printer },
                                // Label follows the document the server will return:

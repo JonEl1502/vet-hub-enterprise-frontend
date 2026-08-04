@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: Invoice tab appeared on an approved-but-uninvoiced bill; pages go full width  —  2026-08-04
+- **What changed:** (user) ① the visit's **Invoice** tab was gated on
+  `!liveBill.editable` — but an APPROVED bill is already locked, so the tab appeared the
+  moment the vet signed off, before any invoice existed ("i have not generated invoice but
+  i can see it"). It now requires a status that only exists AFTER generation —
+  `INVOICED` / `PAID` / `RECONCILED` (plus legacy `isPaid`). `ISSUED` is deliberately
+  excluded: pay-first quotes a bill without producing an invoice document.
+  ② the page shell drops its `max-w-[1800px]` cap for `w-full` ("occupy space please dont
+  shy") — the cap left a wide monitor with a dead band on the right while bill tables and
+  card grids stayed cramped. Still LEFT-aligned with the inset set once, no `mx-auto`.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the width change is GLOBAL — every clinic, admin, supplier and
+  livestock page now fills the viewport. Wide tables that relied on the cap to stay
+  readable will stretch; check the admin list pages on a large monitor.
+
 ### fix: removing the PRIMARY encounter claimed success and changed nothing  —  2026-08-04
 - **What changed:** (user: "says deleted and not working") the encounter-chip ✕ ran its
   removal, hit the `isPrimary` branch — where the API **refuses** to delete, by design,

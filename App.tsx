@@ -3320,10 +3320,14 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           {clinicLoading ? (
             <LoadingSpinner contentArea message="Loading..." />
           ) : (
-            // Left-aligned, not mx-auto: centring a 1536px container in the space
-            // left of a fixed sidebar leaves dead space right where the nav ends,
-            // which reads as inconsistent padding. Still capped for line length.
-            <div className="p-4 md:p-6 max-w-[1800px]">
+            // Left-aligned, not mx-auto: centring a container in the space left
+            // of a fixed sidebar leaves dead space right where the nav ends,
+            // which reads as inconsistent padding.
+            //
+            // Full width (user, 2026-08-04: "occupy space please dont shy") —
+            // the old 1800px cap left a wide monitor with a dead band on the
+            // right while bill tables and card grids stayed cramped.
+            <div className="p-4 md:p-6 w-full">
               {renderContent()}
             </div>
           )}
