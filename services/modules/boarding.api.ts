@@ -34,6 +34,8 @@ export interface BoardingStay {
   status: BoardingStatus;
   dropOffAt: string;
   expectedPickupAt: string | null;
+  /** WHY the animal went home that day (178) — stamped, or typed if early. */
+  checkoutReason?: string | null;
   actualPickupAt: string | null;
   kennel: string | null;
   dailyRate: number | null;
@@ -96,7 +98,7 @@ export const boardingAPI = {
   create: async (data: CreateBoardingPayload, options?: RequestOptions): Promise<ApiResponse<{ stay: BoardingStay }>> =>
     post(ENDPOINTS.BOARDING.BASE, data, { showError: true, ...options }),
 
-  update: async (id: string | number, data: Partial<CreateBoardingPayload> & { status?: BoardingStatus; actualPickupAt?: string; reminder?: { serviceType?: string; title?: string; notes?: string; dueAt: string } | null }, options?: RequestOptions): Promise<ApiResponse<{ stay: BoardingStay }>> =>
+  update: async (id: string | number, data: Partial<CreateBoardingPayload> & { status?: BoardingStatus; actualPickupAt?: string; /** Required by the server when checking out BEFORE expectedPickupAt (178). */ checkoutReason?: string; reminder?: { serviceType?: string; title?: string; notes?: string; dueAt: string } | null }, options?: RequestOptions): Promise<ApiResponse<{ stay: BoardingStay }>> =>
     patch(ENDPOINTS.BOARDING.BY_ID(id), data, { showError: true, ...options }),
 
   checkOut: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ stay: BoardingStay }>> =>

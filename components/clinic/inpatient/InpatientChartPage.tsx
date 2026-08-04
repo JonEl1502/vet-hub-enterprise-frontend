@@ -92,7 +92,20 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
     finally { setBusy(false); }
   };
 
-  const [discharge, setDischarge] = useState({ outcome: 'RECOVERED' as DischargeOutcome, dischargeNotes: '', homeInstructions: '', finalWeight: '' });
+  const [discharge, setDischarge] = useState({ outcome: 'RECOVERED' as DischargeOutcome, dischargeNotes: '', homeInstructions: '', finalWeight: '', dischargeReason: '' });
+
+  /**
+   * Is this an EARLY discharge? Compared by CALENDAR DAY, matching the server
+   * (utils/earlyRelease) — an expected discharge of "Tuesday 15:00" must not
+   * make a Tuesday-morning discharge "early" and demand an explanation.
+   * No expected date ⇒ NOT early: the gate only bites where a plan exists.
+   */
+  const dischargeIsEarly = (() => {
+    if (!h?.expectedDischargeAt) return false;
+    const sod = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    return sod(new Date()) < sod(new Date(h.expectedDischargeAt));
+  })();
+  const dischargeBlocked = dischargeIsEarly && !discharge.dischargeReason.trim();
 
   // Per-day charges for the reconciliation sheet (user, 2026-08-02): the
   // stay's daily rate + billable consumables logged that day. Shown even at 0.
@@ -179,6 +192,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
         outcome: discharge.outcome, dischargeNotes: discharge.dischargeNotes || undefined,
         homeInstructions: discharge.homeInstructions || undefined,
         finalWeight: discharge.finalWeight ? Number(discharge.finalWeight) : undefined,
+        dischargeReason: discharge.dischargeReason.trim() || undefined,
         reminder,
       });
       if (res.success) {
@@ -679,15 +693,39 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                     <input className={fieldCls} placeholder="Final weight (kg)" value={discharge.finalWeight} onChange={e => setDischarge(s => ({ ...s, finalWeight: e.target.value }))} />
                     <textarea className={fieldCls} rows={2} placeholder="Discharge notes" value={discharge.dischargeNotes} onChange={e => setDischarge(s => ({ ...s, dischargeNotes: e.target.value }))} />
                     <textarea className={fieldCls} rows={2} placeholder="Home instructions" value={discharge.homeInstructions} onChange={e => setDischarge(s => ({ ...s, homeInstructions: e.target.value }))} />
+
+                    {/* EARLY-DISCHARGE GATE (user, 2026-08-04). Appears ONLY
+                        when leaving before the expected date — on or after it,
+                        and when no date was ever set, the reason is stamped
+                        server-side and staff type nothing. The server enforces
+                        this too; this is the affordance, not the rule. */}
+                    {dischargeIsEarly && (
+                      <div className="rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+                        <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500">
+                          Leaving before the expected date
+                        </p>
+                        <p className="text-[10px] text-slate-600 dark:text-zinc-400">
+                          Expected {new Date(h.expectedDischargeAt!).toLocaleDateString()}. Say why the patient is going home early —
+                          it is recorded on the chart.
+                        </p>
+                        <textarea
+                          className={fieldCls} rows={2} autoFocus
+                          placeholder="e.g. owner requested · improved faster than expected · referred out"
+                          value={discharge.dischargeReason}
+                          onChange={e => setDischarge(s => ({ ...s, dischargeReason: e.target.value }))}
+                        />
+                      </div>
+                    )}
+
                     {billOutstanding && (
                       <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400">Complete every service and settle the bill (KES {h.billing!.totalCost.toLocaleString()}) before discharge.</p>
                     )}
                     <div className="flex gap-2">
                       <button onClick={() => setShowDischarge(false)} className="flex-1 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500">Cancel</button>
                       {billOutstanding ? (
-                        <button onClick={() => doDischarge(null)} disabled={busy} className="flex-1 py-2 bg-amber-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">Discharge &amp; go to billing</button>
+                        <button onClick={() => doDischarge(null)} disabled={busy || dischargeBlocked} className="flex-1 py-2 bg-amber-500 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">{dischargeBlocked ? 'Reason required' : 'Discharge & go to billing'}</button>
                       ) : (
-                        <button onClick={() => doDischarge(null)} disabled={busy} className="flex-1 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">{busy ? 'Discharging…' : 'Confirm discharge'}</button>
+                        <button onClick={() => doDischarge(null)} disabled={busy || dischargeBlocked} className="flex-1 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">{busy ? 'Discharging…' : dischargeBlocked ? 'Reason required' : 'Confirm discharge'}</button>
                       )}
                     </div>
                   </div>

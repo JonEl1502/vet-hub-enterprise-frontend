@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: early discharge / check-out asks why  —  2026-08-05
+- **What changed:** the inpatient discharge form grows an amber **"Leaving before the expected
+  date"** panel with a required reason, and Confirm reads *"Reason required"* until it is filled.
+  Boarding check-out opens a **"Going home early"** prompt before it will proceed.
+- **Why:** user, 2026-08-04. Backend migration **178** stores it and enforces it.
+- **Record impact:** 🟢 None — UI only.
+- **Rollback:** revert; the server still enforces the rule and returns a 400 instead.
+- ⚠️ **Only appears when the release is actually early.** On or after the expected date, and when
+  no expected date was ever set, nothing is asked and the reason is stamped server-side.
+- ⚠️ The "is it early?" test is duplicated FE↔BE on purpose (the server is the rule, the form is
+  the affordance) — both compare **start-of-day**, not timestamps. Change one, change the other.
+
 ### fix: the sidebar keeps the related menu item lit on DETAIL pages  —  2026-08-04
 - **What changed:** new `components/shared/layout/sidebar/navParent.ts` maps each detail view to
   the menu entry that owns it (`boarding-stay` → Boarding, `client-profile` → Clients,

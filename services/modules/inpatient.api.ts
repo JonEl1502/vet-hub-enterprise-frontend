@@ -25,7 +25,7 @@ export interface Hospitalization {
   diagnosis: string | null; admissionNotes: string | null; cage: string | null; dailyRate: number | null;
   intakeWeight: number | null; vaccineChecklist?: Record<string, boolean>;
   feedingInstructions: string | null; medicationInstructions: string | null; emergencyContact: string | null; foodProgram?: Record<string, any>;
-  admittedAt: string; expectedDischargeAt?: string | null; dischargedAt: string | null; dischargeNotes: string | null;
+  admittedAt: string; expectedDischargeAt?: string | null; dischargedAt: string | null; dischargeNotes: string | null; dischargeReason?: string | null;
   homeInstructions: string | null; finalWeight: number | null; weightChange: number | null; outcome: DischargeOutcome | null;
   clinician: { id: string; name: string; role: string } | null;
   pet: { id: string; name: string; species: string; breed: string; avatarUrl: string | null } | null;
@@ -85,7 +85,7 @@ export const inpatientAPI = {
   update: async (id: string | number, data: Record<string, any>, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>
     patch(ENDPOINTS.INPATIENT.BY_ID(id), data, { showError: true, ...options }),
 
-  discharge: async (id: string | number, data: { dischargeNotes?: string; homeInstructions?: string; finalWeight?: number; outcome?: DischargeOutcome; reminder?: { serviceType?: string; title?: string; notes?: string; dueAt: string } | null }, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>
+  discharge: async (id: string | number, data: { dischargeNotes?: string; homeInstructions?: string; finalWeight?: number; outcome?: DischargeOutcome; /** Required by the server when discharging BEFORE expectedDischargeAt (178). */ dischargeReason?: string; reminder?: { serviceType?: string; title?: string; notes?: string; dueAt: string } | null }, options?: RequestOptions): Promise<ApiResponse<{ hospitalization: Hospitalization }>> =>
     post(ENDPOINTS.INPATIENT.DISCHARGE(id), data, { showError: true, ...options }),
 
   // Materialize the bill + finalize the appointment; returns the appointment id to settle.

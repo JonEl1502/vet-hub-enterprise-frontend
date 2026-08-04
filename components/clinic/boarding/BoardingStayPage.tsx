@@ -52,6 +52,10 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   // New daily-log draft
   const [dischargeWeight, setDischargeWeight] = useState('');
   const [showCheckoutGate, setShowCheckoutGate] = useState(false);
+  // Early-collection reason (178) — only ever asked when the animal is going
+  // home before its expected pickup date.
+  const [checkoutReason, setCheckoutReason] = useState('');
+  const [askReason, setAskReason] = useState(false);
   const [showShare, setShowShare] = useState(false);
 
   // Spawn a grooming service onto this stay's linked appointment so it surfaces
@@ -205,10 +209,26 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   }, [stay?.billing?.appointmentId, stay?.dailyLogs?.length]);
 
 
+  /**
+   * Is this an EARLY collection? Compared by CALENDAR DAY, matching the server
+   * (utils/earlyRelease) — an expected pickup of "Tuesday 15:00" must not make
+   * a Tuesday-morning collection "early" and demand an explanation.
+   * No expected pickup ⇒ NOT early: the gate only bites where a plan exists,
+   * and most stays are admitted without one.
+   */
+  const pickupIsEarly = (() => {
+    if (!stay?.expectedPickupAt) return false;
+    const sod = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+    return sod(new Date()) < sod(new Date(stay.expectedPickupAt));
+  })();
+
   const checkOut = async (reminder: ReminderDraft | null) => {
+    // The server refuses an early check-out with no reason (178). Ask here so
+    // the refusal never has to happen.
+    if (pickupIsEarly && !checkoutReason.trim()) { setAskReason(true); return; }
     setBusy(true);
     try {
-      const res = await boardingAPI.update(stayId, { status: 'CHECKED_OUT', ...(dischargeWeight ? { dischargeWeight: Number(dischargeWeight) } : {}), reminder });
+      const res = await boardingAPI.update(stayId, { status: 'CHECKED_OUT', ...(dischargeWeight ? { dischargeWeight: Number(dischargeWeight) } : {}), ...(checkoutReason.trim() ? { checkoutReason: checkoutReason.trim() } : {}), reminder });
       if (res.success) {
         setShowCheckoutGate(false);
         onChanged?.();
@@ -758,6 +778,37 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
             )}
           />
         </>
+      )}
+
+      {/* EARLY-COLLECTION REASON (178, user 2026-08-04). Only ever shown when
+          the animal is going home BEFORE its expected pickup date — on or
+          after it, and when no pickup date was set, the reason is stamped
+          server-side and nobody types anything. */}
+      {askReason && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/70" onClick={() => setAskReason(false)}>
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-xl space-y-3" onClick={e => e.stopPropagation()}>
+            <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500">Going home early</p>
+            <h2 className="font-display text-lg font-black text-pine dark:text-zinc-100">Why is {stay?.pet?.name || 'this patient'} leaving early?</h2>
+            <p className="text-xs text-slate-500 dark:text-zinc-400">
+              Expected pickup {stay?.expectedPickupAt ? new Date(stay.expectedPickupAt).toLocaleDateString() : ''}. The reason is recorded on the stay.
+            </p>
+            <textarea
+              autoFocus rows={3} className="field-textarea"
+              placeholder="e.g. owner collected early · space needed · transferred"
+              value={checkoutReason}
+              onChange={e => setCheckoutReason(e.target.value)}
+            />
+            <div className="flex gap-2">
+              <button onClick={() => setAskReason(false)} className="flex-1 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500">Cancel</button>
+              <button
+                disabled={!checkoutReason.trim()}
+                onClick={() => { setAskReason(false); checkOut(null); }}
+                className="flex-1 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
+                Check out
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       <FinalizeReminderGate
