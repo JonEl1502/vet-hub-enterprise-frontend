@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Syringe, Loader2, Plus, Trash2, Check, Sparkles, CalendarClock, Bell } from 'lucide-react';
 import { Visit } from '../../../types';
-import { visitsAPI, vaccinationsAPI } from '../../../services';
+import { visitsAPI, vaccinationsAPI, servicesAPI } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { VACCINES } from '../../../constants/vaccines';
 
@@ -34,6 +34,28 @@ const VaccinationPanel: React.FC<Props> = ({ appointment, petId, onSaved }) => {
   // always created server-side; this adds the booking on the due date. Not
   // stored on the record, so it rides along with every save of that row.
   const [bookMap, setBookMap] = useState<Record<string, boolean>>({});
+
+  // The clinic's OWN vaccine list, from the services catalogue (Billable Items
+  // → Services) — the same rows the Billables screen prices. This panel used to
+  // offer only the hard-coded `VACCINES` constant, so whatever you picked was a
+  // bare name the server could not price and every dose billed KES 0 (user,
+  // 2026-08-04: "how does it pick without charge"). The constant stays as a
+  // fallback for a clinic that has not built its catalogue yet.
+  const [catalogue, setCatalogue] = useState<{ name: string; price: number | null }[]>([]);
+  useEffect(() => {
+    let alive = true;
+    servicesAPI.catalog()
+      .then(list => {
+        if (!alive) return;
+        setCatalogue((list || [])
+          .filter((s: any) => s.enabled && /vaccin|immuni/i.test(String(s.categoryName || '')))
+          .map((s: any) => ({ name: s.name, price: s.priceEffective ?? s.defaultPrice ?? null })));
+      })
+      .catch(() => { /* falls back to VACCINES */ });
+    return () => { alive = false; };
+  }, []);
+  const priceOf = (name: string) =>
+    catalogue.find(c => c.name.trim().toLowerCase() === name.trim().toLowerCase())?.price ?? null;
 
   // Mirror a record's status onto its visit task (belt & braces over the backend
   // sync) so the services checklist + visit progress move immediately.
@@ -258,13 +280,35 @@ const VaccinationPanel: React.FC<Props> = ({ appointment, petId, onSaved }) => {
             className={fieldCls}
           />
           <datalist id="vaccine-options">
-            {VACCINES.map(v => <option key={v.key} value={v.label} />)}
+            {(catalogue.length ? catalogue.map(c => ({ key: c.name, label: c.name })) : VACCINES).map(v => (
+              <option key={v.key} value={v.label} />
+            ))}
           </datalist>
           <button type="button" onClick={addVaccine} disabled={adding || !newName.trim()}
             className="shrink-0 flex items-center gap-1.5 px-3.5 py-2 rounded-lg text-[11px] font-black uppercase tracking-wide bg-seafoam text-white shadow-sm hover:bg-seafoam/90 disabled:opacity-40 transition-all">
             {adding ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add
           </button>
         </div>
+      )}
+
+      {/* What this will CHARGE, before you commit to it. Adding a vaccine puts a
+          priced line on the visit's bill; showing the number here is what makes
+          an unpriced one obvious instead of a silent KES 0 discovered later. */}
+      {!locked && newName.trim() !== '' && (
+        priceOf(newName) != null ? (
+          <p className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 pl-0.5">
+            Bills{' '}
+            <span className="font-black text-emerald-600 dark:text-emerald-400">
+              KES {Number(priceOf(newName)).toLocaleString()}
+            </span>{' '}
+            — from the services catalogue
+          </p>
+        ) : (
+          <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 pl-0.5">
+            Not in the services catalogue — this lands on the bill at 0 and needs pricing by hand.
+            Add it under Billable Items → Services to price it automatically.
+          </p>
+        )
       )}
     </div>
   );

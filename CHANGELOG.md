@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the visit's vaccine picker offers the CLINIC'S catalogue, and shows what it will bill  —  2026-08-04
+- **What changed:** `VaccinationPanel` loads `servicesAPI.catalog()` and offers the clinic's own
+  enabled services in a vaccination category, instead of only the hard-coded
+  `constants/vaccines` list (kept as the fallback for a clinic that hasn't built its catalogue).
+  Typing a name now shows **what it will charge** — the catalogue price, or an amber warning that
+  it isn't in the catalogue and will land at 0.
+- **Why:** the panel posted a bare `vaccineName` from a constant the clinic never edits, so the
+  server had nothing to price against and every dose billed KES 0 (user, 2026-08-04: *"how does
+  it pick without charge"*). Pairs with the backend fix that creates the bill line.
+- **Record impact:** 🟢 None on its own — the charge is written server-side.
+- **Data dependency:** backend `catalogPrice.service` + the `createVaccinationRecord` change must
+  be deployed, or the picker looks right and still bills 0.
+- **Rollback:** revert; the picker goes back to the hard-coded list.
+- ⚠️ The name is matched **case-insensitively by name** server-side. A catalogue entry renamed
+  after a dose was given stops matching for FUTURE doses — the historical line keeps its frozen
+  name and price, which is the intended behaviour.
+
 ### feat: the inpatient chart's patient header and side rail stay put  —  2026-08-04
 - **What changed:** on `InpatientChartPage`, the patient banner is **sticky and condenses on
   scroll** (full banner at rest → one line: icon · name · cage · id once moving), and the side rail
