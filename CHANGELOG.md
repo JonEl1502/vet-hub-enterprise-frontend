@@ -59,6 +59,35 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: logged consumables were INVISIBLE on the running bill — and missing from its total  —  no migration
+- **What changed:** (user, 2026-08-04: "i added gloves here and not showing") the workflow's
+  Running Bill rail listed only `visit.tasks`, so a consumable logged **without a parent
+  task** — gloves, a syringe, a vial used outside a service — left the rail reading
+  **"No services yet · KES 0"** while the bill charged for it anyway. The rail now lists them
+  and includes them in its total.
+- **Two separate causes, both fixed:**
+  1. **Not listed** — the rail mapped `tasks` only. The server's `snapshotLines` has always
+     included standalone billable consumables; the rail simply never showed them.
+  2. **Not counted** — `visit.totalCost` is recalculated server-side from **tasks only**
+     (`appointmentMedication.service` sums `appointment_tasks.price`), so a standalone
+     consumable never reaches it. The rail now shows `totalCost + standalone consumables`,
+     which agrees with what the bill will actually charge rather than with a column that
+     doesn't count them.
+- **The filter matches the server's exactly** — `billable` and no `taskId`. A consumable
+  attached to a task already has its cost folded into that task's price, so listing it
+  separately would read as a double charge.
+- **Why it matters:** staff logged an item, saw KES 0, and had no way to tell it would still
+  be billed. This was a trust problem, not a cosmetic one.
+- **Record impact:** 🟢 None — display only. **No bill was ever wrong**; only the rail was.
+
+### ui: hide "Hospitalize / In-Patient" from the workflow header  —  no migration
+- **What changed:** (user) the button is commented out, not deleted — `onHospitalize` stays
+  wired end-to-end (props, mobile ⚠ menu, admit flow), so restoring the entry point is a
+  one-line change. **Admission is still reachable** from the mobile ⚠ menu and the inpatient
+  module; it has not been removed from the app.
+- **Record impact:** 🟢 None.
+
+
 ### feat: structured TREATMENT PLAN on the inpatient chart  —  backend 132
 - **What changed:** (user, 2026-08-04) the inpatient chart gains a **Treatment plan** panel:
   sections the clinic names itself — *Medication plan*, *Feeding plan*, anything — each

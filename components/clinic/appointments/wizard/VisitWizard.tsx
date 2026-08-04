@@ -147,6 +147,36 @@ const StepActionSlot: React.FC = () => {
 const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, lockReason = 'billed', goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onUpdateTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry, templateStages, templateFields, template, setVisitTemplate } = wiz;
   const [billOpen, setBillOpen] = useState(true);
+  /**
+   * Consumables logged with NO parent task — gloves, syringes, a vial used
+   * outside a service. The running-bill rail listed only `visit.tasks`, so
+   * logging one left the rail reading "No services yet · KES 0" while the bill
+   * charged for it anyway (user, 2026-08-04).
+   *
+   * The filter matches the server's `snapshotLines` exactly: `billable` and no
+   * `taskId`. A consumable attached to a task already has its cost folded into
+   * that task's price, so listing it separately would read as a double charge.
+   */
+  const standaloneMeds = useMemo(
+    () => ((visit as any).medications ?? []).filter((m: any) => m && m.billable !== false && m.taskId == null),
+    [(visit as any).medications],
+  );
+  /**
+   * What the bill will actually come to.
+   *
+   * ⚠️ `visit.totalCost` is recalculated server-side from TASKS ONLY
+   * (`appointmentMedication.service` sums `appointment_tasks.price`), so a
+   * standalone consumable never reaches it — the rail read KES 0 while the
+   * bill, which is built by `snapshotLines`, charged for the gloves. Adding
+   * them here makes the rail agree with the bill rather than with a column that
+   * doesn't count them.
+   */
+  const railTotal = useMemo(
+    () => Number(visit.totalCost || 0)
+      + standaloneMeds.reduce((sum: number, m: any) =>
+        sum + Number(m.lineTotal ?? (Number(m.unitPrice) || 0) * (Number(m.quantity) || 0)), 0),
+    [visit.totalCost, standaloneMeds],
+  );
   // Inline add-service search on the Running Bill card (user, 2026-08-01).
   // Three-way inline adder on the running bill: service | consumable | procedure.
   const [addMode, setAddMode] = useState<'service' | 'consumable' | 'procedure' | null>(null);
@@ -360,7 +390,7 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
           <Clock size={10} /> Elapsed {elapsed}
         </span>
         <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
-          <Receipt size={10} /> {activeClinic.currency} {visit.totalCost.toLocaleString()}
+          <Receipt size={10} /> {activeClinic.currency} {railTotal.toLocaleString()}
         </span>
         <div className="flex-1" />
         <div className="flex items-center gap-2">
@@ -459,13 +489,20 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
               read as a mode switch; at the end it reads as a hand-off. */}
           <div className="flex-1" />
           {/* Desktop: full escalation buttons */}
-          {onHospitalize && (
+          {/* HOSPITALIZE / IN-PATIENT — hidden from the workflow header at the
+              user's request (2026-08-04). Commented out rather than deleted:
+              `onHospitalize` is still wired end-to-end (props, the mobile ⚠
+              menu, the admit flow), so this is a one-line restore if the entry
+              point is wanted back here.
+              Admission is still reachable from the mobile ⚠ menu and the
+              inpatient module — it has NOT been removed from the app. */}
+          {/* {onHospitalize && (
             <button type="button" onClick={onHospitalize}
               title="Escalate this vet visit to inpatient — runs the full admit checklist and links a hospitalization chart"
               className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-rose-300 dark:border-rose-800 text-rose-600 dark:text-rose-400 text-[9px] font-black uppercase tracking-widest hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-all">
               🏥 Hospitalize / In-Patient
             </button>
-          )}
+          )} */}
           {onEscalate && (
             <button type="button" onClick={onEscalate} disabled={escalating}
               className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 text-[9px] font-black uppercase tracking-widest hover:bg-red-50 dark:hover:bg-red-900/20 transition-all disabled:opacity-50">
@@ -590,7 +627,7 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 space-y-2">
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><Receipt size={11} className="text-seafoam" /> Running Bill</p>
                 <div className="space-y-1 max-h-[26vh] overflow-y-auto custom-scrollbar">
-                  {(visit.tasks || []).length === 0 && <p className="text-[10px] text-slate-400 py-2">No services yet.</p>}
+                  {(visit.tasks || []).length === 0 && standaloneMeds.length === 0 && <p className="text-[10px] text-slate-400 py-2">No services yet.</p>}
                   {/* Qty + amount are editable right here (user, 2026-08-03) —
                       the Bill tab already allowed it and the rail did not, so a
                       wrong price meant leaving the workflow to fix it. Saves on
@@ -628,10 +665,32 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
                       )}
                     </div>
                   ))}
+
+                  {/* STANDALONE consumables — logged items with no parent task.
+                      The rail listed only `tasks`, so logging gloves left it
+                      reading "No services yet · KES 0" while the bill charged
+                      for them anyway (user, 2026-08-04). The server's
+                      `snapshotLines` has always included these; the rail simply
+                      never showed them.
+                      Matches the server's filter exactly: billable, and no
+                      taskId — one attached to a task already has its cost folded
+                      into that task's price, and listing it again would read as
+                      a double charge. */}
+                  {standaloneMeds.map((m: any) => (
+                    <div key={`med-${m.id}`} className="flex items-center justify-between gap-1.5">
+                      <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 truncate flex-1 min-w-0">
+                        {m.inventoryItem?.name || m.name || 'Item'}
+                        {Number(m.quantity) > 1 && <span className="text-slate-400"> × {Number(m.quantity)}</span>}
+                      </span>
+                      <span className="text-[10px] font-black text-pine dark:text-zinc-100 font-mono shrink-0">
+                        {Number(m.lineTotal ?? (Number(m.unitPrice) || 0) * (Number(m.quantity) || 0)).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
                 </div>
                 <div className="border-t border-slate-200 dark:border-zinc-800 pt-2 flex items-baseline justify-between">
                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Total</span>
-                  <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">{activeClinic.currency} {visit.totalCost.toLocaleString()}</span>
+                  <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 font-mono">{activeClinic.currency} {railTotal.toLocaleString()}</span>
                 </div>
                 <span className={`inline-block px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${visit.isPaid ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'}`}>
                   {visit.isPaid ? `Paid · ${visit.paymentMethod}` : 'Unbilled'}
