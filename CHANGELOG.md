@@ -59,6 +59,35 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: assign staff to a SERVICE or PROCEDURE from the Visit team panel  —  backend 106+125
+- **What changed:** (user, 2026-08-04) each encounter in the Visit team panel now lists its
+  **services & procedures** with an optional staff picker, plus a **Via services** section
+  showing who was credited through a service rather than added to the encounter directly.
+- **One number, two routes in:** service/procedure attribution rolls up into the same
+  encounter stats, so assigning the surgeon on the procedure credits that encounter without
+  adding them twice. Kept visually distinct, and saving the encounter team never overwrites
+  service-level attribution.
+- **Optional by design** — a blank service is normal; the encounter team still covers it.
+- **⚠️ Staff fees are INTERNAL and never billed** (rule from 106), so no money is shown.
+
+### ui: boarding + inpatient care logs are now horizontal DAY TABS  —  no migration
+- **What changed:** (user: "auto generate tabbed horizontal scrollable days plan … each
+  coming under day 1, 2, 3") the care log rendered **every** day of the stay stacked
+  vertically, so a two-week boarding was a wall of cards to scroll past just to reach today.
+  It is now an auto-generated, horizontally scrollable strip of **Day 1 · Day 2 · Day 3 …**
+  tabs, with only the selected day's entries (Fed AM / Fed PM / Walked / Meds / add entry)
+  below it.
+- Each tab carries a **dot** when something is recorded that day, so gaps stay visible
+  without opening every day — the reconciliation property the stacked list existed for.
+- Defaults to **Today** when the stay covers it, else the latest day.
+- The full day list is still walked internally so `dayNo` and the **nights-based** rate stay
+  correct for whichever day is shown — the final calendar day of a multi-day stay starts no
+  new night and still shows stay KES 0, matching what the bill accrues.
+- Applied to **both** the boarding stay page and the inpatient chart, which had the identical
+  pattern.
+- **Record impact:** 🟢 None — presentational.
+
+
 ### feat: clinical pages join the grouped permissions; the visit record goes read-only without the grant  —  2026-08-04
 - **What changed:** (user) the catalog gains a **Clinical** group — Clinical records, Visits,
   Reminders, Inpatient, Boarding, Grooming, Surgery, Laboratory, Imaging — each with

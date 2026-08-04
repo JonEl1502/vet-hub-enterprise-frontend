@@ -98,6 +98,8 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   // consumables picker record entries AS this datetime — a paper day sheet can
   // be keyed in after the fact. Null = normal "now" logging.
   const [backfillAt, setBackfillAt] = useState<string | null>(null);
+  /** Which day of the stay the chart is showing — see BoardingStayPage. */
+  const [careDay, setCareDay] = useState<string | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
     try { const res = await inpatientAPI.getById(hospId); if (res.success && res.data?.hospitalization) setH(res.data.hospitalization); }
@@ -389,11 +391,45 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                 consumables.forEach(c => { const ck = dayKey(c.createdAt); consByDay.set(ck, [...(consByDay.get(ck) || []), c]); });
                 const rate = Number(h.dailyRate ?? 0);
                 const fmtK = (n: number) => `KES ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+                // Auto-generated day tabs — same as the boarding care log. A long
+                // admission was a wall of stacked day cards to scroll past.
+                const todayK = dayKey(new Date());
+                const selKey = (careDay && days.some(d => dayKey(d) === careDay))
+                  ? careDay
+                  : (days.some(d => dayKey(d) === todayK) ? todayK : dayKey(days[days.length - 1]));
+
                 return (
                   <div className="space-y-3">
+                    <div className="flex gap-1.5 overflow-x-auto custom-scrollbar pb-1 -mx-1 px-1">
+                      {days.map((d, i) => {
+                        const k = dayKey(d);
+                        const has = (logsByDay.get(k) || []).length > 0 || (vitalsByDay.get(k) || 0) > 0 || (consByDay.get(k) || []).length > 0;
+                        const sel = k === selKey;
+                        return (
+                          <button
+                            key={k} type="button" onClick={() => setCareDay(k)}
+                            className={`shrink-0 px-3 py-1.5 rounded-xl border text-left transition-all ${sel
+                              ? 'bg-seafoam text-white border-seafoam shadow-sm'
+                              : 'bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-500 hover:border-seafoam/50'}`}
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-black uppercase tracking-widest">Day {i + 1}</span>
+                              <span className={`w-1.5 h-1.5 rounded-full ${has ? (sel ? 'bg-white' : 'bg-emerald-500') : (sel ? 'bg-white/40' : 'bg-slate-300 dark:bg-zinc-700')}`} />
+                            </span>
+                            <span className={`block text-[8px] font-bold ${sel ? 'text-white/80' : 'text-slate-400'}`}>
+                              {k === todayK ? 'Today' : formatDate(d)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     {days.slice().reverse().map((d, ri) => {
                       const k = dayKey(d);
                       const dayNo = days.length - ri;
+                      // Only the selected tab renders; the list is still walked
+                      // so dayNo and the nights-based rate stay correct.
+                      if (k !== selKey) return null;
                       const logs = logsByDay.get(k) || [];
                       const vitalsCount = vitalsByDay.get(k) || 0;
                       const dayCons = consByDay.get(k) || [];

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Users, UserPlus, X, Star, Loader2, ClipboardList } from 'lucide-react';
+import { Users, UserPlus, X, Star, Loader2, ClipboardList, Wrench } from 'lucide-react';
 import { visitsAPI, toast } from '../../../services';
 import type { VisitEncounter, VisitRegisteredBy } from '../../../services/modules/appointments.api';
 import { useStaff } from '../../../contexts/StaffContext';
@@ -46,14 +46,24 @@ const VisitTeamPanel: React.FC<Props> = ({ visitId, readOnly }) => {
   const [savingId, setSavingId] = React.useState<string | null>(null);
   const [pickerFor, setPickerFor] = React.useState<string | null>(null);
   const [search, setSearch] = React.useState('');
+  // Services/procedures on this visit, so staff can be credited per line. A
+  // procedure anchors to a task, so both appear here and use the same endpoint.
+  const [tasks, setTasks] = React.useState<{ id: string; name: string; encounterId: string | null; attendance?: any[] }[]>([]);
 
   const load = React.useCallback(async () => {
     try {
-      const r = await visitsAPI.listEncounters(visitId);
+      const [r, v] = await Promise.all([
+        visitsAPI.listEncounters(visitId),
+        visitsAPI.getById(Number(visitId)).catch(() => null),
+      ]);
       if (r.success && r.data) {
         setEncounters(r.data.encounters || []);
         setRegisteredBy(r.data.registeredBy ?? null);
       }
+      const vt = (v as any)?.data?.appointment?.tasks ?? (v as any)?.data?.tasks ?? [];
+      setTasks(Array.isArray(vt) ? vt.map((t: any) => ({
+        id: String(t.id), name: t.name, encounterId: t.encounterId != null ? String(t.encounterId) : null, attendance: t.attendance ?? [],
+      })) : []);
     } finally {
       setLoading(false);
     }
@@ -97,6 +107,20 @@ const VisitTeamPanel: React.FC<Props> = ({ visitId, readOnly }) => {
     // mirror that here so the optimistic view matches what comes back.
     if (next.length && !next.some(s => s.isLead)) next[0] = { ...next[0], isLead: true };
     save(enc, next);
+  };
+
+  const saveTask = async (taskId: string, next: any[]) => {
+    setSavingId(`task-${taskId}`);
+    setTasks(prev => prev.map(t => (t.id === taskId ? { ...t, attendance: next } : t)));
+    try {
+      await visitsAPI.setTaskStaff(visitId, taskId, next.map(s => ({ userId: s.userId, role: s.role, isLead: s.isLead })));
+      // Reload so the encounter roll-up reflects the change — the credit shows
+      // under the encounter, not only on the service row.
+      await load();
+    } catch {
+      await load();
+      toast.error('Could not update the service team');
+    } finally { setSavingId(null); }
   };
 
   const makeLead = (enc: VisitEncounter, userId: string) => {
@@ -145,6 +169,7 @@ const VisitTeamPanel: React.FC<Props> = ({ visitId, readOnly }) => {
         const team = enc.attendingStaff ?? [];
         const busy = savingId === enc.id;
         const picking = pickerFor === enc.id;
+        const encTasks = tasks.filter(t => String(t.encounterId) === String(enc.id));
         const available = staff.filter(u =>
           !team.some(s => String(s.userId) === String(u.id))
           && (!search || staffName(u).toLowerCase().includes(search.toLowerCase())),
@@ -199,6 +224,81 @@ const VisitTeamPanel: React.FC<Props> = ({ visitId, readOnly }) => {
                 >
                   <UserPlus size={12} /> Assign staff
                 </button>
+              )}
+
+              {/* Credited through a SERVICE or PROCEDURE rather than added to
+                  the encounter directly. Shown here so the encounter's stats
+                  read as one number, but kept visually distinct — and never
+                  overwritten when the encounter team is saved. */}
+              {(enc.serviceStaff?.length ?? 0) > 0 && (
+                <div className="pt-2 mt-1 border-t border-slate-100 dark:border-zinc-800 space-y-1">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Via services</p>
+                  {enc.serviceStaff!.map(ss => (
+                    <div key={`${ss.taskId}-${ss.userId}`} className="flex items-center gap-2">
+                      <Wrench size={11} className="text-slate-300 dark:text-zinc-600 shrink-0" />
+                      <span className="text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{ss.name || `Staff #${ss.userId}`}</span>
+                      <span className="text-[9px] text-slate-400 truncate">· {ss.via}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* Per-service assignment. Optional by design — a blank service is
+                  normal and the encounter team still covers it. */}
+              {!readOnly && encTasks.length > 0 && (
+                <div className="pt-2 mt-1 border-t border-slate-100 dark:border-zinc-800 space-y-1.5">
+                  <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Services &amp; procedures — optional</p>
+                  {encTasks.map(t => {
+                    const cur = t.attendance ?? [];
+                    const tBusy = savingId === `task-${t.id}`;
+                    const tPicking = pickerFor === `task-${t.id}`;
+                    const avail = staff.filter(u =>
+                      !cur.some((x: any) => String(x.userId) === String(u.id))
+                      && (!search || staffName(u).toLowerCase().includes(search.toLowerCase())));
+                    return (
+                      <div key={t.id} className="rounded-lg bg-slate-50 dark:bg-zinc-950/40 px-2.5 py-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-bold text-pine dark:text-zinc-100 truncate flex-1">{t.name}</span>
+                          {tBusy && <Loader2 size={11} className="animate-spin text-slate-400 shrink-0" />}
+                          <button
+                            type="button" disabled={tBusy}
+                            onClick={() => { setPickerFor(tPicking ? null : `task-${t.id}`); setSearch(''); }}
+                            className="text-[8px] font-black uppercase tracking-widest text-seafoam hover:text-pine dark:hover:text-zinc-100 shrink-0 disabled:opacity-50"
+                          >
+                            {tPicking ? 'Done' : cur.length ? 'Change' : 'Assign'}
+                          </button>
+                        </div>
+                        {cur.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {cur.map((x: any) => (
+                              <span key={String(x.userId)} className="flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-[9px] font-bold text-pine dark:text-zinc-200">
+                                {x.name || `#${x.userId}`}
+                                <button type="button" disabled={tBusy}
+                                  onClick={() => saveTask(t.id, cur.filter((y: any) => String(y.userId) !== String(x.userId)))}
+                                  className="text-slate-300 hover:text-rose-500 disabled:cursor-not-allowed"><X size={9} /></button>
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                        {tPicking && (
+                          <div className="mt-1.5 space-y-1">
+                            <input autoFocus value={search} onChange={e => setSearch(e.target.value)} placeholder="Search staff…" className="field-input py-1 text-[11px] w-full" />
+                            <div className="max-h-32 overflow-y-auto custom-scrollbar rounded-lg border border-slate-100 dark:border-zinc-800 divide-y divide-slate-50 dark:divide-zinc-800/60 bg-white dark:bg-zinc-900">
+                              {avail.length === 0 && <p className="px-2 py-1.5 text-[10px] text-slate-400">No matching staff.</p>}
+                              {avail.slice(0, 30).map(u => (
+                                <button key={String(u.id)} type="button"
+                                  onClick={() => { saveTask(t.id, [...cur, { userId: String(u.id), role: (u as any).role ?? null, isLead: cur.length === 0, name: staffName(u) }]); setPickerFor(null); setSearch(''); }}
+                                  className="w-full text-left px-2 py-1 hover:bg-slate-50 dark:hover:bg-zinc-800 text-[10px] font-bold text-pine dark:text-zinc-100 truncate">
+                                  {staffName(u)}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
 
               {!readOnly && picking && (

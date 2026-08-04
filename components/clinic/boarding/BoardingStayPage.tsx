@@ -148,6 +148,14 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   };
 
   const [editDay, setEditDay] = useState<string | null>(null);
+  /**
+   * Which day of the stay the care log is showing. The log used to render EVERY
+   * day of the stay stacked vertically, so a two-week boarding was a wall of
+   * cards you had to scroll through to reach today (user, 2026-08-04).
+   * Null = "resolve to today, else the last day" — computed against the day list
+   * below rather than stored, so it stays right as the stay grows.
+   */
+  const [careDay, setCareDay] = useState<string | null>(null);
   const [dayDraft, setDayDraft] = useState<any>({});
   const [daySaving, setDaySaving] = useState(false);
   const openDayEditor = (dateKey: string, existing?: any) => {
@@ -427,11 +435,49 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                     </div>
                   </div>
                 );
+                // Auto-generated day tabs. Default to TODAY when the stay covers
+                // it (the day you almost always want), else the latest day.
+                const todayK = dayKey(new Date());
+                const selKey = (careDay && days.some(d => dayKey(d) === careDay))
+                  ? careDay
+                  : (days.some(d => dayKey(d) === todayK) ? todayK : dayKey(days[days.length - 1]));
+
                 return (
                   <div className="space-y-2">
+                    {/* Horizontal, scrollable — one tab per day of the stay, with a
+                        dot for "something recorded" so gaps stay visible without
+                        having to open each day. */}
+                    <div className="flex gap-1.5 overflow-x-auto custom-scrollbar pb-1 -mx-1 px-1">
+                      {days.map((d, i) => {
+                        const k = dayKey(d);
+                        const has = (byDay.get(k) || []).length > 0 || (consByDay.get(k) || []).length > 0;
+                        const sel = k === selKey;
+                        return (
+                          <button
+                            key={k} type="button" onClick={() => setCareDay(k)}
+                            className={`shrink-0 px-3 py-1.5 rounded-xl border text-left transition-all ${sel
+                              ? 'bg-seafoam text-white border-seafoam shadow-sm'
+                              : 'bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-500 hover:border-seafoam/50'}`}
+                          >
+                            <span className="flex items-center gap-1.5">
+                              <span className="text-[10px] font-black uppercase tracking-widest">Day {i + 1}</span>
+                              <span className={`w-1.5 h-1.5 rounded-full ${has ? (sel ? 'bg-white' : 'bg-emerald-500') : (sel ? 'bg-white/40' : 'bg-slate-300 dark:bg-zinc-700')}`} />
+                            </span>
+                            <span className={`block text-[8px] font-bold ${sel ? 'text-white/80' : 'text-slate-400'}`}>
+                              {k === todayK ? 'Today' : formatDate(d)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+
                     {days.slice().reverse().map((d, ri) => {
                       const k = dayKey(d);
                       const dayNo = days.length - ri;
+                      // Only the selected tab's day renders. The full list is
+                      // still walked so `dayNo` and the nights-based rate below
+                      // stay correct for whichever day is shown.
+                      if (k !== selKey) return null;
                       const logs = byDay.get(k) || [];
                       const dayCons = consByDay.get(k) || [];
                       const itemsCost = dayCons.reduce((sum, c) => sum + (c.billable ? Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0)) : 0), 0);

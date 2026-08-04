@@ -70,6 +70,12 @@ export interface VisitEncounter {
   status: string;
   sortOrder: number;
   attendingStaff?: { id: string; userId: string; role: string | null; fee: number | null; isLead?: boolean; name?: string }[];
+  /**
+   * Staff credited through a SERVICE or PROCEDURE on this encounter (106+125),
+   * not added to the encounter directly. Kept separate from `attendingStaff` so
+   * saving the encounter team never overwrites service-level attribution.
+   */
+  serviceStaff?: { userId: string; role: string | null; isLead: boolean; name: string | null; via: string; taskId: string }[];
 }
 
 /** Who REGISTERED the visit (127) — front desk. Null on visits created before 127. */
@@ -440,7 +446,11 @@ export const visitsAPI = {
   listEncounters: async (
     appointmentId: number | string,
     options?: RequestOptions
-  ): Promise<ApiResponse<{ encounters: VisitEncounter[]; registeredBy: VisitRegisteredBy | null }>> => {
+  ): Promise<ApiResponse<{
+    encounters: VisitEncounter[];
+    registeredBy: VisitRegisteredBy | null;
+    unassignedServiceStaff?: NonNullable<VisitEncounter['serviceStaff']>;
+  }>> => {
     return get(`/appointments/${appointmentId}/encounters`, { cache: false, silent: true, ...options });
   },
 
@@ -450,6 +460,20 @@ export const visitsAPI = {
    * `visit_encounters.lead_staff_id` in sync with the flagged lead.
    * `fee` is INTERNAL clinic cost and is never billed (rule from 106).
    */
+  /**
+   * Who performed a SERVICE or PROCEDURE. Procedures anchor to a task, so both
+   * go through here and roll into the same encounter stats. REPLACE semantics —
+   * an empty list clears it, which is why a service can simply be left blank.
+   */
+  setTaskStaff: async (
+    appointmentId: number | string,
+    taskId: string | number,
+    staff: { userId: string | number; role?: string | null; fee?: number | null; isLead?: boolean }[],
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ task: any }>> => {
+    return put(`/appointments/${appointmentId}/tasks/${taskId}/staff`, { staff }, { showError: true, ...options });
+  },
+
   setEncounterStaff: async (
     appointmentId: number | string,
     encounterId: string | number,
