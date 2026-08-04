@@ -446,6 +446,10 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
    */
   const [vaccineRecipeList, setVaccineRecipeList] = useState<any[]>([]);
   const [pickedRecipeId, setPickedRecipeId] = useState<string | null>(null);
+  // WHICH animals in a group roster get the picked protocol. Empty = all, the
+  // same convention staged services use for `petIds` (user: "i can state for
+  // each patient or all taking one vaccination").
+  const [recipePetIds, setRecipePetIds] = useState<(number | string)[]>([]);
   useEffect(() => {
     if (!isVaccinationVisit || vaccineRecipeList.length > 0) return;
     procedureTemplatesAPI.list(false, { silent: true } as any)
@@ -1326,6 +1330,11 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
               const only = (t as any).petIds as (number | string)[] | undefined;
               return !only || only.length === 0 || only.map(String).includes(String(m.petId));
             }),
+            // The protocol follows the same rule as a staged service: applied
+            // only to the animals it was picked for.
+            procedureTemplateId: isVaccinationVisit && pickedRecipeId
+              && (recipePetIds.length === 0 || recipePetIds.map(String).includes(String(m.petId)))
+              ? pickedRecipeId : null,
           }))
         : undefined,
       groupVisitId: isRealGroup
@@ -1361,6 +1370,8 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       // and deferred deduction behave identically to picking the trigger
       // service by hand.
       procedureTemplateId: isVaccinationVisit ? pickedRecipeId : null,
+      // …and which animals it is for. Empty/absent = every visit created here.
+      procedureTemplatePetIds: isVaccinationVisit && pickedRecipeId ? recipePetIds : undefined,
       // Escalate to in-patient (vet visits only) — links a hospitalization.
       onboardInpatient: encounterType === 'VET_VISIT' && onboardInpatient,
     });
@@ -2330,7 +2341,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                                  return (
                                    <button key={`rec-${t.id}`} type="button"
                                      title={picked ? 'Staged — click to unstage' : 'Applies the whole protocol when the visit is created'}
-                                     onClick={() => setPickedRecipeId(picked ? null : String(t.id))}
+                                     onClick={() => { setPickedRecipeId(picked ? null : String(t.id)); setRecipePetIds([]); }}
                                      className={`px-2.5 py-1.5 rounded-lg border text-[10px] font-bold transition-all ${picked
                                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-700 dark:text-indigo-300'
                                        : 'border-indigo-200 dark:border-indigo-900/50 bg-white dark:bg-zinc-900 text-indigo-700 dark:text-indigo-300 hover:border-indigo-400'}`}>
@@ -2339,6 +2350,33 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                                    </button>
                                  );
                                })}
+
+                               {/* WHICH animals get the protocol — same "All /
+                                   per-pet" control staged services carry. A
+                                   roster where only two of four are due their
+                                   booster used to bill the protocol to all of
+                                   them (user, 2026-08-04). */}
+                               {pickedRecipeId && isGroupVisit && groupMembers.filter(m => m.petId).length > 1 && (
+                                 <div className="w-full flex flex-wrap items-center gap-1 pt-1">
+                                   <span className="text-[8px] font-black uppercase tracking-widest text-indigo-400 mr-0.5">Protocol for</span>
+                                   <button type="button" onClick={() => setRecipePetIds([])}
+                                     className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider border transition-all ${
+                                       recipePetIds.length === 0 ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-indigo-400'
+                                     }`}>All</button>
+                                   {groupMembers.filter(m => m.petId).map(m => {
+                                     const on = recipePetIds.map(String).includes(String(m.petId));
+                                     return (
+                                       <button key={`rp-${m.petId}`} type="button"
+                                         onClick={() => setRecipePetIds(on ? recipePetIds.filter(x => String(x) !== String(m.petId)) : [...recipePetIds, m.petId!])}
+                                         className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider border transition-all ${
+                                           on ? 'bg-indigo-500 text-white border-indigo-500' : 'bg-white dark:bg-zinc-900 text-slate-400 border-slate-200 dark:border-zinc-800 hover:border-indigo-400'
+                                         }`}>
+                                         {m.petName || `#${m.petId}`}
+                                       </button>
+                                     );
+                                   })}
+                                 </div>
+                               )}
                              </div>
                            ) : (
                            <div className="pt-1.5">

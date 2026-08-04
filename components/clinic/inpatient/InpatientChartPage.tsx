@@ -8,6 +8,7 @@ import ConsumablePicker from '../shared/ConsumablePicker';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
 import StandardRecordControls from '../shared/StandardRecordControls';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
+import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
 import { useData } from '../../../contexts/DataContext';
 
 // Full-page inpatient chart — converted from the old right-side drawer so the
@@ -335,7 +336,6 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                 (user, 2026-08-04). */}
             {/* Daily sheet timeline */}
             <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
-              <NotesFormatToggle className="mb-3" value={h.displayFormat || 'PARAGRAPH'} onChange={(v) => { inpatientAPI.update(hospId, { displayFormat: v }).then(() => { load(); onChanged?.(); }); }} />
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Daily sheet — admission to {h.dischargedAt ? 'discharge' : 'today'}</p>
               {/* Per-day reconciliation (user, 2026-08-02): EVERY calendar day of the
                   stay renders, newest first — a day with nothing logged shows its
@@ -536,6 +536,14 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
 
             {/* Consumables moved into the day's editor above — logging an item
                 is part of that day's care, not a separate card below it. */}
+
+            {/* Notes format at the BOTTOM (user, 2026-08-04) — it styles the
+                sheet you have already read. NOT pinned; it is a preference,
+                not an action. */}
+            <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Notes format</p>
+              <NotesFormatToggle value={h.displayFormat || 'PARAGRAPH'} onChange={(v) => { inpatientAPI.update(hospId, { displayFormat: v }).then(() => { load(); onChanged?.(); }); }} />
+            </section>
           </div>
 
           {/* SIDE — admission context, actions, controls, discharge */}
@@ -628,7 +636,10 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
               <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
               {active ? (
                 !showDischarge ? (
-                  <button onClick={() => setShowDischarge(true)} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2"><LogOut size={15} /> Discharge</button>
+                  /* The trigger lives in the PINNED bar at the bottom now
+                     (user, 2026-08-04) — on a long chart it sat below the whole
+                     side column. Opening it reveals the form right here. */
+                  <p className="text-[10px] font-bold text-slate-400 text-center">Discharge from the bar at the bottom.</p>
                 ) : (
                   <div className="space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200">Discharge</p>
@@ -662,6 +673,17 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
           </div>
         </div>
       ) : <div className="p-10 text-center text-sm text-slate-400">Chart not found.</div>}
+
+      {/* PINNED discharge — the chart's one terminal action. */}
+      {h && active && !showDischarge && (
+        <>
+          <RecordActionBarSpacer />
+          <RecordActionBar
+            hint={billOutstanding ? 'Services or bill still open — discharge routes to billing' : undefined}
+            actions={[{ key: 'discharge', label: 'Discharge', icon: LogOut, onClick: () => setShowDischarge(true), primary: true }]}
+          />
+        </>
+      )}
 
       <FinalizeReminderGate
         open={showDischargeGate}

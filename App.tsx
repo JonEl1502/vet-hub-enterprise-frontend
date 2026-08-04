@@ -2371,10 +2371,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               // deferred-deduction rules behave exactly as they do when the
               // trigger service is added by hand. Non-fatal: the visit is
               // already created, and a failed recipe must not lose it.
-              const applyPickedProcedure = async (visitId: any) => {
-                if (!appointmentData.procedureTemplateId || !visitId) return;
+              // `templateId` lets a group member override the visit-wide pick with
+              // its own (null = this animal is not on the protocol).
+              const applyPickedProcedure = async (visitId: any, templateId?: string | null) => {
+                const id = templateId === undefined ? appointmentData.procedureTemplateId : templateId;
+                if (!id || !visitId) return;
                 try {
-                  await procedureTemplatesAPI.apply(appointmentData.procedureTemplateId, { appointmentId: visitId });
+                  await procedureTemplatesAPI.apply(id, { appointmentId: visitId });
                 } catch (e) {
                   console.error('Procedure apply failed for visit', visitId, e);
                   toast.error('Visit created, but the procedure could not be applied — add it from the visit.');
@@ -2415,7 +2418,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               // A member may carry its OWN task list — a vaccination staged for
               // one animal in the roster must not be billed to all three
               // (user, 2026-08-04). Falls back to the shared list.
-              const groupTargets: { petId: number; clientId: number; tasks?: any[] }[] =
+              const groupTargets: { petId: number; clientId: number; tasks?: any[]; procedureTemplateId?: string | null }[] =
                 Array.isArray(groupMembers) && groupMembers.length > 1 ? groupMembers : [];
 
               if (groupTargets.length > 0) {
@@ -2430,7 +2433,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                       ...(m.tasks ? { tasks: m.tasks, totalCost: m.tasks.reduce((n: number, t: any) => n + Number(t.price || 0), 0) } : {}),
                     });
                     const vid = (r.data as any)?.appointment?.id ?? (r.data as any)?.visit?.id;
-                    if (r.success && vid) { createdIds.push(String(vid)); stashWorkflowPick(vid); stashGateCheck(vid); void applyPickedProcedure(vid); }
+                    if (r.success && vid) { createdIds.push(String(vid)); stashWorkflowPick(vid); stashGateCheck(vid); void applyPickedProcedure(vid, m.procedureTemplateId); }
                     else failed.push(m.petId);
                   } catch { failed.push(m.petId); }
                 }

@@ -79,6 +79,11 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
   const [newPrice, setNewPrice] = React.useState('');
 
   const [invoice, setInvoice] = React.useState<Invoice | null>(null);
+  // A split bill produces MORE than one invoice — clinical now, the stay at
+  // discharge — but `forVisit` returns a single one, so the panel showed the
+  // KES 8 clinical split and silently hid the rest (user, 2026-08-04: "when
+  // split invoice show me the invoices").
+  const [allInvoices, setAllInvoices] = React.useState<any[]>([]);
 
   /**
    * PER-ENCOUNTER BILLS (backend 123/125). A visit may hold one bill per
@@ -95,11 +100,18 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
 
   const load = React.useCallback(async () => {
     try {
-      const [b, inv, list] = await Promise.all([
+      const clientId = (visit as any).clientId;
+      const [b, inv, list, invList] = await Promise.all([
         billsAPI.get(visit.id, encounterId),
         invoicesAPI.forVisit(visit.id).catch(() => null),
         billsAPI.listForVisit(visit.id).catch(() => null),
+        clientId ? invoicesAPI.list({ clientId }).catch(() => null) : Promise.resolve(null),
       ]);
+      setAllInvoices(
+        invList?.success
+          ? (invList.data?.invoices ?? []).filter((r: any) => String(r.visitId) === String(visit.id) && r.status !== 'VOID')
+          : [],
+      );
       if (b.success && b.data?.bill) setBill(b.data.bill);
       setInvoice(inv?.success ? (inv.data?.invoice ?? null) : null);
       if (list?.success && list.data?.bills) setBills(list.data.bills);
@@ -306,6 +318,16 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
           Only warn on a locked bill: while it is editable, the panel already
           re-materializes from the visit on every load. */}
       {!editable && (() => {
+        // An ACCRUING stay re-prices its tasks into bill lines (8 days × rate,
+        // meals × price), so the visit's task total and the bill legitimately
+        // differ — this banner read "carries KES 734,008" against a 21,208 bill
+        // on a boarding visit and was simply wrong (user, 2026-08-04). It only
+        // speaks for visits where a task IS its bill line, one for one.
+        const accruing = (visit.tasks || []).some((t: any) =>
+          /board|inpatient|hospital|stay|food/i.test(String(t.category || '') + ' ' + String(t.name || '')));
+        if (accruing || (visit as any).boardingStayId || (visit as any).hospitalizationId) return null;
+        // Nor when the bill was split: each invoice covers part of it by design.
+        if (allInvoices.length > 1 || (invoice?.scope && invoice.scope !== 'FULL')) return null;
         const billTotal = Number(bill.total ?? 0);
         const visitTotal = (visit.tasks || []).reduce((sum: number, t: any) => sum + (Number(t.price) || 0), 0);
         const gap = visitTotal - billTotal;
@@ -495,24 +517,41 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
 
       {/* Invoice — the financial document generated from the approved bill.
           It is never edited: wrong invoice ⇒ void, fix the bill, regenerate. */}
-      {invoice && invoice.status !== 'VOID' && (
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2.5 rounded-xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/60 dark:bg-indigo-950/20">
-          <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Invoice</span>
-          <span className="text-[12px] font-black text-pine dark:text-zinc-100">{invoice.number}</span>
-          <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
-            {money(invoice.total, currency)} · paid {money(invoice.amountPaid, currency)} ·
-            {' '}<strong className={invoice.outstanding > 0 ? 'text-amber-600' : 'text-emerald-600'}>
-              {invoice.outstanding > 0 ? `${money(invoice.outstanding, currency)} outstanding` : 'settled'}
-            </strong>
-          </span>
-          <span className="ml-auto flex items-center gap-1">
-            {invoice.scope && invoice.scope !== 'FULL' && (
-              <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">{invoice.scope === 'CLINICAL' ? 'Clinical split' : invoice.scope === 'GROOMING' ? 'Grooming split' : 'Stay split'}</span>
+      {(() => {
+        // Every non-void invoice on this visit, the primary one first. Falls
+        // back to the single `forVisit` result when the list is unavailable.
+        const rows: any[] = allInvoices.length
+          ? allInvoices
+          : (invoice && invoice.status !== 'VOID' ? [invoice] : []);
+        if (!rows.length) return null;
+        return (
+          <div className="space-y-1.5">
+            {rows.length > 1 && (
+              <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500">
+                {rows.length} invoices on this visit · {money(rows.reduce((n, r) => n + Number(r.total ?? 0), 0), currency)} total
+              </p>
             )}
-            <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{invoice.status}</span>
-          </span>
-        </div>
-      )}
+            {rows.map((iv: any) => (
+              <div key={iv.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2.5 rounded-xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/60 dark:bg-indigo-950/20">
+                <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Invoice</span>
+                <span className="text-[12px] font-black text-pine dark:text-zinc-100">{iv.number}</span>
+                <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                  {money(Number(iv.total ?? 0), currency)} · paid {money(Number(iv.amountPaid ?? 0), currency)} ·
+                  {' '}<strong className={Number(iv.outstanding ?? 0) > 0 ? 'text-amber-600' : 'text-emerald-600'}>
+                    {Number(iv.outstanding ?? 0) > 0 ? `${money(Number(iv.outstanding), currency)} outstanding` : 'settled'}
+                  </strong>
+                </span>
+                <span className="ml-auto flex items-center gap-1">
+                  {iv.scope && iv.scope !== 'FULL' && (
+                    <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">{iv.scope === 'CLINICAL' ? 'Clinical split' : iv.scope === 'GROOMING' ? 'Grooming split' : 'Stay split'}</span>
+                  )}
+                  <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300">{iv.status}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Actions */}
       <div ref={actionsRef} className="flex flex-wrap items-center gap-2">

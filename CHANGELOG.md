@@ -59,6 +59,56 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the un-billed banner cried wolf on boarding stays  —  2026-08-04
+- **What changed:** the *"added afterwards and is not billed"* banner no longer renders on a visit
+  with an **accruing stay** (boarding/inpatient/food) or on a **split** bill.
+- **Why:** an accruing stay re-prices its tasks into bill lines — *8 days × rate*, *meals × price* —
+  so the task total and the bill legitimately differ. The banner read **"carries KES 734,008"**
+  against a **21,208** bill and was simply wrong (user, 2026-08-04). A split bill is the same story:
+  each invoice covers part of it by design. It now speaks only where a task **is** its bill line,
+  one for one.
+- **Record impact:** 🟢 None. **Data dependency:** None.
+- ⚠️ **Watch out:** a wrong money warning is worse than none — people stop reading the right ones.
+
+### feat: a split bill shows ALL its invoices  —  2026-08-04
+- **What changed:** the Bill panel lists **every** non-void invoice on the visit, with a
+  *"2 invoices on this visit · KES … total"* header, instead of the single one `forVisit` returns.
+- **Why:** splitting produces more than one invoice — clinical now, the stay at discharge — and the
+  panel showed the KES 8 clinical split while hiding the rest (user, 2026-08-04).
+- **Record impact:** 🟢 None — read-only. **Data dependency:** None (`/invoices?clientId=`, filtered
+  by visit; falls back to the single fetch).
+
+### feat: "reminders closed" beside the conversion rate  —  2026-08-04
+- **What changed:** the dashboard's *Reminders → visits* block now also reads **"N closed"** —
+  booked, marked done, or dismissed. Backend `summary.service` returns `remindersClosed` per day
+  and in totals.
+- **Why:** conversion answers *did it bring them in*; closed answers *did anyone work it* (user,
+  2026-08-04). A queue at **0% converted but 100% closed** is being worked — the single number
+  called that a failure.
+- **Record impact:** 🟢 None — derived. **Data dependency:** backend `remindersClosed` (same push);
+  **graceful fallback** — renders `0 closed` against an older API.
+
+### ui: checkout/discharge pinned; notes format moved to the bottom  —  2026-08-04
+- **What changed:** (user, 2026-08-04) **Boarding** check-out (with its discharge-weight input) and
+  **inpatient** discharge now live in the pinned `RecordActionBar` at the bottom, like the grooming
+  record page. The **Notes format** toggle moved to the bottom of both pages — deliberately *not*
+  pinned.
+- **Why:** on a long care log the terminal action sat below everything, so ending a stay meant
+  scrolling the whole sheet; and a formatting preference was leading the page above the record.
+- **Record impact:** 🟢 None. **Data dependency:** None.
+- ⚠️ **Watch out:** the finished-stay summary stays inline — it is a fact, not an action.
+
+### feat: pick which animals get a vaccination protocol  —  2026-08-04
+- **What changed:** the protocol (procedure recipe) staged on a **VACCINATION** visit now carries the
+  same **All / per-pet** control staged services have. Group creation applies it only to the animals
+  it was picked for (`groupMembers[].procedureTemplateId`).
+- **Why:** completes the 2026-08-04 ask — *"i can state for each patient or all taking one
+  vaccination"*. Services got per-animal targeting; the protocol did not, so a roster where two of
+  four were due their booster billed the whole protocol to all four.
+- **Record impact:** 🔵 Low — fewer, more accurate applications on group visits.
+- **Data dependency:** None — the same `POST /procedure-templates/:id/apply` per created visit.
+
+
 ### ui: inpatient chart & boarding — one place to log a day, and it is the day itself  —  2026-08-04
 - **What changed:** (S2 → S3, user 2026-08-04)
   - **Inpatient chart:** the *Monitoring (TPR)* inputs, the whole *Add to daily sheet* form and the

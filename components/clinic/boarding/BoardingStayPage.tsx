@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2 } from 'lucide-react';
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
+import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
 import { formatDate, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import ShareWithClinics from '../shared/ShareWithClinics';
@@ -259,7 +260,6 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
 
             {/* Daily log history — same card, divided from the form above. */}
             <div>
-              <NotesFormatToggle className="mb-3" value={stay.displayFormat || 'PARAGRAPH'} onChange={(v) => { boardingAPI.update(stayId, { displayFormat: v } as any).then(() => { load(); onChanged?.(); }); }} />
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Care log — check-in to {stay.actualPickupAt ? 'checkout' : 'today'}</p>
               {/* Per-day reconciliation (user, 2026-08-02): every calendar day of the
                   stay renders; a day with no log shows its blank fields so gaps are
@@ -630,20 +630,13 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
             {/* Billing (finalize · reminder · settle) lives ONLY on the visit
                 workflow — checkout below completes the stay and routes there. */}
 
-            {/* Check out — capture discharge weight for the weight-change record */}
+            {/* Check out moved to the PINNED bar at the bottom (user, 2026-08-04)
+                — on a long care log it sat below everything, so ending a stay
+                meant scrolling the whole sheet. The finished-stay summary stays
+                inline: it is a fact, not an action. */}
+            {!active && (
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
-              {active ? (
-                <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Scale size={15} className="text-slate-400 shrink-0" />
-                    <input type="number" min="0" step="0.1" placeholder={`Discharge weight (kg)${stay.intakeWeight != null ? ` · intake ${stay.intakeWeight}` : ''}`} value={dischargeWeight} onChange={e => setDischargeWeight(e.target.value)}
-                      className="flex-1 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
-                  </div>
-                  <button onClick={() => checkOut(null)} disabled={busy} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
-                    <LogOut size={15} /> Check out
-                  </button>
-                </div>
-              ) : (
+              {(
                 <div className="text-center space-y-1">
                   {stay.actualPickupAt && (() => { const d = Math.max(1, calendarDaysBetween(stay.dropOffAt, stay.actualPickupAt)); return (
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{formatDate(stay.dropOffAt)} → {formatDate(stay.actualPickupAt)} · {d} day{d === 1 ? '' : 's'}</p>
@@ -652,6 +645,15 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 </div>
               )}
             </div>
+            )}
+
+            {/* Notes format sits at the BOTTOM (user, 2026-08-04) — it styles the
+                log you have already read; leading with it put a preference above
+                the record. Deliberately NOT pinned: it is not an action. */}
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Notes format</p>
+              <NotesFormatToggle value={stay.displayFormat || 'PARAGRAPH'} onChange={(v) => { boardingAPI.update(stayId, { displayFormat: v } as any).then(() => { load(); onChanged?.(); }); }} />
+            </div>
           </div>
         </div>
       ) : (
@@ -659,6 +661,25 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
       )}
 
       {/* Check-out requires a follow-up reminder (hard gate). */}
+      {/* PINNED checkout — the stay's one terminal action, always reachable. */}
+      {stay && active && (
+        <>
+          <RecordActionBarSpacer />
+          <RecordActionBar
+            hint={stay.intakeWeight != null ? `Intake ${stay.intakeWeight} kg` : 'Weigh on the way out to record the change'}
+            actions={[{ key: 'checkout', label: busy ? 'Checking out…' : 'Check out', icon: LogOut, onClick: () => checkOut(null), primary: true, disabled: busy }]}
+            slot={(
+              <div className="flex items-center gap-1.5">
+                <Scale size={14} className="text-slate-400 shrink-0" />
+                <input type="number" min="0" step="0.1" placeholder="Discharge weight (kg)" value={dischargeWeight}
+                  onChange={e => setDischargeWeight(e.target.value)}
+                  className="w-40 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+              </div>
+            )}
+          />
+        </>
+      )}
+
       <FinalizeReminderGate
         open={showCheckoutGate}
         petName={stay?.pet?.name ?? 'Patient'}

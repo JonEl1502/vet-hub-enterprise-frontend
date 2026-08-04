@@ -119,8 +119,8 @@ export const summariesAPI = {
     opts: { scopeId: string | number; days?: number; start?: string; end?: string },
     options?: RequestOptions,
   ): Promise<ApiResponse<{
-    days: { date: string; visitsTotal: number; visitsDone: number; bookings: number; bookingsConverted: number; remindersDue: number; remindersConverted: number; crossSell: number }[];
-    totals: { visitsTotal: number; visitsDone: number; bookings: number; bookingsConverted: number; remindersDue: number; remindersConverted: number; crossSell: number };
+    days: { date: string; visitsTotal: number; visitsDone: number; bookings: number; bookingsConverted: number; remindersDue: number; remindersConverted: number; remindersClosed: number; crossSell: number }[];
+    totals: { visitsTotal: number; visitsDone: number; bookings: number; bookingsConverted: number; remindersDue: number; remindersConverted: number; remindersClosed: number; crossSell: number };
     crossSellPairs: Record<string, number>;
     /** What the payload actually covers — echoed back so the UI can label it. */
     window?: { start: string; end: string; days: number; explicit: boolean };

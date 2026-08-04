@@ -87,7 +87,13 @@ export const ConversionPulse: React.FC<{ scopeId: string | number; range?: Pulse
           sub={spanned ? `${data.days.length} days` : `${t.visitsDone} done · ${spanLabel || '7 days'}`}
         />
         <Block label="Appointments → visits" big={<>{t.bookingsConverted}<span className="text-white/40 text-sm"> / {t.bookings}</span></>} sub={`${pct(t.bookingsConverted, t.bookings)} converted`} />
-        <Block label="Reminders → visits" big={<>{t.remindersConverted}<span className="text-white/40 text-sm"> / {t.remindersDue}</span></>} sub={`${pct(t.remindersConverted, t.remindersDue)} converted`} />
+        {/* Two different questions (user, 2026-08-04). CONVERTED = did the
+            reminder bring them in. CLOSED = did anyone work it at all — booked,
+            marked done, or dismissed. A queue reading 0% converted but 100%
+            closed is being worked; the old single number called that a failure. */}
+        <Block label="Reminders → visits"
+          big={<>{t.remindersConverted}<span className="text-white/40 text-sm"> / {t.remindersDue}</span></>}
+          sub={`${pct(t.remindersConverted, t.remindersDue)} converted · ${t.remindersClosed ?? 0} closed`} />
         <Block label="Cross-sell" big={t.crossSell} sub={topPair ? `${topPair[0]} · ${topPair[1]}×` : 'encounters combined'} />
         {/* Patient checkouts (173) — boarding pickups + inpatient discharges with
             an expected release date: today / next 3 days / overdue. */}
