@@ -3,6 +3,7 @@ import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, 
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
+import RecordPageHeader from '../shared/RecordPageHeader';
 import { formatDate, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import ShareWithClinics from '../shared/ShareWithClinics';
@@ -238,31 +239,30 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
           <ArrowLeft size={13} /> Boarding
         </button>
       )}
-      <div>
-        <div className="bg-gradient-to-br from-pine to-pine/90 text-white p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 shadow-xl">
-          <div className="flex items-center gap-3 min-w-0">
-            <Home size={20} className="text-seafoam shrink-0" />
-            <div className="min-w-0">
-              <p className="text-white/60 text-[8px] font-black uppercase tracking-widest">Boarding stay</p>
-              <h2 className="text-lg font-black truncate flex items-center gap-2"><Dog size={16} /> {stay?.pet?.name ?? '…'}</h2>
-              {stay && <p className="text-[10px] text-white/70">{stay.pet?.breed} · {stay.pet?.species} · Owner: {stay.client?.name}</p>}
-            </div>
-          </div>
-          <div className="flex flex-row flex-wrap sm:flex-col items-center sm:items-end gap-1.5 shrink-0">
-            {stay && !active && (
-              <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
-                Checked out{stay.actualPickupAt ? ` ${formatDate(stay.actualPickupAt)}` : ''}
-              </span>
-            )}
-            {/* Billing state of the linked visit — mirrors the Lab page. */}
-            {stay?.billing && (stay.billing.isPaid || ['PENDING_PAYMENT', 'COMPLETED'].includes(String(stay.billing.status))) && (
-              <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
-                {stay.billing.isPaid ? '🔒 Bill settled — locked' : '💰 Billed — awaiting payment'}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* Shared sticky/condensing header (2026-08-04). Not sticky when embedded
+          in the wizard's Boarding step — that shell has its own chrome. */}
+      <RecordPageHeader
+        accent="from-pine to-pine/90"
+        icon={Home}
+        eyebrow="Boarding stay"
+        embedded={embedded}
+        title={<><Dog size={16} /> {stay?.pet?.name ?? '…'}</>}
+        condensedMeta={stay?.kennel ? `· Kennel ${stay.kennel}` : ''}
+        subtitle={stay ? `${stay.pet?.breed} · ${stay.pet?.species} · Owner: ${stay.client?.name}` : undefined}
+        right={<>
+          {stay && !active && (
+            <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
+              Checked out{stay.actualPickupAt ? ` ${formatDate(stay.actualPickupAt)}` : ''}
+            </span>
+          )}
+          {/* Billing state of the linked visit — mirrors the Lab page. */}
+          {stay?.billing && (stay.billing.isPaid || ['PENDING_PAYMENT', 'COMPLETED'].includes(String(stay.billing.status))) && (
+            <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
+              {stay.billing.isPaid ? '🔒 Bill settled — locked' : '💰 Billed — awaiting payment'}
+            </span>
+          )}
+        </>}
+      />
 
       {loading && !stay ? (
         <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-seafoam" /></div>

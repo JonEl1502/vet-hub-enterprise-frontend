@@ -6,6 +6,7 @@ import { useData } from '../../../contexts/DataContext';
 import GroomingPanel from '../appointments/GroomingPanel';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
 import { RecordActionProvider, useRecordActionSlot } from '../shared/RecordActionContext';
+import RecordPageHeader from '../shared/RecordPageHeader';
 import AddCategoryService from '../shared/AddCategoryService';
 import { deriveVisitStatus, STATUS_LABEL, STATUS_STYLE } from '../shared/visitStatus';
 
@@ -58,18 +59,20 @@ const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChang
         <ArrowLeft size={13} /> Grooming
       </button>
 
-      {/* Header banner */}
-      <div className="bg-gradient-to-br from-fuchsia-700 to-pink-600 text-white rounded-2xl p-5 flex flex-wrap items-center gap-4 shadow-lg">
-        <div className="p-3 bg-white/15 rounded-2xl"><Scissors size={24} /></div>
-        <div className="flex-1 min-w-0">
-          <p className="text-white/60 text-[9px] font-black uppercase tracking-widest">Grooming visit</p>
-          <h1 className="text-xl font-black tracking-tight truncate flex items-center gap-2"><Dog size={18} /> {pet?.name ?? appointment.pet?.name ?? 'Patient'}</h1>
-          <p className="text-[11px] text-white/70 truncate">{pet?.breed ? `${pet.breed} · ` : ''}{pet?.species ?? ''}{owner?.name ? ` · Owner: ${owner.name}` : ''}</p>
-        </div>
-        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${STATUS_STYLE[displayStatus]}`}>
-          {STATUS_LABEL[displayStatus]}
-        </span>
-      </div>
+      {/* Header banner — shared sticky/condensing header (2026-08-04). */}
+      <RecordPageHeader
+        accent="from-fuchsia-700 to-pink-600"
+        icon={Scissors}
+        eyebrow="Grooming visit"
+        title={<><Dog size={16} /> {pet?.name ?? appointment.pet?.name ?? 'Patient'}</>}
+        condensedMeta={pet?.species ?? ''}
+        subtitle={`${pet?.breed ? `${pet.breed} · ` : ''}${pet?.species ?? ''}${owner?.name ? ` · Owner: ${owner.name}` : ''}`}
+        right={
+          <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${STATUS_STYLE[displayStatus]}`}>
+            {STATUS_LABEL[displayStatus]}
+          </span>
+        }
+      />
 
       {/* One column (user, 2026-08-03), matching the boarding stay: the report
           card gets the full width and the controls run under it. */}

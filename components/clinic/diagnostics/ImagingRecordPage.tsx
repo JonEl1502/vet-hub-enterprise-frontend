@@ -1,3 +1,4 @@
+import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, ScanLine, Dog, Building2, Loader2, Save, Upload, X } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -179,7 +180,12 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
       <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all">
         <ArrowLeft size={13} /> Imaging
       </button>
-      <div className="bg-gradient-to-br from-sky-700 to-cyan-600 text-white rounded-2xl p-5 flex flex-wrap items-center gap-4 shadow-lg">
+      {/* STICKY patient header (2026-08-04) — identity must not scroll away.
+          Wrapped rather than swapped for <RecordPageHeader/>: these two carry a
+          richer title (species inline) and an external-source line the shared
+          props do not express. Same offsets and z as the shared one. */}
+      <div className="sticky top-16 z-30 -mx-1 px-1 py-1 bg-slate-50/80 dark:bg-zinc-950/80 backdrop-blur">
+      <div className="bg-gradient-to-br from-sky-700 to-cyan-600 text-white rounded-2xl p-3 sm:p-4 flex flex-wrap items-center gap-3 shadow-lg">
         <div className="p-3 bg-white/15 rounded-2xl"><ScanLine size={24} /></div>
         <div className="flex-1 min-w-0">
           <p className="text-white/60 text-[9px] font-black uppercase tracking-widest">Imaging study</p>
@@ -197,6 +203,7 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
             </span>
           )}
         </div>
+      </div>
       </div>
 
       {/* Sibling tabs — every imaging study on the SAME visit */}
@@ -217,7 +224,7 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         <div className="lg:col-span-8 space-y-4">
           {/* Images — upload lives HERE: the study is requested first, the
               radiographer attaches images when it's done. */}
@@ -277,7 +284,11 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
         </div>
 
         {/* Side rail */}
-        <div className="lg:col-span-4 space-y-4">
+        {/* STICKY rail (2026-08-04) — actions + metadata you reach for while
+            reading the body. STICKY_RAIL carries the load-bearing bits:
+            self-start (a stretched grid child cannot stick) and its own
+            overflow (a long rail would otherwise run past the viewport). */}
+        <div className={`lg:col-span-4 space-y-4 ${STICKY_RAIL}`}>
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-4 shadow-sm sticky top-4">
             {partnerJob && (
               <button onClick={completeAndSend} disabled={sendingJob}

@@ -158,7 +158,13 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
         <ArrowLeft size={13} /> Surgery
       </button>
       <div>
-        <div className="bg-gradient-to-br from-rose-700 to-rose-800 text-white p-4 sm:p-5 rounded-2xl flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 shadow-xl">
+        {/* STICKY header (2026-08-04) — identity must not scroll away.
+            Wrapped rather than swapped for <RecordPageHeader/>: this page's
+            title is the SERVICE performed, with the patient on the sub-line,
+            so the shared component's title/subtitle split doesn't map. Same
+            top-16 / z-30 offsets so it behaves identically. */}
+        <div className="sticky top-16 z-30 -mx-1 px-1 py-1 bg-slate-50/80 dark:bg-zinc-950/80 backdrop-blur">
+        <div className="bg-gradient-to-br from-rose-700 to-rose-800 text-white p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 shadow-xl">
           <div className="min-w-0">
             <p className="text-white/60 text-[8px] font-black uppercase tracking-widest">Surgery record</p>
             <h2 className="text-lg font-black truncate flex items-center gap-2"><Slice size={16} /> {rec?.serviceName ?? '…'}</h2>
@@ -177,6 +183,7 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
               </span>
             )}
           </div>
+        </div>
         </div>
       </div>
 

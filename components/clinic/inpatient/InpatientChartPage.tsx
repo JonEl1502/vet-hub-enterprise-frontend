@@ -1,3 +1,4 @@
+import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2 } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
@@ -260,17 +261,6 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   const active = h?.status === 'ADMITTED';
   const billOutstanding = !!h?.billing && !h.billing.isPaid && (h.billing.totalCost ?? 0) > 0;
 
-  // Condense the sticky header once the page has moved. 48px rather than 0 so
-  // a trackpad's one-pixel jitter at the top doesn't flip it back and forth.
-  const [condensed, setCondensed] = useState(false);
-  useEffect(() => {
-    if (embedded) return;
-    const onScroll = () => setCondensed(window.scrollY > 48);
-    onScroll();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => window.removeEventListener('scroll', onScroll);
-  }, [embedded]);
-
   return (
     <div className={`space-y-5 animate-in fade-in duration-300 ${embedded ? '' : 'pb-20'}`}>
       {/* Header — Lab-style back link + pine banner (link hidden when the
@@ -291,40 +281,32 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
           `top-16` clears the fixed 4rem navbar; z stays below its z-[60].
           NOT sticky when embedded in the wizard — the wizard owns its own
           chrome and a second pinned header would stack. */}
-      <div className={embedded ? '' : 'sticky top-16 z-30 -mx-1 px-1 py-1 bg-slate-50/80 dark:bg-zinc-950/80 backdrop-blur'}>
-        <div className={`bg-gradient-to-br from-pine to-pine/90 text-white rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 shadow-lg transition-all duration-200 ${condensed ? 'px-3 py-1.5' : 'px-4 py-2.5'}`}>
-          <div className="flex items-center gap-3 min-w-0">
-            <Stethoscope size={condensed ? 16 : 20} className="text-seafoam shrink-0 transition-all" />
-            <div className="min-w-0">
-              {/* The eyebrow and the diagnosis line are the first things to go —
-                  identity (name · cage · id) is what has to survive. */}
-              {!condensed && <p className="text-white/60 text-[8px] font-black uppercase tracking-widest">Inpatient chart</p>}
-              <h2 className={`font-black truncate flex items-center gap-2 transition-all ${condensed ? 'text-sm' : 'text-lg'}`}>
-                <Dog size={condensed ? 14 : 16} /> {h?.pet?.name ?? '…'}
-                {condensed && h && <span className="text-[10px] font-bold text-white/70 truncate">{h.cage ? `· Cage ${h.cage}` : ''} {h.inpatientNo || ''}</span>}
-              </h2>
-              {!condensed && h && <p className="text-[10px] text-white/70">{h.cage ? `Cage ${h.cage} · ` : ''}{h.inpatientNo || ''} · {h.diagnosis || 'No diagnosis'}</p>}
-            </div>
-          </div>
-          <div className="flex flex-row flex-wrap items-center sm:justify-end gap-1.5 shrink-0">
-            {h && !active && (
-              <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
-                Discharged {h.dischargedAt ? formatDate(h.dischargedAt) : ''}{h.outcome ? ` · ${h.outcome}` : ''}
-              </span>
-            )}
-            {/* RELEASE moved OUT of here into the rail (user, 2026-08-04): an
-                editable datetime field in a pinned header is awkward to hit and
-                leaked the browser's `dd/mm/yyyy, --:--` placeholder into what
-                is meant to be a title bar. It reads as a labelled control now. */}
-            {/* Billing state of the linked visit — mirrors the Lab page. */}
-            {h?.billing && (h.billing.isPaid || ['PENDING_PAYMENT', 'COMPLETED'].includes(String(h.billing.status))) && (
-              <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
-                {h.billing.isPaid ? '🔒 Bill settled — locked' : '💰 Billed — awaiting payment'}
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
+      {/* This page is where the sticky/condensing header was designed; it now
+          uses the SHARED component so there is one implementation rather than
+          two that drift. RELEASE is deliberately NOT here — it moved into the
+          rail as a labelled control (user, 2026-08-04). */}
+      <RecordPageHeader
+        accent="from-pine to-pine/90"
+        icon={Stethoscope}
+        eyebrow="Inpatient chart"
+        embedded={embedded}
+        title={<><Dog size={16} /> {h?.pet?.name ?? '…'}</>}
+        condensedMeta={h ? `${h.cage ? `· Cage ${h.cage}` : ''} ${h.inpatientNo || ''}` : ''}
+        subtitle={h ? `${h.cage ? `Cage ${h.cage} · ` : ''}${h.inpatientNo || ''} · ${h.diagnosis || 'No diagnosis'}` : undefined}
+        right={<>
+          {h && !active && (
+            <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
+              Discharged {h.dischargedAt ? formatDate(h.dischargedAt) : ''}{h.outcome ? ` · ${h.outcome}` : ''}
+            </span>
+          )}
+          {/* Billing state of the linked visit — mirrors the Lab page. */}
+          {h?.billing && (h.billing.isPaid || ['PENDING_PAYMENT', 'COMPLETED'].includes(String(h.billing.status))) && (
+            <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
+              {h.billing.isPaid ? '🔒 Bill settled — locked' : '💰 Billed — awaiting payment'}
+            </span>
+          )}
+        </>}
+      />
 
       {loading && !h ? (
         <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
@@ -571,7 +553,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
               a long treatment plan would otherwise push the bottom of the rail
               (and Complexity) past the viewport with no way to reach it.
               lg only: on one column a sticky rail would cover the sheet. */}
-          <div className="space-y-4 lg:sticky lg:top-[8.5rem] lg:self-start lg:max-h-[calc(100vh-10rem)] lg:overflow-y-auto lg:pr-1">
+          <div className={`space-y-4 ${STICKY_RAIL}`}>
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
               {h.admissionNotes && <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-3 text-xs text-slate-600 dark:text-zinc-300"><span className="font-black uppercase text-[9px] tracking-widest text-slate-400 mr-1.5">Admission</span>{h.admissionNotes}</div>}
 

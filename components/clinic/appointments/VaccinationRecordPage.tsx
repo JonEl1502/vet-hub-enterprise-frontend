@@ -1,3 +1,4 @@
+import RecordPageHeader from '../shared/RecordPageHeader';
 import React, { useEffect, useRef, useState, useMemo} from 'react';
 import SpeciesWarning from '../../shared/common/SpeciesWarning';
 import { ArrowLeft, CalendarPlus, ChevronRight, Download, PackageCheck, Plus, Search, ShieldCheck, Syringe, Trash2 } from 'lucide-react';
@@ -358,22 +359,26 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
       </button>
 
       {/* Header banner */}
-      <div className="bg-gradient-to-br from-emerald-700 to-teal-600 text-white rounded-2xl p-5 flex flex-wrap items-center gap-4 shadow-lg">
-        <div className="p-3 bg-white/15 rounded-2xl"><Syringe size={24} /></div>
-        <div className="flex-1 min-w-0">
-          <p className="text-white/60 text-[9px] font-black uppercase tracking-widest">Vaccination visit</p>
-          <h1 className="text-xl font-black tracking-tight truncate">{pet?.name ?? 'Patient'}</h1>
-          <p className="text-[11px] text-white/70 truncate">{pet?.breed ? `${pet.breed} · ` : ''}{pet?.species ?? ''}{client?.name ? ` · Owner: ${client.name}` : ''}</p>
-        </div>
-        <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-white/15">
-          {records.length} record{records.length !== 1 ? 's' : ''}
-        </span>
-        {onOpenAppointment && (
-          <button onClick={() => onOpenAppointment(String(appointment.id))} className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all active:scale-95">
-            Open visit workflow
-          </button>
-        )}
-      </div>
+      {/* Shared sticky/condensing header (2026-08-04). */}
+      <RecordPageHeader
+        accent="from-emerald-700 to-teal-600"
+        icon={Syringe}
+        eyebrow="Vaccination visit"
+        title={pet?.name ?? 'Patient'}
+        condensedMeta={pet?.species ?? ''}
+        subtitle={`${pet?.breed ? `${pet.breed} · ` : ''}${pet?.species ?? ''}${client?.name ? ` · Owner: ${client.name}` : ''}`}
+        right={<>
+          <span className="px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-white/15">
+            {records.length} record{records.length !== 1 ? 's' : ''}
+          </span>
+          {onOpenAppointment && (
+            <button onClick={() => onOpenAppointment(String(appointment.id))} className="px-3 py-1.5 bg-white/15 hover:bg-white/25 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all active:scale-95">
+              Open visit workflow
+            </button>
+          )}
+        </>}
+      />
+      
 
       {/* Sibling tabs — one per vaccine on this visit (lab-page pattern). */}
       {records.length > 1 && (
