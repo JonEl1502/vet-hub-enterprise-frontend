@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { vaccinePackagesAPI, VaccinePackage, PackagePricingMode, PackagePayload } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import { useAuth } from '../../../contexts/AuthContext';
+import { modulePerms } from '../../../constants/modulePermissions';
 
 type DraftItem = { inventoryItemId: string; quantity: number; name: string; price: number };
 interface Draft {
@@ -18,6 +20,9 @@ interface Draft {
 const empty: Draft = { name: '', description: '', pricingMode: 'ITEMIZED', batchCostPrice: '', batchSellPrice: '', discount: '', items: [] };
 
 const VaccinePackagesView: React.FC = () => {
+  // Grouped page permissions (user, 2026-08-04) — mirrored on the API.
+  const { user } = useAuth();
+  const pkg = modulePerms(user, 'packages');
   const { inventory } = useData();
   const [packages, setPackages] = useState<VaccinePackage[]>([]);
   const [loading, setLoading] = useState(true);
@@ -103,7 +108,7 @@ const VaccinePackagesView: React.FC = () => {
             <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">{packages.length} package{packages.length === 1 ? '' : 's'} · bundle vaccines & set pricing</p>
           </div>
         </div>
-        {!editing && <button onClick={startNew} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New package</button>}
+        {!editing && pkg.create && <button onClick={startNew} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New package</button>}
       </div>
 
       {editing ? (
@@ -201,8 +206,8 @@ const VaccinePackagesView: React.FC = () => {
                   <p className="text-[10px] text-slate-400">{p.pricingMode === 'BATCH' ? 'Batch price' : 'Sum of items'} · {p.items.length} item{p.items.length === 1 ? '' : 's'}</p>
                 </div>
                 <div className="flex gap-1 shrink-0">
-                  <button onClick={() => startEdit(p)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-seafoam"><Pencil size={13} /></button>
-                  <button onClick={() => remove(p)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 size={13} /></button>
+                  {pkg.edit && <button onClick={() => startEdit(p)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-seafoam"><Pencil size={13} /></button>}
+                  {pkg.delete && <button onClick={() => remove(p)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 size={13} /></button>}
                 </div>
               </div>
               <p className="text-[11px] text-slate-500 dark:text-zinc-400 mb-2 line-clamp-1">{p.items.map(i => `${i.name}${i.quantity > 1 ? ` ×${i.quantity}` : ''}`).join(', ')}</p>

@@ -4,6 +4,8 @@ import toast from 'react-hot-toast';
 import { procedureTemplatesAPI, ProcedureTemplate, dialog } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import BrandMark from '../../shared/common/BrandMark';
+import { useAuth } from '../../../contexts/AuthContext';
+import { modulePerms } from '../../../constants/modulePermissions';
 
 interface Props {
   currency?: string;
@@ -26,6 +28,10 @@ const TYPE_META: Record<string, { label: string; icon: React.ReactNode }> = {
  * to a visit.
  */
 const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => {
+  // Grouped page permissions (user, 2026-08-04) — the server enforces the same
+  // grants, so a hidden button is the courtesy, not the boundary.
+  const { user } = useAuth();
+  const perms = modulePerms(user, 'procedures');
   // "New procedure" used to jump straight to a blank editor, so the Spay
   // example was only reachable from the empty state — i.e. exactly once, and
   // never again once a clinic had its first recipe. Both starting points are
@@ -103,7 +109,9 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
             <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">{templates.length} recipe{templates.length === 1 ? '' : 's'} · fees + products + diagnostics + pricing rules in one template</p>
           </div>
         </div>
-        <button onClick={() => setShowStart(true)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New procedure</button>
+        {perms.create && (
+          <button onClick={() => setShowStart(true)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New procedure</button>
+        )}
       </div>
 
       <div className="relative max-w-sm">
@@ -172,10 +180,14 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
                     <p className="text-base font-black text-pine dark:text-zinc-100">{currency} {t.estimatedTotal.toLocaleString()}</p>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <button onClick={(e) => { e.stopPropagation(); onOpenEditor(t.id); }} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-pine" title="Edit"><Pencil size={14} /></button>
-                    <button onClick={() => remove(t)} disabled={busyId === t.id} className="p-2 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50" title="Delete">
-                      {busyId === t.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                    </button>
+                    {perms.edit && (
+                      <button onClick={(e) => { e.stopPropagation(); onOpenEditor(t.id); }} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-pine" title="Edit"><Pencil size={14} /></button>
+                    )}
+                    {perms.delete && (
+                      <button onClick={() => remove(t)} disabled={busyId === t.id} className="p-2 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50" title="Delete">
+                        {busyId === t.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                      </button>
+                    )}
                   </div>
                 </div>
               </div>

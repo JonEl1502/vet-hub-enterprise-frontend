@@ -16,6 +16,8 @@ import StockTransfersPanel from './StockTransfersPanel';
 import StockTakePanel from './StockTakePanel';
 import { useData } from '../../../contexts/DataContext';
 import { defaultItemFees } from '../shared/serviceCharges';
+import { modulePerms } from '../../../constants/modulePermissions';
+import { useAuth } from '../../../contexts/AuthContext';
 
 
 interface InventoryViewProps {
@@ -82,6 +84,11 @@ const FEE_DEFS: { key: 'feeService' | 'feeAdmin' | 'feeInjection' | 'feePrescrip
 ];
 
 const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, refreshInventory }) => {
+  // Grouped page permissions (user, 2026-08-04). `stock` is deliberately its
+  // own action: receiving a delivery is the front-line job, editing the item
+  // record is not the same thing. The API enforces the same grants.
+  const { user: currentUser } = useAuth();
+  const prodPerms = modulePerms(currentUser, 'products');
   const { searchDrugs, drugCategories } = useReferenceData();
   const { isLoadingInventory, updateInventoryOptimistically } = useData();
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
@@ -768,12 +775,14 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
           </select>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            <button
-              onClick={openAddModal}
-              className="shrink-0 compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
-            >
-              <Plus size={14} className="inline mr-1" /> Add Item
-            </button>
+            {prodPerms.create && (
+              <button
+                onClick={openAddModal}
+                className="shrink-0 compact-button bg-gradient-to-r from-pine to-seafoam text-white shadow-lg shadow-pine/30 hover:shadow-xl hover:shadow-pine/40 transition-all active:scale-95 px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
+              >
+                <Plus size={14} className="inline mr-1" /> Add Item
+              </button>
+            )}
             <button
               onClick={async () => {
                 setIsRefreshing(true);
@@ -820,13 +829,13 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                             <div className="fixed inset-0 z-10" onClick={() => setMenuItemId(null)} />
                             <div className="absolute right-0 top-6 z-20 w-40 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl py-1">
                               {[
-                                { label: 'View details', icon: Eye, on: () => setViewItem(item) },
-                                { label: 'Update', icon: Edit, on: () => startEdit(item) },
-                                { label: 'Set price', icon: Tag, on: () => { setPricingItem(item); setPriceMode('profit'); setProfitPct(''); setDirectSalePrice(String(item.price || '')); } },
-                                { label: 'Receive stock', icon: Plus, on: () => openRestock(item) },
-                                { label: 'Adjust stock', icon: SlidersHorizontal, on: () => { setAdjustItem(item); setAdjustDelta(''); setAdjustReason(''); } },
-                                { label: 'Batch history', icon: History, on: () => setSelectedItemForDetails(item) },
-                              ].map(a => (
+                                { label: 'View details', icon: Eye, on: () => setViewItem(item), show: true },
+                                { label: 'Update', icon: Edit, on: () => startEdit(item), show: prodPerms.edit },
+                                { label: 'Set price', icon: Tag, on: () => { setPricingItem(item); setPriceMode('profit'); setProfitPct(''); setDirectSalePrice(String(item.price || '')); }, show: prodPerms.edit },
+                                { label: 'Receive stock', icon: Plus, on: () => openRestock(item), show: prodPerms.stock },
+                                { label: 'Adjust stock', icon: SlidersHorizontal, on: () => { setAdjustItem(item); setAdjustDelta(''); setAdjustReason(''); }, show: prodPerms.stock },
+                                { label: 'Batch history', icon: History, on: () => setSelectedItemForDetails(item), show: true },
+                              ].filter(a => a.show).map(a => (
                                 <button key={a.label} onClick={() => { setMenuItemId(null); a.on(); }}
                                   className="w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] font-bold text-pine dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800">
                                   <a.icon size={12} className="text-slate-400 shrink-0" /> {a.label}
@@ -897,8 +906,12 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 <ChevronLeft size={14} /> Back to inventory
               </button>
               <div className="flex items-center gap-2">
-                <button onClick={() => { const i = it; setViewItem(null); openRestock(i); }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-emerald-600 transition-all"><Plus size={12} /> Receive stock</button>
-                <button onClick={() => { const i = it; setViewItem(null); startEdit(i); }} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 transition-all"><Edit size={12} /> Update</button>
+                {prodPerms.stock && (
+                  <button onClick={() => { const i = it; setViewItem(null); openRestock(i); }} className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-emerald-600 transition-all"><Plus size={12} /> Receive stock</button>
+                )}
+                {prodPerms.edit && (
+                  <button onClick={() => { const i = it; setViewItem(null); startEdit(i); }} className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 transition-all"><Edit size={12} /> Update</button>
+                )}
               </div>
             </div>
 

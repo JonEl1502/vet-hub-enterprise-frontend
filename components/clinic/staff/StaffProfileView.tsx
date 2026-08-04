@@ -1,6 +1,6 @@
 
 import React, { useState, useMemo } from 'react';
-import { User, UserRole, Clinic, Visit, ApptTask, TaskStatus, ActivityLog } from '../../../types';
+import { User, UserRole, Clinic, Visit, ApptTask, TaskStatus, ActivityLog, FULL_ACCESS_ROLES } from '../../../types';
 import { ShieldCheck, Mail, Calendar, Hash, BadgeCheck, GraduationCap, ArrowLeft, History, BarChart3, ClipboardList, Clock, CheckCircle2, Activity, User as UserIcon, Save, Stethoscope, CalendarCheck, PackageCheck, AlertCircle, CreditCard } from 'lucide-react';
 import { usersAPI } from '../../../services/modules/users.api';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -8,6 +8,7 @@ import { toast, dialog } from '../../../services';
 import StaffCategoryAccess from './StaffCategoryAccess';
 import { ALL_PERMISSIONS, ROLE_DEFAULT_PERMISSIONS } from '../../../constants/permissions';
 import { ASSIGNABLE_ROLE_GROUPS, ROLE_META, roleLabel } from '../../../constants/roles';
+import ModulePermissionsEditor from './ModulePermissionsEditor';
 
 interface Props {
   staff: User;
@@ -228,12 +229,23 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
           )}
         </div>
 
+        {/* Grouped page permissions — access the page + create/edit/delete,
+            named the way the sidebar names it (user, 2026-08-04). Covers the
+            Inventory & Billables group; everything else still uses the flat
+            catalog below until it is migrated. */}
+        <ModulePermissionsEditor
+          role={selectedRole}
+          value={customPermissions}
+          onChange={setCustomPermissions}
+          fullAccess={FULL_ACCESS_ROLES.includes(selectedRole)}
+        />
+
         {/* Permissions Grid */}
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3 mb-4">
             <div className="flex items-center gap-3">
               <BadgeCheck className="text-seafoam shrink-0" size={18}/>
-              <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Permissions</h3>
+              <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Other permissions</h3>
             </div>
             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
               {effectivePermissions.length} / {ALL_PERMISSIONS.length}

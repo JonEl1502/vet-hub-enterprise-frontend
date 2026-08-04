@@ -59,6 +59,41 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: grouped page permissions — "access page + create/edit/delete", the way the sidebar reads  —  2026-08-04
+- **What changed:** (user) one permission vocabulary replacing two that never met. New
+  `constants/modulePermissions.ts`: a grant is `module:action` — `procedures:view` (access
+  the page) plus `create` / `edit` / `delete`, and `products:stock` for receiving and moving
+  stock. Covers the **Inventory & Billables** group: Products · Services · Procedures ·
+  Billables · Visit Workflows · Packages.
+  Three rules hold it together: `:view` **is** the page grant (no second token list); any
+  action grant **implies** `:view`; role presets are written in the same vocabulary.
+- **Why it was needed:** `PAGE_ACCESS_ITEMS` (5 coarse `VIEW_*` tokens) was the only thing
+  `App.canAccess` and the sidebar read, while `ALL_PERMISSIONS` (34 granular ids) had
+  **3 call sites in the entire app** — so most of the staff permissions editor was a dead
+  switch, and every page in this group returned `true` from `canAccess` regardless.
+- **Where it bites:** `App.canAccess` + the sidebar now gate these views on `<module>:view`
+  (a revoked page leaves the nav instead of sitting there and hitting "Access Restricted"),
+  and the pages hide the actions you don't hold: Products (Add Item, Update, Set price,
+  Receive/Adjust stock), Services (Add Service, add category), Procedures (New, edit,
+  delete), Workflows (New, customise/fork, deactivate — on top of the plan gate), Packages
+  and Service Bundles (New, edit, delete).
+- **New editor:** `components/clinic/staff/ModulePermissionsEditor.tsx` on the staff
+  Permissions tab — one row per page, one chip per action, four states: **from role**
+  (seafoam) · **granted** (indigo) · **taken away** (rose) · off. Clicking a role-default
+  chip DENIES it, stored as `-products:create`; the old editor silently refused to untick
+  role defaults (its own comment: *"we need to track removed permissions differently"*).
+  The flat catalog stays below as "Other permissions" for groups not yet migrated.
+- **Record impact:** 🟢 None — reads/writes `users.customPermissions`, which already exists.
+- **Data dependency:** backend `src/middleware/modulePermission.ts` must be deployed **with
+  this** — it enforces the same grant ids on the API. FE-only would leave writes open;
+  BE-only would show buttons that 403.
+- **Rollback:** revert both commits together.
+- ⚠️ **Watch out:** the role presets are duplicated in the backend middleware on purpose
+  (`requireRole` expands STAFF to every job designation, so it cannot express these rules).
+  Change one copy, change the other. Presets are **generous on view, strict on writes** — no
+  clinic user loses a page, but procedures / packages / bundles / stock takes / transfers,
+  which had no gate at all, become vet/pharmacy/owner work.
+
 ### page: the owner's dashboard first tab now uses the role-dashboard arrangement, with more stats  —  2026-08-04
 - **What changed:** (user) full-access roles (owner / manager / admin) open the Dashboard's
   **Clinic Today** tab onto the same layout every other role already gets — *today's work in

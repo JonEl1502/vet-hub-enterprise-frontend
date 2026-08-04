@@ -14,6 +14,7 @@ import {
 import AudienceSwitcher from './AudienceSwitcher';
 import ClinicSearchDropdown from './ClinicSearchDropdown';
 import { ROLE_DASHBOARD_ROLES } from '../../../clinic/dashboard/roles/RoleDashboard';
+import { canOpenView } from '../../../../constants/modulePermissions';
 import SupplierSearchDropdown from './SupplierSearchDropdown';
 import { useClinic } from '../../../../contexts/ClinicContext';
 import { staffScopeAPI, resolveCategoryMenuId, CATEGORY_GATED_MENU_IDS } from '../../../../services';
@@ -333,11 +334,16 @@ const SectionBlock: React.FC<SectionBlockProps> = ({
   // categories they aren't assigned to. Core pages (clients/patients/visits/…) stay.
   const inScope = (id: string) =>
     !scopedModuleIds || section.id !== 'clinic' || !CATEGORY_GATED_MENU_IDS.has(id) || scopedModuleIds.has(id);
+  // Grouped module permissions (user, 2026-08-04): `<module>:view` is the page
+  // grant, so a page the owner revoked leaves the nav instead of sitting there
+  // and hitting App's "Access Restricted" panel on click. Unknown ids are not
+  // ours to gate — canOpenView returns true for them.
+  const moduleOk = (id: string) => canOpenView({ role, customPermissions }, id);
   const visible = sectionItems
     .filter(i => hasPerm(i.requiredPerm))
     .filter(i => inScope(i.id))
-    .map(i => (i.subItems?.length ? { ...i, subItems: i.subItems.filter(s => planOk(s.id)) } : i))
-    .filter(i => (i.subItems ? i.subItems.length > 0 : planOk(i.id)));
+    .map(i => (i.subItems?.length ? { ...i, subItems: i.subItems.filter(s => planOk(s.id) && moduleOk(s.id)) } : i))
+    .filter(i => (i.subItems ? i.subItems.length > 0 : planOk(i.id) && moduleOk(i.id)));
   if (visible.length === 0) return null;
 
   // Section header — only shown in "All" mode. Always an icon-only chip when

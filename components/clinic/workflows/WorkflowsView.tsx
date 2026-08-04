@@ -8,6 +8,8 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import UpgradeGate from '../../shared/common/UpgradeGate';
 import UpgradeForkDialog from './UpgradeForkDialog';
 import { usePlanAccess } from '../../../contexts/PlanAccessContext';
+import { modulePerms } from '../../../constants/modulePermissions';
+import { useAuth } from '../../../contexts/AuthContext';
 
 /**
  * Visit workflows — the clinic's list of clinical form layouts.
@@ -43,7 +45,14 @@ const WorkflowsView: React.FC<Props> = ({ onOpenBuilder }) => {
   // ungated — the shipped presets ARE the built-in flow, so a clinic below Pro
   // still sees them here and still consults normally.
   const { can } = usePlanAccess();
-  const canBuild = can('capability:workflow-builder');
+  // Plan tier says the clinic MAY build workflows; the module grant says this
+  // PERSON may (user, 2026-08-04). Both have to hold.
+  const { user } = useAuth();
+  const wf = modulePerms(user, 'workflows');
+  const planCanBuild = can('capability:workflow-builder');
+  const canBuild = planCanBuild && wf.edit;
+  const canCreate = planCanBuild && wf.create;
+  const canDelete = planCanBuild && wf.delete;
   const canShare = can('capability:workflow-share');
   const [mine, setMine] = useState<WorkflowTemplate[]>([]);
   const [shared, setShared] = useState<WorkflowTemplate[]>([]);
@@ -177,7 +186,7 @@ const WorkflowsView: React.FC<Props> = ({ onOpenBuilder }) => {
                     {t.visibility === 'SHARED' ? <Globe2 size={13} /> : <Share2 size={13} />}
                   </button>
                 )}
-                {canBuild && (
+                {canDelete && (
                   <button onClick={() => deactivate(t)} title="Deactivate" className="p-1.5 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-500/10">
                     <Trash2 size={13} />
                   </button>
@@ -188,7 +197,7 @@ const WorkflowsView: React.FC<Props> = ({ onOpenBuilder }) => {
                 <button onClick={() => onOpenBuilder(t.id)} title="View" className="p-1.5 rounded-lg text-slate-400 hover:text-pine">
                   <Lock size={13} />
                 </button>
-                {canBuild && (
+                {canCreate && (
                   <button
                     onClick={() => fork(t)}
                     title="Copy into your clinic and edit"
@@ -230,6 +239,8 @@ const WorkflowsView: React.FC<Props> = ({ onOpenBuilder }) => {
           </div>
           <UpgradeGate feature="capability:workflow-builder" variant="inline">
             <button
+              disabled={!wf.create}
+              title={wf.create ? undefined : 'You do not have permission to create workflows'}
               onClick={() => onOpenBuilder(null)}
               className="flex items-center gap-1.5 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20"
             >

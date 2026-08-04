@@ -147,6 +147,9 @@ import GlobalAIAssistant from './components/shared/ai/GlobalAIAssistant';
 // commented-out day agenda on the dashboard's first tab (user, 2026-08-04).
 import ClinicTodayView from './components/clinic/dashboard/ClinicTodayView';
 import OwnerDashboard from './components/clinic/dashboard/roles/OwnerDashboard';
+// Grouped module permissions — "access page + create/edit/delete", named the
+// way the sidebar names the page (user, 2026-08-04).
+import { VIEW_TO_MODULE, canOpenView } from './constants/modulePermissions';
 import LoadingSpinner from './components/shared/common/LoadingSpinner';
 import TourOverlay from './components/shared/common/tours/TourOverlay';
 import TourMenu from './components/shared/common/tours/TourMenu';
@@ -2206,8 +2209,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     // with a bespoke role dashboard, which is their own workspace.
     if (view === 'dashboard') return hasPerm(Permission.VIEW_DASHBOARD) || ROLE_DASHBOARD_ROLES.has(String(role));
 
-    // Inventory — open to all clinic staff
-    if (['inventory', 'purchase-orders', 'purchase-order-detail', 'purchase-order-form', 'vaccine-packages', 'procedures', 'procedure-editor', 'workflows', 'workflow-builder', 'clinic-billables', 'packages', 'services-catalog', 'bills'].includes(view))
+    // Inventory & Billables — grouped module permissions (user, 2026-08-04).
+    // `<module>:view` IS the page grant; every role preset still grants view on
+    // all six, so this only bites once an owner takes one away. Procurement
+    // pages (purchase orders) stay open until that group is migrated too.
+    if (VIEW_TO_MODULE[view]) return canOpenView(user, view);
+    if (['purchase-orders', 'purchase-order-detail', 'purchase-order-form'].includes(view))
       return true;
 
     // Finance group

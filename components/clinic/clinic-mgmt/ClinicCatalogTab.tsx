@@ -9,6 +9,8 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import AddServiceModal from '../shared/AddServiceModal';
 import ServiceBundlesView from '../inventory/ServiceBundlesView';
 import QtyUnitControl, { sellUnitOf, costPerSellUnit } from '../shared/QtyUnitControl';
+import { modulePerms } from '../../../constants/modulePermissions';
+import { useAuth } from '../../../contexts/AuthContext';
 
 const SCOPES: { value: 'ALL' | 'GENERAL' | 'CUSTOM'; label: string; hint: string }[] = [
   { value: 'ALL', label: 'All', hint: 'General + custom' },
@@ -23,6 +25,9 @@ const SCOPES: { value: 'ALL' | 'GENERAL' | 'CUSTOM'; label: string; hint: string
  * "Save All" button.
  */
 const ClinicCatalogTab: React.FC = () => {
+  // Grouped page permissions (user, 2026-08-04) — the Services module.
+  const { user } = useAuth();
+  const svc = modulePerms(user, 'services');
   const { selectedClinics, updateClinic } = useClinic();
   const { inventory } = useData();
   const clinic = selectedClinics[0] ?? null;
@@ -235,7 +240,7 @@ const ClinicCatalogTab: React.FC = () => {
             ))}
             {categories.length === 0 && <span className="text-[11px] text-slate-400">No categories yet.</span>}
           </div>
-          <div className="flex items-center gap-2 mt-3 max-w-sm">
+          <div className={`flex items-center gap-2 mt-3 max-w-sm ${svc.create ? '' : 'hidden'}`}>
             <input value={newCat} onChange={e => setNewCat(e.target.value)} onKeyDown={e => { if (e.key === 'Enter') addCategory(); }} placeholder="Add a custom category…"
               className="flex-1 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
             <button onClick={addCategory} disabled={addingCat || !newCat.trim()} className="flex items-center gap-1.5 px-3 py-2 bg-pine text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
@@ -266,13 +271,15 @@ const ClinicCatalogTab: React.FC = () => {
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Reload
             </button>
-            <button
-              type="button"
-              onClick={() => setShowAddService(true)}
-              className="compact-button bg-seafoam hover:bg-seafoam/90 text-white shadow-lg active:scale-95 transition-all flex items-center gap-1.5"
-            >
-              <Plus size={12} /> Add Service
-            </button>
+            {svc.create && (
+              <button
+                type="button"
+                onClick={() => setShowAddService(true)}
+                className="compact-button bg-seafoam hover:bg-seafoam/90 text-white shadow-lg active:scale-95 transition-all flex items-center gap-1.5"
+              >
+                <Plus size={12} /> Add Service
+              </button>
+            )}
           </div>
         </div>
 
