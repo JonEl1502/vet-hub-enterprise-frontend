@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the visit settle gets its payment-posted screen  —  2026-08-04
+- **What changed:** (user) the payment-posted panel and the settlement/allocation trail
+  shipped earlier only on the client and patient **Financials** tabs. The **visit** settle
+  — where staff actually are when they take money — only toasted. It now shows a
+  confirmation: amount, receipt number, **outstanding after**, the per-visit allocation
+  when one payment covered several, and a button straight to the receipt (or the
+  reconciliation slip on a part payment). Green when it cleared, amber when a balance
+  remains.
+- **Record impact:** 🟢 None — reports what already happened.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** on a FULL settle the visit path goes through `onProcessPayment`, which
+  returns nothing, so the panel reports the visit total with no receipt number and no
+  allocation rows. A PART payment goes through `collect` and carries all three. Making the
+  full path return its receipt is a backend change in the revenue-cycle lane.
+
 ### fix: visit-card menu follows the chain; richer pet card  —  2026-08-04
 - **What changed:** (user: "menu is old old"; "improve card ui")
   ① the client profile's visit-card menu offered **Process Payment** and **Invoice** on

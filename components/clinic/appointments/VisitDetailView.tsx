@@ -1042,6 +1042,18 @@ const VisitDetailInner: React.FC<Props> = ({
    * is exactly the trail the user wants to be able to follow.
    */
   const [settleAmountPaid, setSettleAmountPaid] = useState<string>('');
+  /**
+   * What the settle actually did, kept on screen after the modal closes. The
+   * visit flow only ever toasted, so the person who just took money had no
+   * confirmation of WHERE it went (user, 2026-08-04) — the client/patient
+   * Financials tabs have had this panel; the visit is where staff actually are.
+   */
+  const [settleResult, setSettleResult] = useState<null | {
+    amount: number;
+    outstandingAfter: number;
+    receiptNumber?: string | null;
+    allocations?: { visitId: string; amountApplied: number; outstandingAfter: number }[];
+  }>(null);
   const [clientDiscounts, setClientDiscounts] = useState<ClientDiscount[]>([]);
   const [selectedClientDiscount, setSelectedClientDiscount] = useState<ClientDiscount | null>(null);
   const [settleWallets, setSettleWallets] = useState<WalletData[]>([]);
@@ -2607,10 +2619,13 @@ const VisitDetailInner: React.FC<Props> = ({
           ...(discountType && discountValue ? { discountType, discountValue } : {}),
         });
         if (res.success) {
-          const left = res.data?.allocations?.[0]?.outstandingAfter;
-          toast.success(left != null && left > 0.005
-            ? `${activeClinic.currency} ${amountPaid.toLocaleString()} received — ${activeClinic.currency} ${Number(left).toLocaleString()} still outstanding on this visit`
-            : 'Bill settled successfully.');
+          const left = Number(res.data?.allocations?.[0]?.outstandingAfter ?? 0);
+          setSettleResult({
+            amount: amountPaid,
+            outstandingAfter: left,
+            receiptNumber: res.data?.receipt?.receiptNumber ?? null,
+            allocations: res.data?.allocations ?? [],
+          });
           await onRefreshDashboard?.();
         }
       } catch (error: any) {
@@ -2643,7 +2658,11 @@ const VisitDetailInner: React.FC<Props> = ({
       // refresh races the write and overwrites the optimistic state with
       // stale "still pending" data, forcing the user to click Settle again.
       await onProcessPayment(appointment.id, paymentMethod, discountType, discountValue, walletId ?? null);
-      toast.success('Bill settled successfully.');
+      setSettleResult({
+        amount: Number(appointment.totalCost || 0),
+        outstandingAfter: 0,
+        receiptNumber: null,
+      });
       await onRefreshDashboard?.();
     } catch (error: any) {
       toast.error(error?.message || 'Failed to settle bill');
@@ -6910,6 +6929,73 @@ const VisitDetailInner: React.FC<Props> = ({
           </div>
         );
       })()}
+
+      {/* ── Payment posted — what the settle actually did ── */}
+      {settleResult && createPortal(
+        <div className="fixed inset-0 bg-pine/95 dark:bg-black/95 backdrop-blur-sm z-[850] flex items-center justify-center p-4 animate-in fade-in"
+          onClick={() => setSettleResult(null)}>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+            onClick={e => e.stopPropagation()}>
+            <div className={`px-6 py-5 text-center ${settleResult.outstandingAfter > 0.005 ? 'bg-amber-500' : 'bg-emerald-600'}`}>
+              <CheckCircle2 size={28} className="mx-auto text-white mb-1.5" />
+              <p className="text-[9px] font-black text-white/70 uppercase tracking-[0.2em]">
+                {settleResult.outstandingAfter > 0.005 ? 'Part payment received' : 'Payment posted'}
+              </p>
+              <p className="text-2xl font-black text-white font-mono leading-tight">
+                {activeClinic.currency} {settleResult.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </p>
+            </div>
+
+            <div className="p-5 space-y-3">
+              {settleResult.receiptNumber && (
+                <div className="flex items-center justify-between">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Receipt</span>
+                  <span className="text-[11px] font-black text-pine dark:text-zinc-100">{settleResult.receiptNumber}</span>
+                </div>
+              )}
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Outstanding after</span>
+                <span className={`text-[13px] font-black font-mono ${settleResult.outstandingAfter > 0.005 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                  {activeClinic.currency} {settleResult.outstandingAfter.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              {/* Where the money landed, when the server told us. */}
+              {(settleResult.allocations?.length ?? 0) > 1 && (
+                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 divide-y divide-slate-100 dark:divide-zinc-800">
+                  {settleResult.allocations!.map(al => (
+                    <div key={al.visitId} className="flex items-center justify-between px-3 py-1.5">
+                      <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300">Visit #{al.visitId}</span>
+                      <span className="text-[10px] font-black font-mono text-pine dark:text-zinc-100">
+                        {activeClinic.currency} {Number(al.amountApplied).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {settleResult.outstandingAfter > 0.005 && (
+                <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 leading-relaxed">
+                  The balance stays on this visit and on the client&apos;s account — a part payment issues a
+                  reconciliation slip, not a receipt.
+                </p>
+              )}
+
+              <div className="flex gap-2 pt-1">
+                <button onClick={() => { setSettleResult(null); setActiveBottomTab('receipt'); }}
+                  className="flex-1 py-2.5 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">
+                  {settleResult.outstandingAfter > 0.005 ? 'View reconciliation' : 'View receipt'}
+                </button>
+                <button onClick={() => setSettleResult(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:border-seafoam hover:text-seafoam transition-all">
+                  Done
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
 
       {/* Settle Bill Modal — portalled to body so the backdrop escapes any
           ancestor with a transform/filter and truly covers the viewport. */}
