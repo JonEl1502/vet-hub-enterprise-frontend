@@ -23,6 +23,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import ClientAccountHub, { ClientStatementTab, preferredMethod, AccountStatCards, AccountFilterBar, useAccountFilters } from '../clients/ClientAccountHub';
 import ClientPaymentsTab from '../clients/ClientPaymentsTab';
 import ClientBillsTab from '../clients/ClientBillsTab';
+import CreditTopUpModal from '../clients/CreditTopUpModal';
 import type { ClientBilling } from '../../../services/modules/clients.api';
 
 /**
@@ -94,6 +95,7 @@ const PetProfileView: React.FC<Props> = ({
   // Financials sub-views — the same five the client profile has.
   const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'bills' | 'invoices' | 'payments' | 'receipts' | 'credits' | 'refunds' | 'statements' | 'discounts'>('overview');
   const [accountFilters, setAccountFilters] = useAccountFilters();
+  const [topUpOpen, setTopUpOpen] = useState(false);
   // Records sub-tabs: all visits · clinical records · vaccinations ·
   // deworming · grooming · boarding · inpatient.
   // A deep-linked visit (initialVisitId) lands on Clinical Records with that
@@ -1432,10 +1434,13 @@ const PetProfileView: React.FC<Props> = ({
                         <p className="text-[7px] font-black uppercase tracking-widest text-rose-400 mt-0.5">Click to settle</p>
                       )}
                     </button>
-                    <div className="px-4 py-3 text-center">
+                    <button type="button" onClick={() => owner && setTopUpOpen(true)} disabled={!owner}
+                      title={owner ? `Top up ${owner.name}'s payment account` : undefined}
+                      className="px-4 py-3 text-center transition-all hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20 active:scale-[0.98] disabled:opacity-60">
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Owner Credit</p>
                       <p className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{money2(creditBalance)}</p>
-                    </div>
+                      {owner && <p className="text-[7px] font-black uppercase tracking-widest text-emerald-500 mt-0.5">Click to top up</p>}
+                    </button>
                     <div className="px-4 py-3 text-center flex flex-col items-center justify-between">
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Patient Status</p>
                       <span className={`inline-flex px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ${
@@ -1827,6 +1832,7 @@ const PetProfileView: React.FC<Props> = ({
                   currency={currency}
                   petId={pet.id}
                   onSettle={() => setFinanceSubTab('invoices')}
+                  onTopUp={() => setTopUpOpen(true)}
                 />
                 <div className="flex flex-wrap items-center gap-1.5">
                   {[
@@ -2083,6 +2089,18 @@ const PetProfileView: React.FC<Props> = ({
       )}
 
       {/* Vaccine Passport Modal */}
+      {owner && (
+        <CreditTopUpModal
+          open={topUpOpen}
+          clientId={owner.id}
+          clientName={owner.name}
+          currency={currency}
+          currentCredit={creditBalance}
+          onClose={() => setTopUpOpen(false)}
+          onDone={loadBilling}
+        />
+      )}
+
       {showPassport && (
         <VaccinePassportModal
           pet={pet}

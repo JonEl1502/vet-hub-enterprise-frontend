@@ -31,6 +31,7 @@ import RemindersApptsTab from '../shared/RemindersApptsTab';
 import ClientPaymentsTab from './ClientPaymentsTab';
 import PetAvatar from '../shared/PetAvatar';
 import ClientBillsTab from './ClientBillsTab';
+import CreditTopUpModal from './CreditTopUpModal';
 import { AccountStatCards, AccountFilterBar, useAccountFilters } from './ClientAccountHub';
 import ClientAccountHub, { ClientStatementTab, ClientFilesTab, preferredMethod, isSettled } from './ClientAccountHub';
 import { ClientBilling } from '../../../services/modules/clients.api';
@@ -68,6 +69,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const [activeTab, setActiveTab] = useState(initialTab);
   // Timeline filters live here so the bar can sit above the cards and tabs.
   const [accountFilters, setAccountFilters] = useAccountFilters();
+  const [topUpOpen, setTopUpOpen] = useState(false);
   // "Collect payment" deep-links here with the visits list pre-filtered to unpaid.
   const [unpaidOnly, setUnpaidOnly] = useState(appointmentsUnpaidOnly);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
@@ -1016,10 +1018,13 @@ const renderOverview = () => (
                         <p className="text-[7px] font-black uppercase tracking-widest text-rose-400 mt-0.5">Click to settle</p>
                       )}
                     </button>
-                    <div className="px-4 py-3 text-center">
+                    <button type="button" onClick={() => setTopUpOpen(true)}
+                      title="Top up this client's payment account"
+                      className="px-4 py-3 text-center transition-all hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20 active:scale-[0.98]">
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Available Credit</p>
                       <p className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{money2(creditBalance)}</p>
-                    </div>
+                      <p className="text-[7px] font-black uppercase tracking-widest text-emerald-500 mt-0.5">Click to top up</p>
+                    </button>
                     <div className="px-4 py-3 text-center flex flex-col items-center justify-between">
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Client Status</p>
                       <span className={`inline-flex px-2.5 py-1 rounded-md text-[8px] font-black uppercase tracking-widest ${
@@ -1440,6 +1445,7 @@ const renderOverview = () => (
               credit={creditBalance}
               currency={client.currency || 'KES'}
               onSettle={() => setActiveTab('invoices')}
+              onTopUp={() => setTopUpOpen(true)}
             />
             <div className="flex flex-wrap items-center gap-1.5">
               {FINANCE_TABS.map(t => (
@@ -1919,6 +1925,16 @@ const renderOverview = () => (
           </div>
         </div>
       )}
+
+      <CreditTopUpModal
+        open={topUpOpen}
+        clientId={client.id}
+        clientName={client.name}
+        currency={client.currency || 'KES'}
+        currentCredit={creditBalance}
+        onClose={() => setTopUpOpen(false)}
+        onDone={loadBilling}
+      />
 
       {/* Payment Modal */}
       {showPaymentModal && selectedApptId && onProcessPayment && (

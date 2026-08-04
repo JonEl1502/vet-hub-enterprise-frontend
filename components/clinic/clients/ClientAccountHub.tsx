@@ -816,7 +816,9 @@ export const AccountStatCards: React.FC<{
   petId?: string | number;
   /** Clicking Current Balance goes to the invoices you can actually settle. */
   onSettle?: () => void;
-}> = ({ client, billing, credit, currency, petId, onSettle }) => {
+  /** Clicking Credit available opens the top-up modal. */
+  onTopUp?: () => void;
+}> = ({ client, billing, credit, currency, petId, onSettle, onTopUp }) => {
   const petKey = petId != null ? String(petId) : null;
   const invoices = (billing?.invoices ?? []).filter(i => !petKey || String(i.pet?.id ?? '') === petKey);
   const appliedByPayment = new Map<string, number>();
@@ -853,6 +855,8 @@ export const AccountStatCards: React.FC<{
       value: money(credit, currency), valueCls: 'text-pine dark:text-zinc-100',
       sub: petKey ? `On ${client.name}'s account`
         : client.maxDebt != null ? `Credit Limit: ${money(client.maxDebt, currency)}` : 'No credit limit set',
+      onClick: onTopUp,
+      cta: 'top up',
     },
     { label: 'Total Billed', icon: FileText, chip: 'bg-indigo-500/10 text-indigo-500',
       value: money(billed12, currency), valueCls: 'text-pine dark:text-zinc-100', sub: 'Last 12 months' },
@@ -874,14 +878,14 @@ export const AccountStatCards: React.FC<{
           <Tag key={card.label} onClick={card.onClick}
             title={card.onClick ? 'Settle the outstanding invoices' : undefined}
             className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 flex items-start gap-3 text-left w-full ${
-              card.onClick ? 'cursor-pointer hover:border-rose-400 hover:shadow-md transition-all active:scale-[0.99]' : ''
+              card.onClick ? 'cursor-pointer hover:border-seafoam hover:shadow-md transition-all active:scale-[0.99]' : ''
             }`}>
             <div className={`p-2.5 rounded-xl shrink-0 ${card.chip}`}><card.icon size={16} /></div>
             <div className="min-w-0">
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{card.label}</p>
               <p className={`text-base font-black font-mono leading-tight truncate ${card.valueCls}`}>{card.value}</p>
               <p className="text-[9px] font-bold text-slate-400 mt-0.5">
-                {card.sub}{card.onClick ? ' · click to settle' : ''}
+                {card.sub}{card.onClick ? ` · click to ${(card as any).cta ?? 'settle'}` : ''}
               </p>
             </div>
           </Tag>

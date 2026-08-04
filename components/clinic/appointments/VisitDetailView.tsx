@@ -61,7 +61,7 @@ import VisitWizard from './wizard/VisitWizard';
 import { useVisitWizard } from './wizard/useVisitWizard';
 import { STEP_DEFS } from './wizard/entryPoints';
 import { JourneyDrawer } from './wizard/JourneyTimeline';
-import MedicalReport from './MedicalReport';
+import MedicalReport, { ReportSignOff } from './MedicalReport';
 import SwapServiceDialog from './SwapServiceDialog';
 import AttendingStaffEditor from './AttendingStaffEditor';
 import PatientRail from './PatientRail';
@@ -5004,6 +5004,7 @@ const VisitDetailInner: React.FC<Props> = ({
                            dewormingRecords={dewormingRecords}
                            templateStages={wiz.template?.stages || []}
                            templateFields={wiz.templateFields}
+                           hideSignature
                          />
                        </div>
                      </div>
@@ -5303,6 +5304,19 @@ const VisitDetailInner: React.FC<Props> = ({
                             )}
                           </div>
                         </div>
+                     </div>
+                   )}
+                   {/* ONE sign-off, below every section of the report (user,
+                       2026-08-04). It used to sit inside MedicalReport, with the
+                       Diagnostic Record printing underneath it — a signature
+                       above later content claims more than it should. */}
+                   {activeBottomTab === 'report' && (
+                     <div className="border border-slate-200 dark:border-zinc-800 rounded-xl bg-white dark:bg-zinc-900">
+                       <ReportSignOff
+                         staffName={appointment.leadStaff?.name}
+                         date={formatDate(appointment.date)}
+                         clinicName={activeClinic.name}
+                       />
                      </div>
                    )}
                    {activeBottomTab === 'medications' && (
