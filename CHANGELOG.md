@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: patient identity card is shorter, actions sit on the right  —  2026-08-04
+- **What changed:** (user, 2026-08-04) **Message owner** / **Book visit** moved to the right end
+  of the owner row instead of taking a line of their own. Card padding, the avatar
+  (`w-32` → `w-28`) and the inter-row gaps all tightened.
+- **Record impact:** 🟢 None — layout only.
+- **Data dependency:** None.
+- ⚠️ **Watch out:** the two buttons stay **grouped** (`ml-auto` on the pair, not on each) so they
+  wrap together — split them and Book visit drops to its own line the moment an owner name runs
+  long, which is the row this change removed.
+
+
 ### fix: Settle did nothing on an invoiced-then-reopened visit  —  2026-08-04
 - **What changed:** the per-row **Settle** button on Financials → Invoices now respects
   `inv.collectable` — the server's own "this visit is finalized" signal. When it is false the

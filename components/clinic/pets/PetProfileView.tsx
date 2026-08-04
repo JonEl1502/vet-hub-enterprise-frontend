@@ -1275,8 +1275,8 @@ const PetProfileView: React.FC<Props> = ({
           shape as the client profile (user, 2026-08-03), with the patient's
           own menu and its money on the right. */}
       <header className="space-y-4">
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm p-4 sm:p-6">
-          <div className="flex flex-col xl:flex-row xl:items-start gap-5 xl:gap-8">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm p-4 sm:p-5">
+          <div className="flex flex-col xl:flex-row xl:items-start gap-4 xl:gap-6">
             <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
               <button onClick={onBack} className="w-10 h-10 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-full flex items-center justify-center text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-sm active:scale-95 shrink-0 mt-1.5">
                 <ArrowLeft size={17}/>
@@ -1292,7 +1292,7 @@ const PetProfileView: React.FC<Props> = ({
                   onClick={() => avatarInputRef.current?.click()}
                   disabled={avatarBusy}
                   title={avatarBusy ? 'Uploading…' : 'Change photo'}
-                  className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-full border-2 border-white dark:border-zinc-950 shadow-lg aspect-square overflow-hidden group disabled:opacity-60"
+                  className="relative w-20 h-20 sm:w-28 sm:h-28 rounded-full border-2 border-white dark:border-zinc-950 shadow-lg aspect-square overflow-hidden group disabled:opacity-60"
                 >
                   <PetAvatar pet={{ ...pet, avatarUrl: avatarUrl ?? (pet as any).avatarUrl } as any} size={128} rounded="rounded-none" className="w-full h-full" />
                   <span className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/50">
@@ -1348,20 +1348,20 @@ const PetProfileView: React.FC<Props> = ({
                     </span>
                   )}
                 </div>
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1.5 text-[11px] font-bold text-slate-500 dark:text-zinc-400">
                   {pet.breed && <span className="inline-flex items-center gap-1.5 min-w-0 truncate"><Tag size={11} className="text-slate-400 shrink-0" /> {pet.breed}</span>}
                   {pet.gender && <span className="inline-flex items-center gap-1.5"><Heart size={11} className="text-slate-400 shrink-0" /> {pet.gender}{pet.isNeutered ? ' · Neutered' : ''}</span>}
                   {pet.age != null && <span className="inline-flex items-center gap-1.5"><Clock size={11} className="text-slate-400 shrink-0" /> {pet.age}</span>}
                   {pet.weight && <span className="inline-flex items-center gap-1.5"><Activity size={11} className="text-slate-400 shrink-0" /> {pet.weight}</span>}
                   {pet.rfidChipNumber && <span className="inline-flex items-center gap-1.5 min-w-0 truncate"><Cpu size={11} className="text-slate-400 shrink-0" /> <span className="truncate">{pet.rfidChipNumber}</span></span>}
                 </div>
-                <p className="mt-1.5 text-[10px] font-bold text-slate-400 dark:text-zinc-500">
+                <p className="mt-1 text-[10px] font-bold text-slate-400 dark:text-zinc-500">
                   Last Visit: {lastVisit ? formatDate(lastVisit.date) : '—'}
                   <span className="mx-2 text-slate-200 dark:text-zinc-700">|</span>
                   ID: PT-{String(pet.id).padStart(5, '0')}
                 </p>
                 {/* Owner row — the patient's account is the owner's account. */}
-                <div className="flex flex-wrap items-center gap-2 mt-3">
+                <div className="flex flex-wrap items-center gap-2 mt-2.5">
                   {owner ? (
                     <>
                       <button
@@ -1378,10 +1378,12 @@ const PetProfileView: React.FC<Props> = ({
                           <Phone size={11} /> {owner.phone}
                         </span>
                       )}
-                      {/* The two actions travel together — grouped so they wrap
-                          as a pair instead of Book visit dropping to its own
-                          line the moment the name or phone runs long. */}
-                      <div className="flex items-center gap-2">
+                      {/* The two actions sit at the RIGHT end of the owner row
+                          (user, 2026-08-04) — they used to take a line of their
+                          own, which is a whole row of card height for two
+                          buttons. Still grouped, so they wrap as a pair rather
+                          than Book visit dropping alone when the name runs long. */}
+                      <div className="flex items-center gap-2 sm:ml-auto">
                         <button
                           onClick={() => onOpenMessaging(owner)}
                           className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam text-seafoam hover:bg-seafoam hover:text-white transition-all active:scale-95 whitespace-nowrap"
