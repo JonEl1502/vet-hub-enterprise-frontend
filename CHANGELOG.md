@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: receipts open the REAL document; full settle returns its receipt  —  2026-08-04
+- **What changed:** (user: "open actual recept"; "make the full settle return its receipt too")
+  ① expanding a receipt now renders `ReconciliationDocument` — the same document the visit
+  and client profile print — with clinic name, patient, client, **line items**, final
+  amount, paid, balance and payment received, plus **Print** and **Open visit**. It was a
+  three-row summary before. Line items come from `/visits/:id/invoice`, deliberately NOT
+  the bill: reading a bill materializes a draft as a side effect, and the invoice is what
+  the receipt is against anyway. A pre-157 receipt (issued per payment, no single visit)
+  says so instead of rendering a document it cannot have.
+  ② **the full settle now reports its receipt.** I said yesterday this needed a backend
+  change — it did not. `visitsAPI.processPayment` has always returned the transaction and
+  receipt; `handleProcessPayment` in `App.tsx` read the receipt number, applied it
+  optimistically, and then returned `void`, so the caller could never see it. It now
+  returns `{ transactionId, receiptNumber, amount }` and the visit's payment-posted screen
+  shows the real receipt number and amount on a full settle, as it already did on a part
+  payment.
+- **Record impact:** 🟢 None — both read what the server already sends.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### feat: the visit settle gets its payment-posted screen  —  2026-08-04
 - **What changed:** (user) the payment-posted panel and the settlement/allocation trail
   shipped earlier only on the client and patient **Financials** tabs. The **visit** settle

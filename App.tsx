@@ -963,6 +963,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           transactionId: txn?.id != null ? String(txn.id) : null,
           receiptNumber: rcpt?.receiptNumber ?? null,
         }));
+        // Hand the receipt back so the caller can SHOW it. The server has always
+        // returned it; this function simply swallowed it, which is why the
+        // visit's payment-posted screen had no receipt number on a full settle
+        // (user, 2026-08-04).
+        return { transactionId: txn?.id != null ? String(txn.id) : null, receiptNumber: rcpt?.receiptNumber ?? null, amount: txn?.amount != null ? Number(txn.amount) : undefined };
       }
     } catch (error) {
       console.error('Failed to process payment:', error);

@@ -91,7 +91,9 @@ interface Props {
   onBack: () => void;
   onUpdateApptStatus: (id: number, status: ApptStatus, diagnosis: string, silent?: boolean) => void;
   onInjectTask: (apptId: number, task: ApptTask) => void;
-  onProcessPayment: (apptId: number, method: string, discountType?: string, discountValue?: number, walletId?: string | null) => Promise<void> | void;
+  /** Resolves with the server's receipt so the caller can show it. */
+  onProcessPayment: (apptId: number, method: string, discountType?: string, discountValue?: number, walletId?: string | null)
+    => Promise<{ transactionId?: string | null; receiptNumber?: string | null; amount?: number } | void> | void;
   onScheduleFollowup: (parentAppt: Visit) => void;
   // opts.settle jumps to the target visit AND auto-opens its Settle modal —
   // group visits settle each animal individually from the group panel.
@@ -2657,11 +2659,13 @@ const VisitDetailInner: React.FC<Props> = ({
       // applies the optimistic isPaid=true. Without await, the dashboard
       // refresh races the write and overwrites the optimistic state with
       // stale "still pending" data, forcing the user to click Settle again.
-      await onProcessPayment(appointment.id, paymentMethod, discountType, discountValue, walletId ?? null);
+      const done = await onProcessPayment(appointment.id, paymentMethod, discountType, discountValue, walletId ?? null);
+      // The prop may resolve to void (older call sites), so narrow before reading.
+      const posted = (done && typeof done === 'object') ? done : undefined;
       setSettleResult({
-        amount: Number(appointment.totalCost || 0),
+        amount: Number(posted?.amount ?? appointment.totalCost ?? 0),
         outstandingAfter: 0,
-        receiptNumber: null,
+        receiptNumber: posted?.receiptNumber ?? null,
       });
       await onRefreshDashboard?.();
     } catch (error: any) {

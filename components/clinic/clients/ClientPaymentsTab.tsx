@@ -11,6 +11,8 @@ import { ClientBilling } from '../../../services/modules/clients.api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { isSettled } from './ClientAccountHub';
 import RevenueStatusChip from '../shared/RevenueStatusChip';
+import ReconciliationDocument from '../receipts/ReconciliationDocument';
+import { useClinic } from '../../../contexts/ClinicContext';
 
 /**
  * Client → Payments tab (backend migration 097).
@@ -76,6 +78,14 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   // Receipts open in place too (user, 2026-08-04) — a receipt row that only
   // shows a number and a total is not the document anyone is looking for.
   const [expandedReceipt, setExpandedReceipt] = React.useState<string | null>(null);
+  /**
+   * Line items for the open receipt, from the INVOICE (`/visits/:id/invoice`)
+   * rather than the bill — reading the bill materializes a draft as a side
+   * effect, and the invoice is the document the receipt is against anyway.
+   */
+  const [receiptLines, setReceiptLines] = React.useState<{ id: string; name: string; amount: number | null }[]>([]);
+  const { selectedClinics } = useClinic();
+  const clinicName = selectedClinics[0]?.name ?? '';
   const [expandedDoc, setExpandedDoc] = React.useState<any | null>(null);
   const [docLoading, setDocLoading] = React.useState(false);
   const toggleExpand = (inv: any) => {
@@ -140,6 +150,25 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
    * the counters and the overdue badge read (user, 2026-08-04).
    */
   const [invoiceDocs, setInvoiceDocs] = React.useState<InvoiceRow[]>([]);
+
+  React.useEffect(() => {
+    const r = receipts.find(x => String(x.id) === String(expandedReceipt));
+    if (!expandedReceipt || !r?.visitId) { setReceiptLines([]); return; }
+    let alive = true;
+    invoicesAPI.forVisit(r.visitId, { silent: true } as any)
+      .then(res => {
+        if (!alive) return;
+        const lines = res?.data?.invoice?.lines ?? [];
+        setReceiptLines(lines.map((l: any) => ({
+          id: String(l.id),
+          name: `${l.name}${Number(l.quantity) > 1 ? ` ×${l.quantity}` : ''}`,
+          amount: Number(l.lineTotal ?? 0),
+        })));
+      })
+      .catch(() => setReceiptLines([]));
+    return () => { alive = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expandedReceipt]);
 
   const load = React.useCallback(async () => {
     setLoading(true);
@@ -1120,60 +1149,46 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
 
             {open && (
               <div className="border-t border-slate-100 dark:border-zinc-800 p-3 sm:p-4 space-y-3 bg-slate-50/40 dark:bg-zinc-950/30">
-                <div className="flex flex-wrap items-baseline justify-between gap-2">
-                  <div className="min-w-0">
-                    <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Receipt {r.receiptNumber}</p>
-                    <p className="text-[10px] font-bold text-slate-400">
-                      {fmt(r.createdAt)} · {r.paymentMethod.replace('_', ' ')}
-                      {rVisit?.pet ? ` · ${rVisit.pet.name}` : ''}
-                    </p>
-                  </div>
-                  {r.voided && (
-                    <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">
-                      {r.voidReason ? `Un-issued · ${r.voidReason}` : 'Voided'}
-                    </span>
-                  )}
-                </div>
-
-                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 divide-y divide-slate-100 dark:divide-zinc-800">
-                  {[
-                    { l: 'Subtotal', v: money(r.subtotal, currency) },
-                    ...(r.discount > 0 ? [{ l: 'Discount', v: `− ${money(r.discount, currency)}` }] : []),
-                    { l: 'Final amount', v: money(r.total, currency), strong: true },
-                    ...(r.amountPaid != null ? [{ l: 'Paid', v: money(r.amountPaid, currency) }] : []),
-                    ...((r.balance ?? 0) > 0.005 ? [{ l: 'Balance', v: money(r.balance!, currency), warn: true }] : []),
-                  ].map((row: any) => (
-                    <div key={row.l} className="flex items-center justify-between px-3 py-2">
-                      <span className={`text-[10px] font-black uppercase tracking-widest ${row.warn ? 'text-amber-600' : 'text-slate-400'}`}>{row.l}</span>
-                      <span className={`font-mono ${row.strong ? 'text-sm font-black text-pine dark:text-zinc-100' : row.warn ? 'text-xs font-black text-amber-600' : 'text-xs font-bold text-slate-600 dark:text-zinc-300'}`}>{row.v}</span>
-                    </div>
-                  ))}
-                </div>
-
-                {/* What this receipt is FOR, and the money that produced it. */}
-                <div className="flex flex-wrap gap-x-6 gap-y-2">
-                  <div>
-                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Receipt for</p>
-                    {r.visitId ? (
-                      <button type="button" onClick={() => onViewVisit?.(Number(r.visitId))} disabled={!onViewVisit}
-                        className="text-[11px] font-black text-seafoam hover:underline disabled:text-pine disabled:no-underline dark:disabled:text-zinc-100">
-                        Visit #{r.visitId}{rVisit?.pet ? ` · ${rVisit.pet.name}` : ''}
+                {/* The REAL receipt document (user, 2026-08-04: "open actual
+                    recept") — the same component the visit and client profile
+                    print, rather than a summary of three totals. It resolves
+                    its own reconciliation state, so a part-paid bill correctly
+                    renders as a slip instead of claiming to be a receipt. */}
+                {r.visitId ? (
+                  <>
+                    <ReconciliationDocument
+                      domId={`receipt-doc-${r.id}`}
+                      visitId={r.visitId}
+                      clinicName={clinicName}
+                      sourceCurrency={currency}
+                      targetCurrency={currency}
+                      visitRef={String(r.visitId)}
+                      visitDate={fmt(r.createdAt)}
+                      patient={rVisit?.pet ? { name: rVisit.pet.name, species: rVisit.pet.species } : null}
+                      lines={receiptLines}
+                    />
+                    <div className="flex flex-wrap gap-2">
+                      <button type="button"
+                        onClick={() => printElementAsPdf(`receipt-doc-${r.id}`, `Receipt ${r.receiptNumber}`, false)}
+                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
+                        <FileText size={13} /> Print
                       </button>
-                    ) : (
-                      <p className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">
-                        {r.coveredVisitIds.length > 1 ? `${r.coveredVisitIds.length} invoices (issued per payment)` : '—'}
-                      </p>
-                    )}
-                  </div>
-                  {rPayments.map(p => (
-                    <div key={p.id}>
-                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Payment</p>
-                      <p className="text-[11px] font-bold text-slate-600 dark:text-zinc-300">
-                        {money(p.amount, currency)} · {String(p.method).replace(/_/g, ' ')} · {fmt(p.settledAt || p.createdAt)}
-                      </p>
+                      {onViewVisit && (
+                        <button type="button" onClick={() => onViewVisit(Number(r.visitId))}
+                          className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam transition-all">
+                          Open visit
+                        </button>
+                      )}
                     </div>
-                  ))}
-                </div>
+                  </>
+                ) : (
+                  // Pre-157 receipts were issued per PAYMENT, so there is no one
+                  // visit to render a document for.
+                  <p className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+                    Issued per payment{r.coveredVisitIds.length > 1 ? ` across ${r.coveredVisitIds.length} invoices` : ''} —
+                    this receipt predates per-visit receipts, so it has no single document.
+                  </p>
+                )}
               </div>
             )}
             </div>
