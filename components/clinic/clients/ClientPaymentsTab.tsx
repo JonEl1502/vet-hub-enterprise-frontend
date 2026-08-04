@@ -2,9 +2,9 @@ import React from 'react';
 import toast from 'react-hot-toast';
 import {
   Receipt, FileText, CreditCard, Loader2, CheckCircle2, Ban, AlertTriangle, Link2, Trash2,
-  Search, X, Wallet,
+  Search, X, Wallet, Tag,
 } from 'lucide-react';
-import { clientsAPI, transactionsAPI, invoicesAPI, dialog } from '../../../services';
+import { clientsAPI, transactionsAPI, invoicesAPI, dialog, clientDiscountsAPI } from '../../../services';
 import type { InvoiceRow } from '../../../services/modules/invoices.api';
 import { printElementAsPdf } from '../shared/printPdf';
 import { ClientBilling } from '../../../services/modules/clients.api';
@@ -125,6 +125,14 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   // on the transaction's metadata so a repeated code cannot fail the payment.
   const [reference, setReference] = React.useState('');
   /**
+   * Active discounts on this client. The collect flow could ALWAYS send a
+   * discount, but nothing told the front desk one existed — so a client with a
+   * standing 8% was charged full price unless someone remembered (user,
+   * 2026-08-04). Applying one fills `discountType`/`discountValue`.
+   */
+  const [activeDiscounts, setActiveDiscounts] = React.useState<any[]>([]);
+  const [appliedDiscount, setAppliedDiscount] = React.useState<any | null>(null);
+  /**
    * What the collection actually did — kept on screen instead of a toast that
    * vanishes (user, 2026-08-04). Read straight from the server's response, so
    * it reports the allocation that HAPPENED, not the one the UI predicted.
@@ -181,6 +189,9 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
         clientsAPI.credit(clientId).catch(() => null),
         invoicesAPI.list({ clientId }, { silent: true } as any).catch(() => null),
       ]);
+      clientDiscountsAPI.getActive(Number(clientId))
+        .then(r => setActiveDiscounts(r?.data?.discounts ?? []))
+        .catch(() => setActiveDiscounts([]));
       if (res.success && res.data) setData(res.data);
       if (cr?.success && cr.data) setCredit(Number(cr.data.balance) || 0);
       if (iv?.success && iv.data?.invoices) setInvoiceDocs(iv.data.invoices);
@@ -358,6 +369,9 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
         ...(tendered.trim() !== '' ? { amountTendered: tenderedNum } : {}),
         ...(applyCredit && creditDraw > 0 ? { useCredit: true } : {}),
         ...(reference.trim() ? { reference: reference.trim() } : {}),
+        ...(appliedDiscount
+          ? { discountType: appliedDiscount.discountType, discountValue: Number(appliedDiscount.value) }
+          : {}),
         ...(allocMode === 'MANUAL' && isShort
           ? { allocations: [...selected].map(id => ({ visitId: id, amount: round2(Number(manual[id]) || 0) })).filter(a => a.amount > 0) }
           // A non-default order is expressed as explicit allocations — the
@@ -369,6 +383,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
       });
       if (res.success) {
         setReference('');
+        setAppliedDiscount(null);
         setPosted({
           amount: Number(res.data?.transaction?.amount ?? fundsTotal),
           receiptNumber: res.data?.receipt?.receiptNumber,
@@ -697,6 +712,34 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                   title="The payer's own reference — optional, stored with the payment"
                   className="w-40 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[11px] font-bold text-pine dark:text-zinc-100" />
               </label>
+
+              {/* This client HAS a discount — say so where the money is taken. */}
+              {activeDiscounts.length > 0 && (
+                <div className="w-full flex flex-wrap items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50/70 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50">
+                  <Tag size={13} className="text-emerald-600 shrink-0" />
+                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                    {activeDiscounts.length === 1 ? 'Client discount' : `${activeDiscounts.length} client discounts`}
+                  </span>
+                  {activeDiscounts.map((d: any) => {
+                    const on = String(appliedDiscount?.id) === String(d.id);
+                    return (
+                      <button key={d.id} type="button"
+                        onClick={() => setAppliedDiscount(on ? null : d)}
+                        title={d.note || `Apply ${d.name}`}
+                        className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border transition-all ${
+                          on ? 'bg-emerald-600 text-white border-emerald-600'
+                             : 'bg-white dark:bg-zinc-900 text-emerald-700 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800 hover:bg-emerald-100'
+                        }`}>
+                        {d.name} · {d.discountType === 'PERCENTAGE' ? `${d.value}%` : money(Number(d.value), currency)}
+                        {on ? ' ✓' : ''}
+                      </button>
+                    );
+                  })}
+                  <span className="text-[9px] font-bold text-emerald-700/70 dark:text-emerald-400/70">
+                    {appliedDiscount ? 'Applied to this collection' : 'Tap to apply'}
+                  </span>
+                </div>
+              )}
 
               {/* BEFORE / AFTER — what this payment does to the account, spelled
                   out before it is posted (user, 2026-08-04, reference design).

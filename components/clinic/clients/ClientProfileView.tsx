@@ -1636,22 +1636,22 @@ const renderOverview = () => (
                   const isExpired = new Date(d.expiresAt) < new Date();
                   const isActive = !d.isRedeemed && !isExpired;
                   return (
-                    <div key={d.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 sm:p-5 shadow-sm transition-all ${
+                    <div key={d.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-3.5 shadow-sm transition-all ${
                       isActive ? 'border-emerald-300 dark:border-emerald-700/50' :
                       d.isRedeemed ? 'border-blue-200 dark:border-blue-800/40 opacity-70' :
                       'border-red-200 dark:border-red-800/40 opacity-60'
                     }`}>
                       <div className="flex items-start justify-between gap-3">
                         <div className="flex items-start gap-3 min-w-0">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
+                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                             isActive ? 'bg-emerald-500/10' : d.isRedeemed ? 'bg-blue-500/10' : 'bg-red-500/10'
                           }`}>
-                            <Tag size={18} className={isActive ? 'text-emerald-500' : d.isRedeemed ? 'text-blue-500' : 'text-red-400'} />
+                            <Tag size={16} className={isActive ? 'text-emerald-500' : d.isRedeemed ? 'text-blue-500' : 'text-red-400'} />
                           </div>
                           <div className="min-w-0">
-                            <p className="text-pine dark:text-zinc-100 font-black text-sm uppercase truncate">{d.name}</p>
-                            <div className="flex items-center gap-2 mt-1">
-                              <span className={`text-lg font-black font-mono ${isActive ? 'text-emerald-600' : 'text-slate-400'}`}>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="text-pine dark:text-zinc-100 font-black text-sm uppercase truncate">{d.name}</p>
+                              <span className={`text-base font-black font-mono ${isActive ? 'text-emerald-600' : 'text-slate-400'}`}>
                                 {d.discountType === 'PERCENTAGE' ? `${d.value}%` : `${client.currency || 'KES'} ${Number(d.value).toLocaleString()}`}
                               </span>
                               <span className={`text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg ${
@@ -1662,6 +1662,9 @@ const renderOverview = () => (
                                 {isActive ? 'Active' : d.isRedeemed ? 'Redeemed' : 'Expired'}
                               </span>
                             </div>
+                            {d.note && (
+                              <p className="text-[11px] text-slate-500 dark:text-zinc-400 italic mt-0.5 truncate">"{d.note}"</p>
+                            )}
                           </div>
                         </div>
                         <div className="text-right shrink-0 space-y-1">
@@ -1678,12 +1681,10 @@ const renderOverview = () => (
                           )}
                         </div>
                       </div>
-                      {d.note && (
-                        <p className="text-xs text-slate-500 dark:text-zinc-400 italic mt-2 pl-[52px]">"{d.note}"</p>
-                      )}
-                      {/* Actions */}
+                      {/* Remove sits with the meta, not in a footer band of its
+                          own — the card was mostly empty space below the note. */}
                       {isActive && hasFullAccess && (
-                        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 flex justify-end">
+                        <div className="mt-1.5 flex justify-end">
                           <button
                             onClick={() => handleDeleteDiscount(d.id)}
                             className="flex items-center gap-1 px-3 py-1.5 text-[8px] font-black uppercase tracking-widest text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"

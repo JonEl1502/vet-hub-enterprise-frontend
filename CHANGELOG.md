@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: a client's discount is surfaced where the money is taken  —  2026-08-04
+- **What changed:** (user: "in payment here n elsewhere detect client has discount and
+  display") the collect flow could ALWAYS send a discount, but nothing told the front desk
+  one existed — so a client with a standing 8% was charged full price unless someone
+  remembered to check the Discounts tab. The collect bar now loads the client's **active**
+  discounts and shows them as tappable chips (*Return 3rd time · 8%*); tapping one applies
+  it to that collection via the `discountType`/`discountValue` the endpoint already
+  accepted, and it clears after posting.
+  Also tightened the **Discounts & Credits** card — name, value and status on one line, the
+  note inline, and Remove beside the meta instead of in a mostly-empty footer band.
+- **Record impact:** 🔵 Low — applying a discount reduces what is collected, as the visit's
+  own discount flow already did.
+- **Data dependency:** None — `clientDiscountsAPI.getActive` and `collect`'s discount
+  params both already existed.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** the chip applies the discount to the WHOLE collection, not to one
+  invoice, and it does not mark the discount redeemed — redemption is still the visit-side
+  flow's job. A discount can therefore be applied more than once until that is unified.
+
 ### feat: change the service behind a running-bill line  —  2026-08-04
 - **What changed:** (user: "allow me to change service eg behaviral ctrl to another") the
   running-bill rail let you edit a line's **quantity and price** but not the thing being
