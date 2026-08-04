@@ -103,10 +103,17 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   const [pricingOpen, setPricingOpen] = useState(false);
   const [priceDraft, setPriceDraft] = useState<any>(null);
   const [priceSaving, setPriceSaving] = useState(false);
+  // The form renders next to the accrual figures it re-prices, but its trigger
+  // lives in the pinned bar at the bottom — so opening it has to bring it into
+  // view, or the button appears to do nothing.
+  const pricingRef = React.useRef<HTMLDivElement>(null);
   const openPricing = () => {
     const fp: any = (stay as any)?.foodProgram || {};
     setPriceDraft({ dailyRate: stay?.dailyRate ?? (clinicDayRate ?? ''), mealsPerDay: fp.mealsPerDay ?? '', ratePerMeal: fp.ratePerMeal ?? '', providedByClient: fp.providedByClient === true, feedingTimes: fp.feedingTimes ?? '' });
-    setPricingOpen(o => !o);
+    setPricingOpen(o => {
+      if (!o) setTimeout(() => pricingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
+      return !o;
+    });
   };
   const savePricing = async () => {
     if (!priceDraft) return;
@@ -507,31 +514,10 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
               the page (user, 2026-08-04); what remains here is the actions. */}
           <div className="space-y-4">
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
-              {/* Which appointment this stay belongs to + spawn a grooming service */}
-              {(stay.billing?.appointmentId || stay.appointmentId) && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <button onClick={() => onOpenAppointment?.((stay.billing?.appointmentId || stay.appointmentId)!)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-seafoam/40 bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/20 transition-all">
-                    <ExternalLink size={12} /> Open visit
-                  </button>
-                  {active && (
-                    <AddCategoryService
-                      appointmentId={(stay.billing?.appointmentId || stay.appointmentId)!}
-                      categoryKeyword="groom"
-                      taskCategory="Grooming"
-                      existingNames={groomTasks.map(t => t.name)}
-                      existing={groomTasks.map(t => ({ id: t.id, name: t.name }))}
-                      label="Add grooming service"
-                      tone="pink"
-                      onAdded={async () => { await load(); onChanged?.(); }}
-                    />
-                  )}
-                  <button onClick={() => setShowShare(true)}
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:border-seafoam transition-all">
-                    <Share2 size={12} /> Share{stay.allowedClinicIds && stay.allowedClinicIds.length > 0 ? ` · ${stay.allowedClinicIds.length}` : ''}
-                  </button>
-                </div>
-              )}
+              {/* Open visit · Add grooming service · Share all moved to the
+                  PINNED bar (user, 2026-08-04: "move these too … to bottom
+                  bar") — they are actions, and on a long care log they sat
+                  above the fold of a page you scroll to the bottom of. */}
 
               {/* Grooming already on this visit — list + jump to the Grooming page */}
               {groomTasks.length > 0 && (
@@ -610,9 +596,10 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                         Food: {Number(fp.mealsPerDay)} meal{Number(fp.mealsPerDay) === 1 ? '' : 's'}/day × KES {Number(fp.ratePerMeal).toLocaleString()} = KES {foodPerDay.toLocaleString()}/day → <b className="text-pine dark:text-zinc-100">KES {(days * foodPerDay).toLocaleString()}</b>
                       </p>
                     )}
-                    <button onClick={openPricing} className="px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">
-                      {pricingOpen ? 'Close' : '✎ Edit stay & food pricing'}
-                    </button>
+                    {/* Trigger moved to the pinned bar; the FORM stays here,
+                        next to the accrual figures it re-prices. Opening it
+                        from the bar scrolls it into view. */}
+                    <div ref={pricingRef} />
                     {pricingOpen && priceDraft && (
                       <div className="mt-2 pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-2">
                         <div className="grid grid-cols-3 gap-2">
@@ -658,7 +645,8 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 log you have already read; leading with it put a preference above
                 the record. Deliberately NOT pinned: it is not an action. */}
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Notes format</p>
+              {/* No label here — NotesFormatToggle renders its own "Notes
+                  format" heading, so the card was printing it twice. */}
               <NotesFormatToggle value={stay.displayFormat || 'PARAGRAPH'} onChange={(v) => { boardingAPI.update(stayId, { displayFormat: v } as any).then(() => { load(); onChanged?.(); }); }} />
             </div>
           </div>
@@ -674,14 +662,46 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
           <RecordActionBarSpacer />
           <RecordActionBar
             hint={stay.intakeWeight != null ? `Intake ${stay.intakeWeight} kg` : 'Weigh on the way out to record the change'}
-            actions={[{ key: 'checkout', label: busy ? 'Checking out…' : 'Check out', icon: LogOut, onClick: () => checkOut(null), primary: true, disabled: busy }]}
+            actions={[
+              // Every action on this record now lives here (user, 2026-08-04).
+              ...(linkedApptId ? [{
+                key: 'visit', label: 'Open visit', icon: ExternalLink, tone: 'seafoam' as const,
+                onClick: () => onOpenAppointment?.(linkedApptId),
+              }] : []),
+              {
+                key: 'pricing', label: pricingOpen ? 'Close pricing' : 'Edit stay & food pricing',
+                icon: Plus, onClick: openPricing,
+              },
+              {
+                key: 'share',
+                label: `Share${stay.allowedClinicIds && stay.allowedClinicIds.length > 0 ? ` · ${stay.allowedClinicIds.length}` : ''}`,
+                icon: Share2, onClick: () => setShowShare(true),
+              },
+              { key: 'checkout', label: busy ? 'Checking out…' : 'Check out', icon: LogOut, onClick: () => checkOut(null), primary: true, disabled: busy },
+            ]}
             slot={(
-              <div className="flex items-center gap-1.5">
-                <Scale size={14} className="text-slate-400 shrink-0" />
-                <input type="number" min="0" step="0.1" placeholder="Discharge weight (kg)" value={dischargeWeight}
-                  onChange={e => setDischargeWeight(e.target.value)}
-                  className="w-40 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
-              </div>
+              <>
+                {/* AddCategoryService owns its own trigger + popover, which is
+                    exactly what `slot` exists for. */}
+                {linkedApptId && (
+                  <AddCategoryService
+                    appointmentId={linkedApptId}
+                    categoryKeyword="groom"
+                    taskCategory="Grooming"
+                    existingNames={groomTasks.map(t => t.name)}
+                    existing={groomTasks.map(t => ({ id: t.id, name: t.name }))}
+                    label="Add grooming service"
+                    tone="pink"
+                    onAdded={async () => { await load(); onChanged?.(); }}
+                  />
+                )}
+                <div className="flex items-center gap-1.5">
+                  <Scale size={14} className="text-slate-400 shrink-0" />
+                  <input type="number" min="0" step="0.1" placeholder="Discharge weight (kg)" value={dischargeWeight}
+                    onChange={e => setDischargeWeight(e.target.value)}
+                    className="w-40 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+                </div>
+              </>
             )}
           />
         </>

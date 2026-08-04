@@ -541,7 +541,8 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                 sheet you have already read. NOT pinned; it is a preference,
                 not an action. */}
             <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Notes format</p>
+              {/* No label here — NotesFormatToggle renders its own "Notes
+                  format" heading, so the card was printing it twice. */}
               <NotesFormatToggle value={h.displayFormat || 'PARAGRAPH'} onChange={(v) => { inpatientAPI.update(hospId, { displayFormat: v }).then(() => { load(); onChanged?.(); }); }} />
             </section>
           </div>
