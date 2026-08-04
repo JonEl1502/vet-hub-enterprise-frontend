@@ -75,6 +75,9 @@ interface Props {
   onDeleteTask?: (taskId: number) => void;
   /** Inline qty/amount edit on the running bill rail. */
   onUpdateTask?: (taskId: number, patch: { price?: number; quantity?: number }) => void;
+  /** Swap the CATALOG SERVICE behind a line — the rail could edit qty and price
+   *  but not the thing being charged for (user, 2026-08-04). */
+  onSwapTask?: (task: { id: number; name: string; category: string }) => void;
   // Transfer/extend the visit to another encounter type mid-workflow — its
   // entry service lands on THIS visit's bill so billing has it all.
   onAddEncounter?: (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => void;
@@ -144,7 +147,7 @@ const StepActionSlot: React.FC = () => {
   );
 };
 
-const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, lockReason = 'billed', goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onUpdateTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
+const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, lockReason = 'billed', goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onUpdateTask, onSwapTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry, templateStages, templateFields, template, setVisitTemplate } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   /**
@@ -646,7 +649,16 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
                       blur / Enter; locked once the visit is billed. */}
                   {(visit.tasks || []).map(t => (
                     <div key={t.id} className="flex items-center justify-between gap-1.5">
-                      <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 truncate flex-1 min-w-0">{t.name}</span>
+                      {!locked && onSwapTask ? (
+                        <button type="button"
+                          onClick={() => onSwapTask({ id: Number(t.id), name: t.name, category: t.category || '' })}
+                          title={`Change "${t.name}" to another service`}
+                          className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 truncate flex-1 min-w-0 text-left hover:text-seafoam hover:underline decoration-dotted underline-offset-2 transition-colors">
+                          {t.name}
+                        </button>
+                      ) : (
+                        <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 truncate flex-1 min-w-0">{t.name}</span>
+                      )}
                       {locked || !onUpdateTask ? (
                         <span className="text-[10px] font-black text-pine dark:text-zinc-100 font-mono shrink-0">{t.price?.toLocaleString()}</span>
                       ) : (

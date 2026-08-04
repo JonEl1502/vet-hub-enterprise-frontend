@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: change the service behind a running-bill line  —  2026-08-04
+- **What changed:** (user: "allow me to change service eg behaviral ctrl to another") the
+  running-bill rail let you edit a line's **quantity and price** but not the thing being
+  charged for — so a wrongly-picked service had to be deleted and re-added, losing anything
+  recorded against it. The line name is now a button that opens the existing
+  `SwapServiceDialog` (already used elsewhere on the visit), keeping the task and its work
+  while changing the catalog service behind it. Hidden once the visit is locked.
+- **Record impact:** 🔵 Low — swapping rewrites that task's service and price, which is
+  the point; the dialog already existed and its behaviour is unchanged.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### ui: surgery record's save bar sticks to the bottom  —  2026-08-04
 - **What changed:** (user) making the surgery record one-column pushed **Save record**
   below a long form, so the action you came to perform sat a scroll away from the fields
