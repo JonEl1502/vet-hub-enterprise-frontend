@@ -107,6 +107,37 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
     return [...base].sort((a, b) => rank(a) - rank(b) || +new Date(a.dueAt) - +new Date(b.dueAt));
   }, [reminders, search]);
 
+  /**
+   * A follow-up PLAN is many reminders sharing one `groupId` (backend 134) —
+   * "recheck at 3, 7 and 14 days" is one clinical decision, and listing it as
+   * three unrelated cards made the plan invisible and the queue look three times
+   * as long (user, 2026-08-04). Points keep their own due date, status and
+   * booking; only the CARD is shared.
+   *
+   * A group of one is not a plan — it renders as an ordinary reminder.
+   */
+  const { planGroups, singles } = useMemo(() => {
+    const byGroup = new Map<string, Reminder[]>();
+    const loose: Reminder[] = [];
+    for (const r of filtered) {
+      const g = (r as any).groupId as string | null | undefined;
+      if (!g) { loose.push(r); continue; }
+      byGroup.set(g, [...(byGroup.get(g) || []), r]);
+    }
+    const groups: { id: string; points: Reminder[] }[] = [];
+    for (const [id, points] of byGroup) {
+      if (points.length < 2) { loose.push(points[0]); continue; }
+      groups.push({ id, points: [...points].sort((a, b) => +new Date(a.dueAt) - +new Date(b.dueAt)) });
+    }
+    // Plans lead, ordered by their soonest OPEN point — the thing you act on.
+    const nextDue = (g: { points: Reminder[] }) => {
+      const open = g.points.find(p => p.status === 'PENDING');
+      return +new Date((open ?? g.points[0]).dueAt);
+    };
+    groups.sort((x, y) => nextDue(x) - nextDue(y));
+    return { planGroups: groups, singles: loose };
+  }, [filtered]);
+
   // Booking from a reminder opens the pre-filled New Appointment modal (patient,
   // type, date, note staged from the reminder) so staff can confirm time/services
   // before it's created — NOT a visit. The visit is created later via "Start visit"
@@ -200,7 +231,7 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
           <div>
             <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Reminders</h1>
             <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">
-              {filtered.length} shown · {pendingCount} to book{bookedCount > 0 ? ` · ${bookedCount} booked` : ''}
+              {filtered.length} shown · {pendingCount} to book{bookedCount > 0 ? ` · ${bookedCount} booked` : ''}{planGroups.length > 0 ? ` · ${planGroups.length} follow-up plan${planGroups.length === 1 ? '' : 's'}` : ''}
             </p>
           </div>
         </div>
@@ -238,7 +269,86 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filtered.map(r => {
+          {planGroups.map(g => {
+            const first = g.points[0];
+            const openPoints = g.points.filter(p => p.status === 'PENDING');
+            const next = openPoints[0] ?? null;
+            const anyOverdue = openPoints.some(p => isOverdue(p));
+            const allDone = openPoints.length === 0;
+            return (
+              <div key={`plan-${g.id}`}
+                className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm flex flex-col ${
+                  allDone
+                    ? 'border-slate-200 dark:border-zinc-800 opacity-60'
+                    : anyOverdue
+                      ? 'border-orange-300 dark:border-orange-700/60 border-l-4 border-l-orange-400 bg-orange-50/40 dark:bg-orange-950/10'
+                      : 'border-violet-300 dark:border-violet-800/60 border-l-4 border-l-violet-400 bg-violet-50/30 dark:bg-violet-950/10'
+                }`}>
+                <div className="flex items-center justify-between gap-2 mb-2">
+                  <button onClick={() => setDetail(first)} className="flex items-center gap-2 min-w-0 text-left">
+                    <span className="text-xl shrink-0">{first.pet?.species === 'Cat' ? '🐱' : '🐶'}</span>
+                    <span className="min-w-0">
+                      <span className="block text-sm font-black text-pine dark:text-zinc-100 truncate hover:text-seafoam transition-colors">{first.pet?.name}</span>
+                      <span className="block text-[10px] text-slate-400 truncate">{first.client?.name}</span>
+                    </span>
+                  </button>
+                  <span className="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300">
+                    Plan · {g.points.length} points
+                  </span>
+                </div>
+
+                {first.title && <p className="text-xs font-bold text-pine dark:text-zinc-200 mb-1.5 truncate">{first.title}</p>}
+
+                {/* Each point keeps its own date and state — the plan is the
+                    card, not the record. */}
+                <div className="space-y-1 mb-2">
+                  {g.points.map((p, i) => {
+                    const pOverdue = p.status === 'PENDING' && isOverdue(p);
+                    return (
+                      <button key={p.id} onClick={() => setDetail(p)}
+                        className="w-full flex items-center gap-2 px-2 py-1 rounded-lg text-left hover:bg-slate-50 dark:hover:bg-zinc-800/60 transition-colors">
+                        <span className="w-4 shrink-0 text-[9px] font-black text-slate-300 dark:text-zinc-600">{i + 1}</span>
+                        <span className={`flex-1 min-w-0 truncate text-[10px] font-bold ${pOverdue ? 'text-rose-500' : 'text-slate-500 dark:text-zinc-400'}`}>
+                          {p.status === 'DONE' ? `Done ${p.completedAt ? formatDate(p.completedAt) : ''}` : p.status === 'DISMISSED' ? 'Dismissed' : `Due ${formatDate(p.dueAt)}`}
+                          {pOverdue ? ' · overdue' : ''}
+                        </span>
+                        {p.status === 'DONE' ? <Check size={11} className="text-emerald-500 shrink-0" />
+                          : (p.bookedAppointmentId || bookingByReminder[p.id])
+                            ? <span className="shrink-0 text-[8px] font-black uppercase tracking-widest text-violet-500">Booked</span>
+                            : null}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* One action, on the NEXT open point — booking the whole plan
+                    at once would invent appointments nobody asked for. */}
+                {next && (
+                  <div className="flex items-center gap-1.5 mt-auto pt-2">
+                    {next.bookedAppointmentId ? (
+                      <button onClick={() => onOpenAppointment?.(next.bookedAppointmentId!)} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-seafoam/10 text-seafoam rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">
+                        <ExternalLink size={12} /> View visit
+                      </button>
+                    ) : bookingByReminder[next.id] ? (
+                      <button onClick={() => onOpenBookings?.(bookingByReminder[next.id])} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-violet-500/10 text-violet-600 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-violet-500/20">
+                        <ExternalLink size={12} /> View appointment
+                      </button>
+                    ) : (
+                      <button onClick={() => book(next)} disabled={busyId === next.id} className="flex-1 flex items-center justify-center gap-1.5 px-2 py-2 bg-pine text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-pine/90 active:scale-95 disabled:opacity-50">
+                        {busyId === next.id ? <Loader2 size={12} className="animate-spin" /> : <CalendarPlus size={12} />} Book point {g.points.indexOf(next) + 1}
+                      </button>
+                    )}
+                    <button onClick={() => toggleContacted(next)} disabled={busyId === next.id}
+                      title={next.contactedAt ? 'Mark not contacted' : 'Mark client contacted'}
+                      className={`p-2 rounded-lg disabled:opacity-50 ${next.contactedAt ? 'bg-cyan-100 dark:bg-cyan-950/40 text-cyan-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 hover:bg-slate-200'}`}>
+                      <PhoneCall size={13} />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+          {singles.map(r => {
             const overdue = isOverdue(r);
             const done = r.status === 'DONE';
             const dismissed = r.status === 'DISMISSED';

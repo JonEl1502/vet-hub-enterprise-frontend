@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the Reminders page shows a follow-up plan as ONE card  —  2026-08-04
+- **What changed:** reminders sharing a `groupId` (backend **134**) now render as a single **Plan ·
+  N points** card: the patient once, then each point as a compact row with its own due date, overdue
+  flag and booked state. The card's action books the **next open point** and is labelled *"Book point
+  2"*. Plans lead the grid, ordered by their soonest open point; the header counts them
+  (*"… · 2 follow-up plans"*).
+- **Why:** *"recheck at 3, 7 and 14 days"* is **one** clinical decision. As three unrelated cards the
+  plan was invisible and the queue looked three times as long (user, 2026-08-04, item 2).
+- **Record impact:** 🟢 None — presentation only. Each point is still its own reminder with its own
+  status and booking.
+- **Data dependency:** `reminders.group_id` (backend **134**, live on staging and prod).
+  **Graceful fallback** — reminders without a group render exactly as before.
+- ⚠️ **Watch out:** a group of **one** is deliberately not a plan — it renders as an ordinary
+  reminder, matching how the plan builder leaves a single point ungrouped. And the card books **one**
+  point at a time: booking a whole plan up front would invent appointments nobody asked for, on dates
+  the client has not agreed to.
+
+
 ### fix: the un-billed banner cried wolf on boarding stays  —  2026-08-04
 - **What changed:** the *"added afterwards and is not billed"* banner no longer renders on a visit
   with an **accruing stay** (boarding/inpatient/food) or on a **split** bill.
