@@ -358,7 +358,15 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
           </section>
         )}
 
-        <div className="flex gap-3 pt-1">
+        {/* PINNED (user, 2026-08-04). The admit gate is a long form, so Cancel /
+            Admit used to sit past everything — you filled it in, then scrolled
+            back down hunting for the button. `sticky`, not `fixed`: it stays
+            INSIDE the <form>, so the submit button keeps working without an
+            onClick, and it can't cover another page's content.
+            `-mx` + padding so the bar's background spans the full width, and
+            safe-area padding so it clears a phone's home indicator. */}
+        <div className="sticky bottom-0 z-20 flex gap-3 pt-3 -mx-2 px-2 sm:-mx-4 sm:px-4 bg-white/95 dark:bg-zinc-950/95 backdrop-blur border-t border-slate-200 dark:border-zinc-800"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <button type="button" onClick={onClose} disabled={submitting} className="flex-1 px-5 py-3 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-black text-sm uppercase tracking-wide hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-50">Cancel</button>
           <button type="submit" disabled={submitting} className="flex-1 px-5 py-3 bg-red-600 text-white rounded-xl font-black text-sm uppercase tracking-wide hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-red-600/20">
             {submitting ? <><Loader2 size={18} className="animate-spin" /> Admitting…</> : <><Stethoscope size={18} /> Admit</>}

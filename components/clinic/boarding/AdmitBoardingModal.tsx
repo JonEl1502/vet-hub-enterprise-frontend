@@ -285,7 +285,11 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
           </section>
         )}
 
-        <div className="flex gap-3 pt-2 border-t border-slate-200 dark:border-zinc-800">
+        {/* PINNED (user, 2026-08-04) — same treatment as the inpatient gate.
+            `sticky`, not `fixed`, so it stays inside the <form> and the submit
+            button keeps working; safe-area padding clears the home indicator. */}
+        <div className="sticky bottom-0 z-20 flex gap-3 pt-3 -mx-2 px-2 sm:-mx-4 sm:px-4 bg-white/95 dark:bg-zinc-950/95 backdrop-blur border-t border-slate-200 dark:border-zinc-800"
+          style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           <button type="button" onClick={onClose} disabled={submitting} className="flex-1 px-6 py-3 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-black text-sm uppercase tracking-wide hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-50">Cancel</button>
           <button type="submit" disabled={submitting} className="flex-1 px-6 py-3 bg-seafoam text-white rounded-xl font-black text-sm uppercase tracking-wide hover:bg-seafoam/90 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-seafoam/20">
             {submitting ? <><Loader2 size={18} className="animate-spin" /> Admitting…</> : <><Home size={18} /> Admit</>}
