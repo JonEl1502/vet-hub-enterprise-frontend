@@ -260,6 +260,17 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   const active = h?.status === 'ADMITTED';
   const billOutstanding = !!h?.billing && !h.billing.isPaid && (h.billing.totalCost ?? 0) > 0;
 
+  // Condense the sticky header once the page has moved. 48px rather than 0 so
+  // a trackpad's one-pixel jitter at the top doesn't flip it back and forth.
+  const [condensed, setCondensed] = useState(false);
+  useEffect(() => {
+    if (embedded) return;
+    const onScroll = () => setCondensed(window.scrollY > 48);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, [embedded]);
+
   return (
     <div className={`space-y-5 animate-in fade-in duration-300 ${embedded ? '' : 'pb-20'}`}>
       {/* Header — Lab-style back link + pine banner (link hidden when the
@@ -269,38 +280,42 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
           <ArrowLeft size={13} /> Inpatient
         </button>
       )}
-      <div>
-        {/* Compact bar (user, 2026-08-03: simpler) — one row, no dead space. */}
-        <div className="bg-gradient-to-br from-pine to-pine/90 text-white px-4 py-2.5 rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 shadow-lg">
+      {/* PATIENT HEADER — STICKY, and CONDENSED once you scroll (user, 2026-08-04).
+          Who the patient is must never scroll away on a clinical chart: every
+          vital and every drug on the sheet below is recorded against this
+          animal, and "which patient am I looking at?" is the one question the
+          page must always answer.
+          It condenses rather than pinning at full height because the budget is
+          tight — nav 4rem + this + the pinned Discharge bar are all permanently
+          off the chart. Full banner at rest, one line once moving.
+          `top-16` clears the fixed 4rem navbar; z stays below its z-[60].
+          NOT sticky when embedded in the wizard — the wizard owns its own
+          chrome and a second pinned header would stack. */}
+      <div className={embedded ? '' : 'sticky top-16 z-30 -mx-1 px-1 py-1 bg-slate-50/80 dark:bg-zinc-950/80 backdrop-blur'}>
+        <div className={`bg-gradient-to-br from-pine to-pine/90 text-white rounded-2xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 shadow-lg transition-all duration-200 ${condensed ? 'px-3 py-1.5' : 'px-4 py-2.5'}`}>
           <div className="flex items-center gap-3 min-w-0">
-            <Stethoscope size={20} className="text-seafoam shrink-0" />
+            <Stethoscope size={condensed ? 16 : 20} className="text-seafoam shrink-0 transition-all" />
             <div className="min-w-0">
-              <p className="text-white/60 text-[8px] font-black uppercase tracking-widest">Inpatient chart</p>
-              <h2 className="text-lg font-black truncate flex items-center gap-2"><Dog size={16} /> {h?.pet?.name ?? '…'}</h2>
-              {h && <p className="text-[10px] text-white/70">{h.cage ? `Cage ${h.cage} · ` : ''}{h.inpatientNo || ''} · {h.diagnosis || 'No diagnosis'}</p>}
+              {/* The eyebrow and the diagnosis line are the first things to go —
+                  identity (name · cage · id) is what has to survive. */}
+              {!condensed && <p className="text-white/60 text-[8px] font-black uppercase tracking-widest">Inpatient chart</p>}
+              <h2 className={`font-black truncate flex items-center gap-2 transition-all ${condensed ? 'text-sm' : 'text-lg'}`}>
+                <Dog size={condensed ? 14 : 16} /> {h?.pet?.name ?? '…'}
+                {condensed && h && <span className="text-[10px] font-bold text-white/70 truncate">{h.cage ? `· Cage ${h.cage}` : ''} {h.inpatientNo || ''}</span>}
+              </h2>
+              {!condensed && h && <p className="text-[10px] text-white/70">{h.cage ? `Cage ${h.cage} · ` : ''}{h.inpatientNo || ''} · {h.diagnosis || 'No diagnosis'}</p>}
             </div>
           </div>
-          <div className="flex flex-row flex-wrap sm:flex-col items-center sm:items-end gap-1.5 shrink-0">
+          <div className="flex flex-row flex-wrap items-center sm:justify-end gap-1.5 shrink-0">
             {h && !active && (
               <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
                 Discharged {h.dischargedAt ? formatDate(h.dischargedAt) : ''}{h.outcome ? ` · ${h.outcome}` : ''}
               </span>
             )}
-            {h && active && (
-              <label className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 cursor-pointer" title="Expected discharge — drives the checkout list on the dashboard">
-                <span>Release:</span>
-                <input
-                  type="datetime-local"
-                  className="bg-transparent text-white/90 text-[10px] font-bold outline-none [color-scheme:dark] w-[130px]"
-                  defaultValue={h.expectedDischargeAt ? (() => { const d = new Date(h.expectedDischargeAt!); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); })() : ''}
-                  onBlur={(e) => {
-                    const v = e.target.value ? new Date(e.target.value).toISOString() : null;
-                    if ((v ?? null) === (h.expectedDischargeAt ?? null)) return;
-                    inpatientAPI.update(hospId, { expectedDischargeAt: v }).then(() => { load(); onChanged?.(); });
-                  }}
-                />
-              </label>
-            )}
+            {/* RELEASE moved OUT of here into the rail (user, 2026-08-04): an
+                editable datetime field in a pinned header is awkward to hit and
+                leaked the browser's `dd/mm/yyyy, --:--` placeholder into what
+                is meant to be a title bar. It reads as a labelled control now. */}
             {/* Billing state of the linked visit — mirrors the Lab page. */}
             {h?.billing && (h.billing.isPaid || ['PENDING_PAYMENT', 'COMPLETED'].includes(String(h.billing.status))) && (
               <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
@@ -547,10 +562,42 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
             </section>
           </div>
 
-          {/* SIDE — admission context, actions, controls, discharge */}
-          <div className="space-y-4">
+          {/* SIDE — admission context, actions, controls, discharge.
+              STICKY (user, 2026-08-04): these are the actions and the reference
+              you reach for WHILE reading the sheet, and the daily sheet is long
+              enough to leave them far off-screen. `self-start` so the column
+              takes its content height instead of stretching to the grid row —
+              a stretched column can't stick. Its own `overflow-y-auto` because
+              a long treatment plan would otherwise push the bottom of the rail
+              (and Complexity) past the viewport with no way to reach it.
+              lg only: on one column a sticky rail would cover the sheet. */}
+          <div className="space-y-4 lg:sticky lg:top-[8.5rem] lg:self-start lg:max-h-[calc(100vh-10rem)] lg:overflow-y-auto lg:pr-1">
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
               {h.admissionNotes && <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-3 text-xs text-slate-600 dark:text-zinc-300"><span className="font-black uppercase text-[9px] tracking-widest text-slate-400 mr-1.5">Admission</span>{h.admissionNotes}</div>}
+
+              {/* EXPECTED DISCHARGE — moved out of the page header (user,
+                  2026-08-04). A labelled control, not a naked input in a title
+                  bar. This is also the date the early-discharge check reads. */}
+              {active && (
+                <div>
+                  <label className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 mb-1.5">
+                    Expected discharge
+                  </label>
+                  <input
+                    type="datetime-local"
+                    className="field-input py-2 text-xs"
+                    defaultValue={h.expectedDischargeAt ? (() => { const d = new Date(h.expectedDischargeAt!); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); })() : ''}
+                    onBlur={(e) => {
+                      const v = e.target.value ? new Date(e.target.value).toISOString() : null;
+                      if ((v ?? null) === (h.expectedDischargeAt ?? null)) return;
+                      inpatientAPI.update(hospId, { expectedDischargeAt: v }).then(() => { load(); onChanged?.(); });
+                    }}
+                  />
+                  <p className="text-[9px] text-slate-400 dark:text-zinc-500 mt-1">
+                    Drives the checkout list on the dashboard. Blank means no planned date.
+                  </p>
+                </div>
+              )}
 
               {(h.billing?.appointmentId || h.appointmentId) && (
                 <div className="flex flex-wrap items-center gap-2">
@@ -637,10 +684,12 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
               <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
               {active ? (
                 !showDischarge ? (
-                  /* The trigger lives in the PINNED bar at the bottom now
-                     (user, 2026-08-04) — on a long chart it sat below the whole
-                     side column. Opening it reveals the form right here. */
-                  <p className="text-[10px] font-bold text-slate-400 text-center">Discharge from the bar at the bottom.</p>
+                  /* Nothing rendered here on purpose. The trigger lives in the
+                     PINNED bar, which is now always on screen, so the line that
+                     used to say "Discharge from the bar at the bottom" was the
+                     UI explaining where its own button is. Opening it reveals
+                     the form right here. */
+                  null
                 ) : (
                   <div className="space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200">Discharge</p>

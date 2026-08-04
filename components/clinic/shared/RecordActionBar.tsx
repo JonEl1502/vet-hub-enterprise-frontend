@@ -214,8 +214,20 @@ const RecordActionBar: React.FC<Props> = ({ actions, status, hint, inlineLimit =
                 >
                   <MoreHorizontal size={13} /> More
                 </button>
+                {/* z-50 is load-bearing, not decoration. The `slot` renders
+                    INLINE (AddCategoryService has no positioning of its own),
+                    so opening its picker grows the bar upward into exactly the
+                    space this absolutely-positioned menu occupies — the two
+                    interleaved, and "Share" painted across the middle of the
+                    grooming picker (user, 2026-08-04). An explicit z puts the
+                    menu decisively on top instead of leaving it to DOM order
+                    and whatever stacking context the slot's panel creates.
+                    NOTE: this makes the overlap legible, it does not prevent
+                    it — the bar hosts two independent popovers that don't know
+                    about each other. Closing the slot's picker when this opens
+                    needs the slot to expose its state. */}
                 {menuOpen && (
-                  <div className="absolute bottom-full right-0 mb-2 w-56 p-1.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xl space-y-1">
+                  <div className="absolute z-50 bottom-full right-0 mb-2 w-56 p-1.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-xl space-y-1">
                     {overflow.map(a => btn(a, true))}
                   </div>
                 )}

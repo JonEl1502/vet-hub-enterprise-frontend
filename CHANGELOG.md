@@ -59,6 +59,38 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the inpatient chart's patient header and side rail stay put  —  2026-08-04
+- **What changed:** on `InpatientChartPage`, the patient banner is **sticky and condenses on
+  scroll** (full banner at rest → one line: icon · name · cage · id once moving), and the side rail
+  is **sticky** with its own scroll. The **Expected discharge** field moved out of the banner into
+  the rail as a labelled control. The line *"Discharge from the bar at the bottom."* is gone.
+- **Why:** the daily sheet is long, so both who-the-patient-is and the actions scrolled away.
+  Identity must never leave a clinical chart — every vital and drug on the sheet is recorded
+  against that animal (user, 2026-08-04).
+- **Record impact:** 🟢 None — layout only.
+- **Rollback:** revert.
+- ⚠️ **It CONDENSES rather than pinning at full height on purpose.** Navbar 4rem + header + the
+  pinned Discharge bar are all permanently off the chart; on a 13" screen that is ~200px gone from
+  the page with the most content.
+- ⚠️ `lg:self-start` on the rail is load-bearing — a grid child stretches to the row by default and
+  a stretched column cannot stick. Its `overflow-y-auto` matters too: a long treatment plan would
+  otherwise push Complexity past the viewport with no way to reach it.
+- ⚠️ Sticky offsets assume the **fixed 4rem navbar** (`top-16`, and `z-30` under its `z-[60]`).
+  Sticky is skipped entirely when `embedded` in the wizard, which owns its own chrome.
+- ℹ️ Requires `<main>` keeping `overflow-x-clip` (not `-hidden`) — hidden makes it a scroll
+  container and sticky silently stops working. That comment is already in `App.tsx`.
+
+### fix: the More menu no longer paints through the grooming picker  —  2026-08-04
+- **What changed:** `RecordActionBar`'s overflow menu gets an explicit `z-50`.
+- **Why:** the `slot` renders INLINE (`AddCategoryService` has no positioning), so opening the
+  grooming picker grows the bar upward into the space the absolutely-positioned More menu occupies
+  — "Share" painted across the middle of the picker.
+- **Record impact:** 🟢 None — z-index only.
+- **Rollback:** revert.
+- ⚠️ **This makes the overlap legible, it does not prevent it.** The bar hosts two independent
+  popovers that don't know about each other; closing the slot's picker when More opens needs the
+  slot to expose its open state.
+
 ### fix: the whole app was laying out WIDER THAN THE PHONE — one missing `min-w-0`  —  2026-08-04
 - **What changed:** `<main>` in `App.tsx` gains **`min-w-0`**. Plus two rows that still overflowed
   after it (`ClientsView` action buttons, `PetProfileView` owner-row buttons) now `flex-wrap`.
