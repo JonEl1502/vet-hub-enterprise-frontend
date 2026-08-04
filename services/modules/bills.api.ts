@@ -84,20 +84,41 @@ export interface BillLineInput {
   discount?: number;
 }
 
+/**
+ * `?encounterId=` — WHICH encounter's bill an operation means (backend 123/125).
+ *
+ * Omitted ⇒ the visit's primary bill, i.e. exactly how every caller behaved
+ * before per-encounter bills existed. Only a multi-encounter visit is explicit.
+ */
+const encQ = (encounterId?: string | number | null, existing?: string) =>
+  encounterId == null || encounterId === ''
+    ? (existing ?? '')
+    : `${existing ? `${existing}&` : '?'}encounterId=${encounterId}`;
+
+/** A bill row as returned by `listForVisit`, carrying its encounter. */
+export interface VisitBillRow extends Bill {
+  encounterId?: string | null;
+  encounter?: { id: string; encounterType: string; visitType: string | null; isPrimary: boolean } | null;
+}
+
 export const billsAPI = {
   /** The visit's bill — raises a DRAFT from the encounter's charges if none. */
-  get: (visitId: number | string, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
-    get(`/visits/${visitId}/bill`, { cache: false, silent: true, ...options }),
+  get: (visitId: number | string, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
+    get(`/visits/${visitId}/bill${encQ(encounterId)}`, { cache: false, silent: true, ...options }),
+
+  /** Every bill on the visit — one per encounter. Drives the encounter selector. */
+  listForVisit: (visitId: number | string, options?: RequestOptions): Promise<ApiResponse<{ bills: Bill[] }>> =>
+    get(`/visits/${visitId}/bills`, { cache: false, silent: true, ...options }),
 
   /** Re-snapshot the lines from the encounter (DRAFT only). */
-  refresh: (visitId: number | string, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
-    post(`/visits/${visitId}/bill/refresh`, {}, { showError: true, ...options }),
+  refresh: (visitId: number | string, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
+    post(`/visits/${visitId}/bill/refresh${encQ(encounterId)}`, {}, { showError: true, ...options }),
 
-  addLine: (visitId: number | string, data: BillLineInput, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
-    post(`/visits/${visitId}/bill/lines`, data, { showError: true, ...options }),
+  addLine: (visitId: number | string, data: BillLineInput, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
+    post(`/visits/${visitId}/bill/lines${encQ(encounterId)}`, data, { showError: true, ...options }),
 
-  updateLine: (visitId: number | string, lineId: string | number, data: Partial<BillLineInput>, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
-    patch(`/visits/${visitId}/bill/lines/${lineId}`, data, { showError: true, ...options }),
+  updateLine: (visitId: number | string, lineId: string | number, data: Partial<BillLineInput>, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
+    patch(`/visits/${visitId}/bill/lines/${lineId}${encQ(encounterId)}`, data, { showError: true, ...options }),
 
   /**
    * Removing a SERVICE line also removes the visit task behind it — otherwise
@@ -106,26 +127,26 @@ export const billsAPI = {
    * consumables, a status past PENDING) the API answers **409 with a message
    * naming what is there**; show it, and retry with `force` to confirm.
    */
-  removeLine: (visitId: number | string, lineId: string | number, force?: boolean, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
+  removeLine: (visitId: number | string, lineId: string | number, force?: boolean, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
     // showError:false — the caller turns the 409 into a confirm prompt rather
     // than a toast, and reports any other failure itself.
-    del(`/visits/${visitId}/bill/lines/${lineId}${force ? '?force=true' : ''}`, { showError: false, ...options }),
+    del(`/visits/${visitId}/bill/lines/${lineId}${encQ(encounterId, force ? '?force=true' : '')}`, { showError: false, ...options }),
 
   /** Header-level discount / notes. */
-  updateHeader: (visitId: number | string, data: { discount?: number; notes?: string | null }, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
-    patch(`/visits/${visitId}/bill`, data, { showError: true, ...options }),
+  updateHeader: (visitId: number | string, data: { discount?: number; notes?: string | null }, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
+    patch(`/visits/${visitId}/bill${encQ(encounterId)}`, data, { showError: true, ...options }),
 
   /** Vet signs off ⇒ the clinical record locks. */
-  approve: (visitId: number | string, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
-    post(`/visits/${visitId}/bill/approve`, {}, { showError: true, ...options }),
+  approve: (visitId: number | string, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
+    post(`/visits/${visitId}/bill/approve${encQ(encounterId)}`, {}, { showError: true, ...options }),
 
   /** Explicit, auditable unlock back to DRAFT. */
   reopen: (visitId: number | string, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
     post(`/visits/${visitId}/bill/reopen`, {}, { showError: true, ...options }),
 
   /** Pay-first: quote the client before the work is finished. */
-  issue: (visitId: number | string, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
-    post(`/visits/${visitId}/bill/issue`, {}, { showError: true, ...options }),
+  issue: (visitId: number | string, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
+    post(`/visits/${visitId}/bill/issue${encQ(encounterId)}`, {}, { showError: true, ...options }),
 
   void: (visitId: number | string, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
     post(`/visits/${visitId}/bill/void`, {}, { showError: true, ...options }),

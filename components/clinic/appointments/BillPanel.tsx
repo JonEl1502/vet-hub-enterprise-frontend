@@ -80,17 +80,32 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
 
   const [invoice, setInvoice] = React.useState<Invoice | null>(null);
 
+  /**
+   * PER-ENCOUNTER BILLS (backend 123/125). A visit may hold one bill per
+   * encounter — the groom's and the consult's, each closed and invoiced on its
+   * own. `encounterId` is which one this panel is showing.
+   *
+   * NULL means "the visit's primary bill", which is every single-encounter visit
+   * (all of prod today) and behaves exactly as before. The selector only appears
+   * once there is genuinely more than one bill, so nothing changes for the
+   * common case.
+   */
+  const [bills, setBills] = React.useState<any[]>([]);
+  const [encounterId, setEncounterId] = React.useState<string | null>(null);
+
   const load = React.useCallback(async () => {
     try {
-      const [b, inv] = await Promise.all([
-        billsAPI.get(visit.id),
+      const [b, inv, list] = await Promise.all([
+        billsAPI.get(visit.id, encounterId),
         invoicesAPI.forVisit(visit.id).catch(() => null),
+        billsAPI.listForVisit(visit.id).catch(() => null),
       ]);
       if (b.success && b.data?.bill) setBill(b.data.bill);
       setInvoice(inv?.success ? (inv.data?.invoice ?? null) : null);
+      if (list?.success && list.data?.bills) setBills(list.data.bills);
     } catch { /* surfaced by the client */ }
     finally { setLoading(false); }
-  }, [visit.id]);
+  }, [visit.id, encounterId]);
   React.useEffect(() => { load(); }, [load]);
 
   // Every path that changes the bill funnels through `setBill` (mount load and
@@ -136,7 +151,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
     () => billsAPI.addLine(visit.id, {
       kind: 'SERVICE', name: s.name, category: s.categoryName ?? null,
       quantity: 1, unitPrice: Number(s.priceEffective ?? s.defaultPrice ?? 0),
-    }),
+    }, encounterId),
     `${s.name} added`,
   ).then(() => { setQ(''); setAdding(false); });
 
@@ -157,7 +172,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
       category: item.category ?? null,
       quantity: 1,
       unitPrice: Number(item.price ?? 0),
-    }),
+    }, encounterId),
     `${item.name} added`,
   ).then(() => { setQ(''); setAdding(false); });
 
@@ -165,7 +180,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
     const name = q.trim();
     if (!name) return;
     run(
-      () => billsAPI.addLine(visit.id, { kind: 'OTHER', name, quantity: 1, unitPrice: Number(newPrice) || 0 }),
+      () => billsAPI.addLine(visit.id, { kind: 'OTHER', name, quantity: 1, unitPrice: Number(newPrice) || 0 }, encounterId),
       `${name} added`,
     ).then(() => { setQ(''); setNewPrice(''); setAdding(false); });
   };
@@ -180,7 +195,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
   const removeLine = async (l: BillLine) => {
     setBusy(true);
     try {
-      apply(await billsAPI.removeLine(visit.id, l.id));
+      apply(await billsAPI.removeLine(visit.id, l.id, undefined, encounterId));
       toast.success('Line removed');
       onChanged?.();
     } catch (e: any) {
@@ -195,7 +210,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
       });
       if (!ok) return;
       try {
-        apply(await billsAPI.removeLine(visit.id, l.id, true));
+        apply(await billsAPI.removeLine(visit.id, l.id, true, encounterId));
         toast.success('Line removed');
         onChanged?.();
       } catch (e2: any) {
@@ -207,7 +222,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
   };
 
   const saveLine = (l: BillLine, patch: { quantity?: number; unitPrice?: number }) =>
-    run(() => billsAPI.updateLine(visit.id, l.id, patch));
+    run(() => billsAPI.updateLine(visit.id, l.id, patch, encounterId));
 
   // 1.5s pulse on the action that moves the bill along, when we were sent here
   // to do exactly that. Ref lives on the actions row so it can be scrolled to.
@@ -235,6 +250,38 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
 
   return (
     <div className="space-y-3">
+      {/* ENCOUNTER SELECTOR — only once the visit genuinely holds more than one
+          bill. A single-encounter visit (all of prod today) sees nothing new,
+          which is the point: this must not add furniture to the common case.
+          Each tab is that encounter's OWN bill with its own lines, status and
+          invoice — closing and invoicing the groom while the consult keeps
+          accruing is the whole reason the model exists. */}
+      {bills.length > 1 && (
+        <div className="flex gap-1.5 overflow-x-auto custom-scrollbar pb-1">
+          {bills.map((b: any) => {
+            const sel = String(b.encounterId ?? '') === String(encounterId ?? '')
+              || (!encounterId && b.encounter?.isPrimary);
+            const label = b.encounter
+              ? [b.encounter.encounterType, b.encounter.visitType].filter(Boolean).join(' · ').replace(/_/g, ' ')
+              : 'Whole visit';
+            return (
+              <button
+                key={b.id} type="button"
+                onClick={() => { setLoading(true); setEncounterId(b.encounterId ?? null); }}
+                className={`shrink-0 px-3 py-1.5 rounded-xl border text-left transition-all ${sel
+                  ? 'bg-seafoam text-white border-seafoam shadow-sm'
+                  : 'bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-500 hover:border-seafoam/50'}`}
+              >
+                <span className="block text-[10px] font-black uppercase tracking-widest truncate max-w-[160px]">{label}</span>
+                <span className={`block text-[9px] font-bold ${sel ? 'text-white/80' : 'text-slate-400'}`}>
+                  {currency} {Number(b.total ?? 0).toLocaleString()} · {b.status}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="flex items-center justify-between gap-2 border-b border-slate-200 dark:border-zinc-800 pb-2.5">
         <div className="flex items-center gap-2 min-w-0">
           <ReceiptText size={17} className="text-seafoam shrink-0" />
@@ -499,7 +546,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
         )}
         {editable && (
           <>
-            <button type="button" onClick={() => run(() => billsAPI.refresh(visit.id), 'Rebuilt from the visit')} disabled={busy}
+            <button type="button" onClick={() => run(() => billsAPI.refresh(visit.id, encounterId), 'Rebuilt from the visit')} disabled={busy}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 disabled:opacity-40">
               <RefreshCw size={11} /> Rebuild from visit
             </button>
@@ -507,12 +554,12 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 disabled:opacity-40">
               <Plus size={11} /> Add item
             </button>
-            <button type="button" onClick={() => run(() => billsAPI.issue(visit.id), 'Issued — awaiting payment')} disabled={busy || bill.total <= 0}
+            <button type="button" onClick={() => run(() => billsAPI.issue(visit.id, encounterId), 'Issued — awaiting payment')} disabled={busy || bill.total <= 0}
               title="Pay-first: quote the client now and collect before the work finishes"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam text-seafoam hover:bg-seafoam/10 disabled:opacity-40">
               <Send size={11} /> Issue for pay-first
             </button>
-            <button type="button" onClick={() => run(() => billsAPI.approve(visit.id), 'Bill approved')} disabled={busy}
+            <button type="button" onClick={() => run(() => billsAPI.approve(visit.id, encounterId), 'Bill approved')} disabled={busy}
               title="Sign the bill off — this locks the clinical record"
               className={`ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-40${pulseCls}`}>
               {busy ? <Loader2 size={11} className="animate-spin" /> : <Lock size={11} />} Approve bill

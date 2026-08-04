@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: a bill PER ENCOUNTER on the visit's Bill tab  —  backend 123/125 + `?encounterId=`
+- **What changed:** when a visit holds more than one bill, the Bill tab shows an encounter
+  selector — one tab per encounter, each with its own lines, status, total and invoice.
+  Every operation (add/edit/remove line, header discount, refresh, approve, issue) now carries
+  `encounterId`, so an edit lands on the bill you are looking at.
+- **Nothing changes for a single-encounter visit** — which is all of prod today. The selector
+  only renders once `bills.length > 1`, and `encounterId` stays null, which the API treats as
+  the visit's primary bill exactly as before. This must not add furniture to the common case.
+- **Why the selector could not ship earlier:** every bill endpoint resolved through `forVisit`
+  to the PRIMARY encounter's bill, so a UI listing several bills would have had every edit
+  silently write to the first one — worse than not showing them at all. The endpoints were made
+  encounter-aware first; this is the UI on top.
+- **What it unlocks:** closing and invoicing the groom while the consult keeps accruing on its
+  own bill — the reason the encounter-bill model exists.
+- **Record impact:** 🟢 None — reads and writes existing endpoints with one extra parameter.
+
+
 ### ui: invoice and bill are proper documents  —  2026-08-04
 - **What changed:** (user: "invoice collapsed can look like this too"; "a look and feel for
   a Bill all in one bill sectioned inside signed off at the bottom")
