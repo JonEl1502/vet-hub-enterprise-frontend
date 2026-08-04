@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: claim a vaccination certificate from the admission gate — Pro and above  —  2026-08-04
+- **What changed:** (user, 2026-08-04) once at least one vaccine is ticked on the
+  **admission gate**, a **"Claim a vaccination certificate"** checkbox appears. It is gated on
+  `capability:vaccination-certificates` — granted to **Pro** and **Enterprise** by backend
+  migration **135**. On Starter the checkbox still renders, but disabled, with a padlock and
+  the line *"Available on Pro and Enterprise"*.
+- **Why:** verifying a patient's vaccines at admission is exactly the moment a client asks for
+  the certificate — there was nowhere to record that they wanted one.
+- **Record impact:** 🟢 None — a new optional flag on the gate value; nothing existing is written.
+- **Data dependency:** backend **135** (applied to staging and prod). Ships safe either way —
+  without the grant the box is simply disabled, which is the same as it not existing.
+- **Rollback:** revert the commit; the flag becomes inert.
+- ⚠️ **Watch out:** the checkbox appears *only* when something is verified. A certificate for
+  no vaccines is not a thing to claim, so the empty gate keeps showing the existing
+  "recommend a vaccine" block instead. The gate itself is **not** gated — Starter clinics
+  still admit patients normally; only the certificate claim is a paid capability.
+
+
 ### feat: a follow-up plan's points are tied together  —  2026-08-04
 - **What changed:** the Follow-up Plan already created **one reminder per point** — what it
   did not do was record that they belonged to the same plan, so a vet's three-point recall

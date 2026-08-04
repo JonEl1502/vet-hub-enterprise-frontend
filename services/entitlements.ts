@@ -293,6 +293,11 @@ export const FEATURE_COPY: Record<string, { label: string; plan: string; blurb?:
     plan: 'Pro',
     blurb: 'Create and customise visit workflows. Without it you can still use the workflows VetHub ships.',
   },
+  'capability:vaccination-certificates': {
+    label: 'Vaccination certificates',
+    plan: 'Pro',
+    blurb: 'Issue a certificate for the vaccines verified at the admission gate.',
+  },
   'capability:feeding-programs': {
     label: 'Feeding programs',
     plan: 'Pro',

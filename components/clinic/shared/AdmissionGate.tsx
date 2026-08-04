@@ -1,6 +1,8 @@
 import React from 'react';
 import { ShieldCheck } from 'lucide-react';
 import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
+import { useFeature } from '../../../contexts/PlanAccessContext';
+import { Award, Lock } from 'lucide-react';
 import GateVaccineRecommend from './GateVaccineRecommend';
 import { petsAPI } from '../../../services';
 
@@ -31,6 +33,12 @@ export interface AdmissionGateValue {
   vaccines: Record<string, boolean>;
   recommended: Record<string, boolean>;
   clientAgreed: boolean;
+  /**
+   * The client wants a vaccination certificate for what was verified here
+   * (user, 2026-08-04). Only meaningful once something is actually ticked —
+   * a certificate for nothing is not a thing to claim.
+   */
+  claimCertificate?: boolean;
 }
 
 interface Props {
@@ -95,6 +103,8 @@ export async function fetchAdministeredVaccines(petId: number | string): Promise
 const AdmissionGate: React.FC<Props> = ({
   value, onChange, petId, petWeight, petWeightAt, showWeight = true, required = true, className = '',
 }) => {
+  // Issuing certificates is a paid capability; the gate itself is not.
+  const canCertify = useFeature('capability:vaccination-certificates');
   const [dates, setDates] = React.useState<Record<string, string>>({});
   const [weightCopied, setWeightCopied] = React.useState(false);
   const prefilledFor = React.useRef<string | null>(null);
@@ -184,6 +194,36 @@ const AdmissionGate: React.FC<Props> = ({
             );
           })}
         </div>
+        {/* Something IS verified — offer the certificate. Gated: issuing
+            certificates is a paid capability, and the gate itself stays fully
+            usable without it (the tick is what upgrades, not the check). */}
+        {hasVaccineRecorded(value.vaccines) && (
+          <label className={`mt-2 flex items-start gap-2.5 px-3 py-2.5 rounded-xl border transition-all ${
+            canCertify
+              ? 'border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/50 dark:bg-emerald-950/20 cursor-pointer'
+              : 'border-slate-200 dark:border-zinc-800 opacity-60 cursor-not-allowed'
+          }`}>
+            <input
+              type="checkbox"
+              disabled={!canCertify}
+              checked={!!value.claimCertificate && canCertify}
+              onChange={e => onChange({ claimCertificate: e.target.checked })}
+              className="w-3.5 h-3.5 mt-0.5 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 shrink-0"
+            />
+            <span className="min-w-0">
+              <span className="flex items-center gap-1.5 text-[11px] font-black text-pine dark:text-zinc-100">
+                {canCertify ? <Award size={12} className="text-emerald-600" /> : <Lock size={12} className="text-slate-400" />}
+                Claim a vaccination certificate
+              </span>
+              <span className="block text-[10px] font-bold text-slate-400 mt-0.5">
+                {canCertify
+                  ? 'Issues a certificate for the vaccines verified above — printable from the patient\u2019s records.'
+                  : 'Available on Pro and Enterprise — upgrade to issue vaccination certificates.'}
+              </span>
+            </span>
+          </label>
+        )}
+
         {!hasVaccineRecorded(value.vaccines) && (
           <GateVaccineRecommend
             recommended={value.recommended || {}}

@@ -197,6 +197,9 @@ export const FEATURE_CATALOG = {
     // too"). It was gated in the UI but granted by NO package, so it was dark
     // on every plan including the one the upsell named.
     'capability:feeding-programs',
+    // Issue a vaccination certificate from a verified gate check. Pro and
+    // Enterprise (user, 2026-08-04).
+    'capability:vaccination-certificates',
   ],
   services: [
     'service:appointment-scheduling',
