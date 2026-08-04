@@ -8,6 +8,7 @@ import { ClientBilling } from '../../../services/modules/clients.api';
 import { Bill } from '../../../services/modules/bills.api';
 import { Invoice } from '../../../services/modules/invoices.api';
 import { isSettled } from './ClientAccountHub';
+import RevenueStatusChip, { revenueStatusOf } from '../shared/RevenueStatusChip';
 
 /**
  * Financials → BILLS (user, 2026-08-03: "Bills tab b4 Invoice … and can
@@ -162,11 +163,7 @@ const ClientBillsTab: React.FC<Props> = ({
               </div>
               <div className="text-right shrink-0">
                 <p className="text-sm font-black font-mono text-pine dark:text-zinc-100">{money(r.total, currency)}</p>
-                <span className={`inline-block mt-1 px-2 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest border ${
-                  settled ? 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20'
-                  : invoiced ? 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20'
-                  : 'bg-cyan-500/10 text-cyan-600 border-cyan-500/20'
-                }`}>{settled ? 'Paid' : invoiced ? 'Invoiced' : 'Bill'}</span>
+                <RevenueStatusChip className="mt-1" status={revenueStatusOf(r as any)} />
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
                 {onViewVisit && (

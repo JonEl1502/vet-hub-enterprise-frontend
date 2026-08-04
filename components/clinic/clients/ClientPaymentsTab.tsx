@@ -10,6 +10,7 @@ import { printElementAsPdf } from '../shared/printPdf';
 import { ClientBilling } from '../../../services/modules/clients.api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { isSettled } from './ClientAccountHub';
+import RevenueStatusChip from '../shared/RevenueStatusChip';
 
 /**
  * Client → Payments tab (backend migration 097).
@@ -110,6 +111,17 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   // The payer's own reference (M-Pesa code, cheque no.). Optional, and stored
   // on the transaction's metadata so a repeated code cannot fail the payment.
   const [reference, setReference] = React.useState('');
+  /**
+   * What the collection actually did — kept on screen instead of a toast that
+   * vanishes (user, 2026-08-04). Read straight from the server's response, so
+   * it reports the allocation that HAPPENED, not the one the UI predicted.
+   */
+  const [posted, setPosted] = React.useState<null | {
+    amount: number; receiptNumber?: string; creditAfter: number;
+    allocations: { visitId: string; invoiceId: string | null; amountApplied: number; outstandingAfter: number }[];
+  }>(null);
+  /** Payment row expanded to its settlement breakdown — the manager audit view. */
+  const [openPayment, setOpenPayment] = React.useState<string | null>(null);
   const [manual, setManual] = React.useState<Record<string, string>>({});
 
   // Payment account (user, 2026-08-02): the client's derived credit — money
@@ -325,6 +337,12 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
       });
       if (res.success) {
         setReference('');
+        setPosted({
+          amount: Number(res.data?.transaction?.amount ?? fundsTotal),
+          receiptNumber: res.data?.receipt?.receiptNumber,
+          allocations: res.data?.allocations ?? [],
+          creditAfter: Math.max(0, round2(credit - creditDraw + surplus)),
+        });
         const settled = res.data?.settledVisitIds?.length ?? selected.size;
         const touched = res.data?.visitIds?.length ?? selected.size;
         toast.success(
@@ -398,6 +416,48 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
 
   return (
     <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+      {/* ── Payment posted — what the server actually did with the money ── */}
+      {posted && (
+        <div className="rounded-2xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-950/20 p-4 sm:p-5 space-y-3 animate-in fade-in slide-in-from-top-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <CheckCircle2 size={18} className="text-emerald-600 shrink-0" />
+            <div className="min-w-0">
+              <p className="text-sm font-black text-pine dark:text-zinc-100">Payment posted · {money(posted.amount, currency)}</p>
+              {posted.receiptNumber && (
+                <p className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">Receipt {posted.receiptNumber}</p>
+              )}
+            </div>
+            <button type="button" onClick={() => setPosted(null)}
+              className="ml-auto px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:border-seafoam hover:text-seafoam transition-all">
+              Done
+            </button>
+          </div>
+          {posted.allocations.length > 0 && (
+            <div className="rounded-xl border border-emerald-200/70 dark:border-emerald-900/40 bg-white dark:bg-zinc-900 divide-y divide-slate-100 dark:divide-zinc-800">
+              {posted.allocations.map(al => {
+                const inv = invoices.find(iv => String(iv.visitId) === String(al.visitId));
+                const cleared = Number(al.outstandingAfter) <= 0.005;
+                return (
+                  <div key={al.visitId} className="flex flex-wrap items-center gap-2 px-3 py-2">
+                    <span className="min-w-0 flex-1 text-[11px] font-bold text-pine dark:text-zinc-100 truncate">
+                      Visit #{al.visitId}{inv?.pet ? ` · ${inv.pet.name}` : ''}
+                    </span>
+                    <span className="text-[11px] font-black font-mono text-pine dark:text-zinc-100">{money(al.amountApplied, currency)}</span>
+                    <RevenueStatusChip status={cleared ? 'PAID' : 'PARTIAL'}
+                      suffix={cleared ? undefined : `· ${money(al.outstandingAfter, currency)} left`} />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+          {posted.creditAfter > 0.005 && (
+            <p className="text-[10px] font-bold text-purple-600 dark:text-purple-400">
+              Client credit after this payment: {money(posted.creditAfter, currency)}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Outstanding + sub-tabs */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         {only ? (
@@ -923,6 +983,34 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                     {p.reference ? ` · ref ${p.reference}` : ''}
                     {voided && p.voidReason ? ` · voided: ${p.voidReason}` : ''}
                   </p>
+                  {/* WHERE THE MONEY WENT — the settlement rows. Voiding a
+                      payment reverses every invoice it touched, so being able
+                      to see that set before voiding is the whole audit trail
+                      (user, 2026-08-04). */}
+                  {openPayment === String(p.id) && (
+                    <div className="mt-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/40 divide-y divide-slate-100 dark:divide-zinc-800">
+                      {(p.allocations ?? []).length === 0 && (
+                        <p className="px-3 py-2 text-[10px] font-bold text-slate-400">
+                          No settlement rows — this payment predates per-invoice allocation.
+                        </p>
+                      )}
+                      {(p.allocations ?? []).map(al => {
+                        const inv = invoices.find(iv => String(iv.visitId) === String(al.visitId));
+                        return (
+                          <div key={`${al.visitId}-${al.invoiceId ?? 'x'}`} className="flex flex-wrap items-center gap-2 px-3 py-1.5">
+                            <button type="button" onClick={() => onViewVisit?.(Number(al.visitId))} disabled={!onViewVisit}
+                              className="min-w-0 flex-1 text-left text-[10px] font-bold text-seafoam hover:underline disabled:text-slate-600 disabled:no-underline dark:disabled:text-zinc-300 truncate">
+                              Visit #{al.visitId}{inv?.pet ? ` · ${inv.pet.name}` : ''}
+                            </button>
+                            {al.invoiceId && (
+                              <span className="shrink-0 text-[8px] font-black uppercase tracking-wider text-indigo-500">INV #{al.invoiceId}</span>
+                            )}
+                            <span className="shrink-0 text-[10px] font-black font-mono text-pine dark:text-zinc-100">{money(al.amountApplied, currency)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
                 {p.coveredCount > 1 && (
                   <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-seafoam/15 text-seafoam"
@@ -936,6 +1024,15 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                 <span className={`shrink-0 w-28 text-right text-sm font-black font-mono ${voided ? 'text-slate-400' : 'text-emerald-600'}`}>
                   {money(p.amount, currency)}
                 </span>
+                <button type="button" onClick={() => setOpenPayment(openPayment === String(p.id) ? null : String(p.id))}
+                  title="Where this payment was applied"
+                  className={`shrink-0 px-2 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${
+                    openPayment === String(p.id)
+                      ? 'border-seafoam text-seafoam'
+                      : 'border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam'
+                  }`}>
+                  {openPayment === String(p.id) ? 'Hide' : 'Allocation'}
+                </button>
                 {canCollect && !voided && p.status === 'SETTLED' && (
                   <button onClick={() => voidPayment(p.id, p.coveredCount)} disabled={busy}
                     title="Void this payment — reverses it but keeps the history"

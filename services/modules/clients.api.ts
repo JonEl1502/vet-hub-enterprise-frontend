@@ -126,6 +126,8 @@ export interface ClientPayment {
   receiptNumber?: string | null;
   /** The payer's own reference — M-Pesa code, cheque no. — captured at collect. */
   reference?: string | null;
+  /** Where this payment actually went — the settlement rows, per invoice. */
+  allocations?: { visitId: string; invoiceId: string | null; amountApplied: number }[];
   // Every bill this ONE payment covered — voiding it reverses them all.
   coveredVisitIds: string[];
   coveredCount: number;

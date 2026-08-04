@@ -8,6 +8,7 @@ import {
 import { Client } from '../../../types';
 import { clientsAPI, uploadsAPI } from '../../../services';
 import { ClientBilling, ClientAttachment } from '../../../services/modules/clients.api';
+import RevenueStatusChip, { revenueStatusOf } from '../shared/RevenueStatusChip';
 
 /**
  * Client → Payments tab, account-hub layout (user reference design, 2026-08-02).
@@ -360,9 +361,14 @@ const ClientAccountHub: React.FC<Props> = ({
                         <p className={`text-sm font-black font-mono ${e.status === 'VOIDED' ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>
                           {money(e.amount, currency)}
                         </p>
-                        <span className={`inline-block mt-1 px-2 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest border ${STATUS_BADGE[e.status]}`}>
-                          {e.status}
-                        </span>
+                        {e.kind === 'BILL' || e.kind === 'INVOICE' ? (
+                          <RevenueStatusChip className="mt-1"
+                            status={e.status === 'PAID' ? 'PAID' : e.status === 'PARTIAL' ? 'PARTIAL' : e.kind === 'INVOICE' ? 'INVOICED' : 'BILL_APPROVED'} />
+                        ) : (
+                          <span className={`inline-block mt-1 px-2 py-0.5 rounded-md text-[7px] font-black uppercase tracking-widest border ${STATUS_BADGE[e.status]}`}>
+                            {e.status}
+                          </span>
+                        )}
                       </div>
                       <div className="flex items-center gap-1 shrink-0 pt-1">
                         {e.visitId != null && onViewVisit ? (

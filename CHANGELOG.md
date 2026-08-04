@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: one revenue-status chip, a payment-posted panel, and the settlement trail  —  2026-08-04
+- **What changed:** (user: "go") the last three gaps from the design audit.
+  ① **`RevenueStatusChip`** — one component, one derivation, seven states
+  (Bill draft · Bill approved · Invoiced · Part paid · Paid · Overdue · Credit). The same
+  states were being re-derived and re-styled in every money list, so "Paid" was emerald in
+  one place and slate in another and Overdue existed nowhere. `revenueStatusOf()` judges
+  settlement on the MONEY (`outstanding`), never the visit's `isPaid` flag, which has been
+  seen stale on prod. Used on the Bills rows and the account timeline.
+  ② **Payment posted panel** — after collecting, what the SERVER did stays on screen
+  instead of a toast: amount, receipt number, each invoice with what was applied and
+  whether it cleared or has a remainder, and the client credit left. Read from the collect
+  response, so it reports the allocation that happened rather than the one the UI
+  predicted.
+  ③ **Settlement trail** — every payment row has an **Allocation** toggle showing which
+  visits and invoices the money hit. Voiding a payment reverses every invoice it touched,
+  so seeing that set BEFORE voiding is the audit trail. Payments predating per-invoice
+  allocation say so rather than rendering empty.
+- **Record impact:** 🟢 None — all three read what already exists.
+- **Data dependency:** the allocation list needs backend `3982f5b` (live on prod).
+- **Rollback:** revert the commit and rebuild.
+
 ### feat: stage a vaccination PROTOCOL at visit creation  —  backend categoryKey
 - **What changed:** a vaccination visit's staging area now offers **vaccination-category
   procedure recipes** as chips, beside the vaccine and package chips already there. Picking
