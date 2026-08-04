@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the LAST result in the service search couldn't be clicked  —  no migration
+- **What changed:** (user, 2026-08-04: "i cant add the last option") `InlineServiceSearch`
+  rendered its dropdown as an `absolute` child. That works everywhere except the place it
+  matters most — the wizard's running-bill rail is `max-h-[72vh] overflow-y-auto`, and an
+  absolutely-positioned element is **clipped by any scrollable ancestor**. The bottom result
+  (usually the violet PROCEDURE row) rendered half-cut at the panel edge and the clipped part
+  was unclickable.
+- **It looked like a broken procedure handler and was pure layout** — `onAddProcedure` was
+  wired correctly the whole time.
+- **Fixed with a portal** to `<body>` using fixed positioning, which escapes every ancestor's
+  overflow. The position is re-measured on scroll and resize, because a fixed element does not
+  follow its anchor on its own, and the list **flips above the input** when there isn't room
+  below — otherwise a short viewport reproduces the same bug in a different form.
+- `z-[60]` clears the wizard's sticky bottom bar (z-40).
+- **Record impact:** 🟢 None — presentational.
+
+### ui: "Bill & Invoice" link in the Running Bill header  —  no migration
+- **What changed:** (user) the rail's header gets a link straight to the Bill & Invoice tab.
+  The rail is a summary; the full document lives on that tab, and there was no way through
+  from here.
+- **Record impact:** 🟢 None.
+
+
 ### flow: the visit footer names the real stage; collect gains allocation order  —  2026-08-04
 - **What changed:** (user: "status inconsistencies … it is generate invoice here after
   generate & approve bill, then moves to invoice tab to Settle Invoice not Bill … or just

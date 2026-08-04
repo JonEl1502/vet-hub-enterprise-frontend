@@ -1,4 +1,5 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Search, Plus, X, ClipboardList } from 'lucide-react';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 
@@ -75,10 +76,50 @@ const InlineServiceSearch: React.FC<Props> = ({
       .slice(0, MAX_RESULTS);
   }, [query, procedures, onAddProcedure]);
 
+  /**
+   * ⚠️ The dropdown is rendered in a PORTAL, not inline.
+   *
+   * It used to be `absolute` inside the component. That works everywhere except
+   * the one place it matters most: the visit wizard's running-bill rail is
+   * `max-h-[72vh] overflow-y-auto`, and an absolutely-positioned child is
+   * CLIPPED by any scrollable ancestor. The last result rendered half-cut at the
+   * panel edge and the clipped part could not be clicked at all — reported as
+   * "i cant add the last option" (user, 2026-08-04), which looked like a broken
+   * procedure handler but was pure layout.
+   *
+   * Portalling to <body> with fixed positioning escapes every ancestor's
+   * overflow. The position is re-measured on scroll and resize because a fixed
+   * element does not follow its anchor on its own.
+   */
+  const anchorRef = useRef<HTMLDivElement>(null);
+  const [rect, setRect] = useState<{ left: number; top: number; width: number; flipUp: boolean } | null>(null);
+
+  useEffect(() => {
+    if (!open || !query) { setRect(null); return; }
+    const measure = () => {
+      const el = anchorRef.current;
+      if (!el) return;
+      const r = el.getBoundingClientRect();
+      // Flip above the input when there isn't room below — otherwise the list
+      // is pushed off-screen on a short viewport and the same bug returns in a
+      // different form.
+      const spaceBelow = window.innerHeight - r.bottom;
+      const flipUp = spaceBelow < 240 && r.top > spaceBelow;
+      setRect({ left: r.left, top: flipUp ? r.top : r.bottom, width: r.width, flipUp });
+    };
+    measure();
+    window.addEventListener('scroll', measure, true);
+    window.addEventListener('resize', measure);
+    return () => {
+      window.removeEventListener('scroll', measure, true);
+      window.removeEventListener('resize', measure);
+    };
+  }, [open, query]);
+
   if (disabled) return null;
 
   return (
-    <div className="relative">
+    <div className="relative" ref={anchorRef}>
       <div className="relative">
         <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
         <input
@@ -98,8 +139,16 @@ const InlineServiceSearch: React.FC<Props> = ({
         )}
       </div>
 
-      {open && !!query && (
-        <div className="absolute z-30 mt-1 w-full max-h-64 overflow-y-auto custom-scrollbar bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl">
+      {open && !!query && rect && createPortal(
+        <div
+          style={{
+            position: 'fixed',
+            left: rect.left,
+            width: rect.width,
+            ...(rect.flipUp ? { bottom: window.innerHeight - rect.top + 4 } : { top: rect.top + 4 }),
+          }}
+          // z-[60] clears the wizard's sticky bottom bar (z-40) and the rail.
+          className="z-[60] max-h-64 overflow-y-auto custom-scrollbar bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl">
           {results.length === 0 && procResults.length === 0 ? (
             <p className="text-[10px] font-bold text-slate-400 text-center py-3">Nothing matches “{q.trim()}”.</p>
           ) : (
@@ -181,7 +230,8 @@ const InlineServiceSearch: React.FC<Props> = ({
               })}
             </>
           )}
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

@@ -625,7 +625,19 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
             <div className="px-2.5 pb-3 space-y-3 overflow-y-auto custom-scrollbar max-h-[72vh]">
               {/* Running bill — real line-items from the visit. */}
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 space-y-2">
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><Receipt size={11} className="text-seafoam" /> Running Bill</p>
+                {/* Header row — the rail is a SUMMARY; the full document lives
+                    on the Bill & Invoice tab, so give it a way through instead
+                    of making people hunt for the tab (user, 2026-08-04). */}
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><Receipt size={11} className="text-seafoam" /> Running Bill</p>
+                  {goBilling && (
+                    <button type="button" onClick={goBilling}
+                      title="Open the Bill & Invoice tab"
+                      className="shrink-0 flex items-center gap-1 text-[8px] font-black uppercase tracking-widest text-seafoam hover:text-pine dark:hover:text-zinc-100 transition-colors">
+                      Bill &amp; Invoice <ChevronRight size={10} />
+                    </button>
+                  )}
+                </div>
                 <div className="space-y-1 max-h-[26vh] overflow-y-auto custom-scrollbar">
                   {(visit.tasks || []).length === 0 && standaloneMeds.length === 0 && <p className="text-[10px] text-slate-400 py-2">No services yet.</p>}
                   {/* Qty + amount are editable right here (user, 2026-08-03) —
