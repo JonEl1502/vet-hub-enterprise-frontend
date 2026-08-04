@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: receipts open in place as the actual document  —  2026-08-04
+- **What changed:** (user chose collapsibles over draggable windows) a receipt row showed
+  a number and a total and nothing else. Clicking **Open** now expands it in place into the
+  document: subtotal, discount, final amount, paid and any balance as real rows; the
+  **visit it is a receipt FOR** (clickable through to that visit); and the payment(s) that
+  produced it with method and date. Voided/un-issued receipts carry their reason. This
+  completes the set — Bills and Invoices already expanded to their documents, receipts did
+  not.
+- **Record impact:** 🟢 None — reads what the billing payload already returns.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** a pre-157 receipt has no `visitId` (those were issued per PAYMENT, not
+  per filled bill), so "Receipt for" shows the covered-invoice count instead of a visit —
+  that is the old data being honest, not a lookup failure.
+
 ### feat: part payment on the visit; only invoiced visits offered alongside it  —  2026-08-04
 - **What changed:** (user: "client might not pay in full so log outstanding but remember
   amount goes to client account then pays for this visit"; "if the visits are not invoiced

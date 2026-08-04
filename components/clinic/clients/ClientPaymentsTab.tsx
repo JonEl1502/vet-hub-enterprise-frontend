@@ -71,6 +71,9 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   };
   // Expanded row → inline printable invoice document (user, 2026-08-02).
   const [expandedVisit, setExpandedVisit] = React.useState<string | null>(null);
+  // Receipts open in place too (user, 2026-08-04) — a receipt row that only
+  // shows a number and a total is not the document anyone is looking for.
+  const [expandedReceipt, setExpandedReceipt] = React.useState<string | null>(null);
   const [expandedDoc, setExpandedDoc] = React.useState<any | null>(null);
   const [docLoading, setDocLoading] = React.useState(false);
   const toggleExpand = (inv: any) => {
@@ -844,12 +847,22 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
               No receipts
             </div>
           )}
-          {receipts.map(r => (
+          {receipts.map(r => {
+            const open = expandedReceipt === String(r.id);
+            // Every payment that produced this receipt, and the visit it filled.
+            const rPayments = payments.filter(p => String(p.receiptNumber || '') === String(r.receiptNumber));
+            const rVisit = invoices.find(iv => String(iv.visitId) === String(r.visitId));
+            return (
             <div key={r.id}
-              className={`flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 ${
+              className={`rounded-xl border border-slate-200 dark:border-zinc-800 ${
                 r.voided ? 'bg-slate-50/60 dark:bg-zinc-950 opacity-70' : 'bg-white dark:bg-zinc-900'
               }`}>
-              <Receipt size={14} className="text-seafoam shrink-0" />
+            <div className="flex flex-wrap items-center gap-2 px-3 py-2.5">
+              <button type="button" onClick={() => setExpandedReceipt(open ? null : String(r.id))}
+                title={open ? 'Hide the receipt' : 'Open the receipt'}
+                className="shrink-0 text-slate-400 hover:text-seafoam transition-colors">
+                <Receipt size={14} className={open ? 'text-seafoam' : ''} />
+              </button>
               <div className="min-w-0 flex-1">
                 <p className={`text-xs font-black truncate ${r.voided ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>{r.receiptNumber}</p>
                 <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
@@ -885,8 +898,72 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                   </span>
                 )}
               </div>
+              <button type="button" onClick={() => setExpandedReceipt(open ? null : String(r.id))}
+                className="shrink-0 px-2 py-1 rounded-lg border border-slate-200 dark:border-zinc-700 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam transition-all">
+                {open ? 'Hide' : 'Open'}
+              </button>
             </div>
-          ))}
+
+            {open && (
+              <div className="border-t border-slate-100 dark:border-zinc-800 p-3 sm:p-4 space-y-3 bg-slate-50/40 dark:bg-zinc-950/30">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Receipt {r.receiptNumber}</p>
+                    <p className="text-[10px] font-bold text-slate-400">
+                      {fmt(r.createdAt)} · {r.paymentMethod.replace('_', ' ')}
+                      {rVisit?.pet ? ` · ${rVisit.pet.name}` : ''}
+                    </p>
+                  </div>
+                  {r.voided && (
+                    <span className="px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">
+                      {r.voidReason ? `Un-issued · ${r.voidReason}` : 'Voided'}
+                    </span>
+                  )}
+                </div>
+
+                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 divide-y divide-slate-100 dark:divide-zinc-800">
+                  {[
+                    { l: 'Subtotal', v: money(r.subtotal, currency) },
+                    ...(r.discount > 0 ? [{ l: 'Discount', v: `− ${money(r.discount, currency)}` }] : []),
+                    { l: 'Final amount', v: money(r.total, currency), strong: true },
+                    ...(r.amountPaid != null ? [{ l: 'Paid', v: money(r.amountPaid, currency) }] : []),
+                    ...((r.balance ?? 0) > 0.005 ? [{ l: 'Balance', v: money(r.balance!, currency), warn: true }] : []),
+                  ].map((row: any) => (
+                    <div key={row.l} className="flex items-center justify-between px-3 py-2">
+                      <span className={`text-[10px] font-black uppercase tracking-widest ${row.warn ? 'text-amber-600' : 'text-slate-400'}`}>{row.l}</span>
+                      <span className={`font-mono ${row.strong ? 'text-sm font-black text-pine dark:text-zinc-100' : row.warn ? 'text-xs font-black text-amber-600' : 'text-xs font-bold text-slate-600 dark:text-zinc-300'}`}>{row.v}</span>
+                    </div>
+                  ))}
+                </div>
+
+                {/* What this receipt is FOR, and the money that produced it. */}
+                <div className="flex flex-wrap gap-x-6 gap-y-2">
+                  <div>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Receipt for</p>
+                    {r.visitId ? (
+                      <button type="button" onClick={() => onViewVisit?.(Number(r.visitId))} disabled={!onViewVisit}
+                        className="text-[11px] font-black text-seafoam hover:underline disabled:text-pine disabled:no-underline dark:disabled:text-zinc-100">
+                        Visit #{r.visitId}{rVisit?.pet ? ` · ${rVisit.pet.name}` : ''}
+                      </button>
+                    ) : (
+                      <p className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+                        {r.coveredVisitIds.length > 1 ? `${r.coveredVisitIds.length} invoices (issued per payment)` : '—'}
+                      </p>
+                    )}
+                  </div>
+                  {rPayments.map(p => (
+                    <div key={p.id}>
+                      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Payment</p>
+                      <p className="text-[11px] font-bold text-slate-600 dark:text-zinc-300">
+                        {money(p.amount, currency)} · {String(p.method).replace(/_/g, ' ')} · {fmt(p.settledAt || p.createdAt)}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            </div>
+          );})}
         </div>
       )}
     </div>
