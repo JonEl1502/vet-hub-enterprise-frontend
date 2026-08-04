@@ -100,8 +100,12 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
   const mtdRevenue = mtd.reduce((s, v) => s + Number(v.totalCost || 0), 0);
 
   // "Awaiting approval / invoicing" = the bill queue that still needs a human.
-  const needsAction = (bills || []).filter(b =>
-    ['DRAFT', 'PENDING_REVIEW', 'APPROVED'].includes(String(b.status)));
+  // On TODAY that is the whole queue, backlog included — a bill left unapproved
+  // since Monday is exactly what an owner opens this card to find. Point the
+  // picker elsewhere and it narrows to bills for visits on that day.
+  const needsAction = (bills || [])
+    .filter(b => ['DRAFT', 'PENDING_REVIEW', 'APPROVED'].includes(String(b.status)))
+    .filter(b => range.isToday || inDayRange(range, (b as any).visitDate || (b as any).createdAt));
   const overdueTotal = ar ? Number(ar.total || 0) : 0;
   const overdueReminders = reminders.filter(r => new Date(r.dueAt).getTime() < Date.now()).length;
 
@@ -118,16 +122,17 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
   return (
     <div className="space-y-4">
       {/* Day control — every dashboard has one (user, 2026-08-04). The pulse
-          band and the clinic-wide cards below are server-computed over a fixed
-          7-day window, so they are deliberately NOT re-scoped by it. */}
+          band, checkouts and staff activity re-query the server with this range
+          (`/summaries/conversions?start&end`); the tiles filter the visits
+          already loaded. Outstanding AR is the one exception — see its tile. */}
       <DayRangeControl
         range={range}
         onChange={onRangeChange}
-        note={range.isToday ? 'live' : 'the tiles and cards below follow this'}
+        note={range.isToday ? 'live' : 'everything below follows this'}
       />
 
       {/* Conversion pulse — the day's numbers and conversion rates. */}
-      {scopeId != null && <ConversionPulse scopeId={scopeId} />}
+      {scopeId != null && <ConversionPulse scopeId={scopeId} range={range} />}
 
       {/* Same strip every role sees: what the clinic is doing right now. */}
       <WorkInProgressStrip visits={visits} range={range} onOpen={() => onNavigate?.('appointments')} />
@@ -168,7 +173,11 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
         },
         {
           label: 'Outstanding', value: money(overdueTotal),
-          tone: overdueTotal > 0 ? 'bad' : 'good', sub: ar ? 'All clients' : 'Loading…',
+          tone: overdueTotal > 0 ? 'bad' : 'good',
+          // A balance owed is "as of now" — it has no version for last Tuesday
+          // without replaying settlement history, so it deliberately ignores
+          // the picker and says so.
+          sub: ar ? 'All clients · as of now' : 'Loading…',
           onClick: () => onNavigate?.('clients'),
         },
         {
@@ -193,7 +202,7 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
         <RoleCard
           title="Bills needing action"
-          subtitle="Raise, approve or invoice"
+          subtitle={range.isToday ? 'Raise, approve or invoice · whole queue' : `Raise, approve or invoice · ${range.label.toLowerCase()}`}
           action={<button onClick={() => onNavigate?.('billing')} className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:underline">View all</button>}
         >
           {bills === null ? <Spinner /> : needsAction.length === 0 ? (
@@ -270,9 +279,9 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
       </div>
 
       {/* Clinic-wide cards carried over from the old Clinic Today tab. */}
-      {scopeId != null && <CheckoutsCard scopeId={scopeId} />}
-      {scopeId != null && <PartnerRequestsCard clinicId={scopeId} />}
-      {scopeId != null && <StaffTalliesCard scopeId={scopeId} />}
+      {scopeId != null && <CheckoutsCard scopeId={scopeId} range={range} />}
+      {scopeId != null && <PartnerRequestsCard clinicId={scopeId} range={range} />}
+      {scopeId != null && <StaffTalliesCard scopeId={scopeId} range={range} />}
 
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
         <RoleCard title="Owner's day" subtitle="Resets each day">

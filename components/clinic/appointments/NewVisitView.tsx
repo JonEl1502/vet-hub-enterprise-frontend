@@ -16,6 +16,7 @@ import DateTimePicker from '../../shared/common/DateTimePicker';
 import { GateCheckForm } from './wizard/steps/EntrySteps';
 import { loadVisitFees, entryFeeFor, loadVisitFeeMeta, HOUSE_CALL_DISTANCE_KEY } from '../shared/visitFees';
 import PetAvatar from '../shared/PetAvatar';
+import { useAuth } from '../../../contexts/AuthContext';
 
 interface TaskMedication {
   id: string;
@@ -99,6 +100,8 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   const { categories: apiCategories, getServicesByCategory, species: apiSpecies, getBreedsBySpecies } = useReferenceData();
   const { staff } = useStaff();
   const { selectedClinics } = useClinic();
+  // Who is creating this visit — used to default the lead clinician to them.
+  const { user: currentUser } = useAuth();
   // Active clinic's currency (defaults to KES only if none set).
   const currency = selectedClinics[0]?.currency || 'KES';
   const [activeTab, setActiveTab] = useState<'internal' | 'walking'>(initialParentApptId ? 'internal' : 'internal');
@@ -463,14 +466,21 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     }
   }, [initialCategoryId, categoriesWithIcons, encounterType]);
 
-  // Derive default lead staff: first VET, then CLINIC_OWNER, then any other
+  // Default lead staff — THE PERSON LOGGED IN, when they are on the clinical
+  // staff list (user, 2026-08-04). Until now this picked "the first VET in the
+  // clinic", so a second vet creating a visit silently attributed it to their
+  // colleague, and every staff tally inherited that. Falls back to the old
+  // order (first VET → owner → anyone) for a user who isn't clinical staff,
+  // e.g. the front desk booking on someone's behalf — they still pick manually.
   const defaultLeadStaffId = useMemo(() => {
+    const me = availableStaff.find(s => String(s.id) === String(currentUser?.id));
+    if (me) return me.id;
     const vet = availableStaff.find(s => s.role === 'VET');
     if (vet) return vet.id;
     const owner = availableStaff.find(s => s.role === 'CLINIC_OWNER');
     if (owner) return owner.id;
     return availableStaff[0]?.id ?? null;
-  }, [availableStaff]);
+  }, [availableStaff, currentUser?.id]);
 
   const [formData, setFormData] = useState({
     clientName: '',

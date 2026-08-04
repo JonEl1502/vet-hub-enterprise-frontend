@@ -5,6 +5,7 @@ import { useClinic } from '../../../../contexts/ClinicContext';
 import { UserRole } from '../../../../types';
 import StaffDashboard from '../StaffDashboard';
 import WorkInProgressStrip from './WorkInProgressStrip';
+import StaffPulse from './StaffPulse';
 import { useDayRange, DayRangeControl } from './roleShared';
 import FrontOfficeDashboard from './FrontOfficeDashboard';
 import GroomerDashboard from './GroomerDashboard';
@@ -98,6 +99,17 @@ const RoleDashboard: React.FC<Props> = ({ onNavigate }) => {
 
       {/* Day picker — same control as the owner dashboard and the Visits list. */}
       <DayRangeControl range={range} onChange={onRangeChange} />
+
+      {/* The analytics band staff were missing (user, 2026-08-04) — the owner
+          gets the clinic-wide pulse, this is the personal one: what THIS user
+          was involved in and worked on over the picked day. */}
+      <StaffPulse
+        visits={visits}
+        range={range}
+        userId={user?.id}
+        scopeId={clinicCtx?.selectedClinicIds?.[0]}
+        roleLabel={roleLabel}
+      />
 
       {/* Shared across every role: what the clinic is doing right now. */}
       <WorkInProgressStrip visits={visits} range={range} onOpen={() => onNavigate?.('appointments')} />

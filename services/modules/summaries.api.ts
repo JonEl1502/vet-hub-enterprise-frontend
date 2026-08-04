@@ -114,15 +114,20 @@ export const summariesAPI = {
 
   /** Daily conversion pulse — visits done, booking→visit, reminder→visit, cross-sell. */
   conversions: async (
-    opts: { scopeId: string | number; days?: number },
+    // `start`/`end` are LOCAL YYYY-MM-DD (the dashboard day picker, 2026-08-04)
+    // and replace the rolling `days` window server-side when both are given.
+    opts: { scopeId: string | number; days?: number; start?: string; end?: string },
     options?: RequestOptions,
   ): Promise<ApiResponse<{
     days: { date: string; visitsTotal: number; visitsDone: number; bookings: number; bookingsConverted: number; remindersDue: number; remindersConverted: number; crossSell: number }[];
     totals: { visitsTotal: number; visitsDone: number; bookings: number; bookingsConverted: number; remindersDue: number; remindersConverted: number; crossSell: number };
     crossSellPairs: Record<string, number>;
+    /** What the payload actually covers — echoed back so the UI can label it. */
+    window?: { start: string; end: string; days: number; explicit: boolean };
   }>> => {
     const q = new URLSearchParams({ scopeId: String(opts.scopeId) });
     if (opts.days) q.set('days', String(opts.days));
+    if (opts.start && opts.end) { q.set('start', opts.start); q.set('end', opts.end); }
     return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'conversions')}?${q.toString()}`, { cache: false, ...options });
   },
 

@@ -10,26 +10,57 @@ import { usePartnerJobs } from '../partnerships/B2BJobsStats';
 import { Send, Users } from 'lucide-react';
 
 /**
+ * The day the dashboard is pointed at. Structurally the role dashboards'
+ * `DayRange` — declared locally so this file keeps no import from the roles
+ * folder it already feeds.
+ */
+export interface PulseRange { start: string; end: string; isToday: boolean; label: string }
+
+/** Local YYYY-MM-DD. Never `toISOString()` — that shifts a Nairobi evening. */
+const localDayKey = (d: string | Date) => {
+  const x = typeof d === 'string' ? new Date(d) : d;
+  return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+};
+
+/**
+ * One query shape for all three cards: a picked day goes to the server as
+ * start/end, no range keeps the rolling week. They share an endpoint, so they
+ * must also share the window — otherwise the band says one thing and the
+ * checkouts under it say another.
+ */
+const pulseQuery = (scopeId: string | number, range?: PulseRange) =>
+  range
+    ? { scopeId, start: range.start, end: range.end }
+    : { scopeId, days: 7 };
+
+/**
  * Conversion pulse (user, 2026-08-01) — the rich stats band on Clinic Today:
  * visits done, appointments→visits, reminders→visits, and encounter cross-sell
  * (e.g. a vet visit that also sold grooming), with a 7-day mini trend. Styled
  * like the visit header card: dark pine gradient, blocks side by side.
  */
-export const ConversionPulse: React.FC<{ scopeId: string | number }> = ({ scopeId }) => {
+export const ConversionPulse: React.FC<{ scopeId: string | number; range?: PulseRange }> = ({ scopeId, range }) => {
   const [data, setData] = useState<Awaited<ReturnType<typeof summariesAPI.conversions>>['data'] | null>(null);
   useEffect(() => {
     let alive = true;
-    summariesAPI.conversions({ scopeId, days: 7 }, { silent: true } as any)
+    // The band follows the dashboard's day picker (user, 2026-08-04): a picked
+    // day is sent as start/end and REPLACES the rolling 7-day window server
+    // side, so the numbers are that day's, not the week's.
+    summariesAPI.conversions(pulseQuery(scopeId, range), { silent: true } as any)
       .then(r => { if (alive && r.success && r.data) setData(r.data); })
       .catch(() => {});
     return () => { alive = false; };
-  }, [scopeId]);
+  }, [scopeId, range?.start, range?.end, range?.isToday]);
 
   if (!data) return null;
   const t = data.totals;
   const today = data.days[data.days.length - 1];
   const pct = (n: number, d: number) => d > 0 ? `${Math.round((n / d) * 100)}%` : '—';
   const topPair = Object.entries(data.crossSellPairs || {}).sort((a, b) => b[1] - a[1])[0];
+  // Only label the span when it ISN'T the default rolling week — otherwise the
+  // band reads exactly as it always has.
+  const spanLabel = (data as any).window?.explicit ? (range?.label ?? null) : null;
+  const spanned = !!spanLabel && data.days.length > 1;
   const maxDone = Math.max(1, ...data.days.map(d => d.visitsDone));
 
   const Block: React.FC<{ label: string; big: React.ReactNode; sub: string }> = ({ label, big, sub }) => (
@@ -44,16 +75,36 @@ export const ConversionPulse: React.FC<{ scopeId: string | number }> = ({ scopeI
     <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-pine via-pine to-emerald-950 p-4 md:p-5 shadow-xl">
       <Repeat size={84} className="absolute -right-3 -top-4 text-white/5" />
       <div className="relative z-10 grid grid-cols-2 md:grid-cols-6 gap-x-5 gap-y-3 items-end">
-        <Block label="Visits today" big={<>{today?.visitsDone ?? 0}<span className="text-white/40 text-sm"> / {today?.visitsTotal ?? 0}</span></>} sub={`${t.visitsDone} done · 7 days`} />
+        {/* The headline is the LAST day of the window, which is right for
+            "today" and for a single picked day — but a multi-day pick has to
+            show the span's total, or the band reports one day and labels it
+            with a week. */}
+        <Block
+          label={spanLabel ? `Visits · ${spanLabel}` : 'Visits today'}
+          big={spanned
+            ? <>{t.visitsDone}<span className="text-white/40 text-sm"> / {t.visitsTotal}</span></>
+            : <>{today?.visitsDone ?? 0}<span className="text-white/40 text-sm"> / {today?.visitsTotal ?? 0}</span></>}
+          sub={spanned ? `${data.days.length} days` : `${t.visitsDone} done · ${spanLabel || '7 days'}`}
+        />
         <Block label="Appointments → visits" big={<>{t.bookingsConverted}<span className="text-white/40 text-sm"> / {t.bookings}</span></>} sub={`${pct(t.bookingsConverted, t.bookings)} converted`} />
         <Block label="Reminders → visits" big={<>{t.remindersConverted}<span className="text-white/40 text-sm"> / {t.remindersDue}</span></>} sub={`${pct(t.remindersConverted, t.remindersDue)} converted`} />
         <Block label="Cross-sell" big={t.crossSell} sub={topPair ? `${topPair[0]} · ${topPair[1]}×` : 'encounters combined'} />
         {/* Patient checkouts (173) — boarding pickups + inpatient discharges with
             an expected release date: today / next 3 days / overdue. */}
-        <Block label="Checkouts" big={<>{(data as any).checkouts?.today ?? 0}<span className="text-white/40 text-sm"> today</span></>} sub={`${(data as any).checkouts?.soon ?? 0} soon · ${(data as any).checkouts?.overdue ?? 0} overdue`} />
+        <Block
+          label="Checkouts"
+          big={spanLabel
+            ? <>{((data as any).checkouts?.today ?? 0) + ((data as any).checkouts?.soon ?? 0) + ((data as any).checkouts?.overdue ?? 0)}<span className="text-white/40 text-sm"> expected</span></>
+            : <>{(data as any).checkouts?.today ?? 0}<span className="text-white/40 text-sm"> today</span></>}
+          sub={spanLabel
+            ? spanLabel
+            : `${(data as any).checkouts?.soon ?? 0} soon · ${(data as any).checkouts?.overdue ?? 0} overdue`}
+        />
         {/* 7-day visits-done trend */}
         <div className="col-span-2 md:col-span-1">
-          <p className="text-white/50 text-[8px] font-black uppercase tracking-widest leading-none mb-1.5">7-day visits</p>
+          <p className="text-white/50 text-[8px] font-black uppercase tracking-widest leading-none mb-1.5">
+            {data.days.length === 1 ? 'That day' : `${data.days.length}-day visits`}
+          </p>
           <div className="flex items-end gap-1 h-9">
             {data.days.map(d => (
               <div key={d.date} title={`${d.date}: ${d.visitsDone} done / ${d.visitsTotal}`}
@@ -72,17 +123,17 @@ export const ConversionPulse: React.FC<{ scopeId: string | number }> = ({ scopeI
  * discharges with an expected release date. Rows within the next 3 days
  * (or overdue), each with a one-tap "call the client" reminder.
  */
-export const CheckoutsCard: React.FC<{ scopeId: string | number }> = ({ scopeId }) => {
+export const CheckoutsCard: React.FC<{ scopeId: string | number; range?: PulseRange }> = ({ scopeId, range }) => {
   const [rows, setRows] = useState<any[]>([]);
   const [reminded, setReminded] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState<string | null>(null);
   useEffect(() => {
     let alive = true;
-    summariesAPI.conversions({ scopeId, days: 7 }, { silent: true } as any)
-      .then(r => { if (alive && r.success && (r.data as any)?.checkouts?.list) setRows((r.data as any).checkouts.list); })
+    summariesAPI.conversions(pulseQuery(scopeId, range), { silent: true } as any)
+      .then(r => { if (alive && r.success && (r.data as any)?.checkouts?.list) setRows((r.data as any).checkouts.list); else if (alive) setRows([]); })
       .catch(() => {});
     return () => { alive = false; };
-  }, [scopeId]);
+  }, [scopeId, range?.start, range?.end, range?.isToday]);
 
   if (!rows.length) return null;
   const toneOf = (b: string) => b === 'overdue' ? 'text-rose-600 bg-rose-50 dark:bg-rose-950/40'
@@ -110,7 +161,9 @@ export const CheckoutsCard: React.FC<{ scopeId: string | number }> = ({ scopeId 
         <div className="w-8 h-8 rounded-xl bg-seafoam/10 flex items-center justify-center"><LogOut size={15} className="text-seafoam" /></div>
         <div>
           <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest leading-none">Patient checkouts</p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Boarding pickups & inpatient discharges due — call the client ahead</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">
+            Boarding pickups &amp; inpatient discharges{range && !range.isToday ? ` expected ${range.label.toLowerCase()}` : ' due'} — call the client ahead
+          </p>
         </div>
       </div>
       <div className="space-y-1.5">
@@ -148,12 +201,20 @@ export const CheckoutsCard: React.FC<{ scopeId: string | number }> = ({ scopeId 
  * jobs waiting on this clinic (price/accept), so new requests are seen without
  * opening the Partners page.
  */
-export const PartnerRequestsCard: React.FC<{ clinicId: string | number }> = ({ clinicId }) => {
+export const PartnerRequestsCard: React.FC<{ clinicId: string | number; range?: PulseRange }> = ({ clinicId, range }) => {
   const { jobs, loading } = usePartnerJobs();
   if (loading) return null;
   const ids = [String(clinicId)];
-  const awaiting = jobs.filter(j => ids.includes(String(j.providerClinicId)) && j.status === 'REQUESTED');
-  const active = jobs.filter(j => ids.includes(String(j.providerClinicId)) && j.status === 'ACCEPTED');
+  // A REQUESTED job is a work queue — on today it stays complete, backlog and
+  // all, because a request raised on Monday still needs pricing on Thursday.
+  // Point the picker at another day and it becomes "what came in that day".
+  const raisedInRange = (j: any) => {
+    if (!range || range.isToday) return true;
+    const k = localDayKey(j.createdAt);
+    return k >= range.start && k <= range.end;
+  };
+  const awaiting = jobs.filter(j => ids.includes(String(j.providerClinicId)) && j.status === 'REQUESTED' && raisedInRange(j));
+  const active = jobs.filter(j => ids.includes(String(j.providerClinicId)) && j.status === 'ACCEPTED' && raisedInRange(j));
   if (awaiting.length === 0 && active.length === 0) return null;
   const go = () => window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'referrals' } }));
   return (
@@ -164,6 +225,7 @@ export const PartnerRequestsCard: React.FC<{ clinicId: string | number }> = ({ c
           <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest leading-none">Partner requests</p>
           <p className="text-[10px] text-slate-400 mt-0.5 truncate">
             {awaiting.length > 0 ? `${awaiting.length} new request${awaiting.length === 1 ? '' : 's'} awaiting your price/accept` : 'No new requests'}
+            {range && !range.isToday ? ` · raised ${range.label.toLowerCase()}` : ''}
             {active.length > 0 ? ` · ${active.length} in progress` : ''}
           </p>
         </div>
@@ -185,22 +247,24 @@ export const PartnerRequestsCard: React.FC<{ clinicId: string | number }> = ({ c
  * (encounters 172 + service lines 106). `fee` is INTERNAL clinic cost, never
  * billed — labelled as such.
  */
-export const StaffTalliesCard: React.FC<{ scopeId: string | number }> = ({ scopeId }) => {
+export const StaffTalliesCard: React.FC<{ scopeId: string | number; range?: PulseRange }> = ({ scopeId, range }) => {
   const [rows, setRows] = useState<any[]>([]);
   useEffect(() => {
     let alive = true;
-    summariesAPI.conversions({ scopeId, days: 7 }, { silent: true } as any)
-      .then(r => { if (alive && r.success && (r.data as any)?.staffTallies) setRows((r.data as any).staffTallies); })
+    summariesAPI.conversions(pulseQuery(scopeId, range), { silent: true } as any)
+      .then(r => { if (alive && r.success && (r.data as any)?.staffTallies) setRows((r.data as any).staffTallies); else if (alive) setRows([]); })
       .catch(() => {});
     return () => { alive = false; };
-  }, [scopeId]);
+  }, [scopeId, range?.start, range?.end, range?.isToday]);
   if (!rows.length) return null;
   return (
     <div className="bg-white dark:bg-zinc-900 rounded-2xl border border-slate-100 dark:border-zinc-800 shadow-sm p-4">
       <div className="flex items-center gap-2 mb-3">
         <div className="w-8 h-8 rounded-xl bg-seafoam/10 flex items-center justify-center"><Users size={15} className="text-seafoam" /></div>
         <div>
-          <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest leading-none">Staff activity · 7 days</p>
+          <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest leading-none">
+            Staff activity · {range && !range.isToday ? range.label : '7 days'}
+          </p>
           <p className="text-[10px] text-slate-400 mt-0.5">Encounters + service lines attended · fees are internal cost, never billed</p>
         </div>
       </div>

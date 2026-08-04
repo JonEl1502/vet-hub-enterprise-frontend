@@ -59,6 +59,44 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: the pulse band follows the day picker; staff get their own band; attendance defaults to you  —  2026-08-04
+- **The pulse band now follows the picker.** `ConversionPulse`, `CheckoutsCard` and
+  `StaffTalliesCard` send the picked day to the server as `start`/`end`, which REPLACES the
+  rolling 7-day window (backend change shipped with this). Pick a day and the band reports
+  that day: the headline switches to the span's total for a multi-day pick (it used to show
+  only the window's last day), the mini-trend relabels itself, "Checkouts" becomes releases
+  expected inside the range, and staff activity says the range instead of "7 days".
+  All three share one endpoint, so they share one window by construction.
+- **Partner requests and the bills queue follow it too.** On **today** both stay the full
+  work queue — backlog included, because a bill unapproved since Monday is exactly what an
+  owner opens that card to find. Point the picker elsewhere and they narrow to that range.
+- **Outstanding AR deliberately does NOT follow it** and now says "as of now" on the tile. A
+  balance owed has no version for last Tuesday without replaying settlement history; a tile
+  silently showing today's number under another date would just be wrong.
+- **Staff get the analytics band they were missing.** New
+  `components/clinic/dashboard/roles/StaffPulse.tsx` at the top of every role dashboard:
+  my visits (assigned / clinic total), done + in progress, waiting on me, attended
+  (encounters + service lines), and my internal fees — labelled *clinic cost, never billed*.
+  Attendance comes from the same `staffTallies` rollup the owner's card uses, so the two can
+  never disagree.
+- **Attendance now defaults to the person doing the work:**
+  - `NewVisitView` set lead staff to *the first VET in the clinic*. A second vet creating a
+    visit silently attributed it to a colleague, and every staff tally inherited that. It now
+    prefers **the logged-in user** when they are on the clinical staff list, falling back to
+    the old order for a non-clinical user (front desk booking for someone else).
+  - `AttendingStaffEditor` gains a one-tap **+ Add me** when you are not already on the line.
+    It does not write by itself — a silent server write from a render would fight a second
+    editor on the same visit.
+- **Record impact:** 🔵 Low — no new writes, but visits created from now on carry the
+  creator as lead clinician instead of the first vet, which is what staff tallies count.
+- **Data dependency:** the backend's `start`/`end` params on `GET /summaries/conversions`.
+  Deploy both together; without it the band ignores the picker (it degrades, it does not break).
+- **Rollback:** revert; every param is additive.
+- ⚠️ **Watch out:** three cards each call `/summaries/conversions` separately, so changing
+  the day fires three identical requests. That predates this change (they were always three
+  calls); it is now three calls *per range change*. Worth collapsing into one shared fetch if
+  the endpoint ever gets slow.
+
 ### page: a day picker on every dashboard, for every role  —  2026-08-04
 - **What changed:** (user) the date-range picker that used to sit on the old Clinic Today
   tab is back, and now every dashboard has one — owner/admin **and** the front office, vet,

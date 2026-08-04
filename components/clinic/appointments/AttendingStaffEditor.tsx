@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Users, Plus, X, Loader2, Star, Lock } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { visitsAPI } from '../../../services';
+import { useAuth } from '../../../contexts/AuthContext';
 import { TaskAttendee } from '../../../types';
 
 /**
@@ -51,6 +52,13 @@ const AttendingStaffEditor: React.FC<Props> = ({ visitId, taskId, attendance, st
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incomingIds]);
+
+  // The signed-in user, when they are on this clinic's staff list.
+  const { user: currentUser } = useAuth();
+  const me = useMemo(
+    () => staff.find(x => String(x.id) === String(currentUser?.id)),
+    [staff, currentUser?.id],
+  );
 
   const available = useMemo(
     () => staff.filter(s => !rows.some(r => String(r.userId) === String(s.id))),
@@ -102,6 +110,21 @@ const AttendingStaffEditor: React.FC<Props> = ({ visitId, taskId, attendance, st
         <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex-1">
           Attending staff{rows.length > 1 ? ` · ${rows.length}` : ''}
         </p>
+        {/* One tap to attribute yourself (user, 2026-08-04). Attendance was
+            never seeded with the logged-in user, so the person who actually did
+            the work only appeared if someone remembered to add them from the
+            dropdown — and the staff tallies inherited every omission. This does
+            NOT write on its own: a silent server write from a render would fight
+            a second editor on the same visit. */}
+        {!locked && me && !rows.some(r => String(r.userId) === String(me.id)) && (
+          <button
+            type="button"
+            onClick={() => add(me)}
+            className="shrink-0 px-2 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-colors"
+          >
+            + Add me
+          </button>
+        )}
         {saving && <Loader2 size={11} className="animate-spin text-slate-400" />}
         {locked && <Lock size={11} className="text-slate-400" />}
       </div>
