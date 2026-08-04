@@ -174,6 +174,24 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
     finally { setLoading(false); }
   }, [stayId]);
 
+  /**
+   * Patch one of the header facts (kennel · expected pickup) in place.
+   * Optimistic on the local row so the grid doesn't flicker back to the old
+   * value while the PATCH is in flight, then reloads to take the server's
+   * version — expected pickup feeds the day count and the accruing charge, so
+   * the authoritative row is the one worth showing.
+   */
+  const saveFact = async (patch: { kennel?: string | null; expectedPickupAt?: string | null }) => {
+    setStay(prev => (prev ? { ...prev, ...patch } as BoardingStay : prev));
+    try {
+      const res = await boardingAPI.update(stayId, patch as any);
+      if (res.success) { await load(); onChanged?.(); }
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not save');
+      await load(); // put the real value back — the optimistic one was wrong
+    }
+  };
+
   useEffect(() => { setStay(null); load(); }, [stayId, load]);
   useEffect(() => {
     const apptId = stay?.billing?.appointmentId;
@@ -265,11 +283,23 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 : stay.status === 'CHECKED_OUT' && stay.actualPickupAt
                   ? (() => { const d = Math.max(1, calendarDaysBetween(stay.dropOffAt, stay.actualPickupAt)); return `Checked out · ${d} day${d === 1 ? '' : 's'}`; })()
                   : stay.status} />
-              <Fact label="Kennel" value={stay.kennel || '—'} />
+              {/* Kennel + Expected pickup are EDITABLE in place (user,
+                  2026-08-04): both are routinely unset at admission — the
+                  animal is assigned a kennel once it's in, and the owner names
+                  a pickup time later — and re-admitting was the only way to
+                  set them. Locked once checked out: they describe a stay that
+                  has ended, and Expected pickup is replaced by the real one. */}
+              <EditableFact label="Kennel" value={stay.kennel || ''} display={stay.kennel || '—'}
+                disabled={!active} placeholder="e.g. T2"
+                onSave={v => saveFact({ kennel: v || null })} />
               <Fact label="Check-in" value={`${formatDate(stay.dropOffAt)} · ${new Date(stay.dropOffAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`} />
               {stay.status === 'CHECKED_OUT' && stay.actualPickupAt
                 ? <Fact label="Check-out" value={`${formatDate(stay.actualPickupAt)} · ${new Date(stay.actualPickupAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`} />
-                : <Fact label="Expected pickup" value={stay.expectedPickupAt ? `${formatDate(stay.expectedPickupAt)} · ${new Date(stay.expectedPickupAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '—'} />}
+                : <EditableFact label="Expected pickup" type="datetime-local"
+                    value={toLocalDatetimeInput(stay.expectedPickupAt)}
+                    display={stay.expectedPickupAt ? `${formatDate(stay.expectedPickupAt)} · ${new Date(stay.expectedPickupAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '—'}
+                    disabled={!active}
+                    onSave={v => saveFact({ expectedPickupAt: v ? new Date(v).toISOString() : null })} />}
             </div>
           </div>
 
@@ -731,6 +761,68 @@ const Fact: React.FC<{ label: string; value: string }> = ({ label, value }) => (
     <p className="text-xs font-bold text-pine dark:text-zinc-100 mt-0.5">{value}</p>
   </div>
 );
+
+/** `datetime-local` wants local wall-clock, not the ISO/UTC the API returns. */
+const toLocalDatetimeInput = (iso?: string | null) => {
+  if (!iso) return '';
+  const d = new Date(iso);
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+};
+
+/**
+ * A Fact you can click to change. Reads as plain text until clicked, so the
+ * grid stays a summary rather than turning into a form.
+ *
+ * Saves on blur/Enter and only when the value actually CHANGED — a click that
+ * opens and closes the field must not fire a write. Escape restores the value
+ * it opened with, so an abandoned edit leaves nothing behind.
+ */
+const EditableFact: React.FC<{
+  label: string;
+  value: string;
+  display: string;
+  onSave: (v: string) => Promise<void> | void;
+  type?: 'text' | 'datetime-local';
+  placeholder?: string;
+  disabled?: boolean;
+}> = ({ label, value, display, onSave, type = 'text', placeholder, disabled }) => {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(value);
+  const [saving, setSaving] = useState(false);
+
+  const commit = async () => {
+    setEditing(false);
+    if (draft === value) return;
+    setSaving(true);
+    try { await onSave(draft); } finally { setSaving(false); }
+  };
+
+  return (
+    <div className={`bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-3 ${disabled ? '' : 'cursor-text hover:ring-1 hover:ring-seafoam/40'}`}
+      onClick={() => { if (!disabled && !editing) { setDraft(value); setEditing(true); } }}>
+      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">
+        {label}{saving && <span className="ml-1 text-seafoam">saving…</span>}
+      </p>
+      {editing && !disabled ? (
+        <input
+          type={type}
+          autoFocus
+          value={draft}
+          placeholder={placeholder}
+          onChange={e => setDraft(e.target.value)}
+          onBlur={commit}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { e.preventDefault(); (e.target as HTMLInputElement).blur(); }
+            if (e.key === 'Escape') { setDraft(value); setEditing(false); }
+          }}
+          className="mt-0.5 w-full bg-white dark:bg-zinc-950 border border-seafoam rounded-lg px-1.5 py-1 text-xs font-bold text-pine dark:text-zinc-100 focus:outline-none"
+        />
+      ) : (
+        <p className={`text-xs font-bold mt-0.5 ${display === '—' ? 'text-slate-400' : 'text-pine dark:text-zinc-100'}`}>{display}</p>
+      )}
+    </div>
+  );
+};
 
 const Instr: React.FC<{ label: string; value: string }> = ({ label, value }) => (
   <p><span className="font-black text-slate-400 uppercase text-[9px] tracking-widest mr-1.5">{label}:</span><span className="text-slate-600 dark:text-zinc-300">{value}</span></p>
