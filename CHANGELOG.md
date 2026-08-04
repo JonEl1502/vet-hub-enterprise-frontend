@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: inpatient chart & boarding — one place to log a day, and it is the day itself  —  2026-08-04
+- **What changed:** (S2 → S3, user 2026-08-04)
+  - **Inpatient chart:** the *Monitoring (TPR)* inputs, the whole *Add to daily sheet* form and the
+    *Consumables & medication used* card have moved **inside the selected day** of the daily sheet.
+    Picking a day binds the record-as time to it, so TPR, any of the ten entry kinds (including
+    feeding) and the items used all land on that date. The TPR **table** stays at the top as the
+    read-across. *"Fill this day"* no longer scroll-jumps to a form a page above — the form is there.
+  - **Boarding:** the standalone *Log today's care* form is **removed**. The per-day check-in below
+    already opens today and carries the same fields plus its own items picker.
+- **Why:** on both pages the writer sat at the top and the thing it wrote to was a scroll below, so
+  the same day could be logged two ways that disagreed about which day you meant.
+- **Record impact:** 🔵 Low — same writes, now correctly dated (see the fix below).
+- **Data dependency:** None.
+- ⚠️ **Watch out:** today still means **now** (`backfillAt = null`); only a past day pins to noon.
+
+### fix: back-filled vitals were stamped today  —  2026-08-04
+- **What changed:** `addVital` now sends `recordedAt` when a back-fill time is set.
+- **Why:** filling Day 3 from the paper sheet wrote its **vitals** with today's timestamp while the
+  daily-sheet entries beside them dated correctly — so a reconstructed stay had all its TPR readings
+  piled on the last day. The API has honoured `recordedAt` since the endpoint was written; nothing
+  was sending it.
+- **Record impact:** 🔵 Low — new vitals get the right timestamp. Existing rows are not corrected.
+- **Data dependency:** None.
+
+
 ### feat: "client agreed to vaccinate" now reminds you to actually add it  —  2026-08-04
 - **What changed:** (user, 2026-08-04) ticking **"Client agreed — transfer to vet visit for
   vaccination"** on the admission gate raises a violet callout: *"The client agreed to vaccinate.

@@ -48,7 +48,6 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   // New daily-log draft
-  const [log, setLog] = useState({ fedAm: false, fedPm: false, walked: false, medicationGiven: false, stool: '', appetite: '', notes: '', mealPhoto: '', foodNotes: '' });
   const [dischargeWeight, setDischargeWeight] = useState('');
   const [showCheckoutGate, setShowCheckoutGate] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -178,42 +177,6 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
     return () => { alive = false; };
   }, [stay?.billing?.appointmentId, stay?.dailyLogs?.length]);
 
-  // Record-as time for the main Log-today's-care form (user, 2026-08-02) —
-  // same Time + Now control as the per-day editor; null = now.
-  const [logAt, setLogAt] = useState<string | null>(null);
-  const saveLog = async () => {
-    setBusy(true);
-    try {
-      const res = await boardingAPI.addLog(stayId, {
-        fedAm: log.fedAm, fedPm: log.fedPm, walked: log.walked, medicationGiven: log.medicationGiven,
-        stool: log.stool || null, appetite: log.appetite || null, notes: log.notes || null,
-        mealPhoto: log.mealPhoto || null, foodNotes: log.foodNotes || null,
-        ...(logAt ? { logDate: new Date(logAt).toISOString() } : {}),
-      } as any);
-      if (res.success) {
-        setLog({ fedAm: false, fedPm: false, walked: false, medicationGiven: false, stool: '', appetite: '', notes: '', mealPhoto: '', foodNotes: '' });
-        await load();
-      }
-    } finally { setBusy(false); }
-  };
-
-  // Downscale a meal photo to a small base64 data URL (R2 not configured yet).
-  const onMealPhoto = (file: File | undefined) => {
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const max = 640; const scale = Math.min(1, max / Math.max(img.width, img.height));
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.round(img.width * scale); canvas.height = Math.round(img.height * scale);
-        canvas.getContext('2d')?.drawImage(img, 0, 0, canvas.width, canvas.height);
-        setLog(s => ({ ...s, mealPhoto: canvas.toDataURL('image/jpeg', 0.7) }));
-      };
-      img.src = reader.result as string;
-    };
-    reader.readAsDataURL(file);
-  };
 
   const checkOut = async (reminder: ReminderDraft | null) => {
     setBusy(true);
@@ -287,56 +250,15 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
             {/* ONE care card (§0f #2): log form ÷ consumables ÷ care-log history,
                 divided — not three cards a scroll-length apart. */}
             <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
-            {active && (
-              <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5"><ClipboardList size={13} /> Log today's care</p>
-                <div className="flex flex-wrap gap-2">
-                  <Toggle on={log.fedAm} onClick={() => setLog(s => ({ ...s, fedAm: !s.fedAm }))} icon={Utensils} label="Fed AM" />
-                  <Toggle on={log.fedPm} onClick={() => setLog(s => ({ ...s, fedPm: !s.fedPm }))} icon={Utensils} label="Fed PM" />
-                  <Toggle on={log.walked} onClick={() => setLog(s => ({ ...s, walked: !s.walked }))} icon={Footprints} label="Walked" />
-                  <Toggle on={log.medicationGiven} onClick={() => setLog(s => ({ ...s, medicationGiven: !s.medicationGiven }))} icon={Pill} label="Meds" />
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  <ChipPick label="Stool" options={STOOL} value={log.stool} onChange={v => setLog(s => ({ ...s, stool: v }))} />
-                  <ChipPick label="Appetite" options={APPETITE} value={log.appetite} onChange={v => setLog(s => ({ ...s, appetite: v }))} />
-                </div>
-                <input className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" placeholder="What did they eat? (e.g. ½ cup A/D, ate fully)" value={log.foodNotes} onChange={e => setLog(s => ({ ...s, foodNotes: e.target.value }))} />
-                <div className="flex items-center gap-2">
-                  <UpgradeGate feature="capability:attachments" variant="inline">
-                    <label className="flex items-center gap-1.5 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 cursor-pointer hover:border-seafoam">
-                      <Camera size={13} /> {log.mealPhoto ? 'Change photo' : 'Meal photo'}
-                      <input type="file" accept="image/*" className="hidden" onChange={e => onMealPhoto(e.target.files?.[0])} />
-                    </label>
-                  </UpgradeGate>
-                  {log.mealPhoto && <img src={log.mealPhoto} alt="meal" className="w-10 h-10 rounded-lg object-cover border border-slate-200 dark:border-zinc-800" />}
-                  {log.mealPhoto && <button type="button" onClick={() => setLog(s => ({ ...s, mealPhoto: '' }))} className="text-[10px] font-bold text-rose-500">Remove</button>}
-                </div>
-                {/* Record-as time (user, 2026-08-02): defaults to now; pick a
-                    datetime to back-date the log AND the consumables below. */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Time</label>
-                  <input type="datetime-local" className="px-2 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100 [color-scheme:light] dark:[color-scheme:dark]"
-                    value={logAt || ''} onChange={e => setLogAt(e.target.value || null)} />
-                  <button type="button" onClick={() => setLogAt(null)}
-                    className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${logAt ? 'bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 border-slate-200 dark:border-zinc-700' : 'bg-seafoam/10 text-seafoam border-seafoam/30'}`}>Now</button>
-                  {logAt && <span className="text-[9px] font-black uppercase tracking-widest text-amber-500">Back-dating to {new Date(logAt).toLocaleString()}</span>}
-                </div>
-                {/* Consumables search lives right here beside the meal photo (§0f #2) —
-                    the item you hand over IS part of today's care, not a separate page-length away. */}
-                {stay.billing?.appointmentId && (
-                  <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
-                    <ConsumablePicker appointmentId={stay.billing.appointmentId} recordedAt={logAt ? new Date(logAt).toISOString() : null} onChanged={() => { load(); onChanged?.(); }} title="Consumables & items used" />
-                  </div>
-                )}
-                <textarea className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100" rows={2} placeholder="Notes (e.g. bright and alert, vomited once)" value={log.notes} onChange={e => setLog(s => ({ ...s, notes: e.target.value }))} />
-                <button onClick={saveLog} disabled={busy} className="w-full py-2 bg-seafoam text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
-                  {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add log
-                </button>
-              </div>
-            )}
+            {/* The standalone "Log today's care" form was REMOVED (S2 → S3,
+                user 2026-08-04). The per-day check-in below opens today by
+                default and carries the same fields plus its own consumables
+                picker, so the top form was a second way to write the same row —
+                and the two could disagree about which day you were logging.
+                Today is just the last day in the list; log it there. */}
 
             {/* Daily log history — same card, divided from the form above. */}
-            <div className={active ? 'mt-4 pt-4 border-t border-slate-100 dark:border-zinc-800' : ''}>
+            <div>
               <NotesFormatToggle className="mb-3" value={stay.displayFormat || 'PARAGRAPH'} onChange={(v) => { boardingAPI.update(stayId, { displayFormat: v } as any).then(() => { load(); onChanged?.(); }); }} />
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Care log — check-in to {stay.actualPickupAt ? 'checkout' : 'today'}</p>
               {/* Per-day reconciliation (user, 2026-08-02): every calendar day of the

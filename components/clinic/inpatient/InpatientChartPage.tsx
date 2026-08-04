@@ -126,7 +126,11 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
         respiration: vital.respiration ? Number(vital.respiration) : null,
         weight: vital.weight ? Number(vital.weight) : null,
         mucousMembrane: vital.mucousMembrane || null, crt: vital.crt || null,
-      });
+        // Vitals ignored the back-fill time entirely, so filling Day 3 from the
+        // paper sheet stamped them today (user, 2026-08-04). The API has always
+        // honoured `recordedAt`; nothing was sending it.
+        ...(backfillAt ? { recordedAt: new Date(backfillAt).toISOString() } : {}),
+      } as any);
       setVital({ temperature: '', pulse: '', respiration: '', weight: '', mucousMembrane: '', crt: '' });
       await load();
     } finally { setBusy(false); }
@@ -315,60 +319,20 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
             {/* Vitals */}
             <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
               <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5 mb-2"><Thermometer size={13} /> Monitoring (TPR)</p>
-              {active && (
-                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mb-2">
-                  <input className={fieldCls} placeholder="Temp °C" value={vital.temperature} onChange={e => setVital(s => ({ ...s, temperature: e.target.value }))} />
-                  <input className={fieldCls} placeholder="Pulse" value={vital.pulse} onChange={e => setVital(s => ({ ...s, pulse: e.target.value }))} />
-                  <input className={fieldCls} placeholder="Resp" value={vital.respiration} onChange={e => setVital(s => ({ ...s, respiration: e.target.value }))} />
-                  <input className={fieldCls} placeholder="Wt kg" value={vital.weight} onChange={e => setVital(s => ({ ...s, weight: e.target.value }))} />
-                  <input className={fieldCls} placeholder="MM" value={vital.mucousMembrane} onChange={e => setVital(s => ({ ...s, mucousMembrane: e.target.value }))} />
-                  <input className={fieldCls} placeholder="CRT" value={vital.crt} onChange={e => setVital(s => ({ ...s, crt: e.target.value }))} />
-                </div>
-              )}
-              {active && (
-                <button onClick={addVital} disabled={busy} className="mb-3 flex items-center justify-center gap-1.5 px-4 py-2 bg-seafoam/10 hover:bg-seafoam/20 text-seafoam rounded-xl text-[10px] font-black uppercase tracking-widest border border-seafoam/30 disabled:opacity-50">
-                  {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add entry
-                </button>
-              )}
+              {/* The TPR inputs moved into the daily sheet, onto the day you are
+                  filling (user, 2026-08-04: "move them to daily log similar to
+                  boarding"). Recording is per-day; this stays the read-across. */}
               {h.vitals && h.vitals.length > 0 ? (
                 <div className="overflow-x-auto"><table className="w-full text-[10px]"><thead><tr className="text-slate-400 text-left"><th className="py-1">Time</th><th>T</th><th>P</th><th>R</th><th>Wt</th><th>MM</th><th>CRT</th></tr></thead>
                   <tbody>{h.vitals.slice(-8).reverse().map(v => <tr key={v.id} className="border-t border-slate-100 dark:border-zinc-800 text-pine dark:text-zinc-200"><td className="py-1">{formatTime(v.recordedAt)}</td><td>{v.temperature ?? '—'}</td><td>{v.pulse ?? '—'}</td><td>{v.respiration ?? '—'}</td><td>{v.weight ?? '—'}</td><td>{v.mucousMembrane ?? '—'}</td><td>{v.crt ?? '—'}</td></tr>)}</tbody></table></div>
               ) : <p className="text-[10px] text-slate-400">No vitals recorded.</p>}
             </section>
 
-            {/* Add daily-sheet entry */}
-            {active && (
-              <section data-daily-sheet-form className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5"><ClipboardList size={13} /> Add to daily sheet
-                  {backfillAt && <span className="ml-1 px-2 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/40 text-amber-600 text-[8px] font-black uppercase tracking-widest">Back-filling {new Date(backfillAt).toLocaleString()}</span>}
-                </p>
-                {/* Record-as time (paper back-fill): pick a datetime, or Now. */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Time</label>
-                  <input type="datetime-local" className={fieldCls + ' !w-auto'} value={backfillAt || ''} onChange={e => setBackfillAt(e.target.value || null)} />
-                  <button type="button" onClick={() => setBackfillAt(null)}
-                    className="px-2.5 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 text-[9px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-700">Now</button>
-                </div>
-                {/* All entry kinds visible at once (user, 2026-08-03: "not
-                    hidden by selection") — chips, not a dropdown. */}
-                <div className="flex flex-wrap gap-1.5">
-                  {LOG_KINDS.map(k => (
-                    <button key={k.value} type="button"
-                      onClick={() => { setLogKind(k.value); setLogData({}); resetDrug(); }}
-                      className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
-                        logKind === k.value
-                          ? 'bg-seafoam text-white border-seafoam shadow-sm'
-                          : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:text-seafoam'
-                      }`}>
-                      {k.label}
-                    </button>
-                  ))}
-                </div>
-                {logFields()}
-                <button onClick={addLog} disabled={busy} className="w-full py-2 bg-seafoam text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">{busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add entry</button>
-              </section>
-            )}
-
+            {/* The standalone "Add to daily sheet" form is GONE — it lived at
+                the top of the page while the sheet it wrote to was a scroll
+                below, and "Fill this day" had to scroll you back up to it. Every
+                field now sits INSIDE the day you are filling, boarding-style
+                (user, 2026-08-04). */}
             {/* Daily sheet timeline */}
             <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
               <NotesFormatToggle className="mb-3" value={h.displayFormat || 'PARAGRAPH'} onChange={(v) => { inpatientAPI.update(hospId, { displayFormat: v }).then(() => { load(); onChanged?.(); }); }} />
@@ -408,7 +372,14 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                         const sel = k === selKey;
                         return (
                           <button
-                            key={k} type="button" onClick={() => setCareDay(k)}
+                            key={k} type="button"
+                            onClick={() => {
+                              setCareDay(k);
+                              // Bind the record-as time to the day you opened, so
+                              // everything typed below lands on THAT day. Today
+                              // means "now" (null), any past day noon.
+                              setBackfillAt(k === todayK ? null : `${k}T12:00`);
+                            }}
                             className={`shrink-0 px-3 py-1.5 rounded-xl border text-left transition-all ${sel
                               ? 'bg-seafoam text-white border-seafoam shadow-sm'
                               : 'bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-500 hover:border-seafoam/50'}`}
@@ -449,14 +420,81 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                             {/* Charges shown for EVERY day, even zero (user) — stay rate + billed items. */}
                             <span className="ml-auto text-[9px] font-black text-emerald-600 dark:text-emerald-400">{fmtK(dayTotal)}<span className="text-slate-400 font-bold"> · stay {fmtK(dayRate)} + items {fmtK(itemsCost)}</span></span>
                           </div>
+
+                          {/* ── THE day's editor. Everything that used to live in
+                              two cards at the top of the page: TPR, every entry
+                              kind, and the items used — all stamped with this
+                              day's date. */}
+                          {active && (
+                            <div className="mb-3 rounded-xl border border-seafoam/30 bg-seafoam/[0.04] dark:bg-seafoam/[0.06] p-3 space-y-2.5">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-[9px] font-black uppercase tracking-widest text-seafoam">Record on day {dayNo}</span>
+                                <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-auto">Time</label>
+                                <input type="datetime-local" className={fieldCls + ' !w-auto'}
+                                  value={backfillAt || ''} onChange={e => setBackfillAt(e.target.value || null)} />
+                                {k === todayK && (
+                                  <button type="button" onClick={() => setBackfillAt(null)}
+                                    className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border ${backfillAt ? 'bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 border-slate-200 dark:border-zinc-700' : 'bg-seafoam/10 text-seafoam border-seafoam/30'}`}>Now</button>
+                                )}
+                              </div>
+
+                              {/* Vitals (TPR) */}
+                              <div>
+                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Monitoring (TPR)</p>
+                                <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
+                                  <input className={fieldCls} placeholder="Temp °C" value={vital.temperature} onChange={e => setVital(s => ({ ...s, temperature: e.target.value }))} />
+                                  <input className={fieldCls} placeholder="Pulse" value={vital.pulse} onChange={e => setVital(s => ({ ...s, pulse: e.target.value }))} />
+                                  <input className={fieldCls} placeholder="Resp" value={vital.respiration} onChange={e => setVital(s => ({ ...s, respiration: e.target.value }))} />
+                                  <input className={fieldCls} placeholder="Wt kg" value={vital.weight} onChange={e => setVital(s => ({ ...s, weight: e.target.value }))} />
+                                  <input className={fieldCls} placeholder="MM" value={vital.mucousMembrane} onChange={e => setVital(s => ({ ...s, mucousMembrane: e.target.value }))} />
+                                  <input className={fieldCls} placeholder="CRT" value={vital.crt} onChange={e => setVital(s => ({ ...s, crt: e.target.value }))} />
+                                </div>
+                                <button onClick={addVital} disabled={busy}
+                                  className="mt-1.5 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 hover:bg-seafoam/10 text-seafoam rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam/30 disabled:opacity-50">
+                                  {busy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Add vitals
+                                </button>
+                              </div>
+
+                              {/* Every entry kind, chips not a dropdown. */}
+                              <div className="pt-2 border-t border-seafoam/20">
+                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Daily sheet entry</p>
+                                <div className="flex flex-wrap gap-1.5">
+                                  {LOG_KINDS.map(kk => (
+                                    <button key={kk.value} type="button"
+                                      onClick={() => { setLogKind(kk.value); setLogData({}); resetDrug(); }}
+                                      className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                                        logKind === kk.value
+                                          ? 'bg-seafoam text-white border-seafoam shadow-sm'
+                                          : 'bg-white dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:text-seafoam'
+                                      }`}>
+                                      {kk.label}
+                                    </button>
+                                  ))}
+                                </div>
+                                <div className="mt-2 space-y-2">{logFields()}</div>
+                                <button onClick={addLog} disabled={busy} className="mt-2 w-full py-2 bg-seafoam text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
+                                  {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add entry
+                                </button>
+                              </div>
+
+                              {/* Items used, dated to this day like everything else. */}
+                              {h.billing?.appointmentId && (
+                                <div className="pt-2 border-t border-seafoam/20">
+                                  <ConsumablePicker appointmentId={h.billing.appointmentId}
+                                    recordedAt={backfillAt ? new Date(backfillAt).toISOString() : null}
+                                    onChanged={() => { load(); onChanged?.(); }}
+                                    title="Items & medication used this day" />
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {empty ? (
                             <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 rounded-lg border border-dashed border-slate-200 dark:border-zinc-800">
                               {BLANK_FIELDS.map(f => (
                                 <span key={f} className="text-[9px] text-slate-400"><span className="font-bold">{f}:</span> —</span>
                               ))}
                               {active && (
-                                <button onClick={() => { setBackfillAt(`${k}T12:00`); document.querySelector('[data-daily-sheet-form]')?.scrollIntoView({ behavior: 'smooth', block: 'center' }); }}
-                                  className="ml-auto px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">✎ Fill this day</button>
+                                <span className="ml-auto text-[9px] font-black uppercase tracking-widest text-slate-400">Fill it below ↓</span>
                               )}
                             </div>
                           ) : (
@@ -496,12 +534,8 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
               })()}
             </section>
 
-            {/* Consumables & medication used (deduct stock + billable charge). */}
-            {active && h.billing?.appointmentId && (
-              <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
-                <ConsumablePicker appointmentId={h.billing.appointmentId} recordedAt={backfillAt ? new Date(backfillAt).toISOString() : null} onChanged={() => { load(); onChanged?.(); }} title="Consumables & medication used" />
-              </section>
-            )}
+            {/* Consumables moved into the day's editor above — logging an item
+                is part of that day's care, not a separate card below it. */}
           </div>
 
           {/* SIDE — admission context, actions, controls, discharge */}
