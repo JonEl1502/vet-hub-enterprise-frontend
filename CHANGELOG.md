@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the inventory import template gains a subcategory path + supplier, and tells the SKU truth  —  2026-08-05
+- **What changed:** `INVENTORY_SCHEMA` adds `subcategories` (semicolon-separated path, broadest
+  first) and `supplier` (matched by name). `category` is no longer required on its own — a new
+  cross-field rule requires **category OR subcategories**. The SKU help now says *"Unique within
+  YOUR clinic"*.
+- **Why:** the template could only express a one-level category while the Add Product form builds
+  an ordered path, and had no way to attach a supplier at all. The SKU text still said "Must be
+  unique" after migration 176 made it unique **per clinic** — misleading to anyone preparing a
+  multi-branch import.
+- **Record impact:** 🟢 None — template + client-side validation only.
+- **Data dependency:** the backend `importInventory` change must be deployed, or the two new
+  columns are accepted by the preview and then ignored on import.
+- **Rollback:** revert; the template loses both columns.
+- ⚠️ The downloaded file is **generated from this schema** — changing a column key changes the
+  template header, so a file someone saved earlier keeps working only through `aliases`.
+
 ### feat: early discharge / check-out asks why  —  2026-08-05
 - **What changed:** the inpatient discharge form grows an amber **"Leaving before the expected
   date"** panel with a required reason, and Confirm reads *"Reason required"* until it is filled.

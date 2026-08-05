@@ -96,9 +96,15 @@ export const INVENTORY_SCHEMA: EntitySchema = {
     // ── Identity & categorisation ──
     { key: 'name',          label: 'Item name', required: true, example: 'Amoxicillin 250mg' },
     { key: 'main_category', label: 'Main category', type: 'enum', enumValues: ['MEDICINE', 'CONSUMABLE'], example: 'MEDICINE', help: 'Defaults to MEDICINE', aliases: ['mainCategory'] },
-    { key: 'category',      label: 'Category',  required: true, example: 'Antibiotics', help: 'Most specific subcategory (e.g. Antibiotics, Sutures)' },
-    { key: 'sku',           label: 'SKU',       required: true, example: 'AMX-250', help: 'Must be unique' },
+    { key: 'category',      label: 'Category',  example: 'Antibiotics', help: 'Most specific subcategory. Leave blank to take the LAST step of subcategories' },
+    // The Add Product form builds an ordered, reorderable path
+    // (Medicine › Antimicrobial › Antibiotics) and stores its last step in the
+    // `category` column. Import could only ever express one level, so an
+    // imported item lost the structure the form gives it.
+    { key: 'subcategories', label: 'Subcategory path', example: 'Antimicrobial;Antibiotics', help: 'Semicolon-separated, broadest first. The last step becomes Category', aliases: ['subcategory_path', 'subCategories'] },
+    { key: 'sku',           label: 'SKU',       required: true, example: 'AMX-250', help: 'Unique within YOUR clinic — another clinic may use the same SKU' },
     // ── Product details ──
+    { key: 'supplier',           label: 'Supplier', example: 'Cosmos Distributors', help: 'Matched by name against your suppliers. Unknown name = left unlinked, not an error', aliases: ['supplier_name', 'supplierName'] },
     { key: 'manufacturer',       label: 'Manufacturer', example: 'Cosmos Pharma' },
     { key: 'country_of_origin',  label: 'Country of origin', example: 'Kenya', aliases: ['countryOfOrigin'] },
     { key: 'storage_conditions', label: 'Storage conditions', example: 'Room temperature', aliases: ['storageConditions'] },
@@ -129,8 +135,9 @@ export const INVENTORY_SCHEMA: EntitySchema = {
   ],
   sampleRows: [
     {
-      name: 'Amoxicillin 250mg', main_category: 'MEDICINE', category: 'Antibiotics', sku: 'AMX-250',
-      manufacturer: 'Cosmos Pharma', country_of_origin: 'Kenya', storage_conditions: 'Room temperature',
+      name: 'Amoxicillin 250mg', main_category: 'MEDICINE', category: 'Antibiotics',
+      subcategories: 'Antimicrobial;Antibiotics', sku: 'AMX-250',
+      supplier: 'Cosmos Distributors', manufacturer: 'Cosmos Pharma', country_of_origin: 'Kenya', storage_conditions: 'Room temperature',
       prescription_only: 'YES', species: 'Dog;Cat',
       batch_number: 'B-2026-03', expiry_date: '2027-06-30', unit: 'Tablet', pack_size: '30', billable: 'YES',
       quantity: '120', min_threshold: '20', max_level: '500', reorder_qty: '100', barcode: '6161100123456',
@@ -138,8 +145,9 @@ export const INVENTORY_SCHEMA: EntitySchema = {
       service_charge: '', administration_fee: '50', injection_fee: '', injection_unit_ml: '', prescription_fee: '100',
     },
     {
-      name: 'Surgical Gloves', main_category: 'CONSUMABLE', category: 'PPE', sku: 'GLV-PAIR',
-      manufacturer: '', country_of_origin: '', storage_conditions: '',
+      name: 'Surgical Gloves', main_category: 'CONSUMABLE', category: '',
+      subcategories: 'Theatre;PPE', sku: 'GLV-PAIR',
+      supplier: '', manufacturer: '', country_of_origin: '', storage_conditions: '',
       prescription_only: 'NO', species: '',
       batch_number: '', expiry_date: '', unit: 'Box', pack_size: '50', billable: 'YES',
       quantity: '10', min_threshold: '2', max_level: '', reorder_qty: '', barcode: '',
