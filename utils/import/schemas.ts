@@ -108,6 +108,10 @@ export const INVENTORY_SCHEMA: EntitySchema = {
     { key: 'manufacturer',       label: 'Manufacturer', example: 'Cosmos Pharma' },
     { key: 'country_of_origin',  label: 'Country of origin', example: 'Kenya', aliases: ['countryOfOrigin'] },
     { key: 'storage_conditions', label: 'Storage conditions', example: 'Room temperature', aliases: ['storageConditions'] },
+    // `inventory_items.image_url` has existed all along; import just never set
+    // it, so a bulk-loaded catalogue could never have pictures without opening
+    // every item by hand.
+    { key: 'image_url',          label: 'Image URL', example: 'https://cdn.example.com/amx-250.jpg', help: 'Direct link to a product photo (https). Blank = no image', aliases: ['imageUrl', 'image'] },
     { key: 'prescription_only',  label: 'Prescription only', type: 'enum', enumValues: ['YES', 'NO'], example: 'NO', help: 'Defaults to NO', aliases: ['prescriptionOnly'] },
     { key: 'species',            label: 'Species', example: 'Dog;Cat', help: 'Semicolon-separated target species. Blank = all species' },
     // ── Stock & batch ──
@@ -138,7 +142,7 @@ export const INVENTORY_SCHEMA: EntitySchema = {
       name: 'Amoxicillin 250mg', main_category: 'MEDICINE', category: 'Antibiotics',
       subcategories: 'Antimicrobial;Antibiotics', sku: 'AMX-250',
       supplier: 'Cosmos Distributors', manufacturer: 'Cosmos Pharma', country_of_origin: 'Kenya', storage_conditions: 'Room temperature',
-      prescription_only: 'YES', species: 'Dog;Cat',
+      image_url: '', prescription_only: 'YES', species: 'Dog;Cat',
       batch_number: 'B-2026-03', expiry_date: '2027-06-30', unit: 'Tablet', pack_size: '30', billable: 'YES',
       quantity: '120', min_threshold: '20', max_level: '500', reorder_qty: '100', barcode: '6161100123456',
       cost_price: '12.50', cost_unit: 'Tablet', price: '25.00', sell_unit: 'Tablet',
@@ -148,7 +152,7 @@ export const INVENTORY_SCHEMA: EntitySchema = {
       name: 'Surgical Gloves', main_category: 'CONSUMABLE', category: 'PPE',
       subcategories: 'Theatre;PPE', sku: 'GLV-PAIR',
       supplier: '', manufacturer: '', country_of_origin: '', storage_conditions: '',
-      prescription_only: 'NO', species: '',
+      image_url: '', prescription_only: 'NO', species: '',
       batch_number: '', expiry_date: '', unit: 'Box', pack_size: '50', billable: 'YES',
       quantity: '10', min_threshold: '2', max_level: '', reorder_qty: '', barcode: '',
       cost_price: '750.00', cost_unit: 'Box', price: '15.00', sell_unit: 'Pair',
