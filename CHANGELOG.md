@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a shared link said "veterinary clinics", the page it opened said "veterinary practice"  —  2026-08-06
+- **What changed:** `<title>`, `og:title` and `twitter:title` now read **"VetHubCore — The
+  Operating System for Veterinary Practice"**, and `public/og-image.jpg` was re-rendered with the
+  headline in the amber the rest of the card already used. Cache-buster **`?v=3` → `?v=4`**.
+- **Why:** the hero, the meta description and the noscript `h1` all said *practice*; only the
+  three titles and the artwork said *clinics*. A link preview therefore contradicted the page it
+  opened (user, 2026-08-06: *"link still shows veterinary clinics"*).
+- **Record impact:** 🟢 None — metadata + a static asset.
+- ⚠️ **Bumping the query string is the load-bearing part.** WhatsApp, Facebook and X cache an OG
+  image BY URL; replacing the file at the same path leaves the old card serving for weeks.
+- ⚠️ `keywords` and the structured-data `alternateName` lists still carry "VetHub", "Vet Hub" and
+  "Vet Hub Core" **on purpose** — those are what people type into search. They are not the
+  wordmark and must not be normalised away.
+- ⚠️ The card was **re-rendered from HTML**, not exported from the original design source.
+  It matches closely; a future edit should come from the real source and replace this.
+- ⚠️ `public/og-image.png` is the older 1200×630 and is now stale. Nothing references it.
+
 ### feat: admin Add Clinic creates the OWNER (and the wizard could never create a clinic before)  —  2026-08-06
 - **What changed:** the wizard gains an **Owner** step (add mode only) — first name, surname,
   email (labelled as the login), phone, optional password. On create the server makes the user
