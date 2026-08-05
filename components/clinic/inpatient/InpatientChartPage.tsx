@@ -508,6 +508,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                 {h.billing?.appointmentId && (
                                   <div className="mt-3 pt-3 border-t border-seafoam/20">
                                     <ConsumablePicker flat appointmentId={h.billing.appointmentId}
+                                      dayKey={k}
                                       recordedAt={backfillAt ? new Date(backfillAt).toISOString() : null}
                                       onChanged={() => { load(); onChanged?.(); }}
                                       title="Given / administered with this entry" />

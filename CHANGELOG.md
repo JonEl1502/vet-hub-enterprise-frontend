@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: "Items used this day" listed the whole VISIT's consumables  —  2026-08-06
+- **What changed:** `ConsumablePicker` takes a `dayKey` (local `YYYY-MM-DD`); the boarding day
+  editor passes the day being edited and the inpatient chart passes the day it is rendering. The
+  list and the KES total now cover that day only.
+- **Why:** the picker loaded every consumable on the appointment and never filtered by date, so a
+  multi-day boarding stay showed day 1's food while you were logging day 4, under a heading that
+  said *"this day"*, with a total belonging to neither (user, 2026-08-06: *"dont show me all
+  consumables added to the visit here, show only in day n log it was added on"*).
+- **Record impact:** 🟢 None — display filter. Nothing about what was logged or billed changes.
+- **Rollback:** revert; the list goes back to the whole visit.
+- ⚠️ **`recordedAt` and `dayKey` are different jobs.** `recordedAt` decides which day a NEW row is
+  filed under; `dayKey` decides which rows are LISTED. Passing only the first is what produced a
+  correct write under a wrong list.
+- ⚠️ Keyed on `createdAt`, which is correct because `recordedAt` overwrites it on create
+  (`appointmentMedication.service`) — so a back-filled row files under the day it was logged FOR.
+- ⚠️ The day key is built from local date parts, NOT `toISOString().slice(0,10)`: in GMT+3 an
+  evening entry would otherwise file itself under the next day.
+
 ### fix: a shared link said "veterinary clinics", the page it opened said "veterinary practice"  —  2026-08-06
 - **What changed:** `<title>`, `og:title` and `twitter:title` now read **"VetHubCore — The
   Operating System for Veterinary Practice"**, and `public/og-image.jpg` was re-rendered with the

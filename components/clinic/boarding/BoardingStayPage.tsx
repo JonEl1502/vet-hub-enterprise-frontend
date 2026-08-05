@@ -404,7 +404,12 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                         (stock still moves now), so day costs land where they belong. */}
                     {stay.billing?.appointmentId && (
                       <div className="pt-1">
+                        {/* dayKey, not just recordedAt: recordedAt decides which
+                            day a NEW row is filed under, dayKey decides which
+                            rows are LISTED. Without it the heading said "this
+                            day" over the whole visit's items. */}
                         <ConsumablePicker flat compact appointmentId={stay.billing.appointmentId}
+                          dayKey={dateKey}
                           recordedAt={dayDraft.at ? new Date(dayDraft.at).toISOString() : null}
                           onChanged={() => { load(); onChanged?.(); }} title="Items used this day" />
                       </div>

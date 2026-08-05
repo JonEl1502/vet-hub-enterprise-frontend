@@ -26,6 +26,21 @@ interface Props {
   // per-day reconciliation editors. Stock still moves at log time.
   recordedAt?: string | null;
   /**
+   * Restrict the LIST to one calendar day (local, `YYYY-MM-DD`).
+   *
+   * ⚠️ Without this the picker lists every consumable on the whole VISIT while
+   * its heading says "used this day", and the total is the visit's total — so a
+   * 4-day boarding stay showed day 1's food on day 4 and a KES figure that
+   * belonged to neither (user, 2026-08-06: "dont show me all consumables added
+   * to the visit here, show only in day n log it was added on").
+   *
+   * Safe to key on `createdAt`: `recordedAt` overwrites it on create
+   * (`appointmentMedication.service` — `...(data.recordedAt ? { createdAt } : {})`),
+   * so a back-filled row carries the day it was logged FOR, not the day it was
+   * typed.
+   */
+  dayKey?: string | null;
+  /**
    * Drop the surrounding card. The picker is almost always rendered INSIDE
    * another card (a day editor, a log-entry form), and its own border made
    * every one of those a card-in-a-card (user, 2026-08-05: "make ui less cards
@@ -43,17 +58,25 @@ const stepFor = (unit?: string) => (unit && FRACTIONAL_UNITS.has(unit.toLowerCas
  * log: deducts stock and (if billable) adds an itemized charge. Logged lines
  * can be toggled billable or removed in place — the inline "edit bill".
  */
-const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = 'Consumables & items used', serviceTag, serviceTaskId, recordedAt, flat }) => {
+const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = 'Consumables & items used', serviceTag, serviceTaskId, recordedAt, flat, dayKey }) => {
   const { inventory } = useData();
   const [allItems, setAllItems] = useState<AppointmentConsumable[]>([]);
   // Prefer the id; fall back to the old note match so rows logged before 200
   // (and any the backfill could not resolve unambiguously) keep showing up.
   const items = useMemo(() => {
-    if (!serviceTag && serviceTaskId == null) return allItems;
-    return allItems.filter(c =>
+    // Local-day key, not `toISOString().slice(0,10)` — that is UTC, so an
+    // evening entry in GMT+3 would file itself under the next day.
+    const localDay = (d: string | Date) => {
+      const x = new Date(d);
+      return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+    };
+    let list = allItems;
+    if (dayKey) list = list.filter(c => localDay(c.createdAt) === dayKey);
+    if (!serviceTag && serviceTaskId == null) return list;
+    return list.filter(c =>
       (serviceTaskId != null && (c as any).serviceTaskId != null && String((c as any).serviceTaskId) === String(serviceTaskId))
       || ((c as any).serviceTaskId == null && !!serviceTag && (c.notes || '') === serviceTag));
-  }, [allItems, serviceTag, serviceTaskId]);
+  }, [allItems, serviceTag, serviceTaskId, dayKey]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [busyLineId, setBusyLineId] = useState<string | null>(null);
