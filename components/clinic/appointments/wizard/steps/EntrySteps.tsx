@@ -237,7 +237,18 @@ export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (pat
               // service. The wizard owns the schedule, so the stay block is
               // hidden on boarding; the gate is advisory here, not blocking.
               const iv = d.intake || (f.key === 'boarding' ? emptyBoardingIntake() : emptyGroomingIntake());
-              const patch = (pt: any) => setData({ intake: { ...iv, ...pt } });
+              // Merge against the LATEST step data, not the `iv` captured at
+              // render — AdmissionGate prefills weight and vaccines in the same
+              // commit, and an object patch built from a stale `iv` made the
+              // second overwrite the first (user, 2026-08-06: the grooming gate
+              // check was not prefilled). `gate` is re-merged onto the current
+              // base so a gate patch composes instead of replacing.
+              const patch = (pt: any) => setData((prev: any) => {
+                const base = prev?.intake || iv;
+                const merged: any = { ...base, ...pt };
+                if (pt && pt.gate) merged.gate = { ...(base?.gate || {}), ...pt.gate };
+                return { intake: merged };
+              });
               return (
                 <div key={f.key} className={`${span} space-y-4`}>
                   {f.key === 'boarding' ? (

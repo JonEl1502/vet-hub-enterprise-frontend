@@ -431,8 +431,21 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     });
   }, [steps]);
 
+  /**
+   * `patch` may be an object OR a function of the step's CURRENT data.
+   *
+   * ⚠️ The object form is only safe when the caller builds the patch from
+   * values it owns. A caller that spreads a nested object it captured at
+   * render time (`{ intake: { ...iv, ...pt } }`) clobbers any write that
+   * landed since — and `AdmissionGate` fires TWO prefill effects in the same
+   * commit (weight, then vaccines), so one of them was always lost.
+   */
   const setStepData = useCallback((step: WizardStepId, patch: any) => {
-    setState(s => ({ ...s, data: { ...s.data, [step]: { ...(s.data[step] || {}), ...patch } } }));
+    setState(s => {
+      const cur = s.data[step] || {};
+      const p = typeof patch === 'function' ? patch(cur) : patch;
+      return { ...s, data: { ...s.data, [step]: { ...cur, ...p } } };
+    });
   }, []);
 
   // Built-in steps have a STEP_DEFS entry; clinic-built stages do not, so fall
