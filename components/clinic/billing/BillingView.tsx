@@ -107,6 +107,17 @@ const BillingView: React.FC = () => {
   const [docTab, setDocTab] = useState<'invoices' | 'receipts'>('invoices');
   // Bumped after a ticket is submitted so the tickets tab refetches.
   const [ticketsRefresh, setTicketsRefresh] = useState(0);
+  // Which stuck-payment banners the user has dismissed (localStorage-backed).
+  //
+  // ⚠️ MUST STAY ABOVE the `if (loading)` early return further down. It was
+  // declared beside its banner markup when the dismiss feature shipped
+  // (c544dab8, 2026-08-01), which put it AFTER that return: the loading render
+  // called 42 hooks and the loaded render 43, so React threw #310 ("rendered
+  // more hooks than during the previous render") and the whole Billing page
+  // showed the error boundary. Every visit hit it — `loading` starts true.
+  const [dismissedPending, setDismissedPending] = useState<string[]>(() => {
+    try { return JSON.parse(localStorage.getItem('vethub_dismissed_pending') || '[]'); } catch { return []; }
+  });
 
   // ── Payment history ──────────────────────────────────────────
   const [history, setHistory] = useState<PaymentHistoryRow[]>([]);
@@ -579,9 +590,6 @@ const BillingView: React.FC = () => {
   // (localStorage, keyed by reference/id), so this one stays gone but a NEW
   // stuck payment still shows.
   const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
-  const [dismissedPending, setDismissedPending] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('vethub_dismissed_pending') || '[]'); } catch { return []; }
-  });
   const pendingKey = (r: any): string => String(r.reference || r.id || r.createdAt);
   const stalePending = history.find(
     (r) => r.status === 'PENDING' && Date.now() - new Date(r.createdAt).getTime() > FOUR_HOURS_MS

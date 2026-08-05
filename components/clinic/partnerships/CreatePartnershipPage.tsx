@@ -65,25 +65,14 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
     fetchClinics(false);
   }, [fetchClinics]);
 
-  if (!activeClinic) {
-    return (
-      <div className="py-32 text-center animate-in fade-in duration-500">
-        <p className="text-[11px] font-black text-slate-300 dark:text-zinc-600 uppercase tracking-[0.4em]">
-          Select a clinic to start a partnership
-        </p>
-        <button
-          onClick={onBack}
-          className="mt-6 px-5 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95"
-        >
-          Back
-        </button>
-      </div>
-    );
-  }
-
-  const activeClinicIdStr = String(activeClinic.id);
+  // ⚠️ These three hooks MUST STAY ABOVE the `if (!activeClinic)` early return
+  // below. They sat under it, so a render with no clinic selected called two
+  // fewer hooks than one with a clinic — React #310 the moment a clinic was
+  // picked. Made null-safe (`activeClinic?.`) rather than moving the guard,
+  // because the guard's empty state is what the page should show.
+  const activeClinicIdStr = activeClinic ? String(activeClinic.id) : '';
   const currentOwnerId = currentUser?.id ? String(currentUser.id) : null;
-  const activeOwnerId = activeClinic.ownerId ? String(activeClinic.ownerId) : null;
+  const activeOwnerId = activeClinic?.ownerId ? String(activeClinic.ownerId) : null;
 
   const filtered = useMemo(() => {
     const term = search.toLowerCase();
@@ -107,6 +96,29 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
 
   const selectedClinic = clinics.find(c => String(c.id) === selectedId);
 
+  // When the selected clinic changes, drop any service picks that aren't in its specialties.
+  useEffect(() => {
+    const allowed = new Set<string>((selectedClinic?.specialties || []) as string[]);
+    setSelectedServices(prev => prev.filter(s => allowed.has(s)));
+  }, [selectedId, selectedClinic?.specialties]);
+
+  if (!activeClinic) {
+    return (
+      <div className="py-32 text-center animate-in fade-in duration-500">
+        <p className="text-[11px] font-black text-slate-300 dark:text-zinc-600 uppercase tracking-[0.4em]">
+          Select a clinic to start a partnership
+        </p>
+        <button
+          onClick={onBack}
+          className="mt-6 px-5 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest shadow-lg active:scale-95"
+        >
+          Back
+        </button>
+      </div>
+    );
+  }
+
+
   // Existing pairing with a clinic (either direction, still live) — selecting
   // that clinic routes to the existing partnership instead of duplicating it.
   const existingWith = (clinicId: string) => (handshakes || []).find(h => {
@@ -115,12 +127,6 @@ const CreatePartnershipPage: React.FC<Props> = ({ activeClinic, currentUser, onB
     const req = String(h.requesterClinicId), rec = String(h.receiverClinicId);
     return (req === activeClinicIdStr && rec === clinicId) || (rec === activeClinicIdStr && req === clinicId);
   });
-
-  // When the selected clinic changes, drop any service picks that aren't in its specialties.
-  useEffect(() => {
-    const allowed = new Set<string>((selectedClinic?.specialties || []) as string[]);
-    setSelectedServices(prev => prev.filter(s => allowed.has(s)));
-  }, [selectedId, selectedClinic?.specialties]);
 
   const handleSubmit = async () => {
     if (!selectedId) return;

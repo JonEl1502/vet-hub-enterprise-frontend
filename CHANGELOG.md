@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: Billing page crashed on EVERY visit — hook declared after an early return  —  2026-08-05
+- **What changed:** `BillingView`'s `dismissedPending` state moved above the `if (loading)` early
+  return. Same fix applied to three hooks in `CreatePartnershipPage`.
+- **Why:** React #310, "rendered more hooks than during the previous render". `loading` starts
+  `true`, so the first render returned early and never called that hook; the loaded render did.
+  **Every visit to Billing hit this** — the page has been showing the error boundary since
+  `c544dab8` (2026-08-01), when the dismissible stuck-payment banner put the hook beside its
+  markup instead of with the other hooks.
+- **Record impact:** 🟢 None — render order only, no data touched.
+- ⚠️ `CreatePartnershipPage` had the same defect (3 hooks under `if (!activeClinic)`), so it
+  crashed the moment a clinic was picked. Fixed here too; the moved values are now null-safe.
+- ⚠️ **Root cause is missing tooling, not carelessness: the frontend has no ESLint at all.**
+  `react-hooks/rules-of-hooks` catches this class in one pass, and `tsc` cannot — a hooks-order
+  violation type-checks perfectly. Worth adding; nothing currently guards it.
+
 ### fix: BillPanel crashed with React #310 — §7.4's hooks sat after an early return  —  2026-08-05
 - **What changed:** the five hooks §7.4 added (`useAuth` + three `useState`, plus `modulePerms`)
   moved ABOVE the `loading` / `!bill` early returns.
