@@ -405,7 +405,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                         (stock still moves now), so day costs land where they belong. */}
                     {stay.billing?.appointmentId && (
                       <div className="pt-2 border-t border-slate-100 dark:border-zinc-800">
-                        <ConsumablePicker compact appointmentId={stay.billing.appointmentId}
+                        <ConsumablePicker flat compact appointmentId={stay.billing.appointmentId}
                           recordedAt={dayDraft.at ? new Date(dayDraft.at).toISOString() : null}
                           onChanged={() => { load(); onChanged?.(); }} title="Items used this day" />
                       </div>

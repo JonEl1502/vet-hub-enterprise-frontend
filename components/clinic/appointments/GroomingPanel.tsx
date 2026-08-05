@@ -312,9 +312,15 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
           const recLocked = locked || r.status === 'COMPLETED';
           return (
             <details key={r.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg overflow-hidden" open>
-              <summary className="flex items-center justify-between gap-2 px-2.5 py-1.5 cursor-pointer list-none">
-                <span className="flex items-center gap-2 min-w-0">
-                  <span className="text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-wide truncate">{r.serviceName}</span>
+              {/* The NAME gets its own line below sm. It used to share a flex row
+                  with the status chips, price, billable toggle and delete — all
+                  `shrink-0` — so on a phone the only flexible element was the
+                  name, and `truncate` collapsed it to nothing: a list of
+                  services with no service names on it (user, 2026-08-05: "I
+                  can't tell what service is which"). */}
+              <summary className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2 px-2.5 py-2 cursor-pointer list-none">
+                <span className="flex flex-wrap items-center gap-2 min-w-0">
+                  <span className="w-full sm:w-auto text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-wide sm:truncate">{r.serviceName}</span>
                   {/* Per-service status */}
                   <span className="flex gap-0.5 shrink-0">
                     {[{ v: 'PENDING', l: 'Pending', on: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' }, { v: 'IN_PROGRESS', l: 'WIP', on: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' }, { v: 'COMPLETED', l: 'Done', on: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' }].map(s => (
@@ -323,7 +329,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
                     ))}
                   </span>
                 </span>
-                <span className="flex items-center gap-2 shrink-0">
+                <span className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                   {price > 0 && <span className="text-[11px] font-bold text-slate-400">KES {price.toLocaleString()}</span>}
                   <button type="button" disabled={recLocked} onClick={(ev) => { ev.preventDefault(); patchRecord(r.id, { billable: !r.billable }); }}
                     className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-wider border ${r.billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
@@ -350,7 +356,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
                   <PhotoStrip label="Before" urls={r.beforePhotos} onChange={urls => patchRecord(r.id, { beforePhotos: urls })} disabled={recLocked} />
                   <PhotoStrip label="After" urls={r.afterPhotos} onChange={urls => patchRecord(r.id, { afterPhotos: urls })} disabled={recLocked} />
                 </div>
-                {!recLocked && <ConsumablePicker appointmentId={appointment.id} serviceTag={r.serviceName} onChanged={onSaved} title={`Products & consumables — ${r.serviceName}`} />}
+                {!recLocked && <ConsumablePicker flat appointmentId={appointment.id} serviceTag={r.serviceName} onChanged={onSaved} title={`Products & consumables — ${r.serviceName}`} />}
               </div>
             </details>
           );

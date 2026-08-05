@@ -59,6 +59,38 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the consumables picker said VIALS when it meant mL, and sat outside the entry it belongs to  —  2026-08-05
+- **What changed (three things):**
+  1. **The quantity field is labelled with the SELL unit**, not the stock unit, and reads *Amount*.
+     When the two differ it now spells out the stock draw: *"2 mL · draws 0.02 Vial from stock"*.
+     Logged lines state the amount administered in the unit it was given in.
+  2. `ConsumablePicker` gains `flat` — drops its own card. Applied at the inpatient, boarding and
+     grooming call sites, all of which render it inside another card.
+  3. On the inpatient chart the picker moved **above "Add entry"**, inside the entry form.
+- **Why:** consumable `quantity` is canonically in SELL units — the server does
+  `quantity × stockPerSellUnit` for stock and `price` is per sell unit — but the field was
+  labelled with the STOCK unit. A 100 mL vial sold per mL showed **"Qty (Vials)"** while `1`
+  actually meant 1 mL, so a vet reading the form believed they were giving a whole vial (user,
+  2026-08-05: *"I need to see amounts that am injecting or administering"*). Placement: the items
+  are part of the entry being written, and sitting under the button read as an unrelated panel.
+- **Record impact:** 🟢 None — labelling, layout and a derived hint. **No change to the number
+  submitted**, so nothing about existing stock or billing maths moves.
+- **Rollback:** revert; the field goes back to naming the wrong unit.
+- ⚠️ **The value was always in sell units.** This corrects what the label CLAIMS, not what is
+  stored — do not "fix" it back by multiplying the input.
+- ⚠️ The stock-draw hint only renders for genuinely split items (`isSplitUnit`); for the majority
+  where sell unit == stock unit it would just restate itself.
+
+### fix: a grooming service row showed no service NAME on a phone  —  2026-08-05
+- **What changed:** the row's `<summary>` stacks below `sm` — name on its own line, controls under it.
+- **Why:** the name shared a flex row with the status chips, price, billable toggle and delete, all
+  `shrink-0`. The only flexible element was the name, so `truncate` collapsed it to nothing: a list
+  of services with no service names on it (user, 2026-08-05: *"I can't tell what service is which"*).
+- **Record impact:** 🟢 None — layout only.
+- **Rollback:** revert; names vanish on narrow screens again.
+- ⚠️ Same shape as the other mobile-overflow fixes: one flexible child among `shrink-0` siblings
+  does not shrink gracefully, it disappears.
+
 ### fix: action-bar popover collision, vitals labels, Add-entry hierarchy  —  2026-08-05
 - **What changed:** ① `RecordActionBar` closes its overflow menu when you interact with the
   `slot` (`onPointerDownCapture`). ② The inpatient TPR row gets **persistent labels** instead of

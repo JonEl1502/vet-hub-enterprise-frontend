@@ -497,20 +497,28 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                     irreversible one. A solid accent bar here made the
                                     routine action the loudest thing on screen and left
                                     the terminal action whispering — hierarchy inverted. */}
-                                <button onClick={addLog} disabled={busy} className="mt-2 w-full py-2 bg-white dark:bg-zinc-900 hover:bg-seafoam/10 text-seafoam border border-seafoam/40 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
+                                {/* ABOVE "Add entry", not below it. What you are
+                                    injecting or administering IS part of the
+                                    entry you are writing, so it has to be in
+                                    the form you are filling — sitting under the
+                                    button read as a separate, unrelated panel
+                                    (user, 2026-08-05: "Consumables need to be
+                                    above add entry … are for that entry").
+                                    `flat` so it doesn't add a card inside the
+                                    entry card. */}
+                                {h.billing?.appointmentId && (
+                                  <div className="mt-3 pt-3 border-t border-seafoam/20">
+                                    <ConsumablePicker flat appointmentId={h.billing.appointmentId}
+                                      recordedAt={backfillAt ? new Date(backfillAt).toISOString() : null}
+                                      onChanged={() => { load(); onChanged?.(); }}
+                                      title="Given / administered with this entry" />
+                                  </div>
+                                )}
+
+                                <button onClick={addLog} disabled={busy} className="mt-3 w-full py-2 bg-white dark:bg-zinc-900 hover:bg-seafoam/10 text-seafoam border border-seafoam/40 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
                                   {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add entry
                                 </button>
                               </div>
-
-                              {/* Items used, dated to this day like everything else. */}
-                              {h.billing?.appointmentId && (
-                                <div className="pt-2 border-t border-seafoam/20">
-                                  <ConsumablePicker appointmentId={h.billing.appointmentId}
-                                    recordedAt={backfillAt ? new Date(backfillAt).toISOString() : null}
-                                    onChanged={() => { load(); onChanged?.(); }}
-                                    title="Items & medication used this day" />
-                                </div>
-                              )}
                             </div>
                           )}
                           {empty ? (

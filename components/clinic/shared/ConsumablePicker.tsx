@@ -3,6 +3,7 @@ import { Package, Search, Plus, Loader2, Trash2, Tag, TagsIcon, AlertCircle } fr
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { consumablesAPI, AppointmentConsumable, vaccinePackagesAPI, VaccinePackage } from '../../../services';
+import { sellUnitOf, stockPerSellUnit, isSplitUnit } from './QtyUnitControl';
 
 interface Props {
   appointmentId: string | number;
@@ -16,6 +17,13 @@ interface Props {
   // Back-fill: log rows with THIS timestamp (ISO) instead of now — used by the
   // per-day reconciliation editors. Stock still moves at log time.
   recordedAt?: string | null;
+  /**
+   * Drop the surrounding card. The picker is almost always rendered INSIDE
+   * another card (a day editor, a log-entry form), and its own border made
+   * every one of those a card-in-a-card (user, 2026-08-05: "make ui less cards
+   * in cards or flatten").
+   */
+  flat?: boolean;
 }
 
 const FRACTIONAL_UNITS = new Set(['ml', 'mg', 'g', 'l', 'cc', 'mcg', 'iu']);
@@ -27,7 +35,7 @@ const stepFor = (unit?: string) => (unit && FRACTIONAL_UNITS.has(unit.toLowerCas
  * log: deducts stock and (if billable) adds an itemized charge. Logged lines
  * can be toggled billable or removed in place — the inline "edit bill".
  */
-const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = 'Consumables & items used', serviceTag, recordedAt }) => {
+const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = 'Consumables & items used', serviceTag, recordedAt, flat }) => {
   const { inventory } = useData();
   const [allItems, setAllItems] = useState<AppointmentConsumable[]>([]);
   const items = useMemo(() => serviceTag ? allItems.filter(c => (c.notes || '') === serviceTag) : allItems, [allItems, serviceTag]);
@@ -131,7 +139,9 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
   const billableTotal = items.filter(i => i.billable).reduce((s, i) => s + i.lineTotal, 0);
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
+    <div className={flat
+      ? 'space-y-3'
+      : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3'}>
       <div className="flex items-center gap-2">
         <Package size={15} className="text-seafoam" />
         <span className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-200">{title}</span>
@@ -165,10 +175,21 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
 
         {selected && (
           <div className="flex flex-wrap items-end gap-2 p-2.5 bg-slate-50 dark:bg-zinc-950/40 rounded-xl">
+            {/*
+              ⚠️ The quantity is canonically in SELL units — the server does
+              `quantity × stockPerSellUnit` to move stock, and `price` is per
+              sell unit. This field was labelled with the STOCK unit, so a
+              100 mL vial sold per mL showed "Qty (Vials)" while 1 actually
+              meant 1 mL. A vet reading it believed they were giving a whole
+              vial (user, 2026-08-05: "I need to see amounts that am injecting
+              or administering").
+            */}
             <div>
-              <label className="block text-[9px] font-black uppercase tracking-wider text-slate-500 mb-1">Qty ({selected.unit})</label>
-              <input type="number" min={0} step={stepFor(selected.unit)} value={qty} onChange={e => setQty(Number(e.target.value))}
-                className="w-20 px-2 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+              <label className="block text-[9px] font-black uppercase tracking-wider text-slate-500 mb-1">
+                Amount ({sellUnitOf(selected as any)})
+              </label>
+              <input type="number" min={0} step={stepFor(sellUnitOf(selected as any))} value={qty} onChange={e => setQty(Number(e.target.value))}
+                className="w-24 px-2 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
             </div>
             <button type="button" onClick={() => setBillable(b => !b)} title="Toggle billable"
               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-wider border ${billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
@@ -188,6 +209,13 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
                 {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add
               </button>
             </div>
+            {/* Only meaningful when the units differ — otherwise it restates itself. */}
+            {isSplitUnit(selected as any) && qty > 0 && (
+              <p className="w-full text-[10px] font-bold text-slate-400">
+                {qty} {sellUnitOf(selected as any)} · draws{' '}
+                {(qty * stockPerSellUnit(selected as any)).toLocaleString(undefined, { maximumFractionDigits: 3 })} {selected.unit} from stock
+              </p>
+            )}
             {overStock && <p className="w-full flex items-center gap-1 text-[10px] font-bold text-rose-500"><AlertCircle size={11} /> Only {Number(selected.quantity)} {selected.unit} in stock</p>}
           </div>
         )}
@@ -218,7 +246,11 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
           {items.map(c => (
             <div key={c.id} className="flex items-center gap-2 px-2.5 py-2 bg-slate-50 dark:bg-zinc-950/40 rounded-lg">
               <span className="min-w-0 flex-1">
-                <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{c.inventoryItem.name} <span className="text-slate-400 font-medium">×{c.quantity} {c.inventoryItem.unit}</span></span>
+                {/* The amount ADMINISTERED, in the unit it was given in. */}
+                <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">
+                  {c.inventoryItem.name}{' '}
+                  <span className="text-seafoam font-black">{c.quantity} {sellUnitOf(c.inventoryItem as any)}</span>
+                </span>
                 <span className="block text-[9px] text-slate-400">
                   {c.batchNumber ? <span className="font-bold text-amber-600 dark:text-amber-500">Batch {c.batchNumber} · </span> : ''}
                   {c.inventoryItem.form ?? 'UNIT'}
