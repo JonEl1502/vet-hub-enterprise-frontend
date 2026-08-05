@@ -14,6 +14,7 @@ import {
   Building2,
   CreditCard,
   Settings2,
+  Upload,
 } from 'lucide-react';
 
 interface SupplierSidebarProps {
@@ -52,6 +53,11 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
     { id: 'supplier-inventory', label: 'Inventory', icon: ShoppingCart },
     { id: 'supplier-orders', label: 'Orders', icon: Receipt },
     { id: 'supplier-analytics', label: 'Analytics', icon: BarChart3 },
+    // ⚠️ A SUPPLIER-role user renders THIS sidebar, never the shared one in
+    // `sidebar/menus.ts`. `SUPPLIER_ITEMS` there only applies when an ADMIN
+    // switches to the supplier audience, so an entry added only to that list
+    // is invisible to every actual supplier (2026-08-05).
+    { id: 'supplier-import', label: 'Import Products', icon: Upload },
   ];
 
   const managementSubItems = [
