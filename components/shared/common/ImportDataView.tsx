@@ -102,6 +102,44 @@ const EntityImportPanel: React.FC<{ schema: EntitySchema }> = ({ schema }) => {
   const invalidCount = countInvalid(validations);
   const validCount   = rows.length - invalidCount;
 
+  /**
+   * Did they upload the right FILE for this tab?
+   *
+   * The panel validated whatever it was handed against whatever tab was open,
+   * so dropping the inventory file on the Clients tab produced 114 rows of
+   * "3 errors" — first name, surname and phone missing — with nothing saying
+   * the file was simply in the wrong place (user, 2026-08-05). Every row
+   * failing the same required fields is the signature of that mistake, not of
+   * a bad file.
+   *
+   * Heuristic, deliberately: match the file's headers against each schema's
+   * known keys + aliases, and speak up only when ANOTHER entity is a clearly
+   * better fit. A file with extra or missing columns still imports.
+   */
+  const entityMismatch = useMemo<{ better: EntitySchema; hit: number; own: number } | null>(() => {
+    if (rows.length === 0) return null;
+    const headers = Object.keys(rows[0] ?? {}).map(h => h.trim().toLowerCase());
+    if (headers.length === 0) return null;
+    const score = (sch: EntitySchema) => {
+      const keys = new Set<string>();
+      for (const c of sch.columns) {
+        keys.add(c.key.toLowerCase());
+        for (const a of c.aliases ?? []) keys.add(a.toLowerCase());
+      }
+      return headers.filter(h => keys.has(h)).length;
+    };
+    const own = score(schema);
+    let better: EntitySchema | null = null;
+    let hit = own;
+    for (const other of Object.values(SCHEMAS)) {
+      if (other.entity === schema.entity) continue;
+      const s = score(other);
+      // A clear margin, not a tie — sibling schemas share name/phone/email.
+      if (s > hit && s >= own + 3) { better = other; hit = s; }
+    }
+    return better ? { better, hit, own } : null;
+  }, [rows, schema]);
+
   const handleFiles = useCallback(async (f: File) => {
     setFile(f);
     setResult(null);
@@ -202,6 +240,18 @@ const EntityImportPanel: React.FC<{ schema: EntitySchema }> = ({ schema }) => {
 
           {!parsing && rows.length > 0 && (
             <>
+              {/* Wrong tab, not a bad file — say so before the user starts
+                  hunting for 114 identical validation errors. */}
+              {entityMismatch && (
+                <Banner tone="warn" icon={<AlertTriangle size={16} />}>
+                  This file looks like <strong>{entityMismatch.better.title}</strong> data, not{' '}
+                  <strong>{schema.title}</strong> — {entityMismatch.hit} of its columns match{' '}
+                  {entityMismatch.better.title}
+                  {entityMismatch.own > 0 ? `, against ${entityMismatch.own} here` : ''}. Open the{' '}
+                  <strong>{entityMismatch.better.title}</strong> tab and upload it there, or carry on
+                  if this is deliberate.
+                </Banner>
+              )}
               <ValidationSummary valid={validCount} invalid={invalidCount} />
               <PreviewTable schema={schema} rows={rows} validations={validations} />
 

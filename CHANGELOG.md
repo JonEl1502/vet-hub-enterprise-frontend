@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: Import Data warns when the file belongs to a DIFFERENT tab  —  2026-08-05
+- **What changed:** the import panel scores the uploaded file's headers against every entity
+  schema's keys + aliases. When another entity is a clearly better fit it shows a banner naming
+  it, above the validation summary.
+- **Why:** the panel validated whatever it was handed against whatever tab happened to be open.
+  Dropping the inventory file on the **Clients** tab produced 114 rows of "3 errors" — first name,
+  surname, phone missing — with nothing saying the file was simply in the wrong place (user,
+  2026-08-05). Every row failing the *same* required fields is the signature of that mistake, not
+  of a bad file.
+- **Record impact:** 🟢 None — a warning; it never blocks an import.
+- **Rollback:** revert; wrong-tab uploads go back to looking like a broken file.
+- ⚠️ Deliberately advisory, and deliberately needs a **margin of 3** over the open tab before it
+  speaks: Clients/Pets/Staff legitimately share `name`/`phone`/`email` columns, so a tie must stay
+  silent. Verified against both generated stock files — silent on Inventory, warns on the other
+  three.
+
 ### feat: the inventory import template gains a subcategory path + supplier, and tells the SKU truth  —  2026-08-05
 - **What changed:** `INVENTORY_SCHEMA` adds `subcategories` (semicolon-separated path, broadest
   first) and `supplier` (matched by name). `category` is no longer required on its own — a new
