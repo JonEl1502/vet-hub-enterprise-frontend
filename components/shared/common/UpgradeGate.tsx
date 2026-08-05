@@ -58,7 +58,11 @@ const UpgradeGate: React.FC<UpgradeGateProps> = ({
   if (hideWhenLocked) return null;
 
   const copy = featureCopy(feature);
-  const heading = title ?? `${copy.label} is on the ${copy.plan} plan`;
+  // `copy.plan` is sometimes a determiner-led phrase ("a higher") and sometimes
+  // a plan NAME ("Enterprise"), so a hardcoded "the" produced "…is on the a
+  // higher plan" (seen on the supplier upgrade modal, 2026-08-05).
+  const planPhrase = /^(a|an|the)\s/i.test(copy.plan) ? copy.plan : `the ${copy.plan}`;
+  const heading = title ?? `${copy.label} is on ${planPhrase} plan`;
   const blurb = description ?? copy.blurb;
 
   if (variant === 'inline') {

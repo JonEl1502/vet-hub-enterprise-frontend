@@ -128,6 +128,12 @@ export const VIEW_KEY: Record<string, string> = {
 export const ALWAYS_SUPPLIER_VIEWS = new Set([
   'supplier-management',
   'supplier-billing',
+  // The supplier's equivalent of `import-data`, which is always-allowed for the
+  // same reason: getting your catalogue IN is the on-ramp, not a paid feature.
+  // Without this a supplier on no/expired plan could not see or open the page —
+  // the nav entry was silently filtered out (found 2026-08-05 by opening it as
+  // a real supplier; the API worked all along, which is why it looked fine).
+  'supplier-import',
 ]);
 
 /** Views reachable on ANY livestock plan, including LOCKED. */

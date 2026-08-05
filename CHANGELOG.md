@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the supplier's Import Products page was unreachable, and the upgrade modal said "the a higher plan"  —  2026-08-05
+- **What changed:** `supplier-import` joins `ALWAYS_SUPPLIER_VIEWS`. `UpgradeGate` no longer
+  hardcodes "the" in front of `copy.plan`.
+- **Why:** `allowsView` returns **false for every view** when the plan state is LOCKED unless the
+  view is in an always-allowed set. `import-data` is in the clinic set for a good reason — getting
+  your data IN is the on-ramp, not a paid feature — but its supplier equivalent was never added,
+  so the nav entry was silently filtered out and the route rendered the upgrade wall. The API
+  worked the whole time, which is exactly why it looked fine when tested that way.
+  Separately, `featureCopy`'s fallback is `plan: 'a higher'`, and the heading template already
+  supplied "the": *"branches is on the a higher plan"*.
+- **Record impact:** 🟢 None — entitlement set + copy.
+- **Rollback:** revert; suppliers without an active plan lose the page again.
+- ⚠️ **Verifying an API is not verifying a page.** This shipped as "done" on a green API test; the
+  gate lives entirely in the frontend nav + route.
+- ⚠️ `copy.plan` is sometimes a determiner-led phrase ("a higher") and sometimes a plan NAME
+  ("Enterprise"), so the article has to be conditional, not fixed.
+
 ### fix: the consumables picker said VIALS when it meant mL, and sat outside the entry it belongs to  —  2026-08-05
 - **What changed (three things):**
   1. **The quantity field is labelled with the SELL unit**, not the stock unit, and reads *Amount*.
