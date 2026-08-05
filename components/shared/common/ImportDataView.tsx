@@ -15,20 +15,34 @@ import { validateRows, countInvalid, RowValidation } from '../../../utils/import
 import { importsAPI, ImportResult } from '../../../services/modules/imports.api';
 import ManagingSwitcher from './ManagingSwitcher';
 
-const TABS: { entity: ImportEntity; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
+const CLINIC_TABS: { entity: ImportEntity; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { entity: 'clients',   label: 'Clients',   icon: Users     },
   { entity: 'pets',      label: 'Pets',      icon: PawPrint  },
   { entity: 'inventory', label: 'Inventory', icon: Package   },
   { entity: 'staff',     label: 'Staff',     icon: UserCog   },
 ];
 
+// A supplier has no clients, pets or clinic staff — only a catalogue. Showing
+// the clinic tabs to a supplier would offer four imports that cannot succeed:
+// they are scoped to a clinic id the account does not have.
+const SUPPLIER_TABS: typeof CLINIC_TABS = [
+  { entity: 'supplier-products', label: 'Products', icon: Package },
+];
+
 interface ImportDataViewProps {
   onBack?: () => void;
   initialEntity?: ImportEntity;
+  /** Which catalogue of importers to offer. Defaults to the clinic's. */
+  audience?: 'clinic' | 'supplier';
 }
 
-const ImportDataView: React.FC<ImportDataViewProps> = ({ onBack, initialEntity = 'clients' }) => {
-  const [active, setActive] = useState<ImportEntity>(initialEntity);
+const ImportDataView: React.FC<ImportDataViewProps> = ({ onBack, initialEntity, audience = 'clinic' }) => {
+  const TABS = audience === 'supplier' ? SUPPLIER_TABS : CLINIC_TABS;
+  // Default follows the audience — a supplier has only one importer, and
+  // defaulting to 'clients' would open a tab that is not in their TABS list.
+  const [active, setActive] = useState<ImportEntity>(
+    initialEntity ?? (audience === 'supplier' ? 'supplier-products' : 'clients'),
+  );
   const schema = getSchema(active);
 
   return (
@@ -49,7 +63,9 @@ const ImportDataView: React.FC<ImportDataViewProps> = ({ onBack, initialEntity =
             <div>
               <h1 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tight">Import data</h1>
               <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
-                Bring existing clients, pets, inventory, and staff into VetHubCore from a CSV or Excel file.
+                {audience === 'supplier'
+                  ? 'Bring your product catalogue into VetHubCore from a CSV or Excel file. Image, manufacturer, pack size and the subcategory path all flow to a clinic when they receive a purchase order.'
+                  : 'Bring existing clients, pets, inventory, and staff into VetHubCore from a CSV or Excel file.'}
               </p>
             </div>
           </div>

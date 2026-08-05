@@ -4,7 +4,7 @@
  * the backend import.service.ts accepted keys.
  */
 
-export type ImportEntity = 'clients' | 'pets' | 'inventory' | 'staff';
+export type ImportEntity = 'clients' | 'pets' | 'inventory' | 'staff' | 'supplier-products';
 
 export interface ColumnDef {
   key: string;             // primary column name used in CSV/template
@@ -161,6 +161,51 @@ export const INVENTORY_SCHEMA: EntitySchema = {
   ],
 };
 
+export const SUPPLIER_PRODUCT_SCHEMA: EntitySchema = {
+  entity: 'supplier-products',
+  title: 'Supplier Products',
+  subtitle: 'Your listing catalogue. Everything here flows to a clinic on PO receive — image, manufacturer, pack size and the subcategory path included.',
+  columns: [
+    { key: 'name',        label: 'Product name', required: true, example: 'Amoxicillin 250mg' },
+    { key: 'sku',         label: 'SKU', required: true, example: 'AMX-250', help: 'Unique within YOUR catalogue' },
+    { key: 'category',    label: 'Category', example: 'Antibiotics', help: 'Leave blank to take the LAST step of subcategories' },
+    { key: 'subcategories', label: 'Subcategory path', example: 'Antimicrobial;Antibiotics', help: 'Semicolon-separated, broadest first. The last step becomes Category', aliases: ['subcategory_path'] },
+    { key: 'description', label: 'Description', example: 'Broad-spectrum antibiotic' },
+    // The whole point of the supplier catalogue: these ride onto the clinic's
+    // item on PO receive, so a clinic never retypes them.
+    { key: 'image_url',   label: 'Image URL', example: 'https://cdn.example.com/amx-250.jpg', help: 'Direct https link. Inherited by the clinic on PO receive', aliases: ['imageUrl', 'image'] },
+    { key: 'manufacturer', label: 'Manufacturer', example: 'Cosmos Pharma' },
+    { key: 'country_of_origin', label: 'Country of origin', example: 'Kenya', aliases: ['countryOfOrigin'] },
+    { key: 'unit',        label: 'Unit', example: 'Tablet', help: 'Defaults to Units' },
+    { key: 'pack_size',   label: 'Units per pack', type: 'number', example: '30', help: 'e.g. 30 tablets per box. Carried to the clinic — without it a per-tablet sale bills a whole box', aliases: ['packSize'] },
+    { key: 'unit_price',  label: 'Unit price', type: 'number', required: true, example: '12.50', help: 'What the CLINIC pays you', aliases: ['unitPrice', 'price'] },
+    { key: 'buy_price',   label: 'Buy price', type: 'number', example: '9.00', help: 'What YOU paid. Never shown to clinics', aliases: ['buyPrice'] },
+    { key: 'suggested_sell_price', label: 'Suggested sell price', type: 'number', example: '25.00', help: 'Advisory resale price a clinic may inherit on receive', aliases: ['suggestedSellPrice'] },
+    { key: 'currency',    label: 'Currency', example: 'KES', help: 'Defaults to KES' },
+    { key: 'min_order_qty', label: 'Min order qty', type: 'number', example: '1', aliases: ['minOrderQty'] },
+    { key: 'stock_qty',   label: 'Stock qty', type: 'number', example: '500', aliases: ['stockQty'] },
+    { key: 'low_stock_threshold', label: 'Low stock alert', type: 'number', example: '50', aliases: ['lowStockThreshold'] },
+    { key: 'is_available', label: 'Available', type: 'enum', enumValues: ['YES', 'NO'], example: 'YES', help: 'Defaults to YES', aliases: ['isAvailable'] },
+  ],
+  sampleRows: [
+    {
+      name: 'Amoxicillin 250mg', sku: 'AMX-250', category: 'Antibiotics',
+      subcategories: 'Antimicrobial;Antibiotics', description: 'Broad-spectrum antibiotic',
+      image_url: 'https://cdn.example.com/amx-250.jpg', manufacturer: 'Cosmos Pharma',
+      country_of_origin: 'Kenya', unit: 'Tablet', pack_size: '30',
+      unit_price: '12.50', buy_price: '9.00', suggested_sell_price: '25.00', currency: 'KES',
+      min_order_qty: '1', stock_qty: '500', low_stock_threshold: '50', is_available: 'YES',
+    },
+    {
+      name: 'Surgical Gloves', sku: 'GLV-PAIR', category: 'PPE',
+      subcategories: 'Theatre;PPE', description: '',
+      image_url: '', manufacturer: '', country_of_origin: '', unit: 'Pair', pack_size: '100',
+      unit_price: '8.00', buy_price: '', suggested_sell_price: '25.00', currency: 'KES',
+      min_order_qty: '10', stock_qty: '2000', low_stock_threshold: '200', is_available: 'YES',
+    },
+  ],
+};
+
 export const STAFF_SCHEMA: EntitySchema = {
   entity: 'staff',
   title: 'Staff',
@@ -194,6 +239,7 @@ export const STAFF_SCHEMA: EntitySchema = {
 };
 
 export const SCHEMAS: Record<ImportEntity, EntitySchema> = {
+  'supplier-products': SUPPLIER_PRODUCT_SCHEMA,
   clients:   CLIENT_SCHEMA,
   pets:      PET_SCHEMA,
   inventory: INVENTORY_SCHEMA,

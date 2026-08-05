@@ -228,6 +228,7 @@ const SUPPLIER_ITEMS: MenuItem[] = [
   { id: 'supplier-products',   label: 'Products',   icon: Package },
   { id: 'supplier-inventory',  label: 'Inventory',  icon: ShoppingCart },
   { id: 'supplier-orders',     label: 'Orders',     icon: Receipt },
+  { id: 'supplier-import',     label: 'Import Products', icon: Upload },
   {
     id: 'supplier_mgmt',
     label: 'Account',

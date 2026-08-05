@@ -62,6 +62,7 @@ const SUPPLIER_SCOPED_VIEWS = new Set([
   'supplier-orders',
   'supplier-management',
   'supplier-billing',
+  'supplier-import',
 ]);
 
 const Sidebar: React.FC<SidebarProps> = ({

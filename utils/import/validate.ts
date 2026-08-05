@@ -65,6 +65,14 @@ export function validateRow(
   }
 
   // Entity-specific cross-field rules.
+  if (schema.entity === 'supplier-products') {
+    const cat = firstValue(row, ['category']);
+    const path = firstValue(row, ['subcategories', 'subcategory_path']);
+    if (!cat && !path) {
+      errors.push({ field: 'category', message: 'category or subcategories is required' });
+    }
+  }
+
   if (schema.entity === 'inventory') {
     // Neither is required alone — the item's category can come from the path.
     // Requiring both would reject the form's own shape; requiring neither would

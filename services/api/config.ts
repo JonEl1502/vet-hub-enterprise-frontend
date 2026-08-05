@@ -299,7 +299,7 @@ export const ENDPOINTS = {
 
   // Bulk data imports (CSV/XLSX)
   IMPORTS: {
-    FOR_ENTITY: (entity: 'clients' | 'pets' | 'inventory' | 'staff') => `/imports/${entity}`,
+    FOR_ENTITY: (entity: 'clients' | 'pets' | 'inventory' | 'staff' | 'supplier-products') => `/imports/${entity}`,
   },
 
   // Payment Gateways — per-owner BYOK config. Scope = 'clinic' | 'supplier'

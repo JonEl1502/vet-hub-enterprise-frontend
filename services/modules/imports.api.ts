@@ -6,7 +6,7 @@ import { post } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { ApiResponse, RequestOptions } from '../api/types';
 
-export type ImportEntity = 'clients' | 'pets' | 'inventory' | 'staff';
+export type ImportEntity = 'clients' | 'pets' | 'inventory' | 'staff' | 'supplier-products';
 
 export interface ImportRowError {
   row: number;

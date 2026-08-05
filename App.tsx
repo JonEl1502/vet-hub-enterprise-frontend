@@ -280,7 +280,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders', 'payables',
     'billing', 'referrals', 'settings', 'import-data', 'broadcasts', 'supplier-dashboard',
     'supplier-products', 'supplier-orders', 'supplier-branches',
-    'supplier-staff', 'supplier-management',
+    'supplier-staff', 'supplier-management', 'supplier-import',
   ]);
   const VIEW_STORAGE_KEY = 'vethub_active_view';
   const VIEW_URL_PREFIX = '/app/';
@@ -2800,6 +2800,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           />
         );
       }
+      // Supplier-side import: same component, supplier catalogue only. Scoped
+      // by X-Supplier-Id server-side, so it cannot touch a clinic's data.
+      case 'supplier-import':
+        return <ImportDataView audience="supplier" onBack={() => navigateTo('supplier-products')} />;
       case 'import-data':
         return <ImportDataView onBack={() => navigateTo('settings')} />;
       case 'billing': return <BillingView />;
