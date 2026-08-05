@@ -1,4 +1,4 @@
-import { get, patch } from '../api/client';
+import { get, patch, post } from '../api/client';
 import { RequestOptions, ApiResponse } from '../api/types';
 
 /**
@@ -44,6 +44,22 @@ export const demoRequestsAPI = {
     options?: RequestOptions,
   ): Promise<ApiResponse<{ id: string; status: DemoRequestStatus; notes: string | null; contactedAt: string | null }>> =>
     patch(`/admin/demo-requests/${id}`, data, { showError: true, ...options }),
+
+  /**
+   * ONE-CLICK convert: creates the ORG **and its OWNER** and marks the lead
+   * CONVERTED. The owner's email is the login, which is why a user is created
+   * and not just an org — an org with no owner cannot be signed into.
+   * `temporaryPassword` is returned ONCE and is not retrievable afterwards.
+   */
+  convert: (
+    id: string,
+    data: { accountType: 'CLINIC' | 'FARM'; orgName: string },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{
+    accountType: string; orgName: string; ownerEmail: string;
+    temporaryPassword: string; clinicId: string | null;
+  }>> =>
+    post(`/admin/demo-requests/${id}/convert`, data, { showError: true, ...options }),
 };
 
 export default demoRequestsAPI;

@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Demo Requests — "Create account" replaces the bare Converted button  —  2026-08-05
+- **What changed:** a green **Create account** action opens a dialog asking only what the lead
+  cannot tell us — the organisation's real name and CLINIC vs FARM. It creates the org **and its
+  owner**, then shows the credentials once.
+- **Why:** "Converted" was a status change; someone still had to build the account by hand. The
+  owner's email is the login (user, 2026-08-05).
+- **Record impact:** 🟢 None — UI only; the org/owner rows come from the backend.
+- ⚠️ The temporary password is shown **once** and the server keeps no readable copy — the dialog
+  says so and offers Copy. Dismissing it without copying means a password reset.
+- ⚠️ Owner name, email and phone come from the LEAD, never retyped.
+
+### fix: grooming joins on taskId; consumables scope by service task id (200)  —  2026-08-05
+- **What changed:** the rail's price join uses `record.taskId` instead of the service NAME, and
+  `ConsumablePicker` takes `serviceTaskId`, scoping products by id.
+- **Why:** a grooming record has carried `task_id` all along, so the name match was never needed —
+  renaming a service dropped the rail's price to 0 and orphaned its logged products.
+- **Record impact:** 🟢 None — UI only (see backend 200 for the column).
+- ⚠️ The name/notes match is kept as a **fallback** for pre-200 rows and records whose task was
+  deleted, so nothing that groups correctly today stops.
+
 ### fix: the supplier's Import Products page was unreachable, and the upgrade modal said "the a higher plan"  —  2026-08-05
 - **What changed:** `supplier-import` joins `ALWAYS_SUPPLIER_VIEWS`. `UpgradeGate` no longer
   hardcodes "the" in front of `copy.plan`.

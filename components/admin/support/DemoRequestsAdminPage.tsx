@@ -38,6 +38,32 @@ const DemoRequestsAdminPage: React.FC = () => {
   const [q, setQ] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  // One-click convert (2026-08-05): the lead being converted, the form, and the
+  // credentials that come back. The password is shown ONCE — the server does not
+  // keep a readable copy — so this state is the only place it ever exists.
+  const [converting, setConverting] = React.useState<DemoRequest | null>(null);
+  const [convType, setConvType] = React.useState<'CLINIC' | 'FARM'>('CLINIC');
+  const [convName, setConvName] = React.useState('');
+  const [convBusy, setConvBusy] = React.useState(false);
+  const [created, setCreated] = React.useState<{ ownerEmail: string; temporaryPassword: string; orgName: string } | null>(null);
+
+  React.useEffect(() => {
+    if (converting) { setConvType('CLINIC'); setConvName(converting.clinicName || converting.name || ''); }
+  }, [converting]);
+
+  const doConvert = async () => {
+    if (!converting || !convName.trim()) return;
+    setConvBusy(true);
+    try {
+      const res = await demoRequestsAPI.convert(converting.id, { accountType: convType, orgName: convName.trim() });
+      if (res.success && res.data) {
+        setCreated({ ownerEmail: res.data.ownerEmail, temporaryPassword: res.data.temporaryPassword, orgName: res.data.orgName });
+        setConverting(null);
+        load();
+      }
+    } catch { /* the API layer surfaces its own error (e.g. email already has an account) */ }
+    finally { setConvBusy(false); }
+  };
   const [noteDraft, setNoteDraft] = React.useState<Record<string, string>>({});
 
   const load = React.useCallback(async () => {
@@ -151,7 +177,19 @@ const DemoRequestsAdminPage: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-center gap-1.5 shrink-0">
-                  {(['CONTACTED', 'CONVERTED', 'DISMISSED'] as DemoRequestStatus[])
+                  {/* "Converted" used to be a STATUS CHANGE only — it recorded
+                      that someone, somewhere, had made an account by hand.
+                      It now CREATES the account (user, 2026-08-05). */}
+                  {r.status !== 'CONVERTED' && (
+                    <button
+                      disabled={busyId === r.id}
+                      onClick={() => setConverting(r)}
+                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-700 transition-all disabled:opacity-40"
+                    >
+                      <Building2 size={11} /> Create account
+                    </button>
+                  )}
+                  {(['CONTACTED', 'DISMISSED'] as DemoRequestStatus[])
                     .filter(s => s !== r.status)
                     .map(s => (
                       <button
@@ -160,7 +198,7 @@ const DemoRequestsAdminPage: React.FC = () => {
                         onClick={() => setStatus(r, s)}
                         className="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all disabled:opacity-40"
                       >
-                        {s === 'CONTACTED' ? 'Mark contacted' : s === 'CONVERTED' ? 'Converted' : 'Dismiss'}
+                        {s === 'CONTACTED' ? 'Mark contacted' : 'Dismiss'}
                       </button>
                     ))}
                 </div>
@@ -190,6 +228,70 @@ const DemoRequestsAdminPage: React.FC = () => {
               </div>
             </div>
           ))}
+        </div>
+      )}
+    
+      {/* CONVERT — asks only what the lead cannot tell us: the org's real name
+          and whether it is a clinic or a farm. Everything else (owner name,
+          email, phone) comes from the lead itself. */}
+      {converting && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/70" onClick={() => setConverting(null)}>
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-xl space-y-3" onClick={e => e.stopPropagation()}>
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Create account</p>
+            <h2 className="font-display text-lg font-black text-pine dark:text-zinc-100">{converting.name}</h2>
+            <p className="text-xs text-slate-500 dark:text-zinc-400">
+              Creates the organisation <strong>and its owner</strong>. The owner logs in with{' '}
+              <span className="font-mono text-pine dark:text-zinc-200">{converting.email}</span> — that is why the
+              account is created with their email, not yours.
+            </p>
+            <div>
+              <label className="field-label">Organisation name</label>
+              <input className="field-input" value={convName} onChange={e => setConvName(e.target.value)} placeholder="e.g. Mombasani Vets Clinic" />
+            </div>
+            <div>
+              <label className="field-label">Account type</label>
+              <div className="flex gap-2">
+                {(['CLINIC', 'FARM'] as const).map(t => (
+                  <button key={t} onClick={() => setConvType(t)}
+                    className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${convType === t ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`}>
+                    {t === 'CLINIC' ? 'Vet clinic' : 'Farm / livestock'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setConverting(null)} className="flex-1 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500">Cancel</button>
+              <button onClick={doConvert} disabled={convBusy || !convName.trim()}
+                className="flex-1 py-2 bg-emerald-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-1.5">
+                {convBusy ? <><Loader2 size={12} className="animate-spin" /> Creating…</> : 'Create account'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CREDENTIALS — shown ONCE. The server keeps no readable copy, so if this
+          is dismissed without copying, the owner must reset their password. */}
+      {created && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/70">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-xl space-y-3">
+            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 flex items-center gap-1.5"><CheckCircle2 size={13} /> Account created</p>
+            <h2 className="font-display text-lg font-black text-pine dark:text-zinc-100">{created.orgName}</h2>
+            <div className="rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-1.5">
+              <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500">Copy this now — it is shown once</p>
+              <p className="text-xs font-mono text-pine dark:text-zinc-100 break-all">{created.ownerEmail}</p>
+              <p className="text-sm font-mono font-black text-pine dark:text-zinc-100 break-all">{created.temporaryPassword}</p>
+            </div>
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+              There is no readable copy on the server. If this is lost the owner has to reset their password.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { navigator.clipboard?.writeText(`${created.ownerEmail} / ${created.temporaryPassword}`); toast.success('Copied'); }}
+                className="flex-1 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300">Copy</button>
+              <button onClick={() => setCreated(null)} className="flex-1 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest">Done</button>
+            </div>
+          </div>
         </div>
       )}
     </div>
