@@ -203,7 +203,20 @@ const RecordActionBar: React.FC<Props> = ({ actions, status, hint, inlineLimit =
 
           <div className="flex flex-wrap items-center gap-2 sm:ml-auto pb-1 sm:pb-0">
             {hint && <span className="hidden lg:inline text-[9px] font-bold text-slate-400 dark:text-zinc-500 mr-1">{hint}</span>}
-            {slot}
+            {/* Interacting with the slot CLOSES the overflow menu. The slot's
+                content (AddCategoryService) has no positioning of its own, so
+                its picker expands INLINE and grows the bar upward into the
+                space this menu occupies — that is how "Share" ended up painted
+                across the middle of the grooming picker.
+                `onPointerDownCapture` rather than a prop on the slot: the slot
+                is an opaque ReactNode, so the bar cannot reach into it, and
+                capture fires before the child's own handler opens the picker.
+                Together with the menu's z-50 this covers both orders — open the
+                picker and the menu gets out of the way; open the menu second
+                and it renders cleanly on top instead of interleaved. */}
+            <div className="contents" onPointerDownCapture={() => setMenuOpen(false)}>
+              {slot}
+            </div>
             {inline.map(a => btn(a))}
 
             {overflow.length > 0 && (

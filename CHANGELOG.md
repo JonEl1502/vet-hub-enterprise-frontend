@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: action-bar popover collision, vitals labels, Add-entry hierarchy  —  2026-08-05
+- **What changed:** ① `RecordActionBar` closes its overflow menu when you interact with the
+  `slot` (`onPointerDownCapture`). ② The inpatient TPR row gets **persistent labels** instead of
+  placeholders. ③ `Add entry` becomes an outline button rather than a solid full-width accent bar.
+- **Why:** ① the slot renders INLINE, so opening the grooming picker grew the bar upward into the
+  absolutely-positioned menu and "Share" painted across the middle of it. ② a placeholder vanishes
+  on typing, leaving six bare numbers with nothing saying which was which — on a clinical chart a
+  value in the wrong box is invisible. ③ the most *repeated* action was the loudest thing on the
+  page while `Discharge`, the irreversible one, whispered.
+- **Record impact:** 🟢 None — UI only.
+- **Rollback:** revert.
+- ⚠️ `onPointerDownCapture` is used because `slot` is an opaque ReactNode the bar cannot reach
+  into, and capture fires *before* the child opens its picker. With the menu's `z-50` this covers
+  both orders. It does not need AddCategoryService to change.
+- ℹ️ NOT done, still needs your decision: the per-module banner hues are hardcoded Tailwind
+  colours (`from-fuchsia-700`, `from-emerald-700`, …) that ignore the clinic's brand variable —
+  and two modules currently share a hue, so colour identifies nothing. Fixing it means first
+  choosing whether each module gets a distinct hue or the ICON carries identity.
+
 ### feat: Inventory and Products are two pages  —  2026-08-05
 - **What changed:** `InventoryView` takes a `mode` prop — `'overview'` renders the ERP control
   centre (dashboard, reports, expiry, transfers, stock takes), `'products'` renders the stock list

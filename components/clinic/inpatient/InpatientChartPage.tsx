@@ -452,13 +452,22 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                               {/* Vitals (TPR) */}
                               <div>
                                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Monitoring (TPR)</p>
+                                {/* PERSISTENT LABELS, not placeholders (2026-08-05).
+                                    A placeholder disappears the moment you type, so six
+                                    bare numbers were left with nothing saying which was
+                                    which — on a clinical chart a value in the wrong box
+                                    is invisible, and these feed the patient's record. */}
                                 <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-                                  <input className={fieldCls} placeholder="Temp °C" value={vital.temperature} onChange={e => setVital(s => ({ ...s, temperature: e.target.value }))} />
-                                  <input className={fieldCls} placeholder="Pulse" value={vital.pulse} onChange={e => setVital(s => ({ ...s, pulse: e.target.value }))} />
-                                  <input className={fieldCls} placeholder="Resp" value={vital.respiration} onChange={e => setVital(s => ({ ...s, respiration: e.target.value }))} />
-                                  <input className={fieldCls} placeholder="Wt kg" value={vital.weight} onChange={e => setVital(s => ({ ...s, weight: e.target.value }))} />
-                                  <input className={fieldCls} placeholder="MM" value={vital.mucousMembrane} onChange={e => setVital(s => ({ ...s, mucousMembrane: e.target.value }))} />
-                                  <input className={fieldCls} placeholder="CRT" value={vital.crt} onChange={e => setVital(s => ({ ...s, crt: e.target.value }))} />
+                                  {([
+                                    ['Temp °C', 'temperature'], ['Pulse', 'pulse'], ['Resp', 'respiration'],
+                                    ['Wt kg', 'weight'], ['MM', 'mucousMembrane'], ['CRT', 'crt'],
+                                  ] as const).map(([label, key]) => (
+                                    <label key={key} className="block">
+                                      <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{label}</span>
+                                      <input className={fieldCls} value={(vital as any)[key]}
+                                        onChange={e => setVital(s => ({ ...s, [key]: e.target.value }))} />
+                                    </label>
+                                  ))}
                                 </div>
                                 <button onClick={addVital} disabled={busy}
                                   className="mt-1.5 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 hover:bg-seafoam/10 text-seafoam rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam/30 disabled:opacity-50">
@@ -483,7 +492,12 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                   ))}
                                 </div>
                                 <div className="mt-2 space-y-2">{logFields()}</div>
-                                <button onClick={addLog} disabled={busy} className="mt-2 w-full py-2 bg-seafoam text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
+                                {/* OUTLINE, not a solid full-width bar (2026-08-05). Add entry is the
+                                    most REPEATED action on the page; Discharge is the
+                                    irreversible one. A solid accent bar here made the
+                                    routine action the loudest thing on screen and left
+                                    the terminal action whispering — hierarchy inverted. */}
+                                <button onClick={addLog} disabled={busy} className="mt-2 w-full py-2 bg-white dark:bg-zinc-900 hover:bg-seafoam/10 text-seafoam border border-seafoam/40 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
                                   {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add entry
                                 </button>
                               </div>
