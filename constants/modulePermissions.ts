@@ -32,7 +32,7 @@
 
 import { UserRole, FULL_ACCESS_ROLES } from '../types';
 
-export type ModuleActionId = 'view' | 'create' | 'edit' | 'delete' | 'stock';
+export type ModuleActionId = 'view' | 'create' | 'edit' | 'delete' | 'stock' | 'transfer';
 
 export interface ModuleActionDef {
   id: ModuleActionId;
@@ -81,7 +81,16 @@ const INVENTORY_MODULES: ModuleDef[] = [
       {
         id: 'stock',
         label: 'Receive & move stock',
-        hint: 'Receive deliveries, adjust counts, stock takes and transfers — without being able to edit the item itself',
+        hint: 'Receive deliveries, adjust counts and run stock takes — without being able to edit the item itself. Includes inter-clinic transfers unless you deny "Transfer stock between clinics" below.',
+      },
+      {
+        // Split out 2026-08-05 (user). `products:stock` IMPLIES this on the
+        // server (IMPLIED_GRANTS in middleware/modulePermission.ts), so nobody
+        // lost transfers when it appeared. Its only real use is the DENY form:
+        // `-products:transfer` = "may receive stock but may not move it out".
+        id: 'transfer',
+        label: 'Transfer stock between clinics',
+        hint: 'Send stock to another branch. Granted automatically with "Receive & move stock" — deny it to let someone receive stock without being able to move it out of this clinic.',
       },
     ],
   },
@@ -376,6 +385,15 @@ interface GateUser {
 export const DENY_PREFIX = '-';
 export const denyOf = (grant: string) => `${DENY_PREFIX}${grant}`;
 
+/**
+ * Mirror of `IMPLIED_GRANTS` in backend `middleware/modulePermission.ts`.
+ * `products:stock` implies `products:transfer` so the split introduced on
+ * 2026-08-05 revoked nothing. Keep the two copies in step.
+ */
+const IMPLIED_GRANTS: Record<string, string[]> = {
+  'products:stock': ['products:transfer'],
+};
+
 /** Expand a user's stored grants, following the legacy bridge. Denials win. */
 export const grantsFor = (user: GateUser | null | undefined): Set<string> => {
   const out = new Set<string>();
@@ -387,6 +405,8 @@ export const grantsFor = (user: GateUser | null | undefined): Set<string> => {
     if (LEGACY_GRANT_MAP[g]) LEGACY_GRANT_MAP[g].forEach(x => out.add(x));
     else out.add(g);
   });
+  // Before denials, so `-products:transfer` still beats the implication.
+  Array.from(out).forEach(g => IMPLIED_GRANTS[g]?.forEach(x => out.add(x)));
   // Applied last so a denial beats both the preset and a legacy grant. Denying
   // `:view` denies the whole module — there is no "may create, may not open".
   denied.forEach(d => {
@@ -431,4 +451,7 @@ export const modulePerms = (user: GateUser | null | undefined, moduleId: string)
   edit:   can(user, `${moduleId}:edit`),
   delete: can(user, `${moduleId}:delete`),
   stock:  can(user, `${moduleId}:stock`),
+  // `stock` implies `transfer` inside grantsFor, so an explicit
+  // `-products:transfer` correctly reads FALSE here rather than being masked.
+  transfer: can(user, `${moduleId}:transfer`),
 });

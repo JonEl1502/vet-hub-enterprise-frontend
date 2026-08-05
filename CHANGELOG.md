@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### ui: module banners drop their hardcoded hues — the ICON carries identity  —  2026-08-05
+- **What changed:** `RecordPageHeader`'s `accent` is now optional and defaults to the exported
+  `BRAND_BANNER` (`from-pine to-seafoam`). The four record pages that passed a literal gradient —
+  Inpatient, Boarding, Vaccination, Grooming — no longer pass one.
+- **Why:** two pairs had silently collided (Lab + Vaccination both emerald→teal, Boarding +
+  Inpatient both pine), so colour identified nothing, and every hue was a hardcoded Tailwind
+  palette entry that ignored the clinic's brand. User decision, 2026-08-05: drop the hues.
+- **Record impact:** 🟢 None — presentation only.
+- ⚠️ `pine`/`seafoam` are `rgb(var(--secondary-rgb))` / `rgb(var(--primary-rgb))`, so the banner
+  now follows a clinic's rebrand. A literal `from-emerald-700` never could — that is the point.
+- **Data dependency:** none.
+
+### feat: "Transfer stock between clinics" is its own grant  —  2026-08-05
+- **What changed:** new `products:transfer` action in the permission catalog. `products:stock`
+  **implies** it (mirrored `IMPLIED_GRANTS` in `grantsFor`), so no existing user lost anything.
+- **Why:** user asked for "may receive stock but may not transfer it" (decision #5). That is
+  reachable now by denying `-products:transfer`.
+- **Record impact:** 🟢 None — access control only.
+- ⚠️ The implication is applied **before** denials, so an explicit `-products:transfer` still
+  wins and `modulePerms().transfer` reads false — the UI hides what the server would 403.
+- **Data dependency:** backend gate on `POST /stock-transfers` must ship together.
+
 ### feat: Demo Requests — "Create account" replaces the bare Converted button  —  2026-08-05
 - **What changed:** a green **Create account** action opens a dialog asking only what the lead
   cannot tell us — the organisation's real name and CLINIC vs FARM. It creates the org **and its

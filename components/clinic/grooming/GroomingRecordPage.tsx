@@ -88,7 +88,6 @@ const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChang
 
       {/* Header banner — shared sticky/condensing header (2026-08-04). */}
       <RecordPageHeader
-        accent="from-fuchsia-700 to-pink-600"
         icon={Scissors}
         eyebrow="Grooming visit"
         title={<><Dog size={16} /> {pet?.name ?? appointment.pet?.name ?? 'Patient'}</>}

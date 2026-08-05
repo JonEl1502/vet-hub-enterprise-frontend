@@ -262,7 +262,6 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
       {/* Shared sticky/condensing header (2026-08-04). Not sticky when embedded
           in the wizard's Boarding step — that shell has its own chrome. */}
       <RecordPageHeader
-        accent="from-pine to-pine/90"
         icon={Home}
         eyebrow="Boarding stay"
         embedded={embedded}

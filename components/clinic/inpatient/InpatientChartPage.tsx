@@ -300,7 +300,6 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
           two that drift. RELEASE is deliberately NOT here — it moved into the
           rail as a labelled control (user, 2026-08-04). */}
       <RecordPageHeader
-        accent="from-pine to-pine/90"
         icon={Stethoscope}
         eyebrow="Inpatient chart"
         embedded={embedded}

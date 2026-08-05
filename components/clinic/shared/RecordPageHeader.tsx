@@ -27,9 +27,26 @@ import React from 'react';
  * wizard owns its own chrome and a second pinned header would stack on it.
  */
 
+/**
+ * The banner gradient every record page uses.
+ *
+ * ⚠️ Modules do NOT get their own hue (user decision, 2026-08-05). Two pairs had
+ * silently collided — Lab + Vaccination were both emerald→teal, Boarding +
+ * Inpatient both pine — so colour identified nothing, and every hue was a
+ * hardcoded Tailwind palette entry that ignored the clinic's brand variables.
+ * Clinics rebrand; `pine` and `seafoam` are `rgb(var(--secondary-rgb))` /
+ * `rgb(var(--primary-rgb))`, so this gradient follows the rebrand and a literal
+ * `from-emerald-700` never can. **The module ICON carries identity now.**
+ */
+export const BRAND_BANNER = 'from-pine to-seafoam';
+
 export interface RecordPageHeaderProps {
-  /** Gradient classes for the module's banner, e.g. `from-fuchsia-700 to-pink-600`. */
-  accent: string;
+  /**
+   * Banner gradient. Defaults to {@link BRAND_BANNER} — leave it unset.
+   * Pass a literal palette gradient ONLY for something that is deliberately not
+   * clinic-branded; a per-module hue is not a reason (see BRAND_BANNER).
+   */
+  accent?: string;
   icon: React.ElementType;
   /** Small caps line above the name, e.g. "Grooming visit". */
   eyebrow: string;
@@ -77,7 +94,7 @@ export const useCondensedOnScroll = (disabled?: boolean) => {
 export const STICKY_RAIL = 'lg:sticky lg:top-[8.5rem] lg:self-start lg:max-h-[calc(100vh-10rem)] lg:overflow-y-auto lg:pr-1';
 
 const RecordPageHeader: React.FC<RecordPageHeaderProps> = ({
-  accent, icon: Icon, eyebrow, title, subtitle, condensedMeta, right, embedded,
+  accent = BRAND_BANNER, icon: Icon, eyebrow, title, subtitle, condensedMeta, right, embedded,
 }) => {
   const condensed = useCondensedOnScroll(embedded);
 

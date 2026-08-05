@@ -361,7 +361,6 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
       {/* Header banner */}
       {/* Shared sticky/condensing header (2026-08-04). */}
       <RecordPageHeader
-        accent="from-emerald-700 to-teal-600"
         icon={Syringe}
         eyebrow="Vaccination visit"
         title={pet?.name ?? 'Patient'}
