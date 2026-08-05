@@ -202,7 +202,18 @@ const RecordActionBar: React.FC<Props> = ({ actions, status, hint, inlineLimit =
           )}
 
           <div className="flex flex-wrap items-center gap-2 sm:ml-auto pb-1 sm:pb-0">
-            {hint && <span className="hidden lg:inline text-[9px] font-bold text-slate-400 dark:text-zinc-500 mr-1">{hint}</span>}
+            {/* The hint is small print NEXT TO the actions — hidden on narrow
+                screens because there it would crowd them out. But when there is
+                NO primary action, the hint is not small print: it is the only
+                thing saying why the terminal button is missing ("Bill finalized
+                — record locked"). Hiding it there leaves a bar that looks
+                broken rather than locked — which is what happened when the
+                surgery page's inline lock notice moved into this bar. */}
+            {hint && (
+              <span className={`${primary.length === 0 ? 'inline' : 'hidden lg:inline'} text-[9px] font-bold text-slate-400 dark:text-zinc-500 mr-1`}>
+                {hint}
+              </span>
+            )}
             {/* Interacting with the slot CLOSES the overflow menu. The slot's
                 content (AddCategoryService) has no positioning of its own, so
                 its picker expands INLINE and grows the bar upward into the
