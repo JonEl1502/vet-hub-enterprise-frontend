@@ -356,7 +356,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
                   <PhotoStrip label="Before" urls={r.beforePhotos} onChange={urls => patchRecord(r.id, { beforePhotos: urls })} disabled={recLocked} />
                   <PhotoStrip label="After" urls={r.afterPhotos} onChange={urls => patchRecord(r.id, { afterPhotos: urls })} disabled={recLocked} />
                 </div>
-                {!recLocked && <ConsumablePicker flat appointmentId={appointment.id} serviceTag={r.serviceName} onChanged={onSaved} title={`Products & consumables — ${r.serviceName}`} />}
+                {!recLocked && <ConsumablePicker flat appointmentId={appointment.id} serviceTag={r.serviceName} serviceTaskId={r.taskId} onChanged={onSaved} title={`Products & consumables — ${r.serviceName}`} />}
               </div>
             </details>
           );

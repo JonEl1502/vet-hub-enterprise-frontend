@@ -36,6 +36,8 @@ export interface LogConsumablePayload {
   // Back-fill: historical timestamp for the record (stock still moves now).
   recordedAt?: string;
   notes?: string;
+  /** The SERVICE task these products were used for (200) — stable scoping key. */
+  serviceTaskId?: string | number;
 }
 
 export const consumablesAPI = {

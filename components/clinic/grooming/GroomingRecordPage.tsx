@@ -59,17 +59,17 @@ const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChang
    * whether it is billable; the visit TASK carries the price — so the figure
    * has to come from the join, not from either alone.
    *
-   * ⚠️ Matched on NAME, which is the same fragile join `GroomingPanel` already
-   * uses for per-service consumables (`notes === serviceTag`). Renaming a
-   * grooming service breaks the price lookup here and it falls back to 0 —
-   * a DISPLAY gap, never a billing one: the bill is built server-side from the
-   * tasks themselves. Fixing it properly needs a stable key, same class as
-   * the category-key rule.
+   * ✅ Joined on `taskId` — the STABLE key. A grooming record has carried its
+   * `task_id` since the per-service records moved into `grooming_records`, so
+   * the name match this used to do was never necessary: renaming a service
+   * dropped the price to 0 for no reason. Name is kept only as a fallback for
+   * a record whose task was deleted out from under it.
    */
   const groomTasks = (appointment.tasks || []).filter(t => (t.category || '').toLowerCase().includes('groom'));
   const ccy = 'KES';
   const groomLines = allRecs.map((r: any, i: number) => {
-    const t = groomTasks.find(tk => (tk.name || '').toLowerCase() === String(r.serviceName || '').toLowerCase());
+    const t = groomTasks.find(tk => r.taskId != null && String(tk.id) === String(r.taskId))
+      ?? groomTasks.find(tk => (tk.name || '').toLowerCase() === String(r.serviceName || '').toLowerCase());
     return {
       key: String(r.id ?? i),
       name: r.serviceName || t?.name || 'Grooming service',

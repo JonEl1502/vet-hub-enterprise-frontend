@@ -13,6 +13,14 @@ interface Props {
   // When set, scopes this picker to one service: logged items are tagged with
   // it (via notes) and the list shows only that service's items.
   serviceTag?: string;
+  /**
+   * The SERVICE task these products belong to (200) — the STABLE key.
+   * `serviceTag` matched on the service NAME, so renaming a service orphaned
+   * every product logged under the old one out of its box. Pass this and the
+   * scoping is by id; `serviceTag` is still sent so the line keeps a readable
+   * note, and still used to match HISTORICAL rows that have no id yet.
+   */
+  serviceTaskId?: string | number | null;
   compact?: boolean;
   // Back-fill: log rows with THIS timestamp (ISO) instead of now — used by the
   // per-day reconciliation editors. Stock still moves at log time.
@@ -35,10 +43,17 @@ const stepFor = (unit?: string) => (unit && FRACTIONAL_UNITS.has(unit.toLowerCas
  * log: deducts stock and (if billable) adds an itemized charge. Logged lines
  * can be toggled billable or removed in place — the inline "edit bill".
  */
-const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = 'Consumables & items used', serviceTag, recordedAt, flat }) => {
+const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = 'Consumables & items used', serviceTag, serviceTaskId, recordedAt, flat }) => {
   const { inventory } = useData();
   const [allItems, setAllItems] = useState<AppointmentConsumable[]>([]);
-  const items = useMemo(() => serviceTag ? allItems.filter(c => (c.notes || '') === serviceTag) : allItems, [allItems, serviceTag]);
+  // Prefer the id; fall back to the old note match so rows logged before 200
+  // (and any the backfill could not resolve unambiguously) keep showing up.
+  const items = useMemo(() => {
+    if (!serviceTag && serviceTaskId == null) return allItems;
+    return allItems.filter(c =>
+      (serviceTaskId != null && (c as any).serviceTaskId != null && String((c as any).serviceTaskId) === String(serviceTaskId))
+      || ((c as any).serviceTaskId == null && !!serviceTag && (c.notes || '') === serviceTag));
+  }, [allItems, serviceTag, serviceTaskId]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [busyLineId, setBusyLineId] = useState<string | null>(null);
@@ -106,6 +121,7 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
         billable,
         unitPrice: billable ? unitPrice : undefined,
         notes: serviceTag || undefined,
+        serviceTaskId: serviceTaskId ?? undefined,
         recordedAt: recordedAt || undefined,
       });
       if (res.success) {
