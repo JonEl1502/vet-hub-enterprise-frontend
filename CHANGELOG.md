@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: BillPanel crashed with React #310 — §7.4's hooks sat after an early return  —  2026-08-05
+- **What changed:** the five hooks §7.4 added (`useAuth` + three `useState`, plus `modulePerms`)
+  moved ABOVE the `loading` / `!bill` early returns.
+- **Why:** the first render returns early while loading, so those hooks never ran; the second
+  render ran them — "rendered more hooks than during the previous render". The Bill panel threw
+  every time a bill finished loading, which the page-level boundary caught as
+  "Something broke on billing".
+- **Record impact:** 🟢 None — render-order only, no data touched.
+- ⚠️ Shipped broken to prod for ~1h. Caught by a live user, not by tsc: **a hooks-order violation
+  type-checks perfectly and only fails at runtime**, so "0 errors" said nothing about it. Adding
+  UI behind an existing early return is the shape to watch for.
+
 ### feat: bill approval becomes THREE RIGHTS + how the client approved (§7.4)  —  2026-08-05
 - **What changed:** `BillPanel` gains **Raise for review** (DRAFT only) and **Client approved…**
   alongside **Approve bill**. Someone holding both rights sees all three. New catalog module

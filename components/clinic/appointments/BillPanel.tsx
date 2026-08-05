@@ -253,6 +253,20 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
   // bill states), so both may carry it.
   const pulseCls = pulse ? ' ring-4 ring-amber-400 ring-offset-2 dark:ring-offset-zinc-900 animate-pulse' : '';
 
+  // §7.4 — THREE RIGHTS, two grants. Raise prepares and hands on; approve signs
+  // off and LOCKS the record; someone holding both sees all three buttons,
+  // which is the third case and needs no grant of its own.
+  //
+  // ⚠️ MUST STAY ABOVE the `loading` / `!bill` early returns below. These sat
+  // under them when §7.4 shipped, so the first render (loading) called four
+  // fewer hooks than the second — React error #310, and the panel crashed every
+  // time the bill finished loading. Hooks are unconditional or they are a bug.
+  const { user } = useAuth();
+  const billPerms = modulePerms(user, 'bills');
+  const [approvalOpen, setApprovalOpen] = React.useState(false);
+  const [approvalChannels, setApprovalChannels] = React.useState<BillClientApprovalChannel[]>([]);
+  const [approvalNote, setApprovalNote] = React.useState('');
+
   if (loading) {
     return <div className="flex items-center gap-2 text-[11px] text-slate-400 py-3"><Loader2 size={13} className="animate-spin" /> Loading bill…</div>;
   }
@@ -260,14 +274,6 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
 
   const meta = STATUS_META[bill.status];
   const editable = bill.editable;
-  // §7.4 — THREE RIGHTS, two grants. Raise prepares and hands on; approve signs
-  // off and LOCKS the record; someone holding both sees all three buttons,
-  // which is the third case and needs no grant of its own.
-  const { user } = useAuth();
-  const billPerms = modulePerms(user, 'bills');
-  const [approvalOpen, setApprovalOpen] = React.useState(false);
-  const [approvalChannels, setApprovalChannels] = React.useState<BillClientApprovalChannel[]>([]);
-  const [approvalNote, setApprovalNote] = React.useState('');
   const delta = bill.deltaAmount ?? null;
 
   return (
