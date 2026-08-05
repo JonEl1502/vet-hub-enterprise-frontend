@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: surgery · lab · imaging finish adopting the shared record-page shell  —  2026-08-05
+- **What changed:** all three now carry the pinned `RecordActionBar`, and surgery's side column
+  joins `STICKY_RAIL`. Terminal actions moved into the bar: surgery **Save record / Reopen /
+  Open visit / Share**, lab **Save results / Edit result / Share / Linked appointment**, imaging
+  **Save study / Edit study / Share / Linked appointment**.
+- **Why:** adoption was uneven — surgery had the header but no rail and hand-rolled its OWN
+  sticky action card inside the side column; lab and imaging had header + rail but no bar at all,
+  with **Save sitting above the results table**, so filling a long panel meant scrolling down to
+  type and back up to save (user, 2026-08-05: *"like inpatient — update surgery lab imaging"*).
+- **Record impact:** 🟢 None — placement. Every handler is the one that was already there.
+- **Rollback:** revert; the three go back to scattered/stranded actions.
+- ⚠️ **Save is `primary` only when `dirty`.** A permanently enabled Save on a clean record trains
+  people to ignore it, and on lab/imaging "dirty" is the real signal that results are unsaved.
+- ⚠️ A finalized bill offers **no terminal action at all** — `hint` says why, instead of showing a
+  button that refuses. Surgery previously rendered a disabled-looking "Reopen" in that state.
+- ⚠️ Surgery's own sticky card was REMOVED, not left alongside: two competing "finish"
+  affordances is the exact problem `RecordActionContext` was introduced to end.
+
 ### ui: module banners drop their hardcoded hues — the ICON carries identity  —  2026-08-05
 - **What changed:** `RecordPageHeader`'s `accent` is now optional and defaults to the exported
   `BRAND_BANNER` (`from-pine to-seafoam`). The four record pages that passed a literal gradient —

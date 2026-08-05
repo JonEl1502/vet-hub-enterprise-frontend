@@ -1,6 +1,7 @@
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
+import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, ScanLine, Dog, Building2, Loader2, Save, Upload, X } from 'lucide-react';
+import { ArrowLeft, ScanLine, Dog, Building2, Loader2, Save, Upload, X, ExternalLink, Share2, PencilLine } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { imagingAPI, visitsAPI, ImagingRecord, ImagingImage } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
@@ -232,19 +233,9 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Images · {images.length}</p>
               <div className="flex items-center gap-2">
-                {doneLocked && !billLocked && (
-                  <button onClick={reopenForEdit}
-                    title="Reopen this study for editing — status goes back to In progress and the change is logged on the visit's journey"
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-amber-300 dark:border-amber-700/50 text-amber-700 dark:text-amber-400 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all">
-                    ✏️ Edit study
-                  </button>
-                )}
+                {/* Save + Edit-study moved to the page's pinned bar
+                    (2026-08-05). The study DATE stays — it is a field. */}
                 {!locked && <input type="date" className={`${fieldCls} !w-36`} value={studyDate} onChange={e => { setStudyDate(e.target.value); setDirty(true); }} title="Study date" />}
-                {dirty && !locked && (
-                  <button onClick={saveStudy} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-50">
-                    {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />} Save study
-                  </button>
-                )}
               </div>
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -322,6 +313,26 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
           </div>
         </div>
       </div>
+
+      {/* PINNED actions — the shell every sibling record page uses. */}
+      <RecordActionBarSpacer />
+      <RecordActionBar
+        hint={billLocked ? 'Bill settled — record locked' : (dirty ? 'Unsaved changes' : undefined)}
+        actions={[
+          ...(currentAppt?.id != null && onOpenAppointment ? [{
+            key: 'visit', label: 'Linked appointment', icon: ExternalLink, tone: 'seafoam' as const,
+            onClick: () => onOpenAppointment(String(currentAppt.id), false),
+          }] : []),
+          { key: 'share', label: 'Share', icon: Share2, onClick: () => setSharing(true) },
+          ...(doneLocked && !billLocked ? [{
+            key: 'reopen', label: 'Edit study', icon: PencilLine, onClick: reopenForEdit,
+          }] : []),
+          ...(!locked && dirty ? [{
+            key: 'save', label: saving ? 'Saving…' : 'Save study',
+            icon: Save, onClick: saveStudy, primary: true, disabled: saving,
+          }] : []),
+        ]}
+      />
 
       {viewer && <div className="fixed inset-0 z-[300] bg-black/80 flex items-center justify-center p-6" onClick={() => setViewer(null)}><img src={viewer} className="max-w-full max-h-full rounded-xl" /></div>}
       {sharing && (

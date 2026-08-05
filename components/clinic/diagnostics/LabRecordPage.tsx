@@ -1,4 +1,5 @@
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
+import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, FlaskConical, Dog, Building2, FileText, Loader2, Save, Plus, X, ExternalLink, Upload } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -209,19 +210,11 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
             <div className="flex items-center justify-between">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Markers &amp; Results</p>
               <div className="flex items-center gap-2">
-                {current.status === 'RESULTED' && !billLocked && (
-                  <button onClick={reopenForEdit}
-                    title="Reopen this result for editing — status goes back to In progress and the change is logged on the visit's journey"
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-800 border border-amber-300 dark:border-amber-700/50 text-amber-700 dark:text-amber-400 rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all">
-                    ✏️ Edit result
-                  </button>
-                )}
+                {/* Save + Edit-result moved to the page's pinned bar
+                    (2026-08-05): they sat ABOVE the marker table, so filling a
+                    long panel meant scrolling down to type and back up to save.
+                    The result DATE stays — it is a field, not an action. */}
                 {!billLocked && <input type="date" className={`${fieldCls} !w-36`} value={resultDate} onChange={e => { setResultDate(e.target.value); setDirty(true); }} title="Result date" />}
-                {dirty && !billLocked && (
-                  <button onClick={saveResults} disabled={saving} className="flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-50">
-                    {saving ? <Loader2 size={11} className="animate-spin" /> : <Save size={11} />} Save results
-                  </button>
-                )}
               </div>
             </div>
             <div className="overflow-x-auto">
@@ -328,6 +321,29 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
           </div>
         </div>
       </div>
+
+      {/* PINNED actions — the shell every sibling record page uses. */}
+      <RecordActionBarSpacer />
+      <RecordActionBar
+        hint={billLocked ? 'Bill settled — record locked' : (dirty ? 'Unsaved changes' : undefined)}
+        actions={[
+          ...(currentAppt?.id != null && onOpenAppointment ? [{
+            key: 'visit', label: 'Linked appointment', icon: ExternalLink, tone: 'seafoam' as const,
+            onClick: () => onOpenAppointment(String(currentAppt.id), false),
+          }] : []),
+          { key: 'share', label: 'Share', icon: Upload, onClick: () => setSharing(true) },
+          // Reopening is what un-freezes a RESULTED panel; only meaningful there.
+          ...(current.status === 'RESULTED' && !billLocked ? [{
+            key: 'reopen', label: 'Edit result', icon: FileText, onClick: reopenForEdit,
+          }] : []),
+          // Primary only when there is something to save — a permanently
+          // enabled Save on a clean record trains people to ignore it.
+          ...(!billLocked && dirty ? [{
+            key: 'save', label: saving ? 'Saving…' : 'Save results',
+            icon: Save, onClick: saveResults, primary: true, disabled: saving,
+          }] : []),
+        ]}
+      />
 
       {sharing && (
         <ShareWithClinics recordType="lab" recordId={current.id} allowedClinicIds={current.allowedClinicIds}

@@ -10,6 +10,8 @@ import AppliedProcedurePanel from '../shared/AppliedProcedurePanel';
 import AddCategoryService from '../shared/AddCategoryService';
 import { renderFormatted } from './SurgeryView';
 import UpgradeGate from '../../shared/common/UpgradeGate';
+import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
+import { STICKY_RAIL } from '../shared/RecordPageHeader';
 
 // Full-page surgery workflow — converted from the old right-side drawer.
 // Multiple surgeries on the same visit render as TABS; a COMPLETED record
@@ -285,19 +287,10 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
             </section>
           </div>
 
-          {/* SIDE — status, timing, complexity, actions */}
-          <div className="space-y-4">
+          {/* SIDE — status, timing, complexity. Actions moved OUT, to the
+              page's pinned RecordActionBar (2026-08-05) — see below. */}
+          <div className={`space-y-4 ${STICKY_RAIL}`}>
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-4">
-              <div className="flex flex-wrap items-center gap-2">
-                {rec.appointmentId && onOpenAppointment && (
-                  <button onClick={() => onOpenAppointment(rec.appointmentId!)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-seafoam/40 bg-seafoam/10 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/20 transition-all">
-                    <ExternalLink size={12} /> Open visit
-                  </button>
-                )}
-                <button onClick={() => setShowShare(true)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:border-seafoam transition-all">
-                  <Share2 size={12} /> Share{rec.allowedClinicIds && rec.allowedClinicIds.length > 0 ? ` · ${rec.allowedClinicIds.length}` : ''}
-                </button>
-              </div>
 
               <div>
                 <label className={labelCls}>Status</label>
@@ -350,29 +343,47 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
             {/* Sticky save bar (user, 2026-08-04). Going one-column pushed Save
                 below a long record, so the action you came to perform was a
                 scroll away from the fields you just filled in. */}
-            <div className="sticky bottom-0 z-30 -mx-2 px-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] pt-2 bg-gradient-to-t from-white via-white dark:from-zinc-950 dark:via-zinc-950 to-transparent">
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 sm:p-4 shadow-lg">
-              {locked ? (
-                billFinalized ? (
-                  <p className="text-center text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center justify-center gap-1.5">
-                    <Lock size={11} /> Bill finalized — record locked
-                  </p>
-                ) : (
-                  <button onClick={reopen} disabled={saving} className="w-full py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-300 font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 hover:border-seafoam hover:text-seafoam transition-all disabled:opacity-50">
-                    {saving ? <Loader2 size={13} className="animate-spin" /> : <PencilLine size={13} />} Reopen to edit
-                  </button>
-                )
-              ) : (
-                <button onClick={() => save()} disabled={saving} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
-                  {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Save record
-                </button>
-              )}
-              </div>
-            </div>
           </div>
         </div>
       ) : (
         <div className="p-10 text-center text-sm text-slate-400">Surgery record not found.</div>
+      )}
+
+      {/* PINNED actions — same shell as inpatient / boarding / grooming
+          (user, 2026-08-05: "like inpatient"). This page hand-rolled its own
+          sticky card INSIDE the side column, so on a phone (one column) the
+          save sat at the very bottom of a long report, and it was a second
+          "finish" affordance competing with the shared bar every sibling page
+          uses. Save / Reopen / Open visit / Share all live here now. */}
+      {rec && (
+        <>
+          <RecordActionBarSpacer />
+          <RecordActionBar
+            hint={locked && billFinalized ? 'Bill finalized — record locked' : undefined}
+            actions={[
+              ...(rec.appointmentId && onOpenAppointment ? [{
+                key: 'visit', label: 'Open visit', icon: ExternalLink, tone: 'seafoam' as const,
+                onClick: () => onOpenAppointment(rec.appointmentId!),
+              }] : []),
+              {
+                key: 'share',
+                label: `Share${rec.allowedClinicIds && rec.allowedClinicIds.length > 0 ? ` · ${rec.allowedClinicIds.length}` : ''}`,
+                icon: Share2, onClick: () => setShowShare(true),
+              },
+              // A finalized bill locks the record — offer nothing terminal, and
+              // let `hint` say why rather than showing a button that refuses.
+              ...(locked
+                ? (billFinalized ? [] : [{
+                    key: 'reopen', label: saving ? 'Reopening…' : 'Reopen to edit',
+                    icon: PencilLine, onClick: reopen, disabled: saving,
+                  }])
+                : [{
+                    key: 'save', label: saving ? 'Saving…' : 'Save record',
+                    icon: CheckCircle2, onClick: () => save(), primary: true, disabled: saving,
+                  }]),
+            ]}
+          />
+        </>
       )}
 
       {showShare && rec && (
