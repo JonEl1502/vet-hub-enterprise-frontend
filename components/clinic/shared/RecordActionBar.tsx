@@ -260,6 +260,16 @@ const RecordActionBar: React.FC<Props> = ({ actions, status, hint, inlineLimit =
           </div>
         </div>
 
+        {/* No terminal action at all (a locked record) ⇒ the collapsed bar would
+            be a bare grab handle: a strip that looks broken rather than locked.
+            The REASON takes the primary slot instead, so it is readable without
+            expanding anything. */}
+        {primary.length === 0 && hint && (
+          <p className="sm:hidden flex-1 py-1.5 text-center text-[10px] font-bold text-slate-400 dark:text-zinc-500">
+            {hint}
+          </p>
+        )}
+
         {/* Primary action — the one thing that must never be a gesture away, so
             it sits OUTSIDE the collapsible region: full width on the collapsed
             phone bar, inline at the right end from sm: up. */}
