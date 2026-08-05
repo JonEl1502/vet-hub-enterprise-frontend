@@ -171,7 +171,7 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
             <X size={13} /> Laboratory
           </button>
           {/* Header banner — emerald/teal, matching the lab record page. */}
-          <div className="bg-gradient-to-br from-emerald-700 to-teal-600 text-white rounded-2xl p-5 flex flex-wrap items-center gap-4 shadow-lg">
+          <div className="bg-gradient-to-br from-pine to-seafoam text-white rounded-2xl p-5 flex flex-wrap items-center gap-4 shadow-lg">
             <div className="p-3 bg-white/15 rounded-2xl"><FlaskConical size={24} /></div>
             <div className="flex-1 min-w-0">
               <p className="text-white/60 text-[9px] font-black uppercase tracking-widest">New lab record</p>

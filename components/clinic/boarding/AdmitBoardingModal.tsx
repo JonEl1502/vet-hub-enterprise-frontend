@@ -166,7 +166,7 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
       </button>
 
       {/* Header banner */}
-      <div className="bg-gradient-to-br from-amber-600 to-orange-500 text-white rounded-2xl p-5 flex flex-wrap items-center gap-4 shadow-lg">
+      <div className="bg-gradient-to-br from-pine to-seafoam text-white rounded-2xl p-5 flex flex-wrap items-center gap-4 shadow-lg">
         <div className="p-3 bg-white/15 rounded-2xl"><Home size={24} /></div>
         <div className="flex-1 min-w-0">
           <p className="text-white/60 text-[9px] font-black uppercase tracking-widest">Boarding admission</p>

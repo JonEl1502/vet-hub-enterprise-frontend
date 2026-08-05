@@ -33,7 +33,7 @@ const LabDrawer: React.FC<Props> = ({ record, onClose, onChanged, onOpenAppointm
     <div className="fixed inset-0 z-[200] flex justify-end animate-in fade-in duration-200">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white dark:bg-zinc-900 w-full max-w-lg h-full overflow-y-auto shadow-2xl animate-in slide-in-from-right duration-300">
-        <div className="sticky top-0 bg-gradient-to-br from-emerald-700 to-teal-600 text-white p-5 flex items-start justify-between z-10">
+        <div className="sticky top-0 bg-gradient-to-br from-pine to-seafoam text-white p-5 flex items-start justify-between z-10">
           <div className="flex items-center gap-3 min-w-0">
             <FlaskConical size={20} className="text-white/90 shrink-0" />
             <div className="min-w-0">

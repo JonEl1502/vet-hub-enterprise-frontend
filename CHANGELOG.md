@@ -69,6 +69,13 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 - **Record impact:** 🟢 None — presentation only.
 - ⚠️ `pine`/`seafoam` are `rgb(var(--secondary-rgb))` / `rgb(var(--primary-rgb))`, so the banner
   now follows a clinic's rebrand. A literal `from-emerald-700` never could — that is the point.
+- ⚠️ **11 more banners did not use `RecordPageHeader` at all** and had to be changed by hand:
+  Lab (`LaboratoryView`, `LabDrawer`, `LabRecordPage`), Imaging (`ImagingView`, `ImagingDrawer`,
+  `ImagingRecordPage`), Surgery, Grooming (`GroomingDrawer`, `GroomingAdmitModal`) and the
+  Boarding/Inpatient admit modals. Caught only by grepping the BUILT bundle for the old hue
+  after the first deploy looked clean — the four `accent` call sites were not the whole story.
+- ⚠️ `from-pine to-seafoam` was already the banner in Billing, Clients, Pets and Inventory, so
+  this converges the modules onto the app's existing standard rather than inventing one.
 - **Data dependency:** none.
 
 ### feat: "Transfer stock between clinics" is its own grant  —  2026-08-05

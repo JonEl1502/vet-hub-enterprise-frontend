@@ -63,7 +63,7 @@ const GroomingDrawer: React.FC<Props> = ({ appointment, onClose, onChanged, onOp
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-white dark:bg-zinc-900 w-full max-w-lg h-full overflow-y-auto shadow-2xl animate-in slide-in-from-right duration-300">
         {/* Header */}
-        <div className="sticky top-0 bg-gradient-to-br from-fuchsia-700 to-pink-600 text-white p-5 flex items-start justify-between z-10">
+        <div className="sticky top-0 bg-gradient-to-br from-pine to-seafoam text-white p-5 flex items-start justify-between z-10">
           <div className="flex items-center gap-3 min-w-0">
             <Scissors size={20} className="text-white/90 shrink-0" />
             <div className="min-w-0">
