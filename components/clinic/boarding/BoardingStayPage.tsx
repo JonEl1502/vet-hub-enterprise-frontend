@@ -404,7 +404,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                     {/* Consumables for THIS day — rows are recorded with the chosen time
                         (stock still moves now), so day costs land where they belong. */}
                     {stay.billing?.appointmentId && (
-                      <div className="pt-2 border-t border-slate-100 dark:border-zinc-800">
+                      <div className="pt-1">
                         <ConsumablePicker flat compact appointmentId={stay.billing.appointmentId}
                           recordedAt={dayDraft.at ? new Date(dayDraft.at).toISOString() : null}
                           onChanged={() => { load(); onChanged?.(); }} title="Items used this day" />
@@ -481,7 +481,9 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                         <span className="text-[9px] font-black text-emerald-600 dark:text-emerald-400">{fmtK(dayTotal)}<span className="text-slate-400 font-bold"> · stay {fmtK(dayRate)} + items {fmtK(itemsCost)}</span></span>
                       );
                       if (logs.length === 0) return (
-                        <div key={k} className="rounded-xl p-3 border border-dashed border-slate-200 dark:border-zinc-800">
+                        <div key={k} className={editDay === k
+                          ? 'py-2'
+                          : 'rounded-xl p-3 border border-dashed border-slate-200 dark:border-zinc-800'}>
                           <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                             <span className="text-[10px] font-black text-pine dark:text-zinc-200">Day {dayNo} · {formatDate(d)}</span>
                             <span className="flex items-center gap-2">{dayCons.length === 0 && <span className="text-[8px] font-black uppercase tracking-widest text-amber-500 bg-amber-50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded-full">Nothing recorded</span>}{chargeLine}</span>
@@ -506,7 +508,9 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                       const ordered = [...logs].sort((x, y) =>
                         new Date(stamp(x)).getTime() - new Date(stamp(y)).getTime());
                       return (
-                        <div key={k} className="bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-3 border border-slate-100 dark:border-zinc-800">
+                        <div key={k} className={editDay === k
+                          ? 'py-2'
+                          : 'bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-3 border border-slate-100 dark:border-zinc-800'}>
                           <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
                             <span className="text-[10px] font-black text-pine dark:text-zinc-200">
                               Day {dayNo} · {formatDate(d)}
