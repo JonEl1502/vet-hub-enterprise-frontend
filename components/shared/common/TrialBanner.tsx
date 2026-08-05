@@ -60,7 +60,7 @@ const TrialBanner: React.FC<TrialBannerProps> = ({ clinicId, onSubscribe, showWh
       <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border border-rose-200 dark:border-rose-800 bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300 ${className}`}>
         <AlertTriangle size={16} className="flex-shrink-0" />
         <p className="text-sm font-bold flex-1">
-          Your free trial has ended. Subscribe to keep using VetHub.
+          Your free trial has ended. Subscribe to keep using VetHubCore.
         </p>
         {onSubscribe && (
           <button onClick={onSubscribe} className="px-3 py-1.5 rounded-lg bg-rose-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-rose-700">

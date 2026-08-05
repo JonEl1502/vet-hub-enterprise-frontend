@@ -145,7 +145,7 @@ const WorkflowsView: React.FC<Props> = ({ onOpenBuilder }) => {
             <div className="flex items-center gap-1.5 flex-wrap">
               {t.icon && <span className="text-sm leading-none">{t.icon}</span>}
               <p className="text-[12px] font-black text-pine dark:text-zinc-100 truncate">{t.name}</p>
-              {kind === 'preset' && <Badge tone="seafoam" title="Shipped by VetHub and kept up to date">v{t.version}</Badge>}
+              {kind === 'preset' && <Badge tone="seafoam" title="Shipped by VetHubCore and kept up to date">v{t.version}</Badge>}
               {t.isDefault && <Badge tone="amber" title="Chosen first when several workflows match"><Star size={8} className="inline" /> Default</Badge>}
               {t.visibility === 'SHARED' && kind === 'ours' && <Badge tone="amber">Published</Badge>}
               {t.basedOnId && kind === 'ours' && <Badge title={`Copied from version ${t.baseVersion}`}>Copy of v{t.baseVersion}</Badge>}
@@ -266,7 +266,7 @@ const WorkflowsView: React.FC<Props> = ({ onOpenBuilder }) => {
 
       <section className="space-y-2">
         <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-          Shipped with VetHub
+          Shipped with VetHubCore
           <span className="ml-2 normal-case tracking-normal font-medium text-slate-400">
             — used live, so we keep improving them for you
           </span>

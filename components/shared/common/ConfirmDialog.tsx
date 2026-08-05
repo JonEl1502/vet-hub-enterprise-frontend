@@ -84,7 +84,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           <div className="w-7 h-7 rounded-lg bg-pine flex items-center justify-center p-1.5 shrink-0">
             <BrandMark color="#FFFFFF" />
           </div>
-          <span className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">VetHub Core</span>
+          <span className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest">VetHubCore</span>
         </div>
 
         {/* Icon */}

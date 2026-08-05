@@ -166,7 +166,7 @@ const Nav: React.FC<{ onLogin: () => void; onRegister: () => void; onPricing: ()
       >
         <div className="px-3 md:px-4 h-14 flex items-center justify-between gap-2">
           <a href="#" className="flex items-center gap-2 shrink-0 pl-2">
-            <div className="w-7 h-7 rounded-md bg-[#1C7A5B] flex items-center justify-center p-1"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
+            <div className="w-7 h-7 rounded-md bg-[#1C7A5B] flex items-center justify-center p-1"><img src="/vethubcore-mark-white.svg" alt="VetHubCore" className="w-full h-full object-contain" /></div>
             <span className={`font-black text-[15px] tracking-tight transition-colors ${onDark ? 'text-white' : 'text-[#144E35]'}`}>
               VetHub<span className="text-[#F2A41C]">Core</span>
             </span>
@@ -274,7 +274,7 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
         )}
       </motion.div>
 
-      {/* Green brand tint — turns the photos into the VetHub green wash at the same
+      {/* Green brand tint — turns the photos into the VetHubCore green wash at the same
           strength the auth shell uses, so hero + login read as one surface. */}
       <motion.div
         style={{ y: bgY }}
@@ -338,7 +338,7 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             className="flex items-center gap-3 mb-6 md:mb-8 pl-12 md:pl-16"
           >
             <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur grid place-items-center shadow-lg p-2.5">
-              <img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" />
+              <img src="/vethubcore-mark-white.svg" alt="VetHubCore" className="w-full h-full object-contain" />
             </div>
             <span className="text-3xl md:text-4xl font-black tracking-tight text-white">
               VetHub<span className="text-[#F2A41C]">Core</span>
@@ -351,7 +351,13 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
             className="text-[32px] sm:text-[42px] md:text-[52px] lg:text-[60px] font-black tracking-tight text-white leading-[0.98] max-w-[15ch]"
           >
-            The operating system for veterinary practice.
+            {/* The subject carries the brand amber, exactly as the OG card and
+                the share image do ("...for veterinary clinics." in #F2A41C).
+                The headline was flat white here, so the one piece of art the
+                clinic actually sees first did not match the ad they arrived
+                from (user, 2026-08-05). */}
+            The operating system for{' '}
+            <span className="text-[#F2A41C]">veterinary practice.</span>
           </motion.h1>
 
           <motion.div
@@ -1167,7 +1173,7 @@ const Footer: React.FC<{
       <div className="max-w-[1280px] mx-auto px-6 grid grid-cols-2 md:grid-cols-5 gap-8">
         <div className="col-span-2">
           <div className="flex items-center gap-2.5 mb-5">
-            <div className="w-8 h-8 rounded-lg bg-[#1C7A5B] flex items-center justify-center p-1.5"><img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full object-contain" /></div>
+            <div className="w-8 h-8 rounded-lg bg-[#1C7A5B] flex items-center justify-center p-1.5"><img src="/vethubcore-mark-white.svg" alt="VetHubCore" className="w-full h-full object-contain" /></div>
             <span className="font-black text-white text-[17px] tracking-tight">VetHub<span className="text-[#F2A41C]">Core</span></span>
           </div>
           <p className="text-[14px] leading-relaxed max-w-sm">

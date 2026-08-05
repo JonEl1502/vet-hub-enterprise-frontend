@@ -37,7 +37,7 @@ const PromptDialog: React.FC<{
         <div className={`${tone.head} px-5 py-4 flex items-start gap-3`}>
           <span className="shrink-0 mt-0.5 w-6 h-6"><BrandMark className="w-6 h-6" color="currentColor" /></span>
           <div className="min-w-0 flex-1">
-            <p className="text-[8px] font-black text-white/60 uppercase tracking-[0.2em]">VetHub Core</p>
+            <p className="text-[8px] font-black text-white/60 uppercase tracking-[0.2em]">VetHubCore</p>
             <p className="text-base font-black text-white uppercase tracking-tight leading-tight">
               {opts.title || 'Confirm'}
             </p>

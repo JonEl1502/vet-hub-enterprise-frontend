@@ -122,7 +122,7 @@ const TransferModal: React.FC<{ onClose: () => void; onDone: () => void }> = ({ 
           <button onClick={onClose} className="text-slate-400 hover:text-slate-600"><X size={18} /></button>
         </div>
         <div className="p-5 space-y-4">
-          <p className="text-[11px] text-slate-500 dark:text-zinc-400">A platform admin reviews the documents before ownership changes. The new owner must already have a VetHub account.</p>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400">A platform admin reviews the documents before ownership changes. The new owner must already have a VetHubCore account.</p>
           <div>
             <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">New owner's email *</label>
             <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="field-input mt-1" placeholder="newowner@example.com" />

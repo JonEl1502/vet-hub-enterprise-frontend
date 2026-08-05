@@ -212,7 +212,7 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
               {/* currentColor, not a hex — `seafoam` is a runtime CSS variable,
                   so clinics that rebrand get their own colour here too. */}
               <div className="text-seafoam">
-                <BrandMark className="w-9 h-9 mx-auto" color="currentColor" title="VetHub Core" />
+                <BrandMark className="w-9 h-9 mx-auto" color="currentColor" title="VetHubCore" />
               </div>
               <h3 className="mt-3 text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">New procedure</h3>
               <p className="mt-1 text-[11px] text-slate-400">

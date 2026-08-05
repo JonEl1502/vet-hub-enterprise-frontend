@@ -56,7 +56,7 @@ const SalesRepsAdminPage: React.FC = () => {
     <AdminPage className="pb-20">
       <AdminPageHeader
         title="Sales Reps"
-        subtitle="VetHub Core employees who bring in clinics · live attribution stats"
+        subtitle="VetHubCore employees who bring in clinics · live attribution stats"
         icon={BadgeDollarSign}
         actions={
           <>

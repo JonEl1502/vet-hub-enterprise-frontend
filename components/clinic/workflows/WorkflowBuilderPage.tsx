@@ -412,7 +412,7 @@ const WorkflowBuilderPage: React.FC<Props> = ({ templateId, onBack, onOpenTempla
               </span>
               <span className="block text-[10px] text-slate-500 dark:text-zinc-400 leading-relaxed mt-0.5">
                 {draft.isDefault
-                  ? 'Matching visits open on this automatically — no one has to pick it. It wins over the VetHub default and over your other workflows.'
+                  ? 'Matching visits open on this automatically — no one has to pick it. It wins over the VetHubCore default and over your other workflows.'
                   : 'Off — matching visits fall back to whichever workflow fits best, and staff can still pick this one per visit.'}
               </span>
             </span>

@@ -1660,7 +1660,7 @@ const ReceiptModal: React.FC<ReceiptModalProps> = ({ row, onClose, formatDate })
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subscription Receipt</p>
-            <h3 className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-0.5">VetHub Core</h3>
+            <h3 className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-0.5">VetHubCore</h3>
           </div>
           <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${
             row.status === 'SUCCESS'
@@ -1740,7 +1740,7 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ row, clinicName, onClose, f
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Subscription Invoice</p>
-            <h3 className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-0.5">VetHub Core</h3>
+            <h3 className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-0.5">VetHubCore</h3>
             <p className="text-[11px] font-mono text-slate-400 dark:text-zinc-500 mt-0.5">{docNo('INV', row)}</p>
           </div>
           <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${

@@ -59,6 +59,34 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: admin Add Clinic creates the OWNER (and the wizard could never create a clinic before)  —  2026-08-06
+- **What changed:** the wizard gains an **Owner** step (add mode only) — first name, surname,
+  email (labelled as the login), phone, optional password. On create the server makes the user
+  and the org together and returns a temporary password **once**, on a hand-off panel that
+  replaces the wizard body.
+- **Why:** a clinic with no owner cannot be signed into — the owner's email *is* the login (user,
+  2026-08-05: *"where do i add the user, the owner"*).
+- ⚠️ **Add Clinic never worked at all.** `clinics.merchant_id` is NOT NULL and `createClinic` does
+  an unconditional `BigInt(data.merchantId)`; the wizard never sent one, so every attempt 500'd
+  with *"Cannot convert undefined to a BigInt"*. The owner path works because `authService.signup`
+  creates the Merchant itself. The org-only branch now returns an explanatory **400** instead.
+- **Record impact:** 🔵 Low — creates a user + merchant + clinic, which is the point.
+- ⚠️ An email that already has an account is **refused (409)**, never silently attached — that
+  would hand someone else's login to a new clinic.
+- ⚠️ Edit mode has no Owner step: changing owners is a **transfer**, not a create.
+
+### ui: the wordmark is VetHubCore everywhere, and the hero subject carries the brand amber  —  2026-08-06
+- **What changed:** display copy saying "VetHub" or "VetHub Core" now says **VetHubCore** (24
+  files), including `alt` text. The landing hero renders *"veterinary practice."* in `#F2A41C`.
+- **Why:** the logo, the OG share card and the domain all say VetHubCore, while the product called
+  itself two other things — most visibly *"Shipped with VetHub"* on Workflows. And the hero was
+  flat white while the ad people arrive from puts the subject in amber.
+- **Record impact:** 🟢 None — copy.
+- ⚠️ **Identifiers were deliberately NOT renamed.** `vethub:navigate`, `vethub_active_view`,
+  `/vethubcore-*.svg`, `vethub*.api.ts` are contracts and asset paths; the sweep skips comments,
+  imports and `src=` and only rewrites capital-V display strings. Verified: 0 diff lines touch an
+  event name, storage key or asset path.
+
 ### fix: Billing page crashed on EVERY visit — hook declared after an early return  —  2026-08-05
 - **What changed:** `BillingView`'s `dismissedPending` state moved above the `if (loading)` early
   return. Same fix applied to three hooks in `CreatePartnershipPage`.

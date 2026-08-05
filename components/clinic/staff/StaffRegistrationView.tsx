@@ -399,7 +399,7 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                 <div className="min-w-0">
                   <p className="text-[11px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Clinic Owner — role locked</p>
                   <p className="text-[10px] text-slate-500 dark:text-zinc-400 leading-snug mt-0.5">
-                    The owner's role can't be changed here. Ownership moves only through a documented clinic transfer (signed transfer + advocate affidavit) handled by VetHub admin.
+                    The owner's role can't be changed here. Ownership moves only through a documented clinic transfer (signed transfer + advocate affidavit) handled by VetHubCore admin.
                   </p>
                 </div>
               </div>

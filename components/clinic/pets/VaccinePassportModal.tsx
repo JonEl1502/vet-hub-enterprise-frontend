@@ -353,7 +353,7 @@ const VaccinePassportModal: React.FC<Props> = ({
                     : <span style={{ fontSize: 22, lineHeight: 1 }}>{clinic.logo}</span>}
                 </div>
               )}
-              {/* VetHub Core verified seal — the official C + two-paws mark. */}
+              {/* VetHubCore verified seal — the official C + two-paws mark. */}
               <div style={{
                 width: 56, height: 56,
                 border: '2px solid #134e35', borderRadius: '50%',

@@ -31,7 +31,7 @@ const BrandMark: React.FC<BrandMarkProps> = ({
   className = 'w-full h-full',
   color = '#FFFFFF',
   animate = false,
-  title = 'VetHub Core',
+  title = 'VetHubCore',
 }) => {
   return (
     <svg

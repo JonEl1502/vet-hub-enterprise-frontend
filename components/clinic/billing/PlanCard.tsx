@@ -372,7 +372,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
 
       {/* Tier-downgrade label in place of the Pay button — no offer to
           subscribe to a lower tier than the user already has. Clicking
-          opens a VetHub dialog explaining why and what to do instead. */}
+          opens a VetHubCore dialog explaining why and what to do instead. */}
       {isTierDowngrade && (
         <button
           onClick={() => dialog.alert({

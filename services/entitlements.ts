@@ -297,7 +297,7 @@ export const FEATURE_COPY: Record<string, { label: string; plan: string; blurb?:
   'capability:workflow-builder': {
     label: 'Workflow builder',
     plan: 'Pro',
-    blurb: 'Create and customise visit workflows. Without it you can still use the workflows VetHub ships.',
+    blurb: 'Create and customise visit workflows. Without it you can still use the workflows VetHubCore ships.',
   },
   'capability:vaccination-certificates': {
     label: 'Vaccination certificates',

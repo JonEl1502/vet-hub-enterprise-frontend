@@ -355,7 +355,7 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
             own workflow — on a shipped preset there is nothing to say. */}
         {template && template.ownerType === 'CLINIC' && (
           <span
-            title={`Using custom ${template.name} workflow — your clinic's version, not the VetHub default. Change it from the workflow menu.`}
+            title={`Using custom ${template.name} workflow — your clinic's version, not the VetHubCore default. Change it from the workflow menu.`}
             className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam/10 text-seafoam border border-seafoam/20 cursor-help"
           >
             <Workflow size={10} /> Custom · {template.name}

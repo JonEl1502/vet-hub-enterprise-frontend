@@ -132,7 +132,7 @@ const ClientPetProfile: React.FC = () => {
         .seal .line { width: 200px; border-top: 1.5px solid #1f3d39; margin-bottom: 4px; }
       </style></head><body>
       <div class="head">
-        <div class="brand">${clinicOfPet?.name || 'VetHub Clinic'}<small>VACCINATION CERTIFICATE</small></div>
+        <div class="brand">${clinicOfPet?.name || 'VetHubCore Clinic'}<small>VACCINATION CERTIFICATE</small></div>
         <div style="font-size:11.5px;color:#8a8077">Issued ${format(new Date(), 'd MMM yyyy')}</div>
       </div>
       <div class="meta">
@@ -148,7 +148,7 @@ const ClientPetProfile: React.FC = () => {
         <tbody>${rows || '<tr><td colspan="6">No vaccination records.</td></tr>'}</tbody>
       </table>
       <div class="seal"><div class="box"><div class="line"></div>Authorised signature & stamp</div></div>
-      <div class="foot"><span>Generated from the VetHub pet-owner portal.</span><span>${clinicOfPet?.name || ''}</span></div>
+      <div class="foot"><span>Generated from the VetHubCore pet-owner portal.</span><span>${clinicOfPet?.name || ''}</span></div>
       <script>window.onload = () => setTimeout(() => window.print(), 150);</script>
       </body></html>`);
     win.document.close();

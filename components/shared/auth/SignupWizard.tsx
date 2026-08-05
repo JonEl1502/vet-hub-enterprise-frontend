@@ -292,7 +292,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
           {/* Title row */}
           <div className="flex items-center gap-3 mb-5">
             <div className="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center shrink-0 shadow-inner p-3">
-              <img src="/vethubcore-mark-white.svg" alt="VetHub Core" className="w-full h-full" />
+              <img src="/vethubcore-mark-white.svg" alt="VetHubCore" className="w-full h-full" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -666,7 +666,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                 <p className="mt-1 text-[10px] text-[#144E35]/40 font-bold">
                   {referralValid === false
                     ? 'Code not recognised — you can still continue without one.'
-                    : 'Got a code from a VetHub Core rep? Drop it here so we attribute your signup to them.'}
+                    : 'Got a code from a VetHubCore rep? Drop it here so we attribute your signup to them.'}
                 </p>
               </div>
             </div>

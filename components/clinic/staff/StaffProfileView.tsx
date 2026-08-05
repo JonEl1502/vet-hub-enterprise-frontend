@@ -131,7 +131,7 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
     if (!isPlatformAdmin && (selectedRole === UserRole.CLINIC_OWNER || staff.role === UserRole.CLINIC_OWNER)) {
       await dialog.alert({
         title: 'Ownership is admin-managed',
-        message: 'Clinic Owner can only be set or changed by a VetHub admin through a clinic transfer — which requires a signed transfer and a lawyer/advocate affidavit. Contact support to initiate one.',
+        message: 'Clinic Owner can only be set or changed by a VetHubCore admin through a clinic transfer — which requires a signed transfer and a lawyer/advocate affidavit. Contact support to initiate one.',
         variant: 'warning',
         confirmLabel: 'Got it',
       });
@@ -221,7 +221,7 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
             <p className="mt-3 text-[10px] text-slate-400 dark:text-zinc-500 leading-snug">
               🔒 <span className="font-bold">Clinic Owner</span> can't be assigned here. Ownership changes go through a
               platform-managed <span className="font-bold">clinic transfer</span> — requiring a signed transfer and an
-              affidavit from a lawyer/advocate. Contact VetHub support to initiate one.
+              affidavit from a lawyer/advocate. Contact VetHubCore support to initiate one.
             </p>
           )}
           {staff.role === UserRole.CLINIC_OWNER && selectedRole !== UserRole.CLINIC_OWNER && !isPlatformAdmin && (
