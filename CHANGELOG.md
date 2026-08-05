@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: bill approval becomes THREE RIGHTS + how the client approved (§7.4)  —  2026-08-05
+- **What changed:** `BillPanel` gains **Raise for review** (DRAFT only) and **Client approved…**
+  alongside **Approve bill**. Someone holding both rights sees all three. New catalog module
+  **Bills** with `bills:raise` and `bills:approve`.
+- **Why:** spec §7.4 — "raise bill", "approve bill" and "raise and approve" were one action, so a
+  front-office user either signed off clinical records or could not finish a bill at all.
+- **Record impact:** 🟡 Approving still LOCKS the clinical record; raising deliberately does not.
+- ⚠️ **This CLOSES a door.** Approve was ungated — any authenticated clinic user could sign a bill
+  off. It now needs `bills:approve`, held by VET plus the full-access roles (owner, manager,
+  admins). Desk/finance roles get `bills:raise` instead. Grant `bills:approve` to anyone who
+  needs it back.
+- ⚠️ `views: []` on the Bills module on purpose — it gates ACTIONS only. Giving it a view would
+  start gating a page that has never been gated.
+- **Data dependency:** backend migration **180** (`raised_by/at`, `raised_to`,
+  `client_approval_channels[]`, `client_approved_at/note/by`).
+
 ### feat: surgery · lab · imaging finish adopting the shared record-page shell  —  2026-08-05
 - **What changed:** all three now carry the pinned `RecordActionBar`, and surgery's side column
   joins `STICKY_RAIL`. Terminal actions moved into the bar: surgery **Save record / Reopen /

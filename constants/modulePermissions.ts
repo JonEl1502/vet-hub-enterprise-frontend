@@ -32,7 +32,7 @@
 
 import { UserRole, FULL_ACCESS_ROLES } from '../types';
 
-export type ModuleActionId = 'view' | 'create' | 'edit' | 'delete' | 'stock' | 'transfer';
+export type ModuleActionId = 'view' | 'create' | 'edit' | 'delete' | 'stock' | 'transfer' | 'raise' | 'approve';
 
 export interface ModuleActionDef {
   id: ModuleActionId;
@@ -64,6 +64,7 @@ const CRUD: ModuleActionDef[] = [
 
 export const INVENTORY_BILLABLES_GROUP = 'Inventory & Billables';
 export const CLINICAL_GROUP = 'Clinical';
+export const BILLING_GROUP = 'Billing';
 
 const INVENTORY_MODULES: ModuleDef[] = [
   {
@@ -233,7 +234,39 @@ const CLINICAL_MODULES: ModuleDef[] = [
 ];
 
 /** The whole catalog, in sidebar order. */
-export const PERMISSION_MODULES: ModuleDef[] = [...INVENTORY_MODULES, ...CLINICAL_MODULES];
+/**
+ * Billing rights (§7.4, 2026-08-05). Three rights, but only TWO grants: someone
+ * holding both raise and approve is the third case and sees all three buttons.
+ *
+ * ⚠️ `views: []` on purpose. This module gates ACTIONS only — giving it a view
+ * would start gating a page that has never been gated, and `canOpenView`
+ * returns true for anything it cannot map, so leaving the list empty is the
+ * safe direction (it un-gates nothing that was gated).
+ */
+const BILLING_MODULES: ModuleDef[] = [
+  {
+    id: 'bills',
+    label: 'Bills',
+    group: BILLING_GROUP,
+    hint: 'Who may prepare a bill, and who may sign it off',
+    views: [],
+    actions: [
+      { id: 'view', label: 'Access page' },
+      {
+        id: 'raise',
+        label: 'Raise bill',
+        hint: 'Prepare a bill and send it for review — without being able to approve it. Also covers recording how the client approved.',
+      },
+      {
+        id: 'approve',
+        label: 'Approve bill',
+        hint: 'Sign a bill off. ⚠️ This is what LOCKS the clinical record, so it is the heavier of the two rights.',
+      },
+    ],
+  },
+];
+
+export const PERMISSION_MODULES: ModuleDef[] = [...INVENTORY_MODULES, ...CLINICAL_MODULES, ...BILLING_MODULES];
 
 export const MODULE_BY_ID: Record<string, ModuleDef> =
   Object.fromEntries(PERMISSION_MODULES.map(m => [m.id, m]));
@@ -304,6 +337,7 @@ export const MODULE_ROLE_PRESETS: Partial<Record<UserRole, string[]>> = {
     ...writes('clinical', 'edit'),
     ...writes('visits', 'delete'),
     ...writes('products', 'create', 'edit', 'stock'),
+    ...writes('bills', 'raise', 'approve'),
     ...writes('services', 'create', 'edit'),
     ...writes('procedures', 'create', 'edit', 'delete'),
     ...writes('workflows', 'create', 'edit'),
@@ -311,7 +345,7 @@ export const MODULE_ROLE_PRESETS: Partial<Record<UserRole, string[]>> = {
   ],
   // A nurse works patients up and records what they did — everything except
   // deleting a visit.
-  [UserRole.VET_NURSE]: [...VIEW_ALL, ...CLINICAL_WRITE, ...writes('clinical', 'edit'), ...writes('products', 'stock')],
+  [UserRole.VET_NURSE]: [...VIEW_ALL, ...CLINICAL_WRITE, ...writes('clinical', 'edit'), ...writes('products', 'stock'), ...writes('bills', 'raise')],
   // Lab/imaging is their bench; the rest of the record is read-only to them.
   [UserRole.LAB_TECH]: [
     ...VIEW_ALL, ...CLINICAL_READ_ONLY,
@@ -334,10 +368,10 @@ export const MODULE_ROLE_PRESETS: Partial<Record<UserRole, string[]>> = {
   // day — but the clinical record is read-only. Booking visits and working
   // reminders stay full write; billing lives in the legacy catalog for now and
   // is untouched, so invoicing keeps working exactly as it does today.
-  [UserRole.FRONT_OFFICE]: [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...DESK_WRITE],
-  [UserRole.RECEPTIONIST]: [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...DESK_WRITE],
-  [UserRole.CASHIER]:      [...VIEW_ALL, ...CLINICAL_READ_ONLY],
-  [UserRole.ACCOUNTANT]:   [...VIEW_ALL, ...CLINICAL_READ_ONLY],
+  [UserRole.FRONT_OFFICE]: [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...DESK_WRITE, ...writes('bills', 'raise')],
+  [UserRole.RECEPTIONIST]: [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...DESK_WRITE, ...writes('bills', 'raise')],
+  [UserRole.CASHIER]:      [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...writes('bills', 'raise')],
+  [UserRole.ACCOUNTANT]:   [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...writes('bills', 'raise')],
   // Their own room is theirs to run; the rest of the record is not.
   [UserRole.GROOMER]: [
     ...VIEW_ALL, ...CLINICAL_READ_ONLY,
@@ -362,6 +396,7 @@ export const MODULE_ROLE_PRESETS: Partial<Record<UserRole, string[]>> = {
   [UserRole.STAFF]: [
     ...VIEW_ALL, ...CLINICAL_WRITE, ...writes('clinical', 'edit'),
     ...writes('products', 'create', 'edit', 'stock'),
+    ...writes('bills', 'raise'),
   ],
 };
 
@@ -454,4 +489,8 @@ export const modulePerms = (user: GateUser | null | undefined, moduleId: string)
   // `stock` implies `transfer` inside grantsFor, so an explicit
   // `-products:transfer` correctly reads FALSE here rather than being masked.
   transfer: can(user, `${moduleId}:transfer`),
+  // Billing rights (§7.4). Holding BOTH is the third case — the caller shows
+  // all three buttons — so there is no separate `raiseAndApprove` here.
+  raise:   can(user, `${moduleId}:raise`),
+  approve: can(user, `${moduleId}:approve`),
 });

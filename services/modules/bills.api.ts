@@ -42,6 +42,14 @@ export interface Bill {
   notes?: string | null;
   approvedById?: string | null;
   approvedAt?: string | null;
+  // §7.4 (180): raise and approve are two rights, possibly two people.
+  raisedById?: string | null;
+  raisedAt?: string | null;
+  raisedToId?: string | null;
+  clientApprovalChannels?: BillClientApprovalChannel[];
+  clientApprovedAt?: string | null;
+  clientApprovalNote?: string | null;
+  clientApprovalById?: string | null;
   isSynthetic: boolean;
   issuedAt?: string | null;
   paidAt?: string | null;
@@ -101,6 +109,20 @@ export interface VisitBillRow extends Bill {
   encounter?: { id: string; encounterType: string; visitType: string | null; isPrimary: boolean } | null;
 }
 
+/**
+ * How the client told us they approved (§7.4). PORTAL means the client acted
+ * themselves; the rest are how staff reached them. Mirrors
+ * BILL_CLIENT_APPROVAL_CHANNELS in backend `bill.service.ts`.
+ */
+export const BILL_CLIENT_APPROVAL_CHANNELS = [
+  { id: 'PORTAL', label: 'Approved through portal' },
+  { id: 'FRONT_OFFICE_CALL', label: 'Front-office call' },
+  { id: 'MESSAGE', label: 'Message' },
+  { id: 'WHATSAPP', label: 'WhatsApp' },
+  { id: 'EMAIL', label: 'Email' },
+] as const;
+export type BillClientApprovalChannel = typeof BILL_CLIENT_APPROVAL_CHANNELS[number]['id'];
+
 export const billsAPI = {
   /** The visit's bill — raises a DRAFT from the encounter's charges if none. */
   get: (visitId: number | string, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
@@ -137,6 +159,14 @@ export const billsAPI = {
     patch(`/visits/${visitId}/bill${encQ(encounterId)}`, data, { showError: true, ...options }),
 
   /** Vet signs off ⇒ the clinical record locks. */
+  /** §7.4: prepare and hand on WITHOUT signing off. Optional escalation target. */
+  raise: (visitId: number | string, raisedToId?: string | number | null, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
+    post(`/visits/${visitId}/bill/raise${encQ(encounterId)}`, raisedToId != null ? { raisedToId } : {}, { showError: true, ...options }),
+
+  /** §7.4: record HOW the client approved. Evidence, not a status change. */
+  recordClientApproval: (visitId: number | string, channels: BillClientApprovalChannel[], note?: string | null, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
+    post(`/visits/${visitId}/bill/client-approval${encQ(encounterId)}`, { channels, note }, { showError: true, ...options }),
+
   approve: (visitId: number | string, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
     post(`/visits/${visitId}/bill/approve${encQ(encounterId)}`, {}, { showError: true, ...options }),
 

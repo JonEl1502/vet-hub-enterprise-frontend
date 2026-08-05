@@ -8,7 +8,9 @@ import { Visit } from '../../../types';
 import { billsAPI, invoicesAPI, dialog } from '../../../services';
 import servicesAPI, { CatalogService } from '../../../services/modules/services.api';
 import { useData } from '../../../contexts/DataContext';
-import { Bill, BillLine } from '../../../services/modules/bills.api';
+import { Bill, BillLine, BILL_CLIENT_APPROVAL_CHANNELS, BillClientApprovalChannel } from '../../../services/modules/bills.api';
+import { useAuth } from '../../../contexts/AuthContext';
+import { modulePerms } from '../../../constants/modulePermissions';
 import { Invoice } from '../../../services/modules/invoices.api';
 
 /**
@@ -258,6 +260,14 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
 
   const meta = STATUS_META[bill.status];
   const editable = bill.editable;
+  // §7.4 — THREE RIGHTS, two grants. Raise prepares and hands on; approve signs
+  // off and LOCKS the record; someone holding both sees all three buttons,
+  // which is the third case and needs no grant of its own.
+  const { user } = useAuth();
+  const billPerms = modulePerms(user, 'bills');
+  const [approvalOpen, setApprovalOpen] = React.useState(false);
+  const [approvalChannels, setApprovalChannels] = React.useState<BillClientApprovalChannel[]>([]);
+  const [approvalNote, setApprovalNote] = React.useState('');
   const delta = bill.deltaAmount ?? null;
 
   return (
@@ -624,12 +634,85 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam text-seafoam hover:bg-seafoam/10 disabled:opacity-40">
               <Send size={11} /> Issue for pay-first
             </button>
-            <button type="button" onClick={() => run(() => billsAPI.approve(visit.id, encounterId), 'Bill approved')} disabled={busy}
-              title="Sign the bill off — this locks the clinical record"
-              className={`ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-40${pulseCls}`}>
-              {busy ? <Loader2 size={11} className="animate-spin" /> : <Lock size={11} />} Approve bill
-            </button>
+            {/* §7.4 — RAISE. Shown to anyone who may raise, while the bill is
+                still a DRAFT. Hands the bill on WITHOUT locking the record, so
+                someone who may prepare but not sign off has a way to finish. */}
+            {billPerms.raise && bill.status === 'DRAFT' && (
+              <button type="button" onClick={() => run(() => billsAPI.raise(visit.id, null, encounterId), 'Raised for review')} disabled={busy || bill.total < 0}
+                title="Send the bill for review — does not lock the clinical record"
+                className={`${billPerms.approve ? '' : 'ml-auto '}inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam text-seafoam hover:bg-seafoam/10 disabled:opacity-40`}>
+                <Send size={11} /> Raise for review
+              </button>
+            )}
+            {/* §7.4 — record HOW the client approved. Evidence attached to the
+                bill, not a status change, so it stays available on a raised
+                bill the client has agreed to but nobody has signed off yet. */}
+            {billPerms.raise && (
+              <button type="button" onClick={() => setApprovalOpen(o => !o)} disabled={busy}
+                title="Record how the client approved this bill"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 disabled:opacity-40">
+                <ReceiptText size={11} /> {bill.clientApprovedAt ? 'Client approval ✓' : 'Client approved…'}
+              </button>
+            )}
+            {/* §7.4 — APPROVE. The heavier right: this is the lock point. */}
+            {billPerms.approve && (
+              <button type="button" onClick={() => run(() => billsAPI.approve(visit.id, encounterId), 'Bill approved')} disabled={busy}
+                title="Sign the bill off — this locks the clinical record"
+                className={`ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-40${pulseCls}`}>
+                {busy ? <Loader2 size={11} className="animate-spin" /> : <Lock size={11} />} Approve bill
+              </button>
+            )}
           </>
+        )}
+
+        {/* §7.4 — "How the client approved", as the simple checkboxes the user
+            asked for. PORTAL reads differently from the rest on purpose: it is
+            the client acting themselves, not a channel we reached them on. */}
+        {approvalOpen && (
+          <div className="basis-full mt-2 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3 space-y-2">
+            <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">
+              How did the client approve?
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {BILL_CLIENT_APPROVAL_CHANNELS.map(c => {
+                const on = approvalChannels.includes(c.id);
+                return (
+                  <button key={c.id} type="button"
+                    onClick={() => setApprovalChannels(prev => on ? prev.filter(x => x !== c.id) : [...prev, c.id])}
+                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-colors ${on
+                      ? 'bg-seafoam text-white border-seafoam'
+                      : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:bg-slate-100'}`}>
+                    {c.label}
+                  </button>
+                );
+              })}
+            </div>
+            <input value={approvalNote} onChange={e => setApprovalNote(e.target.value)}
+              placeholder="Note (optional) — who you spoke to, what they said"
+              className="field-input text-xs" />
+            <div className="flex items-center gap-2">
+              <button type="button" disabled={busy || !approvalChannels.length}
+                onClick={() => run(async () => {
+                  const r = await billsAPI.recordClientApproval(visit.id, approvalChannels, approvalNote || null, encounterId);
+                  setApprovalOpen(false);
+                  return r;
+                }, 'Client approval recorded')}
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-40">
+                Record approval
+              </button>
+              <button type="button" onClick={() => setApprovalOpen(false)}
+                className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800">
+                Cancel
+              </button>
+            </div>
+            {bill.clientApprovedAt && (
+              <p className="text-[10px] text-slate-500 dark:text-zinc-400">
+                Already recorded: {(bill.clientApprovalChannels || []).map(id =>
+                  BILL_CLIENT_APPROVAL_CHANNELS.find(c => c.id === id)?.label ?? id).join(', ')}
+                {bill.clientApprovalNote ? ` — ${bill.clientApprovalNote}` : ''}
+              </p>
+            )}
+          </div>
         )}
 
         {/* An issued invoice blocks the reopen — correctly, but the refusal used
