@@ -91,7 +91,7 @@ export const PET_SCHEMA: EntitySchema = {
 export const INVENTORY_SCHEMA: EntitySchema = {
   entity: 'inventory',
   title: 'Inventory',
-  subtitle: 'Medicines, consumables, and equipment stocked in your clinic. Columns mirror the Add Product form, including per-unit pricing and service charges.',
+  subtitle: 'Medicines, consumables, and equipment stocked in your clinic. Columns mirror the Add Product form — subcategory path, supplier, per-unit pricing and service charges.',
   columns: [
     // ── Identity & categorisation ──
     { key: 'name',          label: 'Item name', required: true, example: 'Amoxicillin 250mg' },
@@ -145,7 +145,7 @@ export const INVENTORY_SCHEMA: EntitySchema = {
       service_charge: '', administration_fee: '50', injection_fee: '', injection_unit_ml: '', prescription_fee: '100',
     },
     {
-      name: 'Surgical Gloves', main_category: 'CONSUMABLE', category: '',
+      name: 'Surgical Gloves', main_category: 'CONSUMABLE', category: 'PPE',
       subcategories: 'Theatre;PPE', sku: 'GLV-PAIR',
       supplier: '', manufacturer: '', country_of_origin: '', storage_conditions: '',
       prescription_only: 'NO', species: '',

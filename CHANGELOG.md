@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the downloadable inventory template models a SAFE row  —  2026-08-05
+- **What changed:** the template's second sample row filled `category` again (it had been left
+  blank to demonstrate deriving it from `subcategories`), and the schema subtitle now names the
+  subcategory path and supplier columns.
+- **Why:** sample rows exist to be **copied**. A copied blank `category` fails validation on any
+  client still running a pre-2026-08-05 bundle, where the column was required — which is exactly
+  what happened to a generated stock file. The column's `help` text still teaches the
+  leave-blank-to-derive option; the sample now models the safe default instead of the clever one.
+- **Record impact:** 🟢 None — template content only.
+- **Rollback:** revert; the template ships a row that only validates on the newest client.
+- ⚠️ The template is **generated from `INVENTORY_SCHEMA`**, so its header already picked up
+  `subcategories` and `supplier` automatically — only the sample rows needed touching.
+
 ### fix: Import Data warns when the file belongs to a DIFFERENT tab  —  2026-08-05
 - **What changed:** the import panel scores the uploaded file's headers against every entity
   schema's keys + aliases. When another entity is a clearly better fit it shows a banner naming
