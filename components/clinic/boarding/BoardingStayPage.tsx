@@ -57,6 +57,8 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   const [checkoutReason, setCheckoutReason] = useState('');
   const [askReason, setAskReason] = useState(false);
   const [showShare, setShowShare] = useState(false);
+  /** Which logged item is being removed from a day summary. */
+  const [removingCons, setRemovingCons] = useState<string | null>(null);
 
   // Spawn a grooming service onto this stay's linked appointment so it surfaces
   // (with real name + price) on the visit's SERVICES list and is attended on the
@@ -473,11 +475,32 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                       // shows stay KES 0 — matching what the bill accrues.
                       const dayRate = (days.length === 1 || dayNo < days.length) ? rate : 0;
                       const dayTotal = dayRate + itemsCost;
+                      // A mis-logged item was only removable by opening the day
+                      // editor, even though the row is right here (user,
+                      // 2026-08-06). Deleting restores stock and drops the
+                      // charge, so it is gated on the stay still being open —
+                      // a checked-out stay's bill is not ours to edit here.
                       const consRows = dayCons.map(c => (
                         <div key={`c-${c.id}`} className="mt-1.5 flex items-center gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg px-3 py-1.5 border border-emerald-100 dark:border-emerald-900/40">
                           <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 shrink-0">Item</span>
                           <span className="min-w-0 flex-1 text-[10px] text-pine dark:text-zinc-200 truncate">{c.inventoryItem?.name} × {Number(c.quantity)} {c.inventoryItem?.unit || ''}</span>
                           <span className="text-[9px] font-black text-emerald-600 shrink-0">{c.billable ? fmtK(Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0))) : 'no charge'}</span>
+                          {active && (
+                            <button type="button" title={`Remove ${c.inventoryItem?.name ?? 'this item'} — returns the stock and drops the charge`}
+                              disabled={removingCons === String(c.id)}
+                              onClick={async () => {
+                                setRemovingCons(String(c.id));
+                                try {
+                                  await consumablesAPI.remove(c.id);
+                                  toast.success('Item removed — stock returned');
+                                  await load(); onChanged?.();
+                                } catch (e: any) { toast.error(e?.message || 'Could not remove the item'); }
+                                finally { setRemovingCons(null); }
+                              }}
+                              className="shrink-0 p-1 rounded-md text-emerald-600/60 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40">
+                              {removingCons === String(c.id) ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                            </button>
+                          )}
                         </div>
                       ));
                       {/* Charges for EVERY day, even zero (user) — rate + billed items. */}

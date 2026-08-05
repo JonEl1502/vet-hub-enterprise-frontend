@@ -330,6 +330,27 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
     setDraft(d => ({ ...d, items: d.items.map(i => i.key === key ? { ...i, ...patch } : i) }));
   const removeItem = (key: string) => setDraft(d => ({ ...d, items: d.items.filter(i => i.key !== key) }));
 
+  /**
+   * Reorder a component. Order is the recipe's running order and it PERSISTS —
+   * save writes `sortOrder: idx` from this array, so the list you arrange is
+   * the order the procedure applies in.
+   *
+   * ⚠️ Swaps against the FILTERED neighbour, then applies that swap to the real
+   * array. Moving by raw index would jump a component past ones the active
+   * type filter is hiding, so "move up" would appear to skip — or do nothing.
+   */
+  const moveItem = (key: string, dir: -1 | 1, visibleKeys: string[]) => setDraft(d => {
+    const pos = visibleKeys.indexOf(key);
+    const neighbourKey = visibleKeys[pos + dir];
+    if (pos === -1 || neighbourKey === undefined) return d;
+    const items = [...d.items];
+    const a = items.findIndex(i => i.key === key);
+    const b = items.findIndex(i => i.key === neighbourKey);
+    if (a === -1 || b === -1) return d;
+    [items[a], items[b]] = [items[b], items[a]];
+    return { ...d, items };
+  });
+
   // ------------------------------------------------------------------ totals
   const itemLinePrice = (i: DraftItem) => {
     if (i.billable === false) return 0;
@@ -664,7 +685,17 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                         <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${TYPE_STYLE[i.itemType].chip}`}>{TYPE_STYLE[i.itemType].icon} {TYPE_STYLE[i.itemType].label}</span>
                         <span className="text-sm font-black text-pine dark:text-zinc-100 truncate">{i.name}{i.consultantName ? ` — ${i.consultantName}` : ''}</span>
                         {i.stock != null && <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black ${Number(i.stock) > 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-500'}`}>Stock: {i.stock} {i.unit}</span>}
-                        <button onClick={() => removeItem(i.key)} className="ml-auto p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 size={13} /></button>
+                        <span className="ml-auto flex items-center">
+                          <button type="button" title="Move up"
+                            onClick={() => moveItem(i.key, -1, filteredItems.map(x => x.key))}
+                            disabled={filteredItems[0]?.key === i.key}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-pine disabled:opacity-30"><ArrowUp size={13} /></button>
+                          <button type="button" title="Move down"
+                            onClick={() => moveItem(i.key, 1, filteredItems.map(x => x.key))}
+                            disabled={filteredItems[filteredItems.length - 1]?.key === i.key}
+                            className="p-1.5 rounded-lg text-slate-400 hover:text-pine disabled:opacity-30"><ArrowDown size={13} /></button>
+                          <button onClick={() => removeItem(i.key)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 size={13} /></button>
+                        </span>
                       </div>
                       {/* A staff line is attendance — no qty, no basis, no client
                           price. Just who, in what role, at what internal cost. */}

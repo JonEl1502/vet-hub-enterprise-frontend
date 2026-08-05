@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: remove a logged item from a boarding day; reorder procedure components  —  2026-08-06
+- **What changed:** (1) the read-only day summary's `ITEM` rows get a delete, so a mis-logged
+  consumable no longer needs the day editor opened to remove it — it returns the stock and drops
+  the charge. (2) Procedure components get move up / move down, mirroring the controls the
+  protocol STAGES already had.
+- **Why:** user, 2026-08-06 — *"allow delete … n drag to reorder"*.
+- **Record impact:** 🔵 Low — deleting a consumable reverses stock and an itemized charge.
+- ⚠️ **Delete is gated on the stay still being ACTIVE.** A checked-out stay's bill is settled or
+  settling and is not this screen's to edit.
+- ⚠️ **Reorder swaps against the FILTERED neighbour**, then applies that to the real array. Moving
+  by raw index would jump a component past ones the active type filter is hiding, so "move up"
+  would appear to skip a position — or silently do nothing.
+- ⚠️ Component order **persists**: save writes `sortOrder: idx` from this array, so the order you
+  arrange is the order the recipe applies in.
+- ⚠️ Implemented as **arrow buttons, not drag**. It matches the stage reorder already on this page,
+  survives the type filter, and works on touch — a drag target inside a scrolling form on a phone
+  fights the scroll.
+
 ### fix: "Items used this day" listed the whole VISIT's consumables  —  2026-08-06
 - **What changed:** `ConsumablePicker` takes a `dayKey` (local `YYYY-MM-DD`); the boarding day
   editor passes the day being edited and the inpatient chart passes the day it is rendering. The
