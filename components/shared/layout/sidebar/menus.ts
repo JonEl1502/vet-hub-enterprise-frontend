@@ -20,6 +20,7 @@ import {
   Repeat,
   CircleDollarSign,
   Package,
+  Boxes,
   ShoppingCart,
   Layers,
   ClipboardList,
@@ -168,7 +169,8 @@ const CLINIC_ITEMS: MenuItem[] = [
     label: 'Inventory & Suppliers',
     icon: Package,
     subItems: [
-      { id: 'inventory',        label: 'Stock Manager',    icon: Package },
+      { id: 'inventory',        label: 'Inventory',        icon: Boxes },
+      { id: 'products',         label: 'Products',         icon: Package },
       { id: 'procedures',       label: 'Procedures',       icon: ClipboardList },
       { id: 'clinic-billables', label: 'Billables',        icon: CircleDollarSign },
       { id: 'workflows',        label: 'Visit Workflows',  icon: Workflow },
@@ -256,7 +258,11 @@ export const BILLABLE_ITEMS_MENU: MenuItem = {
   label: 'Inventory & Billables',
   icon: CircleDollarSign,
   subItems: [
-    { id: 'inventory',        label: 'Products',   icon: Package },
+    // Two entries, one component: `inventory` is the ERP control centre
+    // (dashboard, reports, expiry, transfers, counts), `products` is the stock
+    // list. They were one page until 2026-08-05.
+    { id: 'inventory',        label: 'Inventory',  icon: Boxes },
+    { id: 'products',         label: 'Products',   icon: Package },
     { id: 'services-catalog', label: 'Services',   icon: Stethoscope },
     // Bills — hidden at the user's request (2026-07-27). The view still
     // exists and is still routable; only the nav entry is withdrawn.

@@ -30,6 +30,21 @@ interface InventoryViewProps {
   onTogglePreferredSupplier: (clinicId: number, supplierId: number) => void;
   onViewSupplier: (supplierId: number) => void;
   refreshInventory?: () => Promise<void>;
+  /**
+   * Which half of the old combined page to render.
+   *
+   *   'overview' — the ERP control centre: dashboard, reports, expiry,
+   *                transfers, stock takes. Routed as `inventory`.
+   *   'products' — the stock LIST: filters, the product grid, and every
+   *                add/edit/view modal. Routed as `products`.
+   *   'all'      — both, the pre-2026-08-05 behaviour. Kept as the default so
+   *                nothing that still renders this component bare changes.
+   *
+   * ONE component, two routes, on purpose: the list and the dashboard read the
+   * same `inventory` array and the same permission/supplier hooks. Splitting
+   * them into two components would fork ~2,300 lines and guarantee drift.
+   */
+  mode?: 'overview' | 'products' | 'all';
 }
 
 interface DrugResult {
@@ -83,7 +98,9 @@ const FEE_DEFS: { key: 'feeService' | 'feeAdmin' | 'feeInjection' | 'feePrescrip
   { key: 'feePrescription', label: 'Prescription Fee', hint: 'Fee to write the prescription', default: 0 },
 ];
 
-const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, refreshInventory }) => {
+const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, refreshInventory, mode = 'all' }) => {
+  const showOverview = mode === 'overview' || mode === 'all';
+  const showProducts = mode === 'products' || mode === 'all';
   // Grouped page permissions (user, 2026-08-04). `stock` is deliberately its
   // own action: receiving a delivery is the front-line job, editing the item
   // record is not the same thing. The API enforces the same grants.
@@ -710,7 +727,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
 
   return (
     <div className="space-y-4 animate-in fade-in duration-500 pb-20">
-      {!isAddModalOpen && !viewItem && (
+      {!isAddModalOpen && !viewItem && showOverview && (
       <>
       {/* Inventory control-center overview (ERP P1) */}
       <InventoryDashboard currency={clinic.currency} />
@@ -728,6 +745,11 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
         <StockTakePanel />
       </div>
+      </>
+      )}
+
+      {!isAddModalOpen && !viewItem && showProducts && (
+      <>
       {/* Filters Card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
         {/* Row 1 — Clinic badge + Search (2-line filter layout) */}

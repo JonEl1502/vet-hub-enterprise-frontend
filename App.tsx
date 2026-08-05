@@ -276,7 +276,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const { staff: allStaff, updateStaff, addStaff: addStaffMember, refreshStaff } = useStaff();
   // Views safe to persist across refresh/login (top-level only, no detail/form views)
   const PERSIST_VIEWS = new Set([
-    'dashboard', 'reminders', 'appointment-bookings', 'appointments', 'clients', 'patients', 'inventory', 'procedures', 'workflows', 'clinic-billables', 'packages', 'services-catalog', 'bills',
+    'dashboard', 'reminders', 'appointment-bookings', 'appointments', 'clients', 'patients', 'inventory', 'products', 'procedures', 'workflows', 'clinic-billables', 'packages', 'services-catalog', 'bills',
     'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders', 'payables',
     'billing', 'referrals', 'settings', 'import-data', 'broadcasts', 'supplier-dashboard',
     'supplier-products', 'supplier-orders', 'supplier-branches',
@@ -2620,7 +2620,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'register-client': return <RegisterClientView onCancel={goBack} />;
       case 'edit-client': return editingClient ? <EditClientView client={editingClient} onBack={() => { setEditingClient(null); goBack(); }} /> : null;
       case 'register-pet': return <RegisterPetView onCancel={goBack} onGoToNewClient={() => navigateTo('register-client')} initialClientId={currentNav.params?.preselectedClientId} />;
+      // Inventory used to be ONE page carrying the ERP control centre AND the
+      // full product list, so you scrolled past five dashboards to reach the
+      // stock you came for (user, 2026-08-05: "lets have inventory page and
+      // product pg to separate these"). Two routes, one component — see the
+      // `mode` prop on InventoryView for why it is not two components.
       case 'inventory':
+      case 'products': {
         if (!firstActiveClinic) {
           return (
             <div className="flex items-center justify-center h-64">
@@ -2631,7 +2637,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             </div>
           );
         }
-        return <InventoryView clinic={firstActiveClinic} inventory={inventory} onUpdateStock={handleUpdateStock} onUpdateItem={handleUpdateInventoryItem} onAddItem={handleAddInventoryItem} suppliers={store.suppliers} onTogglePreferredSupplier={()=>{}} onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} refreshInventory={refreshInventory} />;
+        return <InventoryView mode={currentNav.view === 'products' ? 'products' : 'overview'} clinic={firstActiveClinic} inventory={inventory} onUpdateStock={handleUpdateStock} onUpdateItem={handleUpdateInventoryItem} onAddItem={handleAddInventoryItem} suppliers={store.suppliers} onTogglePreferredSupplier={()=>{}} onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} refreshInventory={refreshInventory} />;
+      }
       case 'purchase-orders':
         return <PurchaseOrdersView
           clinic={firstActiveClinic}

@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Inventory and Products are two pages  —  2026-08-05
+- **What changed:** `InventoryView` takes a `mode` prop — `'overview'` renders the ERP control
+  centre (dashboard, reports, expiry, transfers, stock takes), `'products'` renders the stock list
+  (filters, grid, all modals). New `products` route + sidebar entry; `inventory` now opens the
+  overview. Also: import gains an `image_url` column.
+- **Why:** one page carried both, so reaching the stock you came for meant scrolling past five
+  dashboards — worse the moment a real catalogue landed (user, 2026-08-05: *"lets have inventory
+  page and product pg to separate these"*).
+- **Record impact:** 🟢 None — routing + layout.
+- **Rollback:** revert; the two halves recombine (`mode` defaults to `'all'`).
+- ⚠️ **One component, two routes, deliberately.** Both halves read the same `inventory` array and
+  the same permission/supplier hooks; splitting ~2,300 lines into two components would guarantee
+  drift. `mode` defaults to `'all'` so anything still rendering it bare is unchanged.
+- ⚠️ **The new view had to be added to `INVENTORY_MODULES.views`.** `canOpenView` returns **true**
+  for any view it cannot map to a module, so a new route that is not listed is silently
+  **un-gated** — every role would reach the stock list.
+- ⚠️ Existing `navigateTo('inventory')` call sites (staff/owner dashboards, Reports & Analytics)
+  now land on the OVERVIEW. That suits "Inventory alerts", but any link that meant the list wants
+  `'products'`.
+
 ### fix: the downloadable inventory template models a SAFE row  —  2026-08-05
 - **What changed:** the template's second sample row filled `category` again (it had been left
   blank to demonstrate deriving it from `subcategories`), and the schema subtitle now names the

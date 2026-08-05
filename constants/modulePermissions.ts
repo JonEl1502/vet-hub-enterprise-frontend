@@ -71,7 +71,11 @@ const INVENTORY_MODULES: ModuleDef[] = [
     label: 'Products',
     group: INVENTORY_BILLABLES_GROUP,
     hint: 'Stock Manager — the items the clinic holds and sells',
-    views: ['inventory'],
+    // BOTH halves of the old combined page (split 2026-08-05): `inventory` is
+    // the ERP control centre, `products` the stock list. The new view MUST be
+    // listed — `canOpenView` returns TRUE for any view it cannot map, so
+    // leaving it out silently un-gates the whole stock list.
+    views: ['inventory', 'products'],
     actions: [
       ...CRUD,
       {
