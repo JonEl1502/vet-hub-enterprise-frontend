@@ -2294,6 +2294,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         case 'supplier-product-new': return <SupplierProductFormPage setView={navigateTo} />;
         case 'supplier-product-edit': return <SupplierProductFormPage productId={currentNav.params?.productId} setView={navigateTo} />;
         case 'supplier-orders': return <SupplierOrdersView setView={navigateTo} />;
+        // ⚠️ MUST live in THIS switch. A SUPPLIER-role user never reaches the
+        // main switch below — this branch returns first and falls back to the
+        // dashboard, so a case added there renders nothing for a supplier while
+        // the nav highlights and the breadcrumb updates (2026-08-05).
+        case 'supplier-import':
+          return <ImportDataView audience="supplier" onBack={() => navigateTo('supplier-products')} />;
         case 'supplier-order-detail': return <SupplierOrderDetailView orderId={currentNav.params?.orderId} setView={navigateTo} />;
         case 'supplier-management': return <SupplierManagementView setView={navigateTo} initialTab="identity" />;
         case 'supplier-branches': return <SupplierManagementView setView={navigateTo} initialTab="branches" />;
@@ -2800,10 +2806,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           />
         );
       }
-      // Supplier-side import: same component, supplier catalogue only. Scoped
-      // by X-Supplier-Id server-side, so it cannot touch a clinic's data.
-      case 'supplier-import':
-        return <ImportDataView audience="supplier" onBack={() => navigateTo('supplier-products')} />;
       case 'import-data':
         return <ImportDataView onBack={() => navigateTo('settings')} />;
       case 'billing': return <BillingView />;
