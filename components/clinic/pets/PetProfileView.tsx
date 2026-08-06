@@ -1872,7 +1872,7 @@ const PetProfileView: React.FC<Props> = ({
                   currency={currency}
                   canCollect={hasFullAccess}
                   onRefresh={loadBilling}
-                  onViewVisit={onViewAppointment}
+                  onViewVisit={onOpenVisitBill ?? onViewAppointment}
                   onGoTab={(t) => {
                     // The hub's quick actions address this page's own sub-tabs;
                     // A new bill starts as a visit, which lives under Records.
@@ -1893,7 +1893,7 @@ const PetProfileView: React.FC<Props> = ({
                   currency={currency}
                   petId={pet.id}
                   canManage={hasFullAccess}
-                  onViewVisit={onViewAppointment}
+                  onViewVisit={onOpenVisitBill ?? onViewAppointment}
                   onGoToVisitBill={onOpenVisitBill}
                   onChanged={loadBilling}
                 />
@@ -1905,7 +1905,7 @@ const PetProfileView: React.FC<Props> = ({
                   clientId={owner.id}
                   currency={currency}
                   canCollect={hasFullAccess}
-                  onViewVisit={onViewAppointment}
+                  onViewVisit={onOpenVisitBill ?? onViewAppointment}
                   onChanged={loadBilling}
                   clientName={owner.name}
                   clientPhone={owner.phone}

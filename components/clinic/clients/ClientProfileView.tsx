@@ -1470,7 +1470,7 @@ const renderOverview = () => (
             currency={client.currency || 'KES'}
             canCollect={hasFullAccess}
             onRefresh={loadBilling}
-            onViewVisit={onViewAppointment}
+            onViewVisit={onOpenVisitBill ?? onViewAppointment}
             onGoTab={setActiveTab}
             filters={accountFilters}
             kind={activeTab === 'credits' ? 'CREDIT' : activeTab === 'refunds' ? 'REFUND' : 'ALL'}
@@ -1481,7 +1481,7 @@ const renderOverview = () => (
             clientId={client.id}
             currency={client.currency || 'KES'}
             canCollect={hasFullAccess}
-            onViewVisit={onViewAppointment}
+            onViewVisit={onOpenVisitBill ?? onViewAppointment}
             onChanged={loadBilling}
             clientName={client.name}
             clientPhone={client.phone}
@@ -1495,7 +1495,7 @@ const renderOverview = () => (
             clientId={client.id}
             currency={client.currency || 'KES'}
             canManage={hasFullAccess}
-            onViewVisit={onViewAppointment}
+            onViewVisit={onOpenVisitBill ?? onViewAppointment}
             onGoToVisitBill={onOpenVisitBill}
             onChanged={loadBilling}
           />
@@ -1507,7 +1507,7 @@ const renderOverview = () => (
             clientId={client.id}
             currency={client.currency || 'KES'}
             canCollect={hasFullAccess}
-            onViewVisit={onViewAppointment}
+            onViewVisit={onOpenVisitBill ?? onViewAppointment}
             onChanged={loadBilling}
             clientName={client.name}
             clientPhone={client.phone}
@@ -1519,7 +1519,7 @@ const renderOverview = () => (
             clientId={client.id}
             currency={client.currency || 'KES'}
             canCollect={hasFullAccess}
-            onViewVisit={onViewAppointment}
+            onViewVisit={onOpenVisitBill ?? onViewAppointment}
             onChanged={loadBilling}
             clientName={client.name}
             clientPhone={client.phone}

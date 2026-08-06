@@ -30,6 +30,12 @@ interface Props {
   clientId: string | number;
   currency: string;
   canCollect: boolean;
+  /**
+   * Open the visit from a money row. Wired to `onOpenVisitBill`, so it lands on
+   * the VISIT WORKFLOW with the **Bill tab** open — not the read-only details
+   * view (user, 2026-08-06). Someone clicking through from an invoice or a
+   * receipt is going there to look at the money, so start them on it.
+   */
   onViewVisit?: (visitId: number) => void;
   onChanged?: () => void;
   /** Pin the tab to ONE view (and hide the sub-tab bar) — the client profile

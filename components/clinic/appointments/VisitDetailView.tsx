@@ -3623,7 +3623,13 @@ const VisitDetailInner: React.FC<Props> = ({
           locked={visitClosed || !canWriteClinical}
           lockReason={!visitClosed && !canWriteClinical ? 'permission' : 'billed'}
           goServices={() => setWorkflowTab('billing')}
-          goBilling={() => { setWorkflowTab('records'); setActiveBottomTab('invoice'); }}
+          // The rail's "Bill & Invoice ›" link. It used to send you to the
+          // RECORDS tab on the invoice sub-tab — neither of which is the tab it
+          // names (that is `billing`, see the workflow tab list below), and the
+          // invoice may not exist yet. Goes to the Bill tab of Bill & Invoice,
+          // which is what someone reading the running bill wants (user,
+          // 2026-08-06).
+          goBilling={() => { setWorkflowTab('billing'); setActiveBottomTab('bill'); }}
           onAddService={!isFinalized ? () => setShowInjectModal(true) : undefined}
           onOpenModule={onOpenModule ? (category: string) => {
             const lc = (category || '').toLowerCase();

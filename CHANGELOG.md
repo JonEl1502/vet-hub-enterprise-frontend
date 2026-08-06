@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: money rows and the rail's "Bill & Invoice ›" open the BILL  —  2026-08-06
+- **What changed:** (1) `VIEW →` on invoice / receipt / payment rows in a client's or pet's
+  Financials now opens the **visit workflow on the Bill tab** instead of the read-only details
+  view. (2) The wizard rail's "Bill & Invoice ›" link goes to the Bill & Invoice tab.
+- **Why:** someone clicking through from a money row is going there to look at the money.
+- **Record impact:** 🟢 None — navigation only.
+- ⚠️ The rail link was sending you to the **Records** tab on the *invoice* sub-tab — neither of
+  which is the tab it names, and the invoice may not exist yet. It now uses `billing` + `bill`.
+- ⚠️ `onOpenVisitBill` already existed and already carried `bottomTab: 'bill'`; the Financials
+  tabs simply passed `onViewAppointment` instead. 8 call sites across Client and Pet profiles.
+
 ### fix: "INVOICES (0)" above a listed invoice  —  2026-08-06
 - **What changed:** the Invoices tab chip counts invoice DOCUMENTS instead of OPEN invoices.
 - **Why:** the count used `open.length`, which excludes settled invoices — so a client whose only
