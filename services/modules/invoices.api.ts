@@ -81,6 +81,14 @@ export const invoicesAPI = {
     get(`/visits/${visitId}/invoice`, { cache: false, silent: true, ...options }),
 
   /** Generate from the visit's APPROVED bill. */
+  /**
+   * Collapse a split-invoiced bill (CLINICAL + STAY + …) back to ONE document.
+   * Voids the live splits and issues a full invoice. Refuses server-side if any
+   * of them has money against it — void the payment first.
+   */
+  consolidate: (visitId: string | number, reason?: string, options?: RequestOptions): Promise<ApiResponse<{ invoice: Invoice }>> =>
+    post(`/visits/${visitId}/invoice/consolidate`, reason ? { reason } : {}, { showError: true, ...options }),
+
   generate: (visitId: string | number, data: { dueDate?: string; scope?: 'FULL' | 'CLINICAL' | 'STAY' | 'GROOMING' } = {}, options?: RequestOptions): Promise<ApiResponse<{ invoice: Invoice }>> =>
     post(`/visits/${visitId}/invoice`, data, { showError: true, ...options }),
 

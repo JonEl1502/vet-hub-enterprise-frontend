@@ -2,7 +2,7 @@ import React from 'react';
 import toast from 'react-hot-toast';
 import {
   ReceiptText, Loader2, RefreshCw, Trash2, Plus, Search,
-  CreditCard, CheckCircle2, AlertTriangle, Lock, Unlock, Send,
+  CreditCard, CheckCircle2, AlertTriangle, Lock, Unlock, Send, Layers,
 } from 'lucide-react';
 import { Visit } from '../../../types';
 import { billsAPI, invoicesAPI, dialog } from '../../../services';
@@ -542,11 +542,46 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
         if (!rows.length) return null;
         return (
           <div className="space-y-1.5">
-            {rows.length > 1 && (
-              <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500">
-                {rows.length} invoices on this visit · {money(rows.reduce((n, r) => n + Number(r.total ?? 0), 0), currency)} total
-              </p>
-            )}
+            {rows.length > 1 && (() => {
+              // Collapse back to one document. 170 could SPLIT a bill but never
+              // un-split it, so a bill split by mistake stayed split forever.
+              // Only offered while nothing has been paid — the server refuses
+              // otherwise, because consolidating a paid document would orphan
+              // its settlements.
+              const anyPaid = rows.some((r: any) => Number(r.amountPaid ?? 0) > 0.005);
+              return (
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-indigo-500">
+                    {rows.length} invoices on this visit · {money(rows.reduce((n, r) => n + Number(r.total ?? 0), 0), currency)} total
+                  </p>
+                  <button
+                    type="button"
+                    disabled={busy || anyPaid}
+                    title={anyPaid
+                      ? 'One of these invoices already has money against it — void that payment first'
+                      : 'Void these and issue a single invoice covering the whole bill'}
+                    onClick={async () => {
+                      const ok = await dialog.confirm({
+                        title: `Combine ${rows.length} invoices into one?`,
+                        message: `${rows.map((r: any) => r.number).filter(Boolean).join(', ')} will be VOIDED and replaced by a single invoice for the whole bill. The voided numbers are kept on the record — if the client is holding one, it will show as withdrawn.`,
+                        confirmLabel: 'Combine into one',
+                        cancelLabel: 'Cancel',
+                      });
+                      if (!ok) return;
+                      await run(async () => {
+                        const r = await invoicesAPI.consolidate(visit.id);
+                        setInvoice(r.data?.invoice ?? null);
+                        await load();
+                        return null;
+                      }, 'Combined into one invoice');
+                    }}
+                    className="ml-auto inline-flex items-center gap-1.5 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border border-indigo-300 dark:border-indigo-800 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-50 dark:hover:bg-indigo-950/40 disabled:opacity-40"
+                  >
+                    <Layers size={11} /> Combine into one
+                  </button>
+                </div>
+              );
+            })()}
             {rows.map((iv: any) => (
               <div key={iv.id} className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-2.5 rounded-xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/60 dark:bg-indigo-950/20">
                 <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Invoice</span>

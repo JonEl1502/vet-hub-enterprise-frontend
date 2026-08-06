@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: see each invoice on the Invoice tab, and combine split invoices back into one  —  2026-08-06
+- **What changed:** (1) When a visit has more than one live invoice, the Invoice tab shows a
+  chooser and renders **that invoice's** lines and total. (2) A **Combine into one** action on the
+  Bill tab voids the live splits and issues a single full invoice.
+- **Why:** 170 could SPLIT a bill (clinical / stay / grooming) but never un-split it, and the
+  Invoice tab built one page from the whole bill — visit 135 showed a single 21,208 document while
+  the real records were KES 8 clinical and KES 21,200 stay. The page matched neither.
+- **Record impact:** 🟡 Combining VOIDS the existing invoice numbers and issues a new one. Voided
+  rows are kept (158) — if a client holds one, it reads as withdrawn rather than vanishing.
+- ⚠️ **Combine is refused once any of the invoices has money against it** (server-side too):
+  consolidating a paid document would orphan its settlements. Void the payment first.
+- ⚠️ The FE scope rule mirrors backend `scopeOfLine`. Both must change together.
+- **Data dependency:** backend `POST /visits/:id/invoice/consolidate` and the split-invoice line
+  scoping fix must be live.
+
 ### feat: horse added to the auth background rotation  —  2026-08-06
 - **What changed:** one more image in `AuthShell`'s `PET_IMAGES`, shared by login, forgot, OTP and
   reset. **Self-hosted** at `public/auth-bg-horse.jpg`.

@@ -319,6 +319,16 @@ const VisitDetailInner: React.FC<Props> = ({
   // via the picker in the Invoice toolbar (e.g. print a USD invoice for
   // an international client even though the clinic books in KES).
   const [invoiceCurrency, setInvoiceCurrency] = useState<string | null>(null);
+  /**
+   * WHICH invoice document the Invoice tab is showing (user, 2026-08-06).
+   *
+   * A split-invoiced bill carries CLINICAL + STAY documents, but this tab built
+   * ONE document from `liveBill.lines` — the whole bill — so a visit with a
+   * KES 8 clinical invoice and a KES 21,200 stay invoice rendered a single
+   * 21,208 page matching neither. `null` = the only/primary invoice.
+   */
+  const [invoiceDocId, setInvoiceDocId] = useState<string | null>(null);
+  const [visitInvoices, setVisitInvoices] = useState<any[]>([]);
   // Billing upgrades (077): collapsible billing view, previous outstanding
   // balance carried onto the invoice, and a pre-finalize discount line.
   const [prevBalance, setPrevBalance] = useState<{ total: number; items: Array<{ appointmentId: string; petName: string | null; scheduledAt: string; amount: number }> } | null>(null);
@@ -394,6 +404,26 @@ const VisitDetailInner: React.FC<Props> = ({
       .catch(() => { if (alive) setReconciliationState(null); });
     return () => { alive = false; };
   }, [appointment?.id, appointment?.isPaid, appointment?.totalCost]);
+  // Every LIVE invoice on this visit, so the Invoice tab can offer one document
+  // per invoice instead of a single merged page (user, 2026-08-06). Same source
+  // BillPanel uses. Silent + non-fatal, like the reconciliation fetch above.
+  useEffect(() => {
+    let alive = true;
+    const clientId = (appointment as any)?.clientId;
+    if (!appointment?.id || !clientId) { setVisitInvoices([]); return; }
+    invoicesAPI.list({ clientId })
+      .then(res => {
+        if (!alive) return;
+        setVisitInvoices(
+          (res?.data?.invoices ?? []).filter(
+            (r: any) => String(r.visitId) === String(appointment.id) && r.status !== 'VOID',
+          ),
+        );
+      })
+      .catch(() => { if (alive) setVisitInvoices([]); });
+    return () => { alive = false; };
+  }, [appointment?.id, (appointment as any)?.clientId, appointment?.isPaid, liveBill?.status]);
+
   const printMenuRef = useRef<HTMLDivElement | null>(null);
   useEffect(() => {
     if (!printMenuFor) return;
@@ -5506,6 +5536,20 @@ const VisitDetailInner: React.FC<Props> = ({
                      // Resolve which currency the invoice prints in. Default
                      // = clinic currency; user can override via the picker.
                      const printCurrency = (invoiceCurrency || activeClinic.currency || 'KES').toUpperCase();
+                     // WHICH document this page is. A split-invoiced bill holds
+                     // CLINICAL + STAY; this used to render the whole bill as one
+                     // page matching neither. Mirrors backend `scopeOfLine`.
+                     const STAY_CATS = ['Boarding Stay', 'Inpatient Stay', 'Food Program'];
+                     const scopeOfLine = (l: any) =>
+                       STAY_CATS.includes(l?.category || '') ? 'STAY'
+                       : /groom/i.test(l?.category || '') ? 'GROOMING' : 'CLINICAL';
+                     const selectedInv = visitInvoices.find((i: any) => String(i.id) === String(invoiceDocId))
+                       ?? visitInvoices[0] ?? null;
+                     const docScope = selectedInv?.scope && selectedInv.scope !== 'FULL' ? selectedInv.scope : null;
+                     const docLines = (liveBill?.lines ?? []).filter((l: any) => !docScope || scopeOfLine(l) === docScope);
+                     const docTotal = docScope && selectedInv != null
+                       ? Number(selectedInv.total ?? 0)
+                       : (liveBill && (liveBill.lines?.length ?? 0) > 0 ? liveBill.total : appointment.totalCost);
                      const sourceCurrency = (activeClinic.currency || 'KES').toUpperCase();
                      // Unique currency codes from the country list, plus the
                      // current source/print so they're always selectable.
@@ -5528,6 +5572,39 @@ const VisitDetailInner: React.FC<Props> = ({
                             says what this is, so the bar was a second title that only
                             let you hide the tab's entire contents. */}
                         <>
+                        {/* One tab, N documents. A split-invoiced bill carries a
+                            CLINICAL and a STAY invoice; without this you could only
+                            ever see one merged page that matched neither (user,
+                            2026-08-06). Hidden for the ordinary single-invoice visit.
+                            print:hidden — the chooser is chrome, not the document. */}
+                        {visitInvoices.length > 1 && (
+                          <div className="flex flex-wrap items-center gap-1.5 mb-3 print:hidden">
+                            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mr-1">
+                              {visitInvoices.length} invoices on this visit
+                            </span>
+                            {visitInvoices.map((iv: any) => {
+                              const on = String(iv.id) === String(selectedInv?.id);
+                              return (
+                                <button
+                                  key={iv.id}
+                                  type="button"
+                                  onClick={() => setInvoiceDocId(String(iv.id))}
+                                  title={`Show ${iv.number}`}
+                                  className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-colors ${on
+                                    ? 'bg-pine text-white border-pine dark:bg-zinc-100 dark:text-pine dark:border-zinc-100'
+                                    : 'bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'}`}
+                                >
+                                  {iv.number}
+                                  {iv.scope && iv.scope !== 'FULL' && (
+                                    <span className="ml-1.5 opacity-70">
+                                      {iv.scope === 'CLINICAL' ? 'clinical' : iv.scope === 'GROOMING' ? 'grooming' : 'stay'}
+                                    </span>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        )}
                         <div className="flex justify-end items-center gap-2 mb-3 print:hidden flex-wrap">
                            {/* Invoices stay editable after generation: reopen a
                                finalized (unpaid) bill to edit lines/discounts. */}
@@ -5678,7 +5755,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                {/* The REAL bill (revenue cycle) is the truth once it exists —
                                    it carries consumable + custom lines the task list never
                                    sees (user, 2026-08-02: invoice showed 3,000 vs bill 5,209). */}
-                               {liveBill && (liveBill.lines?.length ?? 0) > 0 ? liveBill.lines!.map(l => (
+                               {liveBill && docLines.length > 0 ? docLines.map((l: any) => (
                                  <div key={`bl-${l.id}`} className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
                                    <div>
                                      <span className={`text-sm font-bold ${l.lineTotal < 0 ? 'text-emerald-600' : 'text-pine dark:text-zinc-200'}`}>{l.name}</span>
@@ -5779,7 +5856,7 @@ const VisitDetailInner: React.FC<Props> = ({
                            <div className="p-4 bg-pine/5 dark:bg-pine/10 border-t-2 border-pine flex justify-between items-end">
                              <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Settlement</span>
                              <Money
-                               amount={liveBill && (liveBill.lines?.length ?? 0) > 0 ? liveBill.total : appointment.totalCost}
+                               amount={docTotal}
                                currency={sourceCurrency}
                                target={printCurrency}
                                hideOriginal
