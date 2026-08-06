@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### chore: breed reference constant synced to migration 182 (NOT user-visible)  —  2026-08-07
+- **What changed:** `BREEDS` in `constants.tsx` regenerated from migration 182 — Dog 221, Cat 78.
+- **Record impact:** 🟢 None.
+- ⚠️ Still **dead code** — `BREEDS` is imported by no file and tree-shakes out of the bundle. The
+  picker reads `useReferenceData()` → `GET /breeds`. Kept in step with the DB only so it does not
+  become a lie; **the user-visible change is backend migration 182**.
+- **Data dependency:** backend migration **182**.
+
 ### chore: expanded Dog/Cat breed reference list (NOT user-visible)  —  2026-08-06
 - **What changed:** `BREEDS` in `constants.tsx` grown to match backend migration 181 (Dog 48, Cat 34),
   including **Kenyan Shepherd Dog (KSD)** and the Kenyan **Sokoke** cat.
