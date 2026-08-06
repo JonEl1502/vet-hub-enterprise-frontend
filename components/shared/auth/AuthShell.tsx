@@ -14,11 +14,17 @@ const PET_IMAGES = [
   'https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=1920&q=80',
   // Horse — added 2026-08-06 at the user's request. Widens the set beyond cats
   // and dogs now that livestock/farm is a first-class audience.
-  // ⚠️ NOT an Unsplash asset like the rest: this is hotlinked from Future plc's
-  // CDN (Horse & Hound). Two consequences the others do not have — we do not
-  // hold a licence for it, and it breaks if they move or block hotlinking.
-  // Replace with a licensed/self-hosted copy before this matters.
-  'https://cdn.mos.cms.futurecdn.net/2rmu7jr2faySRJGdWmkBdY.jpg',
+  //
+  // SELF-HOSTED (user: "you can download it") rather than hotlinked from Future
+  // plc's CDN, so the page no longer breaks if they move or block the asset.
+  // ⚠️ Two things still differ from the Unsplash entries above:
+  //   1. It is only **630×400** — the source CDN serves no larger render, and
+  //      `?width=1920` is ignored. The others are 1920w, so this slide is
+  //      visibly softer full-bleed. Swap in a higher-res copy when there is one.
+  //   2. EXIF identifies it as Alamy K8R52X, "Irish Cob horse cantering in the
+  //      field" — licensed stock. We hold no licence; that is a commercial
+  //      decision, not a technical one.
+  '/auth-bg-horse.jpg',
 ];
 
 const SLIDE_MS = 6000;
