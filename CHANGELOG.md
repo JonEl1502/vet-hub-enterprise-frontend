@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a split invoice returned EVERY line on the bill (170)  —  2026-08-06
+- **What changed:** `transform` now filters an invoice's `lines` to its own `scope`. The
+  scope rule moved to a module-level `scopeOfLine`, shared by the generator and the serializer.
+- **Why:** the rule lived as a closure inside `generateFromBill`, so `transform` could not see it
+  and returned the whole bill for every invoice. On visit 135, `INV-2026-000013` (CLINICAL,
+  **total KES 8**) came back carrying the stay's 14,000 + 7,200 lines — the document contradicted
+  its own total, and the Invoice tab rendered one merged 21,208 doc matching neither invoice.
+- **Record impact:** 🟡 No data changed, but the invoice DOCUMENT a client sees is now correct.
+  Any PDF issued from a split invoice before today overstated its line items.
+- ⚠️ `InvoiceService.STAY_CATEGORIES` now points at the module-level constant so the two can
+  never drift again; the generator's local `isStayLine`/`isGroomLine` closures are gone.
+
 ### fix: money rows and the rail's "Bill & Invoice ›" open the BILL  —  2026-08-06
 - **What changed:** (1) `VIEW →` on invoice / receipt / payment rows in a client's or pet's
   Financials now opens the **visit workflow on the Bill tab** instead of the read-only details

@@ -12,6 +12,13 @@ const PET_IMAGES = [
   'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?auto=format&fit=crop&w=1920&q=80',
   'https://images.unsplash.com/photo-1543466835-00a7907e9de1?auto=format&fit=crop&w=1920&q=80',
   'https://images.unsplash.com/photo-1574158622682-e40e69881006?auto=format&fit=crop&w=1920&q=80',
+  // Horse — added 2026-08-06 at the user's request. Widens the set beyond cats
+  // and dogs now that livestock/farm is a first-class audience.
+  // ⚠️ NOT an Unsplash asset like the rest: this is hotlinked from Future plc's
+  // CDN (Horse & Hound). Two consequences the others do not have — we do not
+  // hold a licence for it, and it breaks if they move or block hotlinking.
+  // Replace with a licensed/self-hosted copy before this matters.
+  'https://cdn.mos.cms.futurecdn.net/2rmu7jr2faySRJGdWmkBdY.jpg',
 ];
 
 const SLIDE_MS = 6000;
