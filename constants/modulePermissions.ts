@@ -249,7 +249,11 @@ const BILLING_MODULES: ModuleDef[] = [
     label: 'Bills',
     group: BILLING_GROUP,
     hint: 'Who may prepare a bill, and who may sign it off',
-    views: [],
+    // `bills:view` gated nothing until the Revenue Desk existed — the per-visit
+    // Bill tab is part of the visit and stays open to whoever can open the
+    // visit. Every role preset grants view on every module, so adding the page
+    // here takes access from nobody.
+    views: ['revenue-desk'],
     actions: [
       { id: 'view', label: 'Access page' },
       {

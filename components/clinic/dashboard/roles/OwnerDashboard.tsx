@@ -183,7 +183,7 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
         {
           label: 'Bills to action', value: bills === null ? '—' : needsAction.length,
           tone: needsAction.length ? 'warn' : 'default', sub: 'Raise · approve · invoice',
-          onClick: () => onNavigate?.('billing'),
+          onClick: () => onNavigate?.('revenue-desk'),
         },
         { label: 'Average bill', value: money(avgBill), sub: `Per settled visit · ${range.label.toLowerCase()}` },
         {
@@ -203,7 +203,7 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
         <RoleCard
           title="Bills needing action"
           subtitle={range.isToday ? 'Raise, approve or invoice · whole queue' : `Raise, approve or invoice · ${range.label.toLowerCase()}`}
-          action={<button onClick={() => onNavigate?.('billing')} className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:underline">View all</button>}
+          action={<button onClick={() => onNavigate?.('revenue-desk')} className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:underline">View all</button>}
         >
           {bills === null ? <Spinner /> : needsAction.length === 0 ? (
             <EmptyNote>Nothing waiting 🎉</EmptyNote>

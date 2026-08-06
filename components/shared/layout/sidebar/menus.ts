@@ -32,6 +32,7 @@ import {
   Settings2,
   Workflow,
   Receipt,
+  ReceiptText,
   Truck,
   TrendingUp,
   Upload,
@@ -196,6 +197,9 @@ const CLINIC_ITEMS: MenuItem[] = [
       // Financial Overview retired 2026-08-03 — Reports & Analytics replaced it
       // (the old view id still redirects there).
       { id: 'reports-analytics',  label: 'Reports & Analytics', icon: BarChart3 },
+      // Revenue Desk — bills + invoices, tabbed by state. Replaces the `bills`
+      // queue entry withdrawn 2026-07-27; that view is still routable.
+      { id: 'revenue-desk',       label: 'Bills & Invoices',    icon: ReceiptText },
       { id: 'receivables',        label: 'Receivables',         icon: TrendingUp },
       { id: 'expenses',           label: 'Expenses',            icon: CircleDollarSign },
       { id: 'b2b-stats',          label: 'B2B Stats',           icon: Repeat },

@@ -88,6 +88,9 @@ export { billsAPI } from './modules/bills.api';
 export { invoicesAPI } from './modules/invoices.api';
 export type { Invoice, InvoiceRow, InvoiceStatus } from './modules/invoices.api';
 export type { Bill, BillLine, BillLineInput, BillStatus, BillQueueRow } from './modules/bills.api';
+// Read-only clinic-wide listings over BOTH of the above (Revenue Desk).
+export { revenueDeskAPI } from './modules/revenueDesk.api';
+export type { DeskBillRow, DeskInvoiceRow, DeskBillStats, DeskInvoiceStats } from './modules/revenueDesk.api';
 export { clinicTransfersAPI } from './modules/clinicTransfer.api';
 export type { ClinicTransfer } from './modules/clinicTransfer.api';
 export type { Broadcast, BroadcastAudience, BroadcastAudienceType, SegmentFilter, SegmentBreakdown, SegmentSendResult, BroadcastChannel } from './modules/broadcasts.api';

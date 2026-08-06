@@ -59,6 +59,37 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Revenue Desk — one page for bills + invoices, tabbed by state  —  2026-08-06
+- **What changed:** new page `revenue-desk` ("Bills & Invoices", Finance ⇒ second entry).
+  A document switch (BILLS / INVOICES), five stat tiles per document, and status tabs that ARE the
+  states — bills: Running (DRAFT) · Pending approval (PENDING_REVIEW) · Approved · Quoted (ISSUED)
+  · Invoiced · Settled (PAID+RECONCILED) · Void; invoices: Open · Part paid · Overdue · Paid ·
+  Void. Plus a time window (30d / 90d / 12m / all), debounced search over patient, client and
+  document number, and **Invoice** in-row on an APPROVED bill.
+- **Why:** the states a bill moves through were only ever visible one visit at a time. The old
+  `bills` queue listed PENDING_REVIEW + APPROVED and nothing else, and it has had **no nav entry
+  since 2026-07-27** — so "what have we invoiced this month" and "what is still owed" had no page.
+- **Record impact:** 🟢 Read-only, except the existing `POST /visits/:id/invoice` behind the
+  in-row Invoice button — the same call the old queue made.
+- **Data dependency:** backend `GET /revenue-desk/bills` + `/revenue-desk/invoices` (same commit
+  date, backend CHANGELOG). No migration.
+- ⚠️ **Every hook sits above every early return — there are no early returns in the page at all.**
+  `BillingView` and `BillPanel` both shipped a hooks-after-early-return that crashed at runtime
+  with `tsc` at 0. `npm run lint` (rules-of-hooks) passes on this file with 0 errors, 0 warnings.
+- ⚠️ Rows are fetched once per (window, search) with `status=ALL`; tab filtering is client-side so
+  switching is instant. Tab **counts** come from the server aggregate over the whole window, and
+  the page shows an explicit banner when it is holding fewer rows than the counts describe rather
+  than silently under-reporting.
+- ⚠️ **"Outstanding" here is window-scoped and says so.** Receivables still owns the all-time
+  balance; two pages quoting different totals for the same word is how that number stops being
+  trusted.
+- ⚠️ **Fixes a mis-link:** "Bills to action" and "Bills needing action → View all" on the Owner and
+  Front-Office dashboards navigated to `billing`, which is the **subscription plan** page. They now
+  open this one.
+- ⚠️ `bills:view` gated no view before today; the page is now its `views` entry. Every role preset
+  grants view on every module, so this takes access from nobody — but a clinic that has explicitly
+  revoked `bills:view` will not see the page, which is the intent.
+
 ### feat: see each invoice on the Invoice tab, and combine split invoices back into one  —  2026-08-06
 - **What changed:** (1) When a visit has more than one live invoice, the Invoice tab shows a
   chooser and renders **that invoice's** lines and total. (2) A **Combine into one** action on the

@@ -61,6 +61,7 @@ import WorkflowBuilderPage from './components/clinic/workflows/WorkflowBuilderPa
 import PackagesView from './components/clinic/inventory/PackagesView';
 import ServicesCatalogPage from './components/clinic/services/ServicesCatalogPage';
 import BillsQueuePage from './components/clinic/bills/BillsQueuePage';
+import RevenueDeskPage from './components/clinic/revenue/RevenueDeskPage';
 import LaboratoryView from './components/clinic/diagnostics/LaboratoryView';
 import ImagingView from './components/clinic/diagnostics/ImagingView';
 import SurgeryView from './components/clinic/surgery/SurgeryView';
@@ -2887,6 +2888,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'packages': return <PackagesView />;
       case 'services-catalog': return <ServicesCatalogPage />;
       case 'bills': return <BillsQueuePage onOpenVisit={(vId) => navigateTo('appointment-detail', { appointmentId: vId })} />;
+      // Revenue Desk — the bills queue's successor: both documents, every state.
+      case 'revenue-desk': return <RevenueDeskPage onOpenVisit={(vId) => navigateTo('appointment-detail', { appointmentId: vId })} />;
       case 'laboratory': return <LaboratoryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'imaging': return <ImagingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
       case 'surgery': return <SurgeryView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onOpenRecord={(recordId, opts) => navigateTo('surgery-record', { recordId }, opts)} openForAppointmentId={currentNav.params?.openForAppointmentId} />;

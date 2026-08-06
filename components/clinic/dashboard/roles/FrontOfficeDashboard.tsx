@@ -125,7 +125,7 @@ const FrontOfficeDashboard: React.FC<Props> = ({ visits, clients, currency, onNa
         <RoleCard
           title="Bills needing action"
           subtitle="Raise, approve or invoice"
-          action={<button onClick={() => onNavigate?.('billing')} className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:underline">View all</button>}
+          action={<button onClick={() => onNavigate?.('revenue-desk')} className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:underline">View all</button>}
         >
           {bills === null ? <Spinner /> : needsAction.length === 0 ? (
             <EmptyNote>Nothing waiting 🎉</EmptyNote>
