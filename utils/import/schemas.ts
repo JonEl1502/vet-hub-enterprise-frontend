@@ -38,6 +38,9 @@ export const CLIENT_SCHEMA: EntitySchema = {
     { key: 'phone',       label: 'Phone',       required: true, example: '+254712345678' },
     { key: 'address',     label: 'Address',     example: 'Kilimani, Nairobi' },
     { key: 'country',     label: 'Country',     example: 'Kenya',  help: 'Defaults to Kenya' },
+    // Defaults TRUE in the schema, so an imported list is opted in by silence.
+    // The column lets a migration carry the consent the clinic already holds.
+    { key: 'email_opt_in', label: 'Email opt-in', type: 'enum', enumValues: ['YES', 'NO'], example: 'YES', help: 'Marketing emails and broadcasts. Defaults to YES', aliases: ['emailOptIn', 'marketing'] },
     { key: 'currency',    label: 'Currency',    example: 'KES',    help: 'ISO 4217 code. Defaults to KES' },
     { key: 'gender',      label: 'Gender',      example: 'F' },
     { key: 'dob',         label: 'Date of birth', type: 'date', example: '1988-04-12', help: 'YYYY-MM-DD' },
@@ -46,7 +49,7 @@ export const CLIENT_SCHEMA: EntitySchema = {
     {
       title: 'Dr.', first_name: 'Amina', second_name: '', surname: 'Otieno',
       email: 'amina@example.com', phone: '+254712345678',
-      address: 'Kilimani, Nairobi', country: 'Kenya', currency: 'KES',
+      address: 'Kilimani, Nairobi', country: 'Kenya', email_opt_in: 'YES', currency: 'KES',
       gender: 'F', dob: '1988-04-12',
     },
     {
@@ -71,18 +74,22 @@ export const PET_SCHEMA: EntitySchema = {
     { key: 'weight_kg',         label: 'Weight (kg)',  type: 'number', example: '12.4', aliases: ['weight', 'weight_value'] },
     { key: 'rfid_chip_number',  label: 'RFID chip #',  example: '981020000123456', aliases: ['rfid'] },
     { key: 'tag_number',        label: 'Tag #',        example: 'A-001', aliases: ['tag'] },
+    // The two flags the patient card shows BEFORE the record is opened — a
+    // migrated patient arriving without them looks safe when it is not.
+    { key: 'allergies',          label: 'Allergies',          example: 'Penicillin;Beef', help: 'Semicolon-separated' },
+    { key: 'chronic_conditions', label: 'Chronic conditions', example: 'Epilepsy;CKD', help: 'Semicolon-separated', aliases: ['chronicConditions', 'conditions'] },
     { key: 'owner_email',       label: 'Owner email',  example: 'amina@example.com', help: 'Either owner_email or owner_phone is required' },
     { key: 'owner_phone',       label: 'Owner phone',  example: '+254712345678' },
   ],
   sampleRows: [
     {
       name: 'Simba', species: 'Dog', breed: 'Labrador', gender: 'M',
-      dob: '2022-05-10', weight_kg: '12.4', rfid_chip_number: '', tag_number: 'A-001',
+      dob: '2022-05-10', weight_kg: '12.4', rfid_chip_number: '', tag_number: 'A-001', allergies: 'Penicillin', chronic_conditions: '',
       owner_email: 'amina@example.com', owner_phone: '+254712345678',
     },
     {
       name: 'Mittens', species: 'Cat', breed: 'British Shorthair', gender: 'F',
-      dob: '2023-02-18', weight_kg: '4.1', rfid_chip_number: '', tag_number: '',
+      dob: '2023-02-18', weight_kg: '4.1', rfid_chip_number: '', tag_number: '', allergies: '', chronic_conditions: '',
       owner_email: '', owner_phone: '+27821234567',
     },
   ],

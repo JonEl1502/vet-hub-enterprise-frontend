@@ -357,7 +357,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
               and is <span className="underline">not billed</span>.{' '}
               {invoice && !invoice.voidedAt && Number(invoice.amountPaid ?? 0) > 0.005
                 ? `${invoice.number || 'The invoice'} has already been part-paid, so it cannot be reopened — bill the difference on a new visit or refund first.`
-                : 'Reopen the bill to pick it up (its invoice is voided and reissued), or remove what should not be there.'}
+                : 'Reopen the bill to pick it up — its invoice is voided and reissued for you — or remove what should not be there.'}
             </p>
           </div>
         );
