@@ -1,6 +1,6 @@
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2 } from 'lucide-react';
+import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2, Trash2 } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import TreatmentPlanPanel from './TreatmentPlanPanel';
 import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
@@ -58,6 +58,16 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
   const [vital, setVital] = useState({ temperature: '', pulse: '', respiration: '', weight: '', mucousMembrane: '', crt: '' });
+  // Whole-stay notes (192), mirroring the boarding stay page.
+  const [notesDraft, setNotesDraft] = useState('');
+  const [notesDirty, setNotesDirty] = useState(false);
+  const [notesSaving, setNotesSaving] = useState(false);
+  // Read inside the load callback, which closes over stale state otherwise —
+  // a reload mid-typing would silently clobber what the user had written.
+  const notesDirtyRef = React.useRef(false);
+  React.useEffect(() => { notesDirtyRef.current = notesDirty; }, [notesDirty]);
+  // Row-level deletes (user, 2026-08-06: "allow delete"), mirroring boarding.
+  const [removing, setRemoving] = useState<string | null>(null);
   const [logKind, setLogKind] = useState<LogKind>('TREATMENT_TASK');
   const [logData, setLogData] = useState<Record<string, string>>({});
   const { inventory, updateInventoryOptimistically } = useData();
@@ -118,7 +128,13 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   const [careDay, setCareDay] = useState<string | null>(null);
   const load = useCallback(async () => {
     setLoading(true);
-    try { const res = await inpatientAPI.getById(hospId); if (res.success && res.data?.hospitalization) setH(res.data.hospitalization); }
+    try {
+      const res = await inpatientAPI.getById(hospId);
+      if (res.success && res.data?.hospitalization) {
+        setH(res.data.hospitalization);
+        setNotesDraft(prev => (notesDirtyRef.current ? prev : (res.data!.hospitalization as any).notes ?? ''));
+      }
+    }
     catch (e) { console.error(e); } finally { setLoading(false); }
   }, [hospId]);
   useEffect(() => { setH(null); load(); }, [hospId, load]);
@@ -160,6 +176,42 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
       setVital({ temperature: '', pulse: '', respiration: '', weight: '', mucousMembrane: '', crt: '' });
       await load();
     } finally { setBusy(false); }
+  };
+
+  const removeVital = async (vitalId: string) => {
+    setRemoving(`v-${vitalId}`);
+    try {
+      await inpatientAPI.deleteVital(vitalId);
+      toast.success('Vitals entry deleted');
+      await load(); onChanged?.();
+    } catch (e: any) { toast.error(e?.message || 'Could not delete the entry'); }
+    finally { setRemoving(null); }
+  };
+
+  const removeLog = async (log: { id: string; kind: string }) => {
+    // A MEDICATION entry does not own its stock or its charge — administering a
+    // drug writes this log AND a separate consumable. Deleting only this row
+    // would silently leave the client charged, so say so rather than guess.
+    if (log.kind === 'MEDICATION' && !window.confirm(
+      'Delete this medication entry?\n\nThe drug\'s stock deduction and charge are a separate item on this day — remove that too if the dose was never given.'
+    )) return;
+    setRemoving(`l-${log.id}`);
+    try {
+      await inpatientAPI.deleteLog(log.id);
+      toast.success('Entry deleted');
+      await load(); onChanged?.();
+    } catch (e: any) { toast.error(e?.message || 'Could not delete the entry'); }
+    finally { setRemoving(null); }
+  };
+
+  const removeConsumable = async (consId: string, name?: string) => {
+    setRemoving(`c-${consId}`);
+    try {
+      await consumablesAPI.remove(consId as any);
+      toast.success(`${name || 'Item'} removed — stock returned`);
+      await load(); onChanged?.();
+    } catch (e: any) { toast.error(e?.message || 'Could not remove the item'); }
+    finally { setRemoving(null); }
   };
 
   const addLog = async () => {
@@ -345,8 +397,13 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                   filling (user, 2026-08-04: "move them to daily log similar to
                   boarding"). Recording is per-day; this stays the read-across. */}
               {h.vitals && h.vitals.length > 0 ? (
-                <div className="overflow-x-auto"><table className="w-full text-[10px]"><thead><tr className="text-slate-400 text-left"><th className="py-1">Time</th><th>T</th><th>P</th><th>R</th><th>Wt</th><th>MM</th><th>CRT</th></tr></thead>
-                  <tbody>{h.vitals.slice(-8).reverse().map(v => <tr key={v.id} className="border-t border-slate-100 dark:border-zinc-800 text-pine dark:text-zinc-200"><td className="py-1">{formatTime(v.recordedAt)}</td><td>{v.temperature ?? '—'}</td><td>{v.pulse ?? '—'}</td><td>{v.respiration ?? '—'}</td><td>{v.weight ?? '—'}</td><td>{v.mucousMembrane ?? '—'}</td><td>{v.crt ?? '—'}</td></tr>)}</tbody></table></div>
+                <div className="overflow-x-auto"><table className="w-full text-[10px]"><thead><tr className="text-slate-400 text-left"><th className="py-1">Time</th><th>T</th><th>P</th><th>R</th><th>Wt</th><th>MM</th><th>CRT</th><th /></tr></thead>
+                  <tbody>{h.vitals.slice(-8).reverse().map(v => <tr key={v.id} className="border-t border-slate-100 dark:border-zinc-800 text-pine dark:text-zinc-200"><td className="py-1">{formatTime(v.recordedAt)}</td><td>{v.temperature ?? '—'}</td><td>{v.pulse ?? '—'}</td><td>{v.respiration ?? '—'}</td><td>{v.weight ?? '—'}</td><td>{v.mucousMembrane ?? '—'}</td><td>{v.crt ?? '—'}</td><td className="text-right">{!h.dischargedAt && (
+                    <button type="button" title="Delete this vitals entry" disabled={removing === `v-${v.id}`} onClick={() => removeVital(v.id)}
+                      className="p-1 rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40">
+                      {removing === `v-${v.id}` ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                    </button>
+                  )}</td></tr>)}</tbody></table></div>
               ) : <p className="text-[10px] text-slate-400">No vitals recorded.</p>}
             </section>
 
@@ -560,6 +617,13 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                     <span className="text-[11px] text-pine dark:text-zinc-200">{logSummary(l.kind, l.data)}</span>
                                   </div>
                                   <span className="text-[9px] text-slate-400 shrink-0">{formatTime(l.loggedAt)}</span>
+                                  {active && (
+                                    <button type="button" title="Delete this entry" disabled={removing === `l-${l.id}`}
+                                      onClick={() => removeLog({ id: l.id, kind: l.kind })}
+                                      className="shrink-0 p-1 rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40">
+                                      {removing === `l-${l.id}` ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                                    </button>
+                                  )}
                                 </div>
                               ))}
                               {dayCons.map(c => (
@@ -567,6 +631,13 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                   <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 shrink-0">Item</span>
                                   <span className="min-w-0 flex-1 text-[10px] text-pine dark:text-zinc-200 truncate">{c.inventoryItem?.name} × {Number(c.quantity)} {c.inventoryItem?.unit || ''}</span>
                                   <span className="text-[9px] font-black text-emerald-600 shrink-0">{c.billable ? fmtK(Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0))) : 'no charge'}</span>
+                                  {active && (
+                                    <button type="button" title={`Remove ${c.inventoryItem?.name ?? 'this item'} — returns the stock and drops the charge`}
+                                      disabled={removing === `c-${c.id}`} onClick={() => removeConsumable(String(c.id), c.inventoryItem?.name)}
+                                      className="shrink-0 p-1 rounded-md text-emerald-600/60 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40">
+                                      {removing === `c-${c.id}` ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                                    </button>
+                                  )}
                                 </div>
                               ))}
                             </div>
@@ -582,13 +653,48 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
             {/* Consumables moved into the day's editor above — logging an item
                 is part of that day's care, not a separate card below it. */}
 
-            {/* Notes format at the BOTTOM (user, 2026-08-04) — it styles the
-                sheet you have already read. NOT pinned; it is a preference,
-                not an action. */}
-            <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
-              {/* No label here — NotesFormatToggle renders its own "Notes
-                  format" heading, so the card was printing it twice. */}
-              <NotesFormatToggle value={h.displayFormat || 'PARAGRAPH'} onChange={(v) => { inpatientAPI.update(hospId, { displayFormat: v }).then(() => { load(); onChanged?.(); }); }} />
+            {/* Stay notes + notes format in ONE card at the BOTTOM, mirroring
+                the boarding stay page (user, 2026-08-06: "update same to
+                inpatiant"). The format toggle styles the note it sits under,
+                and on its own it was a whole bordered frame around two chips. */}
+            <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
+              {/* admissionNotes and dischargeNotes are both moment-in-time, so
+                  anything true of the WHOLE stay had nowhere to live and was
+                  landing on whichever day happened to be open. */}
+              <div className="space-y-1.5">
+                <label className="field-label">Stay notes</label>
+                <textarea
+                  className="field-textarea"
+                  rows={3}
+                  disabled={!!h.dischargedAt}
+                  placeholder="Anything about the whole stay — not tied to one day"
+                  value={notesDraft}
+                  onChange={e => { setNotesDraft(e.target.value); setNotesDirty(true); }}
+                />
+                {notesDirty && !h.dischargedAt && (
+                  <button
+                    type="button"
+                    disabled={notesSaving}
+                    onClick={async () => {
+                      setNotesSaving(true);
+                      try {
+                        await inpatientAPI.update(hospId, { notes: notesDraft } as any);
+                        setNotesDirty(false);
+                        toast.success('Stay notes saved');
+                        await load(); onChanged?.();
+                      } catch (e: any) { toast.error(e?.message || 'Could not save the notes'); }
+                      finally { setNotesSaving(false); }
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
+                    {notesSaving ? 'Saving…' : 'Save notes'}
+                  </button>
+                )}
+              </div>
+              <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
+                {/* No label here — NotesFormatToggle renders its own "Notes
+                    format" heading, so the card was printing it twice. */}
+                <NotesFormatToggle value={h.displayFormat || 'PARAGRAPH'} onChange={(v) => { inpatientAPI.update(hospId, { displayFormat: v }).then(() => { load(); onChanged?.(); }); }} />
+              </div>
             </section>
           </div>
 

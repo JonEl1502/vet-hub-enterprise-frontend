@@ -22,7 +22,7 @@ export interface HospLog {
 export interface Hospitalization {
   id: string; clinicId: string; petId: string; clientId: string; appointmentId: string | null;
   inpatientNo: string | null; status: HospitalizationStatus; complexity?: number | null; displayFormat?: string;
-  diagnosis: string | null; admissionNotes: string | null; cage: string | null; dailyRate: number | null;
+  diagnosis: string | null; admissionNotes: string | null; notes: string | null; cage: string | null; dailyRate: number | null;
   intakeWeight: number | null; vaccineChecklist?: Record<string, boolean>;
   feedingInstructions: string | null; medicationInstructions: string | null; emergencyContact: string | null; foodProgram?: Record<string, any>;
   admittedAt: string; expectedDischargeAt?: string | null; dischargedAt: string | null; dischargeNotes: string | null; dischargeReason?: string | null;
@@ -69,6 +69,13 @@ export const inpatientAPI = {
     patch(`/inpatient/${id}/plan/items/${itemId}`, data, { showError: true, ...options }),
   removePlanItem: async (id: string | number, itemId: string | number, options?: RequestOptions): Promise<ApiResponse<any>> =>
     del(`/inpatient/${id}/plan/items/${itemId}`, { showError: true, ...options }),
+
+  // Row-level deletes. Note the FLAT paths — these take the row id, not the
+  // stay id, matching the existing PATCH /inpatient/logs/:logId.
+  deleteVital: async (vitalId: string | number, options?: RequestOptions): Promise<ApiResponse<any>> =>
+    del(`/inpatient/vitals/${vitalId}`, { showError: true, ...options }),
+  deleteLog: async (logId: string | number, options?: RequestOptions): Promise<ApiResponse<any>> =>
+    del(`/inpatient/logs/${logId}`, { showError: true, ...options }),
 
   board: async (options?: RequestOptions): Promise<ApiResponse<{ totalInpatients: number; board: Hospitalization[] }>> =>
     get(ENDPOINTS.INPATIENT.BOARD, { cache: false, ...options }),
