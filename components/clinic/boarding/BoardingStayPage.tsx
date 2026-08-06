@@ -122,9 +122,34 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   // lives in the pinned bar at the bottom — so opening it has to bring it into
   // view, or the button appears to do nothing.
   const pricingRef = React.useRef<HTMLDivElement>(null);
+
+  /**
+   * The stay's days as { key, date }, for the per-day rate picker.
+   *
+   * ⚠️ Key is built from LOCAL date parts, matching the server's `stayDayKeys`
+   * — `toISOString().slice(0,10)` is UTC, so in GMT+3 an evening day would key
+   * itself to the next date and the rate would land on the wrong day.
+   */
+  const stayDayList = React.useMemo(() => {
+    if (!stay?.dropOffAt) return [] as { key: string; date: Date }[];
+    const n = Math.max(1, calendarDaysBetween(stay.dropOffAt, stay.actualPickupAt ?? undefined));
+    const first = new Date(stay.dropOffAt);
+    return Array.from({ length: n }, (_, i) => {
+      const d = new Date(first.getFullYear(), first.getMonth(), first.getDate() + i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      return { key, date: d };
+    });
+  }, [stay?.dropOffAt, stay?.actualPickupAt]);
   const openPricing = () => {
     const fp: any = (stay as any)?.foodProgram || {};
-    setPriceDraft({ dailyRate: stay?.dailyRate ?? (clinicDayRate ?? ''), mealsPerDay: fp.mealsPerDay ?? '', ratePerMeal: fp.ratePerMeal ?? '', providedByClient: fp.providedByClient === true, feedingTimes: fp.feedingTimes ?? '' });
+    setPriceDraft({
+      dailyRate: stay?.dailyRate ?? (clinicDayRate ?? ''), mealsPerDay: fp.mealsPerDay ?? '',
+      ratePerMeal: fp.ratePerMeal ?? '', providedByClient: fp.providedByClient === true,
+      feedingTimes: fp.feedingTimes ?? '',
+      // Which past days take the new rate, plus "from now on".
+      applyDays: [] as string[],
+      applyForward: true,
+    });
     setPricingOpen(o => {
       if (!o) setTimeout(() => pricingRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 60);
       return !o;
@@ -139,7 +164,17 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
       fp.ratePerMeal = priceDraft.ratePerMeal === '' ? 0 : Number(priceDraft.ratePerMeal);
       fp.providedByClient = !!priceDraft.providedByClient;
       if (priceDraft.feedingTimes !== '') fp.feedingTimes = priceDraft.feedingTimes;
-      const res = await boardingAPI.update(stayId, { dailyRate: priceDraft.dailyRate === '' ? undefined : Number(priceDraft.dailyRate), foodProgram: fp } as any);
+      const res = await boardingAPI.update(stayId, {
+        dailyRate: priceDraft.dailyRate === '' ? undefined : Number(priceDraft.dailyRate),
+        foodProgram: fp,
+        // The server freezes untouched days before moving the base rate, so
+        // these two decide exactly which days move. Sent only when a rate is
+        // actually being set.
+        ...(priceDraft.dailyRate === '' ? {} : {
+          applyRateToDays: priceDraft.applyDays ?? [],
+          applyRateGoingForward: priceDraft.applyForward !== false,
+        }),
+      } as any);
       if (res.success) { toast.success('Pricing updated — accrued charges re-priced'); setPricingOpen(false); await load(); onChanged?.(); }
     } catch (e: any) { toast.error(e?.message || 'Failed to update pricing'); }
     finally { setPriceSaving(false); }
@@ -765,6 +800,39 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                           <input type="checkbox" checked={!!priceDraft.providedByClient} onChange={e => setPriceDraft((d: any) => ({ ...d, providedByClient: e.target.checked }))} className="accent-seafoam" />
                           Food provided by the client (no food charge)
                         </label>
+
+                        {/* WHICH DAYS the new rate applies to (191).
+                            Editing the rate used to silently re-price the whole
+                            stay backwards; the clinic could not raise a rate
+                            mid-stay or fix today's typo without rewriting what
+                            it had already quoted (user, 2026-08-06). */}
+                        <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-1.5">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Apply this rate to</p>
+                          <label className="flex items-center gap-2 text-[10px] font-bold text-pine dark:text-zinc-200">
+                            <input type="checkbox" className="accent-seafoam"
+                              checked={priceDraft.applyForward !== false}
+                              onChange={e => setPriceDraft((d: any) => ({ ...d, applyForward: e.target.checked }))} />
+                            Now &amp; future days
+                          </label>
+                          {stayDayList.map(({ key: k, date: d }, i) => {
+                            const on = (priceDraft.applyDays ?? []).includes(k);
+                            return (
+                              <label key={k} className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                                <input type="checkbox" className="accent-seafoam" checked={on}
+                                  onChange={e => setPriceDraft((d2: any) => ({
+                                    ...d2,
+                                    applyDays: e.target.checked
+                                      ? [...(d2.applyDays ?? []), k]
+                                      : (d2.applyDays ?? []).filter((x: string) => x !== k),
+                                  }))} />
+                                Day {i + 1} · {formatDate(d)}
+                              </label>
+                            );
+                          })}
+                          <p className="text-[9px] font-bold text-slate-400">
+                            Days you leave unticked keep the rate they were charged at.
+                          </p>
+                        </div>
                         <button onClick={savePricing} disabled={priceSaving} className="w-full py-2 bg-seafoam text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
                           {priceSaving ? <Loader2 size={12} className="animate-spin" /> : null} Save — re-price accrued charges
                         </button>
