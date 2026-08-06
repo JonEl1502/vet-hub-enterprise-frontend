@@ -54,13 +54,23 @@ interface Props {
   onViewAppointment?: (appointmentId: number) => void;
   onOpenMedicalRecord?: (petId: number, visitId: number) => void;
   onManageWorkflow?: (appointmentId: number) => void;
+  /**
+   * The read-only visit sheet, kept SEPARATE from `onViewAppointment`.
+   *
+   * `onViewAppointment` now opens the workflow (user, 2026-08-06: "visit
+   * workflow is superior to visit details"), which is right for the generic
+   * rows — but this view also renders explicit Workflow / Details PAIRS, and
+   * pointing both at the workflow would give two buttons one destination.
+   * The Details button in those pairs uses this.
+   */
+  onViewVisitDetails?: (appointmentId: number) => void;
   /** Open a visit ON its Bill tab, next action pulsed (Financials → Bills). */
   onOpenVisitBill?: (visitId: number) => void;
   onScheduleAppointment?: () => void;
   onAddPet?: () => void;
 }
 
-const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onOpenMedicalRecord, onManageWorkflow, onScheduleAppointment, onAddPet, onOpenVisitBill }) => {
+const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onOpenMedicalRecord, onManageWorkflow, onViewVisitDetails, onScheduleAppointment, onAddPet, onOpenVisitBill }) => {
   // This view has no `activeClinic` prop; the printed document still needs a
   // clinic name on it. With a multi-clinic scope the first selected one is the
   // right answer here — the client is being viewed within that scope.
@@ -729,7 +739,7 @@ const renderOverview = () => (
                                <Play size={9} /> Workflow
                              </button>
                              <button
-                               onClick={(e) => { e.stopPropagation(); onViewAppointment(petScheduled[0].id); }}
+                               onClick={(e) => { e.stopPropagation(); (onViewVisitDetails || onViewAppointment)(petScheduled[0].id); }}
                                className="flex items-center gap-1 px-2 py-1 bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 rounded-lg text-[8px] font-black uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
                              >
                                <Eye size={9} /> Details
@@ -752,7 +762,7 @@ const renderOverview = () => (
                                        <button onClick={() => { (onManageWorkflow || onViewAppointment)?.(appt.id); setOpenUpcomingPetId(null); }} className="flex items-center gap-0.5 px-1.5 py-0.5 bg-amber-500 text-white rounded text-[7px] font-black uppercase hover:bg-amber-600 transition-all">
                                          <Play size={7} /> Workflow
                                        </button>
-                                       <button onClick={() => { onViewAppointment(appt.id); setOpenUpcomingPetId(null); }} className="flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 rounded text-[7px] font-black uppercase hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
+                                       <button onClick={() => { (onViewVisitDetails || onViewAppointment)(appt.id); setOpenUpcomingPetId(null); }} className="flex items-center gap-0.5 px-1.5 py-0.5 bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 rounded text-[7px] font-black uppercase hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
                                          <Eye size={7} /> Details
                                        </button>
                                      </div>
