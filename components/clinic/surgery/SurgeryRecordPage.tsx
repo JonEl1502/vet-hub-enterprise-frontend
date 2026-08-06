@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Slice, Loader2, X, ExternalLink, ImagePlus, CheckCircle2, Share2, Lock, PencilLine } from 'lucide-react';
+import { ArrowLeft, Slice, Loader2, X, ExternalLink, ImagePlus, CheckCircle2, Share2, Lock, PencilLine , Receipt} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { surgeryAPI, SurgeryRecord } from '../../../services';
@@ -364,6 +364,10 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
               ...(rec.appointmentId && onOpenAppointment ? [{
                 key: 'visit', label: 'Open visit', icon: ExternalLink, tone: 'seafoam' as const,
                 onClick: () => onOpenAppointment(rec.appointmentId!),
+              }] : []),
+              ...(rec.appointmentId && onOpenAppointment ? [{
+                key: 'billing', label: 'Go to billing', icon: Receipt, tone: 'seafoam' as const,
+                onClick: () => onOpenAppointment(rec.appointmentId!, true),
               }] : []),
               {
                 key: 'share',

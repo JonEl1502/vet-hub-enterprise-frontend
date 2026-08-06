@@ -1,7 +1,7 @@
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, ScanLine, Dog, Building2, Loader2, Save, Upload, X, ExternalLink, Share2, PencilLine } from 'lucide-react';
+import { ArrowLeft, ScanLine, Dog, Building2, Loader2, Save, Upload, X, ExternalLink, Share2, PencilLine , Receipt} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { imagingAPI, visitsAPI, ImagingRecord, ImagingImage } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
@@ -322,6 +322,10 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
           ...(currentAppt?.id != null && onOpenAppointment ? [{
             key: 'visit', label: 'Linked appointment', icon: ExternalLink, tone: 'seafoam' as const,
             onClick: () => onOpenAppointment(String(currentAppt.id), false),
+          }] : []),
+          ...(currentAppt?.id != null && onOpenAppointment ? [{
+            key: 'billing', label: 'Go to billing', icon: Receipt, tone: 'seafoam' as const,
+            onClick: () => onOpenAppointment(String(currentAppt.id), true),
           }] : []),
           { key: 'share', label: 'Share', icon: Share2, onClick: () => setSharing(true) },
           ...(doneLocked && !billLocked ? [{

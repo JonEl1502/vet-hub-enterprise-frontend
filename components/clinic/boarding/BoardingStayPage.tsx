@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2 , Receipt} from 'lucide-react';
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
@@ -928,6 +928,14 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
               // secondary actions have gone back to the rail. Check out stays
               // here with the discharge-weight input, which it consumes.
               { key: 'checkout', label: busy ? 'Checking out…' : 'Check out', icon: LogOut, onClick: () => checkOut(null), primary: true, disabled: busy },
+              // Billing is the one destination staff leave this page FOR
+              // (user, 2026-08-06: "in all special pages add go to billing
+              // button"), so it earns bar space the other rail actions don't.
+              // `settle: true` opens the visit ON the bill, not beside it.
+              ...(linkedApptId && onOpenAppointment ? [{
+                key: 'billing', label: 'Go to billing', icon: Receipt, tone: 'seafoam' as const,
+                onClick: () => onOpenAppointment(String(linkedApptId), true),
+              }] : []),
             ]}
             slot={(
               /* The discharge weight stays in the BAR, not the rail: Check out

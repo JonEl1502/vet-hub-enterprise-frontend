@@ -1,7 +1,7 @@
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, FlaskConical, Dog, Building2, FileText, Loader2, Save, Plus, X, ExternalLink, Upload } from 'lucide-react';
+import { ArrowLeft, FlaskConical, Dog, Building2, FileText, Loader2, Save, Plus, X, ExternalLink, Upload , Receipt} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { labAPI, visitsAPI, LabRecord, LabMarker } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
@@ -330,6 +330,10 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
           ...(currentAppt?.id != null && onOpenAppointment ? [{
             key: 'visit', label: 'Linked appointment', icon: ExternalLink, tone: 'seafoam' as const,
             onClick: () => onOpenAppointment(String(currentAppt.id), false),
+          }] : []),
+          ...(currentAppt?.id != null && onOpenAppointment ? [{
+            key: 'billing', label: 'Go to billing', icon: Receipt, tone: 'seafoam' as const,
+            onClick: () => onOpenAppointment(String(currentAppt.id), true),
           }] : []),
           { key: 'share', label: 'Share', icon: Upload, onClick: () => setSharing(true) },
           // Reopening is what un-freezes a RESULTED panel; only meaningful there.

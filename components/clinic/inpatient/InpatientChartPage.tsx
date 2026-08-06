@@ -1,6 +1,6 @@
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2, Trash2 } from 'lucide-react';
+import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2, Trash2 , Receipt} from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import TreatmentPlanPanel from './TreatmentPlanPanel';
 import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
@@ -890,7 +890,15 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
           <RecordActionBarSpacer />
           <RecordActionBar
             hint={billOutstanding ? 'Services or bill still open — discharge routes to billing' : undefined}
-            actions={[{ key: 'discharge', label: 'Discharge', icon: LogOut, onClick: () => setShowDischarge(true), primary: true }]}
+            actions={[
+              { key: 'discharge', label: 'Discharge', icon: LogOut, onClick: () => setShowDischarge(true), primary: true },
+              // See the boarding page — billing is the destination staff leave
+              // for, and `settle: true` opens the visit ON the bill.
+              ...((h.billing?.appointmentId || h.appointmentId) && onOpenAppointment ? [{
+                key: 'billing', label: 'Go to billing', icon: Receipt, tone: 'seafoam' as const,
+                onClick: () => onOpenAppointment(String(h.billing?.appointmentId || h.appointmentId), true),
+              }] : []),
+            ]}
           />
         </>
       )}

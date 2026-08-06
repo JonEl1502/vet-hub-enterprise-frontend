@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Scissors, Dog, ExternalLink } from 'lucide-react';
+import { ArrowLeft, Scissors, Dog, ExternalLink , Receipt} from 'lucide-react';
 import { Visit } from '../../../types';
 import { groomingAPI } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
@@ -215,6 +215,10 @@ const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChang
           ...(appointment.id != null && onOpenAppointment ? [{
             key: 'linked', label: 'Linked appointment', icon: ExternalLink, tone: 'seafoam' as const,
             onClick: () => onOpenAppointment(String(appointment.id), false),
+          }] : []),
+          ...(appointment.id != null && onOpenAppointment ? [{
+            key: 'billing', label: 'Go to billing', icon: Receipt, tone: 'seafoam' as const,
+            onClick: () => onOpenAppointment(String(appointment.id), true),
           }] : []),
         ]}
       />
