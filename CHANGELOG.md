@@ -59,6 +59,36 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: late-fee settings, inpatient stay notes + row deletes, billing/workflow navigation  —  2026-08-06
+- **What changed:** four things asked for in one pass.
+  1. **Late Collection** card in Clinic Management ⇒ Billables, beside the daily rates: grace
+     minutes, per-hour or flat, amount — with a worked-example row (30m / 1h15 / 3h20 late).
+  2. **Inpatient** gained whole-stay notes sharing ONE card with the notes-format toggle (mirroring
+     the boarding stay page), and delete buttons on vitals rows, daily-sheet entries and day
+     consumables.
+  3. **Go to billing** on all six record pages — surgery, lab, imaging, grooming, boarding,
+     inpatient.
+  4. Opening a visit from a **patient profile or client details** now lands on the visit
+     **workflow** instead of the read-only detail sheet.
+- **Why:** the late-fee policy had been enforced server-side since migration 190 but was only
+  settable by SQL. Inpatient had `admissionNotes`/`dischargeNotes` — both moment-in-time — so
+  anything true of the whole stay landed on whichever day was open. Billing was always one extra
+  click from a record page. And a visit opened from a patient is nearly always opened to *do*
+  something with it.
+- **Record impact:** 🔵 Low — the late-fee card writes three clinic columns; stay notes write one
+  new nullable column. The deletes are 🔴 on the row they target, which is the point.
+- **Data dependency:** backend migration **192** (`hospitalizations.notes`) and the 190 columns
+  exposed on the clinic API. Both live on staging and prod.
+- ⚠️ The late-fee preview **duplicates the server's `computeLateFee` arithmetic** (grace first,
+  then STARTED hours). Change one, change the other — a preview that disagrees with the invoice is
+  worse than no preview, because staff price the policy off that number.
+- ⚠️ Deleting a **MEDICATION** daily-sheet entry does NOT return stock or drop the charge: those
+  live on a separate consumable record. The UI confirms and says so; removing the consumable row
+  is what returns the stock.
+- ⚠️ Client details renders explicit **Workflow / Details pairs**. Repointing `onViewAppointment`
+  alone would have given the two buttons one destination, so its Details button keeps the
+  read-only sheet through a new `onViewVisitDetails` prop.
+
 ### feat: Revenue Desk — one page for bills + invoices, tabbed by state  —  2026-08-06
 - **What changed:** new page `revenue-desk` ("Bills & Invoices", Finance ⇒ second entry).
   A document switch (BILLS / INVOICES), five stat tiles per document, and status tabs that ARE the
