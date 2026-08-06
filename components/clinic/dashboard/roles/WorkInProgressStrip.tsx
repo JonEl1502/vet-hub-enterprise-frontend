@@ -53,7 +53,28 @@ const BLOCKS = [
 ];
 
 const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
-  const today = visitsInRange(visits, range);
+  /**
+   * Work in progress = STARTED IN RANGE **or** STILL OPEN.
+   *
+   * ⚠️ Range alone is wrong for anything multi-day. A boarder admitted on the
+   * 2nd and still in a kennel on the 6th is this morning's work every one of
+   * those days, but `visitsInRange` only matched the day it began — so the
+   * Boarding tile read 0 Active while the Boarding page listed the same animal
+   * as Day 5 (user, 2026-08-06: "stats not accurate"). Same for inpatient.
+   *
+   * Only applied when the range IS today: looking back at a past day should
+   * show that day, not leak today's still-open cases into it.
+   */
+  const inRange = visitsInRange(visits, range);
+  const showingToday = !range || range.isToday;
+  const today = React.useMemo(() => {
+    if (!showingToday) return inRange;
+    const seen = new Set(inRange.map(v => String(v.id)));
+    const stillOpen = visits.filter(
+      v => v.status === ApptStatus.IN_PROGRESS && !seen.has(String(v.id)),
+    );
+    return [...inRange, ...stillOpen];
+  }, [inRange, visits, showingToday]);
 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
