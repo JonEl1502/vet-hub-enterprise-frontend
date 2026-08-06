@@ -59,14 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
-### feat: expanded Dog/Cat breed fallback list  —  2026-08-06
+### chore: expanded Dog/Cat breed reference list (NOT user-visible)  —  2026-08-06
 - **What changed:** `BREEDS` in `constants.tsx` grown to match backend migration 181 (Dog 48, Cat 34),
   including **Kenyan Shepherd Dog (KSD)** and the Kenyan **Sokoke** cat.
 - **Why:** vet feedback 2026-08-06.
 - **Record impact:** 🟢 None.
-- ⚠️ **This constant is only the FALLBACK.** The pet form reads `useReferenceData()` → `GET /breeds`
-  from the database, so the list users actually see comes from migration 181. Kept in step so the
-  offline/failed-fetch path does not show a shorter list than the live one.
+- ⚠️ **CORRECTION to this entry's first wording: the constant is not a fallback, it is DEAD CODE.**
+  `BREEDS` is imported by no file, so the bundler tree-shakes it out — confirmed by grepping the
+  served prod bundle for "Kenyan Shepherd Dog" and getting **0**. The picker reads
+  `useReferenceData()` → `GET /breeds`, whose only fallback is the literal `['Mixed Breed']` in
+  `RegisterPetView`. **The user-visible change is backend migration 181, and that is live.** This
+  edit is documentation only; it is kept in step with 181 so the list does not become a lie.
 - **Data dependency:** backend migration **181**.
 
 ### feat: late-fee settings, inpatient stay notes + row deletes, billing/workflow navigation  —  2026-08-06

@@ -116,6 +116,14 @@ export const SPECIES = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Hamster', 'Snake', 'Hor
 /**
  * Breed lists for the species picker.
  *
+ * ⚠️⚠️ THIS CONSTANT IS NOT WIRED TO ANYTHING (verified 2026-08-06: `BREEDS` is
+ * exported and imported by NO file, so the bundler tree-shakes it out entirely).
+ * The breed picker reads the DATABASE — `useReferenceData()` → `GET /breeds` —
+ * and its only fallback is the literal `['Mixed Breed']` in `RegisterPetView`.
+ * **Editing this list changes nothing a user sees.** The live list is backend
+ * migration 181; change that. Kept here only as a readable reference of the
+ * intended set, and deliberately in step with 181 so it does not become a lie.
+ *
  * ⚠️ ORDERED FOR A KENYAN PRACTICE, not alphabetically. The vet's note
  * (2026-08-06): *"Add more breeds both dogs and cats including the KSD the
  * Kenyan Shepherd Dog. It falls under mixed but most clients nowadays prefer
