@@ -215,8 +215,26 @@ export const TourProvider: React.FC<ProviderProps> = ({ tours, onNavigate, curre
   return <TourContext.Provider value={value}>{children}</TourContext.Provider>;
 };
 
+/**
+ * Requires a `TourProvider` — throws without one. Unchanged: every consumer
+ * that destructures the tour directly (TourMenu, TourOverlay, RegisterPetView)
+ * genuinely lives under the provider and wants the loud failure.
+ */
 export const useTour = (): TourContextValue => {
   const ctx = useContext(TourContext);
   if (!ctx) throw new Error('useTour must be used within TourProvider');
   return ctx;
 };
+
+/**
+ * Same context, but `null` outside the provider instead of throwing.
+ *
+ * For chrome that renders in BOTH trees — the navbar's tour button sits above
+ * the provider on some routes. It used to call `useTour()` inside a try/catch,
+ * which is a rules-of-hooks violation: a hook that throws mid-render leaves
+ * React's hook cursor inconsistent, so the guard only *appeared* to work.
+ *
+ * ⚠️ `strictNullChecks` is OFF in this repo, so TypeScript will NOT stop you
+ * destructuring the result without a null check. Check it yourself.
+ */
+export const useOptionalTour = (): TourContextValue | null => useContext(TourContext) ?? null;

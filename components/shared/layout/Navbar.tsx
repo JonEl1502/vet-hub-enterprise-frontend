@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network, Zap, ArrowUpRight, Compass, MessageSquare } from 'lucide-react';
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
-import { useTour } from '../../../contexts/TourContext';
+import { useOptionalTour } from '../../../contexts/TourContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { UserRole, Clinic, Visit, ClinicSubscription } from '../../../types';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
@@ -50,25 +50,24 @@ const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; colo
 };
 
 // Top-bar entry point into the in-app guided tours. Safe outside a
-// TourProvider — useTour throws in that case, so we guard with a try/render.
+// TourProvider — `useOptionalTour` returns null there.
 const TourLauncherButton: React.FC = () => {
-  try {
-    const { openMenu } = useTour();
-    return (
-      <button
-        onClick={openMenu}
-        className="p-2 text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-100 transition-all rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800"
-        title="Take a tour"
-        aria-label="Take a tour"
-      >
-        <Compass size={18} />
-      </button>
-    );
-  } catch {
-    return null;
-  }
+  // ⚠️ Was `try { useTour() } catch { return null }`. Calling a hook inside a
+  // try/catch is a rules-of-hooks violation: a hook that throws mid-render
+  // leaves React's hook cursor inconsistent, so the guard only appeared to work.
+  const tour = useOptionalTour();
+  if (!tour) return null;
+  return (
+    <button
+      onClick={tour.openMenu}
+      className="p-2 text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-100 transition-all rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800"
+      title="Take a tour"
+      aria-label="Take a tour"
+    >
+      <Compass size={18} />
+    </button>
+  );
 };
-
 const Navbar: React.FC<NavbarProps> = ({
   activeView,
   clinic,

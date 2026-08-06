@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### chore: ESLint + react-hooks — the check that would have caught the Billing crash  —  2026-08-05
+- **What changed:** added `eslint`, `eslint-plugin-react-hooks`, `@typescript-eslint/parser` and a
+  narrow `eslint.config.js`. `npm run lint` (and `lint:hooks` for hooks only).
+- **Why:** the Billing page crashed on every visit for four days and `tsc` reported 0 errors
+  throughout — a hooks-order violation is a runtime contract the type-checker cannot see.
+- **Record impact:** 🟢 None — tooling only.
+- ⚠️ **Only the hooks rules are enabled.** `rules-of-hooks` = error, `exhaustive-deps` = warn. A
+  full recommended set would emit thousands of pre-existing warnings on a repo that has never had
+  a linter, and a signal nobody reads is not a signal.
+- ⚠️ Ignores must be `**/dist/**` and `.claude/**`, not `dist/**` — linting a minified bundle
+  yields dozens of bogus errors and OOMs the linter (it did, at 4 GB).
+- ⚠️ `strict`/`strictNullChecks` are OFF in `tsconfig.json`, so TS will not flag a null
+  destructure. Worth knowing when a hook can return null.
+- **Fixed by the new rule:** `Navbar`'s tour button called `useTour()` inside a `try/catch` — a
+  hook that throws mid-render leaves React's hook cursor inconsistent, so the guard only appeared
+  to work. `TourContext` now exports `useTour` (throws, unchanged for its three real consumers)
+  and `useOptionalTour` (null outside the provider) for chrome rendered in both trees.
+
+### fix: Today's work in progress cards open their own page  —  2026-08-05
+- **What changed:** each card navigates to its module — Boarding, Inpatient, Surgery, Grooming;
+  Consultation goes to the visits list, which is that view.
+- **Why:** both dashboards passed `onOpen={() => onNavigate('appointments')}`, discarding the
+  block key, so five different cards had one destination.
+- **Record impact:** 🟢 None — navigation only.
+- ⚠️ The destination now lives on the BLOCK definition, so the two dashboards cannot drift.
+
 ### feat: remove a logged item from a boarding day; reorder procedure components  —  2026-08-06
 - **What changed:** (1) the read-only day summary's `ITEM` rows get a delete, so a mis-logged
   consumable no longer needs the day editor opened to remove it — it returns the stock and drops

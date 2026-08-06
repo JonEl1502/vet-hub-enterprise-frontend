@@ -12,34 +12,41 @@ import { visitsInRange, hasCategory, DayRange } from './roleShared';
 
 interface Props {
   visits: Visit[];
-  onOpen?: (filter: string) => void;
+  /**
+   * Called with the block's DESTINATION VIEW key (not its own key), so the
+   * caller just forwards it to navigate. Both dashboards used to ignore the
+   * argument and send every card to `appointments`, which is what made the
+   * strip feel dead — five different cards, one destination.
+   */
+  onOpen?: (view: string) => void;
   /** Day the dashboard is pointed at. Omitted = today (user, 2026-08-04). */
   range?: DayRange;
 }
 
 const BLOCKS = [
   {
-    key: 'boarding', label: 'Boarding', icon: Home,
+    key: 'boarding', label: 'Boarding', icon: Home, view: 'boarding',
     tint: 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/30',
     match: (v: Visit) => v.encounterType === 'BOARDING' || hasCategory(v, 'board'),
   },
   {
-    key: 'inpatient', label: 'Inpatient', icon: BedDouble,
+    key: 'inpatient', label: 'Inpatient', icon: BedDouble, view: 'inpatient',
     tint: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30',
     match: (v: Visit) => !!(v as any).hospitalizationId || hasCategory(v, 'inpatient', 'hospital'),
   },
   {
-    key: 'consultation', label: 'Consultation', icon: Stethoscope,
+    // No dedicated consultations page — the visits list IS that view.
+    key: 'consultation', label: 'Consultation', icon: Stethoscope, view: 'appointments',
     tint: 'text-seafoam bg-seafoam/10',
     match: (v: Visit) => v.encounterType === 'VET_VISIT' || hasCategory(v, 'consult'),
   },
   {
-    key: 'surgery', label: 'Surgery', icon: Scissors,
+    key: 'surgery', label: 'Surgery', icon: Scissors, view: 'surgery',
     tint: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-950/30',
     match: (v: Visit) => hasCategory(v, 'surg'),
   },
   {
-    key: 'grooming', label: 'Grooming', icon: Syringe,
+    key: 'grooming', label: 'Grooming', icon: Syringe, view: 'grooming',
     tint: 'text-violet-600 dark:text-violet-400 bg-violet-50 dark:bg-violet-950/30',
     match: (v: Visit) => v.encounterType === 'GROOMING' || hasCategory(v, 'groom'),
   },
@@ -64,7 +71,7 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
           return (
             <Tag
               key={b.key}
-              {...(onOpen ? { type: 'button', onClick: () => onOpen(b.key) } : {})}
+              {...(onOpen ? { type: 'button', onClick: () => onOpen(b.view), title: `Open ${b.label}` } : {})}
               className={`rounded-2xl border border-slate-100 dark:border-zinc-800 p-3 text-left transition-all ${
                 onOpen ? 'hover:border-seafoam cursor-pointer' : ''
               }`}
