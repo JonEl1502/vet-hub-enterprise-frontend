@@ -113,15 +113,48 @@ export const COUNTRIES = [
 
 export const SPECIES = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Hamster', 'Snake', 'Horse', 'Lizard', 'Parrot', 'Other'];
 
+/**
+ * Breed lists for the species picker.
+ *
+ * ⚠️ ORDERED FOR A KENYAN PRACTICE, not alphabetically. The vet's note
+ * (2026-08-06): *"Add more breeds both dogs and cats including the KSD the
+ * Kenyan Shepherd Dog. It falls under mixed but most clients nowadays prefer
+ * this."* So **Kenyan Shepherd Dog (KSD)** is its own entry rather than being
+ * folded into Mixed Breed — what the owner calls the dog is what goes on the
+ * record, and a breed nobody can select is a breed that gets typed as free text
+ * and then cannot be reported on.
+ *
+ * The locally common ones lead each list (Japanese Spitz, Boerboel, Basenji,
+ * Sokoke — the last two are African, the Sokoke is Kenyan). Everything after
+ * that is the usual international set.
+ */
 export const BREEDS: Record<string, string[]> = {
   'Dog': [
-    'Mixed Breed', 'Rhodesian Ridgeback', 'German Shepherd', 'Golden Retriever', 
-    'Labrador Retriever', 'Bulldog', 'Beagle', 'Poodle', 'Rottweiler', 
-    'Yorkshire Terrier', 'Boxer', 'Dachshund'
+    'Mixed Breed', 'Kenyan Shepherd Dog (KSD)',
+    // Common in Kenyan practice.
+    'German Shepherd', 'Japanese Spitz', 'Rhodesian Ridgeback', 'Boerboel',
+    'Rottweiler', 'Doberman Pinscher', 'Jack Russell Terrier', 'Basenji',
+    'Maltese', 'Shih Tzu', 'Bull Terrier', 'American Pit Bull Terrier',
+    'Cane Corso', 'Belgian Malinois', 'Pomeranian', 'Chihuahua',
+    // Wider international set.
+    'Golden Retriever', 'Labrador Retriever', 'Bulldog', 'Beagle', 'Poodle',
+    'Yorkshire Terrier', 'Boxer', 'Dachshund', 'Border Collie', 'Cocker Spaniel',
+    'Dalmatian', 'Great Dane', 'Saint Bernard', 'Siberian Husky', 'Samoyed',
+    'Pug', 'Lhasa Apso', 'Shar Pei', 'Weimaraner', 'Whippet', 'Greyhound',
+    'Akita', 'Chow Chow', 'Bernese Mountain Dog', 'Newfoundland',
+    'Staffordshire Bull Terrier', 'Alaskan Malamute', 'Papillon', 'Bichon Frise',
+    'Other',
   ],
   'Cat': [
-    'Mixed Breed', 'Siamese', 'Persian', 'Maine Coon', 'Ragdoll', 
-    'British Shorthair', 'Abyssinian', 'Sphynx', 'Bengal', 'Scottish Fold'
+    'Mixed Breed', 'Domestic Short Hair', 'Domestic Long Hair',
+    // Sokoke is a Kenyan landrace breed.
+    'Sokoke', 'Siamese', 'Persian', 'Maine Coon', 'Ragdoll',
+    'British Shorthair', 'Abyssinian', 'Sphynx', 'Bengal', 'Scottish Fold',
+    'Russian Blue', 'Birman', 'Burmese', 'Norwegian Forest', 'Turkish Angora',
+    'Turkish Van', 'Somali', 'Oriental Shorthair', 'Savannah', 'Tonkinese',
+    'Devon Rex', 'Cornish Rex', 'Manx', 'Exotic Shorthair', 'Himalayan',
+    'Ragamuffin', 'American Shorthair', 'Chartreux', 'Balinese', 'Singapura',
+    'Other',
   ],
   'Bird': ['Budgerigar', 'Cockatiel', 'Lovebird', 'African Grey Parrot', 'Canary', 'Finch'],
   'Rabbit': ['Netherland Dwarf', 'Holland Lop', 'Mini Rex', 'Lionhead', 'Flemish Giant'],

@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: expanded Dog/Cat breed fallback list  —  2026-08-06
+- **What changed:** `BREEDS` in `constants.tsx` grown to match backend migration 181 (Dog 48, Cat 34),
+  including **Kenyan Shepherd Dog (KSD)** and the Kenyan **Sokoke** cat.
+- **Why:** vet feedback 2026-08-06.
+- **Record impact:** 🟢 None.
+- ⚠️ **This constant is only the FALLBACK.** The pet form reads `useReferenceData()` → `GET /breeds`
+  from the database, so the list users actually see comes from migration 181. Kept in step so the
+  offline/failed-fetch path does not show a shorter list than the live one.
+- **Data dependency:** backend migration **181**.
+
 ### feat: late-fee settings, inpatient stay notes + row deletes, billing/workflow navigation  —  2026-08-06
 - **What changed:** four things asked for in one pass.
   1. **Late Collection** card in Clinic Management ⇒ Billables, beside the daily rates: grace
