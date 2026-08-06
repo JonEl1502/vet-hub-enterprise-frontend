@@ -211,7 +211,31 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
   // settle happen THERE, never here. Named so the bar can call it too.
   const checkout = async () => {
     await save();
-    try { await Promise.all(records.filter(r => r.status !== 'COMPLETED').map(r => groomingAPI.update(r.id, { status: 'COMPLETED' }))); } catch { /* non-fatal — workflow still opens */ }
+    const pending = records.filter(r => r.status !== 'COMPLETED');
+    if (pending.length) {
+      try {
+        await Promise.all(pending.map(r => groomingAPI.update(r.id, { status: 'COMPLETED' })));
+        // Reflect it locally too, so the status chips agree immediately rather
+        // than until the next refetch.
+        setRecords(rs => rs.map(r => ({ ...r, status: 'COMPLETED' as GroomingRecord['status'] })));
+      } catch (e: any) {
+        /**
+         * ⚠️ Do NOT swallow this and continue.
+         *
+         * It used to be `catch { /* non-fatal — workflow still opens *\/ }`, so a
+         * failed transition sent the groom onward with its services still
+         * PENDING — the record read "not done" after the user had checked it
+         * out, and nothing said why (user, 2026-08-06: "on checkout make sure
+         * it is marked as completed").
+         *
+         * Marking the work finished IS the checkout. Stop, say so, let them
+         * retry — an unfinished record that looks finished is worse than a
+         * checkout that refused.
+         */
+        toast.error(e?.message || 'Could not mark the grooming finished — checkout stopped so it does not go out as pending');
+        return;
+      }
+    }
     onSaved?.();
     onFinalize?.();
   };
