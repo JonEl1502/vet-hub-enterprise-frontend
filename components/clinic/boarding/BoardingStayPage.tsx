@@ -59,6 +59,14 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   const [showShare, setShowShare] = useState(false);
   /** Which logged item is being removed from a day summary. */
   const [removingCons, setRemovingCons] = useState<string | null>(null);
+  /** Stay-wide note. Local draft so typing is not fought by every refetch. */
+  const [notesDraft, setNotesDraft] = useState('');
+  const [notesDirty, setNotesDirty] = useState(false);
+  const [notesSaving, setNotesSaving] = useState(false);
+  // Read inside `load`, which is a useCallback — a ref avoids re-creating it
+  // (and re-firing the effect) on every keystroke.
+  const notesDirtyRef = React.useRef(false);
+  React.useEffect(() => { notesDirtyRef.current = notesDirty; }, [notesDirty]);
 
   // Spawn a grooming service onto this stay's linked appointment so it surfaces
   // (with real name + price) on the visit's SERVICES list and is attended on the
@@ -176,7 +184,12 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
     setLoading(true);
     try {
       const res = await boardingAPI.getById(stayId);
-      if (res.success && res.data?.stay) setStay(res.data.stay);
+      if (res.success && res.data?.stay) {
+        setStay(res.data.stay);
+        // Only hydrate when the user is NOT mid-edit — chargeStay and the day
+        // editor both refetch, and overwriting a half-typed note would lose it.
+        setNotesDraft(prev => (notesDirtyRef.current ? prev : (res.data!.stay as any).notes ?? ''));
+      }
     } catch (e) { console.error('Failed to load stay', e); }
     finally { setLoading(false); }
   }, [stayId]);
@@ -298,7 +311,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
               After check-out the grid shows the real check-in → check-out range
               and the billed day count. */}
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <Fact label="Status" value={stay.status === 'ADMITTED'
                 ? `Day ${Math.max(0, calendarDaysBetween(stay.dropOffAt)) + 1}`
                 : stay.status === 'CHECKED_OUT' && stay.actualPickupAt
@@ -321,6 +334,24 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                     display={stay.expectedPickupAt ? `${formatDate(stay.expectedPickupAt)} · ${new Date(stay.expectedPickupAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : '—'}
                     disabled={!active}
                     onSave={v => saveFact({ expectedPickupAt: v ? new Date(v).toISOString() : null })} />}
+              {/* What the stay has cost SO FAR, up here with the other facts
+                  (user, 2026-08-06). It was only visible as small print inside
+                  the pricing editor, so the number staff are asked for at the
+                  desk lived three scrolls down. Nights + food, the same maths
+                  the accrual line below prints. */}
+              {(() => {
+                const days = Math.max(1, calendarDaysBetween(stay.dropOffAt, stay.actualPickupAt ?? undefined));
+                const r = Number(stay.dailyRate ?? clinicDayRate ?? 0) || 0;
+                const fp: any = (stay as any).foodProgram || {};
+                const foodPerDay = fp.providedByClient === false
+                  ? (Number(fp.ratePerMeal) || 0) * (Number(fp.mealsPerDay) || 0) : 0;
+                const total = days * (r + foodPerDay);
+                return (
+                  <Fact
+                    label={active ? 'Charges so far' : 'Stay charges'}
+                    value={total > 0 ? `KES ${total.toLocaleString()}` : '—'} />
+                );
+              })()}
             </div>
           </div>
 
@@ -764,13 +795,47 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
             </div>
             )}
 
-            {/* Notes format sits at the BOTTOM (user, 2026-08-04) — it styles the
-                log you have already read; leading with it put a preference above
-                the record. Deliberately NOT pinned: it is not an action. */}
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
-              {/* No label here — NotesFormatToggle renders its own "Notes
-                  format" heading, so the card was printing it twice. */}
-              <NotesFormatToggle value={stay.displayFormat || 'PARAGRAPH'} onChange={(v) => { boardingAPI.update(stayId, { displayFormat: v } as any).then(() => { load(); onChanged?.(); }); }} />
+            {/* ONE card, not two (user, 2026-08-06: "combine the cards").
+                A lone Notes-format toggle in its own bordered card was a whole
+                frame around two chips. It belongs with the note it formats. */}
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
+              {/* The stay had no note field at all — every note had to go on a
+                  DAY, so anything about the stay as a whole ("owner travelling,
+                  reachable on the other number") had nowhere to live
+                  (user, 2026-08-06: "i cant add notes"). */}
+              <div className="space-y-1.5">
+                <label className="field-label">Stay notes</label>
+                <textarea
+                  className="field-textarea"
+                  rows={3}
+                  disabled={!active}
+                  placeholder="Anything about the whole stay — not tied to one day"
+                  value={notesDraft}
+                  onChange={e => { setNotesDraft(e.target.value); setNotesDirty(true); }}
+                />
+                {notesDirty && active && (
+                  <button
+                    type="button"
+                    disabled={notesSaving}
+                    onClick={async () => {
+                      setNotesSaving(true);
+                      try {
+                        await boardingAPI.update(stayId, { notes: notesDraft } as any);
+                        setNotesDirty(false);
+                        toast.success('Stay notes saved');
+                        await load(); onChanged?.();
+                      } catch (e: any) { toast.error(e?.message || 'Could not save the notes'); }
+                      finally { setNotesSaving(false); }
+                    }}
+                    className="px-3 py-1.5 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-50">
+                    {notesSaving ? 'Saving…' : 'Save notes'}
+                  </button>
+                )}
+              </div>
+              <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
+                {/* No label here — NotesFormatToggle renders its own heading. */}
+                <NotesFormatToggle value={stay.displayFormat || 'PARAGRAPH'} onChange={(v) => { boardingAPI.update(stayId, { displayFormat: v } as any).then(() => { load(); onChanged?.(); }); }} />
+              </div>
             </div>
           </div>
           </div>

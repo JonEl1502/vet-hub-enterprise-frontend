@@ -132,7 +132,18 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
     return () => { alive = false; };
   }, [h?.billing?.appointmentId, h?.logs?.length]);
 
+  /** Any TPR field carrying a value. An all-blank row is not an observation. */
+  const vitalHasValue = Object.values(vital).some(v => String(v ?? '').trim() !== '');
+
   const addVital = async () => {
+    // ⚠️ Guard, not just a disabled button: Enter in any field reaches here
+    // too. An empty row rendered as "09:47 am — — — — — —" on the chart, which
+    // reads as "observed, all normal" rather than "nothing was recorded"
+    // (user, 2026-08-06). On a clinical chart that difference matters.
+    if (!vitalHasValue) {
+      toast.error('Record at least one reading before adding a vitals row');
+      return;
+    }
     setBusy(true);
     try {
       await inpatientAPI.addVital(hospId, {
@@ -468,7 +479,8 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                     </label>
                                   ))}
                                 </div>
-                                <button onClick={addVital} disabled={busy}
+                                <button onClick={addVital} disabled={busy || !vitalHasValue}
+                                  title={vitalHasValue ? undefined : 'Record at least one reading first'}
                                   className="mt-1.5 flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 hover:bg-seafoam/10 text-seafoam rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam/30 disabled:opacity-50">
                                   {busy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Add vitals
                                 </button>
