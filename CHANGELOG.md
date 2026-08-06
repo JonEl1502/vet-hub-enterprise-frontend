@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: "INVOICES (0)" above a listed invoice  —  2026-08-06
+- **What changed:** the Invoices tab chip counts invoice DOCUMENTS instead of OPEN invoices.
+- **Why:** the count used `open.length`, which excludes settled invoices — so a client whose only
+  invoice was PAID saw "INVOICES (0)" directly above that invoice. The OPEN/OVERDUE/PAID tiles
+  underneath were already right (0 / 0 / 1), which is what made it read as a contradiction.
+- **Record impact:** 🟢 None — display only.
+- ⚠️ Not fixed with `visible`/`invoiceable`: both derive from `only` (the ACTIVE tab), so the chip
+  would have shown a different number depending on which tab you were standing on.
+- ⚠️ Search-independent, matching Payments and Receipts, which also count totals rather than the
+  filtered view — the "N of M shown" line above the list already covers search.
+
 ### chore: ESLint + react-hooks — the check that would have caught the Billing crash  —  2026-08-05
 - **What changed:** added `eslint`, `eslint-plugin-react-hooks`, `@typescript-eslint/parser` and a
   narrow `eslint.config.js`. `npm run lint` (and `lint:hooks` for hooks only).

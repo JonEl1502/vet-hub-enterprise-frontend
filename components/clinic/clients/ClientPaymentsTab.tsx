@@ -269,6 +269,8 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
     || i.visitId.includes(q);
 
   const visible = invoiceable.filter(matches);
+  /** Invoice DOCUMENTS this client has, independent of the active tab or search. */
+  const invoiceDocCount = invoices.filter(i => (i.invoices?.length ?? 0) > 0).length;
   const open = allOpen.filter(matches);
   const selectable = open.filter(i => i.collectable);
   // OUTSTANDING, not `total`. A part-paid invoice owes its remainder, and
@@ -467,7 +469,17 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   }
 
   const SUBS = [
-    { id: 'invoices' as const, label: 'Invoices', icon: FileText, count: open.length },
+    // ⚠️ Counts INVOICE DOCUMENTS, not open ones. It used to be `open.length`,
+    // which excludes settled invoices — so a client whose only invoice was PAID
+    // read "INVOICES (0)" directly above that invoice (reported 2026-08-06).
+    //
+    // Deliberately NOT `visible`/`invoiceable`: both are derived from `only`,
+    // the ACTIVE tab, so the chip would have shown a different number depending
+    // on which tab you were standing on. This uses the same rule the Invoices
+    // tab itself applies — "has an invoice document" — and is search-independent,
+    // matching Payments and Receipts, which also count totals rather than the
+    // filtered view. The "N of M shown" line above the list covers search.
+    { id: 'invoices' as const, label: 'Invoices', icon: FileText, count: invoiceDocCount },
     { id: 'payments' as const, label: 'Payments', icon: CreditCard, count: payments.length },
     { id: 'receipts' as const, label: 'Receipts', icon: Receipt, count: receipts.length },
   ];
