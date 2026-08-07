@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: pay first, fill the record later — the app now says so and takes you there  —  2026-08-07
+- **What changed:** after a payment on a visit that is still open, the confirmation says
+  **"Paid · record still open"** and offers a navigating action. On an **EMERGENCY** visit that is
+  an explicit yes/no — **"🚨 Yes, open triage"** / **"No, go to the workflow"**. Otherwise it is
+  **"Fill the report now"**. The dismiss button is now "Later", not "Done".
+- **Why:** vet ask — *"sometimes you're in a rush and you just want to bill and come back to the
+  notes later"*. **This already worked and nobody could tell.** `assertRecordEditable` exempts a
+  PREPAID visit still SCHEDULED/IN_PROGRESS, so taking money never locked the record — but nothing
+  said so and nothing took you back, so it read as impossible.
+- **Record impact:** 🟢 None — messaging and navigation only. No change to when a record locks.
+- ⚠️ The "still open" condition **mirrors the server's `prepaidStillOpen` exactly**. Promising
+  "still open" on a visit the server has locked would be worse than saying nothing — the user
+  would write notes into a form whose save 400s.
+- ⚠️ Triage is reachable: the tab renders for `isEmergency`, so the yes/no branch only shows where
+  the destination actually exists.
+
+### fix: a money event in the Journey opened Records, not Bill & Invoice  —  2026-08-07
+- **What changed:** `journeyNavigate` sends billing events to the `billing` tab + `bill` sub-tab.
+- **Why:** clicking "Payment received" in the journey landed on the clinical write-up. Same defect
+  the rail's "Bill & Invoice ›" link had — a money affordance pointing at Records.
+- **Record impact:** 🟢 None — navigation only.
+
 ### chore: breed reference constant synced to migration 182 (NOT user-visible)  —  2026-08-07
 - **What changed:** `BREEDS` in `constants.tsx` regenerated from migration 182 — Dog 221, Cat 78.
 - **Record impact:** 🟢 None.

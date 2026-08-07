@@ -524,7 +524,14 @@ const VisitDetailInner: React.FC<Props> = ({
   const journeyNavigate = (e: { label: string; kind: string }) => {
     setShowJourney(false);
     const label = (e.label || '').toLowerCase();
-    if (e.kind === 'billing' || /\b(bill|paid|settle|invoice|payment)\b/.test(label)) { setWorkflowTab('records'); return; }
+    // A MONEY event opens the money tab. This sent you to `records` — which is
+    // Records & Reports, not Bill & Invoice — so clicking "Payment received" in
+    // the journey landed on the clinical write-up (user, 2026-08-07: "make sure
+    // front end easily communicates and navigates"). Same defect the rail's
+    // "Bill & Invoice ›" link had.
+    if (e.kind === 'billing' || /\b(bill|paid|settle|invoice|payment)\b/.test(label)) {
+      setWorkflowTab('billing'); setActiveBottomTab('bill'); return;
+    }
     if (/triage|stabilized|emergency/.test(label) && (isEmergency || closedTriageExists)) { setWorkflowTab('triage'); return; }
     const stepDef = Object.values(STEP_DEFS).find(sd => label.includes(sd.label.toLowerCase()));
     if (stepDef && wiz.steps.includes(stepDef.id)) { wiz.goTo(stepDef.id); setWorkflowTab('clinical'); return; }
@@ -7168,6 +7175,63 @@ const VisitDetailInner: React.FC<Props> = ({
                 </p>
               )}
 
+              {/* PAY FIRST, RECORD LATER (user, 2026-08-06/07).
+                  The vet's ask: "sometimes you're in a rush and you just want to
+                  bill and come back to the notes later" — and, for an emergency,
+                  "ask the user to open triage after payment (yes/no)".
+
+                  The backend already allows it: `assertRecordEditable` exempts a
+                  PREPAID visit still SCHEDULED/IN_PROGRESS, so taking money does
+                  NOT lock the record. Nothing said so and nothing took you back,
+                  which is why it read as impossible. This says it and navigates.
+
+                  ⚠️ The condition mirrors the server's `prepaidStillOpen` exactly.
+                  Promising "still open" on a visit the server has locked would be
+                  worse than saying nothing — the user would write notes into a
+                  form whose save 400s. */}
+              {(() => {
+                const stillOpen = appointment.status === ApptStatus.SCHEDULED
+                  || appointment.status === ApptStatus.IN_PROGRESS;
+                if (!stillOpen) return null;
+                return (
+                  <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-950/20 p-3 space-y-2">
+                    <p className="text-[11px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                      Paid · record still open
+                    </p>
+                    <p className="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 leading-relaxed">
+                      {isEmergency
+                        ? 'Payment is in. This is an EMERGENCY visit — open triage now, or come back to it from Clinical Workflow.'
+                        : 'Payment is in. Nothing is locked: fill the report now, or come back to this visit later and finish it.'}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {isEmergency ? (
+                        <>
+                          <button
+                            onClick={() => { setSettleResult(null); setWorkflowTab('triage'); }}
+                            className="px-4 py-2 rounded-xl bg-red-600 text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                          >
+                            🚨 Yes, open triage
+                          </button>
+                          <button
+                            onClick={() => { setSettleResult(null); setWorkflowTab('clinical'); }}
+                            className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300 hover:border-seafoam hover:text-seafoam transition-all"
+                          >
+                            No, go to the workflow
+                          </button>
+                        </>
+                      ) : (
+                        <button
+                          onClick={() => { setSettleResult(null); setWorkflowTab('clinical'); }}
+                          className="px-4 py-2 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all"
+                        >
+                          Fill the report now
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })()}
+
               <div className="flex gap-2 pt-1">
                 <button onClick={() => { setSettleResult(null); setActiveBottomTab('receipt'); }}
                   className="flex-1 py-2.5 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">
@@ -7175,7 +7239,7 @@ const VisitDetailInner: React.FC<Props> = ({
                 </button>
                 <button onClick={() => setSettleResult(null)}
                   className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:border-seafoam hover:text-seafoam transition-all">
-                  Done
+                  Later
                 </button>
               </div>
             </div>
