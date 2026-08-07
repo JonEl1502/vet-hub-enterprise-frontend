@@ -7252,10 +7252,25 @@ const VisitDetailInner: React.FC<Props> = ({
           ancestor with a transform/filter and truly covers the viewport. */}
       {showSettleModal && (() => {
         const discountVal = parseFloat(settleDiscountValue) || 0;
+        /**
+         * Collect what is OUTSTANDING, not the bill's face value.
+         *
+         * ⚠️ This used to base everything on `appointment.totalCost`, which is
+         * the whole receivable — so a visit that had already been part paid
+         * offered to collect the full amount again. Prod visit #142: 2,517.50
+         * paid, a 2,500 consultation added afterwards, and the modal proposed
+         * 5,017.50 "paying in full". `reconciliationState.balance` is the
+         * server's own figure (final − paid), and it falls back to totalCost
+         * only when no money has landed yet.
+         */
+        const alreadyPaid = reconciliationState?.paidSoFar ?? 0;
+        const settleBase = alreadyPaid > 0.005
+          ? (reconciliationState?.balance ?? appointment.totalCost)
+          : appointment.totalCost;
         const discountAmount = settleDiscountType === 'PERCENTAGE'
-          ? (appointment.totalCost * discountVal) / 100
+          ? (settleBase * discountVal) / 100
           : discountVal;
-        const finalTotal = Math.max(0, appointment.totalCost - discountAmount);
+        const finalTotal = Math.max(0, settleBase - discountAmount);
         return createPortal(
           <div className="fixed inset-0 bg-slate-900/70 dark:bg-black/80 z-[800] flex items-center justify-center p-4 sm:p-6 animate-in fade-in overflow-y-auto" onClick={() => setShowSettleModal(false)}>
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full my-auto rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -7457,9 +7472,24 @@ const VisitDetailInner: React.FC<Props> = ({
 
                 {/* Total summary */}
                 <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-xl p-4 space-y-2">
+                  {/* When part of this visit is already paid, say so — a bare
+                      "Subtotal 2,500" against a 5,017.50 bill is what made the
+                      numbers look like they disagreed. */}
+                  {alreadyPaid > 0.005 && (
+                    <>
+                      <div className="flex justify-between text-[10px] font-black uppercase text-slate-400">
+                        <span>Bill total</span>
+                        <span>{client?.currency || 'KES'} {appointment.totalCost.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-[10px] font-black uppercase text-emerald-600">
+                        <span>Already paid</span>
+                        <span>− {client?.currency || 'KES'} {alreadyPaid.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </>
+                  )}
                   <div className="flex justify-between text-[10px] font-black uppercase text-slate-400">
-                    <span>Subtotal</span>
-                    <span>{client?.currency || 'KES'} {appointment.totalCost.toLocaleString()}</span>
+                    <span>{alreadyPaid > 0.005 ? 'Balance due' : 'Subtotal'}</span>
+                    <span>{client?.currency || 'KES'} {settleBase.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                   </div>
                   {discountAmount > 0 && (
                     <div className="flex justify-between text-[10px] font-black uppercase text-amber-500">
@@ -7471,7 +7501,7 @@ const VisitDetailInner: React.FC<Props> = ({
                     <span>Total</span>
                     <span>
                       {discountAmount > 0 && (
-                        <s className="text-slate-400 text-[11px] font-bold mr-2">{client?.currency || 'KES'} {appointment.totalCost.toLocaleString()}</s>
+                        <s className="text-slate-400 text-[11px] font-bold mr-2">{client?.currency || 'KES'} {settleBase.toLocaleString(undefined, { maximumFractionDigits: 2 })}</s>
                       )}
                       <span className="text-seafoam">{client?.currency || 'KES'} {finalTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
                     </span>

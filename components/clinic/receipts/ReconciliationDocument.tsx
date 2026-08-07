@@ -1,5 +1,5 @@
 import React from 'react';
-import { CheckCircle2, FileClock, AlertTriangle, Ban } from 'lucide-react';
+import { CheckCircle2, FileClock, AlertTriangle, Ban, Receipt as ReceiptIcon } from 'lucide-react';
 import Money from '../../shared/common/Money';
 import invoicesAPI from '../../../services/modules/invoices.api';
 import type { VisitReconciliation } from '../../../services/modules/clients.api';
@@ -112,7 +112,29 @@ const ReconciliationDocument: React.FC<Props> = ({
     );
   }
 
-  const isReceipt = data.kind === 'RECEIPT_ISSUED' && !!data.receipt;
+  /**
+   * A RECEIPT only when the receivable is actually filled.
+   *
+   * ⚠️ `data.settled` is in the condition on purpose. This used to read
+   * `kind === 'RECEIPT_ISSUED' && !!data.receipt`, and the server used to set
+   * that kind from the mere EXISTENCE of a receipt row — so prod visit #142,
+   * which had a 2,500 consultation added 19 minutes after a 2,517.50 payment,
+   * printed a green "SETTLED IN FULL" receipt over a 2,500 balance. The server
+   * now keys `kind` off the balance too; this keeps the document honest even
+   * against an older API.
+   */
+  const isReceipt = data.kind === 'RECEIPT_ISSUED' && !!data.receipt && data.settled;
+
+  /**
+   * A receipt exists, yet money is owed. Two very different stories, and the
+   * receipt's own covered amount is what tells them apart:
+   *   · paid < covered   → a payment behind the receipt was REVERSED
+   *   · final > covered  → charges were ADDED after the receivable was filled
+   */
+  const issuedReceipt = !isReceipt && data.receipt ? data.receipt : null;
+  const covered = Number(issuedReceipt?.amount ?? 0);
+  const reversed = !!issuedReceipt && covered > 0 && data.paidSoFar < covered - 0.005;
+  const chargesAdded = !!issuedReceipt && !reversed && data.finalAmount > covered + 0.005;
   const accent = isReceipt ? 'emerald' : 'amber';
 
   // Tailwind cannot see interpolated class names, so the two palettes are
@@ -259,25 +281,66 @@ const ReconciliationDocument: React.FC<Props> = ({
             {data.payments.length === 1 ? 'Payment received' : `${data.payments.length} payments received`}
           </p>
           <div className="space-y-1">
-            {data.payments.map((pm) => (
+            {data.payments.map((pm, i) => (
               <div key={pm.transactionId} className="flex justify-between items-center gap-3">
                 <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 truncate">
                   {new Date(pm.paidAt).toLocaleDateString()} · {String(pm.method).replace('_', ' ')}
+                  {/* The document THIS payment produced — the pairing the user
+                      asked to see ("the first payment n receipt ... and the
+                      remaing one too"). Server-provided since 193; falls back
+                      to the single receipt when talking to an older API. */}
+                  {(pm.receiptNumber || (data.receipt && data.payments.length === 1)) && (
+                    <span className="ml-1.5 font-black text-slate-400">
+                      · {pm.receiptNumber || data.receipt!.receiptNumber}
+                    </span>
+                  )}
                 </span>
                 {amount(pm.amount, 'text-[11px] font-black text-pine dark:text-zinc-200 font-mono tabular-nums')}
               </div>
             ))}
+            {/* The other half of the story: what is STILL to pay. Without this
+                the block lists money received and silently stops. */}
+            {data.balance > 0.005 && (
+              <div className="flex justify-between items-center gap-3 pt-1.5 mt-1.5 border-t border-dashed border-slate-200 dark:border-zinc-700">
+                <span className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">
+                  Still to pay
+                </span>
+                {amount(data.balance, 'text-[11px] font-black text-amber-600 dark:text-amber-400 font-mono tabular-nums')}
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* A receipt that was un-issued because its payment was reversed. The row
-          survives for audit, so say why rather than letting it look valid. */}
-      {isReceipt && data.balance > 0.005 && (
-        <div className="flex items-start gap-2 px-4 py-3 bg-rose-50 dark:bg-rose-900/20 border-t border-rose-200 dark:border-rose-800">
-          <Ban size={13} className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
-          <p className="text-[10px] font-bold text-rose-700 dark:text-rose-400">
-            A balance is outstanding again — a payment behind this receipt was reversed.
+      {/* A receipt was issued but the visit owes money again. Name the receipt
+          and say WHICH of the two things happened — the old copy blamed a
+          reversal for both, which is simply wrong when someone added a charge
+          after the bill was settled. */}
+      {issuedReceipt && (
+        <div className={`flex items-start gap-2 px-4 py-3 border-t ${
+          reversed
+            ? 'bg-rose-50 dark:bg-rose-900/20 border-rose-200 dark:border-rose-800'
+            : 'bg-sky-50 dark:bg-sky-900/20 border-sky-200 dark:border-sky-800'
+        }`}>
+          {reversed
+            ? <Ban size={13} className="text-rose-600 dark:text-rose-400 shrink-0 mt-0.5" />
+            : <ReceiptIcon size={13} className="text-sky-600 dark:text-sky-400 shrink-0 mt-0.5" />}
+          <p className={`text-[10px] font-bold leading-relaxed ${
+            reversed ? 'text-rose-700 dark:text-rose-400' : 'text-sky-700 dark:text-sky-400'
+          }`}>
+            {reversed ? (
+              <>A balance is outstanding again — a payment behind receipt{' '}
+                <span className="font-black">{issuedReceipt.receiptNumber}</span> was reversed.</>
+            ) : chargesAdded ? (
+              <><span className="font-black">{issuedReceipt.receiptNumber}</span> was issued for{' '}
+                {sourceCurrency} {covered.toLocaleString(undefined, { maximumFractionDigits: 2 })} and
+                remains valid for that payment. Charges added since take the visit to{' '}
+                {sourceCurrency} {data.finalAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })},
+                so a balance is owed again — a further receipt is issued when it is paid.</>
+            ) : (
+              <>Receipt <span className="font-black">{issuedReceipt.receiptNumber}</span> covers part
+                of this visit; a balance is still outstanding.</>
+            )}
           </p>
         </div>
       )}

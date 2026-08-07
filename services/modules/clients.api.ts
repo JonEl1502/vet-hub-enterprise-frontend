@@ -181,8 +181,11 @@ export interface VisitReconciliation {
   paidSoFar: number;
   balance: number;
   settled: boolean;
-  receipt: { id: string; receiptNumber: string; issuedAt: string } | null;
-  payments: { transactionId: string; amount: number; method: string; paidAt: string }[];
+  /** `amount` = what this receipt covered, which need not equal paidSoFar. */
+  receipt: { id: string; receiptNumber: string; issuedAt: string; amount?: number } | null;
+  payments: { transactionId: string; amount: number; method: string; paidAt: string; receiptNumber?: string | null }[];
+  /** Every live receipt on this receivable, newest first (193). */
+  receipts?: { id: string; receiptNumber: string; issuedAt: string; amount: number }[];
   generatedAt: string;
 }
 
