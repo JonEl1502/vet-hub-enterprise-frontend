@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the money document told the truth about a part-paid visit  —  2026-08-07
+- **What changed:** the receipt printed **"SETTLED IN FULL"** over an unpaid balance — prod visit
+  #142 itemised seven lines totalling 5,017.50 under a 2,517.50 receipt reading balance 0.
+  `isReceipt` was `kind` + the presence of a receipt row and never consulted `data.settled`.
+  - `isReceipt` now requires `settled`, so a part-paid visit renders the reconciliation slip.
+  - The banner names the issued receipt and distinguishes a **reversed payment** from **charges
+    added after settlement**; the old copy blamed a reversal for both, which is simply wrong.
+  - Every payment shows the receipt it produced, and a **"Still to pay"** row closes the list
+    instead of it stopping silently after money received.
+  - The settle modal collects the **outstanding balance**, not the bill's face value, and itemises
+    bill total / already paid / balance due.
+- **Why:** two numbers on one screen disagreed — the bottom bar read 5,017.50 while the settle
+  modal offered 2,517.50 "paying in full".
+- **Record impact:** 🔵 Low — display, plus the amount the settle modal proposes.
+- **Data dependency:** backend `kind`/`settled` fix, `receipt.amount`, and per-payment
+  `receiptNumber` (migration 193). All live on staging and prod.
+- ⚠️ `isReceipt` keeps `data.settled` in the condition even though the server now sets `kind`
+  correctly — the document stays honest against an older API.
+
 ### feat: pay first, fill the record later — the app now says so and takes you there  —  2026-08-07
 - **What changed:** after a payment on a visit that is still open, the confirmation says
   **"Paid · record still open"** and offers a navigating action. On an **EMERGENCY** visit that is
