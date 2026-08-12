@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the workflow strip stops ticking INVOICE when there is no invoice  —  2026-08-12
+- **What changed:** the Finalize → Bill → Invoice → Settle strip ticked **every** step once
+  `isPaid` was true, so a visit that reached PAID without any invoice ever being generated showed
+  **✓ INVOICE** above a Bill & Invoice tab with nothing in it — because there genuinely was no
+  document (prod #157 and #94). Step 3 now asks the only question that matters: does a live
+  invoice exist? It reads `visitInvoices`, already loaded for the Invoice tab, so it costs nothing.
+- **Why:** the strip is what staff use to decide what to do next. A tick that means "paid" dressed
+  as a tick that means "invoiced" sends them looking for a document that was never created.
+- **Record impact:** 🟢 None — display.
+- **Data dependency:** none. Pairs with backend invoice-at-approval (same release), after which new
+  bills have the document the tick claims.
+
 ### fix: ask for credit by the visit's clinic  —  2026-08-12
 - **What changed:** `clientsAPI.credit()` takes an optional `clinicId`, and the settle modal passes
   **the visit's own clinic**. Without it the server falls back to the first clinic in the active

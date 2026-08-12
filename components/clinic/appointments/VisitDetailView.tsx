@@ -3427,7 +3427,17 @@ const VisitDetailInner: React.FC<Props> = ({
                   divergence is exactly what produced "Awaiting payment · Settle
                   bill" over a DRAFT bill. */}
               {!isTransferVisit && (() => {
+                // STEP 3 IS "AN INVOICE EXISTS", not "the visit is paid".
+                //
+                // `isPaid` used to tick every step, so a visit that went to PAID
+                // without any invoice ever being generated still showed
+                // ✓ INVOICE — over a Bill & Invoice tab with nothing in it,
+                // because there was genuinely no document (prod #157 and #94,
+                // user 2026-08-12). `visitInvoices` is the live, non-void list
+                // already loaded above, so this is free.
+                const hasInvoice = visitInvoices.length > 0;
                 const done = (n: number) => {
+                  if (n === 3) return hasInvoice;
                   if (appointment.isPaid) return true;
                   const reached =
                     billStage === 'NONE' ? (isFinalized ? 1 : 0)
