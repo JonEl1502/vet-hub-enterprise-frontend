@@ -230,6 +230,9 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
   const bgY      = useTransform(scrollY, [0, 900], [0, 220]);   // photo/gradient drifts down slower
   const overlayY = useTransform(scrollY, [0, 900], [0, 80]);    // dark overlay drifts with bg
   const contentY = useTransform(scrollY, [0, 900], [0, -90]);   // copy floats up faster
+  // Kept though both its consumers are commented out (the hero tablet and the
+  // floating vet card) — uncommenting either needs it back, and a hook is
+  // cheap. Delete it only when those blocks are deleted rather than parked.
   const deviceY  = useTransform(scrollY, [0, 900], [0, -140]);  // device image rises fastest
   const fadeOut  = useTransform(scrollY, [300, 700], [1, 0]);   // hero content fades as you scroll
 
@@ -289,13 +292,16 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
       />
 
       {/* Decorative parallax device on the right (acts as the "lifestyle" subject).
-          Portrait tablet — narrower container than the old landscape laptop. */}
-      <motion.div
+          Portrait tablet — narrower container than the old landscape laptop.
+          COMMENTED OUT (user, 2026-08-12). The hero now runs on the photo +
+          headline alone. `tabletImg` is still used by the devices section
+          further down, so the import stays. */}
+      {/* <motion.div
         style={{ y: deviceY }}
         className="hidden md:block absolute right-[3%] lg:right-[6%] top-[12%] w-[34%] lg:w-[29%] pointer-events-none opacity-95 drop-shadow-[0_2rem_3rem_rgba(0,0,0,0.5)]"
       >
         <img src={tabletImg} alt="" className="w-full select-none" draggable={false} />
-      </motion.div>
+      </motion.div> */}
 
       {/* Floating vet profile card — highest z-index, hovers above device + overlay */}
       {/* <motion.div

@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### chore: hero tablet mockup commented out  —  2026-08-12
+- **What changed:** the parallax tablet device on the landing hero is commented out at the user's
+  request. The hero now runs on the photo, headline and CTA alone.
+- Commented, not deleted, and it sits next to the already-parked floating vet card. The
+  `tabletImg` import stays — the devices section further down still renders it — and `deviceY`
+  stays with a note, since uncommenting either block needs it.
+- **Record impact:** 🟢 None — marketing page markup.
+
 ### fix: the client card's "Collect" shows what is actually owed  —  2026-08-12
 - **What changed:** the card computed its own outstanding by adding up `totalCost` for every unpaid
   visit (`ClientsView.tsx`), subtracting nothing — so **"COLLECT KES 6,017.50"** sat on prod client
