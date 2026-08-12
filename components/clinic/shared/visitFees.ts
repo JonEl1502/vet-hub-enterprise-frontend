@@ -26,6 +26,38 @@ export const VISIT_FEE_DEFS: VisitFeeDef[] = [
 // Fee key for the house-call distance rate (charged per unit of trip distance).
 export const HOUSE_CALL_DISTANCE_KEY = 'HOUSE_CALL_PER_DISTANCE';
 
+/**
+ * The category every visit-LEVEL fee line is staged under.
+ *
+ * A surcharge is a property of the VISIT (when it arrived, how it was reached),
+ * not work anyone performed on the animal — so it gets its own category rather
+ * than borrowing the encounter's. Borrowing had two visible costs:
+ *   * staged as 'Consultation' it stapled a "Vet Visit — clinical" chip onto a
+ *     plain boarding visit (user, 2026-08-02);
+ *   * staged as 'Grooming' the backend auto-created a GROOMING RECORD for it,
+ *     so an After-hours surcharge rendered as a full service card with a
+ *     difficulty slider, steps and before/after photos (user, 2026-08-11:
+ *     "no After-hours surcharge — it should just appear in billing").
+ * It still bills exactly as before: the task, its price and its bill line are
+ * untouched, they simply group under their own heading.
+ *
+ * A free-string category, like the existing synthetic 'Grooming Discount' and
+ * 'Procedure Adjustment' lines — no catalog row is needed or wanted.
+ */
+export const VISIT_FEE_CATEGORY = 'Fees & Surcharges';
+
+// Visits created BEFORE the category existed carry their fee lines under
+// 'Consultation' / 'Grooming' / 'Boarding', so name is the only signal left.
+// Safe to match on: these names are generated here, never typed by a clinic.
+const LEGACY_VISIT_FEE_NAME = /surcharge|call-?out|house call travel/i;
+
+/** Is this visit task a visit-level fee line rather than clinical work? */
+export const isVisitFeeTask = (t: { name?: string | null; category?: string | null } | null | undefined): boolean => {
+  if (!t) return false;
+  if ((t.category || '').trim().toLowerCase() === VISIT_FEE_CATEGORY.toLowerCase()) return true;
+  return LEGACY_VISIT_FEE_NAME.test(t.name || '');
+};
+
 // Per-fee time rates (per hour / per minute) for time-billed encounters, and a
 // clinic-wide distance unit for the house-call per-distance rate. Kept in their
 // own stores so the base fees map stays a plain key→number.

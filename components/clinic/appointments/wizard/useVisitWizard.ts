@@ -4,6 +4,7 @@ import { visitsAPI, workflowTemplatesAPI, WorkflowTemplate, FormField, LayoutSta
 import type { VisitEncounter } from '../../../../services/modules/appointments.api';
 import { JourneyEvent, JourneyKind, WizardPersist, WizardStepId } from './types';
 import { ENTRY_POINTS, EntryPointDef, resolveEntryPoint, STEP_DEFS } from './entryPoints';
+import { isVisitFeeTask } from '../../shared/visitFees';
 
 // The wizard state persists SERVER-SIDE (consultation_records via
 // GET/PUT /visits/:id/workflow) so the clinical record follows the visit
@@ -197,11 +198,12 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     // visit stays grooming-only — its flow already carries the vet check.
     const MODULE_KWS = ['groom', 'board', 'vaccin', 'retail', 'petshop', 'food', 'accessor'];
     // Visit-LEVEL fee lines (after-hours / walk-in surcharge, house-call
-    // call-out + travel) are registered under 'Consultation' on legacy visits,
-    // but they are properties of the visit, not clinical work — counting them
-    // stapled a "Vet Visit — clinical" chip onto a plain boarding visit whose
-    // only extra was the after-hours fee (user, 2026-08-02).
-    const isVisitFee = (t: any) => /surcharge|call-?out|house call travel/i.test(t.name || '');
+    // call-out + travel) are properties of the visit, not clinical work —
+    // counting them stapled a "Vet Visit — clinical" chip onto a plain boarding
+    // visit whose only extra was the after-hours fee (user, 2026-08-02).
+    // They now carry VISIT_FEE_CATEGORY; `isVisitFeeTask` still recognises the
+    // legacy ones staged under 'Consultation' / the encounter's category.
+    const isVisitFee = (t: any) => isVisitFeeTask(t);
     const hasClinicalContent = (visit.tasks || []).some(t => {
       const c = (t.category || '').toLowerCase();
       return !!c && !MODULE_KWS.some(k => c.includes(k)) && !isVisitFee(t);

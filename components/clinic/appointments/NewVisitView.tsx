@@ -14,7 +14,7 @@ import PhoneInput from '../../shared/common/PhoneInput';
 import StepIndicator from '../../shared/common/StepIndicator';
 import DateTimePicker from '../../shared/common/DateTimePicker';
 import { GateCheckForm } from './wizard/steps/EntrySteps';
-import { loadVisitFees, entryFeeFor, loadVisitFeeMeta, HOUSE_CALL_DISTANCE_KEY } from '../shared/visitFees';
+import { loadVisitFees, entryFeeFor, loadVisitFeeMeta, HOUSE_CALL_DISTANCE_KEY, VISIT_FEE_CATEGORY } from '../shared/visitFees';
 import PetAvatar from '../shared/PetAvatar';
 import { useAuth } from '../../../contexts/AuthContext';
 
@@ -1264,17 +1264,14 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     if (isHouseCall) extras.push({ key: 'HOUSE_CALL', name: 'House call — call-out fee' });
     if (isWalkIn) extras.push({ key: 'WALK_IN', name: 'Walk-in surcharge' });
     if (isAfterHours) extras.push({ key: 'AFTER_HOURS', name: 'After-hours surcharge' });
-    // Visit-level fees belong to the visit's PRIMARY encounter, not to a
-    // consultation that may not exist: an After-hours surcharge staged as
-    // 'Consultation' on a BOARDING visit made the wizard read the visit as
-    // clinical and staple a "Vet Visit — clinical" chip onto it (user,
-    // 2026-08-02). Grooming/boarding fees land under their own category.
-    const extrasCategory = (() => {
-      if (encounterType !== 'GROOMING' && encounterType !== 'BOARDING') return 'Consultation';
-      const want = encounterType === 'GROOMING' ? 'groom' : 'board';
-      const cat = categoriesWithIcons.find(c => c.name.toLowerCase().includes(want));
-      return cat?.name || (encounterType === 'GROOMING' ? 'Grooming' : 'Boarding');
-    })();
+    // Visit-level fees get their OWN category (see VISIT_FEE_CATEGORY). They
+    // used to borrow the encounter's — 'Consultation' stapled a "Vet Visit —
+    // clinical" chip onto a boarding visit (user, 2026-08-02), and 'Grooming'
+    // made the backend auto-create a grooming RECORD for the surcharge, so it
+    // showed up as a service card with a difficulty slider and photo strips
+    // (user, 2026-08-11). A fee is neither clinical work nor a module record;
+    // it is a line on the bill.
+    const extrasCategory = VISIT_FEE_CATEGORY;
     for (const ex of extras) {
       const fee = visitFees[ex.key];
       if (fee && fee > 0) {
@@ -1299,7 +1296,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
         id: Math.floor(Math.random() * 1000000),
         serviceId: undefined,
         name: `House call travel (${Number(houseCallDistance)} ${distanceUnit})`,
-        category: 'Consultation',
+        category: VISIT_FEE_CATEGORY,
         status: TaskStatus.PENDING,
         price: houseCallDistanceCharge,
         notes: '',
