@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: ask for credit by the visit's clinic  —  2026-08-12
+- **What changed:** `clientsAPI.credit()` takes an optional `clinicId`, and the settle modal passes
+  **the visit's own clinic**. Without it the server falls back to the first clinic in the active
+  selection, which on a multi-clinic scope need not be the clinic holding the money — so the modal
+  could offer a credit balance that cannot be applied to the bill in front of you.
+- **Why:** found while fixing the client Financials page, which had the same `clinicIds[0]`
+  assumption and showed KES 0.00 for a client the list said owed 6,017.50.
+- **Record impact:** 🟢 None — a query parameter on a read.
+- **Data dependency:** backend `GET /clients/:id/credit?clinicId=` (same release). Omitting it
+  keeps the old behaviour, so the call is safe against an older API.
+
 ### fix: the money screens stop contradicting themselves  —  2026-08-12
 From a live prod session the user could not reconcile. Four separate things, one theme: the screen
 knew the answer and did not say it.

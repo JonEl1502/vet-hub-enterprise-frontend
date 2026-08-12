@@ -2871,7 +2871,10 @@ const VisitDetailInner: React.FC<Props> = ({
     setSettleUseCredit(false);
     setSettleCredit(0);
     if (appointment.clientId) {
-      clientsAPI.credit(appointment.clientId)
+      // THIS visit's clinic — credit is per clinic and is spent in the clinic
+      // that took the cash, so asking for "the active clinic" could show a
+      // balance that cannot be applied to this bill.
+      clientsAPI.credit(appointment.clientId, (appointment as any).clinicId ?? undefined)
         .then(r => { if (r?.success && r.data) setSettleCredit(Number((r.data as any).balance) || 0); })
         .catch(() => { /* the modal works without it */ });
     }

@@ -263,10 +263,16 @@ export const clientsAPI = {
   removeAttachment: (clientId: string | number, index: number): Promise<ApiResponse<{ clientId: string; attachments: ClientAttachment[] }>> =>
     del(`/clients/${clientId}/attachments/${index}`, { showError: true }),
 
-  credit: (clientId: string | number): Promise<ApiResponse<{
+  /**
+   * Credit is per clinic — pass `clinicId` when you know which one you mean
+   * (e.g. the clinic of the visit being settled). Without it the server falls
+   * back to the first clinic in the active selection, which on a multi-clinic
+   * scope may not be the one holding the money.
+   */
+  credit: (clientId: string | number, clinicId?: string | number): Promise<ApiResponse<{
     balance: number;
     sources: { transactionId: string; paidAt: string; amount: number; applied: number; remaining: number }[];
-  }>> => get(`/clients/${clientId}/credit`, { cache: false }),
+  }>> => get(`/clients/${clientId}/credit${clinicId != null ? `?clinicId=${clinicId}` : ''}`, { cache: false }),
 
   /** Chronological account: charges, payments, running balance. */
   statement: (clientId: string | number): Promise<ApiResponse<{
