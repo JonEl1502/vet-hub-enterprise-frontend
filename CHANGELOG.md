@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the client card's "Collect" shows what is actually owed  —  2026-08-12
+- **What changed:** the card computed its own outstanding by adding up `totalCost` for every unpaid
+  visit (`ClientsView.tsx`), subtracting nothing — so **"COLLECT KES 6,017.50"** sat on prod client
+  #110 who owed 3,500. It now uses the server's `outstandingBalance`, which nets settlements per
+  visit exactly as the client's Financials page does.
+- The old sum survives ONLY as a fallback when the field is absent (an older API). It is wrong, but
+  it is what shipped, and a card claiming nothing is owed would be worse than one overstating.
+- **Record impact:** 🟢 None — display.
+- **Data dependency:** backend `outstandingBalance` netting settlements (same release).
+
 ### fix: the workflow strip stops ticking INVOICE when there is no invoice  —  2026-08-12
 - **What changed:** the Finalize → Bill → Invoice → Settle strip ticked **every** step once
   `isPaid` was true, so a visit that reached PAID without any invoice ever being generated showed

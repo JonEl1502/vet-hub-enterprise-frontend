@@ -588,7 +588,26 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               // Richer per-client metrics for the detailed row.
               const petIds = clientPets.map(p => p.id);
               const clientAppts = appointments.filter(a => petIds.includes(a.petId));
-              const outstanding = clientAppts.filter(a => !a.isPaid && a.status !== ApptStatus.CANCELLED).reduce((s, a) => s + (a.totalCost || 0), 0);
+              /**
+               * WHAT IS STILL OWED — the server's figure, not a face-value sum.
+               *
+               * ⚠️ This added up `totalCost` for every unpaid visit and
+               * subtracted nothing, so part payments were invisible and the
+               * card's "Collect KES X" asked for money already handed over:
+               * prod client #110 read **COLLECT KES 6,017.50** against a real
+               * balance of 3,500, because a 2,517.50 payment on one of those
+               * visits was never netted off (user, 2026-08-12).
+               *
+               * `outstandingBalance` nets settlements per visit, exactly as the
+               * client's Financials page does, so the list and the profile can
+               * no longer quote two different balances. The old sum stays as a
+               * fallback ONLY when the field is absent (an older API) — it is
+               * wrong, but it is the behaviour that shipped, and a card showing
+               * nothing owed would be worse.
+               */
+              const outstanding = client.outstandingBalance != null
+                ? Number(client.outstandingBalance)
+                : clientAppts.filter(a => !a.isPaid && a.status !== ApptStatus.CANCELLED).reduce((s, a) => s + (a.totalCost || 0), 0);
               const tier = (() => {
                 const v = client.totalSpent || 0;
                 if (v >= 500000) return { label: 'Diamond', cls: 'bg-cyan-100 text-cyan-700 dark:bg-cyan-900/30 dark:text-cyan-300' };
