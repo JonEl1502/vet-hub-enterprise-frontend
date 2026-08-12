@@ -131,6 +131,24 @@ const ReconciliationDocument: React.FC<Props> = ({
    *   · paid < covered   → a payment behind the receipt was REVERSED
    *   · final > covered  → charges were ADDED after the receivable was filled
    */
+  /**
+   * PAID, BUT NO RECEIPT DOCUMENT YET — a real third state, not a balance.
+   *
+   * A pay-first visit settles its quote while the visit is still open, and by
+   * design no receipt is issued then (`issuesReceipt = !prepayMode` in
+   * payment.service): the client is paying an estimate that can still move, so
+   * the receipt waits for the payment that clears the FINAL balance.
+   *
+   * The slip had no way to say that. Prod visit #94 — 1,000 of 1,000 paid, the
+   * server itself returning `settled: true, balance: 0` — printed
+   * "BALANCE OUTSTANDING" over a KES 0 balance and promised "a receipt is
+   * issued once the balance reaches zero" when the balance WAS zero (user,
+   * 2026-08-12: "these processes confuse me n i dont know how to reconcile").
+   * Both statements were false, and a document that argues with itself is
+   * worse than no document.
+   */
+  const settledNoReceipt = !isReceipt && !!data.settled && data.balance <= 0.005;
+
   const issuedReceipt = !isReceipt && data.receipt ? data.receipt : null;
   const covered = Number(issuedReceipt?.amount ?? 0);
   const reversed = !!issuedReceipt && covered > 0 && data.paidSoFar < covered - 0.005;
@@ -185,7 +203,7 @@ const ReconciliationDocument: React.FC<Props> = ({
         <div className="text-right shrink-0">
           <p className="text-sm font-black uppercase tracking-tight">{clinicName}</p>
           <p className="text-[9px] text-white/70 mt-0.5 uppercase tracking-wider">
-            {isReceipt ? 'Settled in full' : 'Balance outstanding'}
+            {isReceipt ? 'Settled in full' : settledNoReceipt ? 'Paid in full · receipt pending' : 'Balance outstanding'}
           </p>
         </div>
       </div>
@@ -260,14 +278,28 @@ const ReconciliationDocument: React.FC<Props> = ({
         {amount(data.balance, `text-2xl font-black font-mono tabular-nums tracking-tighter ${totalText}`)}
       </div>
 
-      {/* The point of the slip: it must never read as proof of settlement. */}
+      {/* The point of the slip: it must never read as proof of settlement.
+          Two different reasons a receipt is absent, and they need different
+          sentences — "you still owe" vs "you owe nothing, the document is
+          simply not due yet". Saying the first when the second is true is what
+          made this screen unreadable. */}
       {!isReceipt && (
         <div className="flex items-start gap-2 px-4 py-3 bg-amber-50 dark:bg-amber-900/20 border-t border-amber-200 dark:border-amber-800">
           <AlertTriangle size={13} className="text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
           <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 leading-relaxed">
             <span className="uppercase tracking-widest font-black">This is not a receipt.</span>{' '}
-            It records what has been paid so far against this visit. A receipt is issued once the
-            balance reaches zero.
+            {settledNoReceipt ? (
+              <>
+                Everything owed on this visit has been paid — this was paid in advance, while the
+                visit is still open and its total can still change. The receipt is issued when the
+                visit is finalised, and it will cover the whole visit.
+              </>
+            ) : (
+              <>
+                It records what has been paid so far against this visit. A receipt is issued once the
+                balance reaches zero.
+              </>
+            )}
           </p>
         </div>
       )}

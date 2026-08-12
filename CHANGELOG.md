@@ -59,6 +59,33 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the money screens stop contradicting themselves  —  2026-08-12
+From a live prod session the user could not reconcile. Four separate things, one theme: the screen
+knew the answer and did not say it.
+- **The amount box kept its last value.** Opening the settle modal reset the payment method, the
+  discount and the client discount — but not **Amount paid**. Prod visit #157: 1,500 collected on
+  an 1,800 bill, then the modal reopened on the 300 balance still holding `1500`, and 1,500 was
+  tendered again. It now clears on every open, so blank always means *the balance you are looking
+  at*.
+- **Nothing said where the extra went.** The success panel read "PAYMENT POSTED 1,500 · OUTSTANDING
+  AFTER 0" while 1,200 quietly became client credit. It now names it — amount, whose account, and
+  that it can settle their next bill. Credit **spent** is called out too, so the drawer and the
+  receipt can't look like they disagree.
+- **Credit is offered before cash is.** The settle modal shows the client's credit balance and a
+  tap applies it, routing through the account collect endpoint (the only path that can spend it).
+  Previously credit was invisible at the one moment it mattered, so it grew instead of being used.
+- **The reconciliation slip stopped arguing with itself.** Prod visit #94 — paid in full, server
+  returning `settled: true, balance: 0` — printed **"BALANCE OUTSTANDING"** over a KES 0 balance
+  and promised "a receipt is issued once the balance reaches zero". A third state now exists:
+  paid, receipt not due yet, because a **pay-first** visit settles a quote and its receipt waits
+  for finalize. It says that instead.
+- **Record impact:** 🔵 Low — display and defaults, plus one real behaviour change: applying credit
+  now takes the collect path, so credit is actually spent. Nothing changes what a bill totals.
+- **Data dependency:** backend `creditAdded` / `creditUsed` on the collect response (same release).
+  Both have client-side fallbacks, so the UI is honest against an older API.
+- ⚠️ The credit toggle caps at the bill total — the server caps it again. Credit can never be
+  applied beyond what is owed, or it would bank straight back as credit.
+
 ### fix: a surcharge is a bill line, not a groomable service  —  2026-08-11
 - **What changed:** an **After-hours surcharge** rendered as a full grooming SERVICE DETAILS card —
   difficulty slider, "steps taken", before/after photo strips, its own consumables picker — beside

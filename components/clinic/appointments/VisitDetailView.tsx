@@ -1092,9 +1092,25 @@ const VisitDetailInner: React.FC<Props> = ({
     outstandingAfter: number;
     receiptNumber?: string | null;
     allocations?: { visitId: string; amountApplied: number; outstandingAfter: number }[];
+    /** Surplus that became client credit — the server's own `creditAdded`. */
+    creditAdded?: number;
+    /** Existing credit spent on this collection — the server's `creditUsed`. */
+    creditUsed?: number;
   }>(null);
   const [clientDiscounts, setClientDiscounts] = useState<ClientDiscount[]>([]);
   const [selectedClientDiscount, setSelectedClientDiscount] = useState<ClientDiscount | null>(null);
+  /**
+   * CREDIT THE CLIENT ALREADY HAS, shown BEFORE money is asked for.
+   *
+   * Credit is derived (a payment's unapplied remainder), so it is real money
+   * the clinic is already holding for this client. It was invisible at the one
+   * moment it matters — the collect — so a client with 1,200 sitting on their
+   * account was asked for cash and their credit quietly grew instead of being
+   * spent (prod #157). Applying it routes the collect through the account
+   * endpoint with `useCredit`, which is the only path that can spend it.
+   */
+  const [settleCredit, setSettleCredit] = useState(0);
+  const [settleUseCredit, setSettleUseCredit] = useState(false);
   const [settleWallets, setSettleWallets] = useState<WalletData[]>([]);
   const [settleWalletLoading, setSettleWalletLoading] = useState(false);
   const [settleSelectedWalletId, setSettleSelectedWalletId] = useState<string | null>(null);
@@ -2625,7 +2641,7 @@ const VisitDetailInner: React.FC<Props> = ({
     }
   };
 
-  const handleSettleBill = async (paymentMethod: string, discountType?: 'PERCENTAGE' | 'FIXED', discountValue?: number, walletId?: string | null, amountPaid?: number) => {
+  const handleSettleBill = async (paymentMethod: string, discountType?: 'PERCENTAGE' | 'FIXED', discountValue?: number, walletId?: string | null, amountPaid?: number, useCredit?: number) => {
     // Re-entry guard — covers (a) rapid Confirm-button double-clicks, and
     // (b) the gateway path which used to return without setting the React
     // settling state, leaving the button live during the STK push.
@@ -2656,22 +2672,33 @@ const VisitDetailInner: React.FC<Props> = ({
     // visit, leaving a real balance rather than a visit that pretends to be
     // paid. `onProcessPayment` has no amount at all, so it can only ever settle
     // in full; the account collect endpoint is the one that can do this.
-    if (amountPaid != null && amountPaid > 0) {
+    if ((amountPaid != null && amountPaid > 0) || (useCredit != null && useCredit > 0)) {
       try {
         const res = await clientsAPI.collect(appointment.clientId, {
           visitIds: [appointment.id],
           paymentMethod,
-          amountTendered: amountPaid,
+          amountTendered: amountPaid ?? 0,
+          // Spend the client's own money first — the server caps it at what is
+          // owed, so this can never bank credit back onto the account.
+          ...(useCredit != null && useCredit > 0 ? { useCredit } : {}),
           ...(walletId ? { walletId } : {}),
           ...(discountType && discountValue ? { discountType, discountValue } : {}),
         });
         if (res.success) {
           const left = Number(res.data?.allocations?.[0]?.outstandingAfter ?? 0);
           setSettleResult({
-            amount: amountPaid,
+            amount: amountPaid ?? 0,
             outstandingAfter: left,
             receiptNumber: res.data?.receipt?.receiptNumber ?? null,
             allocations: res.data?.allocations ?? [],
+            // Tendered beyond what the bill could absorb → client credit. The
+            // server computes it; the fallback derives the same figure from the
+            // allocations so an older API still tells the truth.
+            creditAdded: Number(
+              (res.data as any)?.creditAdded
+              ?? Math.max(0, (amountPaid ?? 0) - (res.data?.allocations ?? []).reduce((s: number, a: any) => s + Number(a.amountApplied || 0), 0)),
+            ),
+            creditUsed: Number((res.data as any)?.creditUsed ?? 0),
           });
           await onRefreshDashboard?.();
         }
@@ -2825,6 +2852,29 @@ const VisitDetailInner: React.FC<Props> = ({
     setSettleDiscountType('PERCENTAGE');
     setSettleDiscountValue('');
     setSelectedClientDiscount(null);
+    /**
+     * ⚠️ RESET THE AMOUNT TOO. It is the one field that costs real money.
+     *
+     * Every other field here was reset and this one was not, so the box kept
+     * whatever was typed the LAST time the modal was open. Prod visit #157:
+     * 1,500 collected against an 1,800 bill, then the modal reopened on the
+     * 300 balance still holding "1500" — and 1,500 was tendered a second time.
+     * The server did the right thing (300 to the visit, 1,200 to the client's
+     * credit) but nobody chose to bank 1,200 of credit.
+     *
+     * Blank means "in full", which is the safe default: it always means the
+     * balance the modal is showing you.
+     */
+    setSettleAmountPaid('');
+    // What the clinic already holds for this client, read fresh each open so
+    // it can be SPENT here rather than silently grown by an overpayment.
+    setSettleUseCredit(false);
+    setSettleCredit(0);
+    if (appointment.clientId) {
+      clientsAPI.credit(appointment.clientId)
+        .then(r => { if (r?.success && r.data) setSettleCredit(Number((r.data as any).balance) || 0); })
+        .catch(() => { /* the modal works without it */ });
+    }
     setShowSettleModal(true);
     // Load active client discounts
     if (client) {
@@ -7175,6 +7225,36 @@ const VisitDetailInner: React.FC<Props> = ({
                 </p>
               )}
 
+              {/* WHERE THE OVERPAYMENT WENT.
+                  Taking more than the visit owes is allowed — the surplus is
+                  client credit — but nothing said so, so 1,200 could vanish
+                  from view on a visit that read "outstanding after 0" (prod
+                  #157, user 2026-08-12). Say the number, name the client, and
+                  say it is spendable. */}
+              {(settleResult.creditAdded ?? 0) > 0.005 && (
+                <div className="rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50 dark:bg-indigo-950/30 px-3 py-2.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Added to credit</span>
+                    <span className="text-[13px] font-black font-mono text-indigo-600 dark:text-indigo-400">
+                      {activeClinic.currency} {settleResult.creditAdded!.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[10px] font-bold text-indigo-500/90 dark:text-indigo-400/90 leading-relaxed">
+                    More was collected than this visit owed. It sits on {client?.name || 'the client'}&apos;s
+                    account and can settle their next bill — it is not lost, and it is not on this visit.
+                  </p>
+                </div>
+              )}
+
+              {/* Credit SPENT reads as money the clinic never received today —
+                  say it, or the drawer and the receipt look like they disagree. */}
+              {(settleResult.creditUsed ?? 0) > 0.005 && (
+                <p className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 leading-relaxed">
+                  {activeClinic.currency} {settleResult.creditUsed!.toLocaleString(undefined, { maximumFractionDigits: 2 })} of
+                  existing credit was applied, so that much was not collected today.
+                </p>
+              )}
+
               {/* PAY FIRST, RECORD LATER (user, 2026-08-06/07).
                   The vet's ask: "sometimes you're in a rush and you just want to
                   bill and come back to the notes later" — and, for an emergency,
@@ -7508,6 +7588,36 @@ const VisitDetailInner: React.FC<Props> = ({
                   </div>
                 </div>
 
+                {/* CREDIT ON ACCOUNT — money the clinic ALREADY holds for this
+                    client, offered before any is asked for. It was invisible
+                    here, so a client with credit was asked for cash and the
+                    credit just grew (prod #157 banked 1,200 nobody chose).
+                    Applying it routes through the account collect endpoint,
+                    the only path that can spend it. */}
+                {settleCredit > 0.005 && (
+                  <button
+                    type="button"
+                    onClick={() => setSettleUseCredit(v => !v)}
+                    className={`w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border text-left transition-all ${
+                      settleUseCredit
+                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40'
+                        : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 hover:border-indigo-300'
+                    }`}
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-[9px] font-black uppercase tracking-widest text-indigo-500">Credit on account</span>
+                      <span className="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 leading-snug mt-0.5">
+                        {settleUseCredit
+                          ? `Applying up to ${client?.currency || 'KES'} ${Math.min(settleCredit, finalTotal).toLocaleString(undefined, { maximumFractionDigits: 2 })} — collect only the rest`
+                          : 'Tap to spend it on this bill'}
+                      </span>
+                    </span>
+                    <span className={`shrink-0 text-sm font-black font-mono ${settleUseCredit ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-zinc-400'}`}>
+                      {client?.currency || 'KES'} {settleCredit.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </span>
+                  </button>
+                )}
+
                 {/* AMOUNT PAID — a client who pays part of the bill should leave
                     a real balance, not a visit marked settled. Blank = in full,
                     which is what this modal always did. */}
@@ -7622,6 +7732,14 @@ const VisitDetailInner: React.FC<Props> = ({
                       return;
                     }
                     const paidNum = parseFloat(settleAmountPaid);
+                    // Spending credit REQUIRES the account collect path, so the
+                    // cash figure has to be explicit: the bill less whatever
+                    // credit covers. Without this the settle-in-full path runs
+                    // and the credit is never touched.
+                    const creditApplied = settleUseCredit ? Math.min(settleCredit, finalTotal) : 0;
+                    const cashWanted = Number.isFinite(paidNum) && paidNum > 0
+                      ? paidNum
+                      : Math.max(0, Math.round((finalTotal - creditApplied) * 100) / 100);
                     await handleSettleBill(
                       settlePaymentMethod,
                       discountVal > 0 ? settleDiscountType : undefined,
@@ -7629,7 +7747,12 @@ const VisitDetailInner: React.FC<Props> = ({
                       pickedWalletId,
                       // Only a DIFFERENT amount takes the collect path; blank or
                       // exactly-the-total keeps the original settle-in-full flow.
-                      Number.isFinite(paidNum) && paidNum > 0 && Math.abs(paidNum - finalTotal) > 0.005 ? paidNum : undefined,
+                      // Applying credit always takes it — that path is the only
+                      // one that can spend credit.
+                      creditApplied > 0.005 || (Number.isFinite(paidNum) && paidNum > 0 && Math.abs(paidNum - finalTotal) > 0.005)
+                        ? cashWanted
+                        : undefined,
+                      creditApplied > 0.005 ? creditApplied : undefined,
                     );
                   }}
                   disabled={isSettlingBill}
