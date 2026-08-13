@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: bank wallets are real destinations  —  2026-08-13
+- **What changed:** the Add-wallet picker gains **Real — Bank** beside Virtual and Real — Mpesa.
+  `BANK` and `BANK_PAYBILL` were already in the schema and the form, flagged `realSupported: false`;
+  they are now offered, with their own rail step and fields (bank name + account number, and for a
+  bank paybill the account number clients quote).
+- **⚠️ Real money, manual confirmation — and the UI says so.** Researched before building: a bank
+  paybill (KCB **522522**, Equity **247247**, Co-op **400200**, NCBA **880100**) is the **bank's**
+  shortcode, not the clinic's. Safaricom's Daraja can only call back an app that owns its shortcode,
+  so a bank rail **cannot auto-confirm**. `autoConfirms` now sits beside `realSupported` in the meta
+  because those are different properties, and conflating them is how a clinic comes to believe its
+  bank balance is live. Each bank rail carries a note saying to record the payment when it clears.
+- Daraja credential fields are deliberately **not** shown for bank rails — there is no shortcode of
+  ours to authenticate.
+- ⚠️ The bank's own shortcode is shown as a hint, not captured: `handleSaveWallet` encodes this rail
+  as `bank|account`, so a third input would be typed and silently dropped on save.
+- **Record impact:** 🟢 None — no schema change; the enum values already existed.
+- **Next (not built):** automatic confirmation needs each bank's own feed — KCB Buni instant payment
+  notifications, Equity Jenga alerts, NCBA APIs — one integration per bank, not one per clinic.
+
 ### fix: a split bill explains its own gap  —  2026-08-13
 - **What changed:** after a CLINICAL invoice is issued the bill stays APPROVED so the stay or
   grooming can be invoiced separately (170) — but the footer read **"Bill approved · awaiting

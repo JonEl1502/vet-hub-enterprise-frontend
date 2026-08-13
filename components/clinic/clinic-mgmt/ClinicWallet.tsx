@@ -92,16 +92,28 @@ const KENYA_BANK_PAYBILLS = [
   { name: 'Credit Bank',           paybill: '302500' },
 ] as const;
 
-const WALLET_TYPE_META: Record<WalletKind, { label: string; icon: React.ReactNode; accountLabel: string; useDropdown: boolean; isVirtual?: boolean; realSupported?: boolean }> = {
-  // realSupported = available as a Real (gateway-backed) kind today.
-  // Right now only the Mpesa rails are wired; Bank / Digital Wallet
-  // are virtual-only until those integrations land.
-  BANK:           { label: 'Bank Account',    icon: <Landmark size={14} />,   accountLabel: 'Account Number', useDropdown: false, realSupported: false },
+const WALLET_TYPE_META: Record<WalletKind, { label: string; icon: React.ReactNode; accountLabel: string; useDropdown: boolean; isVirtual?: boolean; realSupported?: boolean; group?: 'mpesa' | 'bank'; autoConfirms?: boolean; note?: string }> = {
+  /**
+   * `realSupported` = offered as a REAL destination. `autoConfirms` = the money
+   * tells US it arrived, without anyone typing it in.
+   *
+   * ⚠️ THOSE ARE NOT THE SAME THING, and conflating them is how a clinic ends
+   * up believing its bank balance is live. Only a shortcode the CLINIC owns can
+   * be wired to Daraja and call us back. A BANK PAYBILL — KCB 522522, Equity
+   * 247247, Co-op 400200, NCBA 880100 — belongs to the BANK: the client pays
+   * it with the clinic's bank account as the reference, the money lands in the
+   * bank, and Safaricom has nobody to notify but the bank. Confirmation there
+   * comes from the bank's own feed (KCB Buni IPN, Equity Jenga alerts, NCBA
+   * APIs) or from staff recording it. Real money, manual confirmation.
+   */
+  BANK:           { label: 'Bank Account',    icon: <Landmark size={14} />,   accountLabel: 'Account Number', useDropdown: false, realSupported: true, group: 'bank',
+                    autoConfirms: false, note: 'Transfers, cheques and deposits land here. Nothing confirms automatically yet — record the payment when it clears.' },
   DIGITAL_WALLET: { label: 'Digital Wallet',  icon: <Wallet size={14} />,     accountLabel: 'Account / Email', useDropdown: false, realSupported: false },
-  MPESA_POCHI:    { label: 'MPesa Pochi',     icon: <Smartphone size={14} />, accountLabel: 'Phone Number',    useDropdown: false, realSupported: true  },
-  TILL:           { label: 'Till Number',     icon: <Hash size={14} />,       accountLabel: 'Till Number',     useDropdown: false, realSupported: true  },
-  MPESA_PAYBILL:  { label: 'MPesa Paybill',   icon: <Smartphone size={14} />, accountLabel: 'Paybill Number',  useDropdown: false, realSupported: true  },
-  BANK_PAYBILL:   { label: 'Bank Paybill',    icon: <CreditCard size={14} />, accountLabel: 'Bank Paybill',    useDropdown: true,  realSupported: false },
+  MPESA_POCHI:    { label: 'MPesa Pochi',     icon: <Smartphone size={14} />, accountLabel: 'Phone Number',    useDropdown: false, realSupported: true, group: 'mpesa', autoConfirms: true },
+  TILL:           { label: 'Till Number',     icon: <Hash size={14} />,       accountLabel: 'Till Number',     useDropdown: false, realSupported: true, group: 'mpesa', autoConfirms: true },
+  MPESA_PAYBILL:  { label: 'MPesa Paybill',   icon: <Smartphone size={14} />, accountLabel: 'Paybill Number',  useDropdown: false, realSupported: true, group: 'mpesa', autoConfirms: true },
+  BANK_PAYBILL:   { label: 'Bank Paybill',    icon: <CreditCard size={14} />, accountLabel: 'Bank Paybill',    useDropdown: true,  realSupported: true, group: 'bank',
+                    autoConfirms: false, note: 'Clients pay the BANK\u2019s paybill quoting your account number, and it settles into your bank. The shortcode belongs to the bank, so M-Pesa cannot notify us \u2014 confirm from your bank feed or record it here.' },
   // Legacy enum value — only kept so old rows still render. New
   // virtual wallets carry a real subtype + isVirtual=true instead.
   VIRTUAL:        { label: 'Virtual Wallet',  icon: <Wallet size={14} />,     accountLabel: '',                useDropdown: false, isVirtual: true },
@@ -191,7 +203,7 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
   // Tracks the top-level Virtual / Real choice independently of the
   // specific gateway-backed walletType, so picking "Real" can reveal
   // the sub-grid before any specific gateway is chosen.
-  const [walletGroup, setWalletGroup] = useState<'virtual' | 'real' | null>(null);
+  const [walletGroup, setWalletGroup] = useState<'virtual' | 'real' | 'bank' | null>(null);
 
   // Transfer modal state
   const [transferModal, setTransferModal] = useState<{ walletId: string; direction: 'in' | 'out' } | null>(null);
@@ -2081,7 +2093,27 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                           </div>
                           <div className="min-w-0">
                             <p className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Real — Mpesa</p>
-                            <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">Connect a Daraja paybill / till. Real Mpesa money can flow through. Bank, card, and other rails are coming soon.</p>
+                            <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">Connect a Daraja paybill / till you own. Money confirms itself the moment it lands.</p>
+                          </div>
+                        </button>
+                        {/* REAL — BANK. Real destination, manual confirmation:
+                            a bank paybill's shortcode belongs to the bank, so
+                            nothing can call us back yet. Said plainly on the
+                            card rather than discovered later. */}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setWalletGroup('bank');
+                            setForm(f => ({ ...f, walletType: '', accountNumber: '', paybillBank: '' }));
+                          }}
+                          className="flex items-start gap-3 p-4 rounded-xl border-2 border-slate-200 dark:border-zinc-700 hover:border-seafoam/50 text-left transition-all"
+                        >
+                          <div className="shrink-0 w-9 h-9 rounded-lg flex items-center justify-center bg-slate-100 dark:bg-zinc-800 text-slate-500">
+                            <Landmark size={16} />
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Real — Bank</p>
+                            <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-0.5 leading-relaxed">A bank account, or the bank&apos;s paybill quoting your account number. Real money lands, but it does not confirm itself — record it when it clears.</p>
                           </div>
                         </button>
                       </div>
@@ -2093,10 +2125,10 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-lg bg-seafoam/10 text-seafoam flex items-center justify-center">
-                          {walletGroup === 'virtual' ? <Wallet size={13} /> : <Smartphone size={13} />}
+                          {walletGroup === 'virtual' ? <Wallet size={13} /> : walletGroup === 'bank' ? <Landmark size={13} /> : <Smartphone size={13} />}
                         </div>
                         <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
-                          {walletGroup === 'virtual' ? 'Virtual Wallet' : 'Real — Mpesa'}
+                          {walletGroup === 'virtual' ? 'Virtual Wallet' : walletGroup === 'bank' ? 'Real — Bank' : 'Real — Mpesa'}
                         </p>
                       </div>
                       <button
@@ -2127,11 +2159,11 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                   {walletGroup !== null && (
                     <div>
                       <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">
-                        {walletGroup === 'virtual' ? 'What kind of wallet is this tracking?' : 'Mpesa rail'}
+                        {walletGroup === 'virtual' ? 'What kind of wallet is this tracking?' : walletGroup === 'bank' ? 'Bank rail' : 'Mpesa rail'}
                       </label>
                       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-                        {(['BANK','DIGITAL_WALLET','MPESA_POCHI','TILL','MPESA_PAYBILL'] as WalletKind[])
-                          .filter((k) => walletGroup === 'virtual' ? true : WALLET_TYPE_META[k].realSupported)
+                        {(['BANK','BANK_PAYBILL','DIGITAL_WALLET','MPESA_POCHI','TILL','MPESA_PAYBILL'] as WalletKind[])
+                          .filter((k) => walletGroup === 'virtual' ? true : (WALLET_TYPE_META[k].realSupported && WALLET_TYPE_META[k].group === (walletGroup === 'bank' ? 'bank' : 'mpesa')))
                           .map(k => (
                             <button
                               key={k}
@@ -2150,7 +2182,15 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                       </div>
                       {walletGroup === 'real' && (
                         <p className="text-[10px] text-slate-400 mt-2">
-                          Bank Account & Digital Wallet aren't connectable yet — pick Virtual if you only want to track them.
+                          Digital Wallet isn&apos;t connectable yet — pick Virtual if you only want to track it.
+                        </p>
+                      )}
+                      {/* Per-rail truth about confirmation. A bank rail takes
+                          real money but cannot tell us it arrived, and that is
+                          the one thing a clinic must know BEFORE choosing it. */}
+                      {form.walletType !== '' && WALLET_TYPE_META[form.walletType as WalletKind]?.note && (
+                        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-2 leading-relaxed">
+                          {WALLET_TYPE_META[form.walletType as WalletKind]?.note}
                         </p>
                       )}
                       {form.walletType === '' && (
@@ -2171,6 +2211,53 @@ const ClinicWallet: React.FC<Props> = ({ clinic, allClinics = [], transactions: 
                         placeholder="Recorded for reference only — no money flows through"
                         className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
                       />
+                    </div>
+                  )}
+
+                  {/* Real BANK — account details only. Deliberately no Daraja
+                      credentials: the clinic owns no shortcode on this rail, so
+                      there is nothing to authenticate and nothing to call back. */}
+                  {walletGroup === 'bank' && form.walletType !== '' && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">
+                          {form.walletType === 'BANK_PAYBILL' ? 'Bank' : 'Bank name'}
+                        </label>
+                        <input
+                          value={form.paybillBank}
+                          onChange={e => setForm(f => ({ ...f, paybillBank: e.target.value }))}
+                          placeholder="e.g. KCB, Equity, Co-operative, NCBA"
+                          className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 block">
+                          {form.walletType === 'BANK_PAYBILL' ? 'Your account number at that bank *' : 'Account number'}
+                        </label>
+                        <input
+                          value={form.walletType === 'BANK_PAYBILL' ? form.paybillAccountNo : form.accountNumber}
+                          onChange={e => setForm(f => (
+                            f.walletType === 'BANK_PAYBILL'
+                              ? { ...f, paybillAccountNo: e.target.value }
+                              : { ...f, accountNumber: e.target.value }
+                          ))}
+                          placeholder={form.walletType === 'BANK_PAYBILL'
+                            ? "What clients type as the ACCOUNT on the bank's paybill"
+                            : 'Your account number'}
+                          className="w-full px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-sm font-semibold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+                        />
+                      </div>
+                      {/* ⚠️ The bank's shortcode is NOT captured: it is a
+                          constant per bank, and `handleSaveWallet` encodes this
+                          rail as `bank|account` — a third field would be typed
+                          and then silently dropped on save. Shown as a reminder
+                          instead. */}
+                      {form.walletType === 'BANK_PAYBILL' && (
+                        <p className="sm:col-span-2 text-[10px] text-slate-400 leading-relaxed">
+                          Clients pay the bank&apos;s own paybill — KCB <b>522522</b>, Equity <b>247247</b>,
+                          Co-operative <b>400200</b>, NCBA <b>880100</b> — and type the account number above.
+                        </p>
+                      )}
                     </div>
                   )}
 
