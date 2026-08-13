@@ -65,7 +65,16 @@ export interface ProcedurePricingRule {
 
 export interface ProcedureTemplate {
   id: string;
-  clinicId: string;
+  /** NULL on a GLOBAL template (migration 202) — see `isGlobal`. */
+  clinicId: string | null;
+  /**
+   * A template from the shared library rather than this clinic's own.
+   * Globals are READ-ONLY to a clinic: the server scopes every mutation on
+   * `{ id, clinicId }`, which can never match a NULL clinic, so an edit would
+   * come back as "not found" — confusing rather than explanatory. The UI must
+   * not offer the action in the first place.
+   */
+  isGlobal?: boolean;
   name: string;
   description: string | null;
   code: string | null;

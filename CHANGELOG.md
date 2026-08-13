@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: shared-library procedures are marked, and read-only on purpose  —  2026-08-13
+- **What changed:** the 12 global recipes seeded to prod rendered **identically to a clinic's own**,
+  so the only way to discover one was shared was to try editing it and get *"Procedure template not
+  found"* — which reads as a bug, not a rule.
+  - A **GLOBAL** badge sits beside the name.
+  - Edit / Delete are **replaced** by a "View only" chip rather than shown and refused, and the
+    Active toggle is disabled with the reason in its tooltip.
+  - The editor opens for reading with a banner explaining why, and `save()` refuses early with a
+    sentence instead of letting the server answer 404.
+- The banner says the useful half too: a global **can** still be applied to a visit, and its drugs
+  resolve against **your own** stock, with anything you do not carry skipped and a reason given.
+- **Why read-only:** every mutation scopes to `{ id, clinicId }`, which can never match a global's
+  NULL clinic. That guard needs no code — but the UI must not offer an action the server will
+  reject.
+- **Record impact:** 🟢 None — display and a client-side guard. The server was already safe.
+- **Data dependency:** `isGlobal` on the template payload (backend, same release).
+
 ### feat: Back returns to the client tab you were on  —  2026-08-13
 - **What changed:** opening a visit from a client's **Financials** tab and pressing Back dropped you
   on **Overview**, so you had to find your way back to what you were working in (user, 2026-08-13).

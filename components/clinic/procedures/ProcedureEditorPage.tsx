@@ -2,7 +2,7 @@ import PageHeader from '../../shared/common/PageHeader';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ChevronLeft, Loader2, Plus, Trash2, Search, X, Zap, ArrowUp, ArrowDown,
-  Stethoscope, Pill, Package, FlaskConical, ScanLine, Coins, Check, ClipboardList, Calculator, Layers, UserRound,
+  Stethoscope, Pill, Package, FlaskConical, ScanLine, Coins, Check, ClipboardList, Calculator, Layers, UserRound, Globe,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
@@ -116,6 +116,8 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
   const [tab, setTab] = useState<Tab>('details');
   const [loading, setLoading] = useState(!!templateId);
   const [saving, setSaving] = useState(false);
+  /** True when the open recipe belongs to the shared library (migration 202). */
+  const [isGlobal, setIsGlobal] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(templateId);
 
   const [catalog, setCatalog] = useState<any[]>([]);
@@ -151,6 +153,11 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
       const res = await procedureTemplatesAPI.getById(id);
       if (res.success && res.data?.template) {
         const t = res.data.template;
+        // A shared-library recipe opens for READING. Every mutation on the
+        // server scopes to `{ id, clinicId }`, which cannot match a global's
+        // NULL clinic — so saving would come back "not found", which reads as
+        // a bug rather than a rule.
+        setIsGlobal(!!(t as any).isGlobal);
         setDraft({
           name: t.name, description: t.description ?? '', code: t.code ?? '', type: t.type ?? '',
           categoryId: t.categoryId ?? '', species: t.species ?? [],
@@ -433,6 +440,10 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
 
   // -------------------------------------------------------------------- save
   const save = async (activate?: boolean) => {
+    if (isGlobal) {
+      toast.error('This is a shared-library procedure — only a platform admin can change it.');
+      return;
+    }
     if (!draft.name.trim()) { toast.error('Procedure name is required'); setTab('details'); return; }
     if (!draft.items.length) { toast.error('Add at least one component'); setTab('components'); return; }
     setSaving(true);
@@ -511,6 +522,19 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
           </button>
         ))}
       </div>
+
+      {/* Say it BEFORE the form, not after a failed save. */}
+      {isGlobal && (
+        <div className="mb-4 flex items-start gap-2.5 px-4 py-3 rounded-xl bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-900/60">
+          <Globe size={14} className="text-indigo-500 shrink-0 mt-0.5" />
+          <p className="text-[11px] font-bold text-indigo-700 dark:text-indigo-300 leading-relaxed">
+            <span className="uppercase tracking-widest font-black">Shared library · view only.</span>{' '}
+            Every clinic sees this recipe, so only a platform admin can change it. You can still
+            apply it to a visit — its drugs and consumables resolve against <b>your own</b> stock,
+            and anything you do not carry is skipped with a reason.
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-[1fr_290px] gap-4 items-start">
         {/* ------------------------------------------------ main column */}

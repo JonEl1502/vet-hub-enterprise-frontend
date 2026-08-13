@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ClipboardList, Plus, Loader2, Trash2, Pencil, Search, Zap, FlaskConical, Pill, Package, Stethoscope, Wand2 } from 'lucide-react';
+import { ClipboardList, Plus, Loader2, Trash2, Pencil, Search, Zap, FlaskConical, Pill, Package, Stethoscope, Wand2, Globe, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { procedureTemplatesAPI, ProcedureTemplate, dialog } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
@@ -143,14 +143,26 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
                 className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 shadow-sm space-y-3 cursor-pointer hover:border-seafoam/60 transition-colors ${t.isActive ? 'border-slate-200 dark:border-zinc-800' : 'border-slate-200 dark:border-zinc-800 opacity-60'}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
-                    <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{t.name}</h3>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{t.name}</h3>
+                      {/* A global reads and applies exactly like your own, so
+                          without a mark the only way to discover it is shared
+                          is to try editing it and get "not found". */}
+                      {t.isGlobal && (
+                        <span title="From the shared library — every clinic sees this one. Read-only here."
+                          className="shrink-0 inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-500 border border-indigo-500/20">
+                          <Globe size={9} /> Global
+                        </span>
+                      )}
+                    </div>
                     <p className="text-[9px] text-slate-400 font-bold uppercase mt-0.5">
                       {t.code ? `${t.code} · ` : ''}{t.type ? `${t.type} · ` : ''}{t.categoryName ?? 'Uncategorised'}{t.species.length ? ` · ${t.species.join(', ')}` : ''}
                     </p>
                   </div>
                   <button
-                    onClick={(e) => { e.stopPropagation(); toggleActive(t); }}
-                    disabled={busyId === t.id}
+                    onClick={(e) => { e.stopPropagation(); if (!t.isGlobal) toggleActive(t); }}
+                    disabled={busyId === t.id || !!t.isGlobal}
+                    title={t.isGlobal ? 'Shared library — only a platform admin can change this' : undefined}
                     className={`shrink-0 px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${t.isActive ? 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}
                   >
                     {busyId === t.id ? <Loader2 size={10} className="animate-spin" /> : t.isActive ? 'Active' : 'Inactive'}
@@ -180,13 +192,25 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
                     <p className="text-base font-black text-pine dark:text-zinc-100">{currency} {t.estimatedTotal.toLocaleString()}</p>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    {perms.edit && (
-                      <button onClick={(e) => { e.stopPropagation(); onOpenEditor(t.id); }} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-pine" title="Edit"><Pencil size={14} /></button>
-                    )}
-                    {perms.delete && (
-                      <button onClick={() => remove(t)} disabled={busyId === t.id} className="p-2 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50" title="Delete">
-                        {busyId === t.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
-                      </button>
+                    {/* A global is read-only to a clinic. Showing Edit/Delete
+                        and letting the server answer "not found" would read as
+                        a bug rather than a rule — so the actions are replaced
+                        by what is actually true of the row. */}
+                    {t.isGlobal ? (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest text-indigo-500 bg-indigo-500/10 border border-indigo-500/20">
+                        <Eye size={11} /> View only
+                      </span>
+                    ) : (
+                      <>
+                        {perms.edit && (
+                          <button onClick={(e) => { e.stopPropagation(); onOpenEditor(t.id); }} className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-pine" title="Edit"><Pencil size={14} /></button>
+                        )}
+                        {perms.delete && (
+                          <button onClick={() => remove(t)} disabled={busyId === t.id} className="p-2 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50" title="Delete">
+                            {busyId === t.id ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
