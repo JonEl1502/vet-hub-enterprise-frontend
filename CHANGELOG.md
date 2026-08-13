@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: paying part of a bill you have the credit to clear  —  2026-08-13
+- **What changed:** applying credit AND typing a part amount sent both at full size. A client with
+  **3,600 credit paying 500 of an 800 bill** sent `useCredit: 800` *and* `amountTendered: 500` —
+  1,300 against an 800 bill. The server capped the credit at what was owed, took the 500 cash on
+  top, and handed it straight back as credit: **the client paid cash to gain credit** (prod #158,
+  found by the user).
+- **Amount paid now governs.** It is what is being settled right now; credit funds it first and cash
+  covers only the remainder. Paying 500 of 800 with credit available draws **500 of credit, collects
+  nothing**, and leaves 300 outstanding — the rest of the credit stays on the account.
+- Settling part of a bill you *could* clear from credit is a legitimate choice, not a mistake to
+  correct — the owner may be holding that credit for something else. The UI no longer overrides it.
+- The credit chip and the outstanding note both mirror the same rule, so the line that promises
+  "applying X" can never disagree with what the payment applies.
+- **Record impact:** 🔵 Low — changes what a credit-funded part payment sends. It can only ever
+  reduce what is drawn and collected, never increase it.
+- **Data dependency:** backend accepting a collect on an approved-but-unfinalized visit (same
+  release) — without it this scenario 400s before any of the above matters.
+
 ### chore: hero tablet commented out, copy spread into the space  —  2026-08-12
 - **What changed:** the parallax tablet device on the landing hero is commented out at the user's
   request. The hero now runs on the photo, headline and CTA alone.

@@ -7620,9 +7620,22 @@ const VisitDetailInner: React.FC<Props> = ({
                     <span className="min-w-0">
                       <span className="block text-[9px] font-black uppercase tracking-widest text-indigo-500">Credit on account</span>
                       <span className="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 leading-snug mt-0.5">
-                        {settleUseCredit
-                          ? `Applying up to ${client?.currency || 'KES'} ${Math.min(settleCredit, finalTotal).toLocaleString(undefined, { maximumFractionDigits: 2 })} — collect only the rest`
-                          : 'Tap to spend it on this bill'}
+                        {(() => {
+                          if (!settleUseCredit) return 'Tap to spend it on this bill';
+                          // Mirror the Confirm handler exactly: credit is drawn
+                          // against what is being settled NOW, not the whole
+                          // bill — otherwise this line promises 800 while the
+                          // payment applies 500.
+                          const typed = parseFloat(settleAmountPaid);
+                          const settlingNow = Number.isFinite(typed) && typed > 0 ? typed : finalTotal;
+                          const draw = Math.min(settleCredit, settlingNow);
+                          const cash = Math.max(0, Math.round((settlingNow - draw) * 100) / 100);
+                          const cur = client?.currency || 'KES';
+                          const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+                          return cash > 0.005
+                            ? `Applying ${cur} ${fmt(draw)} — collect ${cur} ${fmt(cash)}`
+                            : `Applying ${cur} ${fmt(draw)} — nothing to collect`;
+                        })()}
                       </span>
                     </span>
                     <span className={`shrink-0 text-sm font-black font-mono ${settleUseCredit ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-zinc-400'}`}>
@@ -7656,7 +7669,18 @@ const VisitDetailInner: React.FC<Props> = ({
                     if (left > 0.005) return (
                       <p className="mt-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 leading-relaxed">
                         {client?.currency || 'KES'} {left.toLocaleString(undefined, { maximumFractionDigits: 2 })} stays outstanding on this visit.
-                        The {client?.currency || 'KES'} {paid.toLocaleString(undefined, { maximumFractionDigits: 2 })} is recorded on {client?.name || 'the client'}&apos;s account and applied here, so both sides reconcile.
+                        {settleUseCredit && settleCredit > 0.005 ? (
+                          <>
+                            {' '}It is drawn from {client?.name || 'the client'}&apos;s credit first, so
+                            only what credit cannot cover is collected — and the rest of the credit stays
+                            on the account.
+                          </>
+                        ) : (
+                          <>
+                            {' '}The {client?.currency || 'KES'} {paid.toLocaleString(undefined, { maximumFractionDigits: 2 })} is
+                            recorded on {client?.name || 'the client'}&apos;s account and applied here, so both sides reconcile.
+                          </>
+                        )}
                       </p>
                     );
                     if (left < -0.005) return (
@@ -7749,10 +7773,29 @@ const VisitDetailInner: React.FC<Props> = ({
                     // cash figure has to be explicit: the bill less whatever
                     // credit covers. Without this the settle-in-full path runs
                     // and the credit is never touched.
-                    const creditApplied = settleUseCredit ? Math.min(settleCredit, finalTotal) : 0;
-                    const cashWanted = Number.isFinite(paidNum) && paidNum > 0
-                      ? paidNum
-                      : Math.max(0, Math.round((finalTotal - creditApplied) * 100) / 100);
+                    /**
+                     * "AMOUNT PAID" IS WHAT IS BEING SETTLED NOW — credit funds
+                     * it FIRST, cash covers whatever is left.
+                     *
+                     * ⚠️ This used to size the credit against the whole bill and
+                     * the cash against the typed amount, so both were sent at
+                     * once: a client with 3,600 credit paying 500 of an 800 bill
+                     * sent `useCredit: 800` AND `amountTendered: 500` — 1,300
+                     * against an 800 bill. The server capped the credit at what
+                     * was owed, took the 500 cash on top, and handed it straight
+                     * back as credit. The client paid cash to gain credit
+                     * (prod #158, user 2026-08-13).
+                     *
+                     * Settling part of a bill you have the credit to clear is a
+                     * legitimate choice — the owner may be holding that credit
+                     * for something else — so the amount typed governs, and
+                     * credit is drawn only up to it.
+                     */
+                    const settlingNow = Number.isFinite(paidNum) && paidNum > 0 ? paidNum : finalTotal;
+                    const creditApplied = settleUseCredit
+                      ? Math.round(Math.min(settleCredit, settlingNow) * 100) / 100
+                      : 0;
+                    const cashWanted = Math.max(0, Math.round((settlingNow - creditApplied) * 100) / 100);
                     await handleSettleBill(
                       settlePaymentMethod,
                       discountVal > 0 ? settleDiscountType : undefined,
