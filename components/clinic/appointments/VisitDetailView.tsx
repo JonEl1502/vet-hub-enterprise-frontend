@@ -1140,6 +1140,8 @@ const VisitDetailInner: React.FC<Props> = ({
    * with nothing identifying it (user, 2026-08-13).
    */
   const [settleReference, setSettleReference] = useState('');
+  /** The phone number / bank account the money came FROM (user, 2026-08-13). */
+  const [settlePayer, setSettlePayer] = useState('');
   const [settleCredit, setSettleCredit] = useState(0);
   const [settleUseCredit, setSettleUseCredit] = useState(false);
   const [settleWallets, setSettleWallets] = useState<WalletData[]>([]);
@@ -2737,6 +2739,7 @@ const VisitDetailInner: React.FC<Props> = ({
           amountTendered: amountPaid ?? 0,
           // The payer's own reference — cheque no., M-Pesa code, bank slip.
           ...(settleReference.trim() ? { reference: settleReference.trim() } : {}),
+          ...(settlePayer.trim() ? { payer: settlePayer.trim() } : {}),
           // HOW it arrived, matching what the top-up modal records.
           channel: settleSelectedWalletId === CHEQUE_OPTION_ID ? 'CHEQUE'
             : settleSelectedWalletId === CASH_OPTION_ID ? 'CASH'
@@ -2930,6 +2933,7 @@ const VisitDetailInner: React.FC<Props> = ({
      */
     setSettleAmountPaid('');
     setSettleReference('');
+    setSettlePayer('');
     // What the clinic already holds for this client, read fresh each open so
     // it can be SPENT here rather than silently grown by an overpayment.
     setSettleUseCredit(false);
@@ -7719,6 +7723,25 @@ const VisitDetailInner: React.FC<Props> = ({
                       }
                       className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-mono text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
                     />
+                    {/* WHO paid, beside the transaction's own reference. */}
+                    <div className="mt-3">
+                      <div className="flex items-baseline justify-between mb-2">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                          {settlePaymentMethod === 'M_PESA' ? 'Paying phone number'
+                            : settlePaymentMethod === 'CHEQUE' ? 'Drawer account / bank'
+                            : 'Paying account number'}
+                        </p>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">Optional</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={settlePayer}
+                        onChange={e => setSettlePayer(e.target.value)}
+                        maxLength={60}
+                        placeholder={settlePaymentMethod === 'M_PESA' ? 'e.g. 0722 000 000' : 'Account the money came from'}
+                        className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-mono text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                      />
+                    </div>
                     {settlePaymentMethod === 'CHEQUE' && (
                       <p className="mt-1.5 text-[10px] font-bold text-sky-600 dark:text-sky-400 leading-relaxed">
                         Recorded as a cheque, not as cash — the drawer is not increased. It shows on the

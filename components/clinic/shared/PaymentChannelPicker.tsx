@@ -1,5 +1,5 @@
 import React from 'react';
-import { Smartphone, Coins, Landmark, CreditCard, ReceiptText } from 'lucide-react';
+import { Smartphone, Coins, Landmark, CreditCard, ReceiptText, UserRound } from 'lucide-react';
 import { CHANNEL_GROUPS, PaymentChannel, channelById } from './paymentChannels';
 
 /**
@@ -27,6 +27,9 @@ interface Props {
   onChange: (channel: PaymentChannel) => void;
   reference: string;
   onReferenceChange: (v: string) => void;
+  /** WHO paid — phone number / bank account. Stored on `metadata.payer`. */
+  payer?: string;
+  onPayerChange?: (v: string) => void;
   /** Hide the reference input (e.g. the caller renders its own). */
   hideReference?: boolean;
   /** Restrict to one group — a bank wallet should not offer M-Pesa. */
@@ -35,7 +38,7 @@ interface Props {
 }
 
 const PaymentChannelPicker: React.FC<Props> = ({
-  value, onChange, reference, onReferenceChange, hideReference, onlyGroups, className,
+  value, onChange, reference, onReferenceChange, payer, onPayerChange, hideReference, onlyGroups, className,
 }) => {
   const groups = onlyGroups?.length
     ? CHANNEL_GROUPS.filter(g => onlyGroups.includes(g.key))
@@ -45,7 +48,7 @@ const PaymentChannelPicker: React.FC<Props> = ({
   return (
     <div className={className}>
       <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-2">Received by</p>
-      <div className="space-y-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-2.5">
         {groups.map(g => (
           <div key={g.key}>
             {/* The group label is what staff say out loud ("it came by M-Pesa");
@@ -84,25 +87,50 @@ const PaymentChannelPicker: React.FC<Props> = ({
       {/* The reference is labelled by the CHANNEL, so staff are told exactly
           what to type — a cheque number is not an M-Pesa code. Cash has none,
           so the field disappears rather than sitting there unanswerable. */}
-      {!hideReference && picked?.refLabel && (
-        <div className="mt-3">
-          <div className="flex items-baseline justify-between mb-1.5">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{picked.refLabel}</p>
-            <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">
-              {picked.refExpected ? 'Recommended' : 'Optional'}
-            </span>
-          </div>
-          <div className="relative">
-            <ReceiptText size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
-            <input
-              type="text"
-              value={reference}
-              maxLength={100}
-              onChange={e => onReferenceChange(e.target.value)}
-              placeholder={picked.refPlaceholder}
-              className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-mono text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
-            />
-          </div>
+      {!hideReference && (picked?.refLabel || picked?.payerLabel) && (
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {picked?.refLabel && (
+            <div>
+              <div className="flex items-baseline justify-between mb-1.5">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{picked.refLabel}</p>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">
+                  {picked.refExpected ? 'Recommended' : 'Optional'}
+                </span>
+              </div>
+              <div className="relative">
+                <ReceiptText size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+                <input
+                  type="text"
+                  value={reference}
+                  maxLength={100}
+                  onChange={e => onReferenceChange(e.target.value)}
+                  placeholder={picked.refPlaceholder}
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-mono text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                />
+              </div>
+            </div>
+          )}
+          {/* WHO paid, beside WHICH transaction. Two different questions — a
+              client rings quoting one or the other, so both are searchable. */}
+          {picked?.payerLabel && onPayerChange && (
+            <div>
+              <div className="flex items-baseline justify-between mb-1.5">
+                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{picked.payerLabel}</p>
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">Optional</span>
+              </div>
+              <div className="relative">
+                <UserRound size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300" />
+                <input
+                  type="text"
+                  value={payer ?? ''}
+                  maxLength={60}
+                  onChange={e => onPayerChange(e.target.value)}
+                  placeholder={picked.payerPlaceholder}
+                  className="w-full pl-9 pr-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-mono text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

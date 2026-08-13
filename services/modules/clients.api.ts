@@ -235,6 +235,8 @@ export const clientsAPI = {
        * a Pochi payment from a Paybill one.
        */
       channel?: string;
+      /** WHO paid — phone number or bank account. Stored on `metadata.payer`. */
+      payer?: string;
       /**
        * The payer's own reference (M-Pesa code, cheque number, bank slip).
        * Stored on the transaction's metadata — deliberately NOT the `@unique`

@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: record who paid, and make the picker fit  —  2026-08-13
+- **WHO paid is now captured** beside the transaction's reference — the phone number an M-Pesa came
+  from, the account a transfer was debited from, the account a cheque is drawn on (user,
+  2026-08-13). Labelled per channel, and stored on `transactions.metadata.payer`.
+- Kept **separate from the reference** on purpose: one identifies the TRANSACTION, the other the
+  PAYER. A client rings quoting whichever they have to hand, so both must be searchable — a single
+  merged box would make that impossible.
+- **The top-up modal got wider and shorter** (user: *"increase width reduce height"*): `max-w-sm` →
+  `max-w-2xl`, channel groups laid out two-up instead of stacked, and reference + payer side by
+  side. The body scrolls inside a `max-h-[92vh]` shell so the confirm button can never be pushed
+  off a laptop screen.
+- **Record impact:** 🔵 Low — one more optional Json field on the transaction. No schema change.
+- **Data dependency:** backend accepting `payer` on collect + advance (same release).
+
 ### feat: pick how the money arrived — Pochi, Till, Paybill, cheque, deposit  —  2026-08-13
 - **What changed:** a shared **`PaymentChannelPicker`** replaces the four flat method buttons
   (M-Pesa / Cash / Bank / Card) and the vague *"M-Pesa code, slip no."* box. You now pick the actual

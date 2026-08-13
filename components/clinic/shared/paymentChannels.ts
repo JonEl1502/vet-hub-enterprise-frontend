@@ -31,6 +31,18 @@ export interface PaymentChannel {
   refPlaceholder?: string;
   /** True when a payment on this channel is meaningless without its reference. */
   refExpected?: boolean;
+  /**
+   * WHO paid, in the payer's own terms — the phone number the M-Pesa came from,
+   * or the bank account that was debited. Null where there is nothing to record
+   * (cash across a counter identifies nobody).
+   *
+   * Kept SEPARATE from the reference on purpose: the reference identifies the
+   * TRANSACTION, this identifies the PAYER. A client ringing about a payment
+   * quotes one or the other, and reconciliation needs to search on both — a
+   * single merged box would make that impossible.
+   */
+  payerLabel?: string | null;
+  payerPlaceholder?: string;
   hint?: string;
 }
 
@@ -44,33 +56,42 @@ export const PAYMENT_CHANNELS: PaymentChannel[] = [
   // the client can quote back to you.
   { id: 'MPESA_SEND_MONEY', label: 'Send Money', method: 'M_PESA',
     refLabel: 'M-Pesa code', refPlaceholder: 'e.g. SFH4KJ21XZ', refExpected: true,
+    payerLabel: 'Paying phone number', payerPlaceholder: 'e.g. 0722 000 000',
     hint: 'Sent to a phone number. The code is the only proof — capture it.' },
   { id: 'MPESA_POCHI', label: 'Pochi la Biashara', method: 'M_PESA',
     refLabel: 'M-Pesa code', refPlaceholder: 'e.g. SFH4KJ21XZ', refExpected: true,
+    payerLabel: 'Paying phone number', payerPlaceholder: 'e.g. 0722 000 000',
     hint: 'Business pocket on a phone number. No account number.' },
   { id: 'MPESA_PAYBILL', label: 'Paybill', method: 'M_PESA',
     refLabel: 'M-Pesa code', refPlaceholder: 'e.g. SFH4KJ21XZ', refExpected: true,
+    payerLabel: 'Paying phone number', payerPlaceholder: 'e.g. 0722 000 000',
     hint: 'Paybill + account number.' },
   { id: 'MPESA_TILL', label: 'Till (Buy Goods)', method: 'M_PESA',
     refLabel: 'M-Pesa code', refPlaceholder: 'e.g. SFH4KJ21XZ', refExpected: true,
+    payerLabel: 'Paying phone number', payerPlaceholder: 'e.g. 0722 000 000',
     hint: 'Buy Goods till. No account number.' },
 
   // ── Bank ────────────────────────────────────────────────────────────────
   { id: 'BANK_TRANSFER', label: 'Bank transfer', method: 'BANK_TRANSFER',
-    refLabel: 'Transfer reference', refPlaceholder: 'Bank reference / slip no.', refExpected: true },
+    refLabel: 'Transfer reference', refPlaceholder: 'Bank reference / slip no.', refExpected: true,
+    payerLabel: 'Paying account number', payerPlaceholder: 'Account the money came from' },
   { id: 'BANK_DEPOSIT', label: 'Cash deposit', method: 'BANK_TRANSFER',
     refLabel: 'Deposit slip no.', refPlaceholder: 'Slip number', refExpected: true,
+    payerLabel: 'Depositor', payerPlaceholder: 'Who paid it in',
     hint: 'Paid in over the counter at the bank.' },
   { id: 'BANK_PAYBILL', label: 'Bank paybill', method: 'BANK_TRANSFER',
     refLabel: 'M-Pesa code', refPlaceholder: 'e.g. SFH4KJ21XZ', refExpected: true,
+    payerLabel: 'Paying phone number', payerPlaceholder: 'e.g. 0722 000 000',
     hint: "The bank's own paybill, quoting your account number. Settles into the bank." },
   { id: 'CHEQUE', label: 'Cheque', method: 'CHEQUE',
     refLabel: 'Cheque number', refPlaceholder: 'e.g. 004512', refExpected: true,
+    payerLabel: 'Drawer account / bank', payerPlaceholder: 'Account the cheque is drawn on',
     hint: 'Recorded now; it clears with the bank in its own time.' },
 
   // ── Card ────────────────────────────────────────────────────────────────
   { id: 'CARD', label: 'Card', method: 'CARD',
-    refLabel: 'Auth / receipt no.', refPlaceholder: 'Terminal reference' },
+    refLabel: 'Auth / receipt no.', refPlaceholder: 'Terminal reference',
+    payerLabel: 'Card last 4', payerPlaceholder: 'e.g. 4242' },
 ];
 
 /** Channels grouped for the picker, in the order a counter would think of them. */

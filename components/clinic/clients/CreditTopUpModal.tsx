@@ -28,9 +28,11 @@ const CreditTopUpModal: React.FC<{
   // did while reconciliation gains the detail it was missing.
   const [channelId, setChannelId] = React.useState('MPESA_PAYBILL');
   const [reference, setReference] = React.useState('');
+  /** The phone number / bank account the money came FROM. */
+  const [payer, setPayer] = React.useState('');
   const [busy, setBusy] = React.useState(false);
 
-  React.useEffect(() => { if (open) { setAmount(''); setReference(''); setChannelId('MPESA_PAYBILL'); } }, [open]);
+  React.useEffect(() => { if (open) { setAmount(''); setReference(''); setPayer(''); setChannelId('MPESA_PAYBILL'); } }, [open]);
   if (!open) return null;
 
   const n = Number(amount);
@@ -47,6 +49,7 @@ const CreditTopUpModal: React.FC<{
         paymentMethod: channel?.method ?? 'CASH',
         channel: channelId,
         ...(reference.trim() ? { reference: reference.trim(), note: reference.trim() } : {}),
+        ...(payer.trim() ? { payer: payer.trim() } : {}),
       } as any);
       if (res.success) {
         toast.success(`${money(n)} added to ${clientName || 'the client'}'s account`);
@@ -59,7 +62,7 @@ const CreditTopUpModal: React.FC<{
 
   return createPortal(
     <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-sm z-[850] flex items-center justify-center p-4 animate-in fade-in" onClick={onClose}>
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-2xl w-full rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col"
         onClick={e => e.stopPropagation()}>
         <div className="bg-emerald-600 px-5 py-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
@@ -70,7 +73,7 @@ const CreditTopUpModal: React.FC<{
           <button onClick={onClose} className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 shrink-0"><X size={16} /></button>
         </div>
 
-        <div className="p-5 space-y-4">
+        <div className="p-5 space-y-4 overflow-y-auto">
           <div>
             <label className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Amount ({currency})</label>
             <input type="number" min="0" step="any" inputMode="decimal" autoFocus
@@ -86,6 +89,8 @@ const CreditTopUpModal: React.FC<{
             onChange={(c: PaymentChannel) => setChannelId(c.id)}
             reference={reference}
             onReferenceChange={setReference}
+            payer={payer}
+            onPayerChange={setPayer}
           />
 
           {valid && (
