@@ -692,6 +692,18 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                     onAdded={async () => { await load(); onChanged?.(); }}
                   />
                 )}
+                {/* Straight to the grooming record once there IS one. Adding a
+                    service from here used to leave you on the stay with no way
+                    through except scrolling to find the list further down
+                    (user, 2026-08-13: "allow me to navigate to it n back").
+                    Back returns here — `navigateTo` pushes, so the stay is
+                    still underneath. */}
+                {linkedApptId && groomTasks.length > 0 && (
+                  <button onClick={() => onOpenGrooming?.(String(linkedApptId))}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-pink-300 dark:border-pink-900/60 bg-pink-50 dark:bg-pink-950/20 text-pink-600 text-[10px] font-black uppercase tracking-widest hover:bg-pink-100 dark:hover:bg-pink-950/40 transition-all">
+                    <Scissors size={12} /> Open grooming · {groomTasks.length}
+                  </button>
+                )}
                 <button onClick={() => setShowShare(true)}
                   className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:border-seafoam transition-all">
                   <Share2 size={12} /> Share{stay.allowedClinicIds && stay.allowedClinicIds.length > 0 ? ` · ${stay.allowedClinicIds.length}` : ''}
