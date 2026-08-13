@@ -1109,6 +1109,15 @@ const VisitDetailInner: React.FC<Props> = ({
    * spent (prod #157). Applying it routes the collect through the account
    * endpoint with `useCredit`, which is the only path that can spend it.
    */
+  /**
+   * The PAYER's own reference — cheque number, M-Pesa code, bank slip, card
+   * auth. Optional, free text, stored on the transaction's `metadata.reference`
+   * (never `referenceNumber`, which is ours). The client Invoices bar has had
+   * this field for a while; the visit settle modal — where most money is
+   * actually taken — had no way to record one at all, so a cheque was banked
+   * with nothing identifying it (user, 2026-08-13).
+   */
+  const [settleReference, setSettleReference] = useState('');
   const [settleCredit, setSettleCredit] = useState(0);
   const [settleUseCredit, setSettleUseCredit] = useState(false);
   const [settleWallets, setSettleWallets] = useState<WalletData[]>([]);
@@ -1116,6 +1125,15 @@ const VisitDetailInner: React.FC<Props> = ({
   const [settleSelectedWalletId, setSettleSelectedWalletId] = useState<string | null>(null);
   // CASH is wallet-less; we represent it as a synthetic option below.
   const CASH_OPTION_ID = '__cash__';
+  /**
+   * A CHEQUE is off-wallet like cash, but it is not cash: it is a promise that
+   * clears later. Recording it as CASH inflated the drawer and recording it as
+   * BANK_TRANSFER claimed money the bank did not have yet — both readings were
+   * wrong, so clinics had no honest option (user, 2026-08-13). Migration 201
+   * adds the method; the cheque NUMBER rides in the payment reference, exactly
+   * like an M-Pesa code or a bank slip.
+   */
+  const CHEQUE_OPTION_ID = '__cheque__';
   // Map a wallet's walletType to the payment_method we record on the
   // appointment. Each wallet "is" a payment method by virtue of where
   // the money lands.
@@ -2678,6 +2696,8 @@ const VisitDetailInner: React.FC<Props> = ({
           visitIds: [appointment.id],
           paymentMethod,
           amountTendered: amountPaid ?? 0,
+          // The payer's own reference — cheque no., M-Pesa code, bank slip.
+          ...(settleReference.trim() ? { reference: settleReference.trim() } : {}),
           // Spend the client's own money first — the server caps it at what is
           // owed, so this can never bank credit back onto the account.
           ...(useCredit != null && useCredit > 0 ? { useCredit } : {}),
@@ -2866,6 +2886,7 @@ const VisitDetailInner: React.FC<Props> = ({
      * balance the modal is showing you.
      */
     setSettleAmountPaid('');
+    setSettleReference('');
     // What the clinic already holds for this client, read fresh each open so
     // it can be SPENT here rather than silently grown by an overpayment.
     setSettleUseCredit(false);
@@ -7459,6 +7480,31 @@ const VisitDetailInner: React.FC<Props> = ({
                             </div>
                           </div>
                         </button>
+                        {/* Cheque — off-wallet like cash, but it CLEARS LATER.
+                            It gets its own method (201) rather than being
+                            filed as cash or as a bank transfer, both of which
+                            misstate where the money actually is today. */}
+                        <button
+                          onClick={() => {
+                            setSettleSelectedWalletId(CHEQUE_OPTION_ID);
+                            setSettlePaymentMethod('CHEQUE');
+                          }}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
+                            settleSelectedWalletId === CHEQUE_OPTION_ID
+                              ? 'border-sky-400 bg-sky-50 dark:bg-sky-900/20'
+                              : 'border-dashed border-slate-200 dark:border-zinc-700 hover:border-sky-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`p-1.5 rounded-lg ${settleSelectedWalletId === CHEQUE_OPTION_ID ? 'bg-sky-500 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
+                              <ReceiptText size={13} />
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-black uppercase tracking-tight text-pine dark:text-zinc-100">Cheque</p>
+                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Off-Wallet · Clears Later</p>
+                            </div>
+                          </div>
+                        </button>
                       </>
                     )}
                   </div>
@@ -7600,6 +7646,44 @@ const VisitDetailInner: React.FC<Props> = ({
                     </span>
                   </div>
                 </div>
+
+                {/* PAYMENT REFERENCE — the payer's own identifier. Shown for
+                    every method that HAS one; cash across a counter does not,
+                    so it stays out of the way there. Required-looking for a
+                    cheque, because a cheque with no number cannot be chased
+                    when it bounces — but not enforced: a clinic mid-transaction
+                    must never be blocked by a field. */}
+                {settlePaymentMethod !== 'CASH' && (
+                  <div>
+                    <div className="flex items-baseline justify-between mb-2">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                        {settlePaymentMethod === 'CHEQUE' ? 'Cheque number' : 'Payment reference'}
+                      </p>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">
+                        {settlePaymentMethod === 'CHEQUE' ? 'Recommended' : 'Optional'}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={settleReference}
+                      onChange={e => setSettleReference(e.target.value)}
+                      maxLength={100}
+                      placeholder={
+                        settlePaymentMethod === 'CHEQUE' ? 'Cheque no. — e.g. 004512'
+                        : settlePaymentMethod === 'M_PESA' ? 'M-Pesa code — e.g. SFH4KJ21XZ'
+                        : settlePaymentMethod === 'BANK_TRANSFER' ? 'Bank slip / transfer ref'
+                        : 'Card auth or reference'
+                      }
+                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-mono text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                    />
+                    {settlePaymentMethod === 'CHEQUE' && (
+                      <p className="mt-1.5 text-[10px] font-bold text-sky-600 dark:text-sky-400 leading-relaxed">
+                        Recorded as a cheque, not as cash — the drawer is not increased. It shows on the
+                        client&apos;s account straight away and clears with the bank in its own time.
+                      </p>
+                    )}
+                  </div>
+                )}
 
                 {/* CREDIT ON ACCOUNT — money the clinic ALREADY holds for this
                     client, offered before any is asked for. It was invisible
@@ -7804,8 +7888,13 @@ const VisitDetailInner: React.FC<Props> = ({
                       // Only a DIFFERENT amount takes the collect path; blank or
                       // exactly-the-total keeps the original settle-in-full flow.
                       // Applying credit always takes it — that path is the only
-                      // one that can spend credit.
-                      creditApplied > 0.005 || (Number.isFinite(paidNum) && paidNum > 0 && Math.abs(paidNum - finalTotal) > 0.005)
+                      // one that can spend credit — and so does a REFERENCE,
+                      // because `onProcessPayment` has nowhere to put one, so a
+                      // cheque number typed here would otherwise be dropped on
+                      // the floor without a word.
+                      creditApplied > 0.005
+                        || settleReference.trim().length > 0
+                        || (Number.isFinite(paidNum) && paidNum > 0 && Math.abs(paidNum - finalTotal) > 0.005)
                         ? cashWanted
                         : undefined,
                       creditApplied > 0.005 ? creditApplied : undefined,

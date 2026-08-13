@@ -553,26 +553,19 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
           ))}
         </div>
         )}
-        <div className="flex items-center gap-4">
-          {/* Payment account — prepaid/overpaid money the next collection can
-              spend. Clients can pay ahead; this is where it sits. */}
-          <div className="text-right">
-            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Payment account</p>
-            <p className={`text-lg font-black font-mono ${credit > 0 ? 'text-emerald-600' : 'text-slate-400'}`}>{money(credit, currency)}</p>
-            {canCollect && (
-              <button type="button" onClick={() => setAdvanceOpen(o => !o)}
-                className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-pine transition-colors">
-                {advanceOpen ? 'Close' : '+ Record advance'}
-              </button>
-            )}
-          </div>
-          {(data?.outstanding ?? 0) > 0 && (
-            <div className="text-right">
-              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Outstanding</p>
-              <p className="text-lg font-black font-mono text-amber-600">{money(data!.outstanding, currency)}</p>
-            </div>
-          )}
-        </div>
+        {/* THE NUMBERS USED TO BE REPEATED HERE.
+            "Payment account" and "Outstanding" were printed again in this row,
+            directly beneath the Credit Available and Current Balance stat
+            cards, which sit beneath the profile header's Available Credit and
+            Outstanding Balance — the same two figures three times on one
+            screen (user, 2026-08-13: "this is a repetition"). The ACTION is the
+            only thing that was unique to this row, so only it stays. */}
+        {canCollect && (
+          <button type="button" onClick={() => setAdvanceOpen(o => !o)}
+            className="shrink-0 text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-pine transition-colors">
+            {advanceOpen ? 'Close' : '+ Record advance'}
+          </button>
+        )}
       </div>
 
       {/* Record an advance — money ahead of any bill; lands as spendable credit. */}

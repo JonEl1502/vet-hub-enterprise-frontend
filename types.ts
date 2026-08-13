@@ -626,7 +626,10 @@ export interface Visit {
   receiptNumber?: string | null;
 }
 
-export type PaymentMethod = 'M-PESA' | 'CARD' | 'CASH' | 'BANK_TRANSFER';
+// CHEQUE (migration 201) is off-wallet like cash but clears later — filing it
+// as CASH inflated the drawer and as BANK_TRANSFER claimed money the bank did
+// not hold yet. The cheque number rides in the payment's `reference`.
+export type PaymentMethod = 'M-PESA' | 'CARD' | 'CASH' | 'BANK_TRANSFER' | 'CHEQUE';
 
 export interface Transaction {
   id: number;

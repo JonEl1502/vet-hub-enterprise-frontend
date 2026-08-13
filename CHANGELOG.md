@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: cheques and payment references in the settle modal  —  2026-08-13
+- **Cheque is a payment option.** It sits beside Cash as off-wallet, labelled **"Clears later"**,
+  and records as its own method rather than as cash (which inflates the drawer) or a bank transfer
+  (which claims money the bank does not hold yet).
+- **A payment reference field.** Cheque no. / M-Pesa code / bank slip / card auth, with a
+  method-aware label and placeholder. Hidden for cash across a counter, which has no reference.
+  Marked *Recommended* for a cheque — a cheque with no number cannot be chased when it bounces —
+  but **never enforced**: a clinic mid-transaction must not be blocked by a field.
+- Entering a reference routes the settle through the account collect endpoint, because that is the
+  only path that can store one. Without that the number would be typed and silently dropped.
+- **Record impact:** 🔵 Low — writes `metadata.reference` on the transaction, and `CHEQUE` as the
+  method where chosen.
+- **Data dependency:** backend migration **201** (`CHEQUE` enum value) must be live first, or a
+  cheque settle fails on an invalid enum.
+- ⚠️ The client Invoices bar has had a REF field for a while; the visit settle modal — where most
+  money is actually taken — had none, so a cheque was banked with nothing identifying it.
+
+### fix: one client's balance, shown once  —  2026-08-13
+- **What changed:** the Financials sub-tab header reprinted **Payment account** and **Outstanding**
+  directly beneath the Credit Available and Current Balance stat cards, which themselves sit beneath
+  the profile header's Available Credit and Outstanding Balance — **the same two figures three times
+  on one screen** (user: *"this is a repetition"*). The third copy is gone.
+- **+ Record advance** stays: the action was the only thing unique to that row.
+- **Record impact:** 🟢 None — display.
+
 ### fix: paying part of a bill you have the credit to clear  —  2026-08-13
 - **What changed:** applying credit AND typing a part amount sent both at full size. A client with
   **3,600 credit paying 500 of an 800 bill** sent `useCredit: 800` *and* `amountTendered: 500` —
