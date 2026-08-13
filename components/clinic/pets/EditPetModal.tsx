@@ -211,13 +211,24 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
               <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">
                 Species *
               </label>
-              <select
+              {/* ⚠️ THE CURRENT VALUE IS ALWAYS AN OPTION.
+                  Registration accepts a typed species/breed the catalogue does
+                  not carry (user, 2026-08-13). A native select whose `value` is
+                  absent from its options renders as the FIRST option, so simply
+                  opening this modal on such a pet and pressing Save would
+                  silently rewrite a Sokoke into an Abyssinian. Injecting the
+                  value keeps edit lossless; the datalist beside it is what
+                  allows a NEW one to be typed here too. */}
+              <input
+                list="edit-pet-species"
                 value={formData.species}
                 onChange={(e) => setFormData({ ...formData, species: e.target.value, breed: 'Mixed Breed' })}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam appearance-none"
-              >
-                {apiSpecies.map(s => <option key={s.id} value={s.name}>{s.name}</option>)}
-              </select>
+                placeholder="Type or pick a species"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+              />
+              <datalist id="edit-pet-species">
+                {apiSpecies.map(s => <option key={s.id} value={s.name} />)}
+              </datalist>
             </div>
 
             {/* Breed */}
@@ -225,13 +236,18 @@ const EditPetModal: React.FC<EditPetModalProps> = ({ isOpen, onClose, pet }) => 
               <label className="block text-xs font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">
                 Breed
               </label>
-              <select
+              {/* Same rule as species above: type a new one, and never lose
+                  one the catalogue does not list. */}
+              <input
+                list="edit-pet-breeds"
                 value={formData.breed}
                 onChange={(e) => setFormData({ ...formData, breed: e.target.value })}
-                className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam appearance-none"
-              >
-                {breedOptions.map(b => <option key={b} value={b}>{b}</option>)}
-              </select>
+                placeholder="Type or pick a breed"
+                className="w-full px-4 py-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+              />
+              <datalist id="edit-pet-breeds">
+                {breedOptions.map(b => <option key={b} value={b} />)}
+              </datalist>
             </div>
 
             {/* Gender */}

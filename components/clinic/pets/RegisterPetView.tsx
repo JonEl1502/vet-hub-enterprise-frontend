@@ -418,10 +418,16 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
                       <option value="Male">Male</option><option value="Female">Female</option>
                     </select>
                   </div>
+                  {/* Species and breed both accept a typed value the list does
+                      not carry. The catalogue is long but never complete — and
+                      picking the nearest wrong option to get past the form is
+                      what actually corrupts reports grouped by these fields. */}
                   <SearchableDropdown
                     label="Species"
                     options={speciesOptions.length > 0 ? speciesOptions : ['Dog', 'Cat']}
                     value={formData.species}
+                    allowCreate
+                    createLabel="species"
                     onChange={val => {
                       const firstBreed = breedOptions[0] || 'Mixed Breed';
                       setFormData({...formData, species: val, breed: firstBreed});
@@ -431,6 +437,8 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
                     label="Breed"
                     options={breedOptions}
                     value={formData.breed}
+                    allowCreate
+                    createLabel="breed"
                     onChange={val => setFormData({...formData, breed: val})}
                   />
                   <div className="space-y-1">
