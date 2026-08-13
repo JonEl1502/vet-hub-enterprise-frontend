@@ -355,8 +355,17 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
-            className="text-[32px] sm:text-[42px] md:text-[52px] lg:text-[60px] font-black tracking-tight text-white leading-[0.98] max-w-[15ch]"
+            className="text-[32px] sm:text-[42px] md:text-[56px] lg:text-[68px] xl:text-[76px] font-black tracking-tight text-white leading-[0.98] max-w-[16ch] md:max-w-[20ch] lg:max-w-[24ch]"
           >
+            {/* MEASURE WIDENED (user, 2026-08-12: "spread the text").
+                `max-w-[15ch]` and the smaller sizes existed to keep the copy
+                clear of the parallax tablet on the right. That device is now
+                commented out, so the headline was sitting in the left third of
+                an empty hero, broken across four short lines. It runs to ~24ch
+                and larger from `lg` up — still a measure, not the full 1280px
+                container: past roughly 25ch a display headline stops scanning
+                in one glance, and the body below stays under ~65ch for the
+                same reason. */}
             {/* The subject carries the brand amber, exactly as the OG card and
                 the share image do ("...for veterinary clinics." in #F2A41C).
                 The headline was flat white here, so the one piece of art the
@@ -370,12 +379,12 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6, ease: EASE, delay: 0.2 }}
-            className="mt-7 max-w-md"
+            className="mt-7 max-w-xl lg:max-w-2xl"
           >
-            <p className="text-white font-bold text-sm md:text-base tracking-wide">
+            <p className="text-white font-bold text-base md:text-lg tracking-wide">
               Every clinic · Every pet · Every team
             </p>
-            <p className="mt-2 text-white/70 text-sm md:text-base leading-relaxed">
+            <p className="mt-2 text-white/70 text-base md:text-lg leading-relaxed">
               Visits, records, inventory, and billing — one connected platform with 24/7 support.
             </p>
           </motion.div>

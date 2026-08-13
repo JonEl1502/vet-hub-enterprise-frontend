@@ -59,12 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
-### chore: hero tablet mockup commented out  —  2026-08-12
+### chore: hero tablet commented out, copy spread into the space  —  2026-08-12
 - **What changed:** the parallax tablet device on the landing hero is commented out at the user's
   request. The hero now runs on the photo, headline and CTA alone.
 - Commented, not deleted, and it sits next to the already-parked floating vet card. The
   `tabletImg` import stays — the devices section further down still renders it — and `deviceY`
   stays with a note, since uncommenting either block needs it.
+- **The hero copy now uses the width the device freed.** `max-w-[15ch]` and the smaller type
+  existed to keep the headline clear of the tablet, so with it gone the copy sat in the left third
+  of an empty hero broken across four short lines. The headline runs to ~24ch and scales up through
+  `lg`/`xl`; the sub-copy widens to `max-w-2xl` at a larger size.
+- Deliberately **not** stretched to the full 1280px container: past roughly 25ch a display headline
+  stops scanning in one glance, and body copy stays under ~65ch for the same reason.
+- **Verified in a real browser** at 1280 / 1440 / 1920: the headline resolves to two lines
+  ("The operating system for" / "veterinary practice.") and the sub-copy to one. At 390px
+  `doc=390 win=390` — no horizontal overflow.
 - **Record impact:** 🟢 None — marketing page markup.
 
 ### fix: the client card's "Collect" shows what is actually owed  —  2026-08-12
