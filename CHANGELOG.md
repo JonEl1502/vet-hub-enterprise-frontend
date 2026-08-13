@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: "receive payment" means one thing  —  2026-08-13
+- **What changed:** the credit card's **"Click to top up"** is now **"Receive payment"** (user,
+  2026-08-13). Top-up is wallet language for what is, in a clinic, simply taking money from a
+  client before there is a bill.
+- ⚠️ That rename collided with an existing **"Receive Payment"** quick action which opens the
+  INVOICES tab to collect against bills — a different act entirely. Two identical labels doing
+  different things is worse than either name, so the collector is now **"Collect on invoices"** and
+  every entry point to the advance flow — quick action, New-transaction menu, the Financials bar
+  button, the modal title and its submit — says **Receive payment**. One action, one name.
+- **Record impact:** 🟢 None — labels.
+
 ### feat: cheques and payment references in the settle modal  —  2026-08-13
 - **Cheque is a payment option.** It sits beside Cash as off-wallet, labelled **"Clears later"**,
   and records as its own method rather than as cash (which inflates the drawer) or a bank transfer

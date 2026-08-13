@@ -1029,11 +1029,11 @@ const renderOverview = () => (
                       )}
                     </button>
                     <button type="button" onClick={() => setTopUpOpen(true)}
-                      title="Top up this client's payment account"
+                      title="Receive a payment from this client, ahead of any bill"
                       className="px-4 py-3 text-center transition-all hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20 active:scale-[0.98]">
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Available Credit</p>
                       <p className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{money2(creditBalance)}</p>
-                      <p className="text-[7px] font-black uppercase tracking-widest text-emerald-500 mt-0.5">Click to top up</p>
+                      <p className="text-[7px] font-black uppercase tracking-widest text-emerald-500 mt-0.5">Receive payment</p>
                     </button>
                     <div className="px-4 py-3 text-center flex flex-col items-center justify-between">
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Client Status</p>

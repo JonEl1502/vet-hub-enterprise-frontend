@@ -1441,11 +1441,11 @@ const PetProfileView: React.FC<Props> = ({
                       )}
                     </button>
                     <button type="button" onClick={() => owner && setTopUpOpen(true)} disabled={!owner}
-                      title={owner ? `Top up ${owner.name}'s payment account` : undefined}
+                      title={owner ? `Receive a payment from ${owner.name}, ahead of any bill` : undefined}
                       className="px-4 py-3 text-center transition-all hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20 active:scale-[0.98] disabled:opacity-60">
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Owner Credit</p>
                       <p className="text-sm font-black font-mono text-emerald-600 dark:text-emerald-400 whitespace-nowrap">{money2(creditBalance)}</p>
-                      {owner && <p className="text-[7px] font-black uppercase tracking-widest text-emerald-500 mt-0.5">Click to top up</p>}
+                      {owner && <p className="text-[7px] font-black uppercase tracking-widest text-emerald-500 mt-0.5">Receive payment</p>}
                     </button>
                     <div className="px-4 py-3 text-center flex flex-col items-center justify-between">
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Patient Status</p>

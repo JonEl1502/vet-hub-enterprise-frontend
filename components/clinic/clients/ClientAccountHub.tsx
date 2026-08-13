@@ -264,8 +264,8 @@ const ClientAccountHub: React.FC<Props> = ({
 
   const QUICK_ACTIONS: { label: string; icon: any; onClick: () => void; disabled?: boolean }[] = [
     { label: 'New Bill', icon: FileText, onClick: () => onGoTab('appointments') },
-    { label: 'Receive Payment', icon: CircleDollarSign, onClick: () => onGoTab('invoices') },
-    { label: 'Record Advance', icon: HandCoins, onClick: () => setAdvanceOpen(true), disabled: !canCollect },
+    { label: 'Collect On Invoices', icon: CircleDollarSign, onClick: () => onGoTab('invoices') },
+    { label: 'Receive Payment', icon: HandCoins, onClick: () => setAdvanceOpen(true), disabled: !canCollect },
     { label: 'Refund', icon: RotateCcw, onClick: () => soon('Refunds') },
     { label: 'Credit Note', icon: Tag, onClick: () => soon('Credit notes') },
     { label: 'Payment Plan', icon: CalendarRange, onClick: () => soon('Payment plans') },
@@ -421,8 +421,8 @@ const ClientAccountHub: React.FC<Props> = ({
                       <div className="fixed inset-0 z-10" onClick={() => setNewTxOpen(false)} />
                       <div className="absolute right-0 top-10 w-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-20 py-1 animate-in fade-in slide-in-from-top-2 duration-150">
                         {[
-                          { label: 'Receive payment', icon: CircleDollarSign, run: () => onGoTab('invoices') },
-                          { label: 'Record advance', icon: HandCoins, run: () => setAdvanceOpen(true) },
+                          { label: 'Collect on invoices', icon: CircleDollarSign, run: () => onGoTab('invoices') },
+                          { label: 'Receive payment', icon: HandCoins, run: () => setAdvanceOpen(true) },
                           { label: 'New bill', icon: FileText, run: () => onGoTab('appointments') },
                         ].map(a => (
                           <button key={a.label} onClick={() => { setNewTxOpen(false); a.run(); }}
@@ -530,7 +530,7 @@ const ClientAccountHub: React.FC<Props> = ({
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full p-5 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h2 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Record Advance</h2>
+                <h2 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Receive Payment</h2>
                 <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Money ahead of any bill — lands as spendable credit</p>
               </div>
               <button onClick={() => setAdvanceOpen(false)} className="text-slate-400 hover:text-pine"><X size={18} /></button>
@@ -553,7 +553,7 @@ const ClientAccountHub: React.FC<Props> = ({
               <button onClick={recordAdvance} disabled={advanceBusy}
                 className="w-full flex items-center justify-center gap-2 py-3 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50">
                 {advanceBusy ? <Loader2 size={14} className="animate-spin" /> : <HandCoins size={14} />}
-                {advanceBusy ? 'Recording…' : 'Record advance'}
+                {advanceBusy ? 'Recording…' : 'Receive payment'}
               </button>
             </div>
           </div>
@@ -856,7 +856,7 @@ export const AccountStatCards: React.FC<{
       sub: petKey ? `On ${client.name}'s account`
         : client.maxDebt != null ? `Credit Limit: ${money(client.maxDebt, currency)}` : 'No credit limit set',
       onClick: onTopUp,
-      cta: 'top up',
+      cta: 'receive payment',
     },
     { label: 'Total Billed', icon: FileText, chip: 'bg-indigo-500/10 text-indigo-500',
       value: money(billed12, currency), valueCls: 'text-pine dark:text-zinc-100', sub: 'Last 12 months' },

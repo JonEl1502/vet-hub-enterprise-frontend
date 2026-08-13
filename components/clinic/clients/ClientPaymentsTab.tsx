@@ -563,7 +563,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
         {canCollect && (
           <button type="button" onClick={() => setAdvanceOpen(o => !o)}
             className="shrink-0 text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-pine transition-colors">
-            {advanceOpen ? 'Close' : '+ Record advance'}
+            {advanceOpen ? 'Close' : '+ Receive payment'}
           </button>
         )}
       </div>
@@ -571,7 +571,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
       {/* Record an advance — money ahead of any bill; lands as spendable credit. */}
       {advanceOpen && canCollect && (
         <div className="flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50">
-          <p className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Record advance payment</p>
+          <p className="text-[9px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">Receive a payment</p>
           <input type="number" min={0} value={advanceAmt} onChange={e => setAdvanceAmt(e.target.value)} placeholder="Amount" autoFocus
             className="w-28 px-2.5 py-1.5 rounded-lg border border-emerald-200 dark:border-emerald-900/50 bg-white dark:bg-zinc-950 text-sm font-bold text-pine dark:text-zinc-100 text-right outline-none focus:ring-2 focus:ring-emerald-400/40" />
           <select value={advanceMethod} onChange={e => setAdvanceMethod(e.target.value)}
