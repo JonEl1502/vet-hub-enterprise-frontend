@@ -7434,7 +7434,7 @@ const VisitDetailInner: React.FC<Props> = ({
         const finalTotal = Math.max(0, settleBase - discountAmount);
         return createPortal(
           <div className="fixed inset-0 bg-slate-900/70 dark:bg-black/80 z-[800] flex items-center justify-center p-4 sm:p-6 animate-in fade-in overflow-y-auto" onClick={() => setShowSettleModal(false)}>
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full my-auto rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden" onClick={e => e.stopPropagation()}>
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-3xl w-full my-auto rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
               {/* Header */}
               <div className="bg-pine px-6 py-5 flex items-center justify-between">
                 <div>
@@ -7447,7 +7447,7 @@ const VisitDetailInner: React.FC<Props> = ({
               </div>
               <div className="h-1 bg-gradient-to-r from-seafoam via-cyan to-seafoam" />
 
-              <div className="p-6 space-y-5">
+              <div className="p-6 space-y-5 overflow-y-auto">
                 {/* Wallet picker — each option IS a payment method via its
                     walletType (Pochi/Till/Paybill → M_PESA, Bank → BANK_
                     TRANSFER, Digital → CARD, Virtual → CASH). Cash is a
@@ -7464,7 +7464,7 @@ const VisitDetailInner: React.FC<Props> = ({
                       <p className="text-[9px] font-black text-seafoam uppercase tracking-widest">Cash · Off-Wallet</p>
                     )}
                   </div>
-                  <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 max-h-52 overflow-y-auto pr-1">
                     {settleWalletLoading ? (
                       <div className="text-center py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Loading wallets…</div>
                     ) : (

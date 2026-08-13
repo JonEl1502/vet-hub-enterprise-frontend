@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: patient header uses its empty space; settle modal fits a screen  —  2026-08-13
+**Patient header** (user: *"arrange well, use this space"*)
+- The money column was pinned by `xl:items-start`, so its `justify-between` had nothing to
+  distribute across and the card's extra height — driven by the taller identity column — fell out as
+  a **dead band** under the last-payment line. It now stretches, so that line sits at the bottom
+  where it was meant to.
+- The freed middle carries an **at-a-glance row**: health alerts, vaccines due, and the next
+  appointment. None of these were readable from the header before — the alerts existed only as a
+  COUNT beside the patient's name, so you had to go hunting for what the alert actually was. The
+  vaccine and appointment chips are buttons into their tabs.
+- Calm state is explicit: "No alerts" rather than an empty space that could mean either.
+
+**Settle modal** (user: *"this is long, make it wide"*)
+- `max-w-sm` → `max-w-3xl`, capped at `max-h-[92vh]` with a scrolling body, so Confirm can never be
+  pushed off a laptop screen — it had grown past one as the reference, payer and credit rows landed.
+- **"Settle into" is a horizontal grid** of wallets (1 / 2 / 3 up by width) instead of a tall stack,
+  which was the single tallest thing in the dialog.
+- **Record impact:** 🟢 None — layout only.
+
 ### feat: record who paid, and make the picker fit  —  2026-08-13
 - **WHO paid is now captured** beside the transaction's reference — the phone number an M-Pesa came
   from, the account a transfer was debited from, the account a cheque is drawn on (user,

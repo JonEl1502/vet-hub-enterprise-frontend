@@ -16,7 +16,7 @@ import { clientsAPI } from '../../../services';
 import { toast } from '../../../services/utils/toast';
 import { remindersAPI, appointmentsAPI } from '../../../services';
 import type { Reminder, Appointment } from '../../../services';
-import { Heart, Activity, Calendar, CalendarPlus, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical, Smile, Camera, Loader2, User, Phone } from 'lucide-react';
+import { Heart, Activity, Calendar, CalendarPlus, Syringe, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical, Smile, Camera, Loader2, User, Phone } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -1276,7 +1276,12 @@ const PetProfileView: React.FC<Props> = ({
           own menu and its money on the right. */}
       <header className="space-y-4">
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm p-4 sm:p-5">
-          <div className="flex flex-col xl:flex-row xl:items-start gap-4 xl:gap-6">
+          {/* `xl:items-stretch`, NOT items-start: the right column's
+              `justify-between` can only push the last-payment line to the
+              bottom if the column actually fills the card. With items-start it
+              hugged its content and left an empty band below (user,
+              2026-08-13: "use that space"). */}
+          <div className="flex flex-col xl:flex-row xl:items-stretch gap-4 xl:gap-6">
             <div className="flex items-start gap-3 sm:gap-4 min-w-0 flex-1">
               <button onClick={onBack} className="w-10 h-10 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-full flex items-center justify-center text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-sm active:scale-95 shrink-0 mt-1.5">
                 <ArrowLeft size={17}/>
@@ -1454,6 +1459,44 @@ const PetProfileView: React.FC<Props> = ({
                       }`}>{pet.isAlive !== false ? 'Active' : 'Deceased'}</span>
                     </div>
                   </div>
+                  {/* AT A GLANCE — the band under the money strip used to be
+                      empty. These are the three things this page gets opened
+                      to check, and none of them were visible without leaving
+                      the header: the alerts existed only as a COUNT beside the
+                      name, so you had to go hunting for what the alert was. */}
+                  <div className="flex flex-wrap items-center justify-center xl:justify-end gap-1.5">
+                    {healthAlerts.length > 0 ? (
+                      healthAlerts.slice(0, 3).map((a, i) => (
+                        <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 max-w-full">
+                          <AlertCircle size={10} className="shrink-0" /> <span className="truncate">{a}</span>
+                        </span>
+                      ))
+                    ) : (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                        <Heart size={10} /> No alerts
+                      </span>
+                    )}
+                    {healthAlerts.length > 3 && (
+                      <span className="inline-flex px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-500 border border-rose-500/20">
+                        +{healthAlerts.length - 3}
+                      </span>
+                    )}
+                    {pendingVaccines > 0 && (
+                      <button type="button" onClick={() => { setActiveTab('records'); }}
+                        title="Open records"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 transition-colors">
+                        <Syringe size={10} /> {pendingVaccines} vaccine{pendingVaccines === 1 ? '' : 's'} due
+                      </button>
+                    )}
+                    {scheduledAppointments[0] && (
+                      <button type="button" onClick={() => setActiveTab('schedule')}
+                        title="Open reminders & appointments"
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam/10 text-seafoam border border-seafoam/20 hover:bg-seafoam/20 transition-colors">
+                        <CalendarPlus size={10} /> Next {formatDate(scheduledAppointments[0].date)}
+                      </button>
+                    )}
+                  </div>
+
                   <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-2 gap-y-1 text-[10px] font-bold text-slate-500 dark:text-zinc-400">
                     <span className="inline-flex items-center gap-1.5"><CreditCard size={11} className="text-slate-400" /> Last Payment: <span className="text-pine dark:text-zinc-200 font-black">{lastPetPayment ? formatDate(lastPetPayment.settledAt || lastPetPayment.createdAt) : '—'}</span></span>
                     <span className="text-slate-200 dark:text-zinc-700">|</span>
