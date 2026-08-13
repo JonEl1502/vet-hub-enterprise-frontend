@@ -1376,7 +1376,13 @@ const PetProfileView: React.FC<Props> = ({
                           became three (user, 2026-08-13). `min-w-0` is what
                           lets the name truncate instead of shoving the phone
                           down. */}
-                      <div className="flex flex-wrap items-center gap-x-4 gap-y-1 w-full min-w-0 text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+                      {/* ⚠️ MEASURED, not guessed: this column is 251px on a
+                          1512px screen (the 5-cell money strip takes the rest).
+                          Owner 141 + phone 97 + a 16px gap = 254 — three pixels
+                          over, so the phone wrapped to its own line. Both items
+                          now shrink and truncate instead of wrapping, so the
+                          row stays ONE line whatever the owner is called. */}
+                      <div className="flex items-center gap-x-3 w-full min-w-0 text-[11px] font-bold text-slate-500 dark:text-zinc-400">
                         <button
                           onClick={() => onViewOwner?.(owner.id)}
                           disabled={!onViewOwner}
@@ -1388,8 +1394,9 @@ const PetProfileView: React.FC<Props> = ({
                           {onViewOwner && <ChevronRight size={11} className="shrink-0 text-slate-400" />}
                         </button>
                         {owner.phone && (
-                          <span className="inline-flex items-center gap-1.5 shrink-0">
-                            <Phone size={11} className="text-slate-400" /> {owner.phone}
+                          <span className="inline-flex items-center gap-1.5 min-w-0">
+                            <Phone size={11} className="text-slate-400 shrink-0" />
+                            <span className="truncate">{owner.phone}</span>
                           </span>
                         )}
                       </div>
