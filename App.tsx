@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { useStore } from './store';
 import { useAuth } from './contexts/AuthContext';
 import { useClinic } from './contexts/ClinicContext';
@@ -612,6 +612,34 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     if (PERSIST_VIEWS.has(view)) localStorage.setItem(VIEW_STORAGE_KEY, view);
     window.scrollTo({ top: 0, behavior: 'instant' });
   };
+
+  /**
+   * Remember something about the CURRENT page so Back returns to it as it was.
+   *
+   * The nav stack already carries `{view, params}` per entry and already
+   * restores scroll position this way; this writes into the entry you are
+   * standing on, so when `goBack()` pops back to it the params replay. Used for
+   * the client profile's open tab: leaving Financials for a visit and pressing
+   * Back dropped you on Overview, and you had to find your way back to the tab
+   * you were working in (user, 2026-08-13).
+   *
+   * ⚠️ Deliberately does NOT touch `window.history` — this is not a navigation,
+   * it is an annotation on where you already are. Pushing or replacing here
+   * would desync the browser's stack from `navStack`, which is exactly what
+   * `goBackInFlight` exists to keep straight.
+   *
+   * No-ops when nothing changed, so a component free to call it on every render
+   * cannot cause a state-update loop.
+   */
+  const rememberNavParams = useCallback((patch: Record<string, any>) => {
+    setNavStack(prev => {
+      if (!prev.length) return prev;
+      const top = prev[prev.length - 1];
+      const unchanged = Object.entries(patch).every(([k, v]) => (top.params as any)?.[k] === v);
+      if (unchanged) return prev;
+      return [...prev.slice(0, -1), { ...top, params: { ...(top.params || {}), ...patch } }];
+    });
+  }, []);
 
   // Publish stack depth so shared chrome can hide a back control that would
   // do nothing (goBack no-ops at depth 1).
@@ -2544,7 +2572,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           appointments={appointments.filter(a => a.petId === pId)}
           allPets={pets}
           onBack={goBack}
-          initialTab={currentNav.params?.initialTab || 'overview'}
+          initialTab={currentNav.params?.initialTab || 'overview'} onTabChange={(t) => rememberNavParams({ initialTab: t })}
           onNavigatePet={(id) => navigateTo('pet-profile', { petId: id })}
           onOpenMessaging={(c) => navigateTo('messaging', { clientId: c.id })}
           allMessages={store.messages}

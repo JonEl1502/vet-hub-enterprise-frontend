@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Back returns to the client tab you were on  —  2026-08-13
+- **What changed:** opening a visit from a client's **Financials** tab and pressing Back dropped you
+  on **Overview**, so you had to find your way back to what you were working in (user, 2026-08-13).
+  The client profile now reports its open tab up, and the navigation entry remembers it — Back
+  replays the tab exactly as scroll position already replayed.
+- Built on plumbing that already existed: nav entries have always carried `{view, params}`, and
+  `initialTab` was already an accepted param. The only missing piece was writing the tab down on
+  the way out.
+- ⚠️ `rememberNavParams` deliberately does **not** touch `window.history` — this annotates the page
+  you are standing on, it is not a navigation. Pushing or replacing there would desync the browser
+  stack from `navStack`, which is the very thing `goBackInFlight` exists to keep straight.
+- ⚠️ It no-ops when nothing changed, so a component calling it on every render cannot loop.
+- **Record impact:** 🟢 None — navigation state.
+
 ### fix: patient header uses its empty space; settle modal fits a screen  —  2026-08-13
 **Patient header** (user: *"arrange well, use this space"*)
 - The money column was pinned by `xl:items-start`, so its `justify-between` had nothing to

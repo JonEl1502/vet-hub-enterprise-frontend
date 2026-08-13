@@ -45,6 +45,11 @@ interface Props {
   appointments: Visit[];
   onBack: () => void;
   initialTab?: string;
+  /**
+   * Report the open tab up so the nav entry remembers it and Back returns
+   * here as it was, rather than resetting to Overview.
+   */
+  onTabChange?: (tab: string) => void;
   appointmentsUnpaidOnly?: boolean;
   onViewPet: (id: number) => void;
   onOpenMessaging: () => void;
@@ -70,13 +75,16 @@ interface Props {
   onAddPet?: () => void;
 }
 
-const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onOpenMedicalRecord, onManageWorkflow, onViewVisitDetails, onScheduleAppointment, onAddPet, onOpenVisitBill }) => {
+const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', onTabChange, appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onOpenMedicalRecord, onManageWorkflow, onViewVisitDetails, onScheduleAppointment, onAddPet, onOpenVisitBill }) => {
   // This view has no `activeClinic` prop; the printed document still needs a
   // clinic name on it. With a multi-clinic scope the first selected one is the
   // right answer here — the client is being viewed within that scope.
   const { selectedClinics } = useClinic();
   const receiptClinicName = selectedClinics[0]?.name ?? '';
   const [activeTab, setActiveTab] = useState(initialTab);
+  // Mirror the open tab into the navigation entry. Safe to fire on mount too:
+  // `rememberNavParams` no-ops when the value has not changed.
+  useEffect(() => { onTabChange?.(activeTab); }, [activeTab, onTabChange]);
   // Timeline filters live here so the bar can sit above the cards and tabs.
   const [accountFilters, setAccountFilters] = useAccountFilters();
   const [topUpOpen, setTopUpOpen] = useState(false);
