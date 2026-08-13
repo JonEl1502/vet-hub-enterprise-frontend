@@ -1,7 +1,9 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X, Loader2, PiggyBank, Banknote, Smartphone, Landmark, CreditCard } from 'lucide-react';
+import { X, Loader2, PiggyBank } from 'lucide-react';
 import { clientsAPI, toast } from '../../../services';
+import PaymentChannelPicker from '../shared/PaymentChannelPicker';
+import { PaymentChannel, channelById } from '../shared/paymentChannels';
 
 /**
  * Top up a client's payment account — money in ADVANCE of any bill, which the
@@ -11,13 +13,6 @@ import { clientsAPI, toast } from '../../../services';
  * account. Wiring M-Pesa STK / card capture happens later, so the copy says
  * "record", never "charge" — the front desk has already taken the money.
  */
-const METHODS = [
-  { id: 'M_PESA', label: 'M-Pesa', icon: Smartphone },
-  { id: 'CASH', label: 'Cash', icon: Banknote },
-  { id: 'BANK_TRANSFER', label: 'Bank', icon: Landmark },
-  { id: 'CARD', label: 'Card', icon: CreditCard },
-];
-
 const CreditTopUpModal: React.FC<{
   open: boolean;
   clientId: string | number;
@@ -28,11 +23,14 @@ const CreditTopUpModal: React.FC<{
   onDone: () => void;
 }> = ({ open, clientId, clientName, currency, currentCredit, onClose, onDone }) => {
   const [amount, setAmount] = React.useState('');
-  const [method, setMethod] = React.useState('M_PESA');
+  // The CHANNEL is what staff pick ("Pochi", "Cheque"); the enum method it
+  // settles as is derived from it, so the ledger keeps recording what it always
+  // did while reconciliation gains the detail it was missing.
+  const [channelId, setChannelId] = React.useState('MPESA_PAYBILL');
   const [reference, setReference] = React.useState('');
   const [busy, setBusy] = React.useState(false);
 
-  React.useEffect(() => { if (open) { setAmount(''); setReference(''); setMethod('M_PESA'); } }, [open]);
+  React.useEffect(() => { if (open) { setAmount(''); setReference(''); setChannelId('MPESA_PAYBILL'); } }, [open]);
   if (!open) return null;
 
   const n = Number(amount);
@@ -43,10 +41,12 @@ const CreditTopUpModal: React.FC<{
     if (!valid) return;
     setBusy(true);
     try {
+      const channel = channelById(channelId);
       const res = await clientsAPI.recordAdvance(clientId, {
         amount: n,
-        paymentMethod: method,
-        ...(reference.trim() ? { note: reference.trim() } : {}),
+        paymentMethod: channel?.method ?? 'CASH',
+        channel: channelId,
+        ...(reference.trim() ? { reference: reference.trim(), note: reference.trim() } : {}),
       } as any);
       if (res.success) {
         toast.success(`${money(n)} added to ${clientName || 'the client'}'s account`);
@@ -78,28 +78,15 @@ const CreditTopUpModal: React.FC<{
               className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-lg font-black font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
           </div>
 
-          <div>
-            <label className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Received by</label>
-            <div className="grid grid-cols-2 gap-1.5">
-              {METHODS.map(m => (
-                <button key={m.id} type="button" onClick={() => setMethod(m.id)}
-                  className={`flex items-center gap-2 px-3 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-widest transition-all ${
-                    method === m.id
-                      ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 text-emerald-700 dark:text-emerald-400'
-                      : 'border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:border-emerald-400'
-                  }`}>
-                  <m.icon size={13} /> {m.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Reference (optional)</label>
-            <input type="text" value={reference} onChange={e => setReference(e.target.value)}
-              placeholder="M-Pesa code, slip no."
-              className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-          </div>
+          {/* Channel + its own reference. Replaces four flat method buttons and
+              a vague "M-Pesa code, slip no." box that could not tell a Pochi
+              payment from a Paybill one after the fact. */}
+          <PaymentChannelPicker
+            value={channelId}
+            onChange={(c: PaymentChannel) => setChannelId(c.id)}
+            reference={reference}
+            onReferenceChange={setReference}
+          />
 
           {valid && (
             <div className="flex items-center justify-between px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-900/50">
@@ -110,7 +97,8 @@ const CreditTopUpModal: React.FC<{
 
           <p className="text-[9px] font-bold text-slate-400 leading-relaxed">
             This records money already received. It lands on the account as spendable credit —
-            the next collection draws from it before cash. Card and M-Pesa capture are not wired yet.
+            the next collection draws from it before cash. Nothing is charged here: the money
+            has already changed hands, and the reference is what proves it.
           </p>
 
           <button onClick={submit} disabled={!valid || busy}

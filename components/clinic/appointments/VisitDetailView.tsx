@@ -1175,6 +1175,23 @@ const VisitDetailInner: React.FC<Props> = ({
         return 'CASH';
     }
   };
+  /**
+   * The wallet already encodes the channel: money landing in a Pochi wallet
+   * arrived by Pochi. Deriving it here means the settle modal records the same
+   * `metadata.channel` the top-up modal does, without asking the cashier to
+   * restate what the wallet choice already said.
+   */
+  const walletTypeToChannel = (t: WalletData['walletType']): string => {
+    switch (t) {
+      case 'MPESA_POCHI': return 'MPESA_POCHI';
+      case 'TILL': return 'MPESA_TILL';
+      case 'MPESA_PAYBILL': return 'MPESA_PAYBILL';
+      case 'BANK': return 'BANK_TRANSFER';
+      case 'BANK_PAYBILL': return 'BANK_PAYBILL';
+      case 'DIGITAL_WALLET': return 'CARD';
+      default: return 'CASH';
+    }
+  };
   const walletTypeLabel = (t: WalletData['walletType']): string => {
     if (!t) return 'Wallet';
     switch (t) {
@@ -2720,6 +2737,10 @@ const VisitDetailInner: React.FC<Props> = ({
           amountTendered: amountPaid ?? 0,
           // The payer's own reference — cheque no., M-Pesa code, bank slip.
           ...(settleReference.trim() ? { reference: settleReference.trim() } : {}),
+          // HOW it arrived, matching what the top-up modal records.
+          channel: settleSelectedWalletId === CHEQUE_OPTION_ID ? 'CHEQUE'
+            : settleSelectedWalletId === CASH_OPTION_ID ? 'CASH'
+            : walletTypeToChannel(settleWallets.find(w => String(w.id) === settleSelectedWalletId)?.walletType),
           // Spend the client's own money first — the server caps it at what is
           // owed, so this can never bank credit back onto the account.
           ...(useCredit != null && useCredit > 0 ? { useCredit } : {}),

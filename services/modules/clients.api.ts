@@ -229,6 +229,13 @@ export const clientsAPI = {
        */
       useCredit?: boolean | number;
       /**
+       * HOW the money arrived, one rung below `paymentMethod` — MPESA_POCHI,
+       * MPESA_TILL, BANK_DEPOSIT, CHEQUE… Stored on `metadata.channel`. The
+       * method stays the ledger's truth; this is what lets reconciliation tell
+       * a Pochi payment from a Paybill one.
+       */
+      channel?: string;
+      /**
        * The payer's own reference (M-Pesa code, cheque number, bank slip).
        * Stored on the transaction's metadata — deliberately NOT the `@unique`
        * `reference_number` column, where a repeated code would fail the whole

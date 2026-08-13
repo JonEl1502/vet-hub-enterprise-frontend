@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: pick how the money arrived — Pochi, Till, Paybill, cheque, deposit  —  2026-08-13
+- **What changed:** a shared **`PaymentChannelPicker`** replaces the four flat method buttons
+  (M-Pesa / Cash / Bank / Card) and the vague *"M-Pesa code, slip no."* box. You now pick the actual
+  channel — **Send Money · Pochi la Biashara · Paybill · Till**, or **Bank transfer · Cash deposit ·
+  Bank paybill · Cheque** — and the reference field is **labelled by that channel**, so staff are
+  told what to type: a cheque number is not an M-Pesa code (user, 2026-08-13).
+- Cash shows **no** reference field at all, rather than an unanswerable optional box.
+- One definition in `components/clinic/shared/paymentChannels.ts` drives every money screen, so the
+  top-up modal and the settle modal can't drift apart on what a payment reference means.
+- **The settle modal derives its channel from the wallet** — money landing in a Pochi wallet arrived
+  by Pochi — so a cashier is never asked to restate what the wallet choice already said.
+- **Record impact:** 🔵 Low — writes `metadata.channel` on the transaction. Nothing existing changes.
+- **Data dependency:** backend accepting `channel` on collect + advance (same release). Older API
+  ignores it, so the picker degrades to recording the method alone.
+- ⚠️ The channel never replaces the METHOD: the enum is what the ledger, the drawer and every money
+  report group on. The channel is the detail underneath it.
+
 ### feat: bank wallets are real destinations  —  2026-08-13
 - **What changed:** the Add-wallet picker gains **Real — Bank** beside Virtual and Real — Mpesa.
   `BANK` and `BANK_PAYBILL` were already in the schema and the form, flagged `realSupported: false`;
