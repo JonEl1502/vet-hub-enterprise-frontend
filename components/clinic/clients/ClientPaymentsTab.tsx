@@ -205,12 +205,53 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
     finally { setLoading(false); }
   }, [clientId]);
 
-  /** visitId → its invoice document, for due dates and status. */
-  const docByVisit = React.useMemo(() => {
-    const m = new Map<string, InvoiceRow>();
-    for (const d of invoiceDocs) if (d.visitId) m.set(String(d.visitId), d);
+  /**
+   * visitId → its LIVE invoice document, for due dates, status and the amount.
+   *
+   * ⚠️ VOIDED INVOICES WERE WINNING. This kept the last document it saw per
+   * visit and filtered nothing, so prod visit #159 — which carries a voided
+   * INV-…026 for 2,300 and a live INV-…027 for 22,367 — displayed **2,300**
+   * beside a chip naming …027, because the chip is built from
+   * `getClientBilling` (which excludes VOID) and this map was not. One row
+   * quoting two different invoices (user, 2026-08-13: "2,300.00 not matching").
+   *
+   * A voided document is not what anyone owes. On a SPLIT bill several live
+   * invoices share a visit, so the newest is kept for dates/status and
+   * `docTotalByVisit` below sums them for the amount — quoting one half of a
+   * split as though it were the whole visit is the same class of error.
+   */
+  const liveDocsByVisit = React.useMemo(() => {
+    const m = new Map<string, InvoiceRow[]>();
+    for (const d of invoiceDocs) {
+      if (!d.visitId || String((d as any).status).toUpperCase() === 'VOID') continue;
+      const k = String(d.visitId);
+      m.set(k, [...(m.get(k) ?? []), d]);
+    }
     return m;
   }, [invoiceDocs]);
+
+  const docByVisit = React.useMemo(() => {
+    const m = new Map<string, InvoiceRow>();
+    for (const [k, docs] of liveDocsByVisit) {
+      const newest = [...docs].sort((a, b) =>
+        new Date((b as any).issuedAt ?? 0).getTime() - new Date((a as any).issuedAt ?? 0).getTime())[0];
+      if (newest) m.set(k, newest);
+    }
+    return m;
+  }, [liveDocsByVisit]);
+
+  /** Every live document on a visit, summed — a split bill is not one invoice. */
+  const docTotalByVisit = React.useMemo(() => {
+    const m = new Map<string, { total: number; outstanding: number; count: number }>();
+    for (const [k, docs] of liveDocsByVisit) {
+      m.set(k, {
+        total: docs.reduce((s, d) => s + Number((d as any).total ?? 0), 0),
+        outstanding: docs.reduce((s, d) => s + Number((d as any).outstanding ?? 0), 0),
+        count: docs.length,
+      });
+    }
+    return m;
+  }, [liveDocsByVisit]);
 
   // Overdue = money still owed PAST a due date someone actually set. An invoice
   // with no due date is never overdue — the app does not invent payment terms.
@@ -694,7 +735,10 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
 
               <button type="button" onClick={collect} disabled={busy || selected.size === 0 || allocationInvalid}
                 className="ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-40 transition-all">
-                {busy ? <Loader2 size={11} className="animate-spin" /> : <CreditCard size={11} />} Collect as one payment
+                {busy ? <Loader2 size={11} className="animate-spin" /> : <CreditCard size={11} />}
+                {busy ? 'Collecting…'
+                  : selected.size === 0 ? 'Tick an invoice to collect'
+                  : `Collect ${money(Math.max(0, cashDue), currency)}${selected.size > 1 ? ` · ${selected.size} invoices` : ''}`}
               </button>
 
               {/* How the money stacks up: credit + cash vs the selection, what
@@ -784,6 +828,18 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
               {/* Who the server will record as having taken the money. Shown,
                   not typed: it is `req.user` on the API, so a free-text name
                   here would be a different person from the one on the record. */}
+              {/* WHAT THIS BAR DOES, in a sentence. It is a dense row of
+                  controls — a method, a credit toggle, a cash box, a reference,
+                  and a button — and nothing said that ticking several invoices
+                  takes ONE payment across them, reversible as a unit (user,
+                  2026-08-13: "the ui to pay is confusing a bit"). */}
+              <p className="w-full text-[10px] font-bold text-slate-500 dark:text-zinc-400 leading-relaxed">
+                {selected.size === 0
+                  ? 'Tick the invoices you are collecting for. Several at once become ONE payment — reversible as a unit.'
+                  : selected.size === 1
+                    ? `Collecting for 1 invoice · ${money(Math.max(0, cashDue), currency)} in cash${credit > 0.005 ? ' after any credit applied' : ''}.`
+                    : `${selected.size} invoices settle together as ONE payment of ${money(Math.max(0, cashDue), currency)}. Void it later and all ${selected.size} go back to unpaid.`}
+              </p>
               {user && (
                 <p className="w-full text-[9px] font-bold text-slate-400">
                   Received by <span className="text-slate-600 dark:text-zinc-300 font-black">{(user as any).name || (user as any).email}</span>
@@ -909,8 +965,8 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                         (user, 2026-08-04). The document is what the client owes. */}
                     <span className="block text-sm font-black font-mono text-pine dark:text-zinc-100">
                       {(() => {
-                        const doc = only === 'invoices' ? docByVisit.get(String(inv.visitId)) : null;
-                        if (doc) return money(Number(doc.outstanding) > 0.005 ? doc.outstanding : doc.total, currency);
+                        const agg = only === 'invoices' ? docTotalByVisit.get(String(inv.visitId)) : null;
+                        if (agg) return money(agg.outstanding > 0.005 ? agg.outstanding : agg.total, currency);
                         return money(partly ? inv.outstanding : inv.total, currency);
                       })()}
                     </span>

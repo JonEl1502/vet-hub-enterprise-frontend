@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a VOIDED invoice was quoting the amount owed  —  2026-08-13
+- **What changed:** the Invoices row displayed **KES 2,300** next to a chip naming
+  **INV-2026-000027**, whose own document totals **22,367** — one row quoting two different
+  invoices (user: *"2,300.00 not matching"*). Prod visit **#159** carries a voided INV-…026 for
+  2,300 and a live INV-…027 for 22,367.
+- **Cause:** `docByVisit` kept the LAST document it saw per visit and **filtered nothing**, so the
+  voided one overwrote the live one. The chip beside it comes from `getClientBilling`, which does
+  exclude VOID — hence the contradiction on a single line.
+- Voided documents are now skipped outright, and a **split** bill's live invoices are **summed**
+  (`docTotalByVisit`) rather than one half being quoted as the whole visit — the same class of error.
+- **Record impact:** 🟢 None — display. No money moved; the figure shown was wrong, not the data.
+
+### fix: the collect bar says what it will do  —  2026-08-13
+- **"Collect as one payment"** named a mechanism, not the act, and read identically whether one
+  invoice or six were ticked (user: *"make it easy for user to understand"*). The button now states
+  the amount and the count — *"Collect KES 22,367 · 3 invoices"* — and says **"Tick an invoice to
+  collect"** when nothing is selected, instead of sitting there disabled without explanation.
+- A one-line caption under the bar explains the thing that was never said: several invoices ticked
+  together become **ONE payment, reversible as a unit** — void it and all of them return to unpaid.
+- **Record impact:** 🟢 None — labels.
+
 ### feat: shared-library procedures are marked, and read-only on purpose  —  2026-08-13
 - **What changed:** the 12 global recipes seeded to prod rendered **identically to a clinic's own**,
   so the only way to discover one was shared was to try editing it and get *"Procedure template not
