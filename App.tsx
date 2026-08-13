@@ -645,7 +645,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   // do nothing (goBack no-ops at depth 1).
   useEffect(() => {
     try { (window as any).__vethubCanGoBack = navStack.length > 1; } catch {}
-  }, [navStack.length]);
+    try { (window as any).__vethubNavStack = navStack.map(n => ({ view: n.view, params: n.params })); } catch {}
+  }, [navStack]);
 
   const goBack = () => {
     if (navStack.length <= 1) return;
