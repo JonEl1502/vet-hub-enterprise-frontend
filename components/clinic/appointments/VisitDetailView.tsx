@@ -257,16 +257,6 @@ const VisitDetailInner: React.FC<Props> = ({
     if (st === 'ISSUED') return appointment.isPaid ? 'DONE' : 'PAY_FIRST';
     return 'DONE';                                        // PAID · RECONCILED · VOID
   })();
-  const billStageLabel = (() => {
-    switch (billStage) {
-      case 'APPROVE': return liveBill?.status === 'PENDING_REVIEW' ? 'Bill · pending review' : 'Bill · draft';
-      case 'INVOICE': return 'Bill approved · awaiting invoice';
-      case 'SETTLE': return 'Invoiced · awaiting payment';
-      case 'PAY_FIRST': return 'Issued · awaiting pay-first';
-      case 'DONE': return appointment.isPaid ? 'Settled' : `Bill ${String(liveBill?.status ?? '').toLowerCase()}`;
-      default: return isFinalized ? 'Awaiting payment' : 'Total bill · not finalized';
-    }
-  })();
   // Per-workflow reports (077): a visit that carries grooming/boarding work
   // gets its own report tab — shown even when the data is still sparse.
   const hasGroomingWork = appointment.encounterType === 'GROOMING' || appointment.tasks.some(t => (t.category || '').toLowerCase().includes('groom'));
@@ -329,6 +319,38 @@ const VisitDetailInner: React.FC<Props> = ({
    */
   const [invoiceDocId, setInvoiceDocId] = useState<string | null>(null);
   const [visitInvoices, setVisitInvoices] = useState<any[]>([]);
+
+  const billStageLabel = (() => {
+    switch (billStage) {
+      case 'APPROVE': return liveBill?.status === 'PENDING_REVIEW' ? 'Bill · pending review' : 'Bill · draft';
+      /**
+       * A SPLIT BILL IS NOT "AWAITING INVOICE".
+       *
+       * The bill stays APPROVED after a CLINICAL invoice is issued so the stay
+       * or grooming can be invoiced separately (170) — but the footer read
+       * "Bill approved · awaiting invoice · KES 23,167" with a Generate
+       * invoice button, directly under a live INV-…027 for 22,367. Three
+       * numbers, no explanation of the gap (user, 2026-08-13: "a bit
+       * confusing", "i already generated invoice").
+       *
+       * Say what is actually left: the part that has no document yet.
+       */
+      case 'INVOICE': {
+        const live = visitInvoices.filter((i: any) => (i.scope ?? 'FULL') !== 'FULL');
+        if (!live.length) return 'Bill approved · awaiting invoice';
+        const invoiced = live.reduce((s: number, i: any) => s + Number(i.total || 0), 0);
+        const left = Math.round((Number(appointment.totalCost || 0) - invoiced) * 100) / 100;
+        const scopes = live.map((i: any) => String(i.scope).toLowerCase()).join(' + ');
+        return left > 0.005
+          ? `${scopes} invoiced · ${activeClinic.currency} ${left.toLocaleString()} not yet on a document`
+          : `${scopes} invoiced · nothing left to invoice`;
+      }
+      case 'SETTLE': return 'Invoiced · awaiting payment';
+      case 'PAY_FIRST': return 'Issued · awaiting pay-first';
+      case 'DONE': return appointment.isPaid ? 'Settled' : `Bill ${String(liveBill?.status ?? '').toLowerCase()}`;
+      default: return isFinalized ? 'Awaiting payment' : 'Total bill · not finalized';
+    }
+  })();
   // Billing upgrades (077): collapsible billing view, previous outstanding
   // balance carried onto the invoice, and a pre-finalize discount line.
   const [prevBalance, setPrevBalance] = useState<{ total: number; items: Array<{ appointmentId: string; petName: string | null; scheduledAt: string; amount: number }> } | null>(null);

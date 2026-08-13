@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a split bill explains its own gap  —  2026-08-13
+- **What changed:** after a CLINICAL invoice is issued the bill stays APPROVED so the stay or
+  grooming can be invoiced separately (170) — but the footer read **"Bill approved · awaiting
+  invoice · KES 23,167"** with a Generate-invoice button, directly beneath a live **INV-…027 for
+  22,367**. Three numbers on one screen and nothing explaining the gap (user: *"a bit confusing"*,
+  *"i already generated invoice"*). Prod visit **#159**: clinical 22,367 invoiced, **800 of grooming
+  still on no document**.
+- The stage line now names what is actually left — *"clinical invoiced · KES 800 not yet on a
+  document"* — instead of claiming the whole bill is awaiting one.
+- **Record impact:** 🟢 None — a label.
+- ⚠️ **Nearly shipped a white screen doing this.** The label is a render-time IIFE and I first put
+  it ABOVE `visitInvoices`, referencing a `const` declared further down — a temporal dead zone that
+  throws on every render. `tsc` did not flag it inside the nested arrow function, exactly like the
+  hooks-order class this file has been bitten by twice. It now sits below the declaration.
+
 ### fix: "receive payment" means one thing  —  2026-08-13
 - **What changed:** the credit card's **"Click to top up"** is now **"Receive payment"** (user,
   2026-08-13). Top-up is wallet language for what is, in a clinic, simply taking money from a
