@@ -148,8 +148,21 @@ const ClientAccountHub: React.FC<Props> = ({
     [petKey, appliedByPayment],
   );
 
+  /**
+   * ⚠️ SETTLED VISITS MUST NOT COUNT. This summed raw `outstanding` across ALL
+   * of the patient's visits, including ones already settled — so a visit whose
+   * settlements fall short of its face value (a collect-time discount, a
+   * write-off, or a split invoice covering part of the bill) kept contributing
+   * its gap forever. The card then read **KES 33,800** directly above its own
+   * sub-label "Nothing outstanding", because the label counts unsettled
+   * invoices while the number did not (user, 2026-08-13: "where is 33k bal
+   * coming from").
+   *
+   * Same rule the clients list now uses: a gap on a settled visit is a
+   * discount, not a debt.
+   */
   const outstanding = petKey
-    ? invoices.reduce((s, i) => s + (i.outstanding ?? 0), 0)
+    ? invoices.filter(i => !isSettled(i)).reduce((s, i) => s + (i.outstanding ?? 0), 0)
     : (billing?.outstanding ?? client.outstandingBalance ?? 0);
   const openCount = invoices.filter(i => !i.isPaid).length;
 
@@ -831,8 +844,21 @@ export const AccountStatCards: React.FC<{
   const paidOf = (p: { id: string; amount: number }) =>
     petKey ? (appliedByPayment.get(String(p.id)) ?? 0) : (p.amount || 0);
 
+  /**
+   * ⚠️ SETTLED VISITS MUST NOT COUNT. This summed raw `outstanding` across ALL
+   * of the patient's visits, including ones already settled — so a visit whose
+   * settlements fall short of its face value (a collect-time discount, a
+   * write-off, or a split invoice covering part of the bill) kept contributing
+   * its gap forever. The card then read **KES 33,800** directly above its own
+   * sub-label "Nothing outstanding", because the label counts unsettled
+   * invoices while the number did not (user, 2026-08-13: "where is 33k bal
+   * coming from").
+   *
+   * Same rule the clients list now uses: a gap on a settled visit is a
+   * discount, not a debt.
+   */
   const outstanding = petKey
-    ? invoices.reduce((s, i) => s + (i.outstanding ?? 0), 0)
+    ? invoices.filter(i => !isSettled(i)).reduce((s, i) => s + (i.outstanding ?? 0), 0)
     : (billing?.outstanding ?? client.outstandingBalance ?? 0);
   const openCount = invoices.filter(i => !isSettled(i)).length;
   const yearAgo = (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.getTime(); })();

@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a patient's balance counted debts that were already settled  —  2026-08-13
+- **What changed:** "Balance on this patient" summed raw `outstanding` across **every** visit,
+  settled ones included — so a visit whose settlements fall short of its face value (a collect-time
+  discount, a write-off, or a split invoice covering only part of the bill) kept contributing its
+  gap forever. The card read **KES 33,800** directly above its own sub-label **"Nothing
+  outstanding"**, with all three invoices marked PAID (user: *"where is 33k bal coming from"*).
+- Settled visits are now excluded, so the number and the label are computed from the same question.
+  Same rule the clients list adopted: **a gap on a settled visit is a discount, not a debt.**
+- Fixed at **both** call sites — the pet profile's strip and `AccountStatCards` had the identical
+  line, which is how it survived the earlier clients-list fix.
+- **Record impact:** 🟢 None — display. Nothing owed changed; the figure was wrong, not the data.
+
 ### feat: credit is spent by default, and says so out loud  —  2026-08-13
 - **Credit is now applied by default** wherever money is collected — the visit settle modal and the
   client collect bar — as soon as a balance is known (user, 2026-08-13). It is the client's own
