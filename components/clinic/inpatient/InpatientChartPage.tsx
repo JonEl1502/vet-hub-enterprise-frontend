@@ -370,6 +370,32 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
         condensedMeta={h ? `${h.cage ? `· Cage ${h.cage}` : ''} ${h.inpatientNo || ''}` : ''}
         subtitle={h ? `${h.cage ? `Cage ${h.cage} · ` : ''}${h.inpatientNo || ''} · ${h.diagnosis || 'No diagnosis'}` : undefined}
         right={<>
+          {/* RUNNING TOTAL — stay + food + consumables, every day, in one place.
+              The per-day line already showed "stay X + items Y" but only for
+              the day you were looking at, and the rail's accrual covered the
+              STAY alone — so the one number staff actually want (what this
+              admission has cost so far) existed nowhere (user, 2026-08-13).
+              ⚠️ Same nights-based rule as the day rows: the final calendar day
+              of a multi-day stay starts no new night, so it accrues no rate. */}
+          {h && (() => {
+            // Nights, not calendar days — the same rule the day rows and the
+            // bill use, so this total can never disagree with them.
+            const nights = Math.max(1, calendarDaysBetween(h.admittedAt));
+            const stayTotal = nights * Number(h.dailyRate ?? 0);
+            const itemsTotal = (consumables || []).reduce((sum: number, c: any) => sum + (c.billable
+              ? Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0))
+              : 0), 0);
+            const money = (n: number) => `KES ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+            return (
+              <span className="px-3 py-1.5 rounded-xl bg-white/15 border border-white/20 text-white text-right leading-tight">
+                <span className="block text-[8px] font-black uppercase tracking-widest text-white/70">Charges so far</span>
+                <span className="block text-sm font-black font-mono">{money(stayTotal + itemsTotal)}</span>
+                <span className="block text-[8px] font-bold text-white/70">
+                  stay {money(stayTotal)} + food &amp; items {money(itemsTotal)}
+                </span>
+              </span>
+            );
+          })()}
           {h && !active && (
             <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
               Discharged {h.dischargedAt ? formatDate(h.dischargedAt) : ''}{h.outcome ? ` · ${h.outcome}` : ''}

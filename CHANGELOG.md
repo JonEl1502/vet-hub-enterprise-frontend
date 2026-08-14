@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: what the stay has cost so far, where you can see it  —  2026-08-13
+- **Inpatient chart** now carries a running total in the header, top-right: **stay + food & items**,
+  with the split spelled out. Until now the per-day line showed "stay X + items Y" for the day you
+  happened to be looking at, and the rail's accrual covered the **stay alone** — so the one figure
+  staff actually want, *what this admission has cost*, existed nowhere (user, 2026-08-13).
+- **Boarding's "Charges so far"** counted nights + food and **left items out**, so drugs and
+  consumables logged against a stay were invisible in the number quoted at the desk. They are in it
+  now.
+- ⚠️ Both use the **nights** rule, not calendar days — the same basis the day rows and the bill
+  use, so the header can never disagree with the lines beneath it.
+- **Record impact:** 🟢 None — display of figures already stored.
+
 ### fix: a patient's balance counted debts that were already settled  —  2026-08-13
 - **What changed:** "Balance on this patient" summed raw `outstanding` across **every** visit,
   settled ones included — so a visit whose settlements fall short of its face value (a collect-time

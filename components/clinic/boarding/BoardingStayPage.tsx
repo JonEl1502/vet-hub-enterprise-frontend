@@ -380,7 +380,14 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 const fp: any = (stay as any).foodProgram || {};
                 const foodPerDay = fp.providedByClient === false
                   ? (Number(fp.ratePerMeal) || 0) * (Number(fp.mealsPerDay) || 0) : 0;
-                const total = days * (r + foodPerDay);
+                // ⚠️ Items belong in this number too. It counted nights + food
+                // only, so drugs and consumables logged against the stay were
+                // invisible in the one figure staff quote at the desk (user,
+                // 2026-08-13: "including food n consumables").
+                const itemsTotal = (consumables || []).reduce((sum: number, c: any) => sum + (c.billable
+                  ? Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0))
+                  : 0), 0);
+                const total = days * (r + foodPerDay) + itemsTotal;
                 return (
                   <Fact
                     label={active ? 'Charges so far' : 'Stay charges'}
