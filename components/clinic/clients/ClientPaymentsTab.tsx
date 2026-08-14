@@ -116,6 +116,12 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   const [tendered, setTendered] = React.useState('');
   // Spend the client's payment-account credit on this collection (drawn
   // before cash, oldest invoice first — server `useCredit`).
+  /**
+   * ON BY DEFAULT (user, 2026-08-13). Credit is the client's own money, already
+   * in the clinic's hands — asking for cash while holding it is how the balance
+   * grew. Flipped on as soon as a balance is known; staff can still switch it
+   * off for a client deliberately holding credit back.
+   */
   const [applyCredit, setApplyCredit] = React.useState(false);
   const [allocMode, setAllocMode] = React.useState<'AUTO' | 'MANUAL'>('AUTO');
   /**
@@ -199,7 +205,11 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
         .then(r => setActiveDiscounts(r?.data?.discounts ?? []))
         .catch(() => setActiveDiscounts([]));
       if (res.success && res.data) setData(res.data);
-      if (cr?.success && cr.data) setCredit(Number(cr.data.balance) || 0);
+      if (cr?.success && cr.data) {
+        const bal = Number(cr.data.balance) || 0;
+        setCredit(bal);
+        setApplyCredit(bal > 0.005);
+      }
       if (iv?.success && iv.data?.invoices) setInvoiceDocs(iv.data.invoices);
     } catch { /* surfaced by the client */ }
     finally { setLoading(false); }
@@ -690,7 +700,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                       : 'bg-white dark:bg-zinc-950 text-emerald-600 border-emerald-300 dark:border-emerald-900/50 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
                   }`}>
                   <Wallet size={11} />
-                  {applyCredit ? `Credit −${money(creditDraw, currency)}` : `Use credit · ${money(credit, currency)}`}
+                  {applyCredit ? `Deducting ${money(creditDraw, currency)} from credit` : `Credit NOT used · ${money(credit, currency)} available`}
                 </button>
               )}
 
@@ -744,9 +754,29 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
               {/* How the money stacks up: credit + cash vs the selection, what
                   a short pay leaves behind, where a surplus goes. */}
               {applyCredit && creditDraw > 0 && selected.size > 0 && (
-                <p className="w-full text-[9px] font-black uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
-                  Credit covers {money(creditDraw, currency)} · cash due {money(cashDue, currency)}
-                </p>
+                /* Bold, and honest about the shortfall. Informational only —
+                   staff read it and carry on collecting the rest. */
+                cashDue > 0.005 ? (
+                  <div className="w-full rounded-lg border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 px-3 py-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
+                      Credit does not cover the selection
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-bold text-amber-700/90 dark:text-amber-400/90">
+                      Deducting <b>{money(creditDraw, currency)}</b> from credit against{' '}
+                      <b>{money(selectedTotal, currency)}</b> selected — <b>{money(cashDue, currency)}</b> still to collect.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="w-full rounded-lg border border-emerald-300 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2">
+                    <p className="text-[10px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                      Paying from credit
+                    </p>
+                    <p className="mt-0.5 text-[10px] font-bold text-emerald-700/90 dark:text-emerald-400/90">
+                      <b>{money(creditDraw, currency)}</b> comes off credit — nothing to collect.{' '}
+                      <b>{money(Math.max(0, credit - creditDraw), currency)}</b> stays on account.
+                    </p>
+                  </div>
+                )
               )}
               {((allocMode === 'MANUAL' && isShort && Math.abs(remaining) > 0.005) || isShort || overTendered) && (
                 <p className={`w-full text-[9px] font-black uppercase tracking-wider ${

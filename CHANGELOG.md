@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: credit is spent by default, and says so out loud  —  2026-08-13
+- **Credit is now applied by default** wherever money is collected — the visit settle modal and the
+  client collect bar — as soon as a balance is known (user, 2026-08-13). It is the client's own
+  money already in the clinic's hands; asking for cash while holding it is how the balance grew in
+  the first place. Staff can still switch it off for a client deliberately holding credit back.
+- **It is stated boldly, not implied by a toggle's tint:** *"Deducting KES 1,200 from credit —
+  collect KES 800 in cash"*.
+- **When credit falls short**, an amber panel names the gap — *"Credit does not cover this bill:
+  KES 1,200 on account against KES 2,000 owed, KES 800 still to collect"* — and when it covers
+  everything, a green one says what stays on account. Both are **informational, never blocking**:
+  read it and carry on.
+- **Record impact:** 🔵 Low — changes the DEFAULT funding of a collection. It can only reduce cash
+  asked for; the server still caps credit at what is owed.
+
 ### fix: a VOIDED invoice was quoting the amount owed  —  2026-08-13
 - **What changed:** the Invoices row displayed **KES 2,300** next to a chip naming
   **INV-2026-000027**, whose own document totals **22,367** — one row quoting two different

@@ -2943,7 +2943,21 @@ const VisitDetailInner: React.FC<Props> = ({
       // that took the cash, so asking for "the active clinic" could show a
       // balance that cannot be applied to this bill.
       clientsAPI.credit(appointment.clientId, (appointment as any).clinicId ?? undefined)
-        .then(r => { if (r?.success && r.data) setSettleCredit(Number((r.data as any).balance) || 0); })
+        .then(r => {
+          if (!r?.success || !r.data) return;
+          const bal = Number((r.data as any).balance) || 0;
+          setSettleCredit(bal);
+          /**
+           * CREDIT IS SPENT BY DEFAULT (user, 2026-08-13).
+           *
+           * It is the client's own money, already in the clinic's hands. Asking
+           * for cash while holding their credit is how the balance grew in the
+           * first place — the opt-in toggle meant the default behaviour was the
+           * wrong one. Staff can still switch it off for a client deliberately
+           * holding credit back.
+           */
+          setSettleUseCredit(bal > 0.005);
+        })
         .catch(() => { /* the modal works without it */ });
     }
     setShowSettleModal(true);
@@ -7771,7 +7785,7 @@ const VisitDetailInner: React.FC<Props> = ({
                       <span className="block text-[9px] font-black uppercase tracking-widest text-indigo-500">Credit on account</span>
                       <span className="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 leading-snug mt-0.5">
                         {(() => {
-                          if (!settleUseCredit) return 'Tap to spend it on this bill';
+                          if (!settleUseCredit) return 'Not being used — tap to spend it on this bill';
                           // Mirror the Confirm handler exactly: credit is drawn
                           // against what is being settled NOW, not the whole
                           // bill — otherwise this line promises 800 while the
@@ -7783,8 +7797,8 @@ const VisitDetailInner: React.FC<Props> = ({
                           const cur = client?.currency || 'KES';
                           const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
                           return cash > 0.005
-                            ? `Applying ${cur} ${fmt(draw)} — collect ${cur} ${fmt(cash)}`
-                            : `Applying ${cur} ${fmt(draw)} — nothing to collect`;
+                            ? `Deducting ${cur} ${fmt(draw)} from credit — collect ${cur} ${fmt(cash)} in ${settlePaymentMethod === 'CASH' ? 'cash' : 'payment'}`
+                            : `Deducting ${cur} ${fmt(draw)} from credit — nothing left to collect`;
                         })()}
                       </span>
                     </span>
@@ -7793,6 +7807,39 @@ const VisitDetailInner: React.FC<Props> = ({
                     </span>
                   </button>
                 )}
+
+                {/* CREDIT IS BEING SPENT — said plainly, not left to be inferred
+                    from a toggle's tint, and the shortfall named when there is
+                    one (user, 2026-08-13: "boldly say it … prompt user that
+                    client credit is below outstanding bal"). Informational, not
+                    a blocker: staff close it and carry on collecting the rest. */}
+                {settleUseCredit && settleCredit > 0.005 && (() => {
+                  const cur = client?.currency || 'KES';
+                  const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+                  const short = Math.round((finalTotal - settleCredit) * 100) / 100;
+                  return short > 0.005 ? (
+                    <div className="rounded-xl border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 px-3.5 py-3">
+                      <p className="text-[11px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
+                        Credit does not cover this bill
+                      </p>
+                      <p className="mt-1 text-[11px] font-bold text-amber-700/90 dark:text-amber-400/90 leading-relaxed">
+                        {client?.name || 'The client'} has <b>{cur} {fmt(settleCredit)}</b> on account against{' '}
+                        <b>{cur} {fmt(finalTotal)}</b> owed. All of the credit is applied and{' '}
+                        <b>{cur} {fmt(short)}</b> still needs collecting.
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-emerald-300 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/30 px-3.5 py-3">
+                      <p className="text-[11px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+                        Paying from credit
+                      </p>
+                      <p className="mt-1 text-[11px] font-bold text-emerald-700/90 dark:text-emerald-400/90 leading-relaxed">
+                        <b>{cur} {fmt(finalTotal)}</b> comes off {client?.name || 'the client'}&apos;s credit —
+                        nothing to collect. <b>{cur} {fmt(settleCredit - finalTotal)}</b> stays on account.
+                      </p>
+                    </div>
+                  );
+                })()}
 
                 {/* AMOUNT PAID — a client who pays part of the bill should leave
                     a real balance, not a visit marked settled. Blank = in full,
