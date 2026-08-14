@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the Treatment step is tabbed  —  2026-08-14
+- **What changed:** Vaccinations, Medications & items, Procedures and Plan were four stacked cards
+  in one long column, so recording a vaccine meant scrolling past a drug form and a procedure
+  search that had nothing to do with it (user: *"i find this difficult … put procedure n medication
+  as tabs"*). They are separate acts on the same visit, and now sit on separate tabs.
+- ⚠️ Tabs sit **on top of** the workflow template's `show()` filter, never instead of it: a tab is
+  offered only when its section would have rendered anyway, and the bar hides entirely below two
+  tabs. A vaccination visit opens on Vaccinations.
+- ⚠️ The stale-tab correction runs in an **effect**, not during render — the sections are built
+  inside an IIFE, where a render-phase `setState` loop is easy to introduce and easy to miss.
+- **Record impact:** 🟢 None — layout.
+- **Next (not built):** editing an applied procedure's components in place (`updateApplication` /
+  `materializeItem` already exist server-side), and confirming procedure-generated vaccination
+  records reach the reports.
+
 ### feat: what the stay has cost so far, where you can see it  —  2026-08-13
 - **Inpatient chart** now carries a running total in the header, top-right: **stay + food & items**,
   with the split spelled out. Until now the per-day line showed "stay X + items Y" for the day you

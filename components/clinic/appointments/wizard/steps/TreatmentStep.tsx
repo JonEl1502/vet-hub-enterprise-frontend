@@ -29,6 +29,20 @@ interface MedRow {
 
 const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, refreshVisit, visibleFields, currency = 'KES', onHospitalize }) => {
   const show = showsField(visibleFields);
+  /**
+   * TABS, not one long column (user, 2026-08-14: "i find this difficult … put
+   * procedure n medication as tabs").
+   *
+   * Vaccinations, medications and procedures were three stacked cards, so
+   * recording a vaccine meant scrolling past a drug form and a procedure search
+   * that had nothing to do with it. They are separate acts on the same visit —
+   * one at a time is how they are actually performed.
+   *
+   * ⚠️ Tabs sit ON TOP of `show()`, never instead of it: a workflow template
+   * that hides Medications must still hide it, so a tab only appears when its
+   * section would have rendered anyway.
+   */
+  const [txTab, setTxTab] = React.useState<'vaccinations' | 'medications' | 'procedures' | 'plan'>('medications');
   const d = data || {};
   const meds: MedRow[] = d.medications || [];
   const [draft, setDraft] = React.useState<MedRow & { itemId?: string; price?: number; stock?: number }>({ drug: '', dose: '', route: 'PO', frequency: '', duration: '', qty: 1 });
@@ -41,6 +55,19 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
   // panel and widens the procedure search to packages + single vaccines.
   const isVaccinationFlow = (visit as any).visitType === 'VACCINATION'
     || (visit.tasks || []).some((t: any) => /vaccin|immuni/i.test(t.category || ''));
+
+  // A vaccination visit opens on Vaccinations; a template that hides the
+  // Medications field must not leave the step on a tab with nothing in it.
+  React.useEffect(() => {
+    const available = [
+      isVaccinationFlow ? 'vaccinations' : null,
+      show('medications') ? 'medications' : null,
+      show('procedures') ? 'procedures' : null,
+      show('plan') ? 'plan' : null,
+    ].filter(Boolean) as typeof txTab[];
+    if (available.length && !available.includes(txTab)) setTxTab(available[0]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isVaccinationFlow, visibleFields]);
 
   // Vaccinations recorded on this visit — see the note in the Procedures
   // section. Best-effort: a failure leaves the strip empty rather than
@@ -325,12 +352,44 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
         </div>
       )}
 
-      {isVaccinationFlow && (
+      {/* One row of tabs for the three things a treatment step records, plus the
+          plan. Only tabs whose section would render are offered. */}
+      {(() => {
+        const tabs = ([
+          isVaccinationFlow ? { id: 'vaccinations' as const, label: 'Vaccinations' } : null,
+          show('medications') ? { id: 'medications' as const, label: 'Medications & items' } : null,
+          show('procedures') ? { id: 'procedures' as const, label: 'Procedures' } : null,
+          show('plan') ? { id: 'plan' as const, label: 'Plan & instructions' } : null,
+        ].filter(Boolean) as { id: typeof txTab; label: string }[]);
+        if (tabs.length < 2) return null;
+        // Land on a tab that exists — a vaccination visit opens on Vaccinations,
+        // and a template hiding Medications must not leave a dead default.
+        // ⚠️ Read-only here. Correcting a stale tab is done in the effect
+        // below — a setState during render is a loop waiting to happen, and
+        // this file already renders inside an IIFE where that is easy to miss.
+        const active = tabs.some(t => t.id === txTab) ? txTab : tabs[0].id;
+        return (
+          <div className="flex flex-wrap gap-1.5 border-b border-slate-200 dark:border-zinc-800 pb-2">
+            {tabs.map(t => (
+              <button key={t.id} type="button" onClick={() => setTxTab(t.id)}
+                className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                  active === t.id
+                    ? 'bg-seafoam text-white shadow-sm'
+                    : 'bg-slate-50 dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 hover:text-seafoam'
+                }`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+        );
+      })()}
+
+      {isVaccinationFlow && txTab === 'vaccinations' && (
         <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 bg-white dark:bg-zinc-900">
           <VaccinationPanel appointment={visit} petId={pet.id} onSaved={() => refreshVisit?.()} />
         </div>
       )}
-      {show('medications') && (
+      {show('medications') && txTab === 'medications' && (
       <Section icon={Pill} title="Medications & Items Used (deducts stock · bills)">
         {marCount > 0 && (
           <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">
@@ -478,7 +537,7 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
         onChanged={() => refreshVisit?.()}
       />
 
-      {show('procedures') && (
+      {show('procedures') && txTab === 'procedures' && (
       <Section icon={Scissors} title="Procedures Performed">
         {/* Vaccinations recorded on this visit.
             A vaccination added on the vaccination page creates a
@@ -605,7 +664,7 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
       </Section>
       )}
 
-      {show('plan') && (
+      {show('plan') && txTab === 'plan' && (
       <Section icon={ClipboardList} title="Treatment Plan & Instructions">
         <textarea className="field-textarea" rows={3} placeholder="In-clinic treatment given, plan for the next 24–72h, feeding/rest instructions…" value={d.plan ?? ''} onChange={e => setData({ plan: e.target.value })} />
         <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">
