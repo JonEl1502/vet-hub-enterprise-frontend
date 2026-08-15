@@ -59,6 +59,42 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: paste your old client list and Import cleans it up  —  2026-08-15
+- **What changed:** Import only accepted a CSV or Excel **file** whose columns already matched the
+  template. A clinic coming off an old system has no such file — they have a block they can copy out
+  of an admin screen, a JSON export, or a spreadsheet where the whole name sits in one column. Import
+  now has a second source, **Paste data**, that takes any of those, works out which column is which,
+  cleans the values into template shape, and shows the result in an **editable** table.
+- **What the cleaner repairs** (`utils/import/clean.ts`), each one reported rather than applied
+  silently: HTML entities decoded (twice — these dumps are commonly double-encoded) and tags
+  stripped; `MRS.Jane Ng&#039;ang&#039;a` split into title / first / middle / surname with the title
+  implying a gender; SHOUTED and lowercased names re-cased without flattening acronyms (`G4S`, `LTD`,
+  `McBorrough`); phones normalised to E.164 against a chosen country; placeholder names
+  (`client client`, `xxxx`) and placeholder phones (`07`, `0700000000`, a bare row id) rejected with a
+  reason; a typo'd email repaired (`@yahoocom` → `@yahoo.com`); and the email that legacy systems
+  routinely leave sitting in the **address** column recovered into the email column.
+- **Column matching** (`utils/import/match.ts`) reads header names first, then falls back to sniffing
+  what each column actually *contains* — which is what makes a headerless dump usable. Its guess is
+  shown as an editable source → template list with a live sample value, so a wrong guess is one
+  dropdown to fix, not a re-export.
+- **The preview table is now editable for both sources** — file upload included. A single bad phone
+  number used to send the user back to Excel and round the whole loop again; now the cell is an
+  input, the valid count updates as it is typed, and rows can be deleted outright. There is also a
+  *show only the rows needing attention* filter, and **Cleaned CSV** / **Review list** downloads.
+- ⚠️ Editing a cell does **not** re-run the cleaner — remapping regenerates rows from source and
+  would discard the user's corrections. Changing the mapping or the country deliberately does.
+- ⚠️ Only Kenya gets strict phone rules (9 digits, mobile prefix, placeholder detection), because
+  that is where the placeholder rows live. Every other country takes a loose 8–15 digit check: a
+  wrong strict rule rejects real numbers, which is worse than admitting a doubtful one the user can
+  see and edit.
+- ⚠️ Nothing here bypasses validation. Cleaned rows go through the same `validateRows` gate and the
+  same `POST /imports/:entity` endpoint as an uploaded file, and rows still showing errors are left
+  behind, not imported.
+- **Record impact:** 🟡 Medium — it is an import; it creates rows in bulk. Unchanged from the
+  existing file path.
+- **Data dependency:** None — no new columns; output is the existing template shape.
+- **Rollback:** revert the commit and rebuild. The file-upload path is untouched by a revert.
+
 ### feat: the Treatment step is tabbed  —  2026-08-14
 - **What changed:** Vaccinations, Medications & items, Procedures and Plan were four stacked cards
   in one long column, so recording a vaccine meant scrolling past a drug form and a procedure
