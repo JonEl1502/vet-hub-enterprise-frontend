@@ -2476,12 +2476,13 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
 
       {/* Copy from a supplier: pick the supplier, then pick the products. This
           reads their catalogue and writes only into ours — the supplier's own
-          list is never touched. */}
+          list is never touched.
+
+          ⚠️ z-90, NOT higher. The shared confirm dialog is z-200 and every modal
+          in this view sits below it (70/80). At 800 this modal covered the
+          confirmation it raises, so the confirm button could not be clicked at
+          all — caught in a browser, invisible to tsc and to the build. */}
       {showCopyFromSupplier && (
-        {/* ⚠️ z-90, NOT higher. The shared confirm dialog is z-200 and every
-            modal in this view sits below it (70/80). At 800 this modal covered
-            the confirmation it raises, so the confirm button could not be
-            clicked at all — caught in a browser, invisible to tsc. */}
         <div className="fixed inset-0 z-[90] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
           onClick={closeCopyModal}>
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
