@@ -64,9 +64,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 - **Products page** now carries **Upload** and **Copy** beside Add Item. Building a catalogue is one
   job with three routes — one at a time, a spreadsheet, or a supplier's list — and they belong
   together rather than scattered across the app.
-- **Copy** asks which supplier, then states the product count and what will happen *before* writing:
-  no stock, no selling price, already-stocked items skipped, nothing ordered. The count confirmation
-  exists because a supplier list can run to thousands of rows.
+- **Copy** asks which supplier, then **which products** — a tick list, not all-or-nothing. Items the
+  clinic already stocks are shown but locked, labelled *Already stocked*, and matched the same way
+  the server matches (SKU then name) so the label and what the copy skips cannot disagree.
+  Everything not already stocked is pre-selected, so "take the lot" stays one click.
+- Search runs on the SERVER, so a supplier with thousands of products is reachable; when the list is
+  longer than one page it says *Showing 300 of N* rather than looking complete.
+- The confirmation names the number being copied and what will happen: no stock, no selling price,
+  nothing ordered.
 - **Supplier hub → supplier → Catalog** gains **Upload** for suppliers the clinic created itself, so
   a supplier who isn't on VetHub can still have their price list loaded and ordered from.
   ⚠️ Hidden for suppliers with their own VetHub account — that catalogue is theirs to publish, and

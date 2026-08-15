@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../../../types';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
-import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet, GripVertical, Check, MoreVertical, Eye, SlidersHorizontal, Upload, Copy } from 'lucide-react';
+import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, ChevronRight, Wallet, GripVertical, Check, MoreVertical, Eye, SlidersHorizontal, Upload, Copy } from 'lucide-react';
 import { suppliersAPI, Supplier as APISupplier, toast, dialog, INVENTORY_FORMS, inventoryAPI, stockMovementsAPI, uploadsAPI, procedureTemplatesAPI, supplierProductsAPI } from '../../../services';
 import { walletAPI } from '../../../services/modules/wallet.api';
 import { usePagination } from '../../../hooks/usePagination';
@@ -232,6 +232,12 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   const [suppliers, setSuppliers] = useState<APISupplier[]>([]);
   const [showCopyFromSupplier, setShowCopyFromSupplier] = useState(false);
   const [copyingFrom, setCopyingFrom] = useState<string | null>(null);
+  const [copySupplier, setCopySupplier] = useState<{ id: string; name: string } | null>(null);
+  const [copyProducts, setCopyProducts] = useState<any[]>([]);
+  const [copySelected, setCopySelected] = useState<Set<string>>(new Set());
+  const [copyLoading, setCopyLoading] = useState(false);
+  const [copySearch, setCopySearch] = useState('');
+  const [copyTotal, setCopyTotal] = useState(0);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -590,20 +596,93 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
    * clinic's catalogue is a mess to unpick item by item — so the user sees the
    * number first and agrees to it.
    */
-  const copyFromSupplier = async (supplierId: string, supplierName: string) => {
-    const list = await supplierProductsAPI.getBySupplierId(Number(supplierId), { limit: 1 } as any).catch(() => null);
-    const total = (list as any)?.data?.meta?.total ?? null;
+  /**
+   * One page of a supplier's catalogue. Large enough that most suppliers fit in
+   * one load, small enough not to hang the modal; anything beyond it is reached
+   * by searching, which the server handles.
+   */
+  const COPY_PAGE_SIZE = 300;
+
+  /**
+   * Does this clinic already stock the product? Matched the same way the server
+   * matches — SKU first, then name — so the picker's "Already stocked" label and
+   * what the copy actually skips cannot disagree.
+   */
+  const stockedSkus = useMemo(
+    () => new Set(inventory.map(i => String((i as any).sku || '').trim().toLowerCase()).filter(Boolean)),
+    [inventory],
+  );
+  const stockedNames = useMemo(
+    () => new Set(inventory.map(i => i.name.trim().toLowerCase())),
+    [inventory],
+  );
+  const alreadyStocked = (p: any) => {
+    const sku = String(p.sku || '').trim().toLowerCase();
+    if (sku && stockedSkus.has(sku)) return true;
+    return stockedNames.has(String(p.name || '').trim().toLowerCase());
+  };
+
+  // Search runs on the server, so a supplier with thousands of products is
+  // still reachable. Debounced — a keystroke per request would hammer it.
+  useEffect(() => {
+    if (!copySupplier) return;
+    const t = setTimeout(() => { loadCopyProducts(copySupplier.id, copySearch.trim()); }, 350);
+    return () => clearTimeout(t);
+  }, [copySearch]);
+
+  const openSupplierProducts = async (supplierId: string, supplierName: string) => {
+    setCopySupplier({ id: supplierId, name: supplierName });
+    setCopySearch('');
+    await loadCopyProducts(supplierId, '');
+  };
+
+  const loadCopyProducts = async (supplierId: string, search: string) => {
+    setCopyLoading(true);
+    try {
+      const res = await supplierProductsAPI.getBySupplierId(
+        Number(supplierId),
+        { limit: COPY_PAGE_SIZE, ...(search ? { search } : {}) },
+        { cache: false } as any,
+      );
+      const rows = (res as any)?.data?.data || [];
+      setCopyProducts(rows);
+      setCopyTotal((res as any)?.data?.meta?.total ?? rows.length);
+      // Pre-select what the clinic does NOT already stock. Selecting everything
+      // would make the count meaningless; selecting nothing makes the common
+      // case ("take the lot") a chore.
+      setCopySelected(new Set(rows.filter((p: any) => !alreadyStocked(p)).map((p: any) => String(p.id))));
+    } catch {
+      setCopyProducts([]);
+      setCopyTotal(0);
+      toast.error('Could not load that supplier’s products');
+    } finally {
+      setCopyLoading(false);
+    }
+  };
+
+  /**
+   * Copy the SELECTED products into this clinic's catalogue.
+   *
+   * Definitions only — quantity 0, their cost carried, selling price left for
+   * the clinic to set. No purchase order, no stock movement: copying is a
+   * catalogue action, not a trading one.
+   *
+   * ⚠️ The count is confirmed BEFORE anything is written. A supplier list can
+   * run to thousands of products, and a copy that lands unannounced in a live
+   * clinic's catalogue is a mess to unpick item by item.
+   */
+  const copySelectedProducts = async () => {
+    if (!copySupplier || copySelected.size === 0) return;
+    const n = copySelected.size;
     const ok = await dialog.confirm({
-      title: `Copy from ${supplierName}?`,
-      message: total
-        ? `${total} product${total === 1 ? '' : 's'} will be added to your catalogue with no stock and no selling price — anything you already stock is skipped. This does not order anything.`
-        : `Their products will be added to your catalogue with no stock and no selling price — anything you already stock is skipped. This does not order anything.`,
-      confirmLabel: 'Copy to my catalogue',
+      title: `Copy ${n} product${n === 1 ? '' : 's'} from ${copySupplier.name}?`,
+      message: `They will be added to your catalogue with no stock and no selling price. This does not order anything.`,
+      confirmLabel: `Copy ${n} to my catalogue`,
     });
     if (!ok) return;
-    setCopyingFrom(supplierId);
+    setCopyingFrom(copySupplier.id);
     try {
-      const res = await supplierProductsAPI.copyToCatalogue(supplierId);
+      const res = await supplierProductsAPI.copyToCatalogue(copySupplier.id, Array.from(copySelected));
       const copied = (res as any)?.data?.data?.copied ?? 0;
       const skipped = (res as any)?.data?.data?.skipped?.length ?? 0;
       toast.success(
@@ -611,13 +690,21 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
           ? 'Nothing new to copy — you already stock all of these.'
           : `${copied} product${copied === 1 ? '' : 's'} added${skipped ? `, ${skipped} skipped as already stocked` : ''}. Set your selling prices before billing them.`,
       );
-      setShowCopyFromSupplier(false);
+      closeCopyModal();
       await refreshInventory?.();
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || 'Could not copy that catalogue');
+      toast.error(e?.response?.data?.message || 'Could not copy those products');
     } finally {
       setCopyingFrom(null);
     }
+  };
+
+  const closeCopyModal = () => {
+    setShowCopyFromSupplier(false);
+    setCopySupplier(null);
+    setCopyProducts([]);
+    setCopySelected(new Set());
+    setCopySearch('');
   };
 
   const openAddModal = () => {
@@ -2387,42 +2474,141 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
         </div>
       )}
 
-      {/* Pick a supplier to copy from. This reads their catalogue and writes
-          only into ours — the supplier's own list is never touched. */}
+      {/* Copy from a supplier: pick the supplier, then pick the products. This
+          reads their catalogue and writes only into ours — the supplier's own
+          list is never touched. */}
       {showCopyFromSupplier && (
         <div className="fixed inset-0 z-[800] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
-          onClick={() => setShowCopyFromSupplier(false)}>
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+          onClick={closeCopyModal}>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-2xl max-h-[85vh] flex flex-col overflow-hidden"
             onClick={e => e.stopPropagation()}>
             <div className="px-5 py-4 border-b border-slate-200 dark:border-zinc-800">
-              <p className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Copy from a supplier</p>
+              <div className="flex items-center gap-2">
+                {copySupplier && (
+                  <button type="button" onClick={() => { setCopySupplier(null); setCopyProducts([]); setCopySelected(new Set()); setCopySearch(''); }}
+                    className="p-1 -m-1 text-slate-400 hover:text-pine dark:hover:text-zinc-100" title="Back to suppliers">
+                    <ChevronLeft size={16} />
+                  </button>
+                )}
+                <p className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">
+                  {copySupplier ? copySupplier.name : 'Copy from a supplier'}
+                </p>
+              </div>
               <p className="mt-1 text-[10px] font-bold text-slate-400 leading-relaxed">
-                Their products become your own catalogue entries — no stock, their cost, and your
-                selling prices left for you to set. Anything you already stock is skipped, and
-                nothing is ordered.
+                {copySupplier
+                  ? 'Tick what you want. Copies become your own catalogue entries — no stock, their cost, and your selling prices left for you to set. Nothing is ordered.'
+                  : 'Their products become your own catalogue entries — no stock, their cost, and your selling prices left for you to set. Nothing is ordered.'}
               </p>
             </div>
-            <div className="p-3 overflow-y-auto space-y-1.5">
-              {suppliers.length === 0 && (
-                <p className="p-6 text-center text-[11px] font-bold text-slate-400">No suppliers yet.</p>
-              )}
-              {suppliers.map(sp => (
-                <button key={String(sp.id)} type="button" disabled={copyingFrom !== null}
-                  onClick={() => copyFromSupplier(String(sp.id), sp.name)}
-                  className="w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam text-left transition-all disabled:opacity-50">
-                  <span className="min-w-0">
-                    <span className="block text-[11px] font-black uppercase tracking-wide text-pine dark:text-zinc-100 truncate">{sp.name}</span>
-                    {sp.category && <span className="block text-[9px] font-bold text-slate-400">{sp.category}</span>}
-                  </span>
-                  <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-seafoam">
-                    {copyingFrom === String(sp.id) ? 'Copying…' : 'Copy'}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <div className="px-5 py-3 border-t border-slate-200 dark:border-zinc-800 text-right">
-              <button type="button" onClick={() => setShowCopyFromSupplier(false)}
-                className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-pine">Close</button>
+
+            {/* Stage 1 — which supplier */}
+            {!copySupplier && (
+              <div className="p-3 overflow-y-auto space-y-1.5">
+                {suppliers.length === 0 && (
+                  <p className="p-6 text-center text-[11px] font-bold text-slate-400">No suppliers yet.</p>
+                )}
+                {suppliers.map(sp => (
+                  <button key={String(sp.id)} type="button"
+                    onClick={() => openSupplierProducts(String(sp.id), sp.name)}
+                    className="w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam text-left transition-all">
+                    <span className="min-w-0">
+                      <span className="block text-[11px] font-black uppercase tracking-wide text-pine dark:text-zinc-100 truncate">{sp.name}</span>
+                      {sp.category && <span className="block text-[9px] font-bold text-slate-400">{sp.category}</span>}
+                    </span>
+                    <ChevronRight size={14} className="shrink-0 text-slate-300" />
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Stage 2 — which products */}
+            {copySupplier && (
+              <>
+                <div className="px-4 py-3 border-b border-slate-200 dark:border-zinc-800 flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={13} />
+                    <input
+                      value={copySearch}
+                      onChange={e => setCopySearch(e.target.value)}
+                      placeholder="Search their products..."
+                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-9 pr-3 py-2 text-[11px] font-bold outline-none text-pine dark:text-zinc-100"
+                    />
+                  </div>
+                  <button type="button"
+                    onClick={() => {
+                      const selectable = copyProducts.filter(p => !alreadyStocked(p));
+                      setCopySelected(copySelected.size === selectable.length
+                        ? new Set()
+                        : new Set(selectable.map(p => String(p.id))));
+                    }}
+                    className="shrink-0 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:border-seafoam hover:text-seafoam">
+                    {copySelected.size === copyProducts.filter(p => !alreadyStocked(p)).length && copySelected.size > 0 ? 'None' : 'All'}
+                  </button>
+                </div>
+
+                <div className="p-3 overflow-y-auto space-y-1">
+                  {copyLoading && <p className="p-6 text-center text-[11px] font-bold text-slate-400">Loading…</p>}
+                  {!copyLoading && copyProducts.length === 0 && (
+                    <p className="p-6 text-center text-[11px] font-bold text-slate-400">
+                      {copySearch ? 'Nothing matches that search.' : 'This supplier has no products yet.'}
+                    </p>
+                  )}
+                  {!copyLoading && copyProducts.map(p => {
+                    const stocked = alreadyStocked(p);
+                    const id = String(p.id);
+                    const checked = copySelected.has(id);
+                    return (
+                      <label key={id}
+                        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl border transition-all ${stocked
+                          ? 'border-slate-100 dark:border-zinc-800/60 opacity-60 cursor-not-allowed'
+                          : `cursor-pointer ${checked ? 'border-seafoam bg-seafoam/5' : 'border-slate-200 dark:border-zinc-800 hover:border-seafoam/50'}`}`}>
+                        <input type="checkbox" disabled={stocked} checked={checked}
+                          onChange={() => {
+                            const next = new Set(copySelected);
+                            if (next.has(id)) next.delete(id); else next.add(id);
+                            setCopySelected(next);
+                          }}
+                          className="shrink-0 w-4 h-4 accent-seafoam" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-[11px] font-black text-pine dark:text-zinc-100 truncate">{p.name}</span>
+                          <span className="block text-[9px] font-bold text-slate-400 truncate">
+                            {[p.sku, p.category, p.unit].filter(Boolean).join(' · ')}
+                          </span>
+                        </span>
+                        <span className="shrink-0 text-right">
+                          <span className="block text-[10px] font-black text-pine dark:text-zinc-100">
+                            {Number(p.unitPrice || 0).toLocaleString()}
+                          </span>
+                          {stocked && <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">Already stocked</span>}
+                        </span>
+                      </label>
+                    );
+                  })}
+                  {/* Say what is NOT on screen rather than letting the list look complete. */}
+                  {!copyLoading && copyTotal > copyProducts.length && (
+                    <p className="pt-2 text-center text-[9px] font-bold text-amber-600">
+                      Showing {copyProducts.length} of {copyTotal} — search to reach the rest.
+                    </p>
+                  )}
+                </div>
+              </>
+            )}
+
+            <div className="px-5 py-3 border-t border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-3">
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                {copySupplier ? `${copySelected.size} selected` : ''}
+              </span>
+              <span className="flex items-center gap-2">
+                <button type="button" onClick={closeCopyModal}
+                  className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-pine">Cancel</button>
+                {copySupplier && (
+                  <button type="button" onClick={copySelectedProducts}
+                    disabled={copySelected.size === 0 || copyingFrom !== null}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-pine to-seafoam text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed">
+                    {copyingFrom ? 'Copying…' : `Copy ${copySelected.size || ''}`}
+                  </button>
+                )}
+              </span>
             </div>
           </div>
         </div>
