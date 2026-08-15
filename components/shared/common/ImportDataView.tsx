@@ -552,7 +552,17 @@ const MappingEditor: React.FC<{
   };
 
   const mappedCount = Object.values(mapping).filter(Boolean).length;
-  const unmappedRequired = targets.filter(t => t.required && !mapping[t.key]);
+
+  /**
+   * A name part is NOT missing just because no source column points at it — the
+   * combined name column fills it. Counting it as unmapped put a red border on
+   * First name and Surname and warned they were required while every row in the
+   * table below plainly had both.
+   */
+  const filledByFullName = (key: string) =>
+    !!mapping[FULL_NAME] && ['title', 'first_name', 'second_name', 'surname'].includes(key);
+  const isSatisfied = (t: TargetDef) => !!mapping[t.key] || filledByFullName(t.key);
+  const unmappedRequired = targets.filter(t => t.required && !isSatisfied(t));
 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5">
@@ -607,7 +617,7 @@ const MappingEditor: React.FC<{
             <div
               key={t.key}
               className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-xs
-                ${!header && t.required
+                ${t.required && !isSatisfied(t)
                   ? 'border-red-200 dark:border-red-900/50 bg-red-50/50 dark:bg-red-950/20'
                   : 'border-slate-100 dark:border-zinc-800'}`}
             >
@@ -616,7 +626,9 @@ const MappingEditor: React.FC<{
                 onChange={(e) => set(t.key, e.target.value)}
                 className="field-select text-xs py-1.5 flex-1 min-w-0"
               >
-                <option value="">— not in my data —</option>
+                <option value="">
+                  {filledByFullName(t.key) ? '— split from the full name —' : '— not in my data —'}
+                </option>
                 {pasted.headers.map(h => {
                   const owner = takenBy(h);
                   return (
