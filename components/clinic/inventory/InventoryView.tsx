@@ -2,8 +2,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { InventoryItem, InventoryStatus, Clinic, Supplier } from '../../../types';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
-import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet, GripVertical, Check, MoreVertical, Eye, SlidersHorizontal } from 'lucide-react';
-import { suppliersAPI, Supplier as APISupplier, toast, INVENTORY_FORMS, inventoryAPI, stockMovementsAPI, uploadsAPI, procedureTemplatesAPI } from '../../../services';
+import { Search, Plus, Package, Edit, X, History, RefreshCw, Filter, Tag, Percent, Building2, Pill, ChevronDown, ChevronUp, ChevronLeft, Wallet, GripVertical, Check, MoreVertical, Eye, SlidersHorizontal, Upload, Copy } from 'lucide-react';
+import { suppliersAPI, Supplier as APISupplier, toast, dialog, INVENTORY_FORMS, inventoryAPI, stockMovementsAPI, uploadsAPI, procedureTemplatesAPI, supplierProductsAPI } from '../../../services';
 import { walletAPI } from '../../../services/modules/wallet.api';
 import { usePagination } from '../../../hooks/usePagination';
 import Pagination from '../../shared/common/Pagination';
@@ -230,6 +230,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
 
   // Fetch suppliers from API
   const [suppliers, setSuppliers] = useState<APISupplier[]>([]);
+  const [showCopyFromSupplier, setShowCopyFromSupplier] = useState(false);
+  const [copyingFrom, setCopyingFrom] = useState<string | null>(null);
   const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
@@ -576,6 +578,48 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
   };
 
   // Open add modal with default SKU
+  /**
+   * Copy a supplier's product list into THIS clinic's catalogue.
+   *
+   * Definitions only — quantity 0, their cost carried, selling price left for
+   * the clinic to set. No purchase order, no stock movement: copying is a
+   * catalogue action, not a trading one.
+   *
+   * ⚠️ The count is confirmed BEFORE anything is written. A supplier list can
+   * run to thousands of products, and a copy that lands unannounced in a live
+   * clinic's catalogue is a mess to unpick item by item — so the user sees the
+   * number first and agrees to it.
+   */
+  const copyFromSupplier = async (supplierId: string, supplierName: string) => {
+    const list = await supplierProductsAPI.getBySupplierId(Number(supplierId), { limit: 1 } as any).catch(() => null);
+    const total = (list as any)?.data?.meta?.total ?? null;
+    const ok = await dialog.confirm({
+      title: `Copy from ${supplierName}?`,
+      message: total
+        ? `${total} product${total === 1 ? '' : 's'} will be added to your catalogue with no stock and no selling price — anything you already stock is skipped. This does not order anything.`
+        : `Their products will be added to your catalogue with no stock and no selling price — anything you already stock is skipped. This does not order anything.`,
+      confirmLabel: 'Copy to my catalogue',
+    });
+    if (!ok) return;
+    setCopyingFrom(supplierId);
+    try {
+      const res = await supplierProductsAPI.copyToCatalogue(supplierId);
+      const copied = (res as any)?.data?.data?.copied ?? 0;
+      const skipped = (res as any)?.data?.data?.skipped?.length ?? 0;
+      toast.success(
+        copied === 0
+          ? 'Nothing new to copy — you already stock all of these.'
+          : `${copied} product${copied === 1 ? '' : 's'} added${skipped ? `, ${skipped} skipped as already stocked` : ''}. Set your selling prices before billing them.`,
+      );
+      setShowCopyFromSupplier(false);
+      await refreshInventory?.();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Could not copy that catalogue');
+    } finally {
+      setCopyingFrom(null);
+    }
+  };
+
   const openAddModal = () => {
     setSubcatDraft('');
     setItemForm({
@@ -804,6 +848,27 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               >
                 <Plus size={14} className="inline mr-1" /> Add Item
               </button>
+            )}
+            {/* Three ways to get products in, side by side, because a clinic
+                building its catalogue does not think of them as different
+                features — one at a time, a spreadsheet, or a supplier's list. */}
+            {prodPerms.create && (
+              <>
+                <button
+                  onClick={() => window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'import-data', params: { initialEntity: 'inventory' } } }))}
+                  title="Upload a spreadsheet of products"
+                  className="shrink-0 compact-button border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:border-seafoam hover:text-seafoam transition-all active:scale-95 px-3 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
+                >
+                  <Upload size={14} className="inline mr-1" /> Upload
+                </button>
+                <button
+                  onClick={() => setShowCopyFromSupplier(true)}
+                  title="Copy a supplier's product list into your own catalogue"
+                  className="shrink-0 compact-button border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:border-seafoam hover:text-seafoam transition-all active:scale-95 px-3 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap"
+                >
+                  <Copy size={14} className="inline mr-1" /> Copy
+                </button>
+              </>
             )}
             <button
               onClick={async () => {
@@ -2317,6 +2382,47 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   </table>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Pick a supplier to copy from. This reads their catalogue and writes
+          only into ours — the supplier's own list is never touched. */}
+      {showCopyFromSupplier && (
+        <div className="fixed inset-0 z-[800] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowCopyFromSupplier(false)}>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl w-full max-w-lg max-h-[85vh] flex flex-col overflow-hidden"
+            onClick={e => e.stopPropagation()}>
+            <div className="px-5 py-4 border-b border-slate-200 dark:border-zinc-800">
+              <p className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Copy from a supplier</p>
+              <p className="mt-1 text-[10px] font-bold text-slate-400 leading-relaxed">
+                Their products become your own catalogue entries — no stock, their cost, and your
+                selling prices left for you to set. Anything you already stock is skipped, and
+                nothing is ordered.
+              </p>
+            </div>
+            <div className="p-3 overflow-y-auto space-y-1.5">
+              {suppliers.length === 0 && (
+                <p className="p-6 text-center text-[11px] font-bold text-slate-400">No suppliers yet.</p>
+              )}
+              {suppliers.map(sp => (
+                <button key={String(sp.id)} type="button" disabled={copyingFrom !== null}
+                  onClick={() => copyFromSupplier(String(sp.id), sp.name)}
+                  className="w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border border-slate-200 dark:border-zinc-800 hover:border-seafoam text-left transition-all disabled:opacity-50">
+                  <span className="min-w-0">
+                    <span className="block text-[11px] font-black uppercase tracking-wide text-pine dark:text-zinc-100 truncate">{sp.name}</span>
+                    {sp.category && <span className="block text-[9px] font-bold text-slate-400">{sp.category}</span>}
+                  </span>
+                  <span className="shrink-0 text-[9px] font-black uppercase tracking-widest text-seafoam">
+                    {copyingFrom === String(sp.id) ? 'Copying…' : 'Copy'}
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="px-5 py-3 border-t border-slate-200 dark:border-zinc-800 text-right">
+              <button type="button" onClick={() => setShowCopyFromSupplier(false)}
+                className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-pine">Close</button>
             </div>
           </div>
         </div>

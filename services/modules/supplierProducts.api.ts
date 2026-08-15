@@ -217,5 +217,31 @@ export const supplierProductsAPI = {
   ): Promise<ApiResponse<{ success: boolean }>> => {
     return del(ENDPOINTS.SUPPLIER_PRODUCTS.BY_ID(id), options);
   },
+
+  /**
+   * Copy a supplier's products into THIS clinic's catalogue — definitions only
+   * (quantity 0, cost carried, selling price left unset), no purchase order.
+   * Omit `productIds` to copy everything the supplier lists; the server skips
+   * anything the clinic already stocks.
+   */
+  copyToCatalogue: async (
+    supplierId: string | number,
+    productIds?: (string | number)[],
+  ): Promise<ApiResponse<{ copied: number; skipped: { name: string; reason: string }[] }>> =>
+    post(`/supplier-products/supplier/${supplierId}/copy-to-catalogue`, productIds?.length ? { productIds } : {}),
+
+  /**
+   * Load a price list into a supplier's catalogue. Rows are matched on SKU then
+   * name and updated rather than duplicated, so re-sending a refreshed list
+   * refreshes prices instead of doubling the catalogue.
+   *
+   * ⚠️ Rejected with 403 for suppliers who hold their own VetHub account —
+   * their catalogue is theirs to publish.
+   */
+  bulkUpload: async (
+    supplierId: string | number,
+    rows: Record<string, unknown>[],
+  ): Promise<ApiResponse<{ created: number; updated: number; skipped: { name: string; reason: string }[] }>> =>
+    post(`/supplier-products/supplier/${supplierId}/bulk-upload`, { rows }),
 };
 

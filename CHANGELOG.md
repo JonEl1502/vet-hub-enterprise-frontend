@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: three ways to fill a catalogue, in the places you'd look  —  2026-08-15
+🟢 **Record impact: UI only** (the writes behind the buttons are covered by the backend entries).
+- **Products page** now carries **Upload** and **Copy** beside Add Item. Building a catalogue is one
+  job with three routes — one at a time, a spreadsheet, or a supplier's list — and they belong
+  together rather than scattered across the app.
+- **Copy** asks which supplier, then states the product count and what will happen *before* writing:
+  no stock, no selling price, already-stocked items skipped, nothing ordered. The count confirmation
+  exists because a supplier list can run to thousands of rows.
+- **Supplier hub → supplier → Catalog** gains **Upload** for suppliers the clinic created itself, so
+  a supplier who isn't on VetHub can still have their price list loaded and ordered from.
+  ⚠️ Hidden for suppliers with their own VetHub account — that catalogue is theirs to publish, and
+  the server rejects it regardless of what the UI shows.
+- Column names are matched loosely (`price`/`unit price`/`cost`, `product`/`item`/`name`, …) so a
+  real supplier price list works without being reformatted into a template first.
+
 ### feat: Community in the sidebar, above Clinic Management  —  2026-08-15
 - Nav entry added where you asked, with the route, the `PERSIST_VIEWS` registration (so a refresh
   lands back on it) and a page behind it.

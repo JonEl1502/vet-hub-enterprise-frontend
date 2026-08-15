@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import LoadingSpinner from '../common/LoadingSpinner';
 import { Clinic, Transaction, UserRole } from '../../../types';
-import { Building2, MapPin, Mail, Phone, ShoppingCart, History, Info, ExternalLink, ChevronRight, Package, ArrowLeft, Star, Globe, Plus, Search, Tag, CheckCircle2, Clock, AlertCircle, RefreshCw, MoreVertical, Check, X, RotateCcw, GitBranch, ChevronDown, ToggleLeft, ToggleRight, Trash2, Filter, Edit2 } from 'lucide-react';
+import { Building2, MapPin, Mail, Phone, ShoppingCart, History, Info, ExternalLink, ChevronRight, Package, ArrowLeft, Star, Globe, Plus, Search, Tag, CheckCircle2, Clock, AlertCircle, RefreshCw, MoreVertical, Check, X, RotateCcw, Upload, GitBranch, ChevronDown, ToggleLeft, ToggleRight, Trash2, Filter, Edit2 } from 'lucide-react';
 import { supplierProductsAPI, SupplierProduct, Supplier, purchaseOrderAPI, PurchaseOrder } from '../../../services';
 import { toast } from '../../../services';
 import { supplierBranchesAPI, SupplierBranch, CreateBranchData, UpdateBranchData } from '../../../services/modules/supplierBranches.api';
@@ -67,6 +67,8 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
   const [selectedBranchId, setSelectedBranchId] = useState<string>('all');
   const [supplierProducts, setSupplierProducts] = useState<SupplierProduct[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
+  const [uploadingCatalogue, setUploadingCatalogue] = useState(false);
+  const catalogueFileRef = React.useRef<HTMLInputElement>(null);
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [loadingOrders, setLoadingOrders] = useState(false);
   const [openActionMenu, setOpenActionMenu] = useState<string | null>(null);
@@ -135,6 +137,61 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
       loadSupplierProducts(selectedBranchId);
     }
   }, [selectedBranchId]);
+
+  /**
+   * A clinic may load a price list for a supplier it created itself — a contact
+   * record with no VetHub account behind it. Once a supplier has their own
+   * account (`userId`), the catalogue is theirs to publish and the clinic
+   * uploads to its own catalogue instead (Products → Upload). The server
+   * enforces this too; hiding the button is just so nobody tries.
+   */
+  const canUploadCatalogue = !supplier.userId
+    && ['CLINIC_OWNER', 'CLINIC_MANAGER', 'SUPER_ADMIN'].includes(String(user?.role || ''));
+
+  const handleCatalogueFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = ''; // so picking the same file twice still fires
+    if (!file) return;
+
+    setUploadingCatalogue(true);
+    try {
+      const { parseFile } = await import('../../../utils/import/parse');
+      const parsed = await parseFile(file);
+
+      // Headers arrive normalised to snake_case, so accept the names a real
+      // price list actually uses rather than demanding an exact template.
+      const pick = (row: Record<string, string>, keys: string[]) => {
+        for (const k of keys) if (row[k]) return row[k];
+        return '';
+      };
+      const rows = parsed.rows.map(r => ({
+        name: pick(r, ['name', 'product', 'product_name', 'item', 'item_name', 'description_of_goods']),
+        sku: pick(r, ['sku', 'code', 'item_code', 'product_code']),
+        category: pick(r, ['category', 'type', 'group']),
+        unitPrice: pick(r, ['unit_price', 'price', 'cost', 'unit_cost', 'amount']),
+        unit: pick(r, ['unit', 'uom', 'units']),
+        packSize: pick(r, ['pack_size', 'packsize', 'pack']),
+        manufacturer: pick(r, ['manufacturer', 'brand', 'make']),
+        description: pick(r, ['description', 'notes']),
+      })).filter(r => r.name);
+
+      if (!rows.length) {
+        toast.error('No product names found in that file. It needs a column called Name (or Product/Item).');
+        return;
+      }
+
+      const res = await supplierProductsAPI.bulkUpload(supplier.id, rows);
+      const d: any = (res as any)?.data?.data || {};
+      toast.success(
+        `${d.created || 0} added${d.updated ? `, ${d.updated} updated` : ''}${d.skipped?.length ? `, ${d.skipped.length} skipped` : ''}`,
+      );
+      await loadSupplierProducts();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Could not read that file');
+    } finally {
+      setUploadingCatalogue(false);
+    }
+  };
 
   const loadSupplierProducts = async (branchId?: string) => {
     setLoadingProducts(true);
@@ -432,14 +489,38 @@ const SupplierDetailView: React.FC<Props> = ({ supplier, clinic, transactions, o
               {selectedBranchId !== 'all' && selectedBranch && ` · from ${selectedBranch.name}`}
             </p>
           </div>
-          <div className="relative w-full sm:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam" size={14}/>
-            <input
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-9 pr-4 py-2 text-xs font-bold outline-none text-pine dark:text-zinc-100"
-            />
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            {/* A supplier who is not on VetHub has no way to publish their own
+                list, so the clinic loads the price list it was sent. Hidden for
+                suppliers with their own account — that catalogue is theirs. */}
+            {canUploadCatalogue && (
+              <>
+                <input
+                  ref={catalogueFileRef}
+                  type="file"
+                  accept=".csv,.xlsx,.xls"
+                  className="hidden"
+                  onChange={handleCatalogueFile}
+                />
+                <button
+                  onClick={() => catalogueFileRef.current?.click()}
+                  disabled={uploadingCatalogue}
+                  title="Upload this supplier's price list (CSV or Excel)"
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300 hover:border-seafoam hover:text-seafoam transition-all disabled:opacity-50"
+                >
+                  <Upload size={13} /> {uploadingCatalogue ? 'Uploading…' : 'Upload'}
+                </button>
+              </>
+            )}
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam" size={14}/>
+              <input
+                placeholder="Search products..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-9 pr-4 py-2 text-xs font-bold outline-none text-pine dark:text-zinc-100"
+              />
+            </div>
           </div>
         </div>
 
