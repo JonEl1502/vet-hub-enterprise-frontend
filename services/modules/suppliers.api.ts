@@ -101,17 +101,38 @@ export const suppliersAPI = {
   /**
    * Get all suppliers with pagination
    */
+  /**
+   * `scope: 'mine'` returns only THIS clinic's suppliers (205) — the ones it has
+   * bought from, stocked a product from, or saved. Omit it for the full
+   * directory, which is where a clinic finds a supplier it has never dealt with.
+   */
   getAll: async (
-    params?: PaginationParams,
+    params?: PaginationParams & { scope?: 'mine' },
     options?: RequestOptions
   ): Promise<ApiResponse<{ data: Supplier[]; meta: PaginationMeta }>> => {
-    const query = buildPaginationQuery(params || {});
-    return get(`${ENDPOINTS.SUPPLIERS.BASE}${query}`, {
-      cache: true,
-      cacheDuration: 30 * 60 * 1000, // Cache for 30 minutes
+    const { scope, ...rest } = (params || {}) as any;
+    const query = buildPaginationQuery(rest);
+    const scoped = scope ? `${query}${query.includes('?') ? '&' : '?'}scope=${scope}` : query;
+    return get(`${ENDPOINTS.SUPPLIERS.BASE}${scoped}`, {
+      // ⚠️ NOT cached when scoped: saving a supplier must show up immediately,
+      // and a 30-minute cache would leave the hub looking unchanged after the
+      // action that was supposed to change it.
+      cache: !scope,
+      cacheDuration: 30 * 60 * 1000,
       ...options,
     });
   },
+
+  /** Add this supplier to the clinic's own list (205). */
+  save: async (supplierId: string | number): Promise<ApiResponse<{ linked: boolean; reason: string }>> =>
+    post(`${ENDPOINTS.SUPPLIERS.BASE}/${supplierId}/save`, {}),
+
+  /**
+   * Remove a SAVED supplier. One linked by a purchase or a stocked product is
+   * refused by the server — that history is not a list preference.
+   */
+  unsave: async (supplierId: string | number): Promise<ApiResponse<{ linked: boolean }>> =>
+    del(`${ENDPOINTS.SUPPLIERS.BASE}/${supplierId}/save`),
 
   /**
    * Get supplier by ID

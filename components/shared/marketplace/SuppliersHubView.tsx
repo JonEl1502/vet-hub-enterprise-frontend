@@ -48,6 +48,21 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
   });
 
   const isAdmin = user?.role === UserRole.SUPER_ADMIN || user?.role === UserRole.MERCHANT_ADMIN;
+  /**
+   * MY SUPPLIERS vs the DIRECTORY (205).
+   *
+   * The hub listed every supplier on the platform, whether or not the clinic
+   * had ever dealt with them (user, 2026-08-15). It now opens on the clinic's
+   * own — bought from, stocked a product from, or saved.
+   *
+   * ⚠️ The directory stays one tap away, and the empty state points at it: on
+   * a fresh install almost nobody has links yet, so a hub that only showed
+   * "mine" with no way out would read as broken.
+   *
+   * Admins keep the directory as their default — they are looking at the
+   * platform, not running a clinic.
+   */
+  const [supplierScope, setSupplierScope] = useState<'mine' | 'all'>(isAdmin ? 'all' : 'mine');
 
   // Helper function to safely format rating value
   const formatRating = (rating: any): string => {
@@ -71,8 +86,11 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
   };
 
   useEffect(() => {
-    fetchSuppliers();
-  }, []);
+    // Refetch when the scope flips — "mine" and the directory are two lists.
+    // `force` skips the localStorage cache, which only ever holds the directory.
+    fetchSuppliers(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [supplierScope]);
 
   const handleQuickAdd = async () => {
     if (!quickForm.name.trim()) { toast.error('Supplier name is required'); return; }
@@ -119,14 +137,18 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
         }
       }
 
-      const response = await suppliersAPI.getAll();
+      const response = await suppliersAPI.getAll(supplierScope === 'mine' ? { scope: 'mine' } : undefined);
       // Backend returns paginated response: { data: { data: [...], meta: {...} } }
       const suppliersList = response.data.data || [];
       setSuppliers(suppliersList);
 
-      // Cache suppliers in localStorage
-      localStorage.setItem('vethub-suppliers', JSON.stringify(suppliersList));
-      localStorage.setItem('vethub-suppliers-timestamp', Date.now().toString());
+      // ⚠️ Only the DIRECTORY is cached. "Mine" is per-clinic and changes the
+      // moment a supplier is saved — caching it would show a stale list right
+      // after the action meant to change it, and the cache key has no clinic in it.
+      if (supplierScope !== 'mine') {
+        localStorage.setItem('vethub-suppliers', JSON.stringify(suppliersList));
+        localStorage.setItem('vethub-suppliers-timestamp', Date.now().toString());
+      }
 
       // DO NOT fetch products here - only fetch when user views supplier details
       // Products will be fetched on-demand when needed
@@ -411,6 +433,22 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
 
       {/* Filters Card */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
+        {/* MY SUPPLIERS vs the whole DIRECTORY (205). */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {([['mine', 'My suppliers'], ['all', 'Directory']] as const).map(([v, label]) => (
+            <button key={v} type="button" onClick={() => setSupplierScope(v)}
+              title={v === 'mine'
+                ? "Suppliers you have bought from, stocked a product from, or saved"
+                : 'Every supplier on the platform — save one to add it to your list'}
+              className={`px-3.5 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${
+                supplierScope === v
+                  ? 'bg-seafoam text-white shadow-sm'
+                  : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-seafoam'
+              }`}>
+              {label}
+            </button>
+          ))}
+        </div>
         {/* Row 1 — Search (full width) */}
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam" size={15}/>
@@ -812,7 +850,21 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
       {filteredSuppliers.length === 0 && (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-12 text-center">
           <Building2 className="mx-auto mb-4 text-slate-400" size={48} />
-          <p className="font-bold text-slate-400">No suppliers found</p>
+          {supplierScope === 'mine' && !searchQuery ? (
+            <>
+              <p className="font-bold text-slate-500 dark:text-zinc-300">No suppliers on your list yet</p>
+              <p className="mt-1 text-[11px] font-bold text-slate-400 max-w-md mx-auto leading-relaxed">
+                A supplier joins your list when you buy from them, stock one of their products, or
+                save them from the directory.
+              </p>
+              <button type="button" onClick={() => setSupplierScope('all')}
+                className="mt-4 px-4 py-2 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all">
+                Browse the directory
+              </button>
+            </>
+          ) : (
+            <p className="font-bold text-slate-400">No suppliers found</p>
+          )}
         </div>
       )}
 

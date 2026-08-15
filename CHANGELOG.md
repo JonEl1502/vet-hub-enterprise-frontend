@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the Supplier hub opens on YOUR suppliers  —  2026-08-15
+- **My suppliers · Directory** toggle. A clinic now lands on its own list — bought from, stocked a
+  product from, or saved (backend 205) — instead of every supplier on the platform.
+- ⚠️ **The directory is one tap away, and the empty state points at it.** Prod has almost no links
+  yet, so a hub that only showed "mine" with no way out would read as broken on day one. Empty now
+  explains how a supplier joins the list and offers **Browse the directory**.
+- **Admins still default to the directory** — they are looking at the platform, not running a clinic.
+- ⚠️ **"Mine" is never cached.** The 30-minute API cache and the localStorage copy are directory-only:
+  the scoped list is per-clinic and changes the moment a supplier is saved, and the cache key has no
+  clinic in it — caching it would show a stale list right after the action meant to change it.
+- `suppliersAPI` gains `save()` / `unsave()` for the directory to feed the hub.
+- **Record impact:** 🟢 None — read scoping plus link rows.
+- **Not done:** the save/unsave buttons on directory cards. The API and endpoints exist; the cards
+  don't call them yet, so the only way onto the list today is buying or stocking.
+
 ### feat: paste your old client list and Import cleans it up  —  2026-08-15
 - **What changed:** Import only accepted a CSV or Excel **file** whose columns already matched the
   template. A clinic coming off an old system has no such file — they have a block they can copy out
