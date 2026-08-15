@@ -208,6 +208,16 @@ const CLINIC_ITEMS: MenuItem[] = [
     ],
   },
   {
+    // Community sits directly above Clinic Management (user, 2026-08-15).
+    // ⚠️ A top-level item with no subItems, because Community is ONE surface
+    // every user reaches — staff here, clients/farm owners from the portal.
+    // Read access is universal; the subscription gates WRITES, so this entry
+    // must NOT carry a plan gate or a lapsed clinic loses sight of the space.
+    id: 'community',
+    label: 'Community',
+    icon: Users,
+  },
+  {
     id: 'clinic_mgmt',
     label: 'Clinic Management',
     icon: Building2,

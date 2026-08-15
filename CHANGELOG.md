@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Community in the sidebar, above Clinic Management  —  2026-08-15
+- Nav entry added where you asked, with the route, the `PERSIST_VIEWS` registration (so a refresh
+  lands back on it) and a page behind it.
+- ⚠️ **The page says plainly that Community is NOT BUILT.** A nav item that dead-ends looks exactly
+  like a broken one — the board records a supplier page reported "done" on a passing API test that
+  was unreachable through three separate layers. It states the agreed model instead: ranking earned
+  not bought, free for clients and farm owners, universal read with writes gated by subscription,
+  advertising separate and labelled.
+- ⚠️ **No plan gate on the route, deliberately.** Read access is universal; the subscription gates
+  writes. Gating the route would take the space away from a clinic whose plan lapsed — the exact
+  failure `reference_gate_writes_not_reads` exists to prevent.
+- **Record impact:** 🟢 None — a nav entry and a static page. No schema, no endpoints.
+
 ### feat: the Supplier hub opens on YOUR suppliers  —  2026-08-15
 - **My suppliers · Directory** toggle. A clinic now lands on its own list — bought from, stocked a
   product from, or saved (backend 205) — instead of every supplier on the platform.

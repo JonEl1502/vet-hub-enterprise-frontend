@@ -101,6 +101,7 @@ import StaffProfileView from './components/clinic/staff/StaffProfileView';
 import StaffRegistrationView from './components/clinic/staff/StaffRegistrationView';
 import SupplierDetailView from './components/shared/marketplace/SupplierDetailView';
 import SuppliersHubView from './components/shared/marketplace/SuppliersHubView';
+import CommunityView from './components/shared/community/CommunityView';
 import PayablesView from './components/clinic/inventory/PayablesView';
 import ClinicsManagementView from './components/admin/clinics/ClinicsManagementView';
 import PurchaseOrdersView from './components/shared/marketplace/PurchaseOrdersView';
@@ -279,7 +280,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const PERSIST_VIEWS = new Set([
     'dashboard', 'reminders', 'appointment-bookings', 'appointments', 'clients', 'patients', 'inventory', 'products', 'procedures', 'workflows', 'clinic-billables', 'packages', 'services-catalog', 'bills',
     'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders', 'payables',
-    'billing', 'referrals', 'settings', 'import-data', 'broadcasts', 'supplier-dashboard',
+    'billing', 'referrals', 'settings', 'import-data', 'broadcasts', 'community', 'supplier-dashboard',
     'supplier-products', 'supplier-orders', 'supplier-branches',
     'supplier-staff', 'supplier-management', 'supplier-import',
   ]);
@@ -2977,6 +2978,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <FreelancerCategoriesPage onNavigate={navigateTo} />;
       case 'payables':
         return <PayablesView currency={firstActiveClinic?.currency ?? 'KES'} />;
+      // Community (2026-08-15). ⚠️ No plan gate on the ROUTE: read access is
+      // universal and the subscription gates writes, so a lapsed clinic must
+      // still reach it.
+      case 'community':
+        return <CommunityView />;
       case 'suppliers':
         return <SuppliersHubView onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} />;
       case 'supplier-detail':
