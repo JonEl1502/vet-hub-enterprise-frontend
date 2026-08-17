@@ -246,7 +246,13 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
       .then((res: any) => {
         if (cancelled) return;
         const rows = res?.data?.data || res?.data?.clients || [];
-        const total = res?.data?.meta?.total ?? res?.data?.meta?.totalItems ?? rows.length;
+        // ⚠️ This endpoint returns `data.pagination.totalItems` — NOT `data.meta`.
+        // Falling through to rows.length would report the page size as the
+        // total and collapse the pager to a single page.
+        const total = res?.data?.pagination?.totalItems
+          ?? res?.data?.meta?.total
+          ?? res?.data?.meta?.totalItems
+          ?? rows.length;
         setRemotePage({ page: currentPage, rows, total });
       })
       .catch(() => { if (!cancelled) setRemotePage({ page: currentPage, rows: [], total: 0 }); })
