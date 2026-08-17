@@ -72,6 +72,7 @@ export type { ShareableRecordType, RecordAccessLogEntry } from './modules/record
 export { stockMovementsAPI } from './modules/stockMovements.api';
 export { suppliersAPI } from './modules/suppliers.api';
 export { supplierProductsAPI } from './modules/supplierProducts.api';
+export { communityAPI } from './modules/community.api';
 export { purchaseOrderAPI } from './modules/purchaseOrders.api';
 export { walletAPI } from './modules/wallet.api';
 export type { Wallet, WalletEntityType, WalletType, WalletLedgerEntry } from './modules/wallet.api';
@@ -85,6 +86,7 @@ export { broadcastsAPI } from './modules/broadcasts.api';
 export { ratingsAPI } from './modules/ratings.api';
 export type { RatingsDashboard } from './modules/ratings.api';
 export { billsAPI } from './modules/bills.api';
+export { diagnosesAPI } from './modules/diagnoses.api';
 export { invoicesAPI } from './modules/invoices.api';
 export type { Invoice, InvoiceRow, InvoiceStatus } from './modules/invoices.api';
 export type { Bill, BillLine, BillLineInput, BillStatus, BillQueueRow } from './modules/bills.api';
@@ -122,6 +124,7 @@ export type { InventoryItem, CreateInventoryItemData, UpdateInventoryItemData } 
 export type { StockMovement, StockMovementType, CreateStockMovementData, RestockInventoryData, StockMovementFilters } from './modules/stockMovements.api';
 export type { Supplier, CreateSupplierData, UpdateSupplierData } from './modules/suppliers.api';
 export type { SupplierProduct, CreateSupplierProductData, UpdateSupplierProductData, SupplierProductFilters } from './modules/supplierProducts.api';
+export type { CommunityPost, CommunityKind, CommunityAuthorKind, CreateCommunityPost } from './modules/community.api';
 export type { PurchaseOrder, PurchaseOrderItem, PurchaseOrderStatus, CreatePurchaseOrderData, UpdatePurchaseOrderData, ReceivePurchaseOrderData, PurchaseOrderFilters } from './modules/purchaseOrders.api';
 
 // Export API types and utilities

@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Community is built — feed, composer, deals and meet-ups  —  2026-08-17
+🟢 **Record impact: UI** (writes covered by the backend 207 entry).
+- Replaces the "Not built yet" placeholder with a real feed: **Everything / Articles / Deals /
+  Meet-ups**, each post carrying its author (clinic, supplier or practitioner), body, tags and views.
+- **Deals** show price, the struck-through was-price and when the offer ends. **Meet-ups** show when
+  and where.
+- ⚠️ **Promoted posts are labelled "Promoted".** Placement is what a boost buys; rank is earned.
+  There is deliberately no way to promote something quietly.
+- The Post button is shown to every non-client role rather than hidden behind an entitlement check.
+  A clinic without the add-on gets the server's 403, which names the add-on — hiding the button would
+  make the thing they can buy invisible.
+- Practitioners get a meet-up-only composer that says why, matching the server rule.
+- Clients see the feed and no composer: reading is free and always open.
+
+
 ### feat: change a client's profile photo — staff side and portal  —  2026-08-17
 🟢 **Record impact: UI.**
 - **Client profile (staff):** hover the photo for a Change overlay — upload and it saves straight to
