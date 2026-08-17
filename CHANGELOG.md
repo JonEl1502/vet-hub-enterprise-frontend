@@ -59,6 +59,13 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: client cards show a balance figure, not the word "Settled"  —  2026-08-17
+🟢 **Record impact: display only.**
+- A zero balance now reads **KES 0.00** instead of *Settled* (user, 2026-08-17). The row is a money
+  row either way, and a figure states the balance rather than asserting a status the card cannot
+  prove. Outstanding amounts now carry 2 decimals too, so the two states line up.
+
+
 ### feat: three ways to fill a catalogue, in the places you'd look  —  2026-08-15
 🟢 **Record impact: UI only** (the writes behind the buttons are covered by the backend entries).
 - **Products page** now carries **Upload** and **Copy** beside Add Item. Building a catalogue is one

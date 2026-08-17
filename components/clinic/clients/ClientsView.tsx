@@ -904,7 +904,12 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                       <p className={`text-2xl font-black font-mono leading-none tracking-tight ${
                         outstanding > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-emerald-600 dark:text-emerald-400'
                       }`}>
-                        {outstanding > 0 ? `${currency} ${outstanding.toLocaleString()}` : 'Settled'}
+                        {/* A number, never the word "Settled" — the row reads as
+                            money either way, and 0.00 states the balance rather
+                            than asserting a status the card cannot prove. */}
+                        {currency} {outstanding > 0
+                          ? outstanding.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+                          : '0.00'}
                       </p>
                       {hasFullAccess && (
                         <p className="text-[10px] font-bold text-slate-400 mt-1">
