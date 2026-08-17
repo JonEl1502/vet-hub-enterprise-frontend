@@ -138,7 +138,11 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-[100] flex items-center justify-center p-3 sm:p-4">
+    /* z-150 sits ABOVE the sidebar (z-100, which is why the backdrop used to
+       stop at the sidebar edge) and BELOW the shared confirm dialog (z-200),
+       which this modal raises for every delete — cover that and the confirm
+       button becomes unclickable. */
+    <div className="fixed inset-0 bg-black/50 z-[150] flex items-center justify-center p-3 sm:p-4">
       <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl max-w-3xl w-full max-h-[85vh] overflow-hidden flex flex-col">
         <div className="flex items-center justify-between px-4 sm:px-6 py-4 border-b border-slate-200 dark:border-zinc-800">
           <div className="flex items-center gap-2">

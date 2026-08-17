@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: client list showed empty pages past 1,000 records  —  2026-08-17
+🟢 **Record impact: none — records were always there, the list stopped showing them.**
+- A clinic with 1,875 clients got 19 pages of pagination and **nothing at all from page 11 onward**
+  (user, 2026-08-17). DataContext caches the first 1,000 clients while the page count comes from the
+  server's true total, so `filtered.slice(1000, 1100)` sliced past the end of a 1,000-row array.
+- ⚠️ The count was honest and the server was fine. The list was paginating a local array against a
+  remote total — the two only agree for the first ten pages.
+- Pages beyond the cache are now fetched from the server as you reach them, with a loading state.
+- Only when the list is UNFILTERED. Every filter here runs client-side over cached rows, so with one
+  active the server's ordering and total no longer describe what is on screen and paging stays local.
+
+### fix: duplicate modal left the sidebar undimmed  —  2026-08-17
+🟢 **Record impact: display only.**
+- The modal and the sidebar were both `z-100`, so the backdrop stopped at the sidebar edge. Now
+  `z-150` — above the sidebar, and deliberately **below** the shared confirm dialog at `z-200`, which
+  this modal raises for every delete. Covering that would make the confirm button unclickable.
+
+
 ### feat: duplicate cleanup — per-record delete, match criteria, and what was skipped  —  2026-08-17
 🟢 **Record impact: UI only** (deletion itself is unchanged and still archives anything with history).
 - **Delete one record** from a group without touching the rest. The bulk path deletes everything

@@ -183,17 +183,58 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
 
   useEffect(() => { setCurrentPage(1); }, [searchQuery, dateRange, clientFilter, pastCountMin]);
 
+  /**
+   * PAGES BEYOND WHAT IS CACHED ARE FETCHED FROM THE SERVER.
+   *
+   * DataContext loads the first 1,000 clients, but the page count comes from
+   * the server's true total — so a clinic with 1,875 clients showed 19 pages
+   * and rendered NOTHING from page 11 on: `filtered.slice(1000, 1100)` of a
+   * 1,000-row array is empty (user, 2026-08-17). The count was honest and the
+   * server was fine; the list was slicing an array that stopped short.
+   *
+   * Only for the UNFILTERED list. Every filter here runs client-side over the
+   * cached rows, so once one is active the server's ordering and total no
+   * longer describe what is on screen, and paging must stay local.
+   */
+  const [remotePage, setRemotePage] = useState<{ page: number; rows: Client[] } | null>(null);
+  const [loadingRemotePage, setLoadingRemotePage] = useState(false);
+
+  // Declared here, not below with the pagination maths — the fetch above needs
+  // it, and a const used before its declaration is a runtime TDZ crash that
+  // tsc does not catch in this position.
+  const isUnfiltered = searchQuery.length < 3 && !dateRange && clientFilter === 'all';
+
+  const sliceStart = (currentPage - 1) * itemsPerPage;
+  const needsRemotePage = isUnfiltered && sliceStart >= filtered.length && filtered.length > 0;
+
+  useEffect(() => {
+    if (!needsRemotePage) { setRemotePage(null); return; }
+    if (remotePage?.page === currentPage) return;
+    let cancelled = false;
+    setLoadingRemotePage(true);
+    clientsAPI
+      .getAll({ page: currentPage, limit: itemsPerPage, status: clientStatus } as any, { cache: false } as any)
+      .then((res: any) => {
+        if (cancelled) return;
+        setRemotePage({ page: currentPage, rows: res?.data?.data || res?.data?.clients || [] });
+      })
+      .catch(() => { if (!cancelled) setRemotePage({ page: currentPage, rows: [] }); })
+      .finally(() => { if (!cancelled) setLoadingRemotePage(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [needsRemotePage, currentPage, itemsPerPage, clientStatus]);
+
   const paginatedClients = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
+    if (needsRemotePage) return remotePage?.page === currentPage ? remotePage.rows : [];
     return filtered.slice(start, start + itemsPerPage);
-  }, [filtered, currentPage, itemsPerPage]);
+  }, [filtered, currentPage, itemsPerPage, needsRemotePage, remotePage]);
 
   // When the user isn't narrowing the list, trust the server total AND let
   // totalPages reflect that total so page 2+ is reachable. With local
   // filters active, pagination tracks the filtered subset since the server
   // total is irrelevant. effectiveTotal uses the larger of the two so a
   // server total smaller than what's locally cached can't hide records.
-  const isUnfiltered = searchQuery.length < 3 && !dateRange && clientFilter === 'all';
   const dbTotal = isUnfiltered && typeof totals.clients === 'number' ? totals.clients : filtered.length;
   const effectiveTotal = Math.max(filtered.length, dbTotal);
   const totalPages = Math.max(1, Math.ceil(effectiveTotal / itemsPerPage));
@@ -560,9 +601,9 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
         )}
       </div>
 
-      {isLoadingClients || isLoadingPets ? (
+      {isLoadingClients || isLoadingPets || loadingRemotePage ? (
         <div className="py-32">
-          <LoadingSpinner size="lg" message="Loading clients..." />
+          <LoadingSpinner size="lg" message={loadingRemotePage ? 'Loading page…' : 'Loading clients...'} />
         </div>
       ) : (
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-visible">
