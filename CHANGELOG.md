@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: A–Z filter is server-side, and its total is the letter's total  —  2026-08-17
+🟢 **Record impact: display and querying only.**
+- Picking a letter now **changes the total and the page count** to that letter's count (user,
+  2026-08-17). It previously kept showing the clinic-wide total, so the pager offered pages the
+  letter did not have.
+- ⚠️ It also **matches all clients, not just the 1,000 held in memory.** Filtering the cache silently
+  hid every client past the first 1,000 — a clinic with 1,875 would never see the later Fs.
+- **On: Both / First name / Surname** picks which name the letter reads, shown once a letter is
+  chosen. Both suits not knowing which name a client was filed under; one field suits reading the
+  list as a register.
+- Server-side only when the letter is the ONLY filter. Combined with a date range or a risk filter it
+  stays local, because those run over cached rows and the server cannot reproduce them.
+- Changing the letter or its scope resets to page 1 — page 3 of the previous result set means nothing
+  in the new one.
+
+
 ### fix: client list showed empty pages past 1,000 records  —  2026-08-17
 🟢 **Record impact: none — records were always there, the list stopped showing them.**
 - A clinic with 1,875 clients got 19 pages of pagination and **nothing at all from page 11 onward**

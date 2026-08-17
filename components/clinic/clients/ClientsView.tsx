@@ -76,6 +76,12 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const [isSearchingApi, setIsSearchingApi] = useState(false);
   // A–Z alphabet filter (matches any word of the name; '#' = non-letter start).
   const [letterFilter, setLetterFilter] = useState<string | null>(null);
+  /**
+   * Which name the A–Z row applies to (user, 2026-08-17). Both is right for
+   * someone who does not know which name a client was filed under; a single
+   * field is right for anyone reading the list as an alphabetical register.
+   */
+  const [letterField, setLetterField] = useState<'both' | 'first' | 'surname'>('both');
   // Risk & credit filters — live in the stacked panel that slides out from
   // UNDER the primary filter card.
   const [advOpen, setAdvOpen] = useState(false);
@@ -169,9 +175,15 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
     }
     if (letterFilter) {
       list = list.filter(c => {
-        const name = (c.name || '').trim();
-        if (letterFilter === '#') return !/^[a-z]/i.test(name);
-        return name.split(/\s+/).some(w => w.toUpperCase().startsWith(letterFilter));
+        // Mirror the server's letterField so the cached-rows path and the
+        // server path can never disagree about who is under "F".
+        const first = (c.firstName || (c.name || '').trim().split(/\s+/)[0] || '').trim();
+        const last = (c.surname || (c.name || '').trim().split(/\s+/).slice(-1)[0] || '').trim();
+        const targets = letterField === 'first' ? [first]
+          : letterField === 'surname' ? [last]
+          : [first, last];
+        if (letterFilter === '#') return targets.every(t => !/^[a-z]/i.test(t));
+        return targets.some(t => t.toUpperCase().startsWith(letterFilter));
       });
     }
     // Risk & credit (advanced panel): outstanding balance / spend / type.
@@ -196,47 +208,81 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
    * cached rows, so once one is active the server's ordering and total no
    * longer describe what is on screen, and paging must stay local.
    */
-  const [remotePage, setRemotePage] = useState<{ page: number; rows: Client[] } | null>(null);
+  const [remotePage, setRemotePage] = useState<{ page: number; rows: Client[]; total: number } | null>(null);
   const [loadingRemotePage, setLoadingRemotePage] = useState(false);
 
-  // Declared here, not below with the pagination maths — the fetch above needs
+  // Declared here, not below with the pagination maths — the fetches above need
   // it, and a const used before its declaration is a runtime TDZ crash that
   // tsc does not catch in this position.
-  const isUnfiltered = searchQuery.length < 3 && !dateRange && clientFilter === 'all';
+  const isUnfiltered = searchQuery.length < 3 && !dateRange && clientFilter === 'all' && !letterFilter;
+
+  /**
+   * The A–Z filter runs on the SERVER when it is the only filter (user,
+   * 2026-08-17). Two things follow, both of which were wrong before:
+   *   · the total and page count describe the letter, not the whole clinic
+   *   · it matches all 1,875 clients, not just the 1,000 held in memory —
+   *     filtering the cache would silently hide every later "F".
+   * With another filter also active it stays local, because those filters run
+   * over cached rows and the server cannot reproduce them.
+   */
+  const letterOnly = !!letterFilter && searchQuery.length < 3 && !dateRange
+    && clientFilter === 'all' && !advOutstanding && advMinSpent <= 0 && !advClientType;
 
   const sliceStart = (currentPage - 1) * itemsPerPage;
-  const needsRemotePage = isUnfiltered && sliceStart >= filtered.length && filtered.length > 0;
+  const beyondCache = isUnfiltered && sliceStart >= filtered.length && filtered.length > 0;
+  const useServerRows = letterOnly || beyondCache;
 
   useEffect(() => {
-    if (!needsRemotePage) { setRemotePage(null); return; }
-    if (remotePage?.page === currentPage) return;
+    if (!useServerRows) { setRemotePage(null); return; }
     let cancelled = false;
     setLoadingRemotePage(true);
     clientsAPI
-      .getAll({ page: currentPage, limit: itemsPerPage, status: clientStatus } as any, { cache: false } as any)
+      .getAll({
+        page: currentPage,
+        limit: itemsPerPage,
+        status: clientStatus,
+        ...(letterOnly ? { letter: letterFilter, letterField } : {}),
+      } as any, { cache: false } as any)
       .then((res: any) => {
         if (cancelled) return;
-        setRemotePage({ page: currentPage, rows: res?.data?.data || res?.data?.clients || [] });
+        const rows = res?.data?.data || res?.data?.clients || [];
+        const total = res?.data?.meta?.total ?? res?.data?.meta?.totalItems ?? rows.length;
+        setRemotePage({ page: currentPage, rows, total });
       })
-      .catch(() => { if (!cancelled) setRemotePage({ page: currentPage, rows: [] }); })
+      .catch(() => { if (!cancelled) setRemotePage({ page: currentPage, rows: [], total: 0 }); })
       .finally(() => { if (!cancelled) setLoadingRemotePage(false); });
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [needsRemotePage, currentPage, itemsPerPage, clientStatus]);
+  }, [useServerRows, letterOnly, letterFilter, letterField, currentPage, itemsPerPage, clientStatus]);
+
+  // A letter (or the scope it applies to) changing means page 3 of the old
+  // result set is meaningless — go back to the start rather than showing a
+  // page that may not exist in the new one.
+  useEffect(() => { setCurrentPage(1); }, [letterFilter, letterField]);
 
   const paginatedClients = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    if (needsRemotePage) return remotePage?.page === currentPage ? remotePage.rows : [];
+    if (useServerRows) return remotePage?.page === currentPage ? remotePage.rows : [];
     return filtered.slice(start, start + itemsPerPage);
-  }, [filtered, currentPage, itemsPerPage, needsRemotePage, remotePage]);
+  }, [filtered, currentPage, itemsPerPage, useServerRows, remotePage]);
 
   // When the user isn't narrowing the list, trust the server total AND let
   // totalPages reflect that total so page 2+ is reachable. With local
   // filters active, pagination tracks the filtered subset since the server
   // total is irrelevant. effectiveTotal uses the larger of the two so a
   // server total smaller than what's locally cached can't hide records.
-  const dbTotal = isUnfiltered && typeof totals.clients === 'number' ? totals.clients : filtered.length;
-  const effectiveTotal = Math.max(filtered.length, dbTotal);
+  //
+  // ⚠️ With a letter active the server's COUNT FOR THAT LETTER is the total —
+  // not the clinic's 1,875. Showing the whole-clinic total while displaying one
+  // letter is what produced pages of nothing (user, 2026-08-17).
+  const dbTotal = letterOnly && remotePage
+    ? remotePage.total
+    : isUnfiltered && typeof totals.clients === 'number'
+      ? totals.clients
+      : filtered.length;
+  // Never let a local cache inflate a server-scoped count: under a letter the
+  // server total is authoritative, and `filtered` holds unrelated cached rows.
+  const effectiveTotal = letterOnly ? dbTotal : Math.max(filtered.length, dbTotal);
   const totalPages = Math.max(1, Math.ceil(effectiveTotal / itemsPerPage));
   const paginationMeta: PaginationMeta = {
     currentPage,
@@ -361,6 +407,31 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                 </button>
               );
             })}
+
+            {/* Which name the letter reads. Only shown once a letter is picked —
+                before that it controls nothing and is just noise. */}
+            {letterFilter && (
+              <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-200 dark:border-zinc-700">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">on</span>
+                {([
+                  { key: 'both', label: 'Both' },
+                  { key: 'first', label: 'First name' },
+                  { key: 'surname', label: 'Surname' },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setLetterField(opt.key)}
+                    className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${
+                      letterField === opt.key
+                        ? 'bg-pine text-white dark:bg-seafoam'
+                        : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-seafoam hover:border-seafoam/40'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Row 2 — Date picker (full width) */}
