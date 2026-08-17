@@ -430,10 +430,24 @@ export const clientsAPI = {
    * Find duplicate clients in the active clinic. Groups by normalized
    * phone and email; returns groups of size >= 2.
    */
+  /**
+   * `criteria` picks which signals group records. Omit it for both.
+   * `ignored` reports placeholder values (a filler phone like +254700000000)
+   * that were deliberately NOT grouped — shown so the skip is visible.
+   */
   duplicates: async (
+    criteria?: { phone?: boolean; email?: boolean },
     options?: RequestOptions
-  ): Promise<ApiResponse<{ groups: DuplicateGroup[] }>> => {
-    return get(ENDPOINTS.CLIENTS.DUPLICATES, {
+  ): Promise<ApiResponse<{
+    groups: DuplicateGroup[];
+    ignored?: { kind: 'phone' | 'email'; value: string; count: number }[];
+    criteria?: { phone: boolean; email: boolean };
+  }>> => {
+    const picked = criteria
+      ? [criteria.phone ? 'phone' : '', criteria.email ? 'email' : ''].filter(Boolean).join(',')
+      : null;
+    const qs = picked === null ? '' : `?criteria=${picked}`;
+    return get(`${ENDPOINTS.CLIENTS.DUPLICATES}${qs}`, {
       cache: false,
       ...options,
     });

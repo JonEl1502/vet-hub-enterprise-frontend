@@ -17,14 +17,25 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
   const [deleting, setDeleting] = useState(false);
   const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [cascadePets, setCascadePets] = useState(true); // default ON — dupes typically share pets
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  /**
+   * WHICH SIGNALS COUNT AS A MATCH (user, 2026-08-17).
+   *
+   * A clinic that deliberately puts one number against a household, or against
+   * every walk-in with no phone, needs to turn phone matching OFF — not be
+   * shown groups it has to remember to ignore every time.
+   */
+  const [criteria, setCriteria] = useState({ phone: true, email: true });
+  const [ignored, setIgnored] = useState<{ kind: string; value: string; count: number }[]>([]);
 
-  const load = async () => {
+  const load = async (c = criteria) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await clientsAPI.duplicates();
+      const res = await clientsAPI.duplicates(c);
       if (res.success) {
         setGroups(res.data.groups);
+        setIgnored(res.data.ignored ?? []);
         // Default selection: every record EXCEPT the oldest in each group
         // (oldest is most likely the original; later imports are the dupes).
         const next: Record<string, boolean> = {};
@@ -44,12 +55,44 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
     }
   };
 
+  const toggleCriterion = (key: 'phone' | 'email') => {
+    const next = { ...criteria, [key]: !criteria[key] };
+    setCriteria(next);
+    // Re-scan on the server rather than filtering what's on screen: selections
+    // must not survive a criterion being switched off, or Delete would still
+    // carry records the user can no longer see.
+    setSelected({});
+    load(next);
+  };
+
+  /** Delete ONE record, without touching the rest of its group. */
+  const deleteOne = async (id: string, name: string) => {
+    const ok = await dialog.confirm({
+      title: `Delete ${name}?`,
+      message: 'This one record and its pets are permanently deleted. Anything with billing or clinical history is archived instead, so the history survives. Nothing else in the group is touched.',
+      confirmLabel: 'Delete this record',
+      variant: 'danger',
+    });
+    if (!ok) return;
+    setDeletingId(id);
+    try {
+      await clientsAPI.delete(Number(id), { hard: true });
+      onAfterDelete?.();
+      await load();
+    } catch (e: any) {
+      setError(e?.response?.data?.message || `Could not delete ${name}`);
+    } finally {
+      setDeletingId(null);
+    }
+  };
+
   useEffect(() => {
     if (isOpen) load();
     else {
       setGroups([]);
       setSelected({});
       setProgress(null);
+      setIgnored([]);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen]);
@@ -109,7 +152,43 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
           </button>
         </div>
 
+        {/* Match on what? Sits above the results because it changes them. */}
+        <div className="px-4 sm:px-6 py-3 border-b border-slate-200 dark:border-zinc-800 flex flex-wrap items-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Match on</span>
+          {(['phone', 'email'] as const).map(k => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => toggleCriterion(k)}
+              disabled={loading || deleting}
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all disabled:opacity-50 ${
+                criteria[k]
+                  ? 'bg-pine text-white border-pine dark:bg-seafoam dark:border-seafoam'
+                  : 'bg-transparent text-slate-400 border-slate-200 dark:border-zinc-700 line-through'
+              }`}
+            >
+              {k}
+            </button>
+          ))}
+          {!criteria.phone && !criteria.email && (
+            <span className="text-[10px] font-bold text-amber-600">Nothing selected — no record can match.</span>
+          )}
+        </div>
+
         <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+          {/* Say what was deliberately NOT grouped. A filler number shared by
+              thirty walk-ins is not thirty duplicates, and silently dropping it
+              would look like the scan had missed something. */}
+          {!loading && ignored.length > 0 && (
+            <div className="mb-4 p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-500">Ignored as placeholders</p>
+              <p className="mt-1 text-[11px] font-bold text-slate-400 leading-relaxed">
+                {ignored.slice(0, 4).map(i => `${i.value} (${i.count} records)`).join(', ')}
+                {ignored.length > 4 ? `, +${ignored.length - 4} more` : ''}.
+                {' '}Filler contacts like these are not evidence two records are the same client, so they are never grouped.
+              </p>
+            </div>
+          )}
           {loading ? (
             <div className="py-16"><LoadingSpinner message="Scanning clients…" /></div>
           ) : error ? (
@@ -164,6 +243,24 @@ const DuplicateClientsModal: React.FC<Props> = ({ isOpen, onClose, onAfterDelete
                           <p className="text-[10px] font-bold text-slate-400 whitespace-nowrap">
                             joined {new Date(c.createdAt).toLocaleDateString()}
                           </p>
+                          {/* Delete just this one. The bulk path deletes what is
+                              ticked across every group, which is the wrong tool
+                              when only one record in one group is wrong. */}
+                          <button
+                            type="button"
+                            title={`Delete ${[c.firstName, c.surname].filter(Boolean).join(' ')} only`}
+                            disabled={deleting || deletingId !== null}
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              deleteOne(c.id, [c.title, c.firstName, c.surname].filter(Boolean).join(' '));
+                            }}
+                            className="shrink-0 p-1.5 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20 transition-colors disabled:opacity-40"
+                          >
+                            {deletingId === c.id
+                              ? <Loader2 size={14} className="animate-spin text-rose-500" />
+                              : <Trash2 size={14} />}
+                          </button>
                         </label>
                       );
                     })}

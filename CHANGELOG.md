@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: duplicate cleanup — per-record delete, match criteria, and what was skipped  —  2026-08-17
+🟢 **Record impact: UI only** (deletion itself is unchanged and still archives anything with history).
+- **Delete one record** from a group without touching the rest. The bulk path deletes everything
+  ticked across every group, which is the wrong tool when a single row is wrong.
+- **Match on: phone / email** toggles, so a clinic that knowingly puts one number against a
+  household or a company can switch phone matching OFF rather than remember to ignore those groups
+  every time (user, 2026-08-17).
+- ⚠️ Toggling a criterion **re-scans and clears the selection**. Filtering the list on screen would
+  have left Delete carrying records the user could no longer see.
+- **"Ignored as placeholders"** names the filler values that were deliberately not grouped, with how
+  many records carry each. Silently dropping them would look like the scan had missed something.
+
+
 ### change: client cards show a balance figure, not the word "Settled"  —  2026-08-17
 🟢 **Record impact: display only.**
 - A zero balance now reads **KES 0.00** instead of *Settled* (user, 2026-08-17). The row is a money
