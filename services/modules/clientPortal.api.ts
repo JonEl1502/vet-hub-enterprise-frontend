@@ -6,7 +6,7 @@
  * spam error toasts.
  */
 
-import { get, post, patch, del } from '../api/client';
+import { get, post, put, patch, del } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
 
@@ -338,6 +338,23 @@ export const clientPortalAPI = {
 
   petMemories: (petId: string | number, options?: RequestOptions): Promise<ApiResponse<PortalMemoriesResult>> =>
     get(ENDPOINTS.PORTAL.PET_MEMORIES(petId), { ...options }),
+
+  /**
+   * The client's own profile photo. Two steps like every other upload here:
+   * ask for a signed URL, PUT the bytes to storage, then save the public URL.
+   */
+  avatarUploadUrl: (
+    data: { contentType: string; filename?: string; sizeBytes?: number },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ uploadUrl: string; publicUrl: string; key: string }>> =>
+    post(ENDPOINTS.PORTAL.AVATAR_UPLOAD_URL, data, { showError: true, ...options }),
+
+  /** Applies to every clinic this account is registered at — one person, one face. */
+  updateMyAvatar: (
+    avatarUrl: string | null,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ avatarUrl: string | null; updated: number }>> =>
+    put(ENDPOINTS.PORTAL.AVATAR, { avatarUrl }, { showError: true, ...options }),
 
   memoryUploadUrl: (
     petId: string | number,

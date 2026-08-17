@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: change a client's profile photo — staff side and portal  —  2026-08-17
+🟢 **Record impact: UI.**
+- **Client profile (staff):** hover the photo for a Change overlay — upload and it saves straight to
+  the record. Put here rather than only inside the edit form, because this is where you are looking
+  when you notice the photo is wrong.
+- **Client portal → Account & settings:** tap your photo to replace it. Falls back to the initial
+  letter when no photo is set.
+- ⚠️ The portal upload sets the photo the CLINIC sees too — one person, one face. That is the
+  server's behaviour and the UI says so rather than implying the change is private to the portal.
+- The new photo shows immediately from local state rather than waiting on a refetch.
+
+
 ### feat: A–Z filter is server-side, and its total is the letter's total  —  2026-08-17
 🟢 **Record impact: display and querying only.**
 - Picking a letter now **changes the total and the page count** to that letter's count (user,

@@ -73,6 +73,8 @@ export const ENDPOINTS = {
     MY_CLINICS: '/portal/me/clinics',
     JOIN_CLINIC: (clinicId: string | number) => `/portal/me/clinics/${clinicId}/join`,
     PETS: '/portal/me/pets',
+    AVATAR: '/portal/me/avatar',
+    AVATAR_UPLOAD_URL: '/portal/me/avatar/upload-url',
     PET_RECORDS: (petId: string | number) => `/portal/me/pets/${petId}/records`,
     APPOINTMENTS: '/portal/me/appointments',
     APPOINTMENT_DETAIL: (appointmentId: string | number) => `/portal/me/appointments/${appointmentId}`,

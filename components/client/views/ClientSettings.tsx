@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building2, ChevronDown, ChevronRight, LogOut, Plus, ShieldQuestion } from 'lucide-react';
+import { ArrowLeft, Building2, Camera, ChevronDown, ChevronRight, LogOut, Loader2, Plus, ShieldQuestion } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
-import { PortalClinic } from '../../../services';
+import { PortalClinic, clientPortalAPI } from '../../../services';
+import { uploadsAPI } from '../../../services/modules/uploads.api';
 import ClinicFinder from '../ClinicFinder';
 
 // Clinic logo tile with a graceful fallback: some logos are emoji strings and
@@ -32,6 +33,11 @@ const ClientSettings: React.FC = () => {
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [finderOpen, setFinderOpen] = useState(false);
   const [joiningId, setJoiningId] = useState<string | null>(null);
+  // Seeded from the signed-in profile so the current photo shows on load, then
+  // updated locally after an upload rather than forcing a session refetch.
+  const [avatarUrl, setAvatarUrl] = useState<string | null>((user as any)?.avatarUrl || null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const avatarInputRef = React.useRef<HTMLInputElement>(null);
 
   const initial = (user?.name || user?.email || '?').trim().charAt(0).toUpperCase();
 
@@ -57,7 +63,50 @@ const ClientSettings: React.FC = () => {
 
       {/* Profile */}
       <div className="cp-card p-5 flex items-center gap-4">
-        <span className="cp-avatar" style={{ width: '3.25rem', height: '3.25rem', fontSize: '1.15rem' }}>{initial}</span>
+        {/* Tap the photo to change it. The same image is what the clinic sees
+            on your record — one person, one face. */}
+        <button
+          type="button"
+          onClick={() => avatarInputRef.current?.click()}
+          disabled={avatarBusy}
+          title="Change your photo"
+          className="relative shrink-0 rounded-full"
+          style={{ width: '3.25rem', height: '3.25rem' }}
+        >
+          {avatarUrl
+            ? <img src={avatarUrl} alt="" className="w-full h-full rounded-full object-cover" style={{ aspectRatio: '1 / 1' }} />
+            : <span className="cp-avatar" style={{ width: '3.25rem', height: '3.25rem', fontSize: '1.15rem' }}>{initial}</span>}
+          <span
+            className="absolute inset-0 rounded-full flex items-center justify-center text-white"
+            style={{ background: avatarBusy ? 'rgba(0,0,0,.5)' : 'rgba(0,0,0,.35)' }}
+          >
+            {avatarBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
+          </span>
+        </button>
+        <input
+          ref={avatarInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={async e => {
+            const file = e.target.files?.[0];
+            e.target.value = '';
+            if (!file) return;
+            setAvatarBusy(true);
+            try {
+              const signed = await clientPortalAPI.avatarUploadUrl({
+                contentType: file.type, filename: file.name, sizeBytes: file.size,
+              });
+              const d: any = signed?.data;
+              if (!d?.uploadUrl) throw new Error('Could not start the upload');
+              await uploadsAPI.putToSignedUrl(d.uploadUrl, file, file.type);
+              await clientPortalAPI.updateMyAvatar(d.publicUrl);
+              setAvatarUrl(d.publicUrl);
+            } catch {
+              /* the API layer surfaces the message */
+            } finally { setAvatarBusy(false); }
+          }}
+        />
         <div className="min-w-0">
           <div className="font-black truncate" style={{ color: 'var(--cp-ink)' }}>{user?.name || '—'}</div>
           <div className="text-sm cp-muted truncate">{user?.email}</div>

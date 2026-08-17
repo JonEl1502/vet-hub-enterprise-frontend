@@ -26,7 +26,8 @@ import ReconciliationDocument from '../receipts/ReconciliationDocument';
 import { printElementAsPdf } from '../shared/printPdf';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { clientDiscountsAPI, clientsAPI, messagingAPI, toast, PlatformMessage } from '../../../services';
-import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell, Star, ScrollText, FolderOpen } from 'lucide-react';
+import { uploadsAPI } from '../../../services/modules/uploads.api';
+import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell, Star, ScrollText, FolderOpen, Camera, Loader2 } from 'lucide-react';
 import RemindersApptsTab from '../shared/RemindersApptsTab';
 import ClientPaymentsTab from './ClientPaymentsTab';
 import PetAvatar from '../shared/PetAvatar';
@@ -82,6 +83,11 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const { selectedClinics } = useClinic();
   const receiptClinicName = selectedClinics[0]?.name ?? '';
   const [activeTab, setActiveTab] = useState(initialTab);
+  // Shown immediately after upload so the new photo appears without waiting for
+  // the parent's client list to refetch.
+  const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const avatarInputRef = React.useRef<HTMLInputElement>(null);
   // Mirror the open tab into the navigation entry. Safe to fire on mount too:
   // `rememberNavParams` no-ops when the value has not changed.
   useEffect(() => { onTabChange?.(activeTab); }, [activeTab, onTabChange]);
@@ -941,8 +947,44 @@ const renderOverview = () => (
               <button onClick={onBack} className="w-10 h-10 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-full flex items-center justify-center text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 hover:border-seafoam transition-all shadow-sm active:scale-95 shrink-0 mt-1.5">
                 <ArrowLeft size={17}/>
               </button>
-              <div className="relative shrink-0">
-                <img src={client.avatar} className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-2 border-white dark:border-zinc-950 shadow-lg aspect-square object-cover" alt="" />
+              <div className="relative shrink-0 group">
+                <img src={avatarOverride || client.avatar} className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-2 border-white dark:border-zinc-950 shadow-lg aspect-square object-cover" alt="" />
+                {/* Change the photo here rather than only in the edit form —
+                    this is where you are looking when you notice it is wrong. */}
+                <input
+                  ref={avatarInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async e => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!file) return;
+                    if (!file.type.startsWith('image/')) { toast.error('Pick an image file'); return; }
+                    setAvatarBusy(true);
+                    try {
+                      const up = await uploadsAPI.upload(file, 'client');
+                      const url = (up as any)?.publicUrl || (up as any)?.url;
+                      if (!url) throw new Error('Upload did not return a URL');
+                      await clientsAPI.update(Number(client.id), { avatarUrl: url } as any);
+                      setAvatarOverride(url);
+                      toast.success('Photo updated');
+                    } catch (err: any) {
+                      toast.error(err?.response?.data?.message || err?.message || 'Could not update the photo');
+                    } finally { setAvatarBusy(false); }
+                  }}
+                />
+                <button
+                  type="button"
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarBusy}
+                  title="Change profile photo"
+                  className="absolute inset-0 rounded-full bg-black/45 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 transition-opacity disabled:opacity-100"
+                >
+                  {avatarBusy
+                    ? <Loader2 size={20} className="animate-spin" />
+                    : <span className="flex flex-col items-center gap-0.5"><Camera size={20} /><span className="text-[8px] font-black uppercase tracking-widest">Change</span></span>}
+                </button>
                 {client.portalStatus === 'active' && (
                   <span title="Active portal account"
                         className="absolute bottom-1 right-1 min-w-[24px] min-h-[24px] rounded-full bg-emerald-500 text-white text-[11px] font-black flex items-center justify-center border-2 border-white dark:border-zinc-900 shadow">
