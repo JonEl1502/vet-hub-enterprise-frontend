@@ -59,6 +59,13 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: client profile refreshes when money lands elsewhere  —  2026-08-18
+🟢 **Record impact: display only.**
+- An open client profile listens for `client.credit.changed` and refetches billing + credit, so a
+  portal top-up (or another till) appears without a manual reload (user, 2026-08-18).
+- Filtered to THIS client — a busy clinic streams everyone's money.
+
+
 ### refactor: one definition of "a supply", replacing three regexes  —  2026-08-18
 🟢 **Record impact: none — same rule, stated once.**
 - `isSupplyTask` joins `isVisitFeeTask` in `shared/visitFees.ts`. **The rule, stated once:** a supply

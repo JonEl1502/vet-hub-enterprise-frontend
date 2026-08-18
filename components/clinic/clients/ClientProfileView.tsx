@@ -186,6 +186,30 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   }, [client.id, hasFullAccess]);
   useEffect(() => { loadBilling(); }, [loadBilling]);
 
+  /**
+   * Money that arrived somewhere else — a portal top-up, another till — while
+   * this profile was open (user, 2026-08-18).
+   *
+   * The collect panel reads the credit figure ONCE on load, so a client who
+   * topped up through the portal after the page opened was offered KES 0.00 of
+   * credit against a balance the header already showed. Nothing was wrong with
+   * the data; the screen had no reason to look again.
+   *
+   * `vethub:stream` is re-broadcast by DataContext from the SSE feed, so any
+   * open view can listen without prop-drilling.
+   */
+  useEffect(() => {
+    const onStream = (e: Event) => {
+      const detail: any = (e as CustomEvent).detail;
+      if (detail?.type !== 'client.credit.changed') return;
+      // Only if it is THIS client — a busy clinic streams everyone's money.
+      if (String(detail?.payload?.clientId ?? '') !== String(client.id)) return;
+      loadBilling();
+    };
+    window.addEventListener('vethub:stream', onStream as EventListener);
+    return () => window.removeEventListener('vethub:stream', onStream as EventListener);
+  }, [client.id, loadBilling]);
+
   const money2 = (n: number) =>
     `${client.currency || 'KES'} ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   const lastPayment = (billing?.payments ?? [])
