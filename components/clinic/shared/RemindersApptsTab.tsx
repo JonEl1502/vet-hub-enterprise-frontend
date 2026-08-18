@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Bell, Calendar, X, CheckCircle2 } from 'lucide-react';
+import { Bell, Calendar, CalendarPlus, X, CheckCircle2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { remindersAPI, appointmentsAPI } from '../../../services';
 import type { Reminder, Appointment } from '../../../services';
@@ -132,6 +132,47 @@ const RemindersApptsTab: React.FC<Props> = ({ petId, clientId, petNames, readOnl
       if (res.success) { toast.success('Reminder updated'); setEditRow(null); setViewRow(null); load(); }
     } catch { toast.error('Update failed'); }
     finally { setSavingEdit(false); }
+  };
+
+  const [confirming, setConfirming] = React.useState(false);
+
+  /** Has the client already confirmed? Stored in meta — see reminder.service. */
+  const isConfirmed = (r: any) => !!(r?.meta && (r.meta as any).confirmedAt);
+
+  /** They confirmed, but nothing is scheduled yet. */
+  const justConfirm = async (row: Row) => {
+    setConfirming(true);
+    try {
+      const res = await remindersAPI.setConfirmed(row.id, true);
+      if (res?.success) {
+        toast.success('Confirmed — still due, now expected');
+        setReminders(l => l.map(x => String(x.id) === row.id
+          ? { ...x, meta: { ...((x as any).meta || {}), confirmedAt: new Date().toISOString() } } as any
+          : x));
+        setViewRow(null);
+      }
+    } catch { toast.error('Could not record the confirmation'); }
+    finally { setConfirming(false); }
+  };
+
+  /**
+   * Confirmed AND on the schedule. Two calls rather than one endpoint: booking
+   * is the act that can fail (deceased patient, already booked), and a failure
+   * there must not silently lose the confirmation the client just gave.
+   */
+  const confirmAndBook = async (row: Row) => {
+    setConfirming(true);
+    try {
+      await remindersAPI.setConfirmed(row.id, true).catch(() => null);
+      const res = await remindersAPI.createAppointment(row.id, {});
+      if (res?.success) {
+        toast.success('Confirmed and booked — the visit is on the schedule');
+        setViewRow(null);
+        await load();
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Could not book the appointment');
+    } finally { setConfirming(false); }
   };
 
   const markDone = async (row: Row) => {
@@ -274,6 +315,25 @@ const RemindersApptsTab: React.FC<Props> = ({ petId, clientId, petNames, readOnl
                   <button onClick={() => markDone(viewRow)}
                     className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-600 text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all">
                     <CheckCircle2 size={12} /> Mark done
+                  </button>
+                )}
+                {/* CONFIRMED is not DONE (user, 2026-08-18). "Done" means the
+                    deworming happened; "confirmed" means the client said they
+                    are coming. Both are useful and they are not the same fact,
+                    so the reminder stays PENDING and simply carries the
+                    confirmation. */}
+                {viewRow.kind === 'reminder' && viewRow.raw.status === 'PENDING' && !viewRow.raw.bookedAppointmentId && (
+                  <button onClick={() => confirmAndBook(viewRow)} disabled={confirming}
+                    title="Record that the client confirmed, and put them on the schedule"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-pine text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine/90 disabled:opacity-40 transition-all">
+                    <CalendarPlus size={12} /> Confirm & book
+                  </button>
+                )}
+                {viewRow.kind === 'reminder' && viewRow.raw.status === 'PENDING' && !isConfirmed(viewRow.raw) && (
+                  <button onClick={() => justConfirm(viewRow)} disabled={confirming}
+                    title="Record that the client confirmed — no appointment yet"
+                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white disabled:opacity-40 transition-all">
+                    <CheckCircle2 size={12} /> Just confirm
                   </button>
                 )}
                 {viewRow.kind === 'reminder' && viewRow.raw.status === 'PENDING' && (

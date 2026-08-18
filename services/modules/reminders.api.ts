@@ -81,13 +81,20 @@ export const remindersAPI = {
 
   update: async (
     id: string | number,
-    data: Partial<CreateReminderPayload> & { status?: ReminderStatus; contacted?: boolean },
+    data: Partial<CreateReminderPayload> & { status?: ReminderStatus; contacted?: boolean; confirmed?: boolean; confirmedBy?: string },
     options?: RequestOptions,
   ): Promise<ApiResponse<{ reminder: Reminder }>> =>
     patch(ENDPOINTS.REMINDERS.BY_ID(id), data, { showError: true, ...options }),
 
   setContacted: async (id: string | number, contacted: boolean, options?: RequestOptions): Promise<ApiResponse<{ reminder: Reminder }>> =>
     patch(ENDPOINTS.REMINDERS.BY_ID(id), { contacted }, { showError: true, ...options }),
+
+  /**
+   * The client confirmed they are coming. The reminder stays PENDING — the work
+   * has not happened, only the commitment. Stamped into `meta.confirmedAt`.
+   */
+  setConfirmed: async (id: string | number, confirmed = true, options?: RequestOptions): Promise<ApiResponse<{ reminder: Reminder }>> =>
+    patch(ENDPOINTS.REMINDERS.BY_ID(id), { confirmed }, { showError: true, ...options }),
 
   markDone: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ reminder: Reminder }>> =>
     patch(ENDPOINTS.REMINDERS.BY_ID(id), { status: 'DONE' }, { showError: true, ...options }),

@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Confirm & book / Just confirm on a reminder  —  2026-08-18
+🟢 **Record impact: UI.**
+- The reminder card gains two actions (user, 2026-08-18):
+  · **Confirm & book** — records the confirmation and puts the visit on the schedule.
+  · **Just confirm** — records that the client is coming, with nothing scheduled yet.
+- ⚠️ Neither marks the reminder DONE. "Done" means the deworming happened; confirming means the
+  client committed. The reminder stays PENDING and keeps showing up, which is the point — a
+  confirmation that quietly closed the reminder would lose the very follow-up it promised.
+- **Confirm & book is two calls, deliberately.** Booking can fail (deceased patient, already booked),
+  and a failure there must not lose the confirmation the client just gave — so the confirmation lands
+  first and the booking failure is reported on its own.
+- Confirm & book hides once an appointment exists; Just confirm hides once confirmed.
+
+
 ### feat: open several invoices at once, jump to one from its payment  —  2026-08-18
 🟢 **Record impact: UI only.**
 - **Multiple invoices expand at once** (user, 2026-08-18). Opening one used to close the last, which
