@@ -320,6 +320,55 @@ const VisitDetailInner: React.FC<Props> = ({
   const [invoiceDocId, setInvoiceDocId] = useState<string | null>(null);
   const [visitInvoices, setVisitInvoices] = useState<any[]>([]);
 
+  const [generatingInvoice, setGeneratingInvoice] = useState(false);
+
+  /**
+   * The footer button GENERATES the invoice rather than just walking you to the
+   * Bill tab (user, 2026-08-18). A button labelled "Generate invoice" that only
+   * changes tabs is a button that lies about what it does.
+   *
+   * ⚠️ It confirms with the AMOUNT first. An invoice is the document the client
+   * is asked to pay and it takes a number from the bill — after the stale-bill
+   * problem on visit 151, "3,528 or 49,510?" is exactly the question worth
+   * asking one second before the document exists rather than after.
+   *
+   * ⚠️ Splitting (clinical now / stay at discharge) stays on the Bill tab. The
+   * decision tree lives there and duplicating it here would be two versions of
+   * the same rule drifting apart — so when this visit is a split candidate the
+   * dialog says so and offers that route instead.
+   */
+  const generateInvoiceFromFooter = async () => {
+    const currency = (client as any)?.currency || 'KES';
+    const total = Number(liveBill?.total || 0);
+    const hasStay = !!(appointment as any).boardingStayId || !!(appointment as any).hospitalizationId;
+    const splitCandidate = hasStay && String((appointment as any).visitType) !== 'CLINICAL_TRANSFER';
+
+    const ok = await dialog.confirm({
+      title: `Generate an invoice for ${currency} ${total.toLocaleString()}?`,
+      message: splitCandidate
+        ? `This raises ONE invoice for everything on the approved bill, including the stay. If you want the clinical work invoiced now and the stay invoiced at discharge, cancel and use Generate invoice on the Bill tab, which offers the split.`
+        : `This turns the approved bill into an invoice the client can be asked to pay. The figure comes from the bill as it stands.`,
+      confirmLabel: `Generate · ${currency} ${total.toLocaleString()}`,
+      cancelLabel: splitCandidate ? 'Cancel — I want to split' : 'Cancel',
+      variant: 'info',
+    });
+    if (!ok) {
+      if (splitCandidate) { setActiveBottomTab('bill'); setPulseBillAction(n => n + 1); }
+      return;
+    }
+    setGeneratingInvoice(true);
+    try {
+      await invoicesAPI.generate(appointment.id, { scope: 'FULL' } as any);
+      toast.success('Invoice generated');
+      onRefreshDashboard?.();
+      setActiveBottomTab('bill');
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || 'Could not generate the invoice');
+    } finally {
+      setGeneratingInvoice(false);
+    }
+  };
+
   const billStageLabel = (() => {
     switch (billStage) {
       case 'APPROVE': return liveBill?.status === 'PENDING_REVIEW' ? 'Bill · pending review' : 'Bill · draft';
@@ -1102,7 +1151,7 @@ const VisitDetailInner: React.FC<Props> = ({
   // Pay-together (user, 2026-08-02): the client's OTHER outstanding invoices,
   // tickable inside the settle modal — one payment fulfils them all via the
   // existing collect allocation engine (FIFO/manual, settlements many-to-many).
-  const [settleOthers, setSettleOthers] = useState<{ visitId: string; date: string; outstanding: number }[]>([]);
+  const [settleOthers, setSettleOthers] = useState<{ visitId: string; date: string; outstanding: number; petName?: string | null }[]>([]);
   const [settleAlso, setSettleAlso] = useState<Set<string>>(new Set());
   const [settleOthersOpen, setSettleOthersOpen] = useState(false);
   const [settlePaymentMethod, setSettlePaymentMethod] = useState<string | null>(null);
@@ -2924,7 +2973,7 @@ const VisitDetailInner: React.FC<Props> = ({
             // refusing work the UI should never have offered.
             && (iv.invoices?.length ?? 0) > 0
             && iv.collectable)
-          .map(iv => ({ visitId: String(iv.visitId), date: iv.date, outstanding: Number(iv.outstanding) }));
+          .map(iv => ({ visitId: String(iv.visitId), date: iv.date, outstanding: Number(iv.outstanding), petName: iv.pet?.name ?? (iv as any).petName ?? null }));
         setSettleOthers(rows);
       }).catch(() => {});
     }
@@ -7923,7 +7972,13 @@ const VisitDetailInner: React.FC<Props> = ({
                               onClick={() => setSettleAlso(prev => { const n = new Set(prev); on ? n.delete(r.visitId) : n.add(r.visitId); return n; })}
                               className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left transition-all ${on ? 'border-seafoam bg-seafoam/10' : 'border-slate-100 dark:border-zinc-800 hover:border-seafoam/40'}`}>
                               <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] font-black shrink-0 ${on ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-transparent'}`}>✓</span>
-                              <span className="flex-1 text-[11px] font-bold text-pine dark:text-zinc-100">Visit #{r.visitId} · {new Date(r.date).toLocaleDateString()}</span>
+                              {/* Pet FIRST — it is how staff recognise the
+                                  visit; the number and date are the reference,
+                                  not the identity (user, 2026-08-18). */}
+                              <span className="flex-1 min-w-0 text-[11px] font-bold text-pine dark:text-zinc-100 truncate">
+                                {r.petName ? <>{r.petName} <span className="text-slate-400 font-semibold">· #{r.visitId} · {new Date(r.date).toLocaleDateString()}</span></>
+                                           : <>Visit #{r.visitId} · {new Date(r.date).toLocaleDateString()}</>}
+                              </span>
                               <span className="text-[11px] font-black text-amber-600 font-mono">{activeClinic.currency} {r.outstanding.toLocaleString()}</span>
                             </button>
                           );
@@ -8240,10 +8295,10 @@ const VisitDetailInner: React.FC<Props> = ({
                   <FileText size={13} /> Approve bill
                 </button>
               ) : billStage === 'INVOICE' ? (
-                <button onClick={() => { setActiveBottomTab('bill'); setPulseBillAction(n => n + 1); }}
-                  title="Turn the approved bill into an invoice — on the Bill tab"
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-indigo-500 hover:bg-indigo-600 transition-all active:scale-95">
-                  <FileText size={13} /> Generate invoice
+                <button onClick={generateInvoiceFromFooter} disabled={generatingInvoice}
+                  title="Turn the approved bill into an invoice"
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 transition-all active:scale-95">
+                  <FileText size={13} /> {generatingInvoice ? 'Generating…' : 'Generate invoice'}
                 </button>
               ) : billStage === 'SETTLE' ? (
                 <button onClick={openSettleModal} disabled={isSettlingBill}

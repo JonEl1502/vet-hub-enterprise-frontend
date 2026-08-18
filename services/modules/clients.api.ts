@@ -98,6 +98,9 @@ export interface ClientInvoice {
   paid: number;
   /** `total - paid` — what settling this invoice actually costs today. */
   outstanding: number;
+  /** Whose visit it was — a client with four pets cannot tell #152 from #137. */
+  petId?: string | null;
+  petName?: string | null;
   /**
    * Every payment that went against THIS invoice, newest first. An invoice
    * fulfilled by three payments lists three — `settlements` is a genuine

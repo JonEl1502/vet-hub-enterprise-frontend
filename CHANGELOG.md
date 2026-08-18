@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: generate-invoice button generates, and every generate confirms  —  2026-08-18
+🟢 **Record impact: UI + confirmation dialogs.**
+- The footer **Generate invoice** now GENERATES it (user, 2026-08-18). It previously only switched to
+  the Bill tab — a button labelled "Generate invoice" that only changes tabs is a button that lies.
+- **Confirmations on both generates, each naming the amount:**
+  · *Approve this bill for KES X?* — and if the visit records more than the bill, it says by how much
+    and turns the dialog red, because approving charges the smaller figure and locks the record.
+  · *Generate an invoice for KES X?* — the figure is what the client will be asked to pay.
+- ⚠️ **A one-encounter visit is no longer asked to split.** A GROOMING-only visit was offered "split
+  clinical and grooming" because its glove lines (category `Consumables`) counted as non-grooming
+  work (user, 2026-08-18). A consumable belongs TO the encounter that used it — same fault as the
+  vaccination chip. Supplies no longer count as evidence of a second encounter.
+- Splitting stays on the Bill tab where its decision tree lives; the footer dialog says so and offers
+  that route rather than duplicating the rule.
+
+### fix: settle modal names the pet on other outstanding invoices  —  2026-08-18
+🟢 **Record impact: display only.**
+- "Other outstanding" rows read **Whiskers · #152 · 05/08/2026** instead of just the visit number.
+  Pet first: it is how staff recognise a visit; the number and date are the reference, not the
+  identity.
+
+
 ### feat: Rebuild from visit glows when the bill is behind the work  —  2026-08-18
 🟢 **Record impact: display only.**
 - When `visit.totalCost` exceeds the bill total, **Rebuild from visit** turns amber, glows, and shows

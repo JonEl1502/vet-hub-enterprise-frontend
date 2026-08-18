@@ -625,9 +625,40 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
               const hasStay = !!((visit as any).boardingStayId || (visit as any).hospitalizationId);
               // Grooming is its own invoice scope too (user, 2026-08-02).
               const STAY_CATS = ['Boarding Stay', 'Inpatient Stay', 'Food Program'];
-              const hasGroom = (bill.lines || []).some(l => !STAY_CATS.includes(l.category || '') && /groom/i.test(l.category || ''))
-                && (bill.lines || []).some(l => !STAY_CATS.includes(l.category || '') && !/groom/i.test(l.category || ''));
+              /**
+               * ⚠️ A CONSUMABLE IS NOT A SECOND ENCOUNTER.
+               *
+               * The split was offered on a GROOMING-ONLY visit (user,
+               * 2026-08-18): its lines were Anal Gland Expression, Nail Trim
+               * and two boxes of gloves, and the gloves — category
+               * `Consumables` — counted as "non-grooming work", which made it
+               * look like two encounters worth separating. The gloves belong TO
+               * the grooming. Same fault as the vaccination chip.
+               *
+               * If there is only one encounter there is nothing to split, so
+               * the question is not worth asking.
+               */
+              const isSupply = (cat: string) => /consumable|supply|supplies/i.test(cat);
+              const groomLines = (bill.lines || []).filter(l => !STAY_CATS.includes(l.category || '') && /groom/i.test(l.category || ''));
+              const otherWork = (bill.lines || []).filter(l =>
+                !STAY_CATS.includes(l.category || '')
+                && !/groom/i.test(l.category || '')
+                && !!(l.category || '')
+                && !isSupply(l.category || ''));
+              const hasGroom = groomLines.length > 0 && otherWork.length > 0;
               const isTransfer = (visit as any).visitType === 'CLINICAL_TRANSFER';
+
+              // Confirm the AMOUNT before the document exists. An invoice is
+              // what the client is asked to pay, and after the stale-bill case
+              // on visit 151 the number is worth reading once more first.
+              const okGen = await dialog.confirm({
+                title: `Generate an invoice for ${money(bill.total, currency)}?`,
+                message: 'This turns the approved bill into an invoice the client can be asked to pay. The figure comes from the bill as it stands.',
+                confirmLabel: `Generate · ${money(bill.total, currency)}`,
+                variant: 'info',
+              });
+              if (!okGen) return;
+
               let scope: 'FULL' | 'CLINICAL' = 'FULL';
               if ((hasStay || hasGroom) && !isTransfer) {
                 const split = await dialog.confirm({
@@ -719,7 +750,24 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
             )}
             {/* §7.4 — APPROVE. The heavier right: this is the lock point. */}
             {billPerms.approve && (
-              <button type="button" onClick={() => run(() => billsAPI.approve(visit.id, encounterId), 'Bill approved')} disabled={busy}
+              <button type="button" onClick={async () => {
+                  /**
+                   * Confirm with the AMOUNT and say what approval costs you.
+                   * Approving freezes the bill AND locks the clinical record —
+                   * it is the least reversible button on this panel, and it had
+                   * no confirmation at all (user, 2026-08-18).
+                   */
+                  const ok = await dialog.confirm({
+                    title: `Approve this bill for ${money(bill.total, currency)}?`,
+                    message: billBehindBy > 1
+                      ? `The visit records ${money(billBehindBy, currency)} MORE than this bill. Approving now charges the smaller figure and locks the record — rebuild from the visit first unless you mean to charge less.`
+                      : 'This freezes the bill and locks the clinical record. Reopening it afterwards is possible but leaves a trail.',
+                    confirmLabel: `Approve · ${money(bill.total, currency)}`,
+                    variant: billBehindBy > 1 ? 'danger' : 'info',
+                  });
+                  if (!ok) return;
+                  await run(() => billsAPI.approve(visit.id, encounterId), 'Bill approved');
+                }} disabled={busy}
                 title="Sign the bill off — this locks the clinical record"
                 className={`ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-40${pulseCls}`}>
                 {busy ? <Loader2 size={11} className="animate-spin" /> : <Lock size={11} />} Approve bill
