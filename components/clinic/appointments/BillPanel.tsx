@@ -274,6 +274,15 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
 
   const meta = STATUS_META[bill.status];
   const editable = bill.editable;
+  /**
+   * How far the BILL trails the WORK on the visit.
+   *
+   * `visit.totalCost` is the task sum; `bill.total` is what will actually be
+   * charged. They diverge when a bill is snapshotted early and the visit keeps
+   * running — prod visit 151 billed 3,528 against 49,392 of tasks. Positive
+   * means the client would be under-charged by that much.
+   */
+  const billBehindBy = Math.max(0, Number(visit.totalCost || 0) - Number(bill.total || 0));
   const delta = bill.deltaAmount ?? null;
 
   return (
@@ -662,9 +671,22 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
         )}
         {editable && (
           <>
+            {/* Glows when the bill is BEHIND the work recorded on the visit —
+                a stay billed on day one that has since run a fortnight looks
+                completely normal until you compare it with the visit
+                (user, 2026-08-18). The button that fixes it says so itself,
+                rather than waiting to be found. */}
             <button type="button" onClick={() => run(() => billsAPI.refresh(visit.id, encounterId), 'Rebuilt from the visit')} disabled={busy}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 disabled:opacity-40">
+              title={billBehindBy > 1
+                ? `The visit records ${billBehindBy.toLocaleString()} more than this bill — rebuild to pull the current figures in`
+                : 'Re-read the visit and rebuild these lines'}
+              className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-40 transition-colors ${
+                billBehindBy > 1
+                  ? 'needs-attention bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-400'
+                  : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200'
+              }`}>
               <RefreshCw size={11} /> Rebuild from visit
+              {billBehindBy > 1 && <span className="font-mono">· +{billBehindBy.toLocaleString()}</span>}
             </button>
             <button type="button" onClick={() => setAdding(a => !a)} disabled={busy}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 disabled:opacity-40">

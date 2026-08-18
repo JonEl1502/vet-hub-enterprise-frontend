@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Rebuild from visit glows when the bill is behind the work  —  2026-08-18
+🟢 **Record impact: display only.**
+- When `visit.totalCost` exceeds the bill total, **Rebuild from visit** turns amber, glows, and shows
+  the gap inline (*· +45,864*), with the reason in its tooltip (user, 2026-08-18).
+- A stay billed on day one that has since run a fortnight looks entirely normal until you compare it
+  against the visit — so the button that fixes it now says so itself instead of waiting to be found.
+- A breathing ring, not a flashing button: the control stays readable while it pulses, and a flashing
+  control reads as broken rather than as a prompt.
+- ⚠️ Honours `prefers-reduced-motion` — the amber border, the figure and the tooltip carry the whole
+  message without the animation.
+
+
 ### fix: Bill & Balance says what is paid, what is due, and why the numbers differ  —  2026-08-18
 🟢 **Record impact: display only.**
 - **Paid** is now always shown, even at zero. Hiding the row when nothing had been paid left no way
