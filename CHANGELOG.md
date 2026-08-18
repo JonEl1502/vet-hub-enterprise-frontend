@@ -64,9 +64,11 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 - **Multiple invoices expand at once** (user, 2026-08-18). Opening one used to close the last, which
   makes comparing two invoices — the reason you open them side by side — impossible. Each row keeps
   its own fetched document, so two open invoices cannot show each other's lines.
-- **A payment's `INV #…` is now a link.** It switches to the Invoices tab, expands that invoice and
-  scrolls it into view. Landing on the right tab at the wrong scroll position leaves you hunting the
-  row you just navigated for.
+- **A payment's `INV #…` and its receipt number are now links.** Each switches to the matching tab,
+  expands that document and scrolls it into view. Landing on the right tab at the wrong scroll
+  position leaves you hunting the row you just navigated for.
+- ⚠️ The receipt jump matches on the receipt NUMBER, not the id — that is what the payment row
+  shows, and therefore what was clicked.
 - **Collect** on a client card now lands on **Invoices** rather than the Financials overview — that
   is where the collectable rows are.
 - The *Not finalized* wording now says "has no invoice yet", matching the corrected rule.

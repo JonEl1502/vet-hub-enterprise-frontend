@@ -89,9 +89,11 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
    * child inventing its own way to reach a sibling tab.
    */
   const [focusInvoiceVisitId, setFocusInvoiceVisitId] = useState<string | null>(null);
+  const [focusReceiptNumber, setFocusReceiptNumber] = useState<string | null>(null);
   const goTab = (tab: string) => {
     const [name, arg] = String(tab).split(':');
     setFocusInvoiceVisitId(name === 'invoices' && arg ? arg : null);
+    setFocusReceiptNumber(name === 'receipts' && arg ? arg : null);
     setActiveTab(name as any);
     onTabChange?.(name);
   };
@@ -1558,6 +1560,7 @@ const renderOverview = () => (
             clientName={client.name}
             clientPhone={client.phone}
             only="payments"
+            onGoTab={goTab}
           />
         )}
         {/* Bills — stage one of Bill → Invoice → Payment → Receipt: the bill
@@ -1598,6 +1601,8 @@ const renderOverview = () => (
             clientName={client.name}
             clientPhone={client.phone}
             only="receipts"
+            onGoTab={goTab}
+            focusReceiptNumber={focusReceiptNumber}
           />
         )}
         {activeTab === 'statements' && (

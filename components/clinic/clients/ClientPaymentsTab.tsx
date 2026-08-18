@@ -51,6 +51,8 @@ interface Props {
    * payment's INV reference; the row scrolls into view and expands itself.
    */
   focusVisitId?: string | null;
+  /** "Open this receipt when you load" — set by a jump from its payment row. */
+  focusReceiptNumber?: string | null;
   /**
    * Narrow every list to ONE patient — the Patient → Financials tab reuses this
    * over the OWNER's billing payload. Bills are matched by their pet; payments
@@ -70,7 +72,7 @@ const money = (n: number, c: string) =>
 
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
-const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, onViewVisit, onChanged, only, petId, clientName, clientPhone, onGoTab, focusVisitId }) => {
+const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, onViewVisit, onChanged, only, petId, clientName, clientPhone, onGoTab, focusVisitId, focusReceiptNumber }) => {
   const { user } = useAuth();
   // Permanent deletion is owner/manager/admin only — mirrors the server's
   // role gate on DELETE /transactions/:id so the button isn't offered to
@@ -315,6 +317,29 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
         (r.visitId && petVisitIds.has(String(r.visitId)))
         || (r.coveredVisitIds ?? []).some(v => petVisitIds.has(String(v))))
     : (data?.receipts ?? []);
+
+  /**
+   * Arrived from a payment's receipt link. Open that receipt and scroll to it —
+   * same contract as the invoice jump, and for the same reason: the right tab
+   * at the wrong scroll position is still a hunt.
+   *
+   * Matched on the RECEIPT NUMBER rather than the id, because that is what the
+   * payment row shows and therefore what the user just clicked.
+   */
+  const focusedReceiptRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!focusReceiptNumber || !receipts.length) return;
+    if (focusedReceiptRef.current === focusReceiptNumber) return;
+    const r = receipts.find(x => String(x.receiptNumber) === String(focusReceiptNumber));
+    if (!r) return;
+    focusedReceiptRef.current = focusReceiptNumber;
+    setExpandedReceipt(String(r.id));
+    setTimeout(() => {
+      document.getElementById(`rcp-row-${focusReceiptNumber}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 350);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusReceiptNumber, receipts.length]);
   /**
    * An INVOICE only exists once the visit is finalized and billed — the invoice
    * comes AFTER (user, 2026-08-03: "dont ever show an invoice if not finalized
@@ -1266,7 +1291,15 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                   </p>
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider">
                     {fmt(p.settledAt || p.createdAt)}
-                    {p.receiptNumber ? ` · ${p.receiptNumber}` : ''}
+                    {p.receiptNumber ? (
+                      <> · <button type="button"
+                        onClick={() => onGoTab?.(`receipts:${p.receiptNumber}`)}
+                        disabled={!onGoTab}
+                        title="Open this receipt"
+                        className="font-black text-seafoam hover:underline disabled:text-slate-400 disabled:no-underline">
+                        {p.receiptNumber}{onGoTab ? ' →' : ''}
+                      </button></>
+                    ) : ''}
                     {p.reference ? ` · ref ${p.reference}` : ''}
                     {voided && p.voidReason ? ` · voided: ${p.voidReason}` : ''}
                   </p>
@@ -1366,6 +1399,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
             const rVisit = invoices.find(iv => String(iv.visitId) === String(r.visitId));
             return (
             <div key={r.id}
+              id={`rcp-row-${r.receiptNumber}`}
               className={`rounded-xl border border-slate-200 dark:border-zinc-800 ${
                 r.voided ? 'bg-slate-50/60 dark:bg-zinc-950 opacity-70' : 'bg-white dark:bg-zinc-900'
               }`}>
