@@ -196,14 +196,14 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
     // `at`: the datetime the entry is recorded AS (defaults noon of that day; a
     // Now button snaps to the current moment). Drives logDate AND consumables.
     const day = dateKey.split('#')[0];
-    const at = existing?.logDate ? (() => { const d = new Date(existing.logDate); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); })() : `${day}T12:00`;
+    const at = (existing?.recordedAt || existing?.logDate) ? (() => { const d = new Date(existing.recordedAt || existing.logDate); return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16); })() : `${day}T12:00`;
     setDayDraft(existing ? { id: existing.id, at, mealPhoto: existing.mealPhoto || '', fedAm: !!existing.fedAm, fedPm: !!existing.fedPm, walked: !!existing.walked, medicationGiven: !!existing.medicationGiven, stool: existing.stool || '', appetite: existing.appetite || '', foodNotes: existing.foodNotes || '', notes: existing.notes || '' } : { at, mealPhoto: '', fedAm: false, fedPm: false, walked: false, medicationGiven: false, stool: '', appetite: '', foodNotes: '', notes: '' });
   };
   const saveDayDraft = async (dateKey: string) => {
     setDaySaving(true);
     try {
       const at = dayDraft.at ? new Date(dayDraft.at).toISOString() : `${dateKey.split('#')[0]}T12:00:00.000Z`;
-      const payload: any = { fedAm: dayDraft.fedAm, fedPm: dayDraft.fedPm, walked: dayDraft.walked, medicationGiven: dayDraft.medicationGiven, stool: dayDraft.stool || undefined, appetite: dayDraft.appetite || undefined, foodNotes: dayDraft.foodNotes || undefined, notes: dayDraft.notes || undefined, mealPhoto: dayDraft.mealPhoto || undefined, logDate: at };
+      const payload: any = { fedAm: dayDraft.fedAm, fedPm: dayDraft.fedPm, walked: dayDraft.walked, medicationGiven: dayDraft.medicationGiven, stool: dayDraft.stool || undefined, appetite: dayDraft.appetite || undefined, foodNotes: dayDraft.foodNotes || undefined, notes: dayDraft.notes || undefined, mealPhoto: dayDraft.mealPhoto || undefined, logDate: at, recordedAt: at };
       const res = dayDraft.id
         ? await boardingAPI.updateLog(stayId, dayDraft.id, payload)
         : await boardingAPI.addLog(stayId, payload as any);
@@ -604,7 +604,11 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                       // card made three rounds look like three days.
                       const hhmm = (d: string | Date) =>
                         new Date(d).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                      const stamp = (l: any) => l.logDate ?? l.createdAt;
+                      // ⚠️ `logDate` is a DATE — no time in it. Reading it back
+                      // gives midnight UTC, which showed as 03:00 for every
+                      // entry in Nairobi and never changed however you set the
+                      // picker. The moment lives on `recordedAt` (209).
+                      const stamp = (l: any) => l.recordedAt ?? l.createdAt ?? l.logDate;
                       const ordered = [...logs].sort((x, y) =>
                         new Date(stamp(x)).getTime() - new Date(stamp(y)).getTime());
                       return (

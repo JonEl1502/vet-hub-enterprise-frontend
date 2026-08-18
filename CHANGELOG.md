@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: care-log entry time now shows what you set  —  2026-08-18
+🟢 **Record impact: display + one extra field sent.**
+- The entry list reads `recordedAt` instead of `logDate`, and reopening an entry seeds the picker
+  from it. `logDate` is a date-only column (see backend 209), so it rendered as 03:00 for every
+  entry in Nairobi regardless of what was chosen.
+- Falls back to `createdAt` for rows written before the fix, so nothing shows a made-up time.
+
+
 ### feat: deal products click into a purchase order, and posts pick their audience  —  2026-08-18
 🟢 **Record impact: UI** (writes covered by backend 208).
 - A deal lists its **products**. Click one — or "Order everything in this deal" — and the purchase
