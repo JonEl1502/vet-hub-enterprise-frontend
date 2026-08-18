@@ -32,10 +32,31 @@ export interface CommunityPost {
   endsAt: string | null;
   location: string | null;
   viewCount: number;
+  /** Products on a DEAL — clickable straight into a pre-filled purchase order. */
+  items: CommunityPostItem[];
+  /** Targeting. EMPTY AT A LEVEL MEANS EVERYONE THERE. */
+  audienceRegions: string[];
+  audienceCountries: string[];
+  audienceCities: string[];
   /** Paid placement. ALWAYS shown as "Promoted" — never a silent boost. */
   isPromoted: boolean;
   boost: { id: string; status: string; endsAt: string } | null;
   createdAt: string;
+}
+
+export interface CommunityPostItem {
+  id: string;
+  supplierProductId: string;
+  quantity: number;
+  /** The offer price. Null means "at the supplier's usual price". */
+  dealPrice: number | null;
+  name: string;
+  sku: string | null;
+  unit: string | null;
+  listPrice: number | null;
+  currency: string | null;
+  supplierId: string | null;
+  imageUrl: string | null;
 }
 
 export interface CreateCommunityPost {
@@ -52,6 +73,10 @@ export interface CreateCommunityPost {
   endsAt?: string;
   location?: string;
   publish?: boolean;
+  audienceRegions?: string[];
+  audienceCountries?: string[];
+  audienceCities?: string[];
+  items?: Array<{ supplierProductId: string | number; quantity?: number; dealPrice?: number }>;
 }
 
 export const communityAPI = {

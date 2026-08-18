@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Users, Star, Megaphone, Calendar, Tag, Plus, X, Loader2, MapPin, Eye, Trash2 } from 'lucide-react';
+import { Users, Star, Megaphone, Calendar, Tag, Plus, X, Loader2, MapPin, Eye, Trash2, ShoppingCart } from 'lucide-react';
 import PageHeader from '../common/PageHeader';
 import { communityAPI, CommunityPost, CommunityKind, toast, dialog } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -50,6 +50,7 @@ const CommunityView: React.FC = () => {
     kind: (isPractitioner ? 'MEET' : 'ARTICLE') as CommunityKind,
     title: '', body: '', location: '', startsAt: '', endsAt: '',
     price: '', compareAtPrice: '', tags: '',
+    audienceCities: '', audienceCountries: '', audienceRegions: '',
   });
 
   const load = async (kind = tab) => {
@@ -81,14 +82,46 @@ const CommunityView: React.FC = () => {
         price: form.price ? Number(form.price) : undefined,
         compareAtPrice: form.compareAtPrice ? Number(form.compareAtPrice) : undefined,
         tags: form.tags.split(',').map(t => t.trim()).filter(Boolean),
+        audienceCities: form.audienceCities.split(',').map(t => t.trim()).filter(Boolean),
+        audienceCountries: form.audienceCountries.split(',').map(t => t.trim()).filter(Boolean),
+        audienceRegions: form.audienceRegions ? [form.audienceRegions] : [],
       });
       toast.success('Posted to Community');
       setComposerOpen(false);
-      setForm({ ...form, title: '', body: '', location: '', startsAt: '', endsAt: '', price: '', compareAtPrice: '', tags: '' });
+      setForm({ ...form, title: '', body: '', location: '', startsAt: '', endsAt: '', price: '', compareAtPrice: '', tags: '', audienceCities: '', audienceCountries: '', audienceRegions: '' });
       await load();
     } catch {
       /* the API layer surfaces the 403 with the upgrade wording */
     } finally { setSaving(false); }
+  };
+
+  /**
+   * Carry a deal's products into a purchase order.
+   *
+   * ⚠️ The OFFER price is what travels (`dealPrice ?? listPrice`). Prefilling a
+   * PO at the list price after advertising a discount would quietly bill the
+   * buyer the number they did not click on.
+   */
+  const orderItems = (post: CommunityPost, items: CommunityPost['items']) => {
+    const supplierId = post.authorSupplierId || items.find(i => i.supplierId)?.supplierId;
+    if (!supplierId) { toast.error('This deal has no supplier attached'); return; }
+    const initialProducts = items.map(i => ({
+      id: i.supplierProductId,
+      supplierId,
+      name: i.name,
+      sku: i.sku || '',
+      unit: i.unit || 'Units',
+      unitPrice: i.dealPrice ?? i.listPrice ?? 0,
+      currency: i.currency || post.currency || 'KES',
+      minOrderQty: i.quantity || 1,
+      category: '',
+      buyPrice: 0,
+      stockQty: 0,
+      isAvailable: true,
+    }));
+    window.dispatchEvent(new CustomEvent('vethub:navigate', {
+      detail: { view: 'purchase-order-form', params: { initialSupplierId: supplierId, initialProducts } },
+    }));
   };
 
   const removePost = async (p: CommunityPost) => {
@@ -205,6 +238,48 @@ const CommunityView: React.FC = () => {
                 </div>
               )}
 
+              {/* Products on the deal. Clicking one carries it — at the OFFER
+                  price, not the list price — into a pre-filled purchase order,
+                  so an advert becomes an order without retyping it. */}
+              {p.items.length > 0 && (
+                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 divide-y divide-slate-100 dark:divide-zinc-800">
+                  {p.items.slice(0, 4).map(it => (
+                    <button
+                      key={it.id}
+                      type="button"
+                      onClick={() => orderItems(p, [it])}
+                      className="w-full flex items-center justify-between gap-3 px-3 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors"
+                      title="Start a purchase order for this product"
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-[11px] font-black text-pine dark:text-zinc-100 truncate">{it.name}</span>
+                        <span className="block text-[9px] font-bold text-slate-400">
+                          {[it.sku, it.unit, it.quantity > 1 ? `min ${it.quantity}` : ''].filter(Boolean).join(' · ')}
+                        </span>
+                      </span>
+                      <span className="shrink-0 text-right">
+                        <span className="block text-[11px] font-black text-pine dark:text-zinc-100">
+                          {(it.currency || p.currency || 'KES')} {(it.dealPrice ?? it.listPrice ?? 0).toLocaleString()}
+                        </span>
+                        {it.dealPrice != null && it.listPrice != null && it.listPrice > it.dealPrice && (
+                          <span className="block text-[9px] font-bold text-slate-400 line-through">{it.listPrice.toLocaleString()}</span>
+                        )}
+                      </span>
+                    </button>
+                  ))}
+                  {p.items.length > 4 && (
+                    <p className="px-3 py-1.5 text-[9px] font-bold text-slate-400">+{p.items.length - 4} more in this deal</p>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => orderItems(p, p.items)}
+                    className="w-full px-3 py-2 text-[9px] font-black uppercase tracking-widest text-seafoam hover:bg-seafoam/5 flex items-center justify-center gap-1.5"
+                  >
+                    <ShoppingCart size={12} /> Order everything in this deal
+                  </button>
+                </div>
+              )}
+
               {p.kind === 'MEET' && (
                 <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-slate-500">
                   {p.startsAt && <span className="inline-flex items-center gap-1"><Calendar size={11} /> {formatDate(p.startsAt)}</span>}
@@ -282,6 +357,56 @@ const CommunityView: React.FC = () => {
               )}
 
               <input className="field-input" placeholder="Tags, comma separated" value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} />
+
+              {/* ── Who sees this ────────────────────────────────────────
+                  Locality first: it is the level that decides whether a post is
+                  useful (user, 2026-08-18). A Nairobi delivery deal matters to
+                  Nairobi, and to nobody in Mombasa. Leave a level blank and it
+                  reaches everyone there. */}
+              <div className="pt-3 mt-1 border-t border-slate-200 dark:border-zinc-800 space-y-2">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Who sees this</p>
+
+                <label className="block text-[9px] font-black uppercase tracking-widest text-slate-500">
+                  Towns, cities or villages
+                </label>
+                <input
+                  className="field-input"
+                  placeholder="Nairobi, Westlands, Kikuyu — comma separated"
+                  value={form.audienceCities}
+                  onChange={e => setForm(f => ({ ...f, audienceCities: e.target.value }))}
+                />
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block mb-1 text-[9px] font-black uppercase tracking-widest text-slate-500">Countries</label>
+                    <input
+                      className="field-input"
+                      placeholder="KE, UG"
+                      value={form.audienceCountries}
+                      onChange={e => setForm(f => ({ ...f, audienceCountries: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-1 text-[9px] font-black uppercase tracking-widest text-slate-500">Continent</label>
+                    <select
+                      className="field-select"
+                      value={form.audienceRegions}
+                      onChange={e => setForm(f => ({ ...f, audienceRegions: e.target.value }))}
+                    >
+                      <option value="">Everywhere</option>
+                      {['AFRICA', 'EUROPE', 'ASIA', 'MIDDLE_EAST', 'LATAM', 'NORTH_AMERICA', 'OCEANIA'].map(r => (
+                        <option key={r} value={r}>{r.replace('_', ' ')}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <p className="text-[10px] font-bold text-slate-400 leading-relaxed">
+                  {form.audienceCities || form.audienceCountries || form.audienceRegions
+                    ? 'Only people in every level you set will see this — a country and a town means that town, in that country.'
+                    : 'Left open, so everyone on VetHub sees this.'}
+                </p>
+              </div>
             </div>
 
             <div className="px-5 py-3 border-t border-slate-200 dark:border-zinc-800 flex justify-end gap-2">

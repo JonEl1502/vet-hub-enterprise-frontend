@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: deal products click into a purchase order, and posts pick their audience  —  2026-08-18
+🟢 **Record impact: UI** (writes covered by backend 208).
+- A deal lists its **products**. Click one — or "Order everything in this deal" — and the purchase
+  order opens pre-filled with the supplier and the items.
+- ⚠️ **The OFFER price travels, not the list price.** Pre-filling at list after advertising a discount
+  would quietly bill the buyer a number they did not click on.
+- **Who sees this** in the composer: towns/cities/villages first, then countries, then continent.
+  Locality leads because it is the level that decides whether a post is useful — a Nairobi delivery
+  deal matters in Nairobi and nowhere else.
+- Leave a level blank and it reaches everyone there; the composer says which of the two it is doing
+  rather than leaving the author guessing.
+
+
 ### feat: Community is built — feed, composer, deals and meet-ups  —  2026-08-17
 🟢 **Record impact: UI** (writes covered by the backend 207 entry).
 - Replaces the "Not built yet" placeholder with a real feed: **Everything / Articles / Deals /

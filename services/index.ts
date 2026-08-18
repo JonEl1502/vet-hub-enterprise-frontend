@@ -123,7 +123,7 @@ export type { InventoryItem, CreateInventoryItemData, UpdateInventoryItemData } 
 export type { StockMovement, StockMovementType, CreateStockMovementData, RestockInventoryData, StockMovementFilters } from './modules/stockMovements.api';
 export type { Supplier, CreateSupplierData, UpdateSupplierData } from './modules/suppliers.api';
 export type { SupplierProduct, CreateSupplierProductData, UpdateSupplierProductData, SupplierProductFilters } from './modules/supplierProducts.api';
-export type { CommunityPost, CommunityKind, CommunityAuthorKind, CreateCommunityPost } from './modules/community.api';
+export type { CommunityPost, CommunityPostItem, CommunityKind, CommunityAuthorKind, CreateCommunityPost } from './modules/community.api';
 export type { PurchaseOrder, PurchaseOrderItem, PurchaseOrderStatus, CreatePurchaseOrderData, UpdatePurchaseOrderData, ReceivePurchaseOrderData, PurchaseOrderFilters } from './modules/purchaseOrders.api';
 
 // Export API types and utilities
