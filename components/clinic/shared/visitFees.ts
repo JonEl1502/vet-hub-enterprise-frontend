@@ -131,3 +131,35 @@ export function entryFeeFor(cfg: VisitFeesConfig, encounterChip: string, visitTy
   }
   return cfg[encounterChip];
 }
+
+/**
+ * A SUPPLY — a consumable or product drawn BY some other piece of work.
+ *
+ * ⚠️ ONE DEFINITION, imported everywhere. This existed as three separate
+ * regexes and the divergence cost three bugs in one day (2026-08-18):
+ *   · a vaccination grew an undeletable "Vet Visit — clinical" chip, because
+ *     the vaccine vial (category `Consumables`) read as independent work;
+ *   · a grooming-only visit was asked to split invoices, because its glove
+ *     lines read as a second encounter;
+ *   · the first approval guard reported 118 of consumables while missing
+ *     45,864 of genuinely unbilled work.
+ *
+ * THE RULE, stated once: a supply is never evidence that work happened. It is
+ * always drawn by something else — the vial by the vaccination, the gloves by
+ * the groom, the catheter by the inpatient stay. It is still BILLABLE; it is
+ * simply not proof of an encounter.
+ *
+ * ⚠️ Deliberately NOT a `parent_task_id` column. That was the first plan, until
+ * the data said otherwise: only 2 of 103 consumable rows on prod carry the
+ * `serviceTaskId` link that already exists, and only 1 of 5 pickers passes it —
+ * so a parent column would have been null for almost every row and these call
+ * sites would still be guessing. The invariant does not need provenance: a
+ * supply is a supply whoever drew it.
+ */
+const SUPPLY_CATEGORY = /consumable|supplies|supply/i;
+
+export const isSupplyTask = (t: { category?: string | null; kind?: string | null } | null | undefined): boolean => {
+  if (!t) return false;
+  if (String(t.kind || '').toUpperCase() === 'CONSUMABLE') return true;
+  return SUPPLY_CATEGORY.test(String(t.category || ''));
+};

@@ -4,7 +4,7 @@ import { visitsAPI, workflowTemplatesAPI, WorkflowTemplate, FormField, LayoutSta
 import type { VisitEncounter } from '../../../../services/modules/appointments.api';
 import { JourneyEvent, JourneyKind, WizardPersist, WizardStepId } from './types';
 import { ENTRY_POINTS, EntryPointDef, resolveEntryPoint, STEP_DEFS } from './entryPoints';
-import { isVisitFeeTask } from '../../shared/visitFees';
+import { isVisitFeeTask, isSupplyTask } from '../../shared/visitFees';
 
 // The wizard state persists SERVER-SIDE (consultation_records via
 // GET/PUT /visits/:id/workflow) so the clinical record follows the visit
@@ -207,7 +207,7 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     // onto a vaccination-only visit — which then could not be removed, because
     // it is derived from a task and has no encounter row to delete
     // (user, 2026-08-18).
-    const MODULE_KWS = ['groom', 'board', 'vaccin', 'retail', 'petshop', 'food', 'accessor', 'consumable', 'supply'];
+    const MODULE_KWS = ['groom', 'board', 'vaccin', 'retail', 'petshop', 'food', 'accessor'];
     // Visit-LEVEL fee lines (after-hours / walk-in surcharge, house-call
     // call-out + travel) are properties of the visit, not clinical work —
     // counting them stapled a "Vet Visit — clinical" chip onto a plain boarding
@@ -217,7 +217,10 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     const isVisitFee = (t: any) => isVisitFeeTask(t);
     const hasClinicalContent = (visit.tasks || []).some(t => {
       const c = (t.category || '').toLowerCase();
-      return !!c && !MODULE_KWS.some(k => c.includes(k)) && !isVisitFee(t);
+      // A SUPPLY is never evidence of clinical work — one shared definition,
+      // see `isSupplyTask`. This was a keyword list here and two other regexes
+      // elsewhere until 2026-08-18.
+      return !!c && !MODULE_KWS.some(k => c.includes(k)) && !isVisitFee(t) && !isSupplyTask(t);
     });
     if (!VET_FAMILY.includes(resolved.key) && hasClinicalContent) add('standard');
     if (has(['vaccin'])) add('vaccination');

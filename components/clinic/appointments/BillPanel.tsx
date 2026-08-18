@@ -12,6 +12,7 @@ import { Bill, BillLine, BILL_CLIENT_APPROVAL_CHANNELS, BillClientApprovalChanne
 import { useAuth } from '../../../contexts/AuthContext';
 import { modulePerms } from '../../../constants/modulePermissions';
 import { Invoice } from '../../../services/modules/invoices.api';
+import { isSupplyTask } from '../shared/visitFees';
 
 /**
  * Bill Review — Revenue Cycle P1.
@@ -638,13 +639,12 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
                * If there is only one encounter there is nothing to split, so
                * the question is not worth asking.
                */
-              const isSupply = (cat: string) => /consumable|supply|supplies/i.test(cat);
               const groomLines = (bill.lines || []).filter(l => !STAY_CATS.includes(l.category || '') && /groom/i.test(l.category || ''));
               const otherWork = (bill.lines || []).filter(l =>
                 !STAY_CATS.includes(l.category || '')
                 && !/groom/i.test(l.category || '')
                 && !!(l.category || '')
-                && !isSupply(l.category || ''));
+                && !isSupplyTask(l));
               const hasGroom = groomLines.length > 0 && otherWork.length > 0;
               const isTransfer = (visit as any).visitType === 'CLINICAL_TRANSFER';
 

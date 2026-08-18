@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### refactor: one definition of "a supply", replacing three regexes  —  2026-08-18
+🟢 **Record impact: none — same rule, stated once.**
+- `isSupplyTask` joins `isVisitFeeTask` in `shared/visitFees.ts`. **The rule, stated once:** a supply
+  is never evidence that work happened — it is always drawn by something else (the vial by the
+  vaccination, the gloves by the groom, the catheter by the stay). It is still BILLABLE; it is simply
+  not proof of an encounter.
+- The divergence between three private copies cost three bugs in one day: the undeletable Vet Visit
+  chip, the split prompt on a grooming-only visit, and the first approval guard reporting 118 while
+  missing 45,864.
+- ⚠️ **This deliberately did NOT become a `parent_task_id` column**, which was the plan until the data
+  was checked: only **2 of 103** consumable rows on prod carry the `serviceTaskId` link that already
+  exists, and only **1 of 5** consumable pickers passes it. A parent column would have been null for
+  almost every row while these call sites carried on guessing. The invariant needs no provenance —
+  a supply is a supply whoever drew it.
+
+
 ### feat: Confirm & book / Just confirm on a reminder  —  2026-08-18
 🟢 **Record impact: UI.**
 - The reminder card gains two actions (user, 2026-08-18):
