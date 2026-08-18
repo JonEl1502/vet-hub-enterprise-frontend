@@ -66,6 +66,10 @@ const BillBalanceCard: React.FC<Props> = ({
   const thisVisit = bill ? Number(bill.total || 0) : Number(visit.totalCost || 0);
   const paid = bill ? Number(bill.amountPaid || 0) : (visit.isPaid ? Number(visit.totalCost || 0) : 0);
   const due = Math.max(0, thisVisit - paid);
+  // What the VISIT's tasks add up to — the other half of the comparison above.
+  // `visit.totalCost` is the pre-bill task sum, which is exactly the figure the
+  // client-outstanding total is built from.
+  const taskTotal = Number(visit.totalCost || 0);
 
   return (
     <InfoCard
@@ -81,13 +85,48 @@ const BillBalanceCard: React.FC<Props> = ({
           label="This visit"
           value={`${currency} ${thisVisit.toLocaleString()}${bill ? '' : ' (pre-bill)'}`}
         />
-        {paid > 0 && <InfoRow label="Paid so far" value={`${currency} ${paid.toLocaleString()}`} />}
+        {/* ALWAYS shown, even at zero. Hiding the row when nothing is paid left
+            no way to tell "nobody has paid" from "this card doesn't say"
+            (user, 2026-08-18). */}
+        <InfoRow label="Paid" value={`${currency} ${paid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
         <InfoRow
           label="Due on this visit"
           value={due > 0
             ? <span className="text-amber-600 dark:text-amber-400 font-black">{currency} {due.toLocaleString()}</span>
             : <span className="text-emerald-600 dark:text-emerald-400 font-black">Settled</span>}
         />
+        {/* Name the state outright rather than making it something you work out
+            by comparing three numbers. */}
+        <InfoRow
+          label="Payment status"
+          value={
+            thisVisit <= 0
+              ? <span className="text-slate-400 font-black">Nothing billed yet</span>
+              : paid <= 0
+                ? <span className="text-rose-600 dark:text-rose-400 font-black">Unpaid</span>
+                : due > 0
+                  ? <span className="text-amber-600 dark:text-amber-400 font-black">Part paid — {currency} {due.toLocaleString()} still due</span>
+                  : <span className="text-emerald-600 dark:text-emerald-400 font-black">Paid in full</span>
+          }
+        />
+
+        {/* ⚠️ THE TWO NUMBERS ON THIS CARD COME FROM DIFFERENT PLACES. "This
+            visit" is the BILL total; "client outstanding" is built from the
+            visit's task totals. When a bill was snapshotted early and never
+            rebuilt they disagree wildly — prod visit 151 showed 3,528 against
+            49,517 — and the card gave no hint why (user, 2026-08-18). */}
+        {taskTotal > 0 && thisVisit > 0 && taskTotal - thisVisit > 1 && (
+          <div className="mt-1.5 px-2.5 py-2 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900">
+            <p className="text-[10px] font-black text-amber-700 dark:text-amber-400 leading-relaxed">
+              The bill is {currency} {(taskTotal - thisVisit).toLocaleString()} less than the work recorded on this visit
+              ({currency} {taskTotal.toLocaleString()}).
+            </p>
+            <p className="mt-0.5 text-[10px] font-bold text-amber-700/80 dark:text-amber-400/80 leading-relaxed">
+              Usually a bill raised early — a stay that has run longer since, for instance. Press
+              “Rebuild from visit” on the bill to pull the current figures in.
+            </p>
+          </div>
+        )}
         <InfoRow
           label="Client outstanding"
           value={outstanding > 0

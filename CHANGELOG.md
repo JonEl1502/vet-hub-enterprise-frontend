@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: Bill & Balance says what is paid, what is due, and why the numbers differ  —  2026-08-18
+🟢 **Record impact: display only.**
+- **Paid** is now always shown, even at zero. Hiding the row when nothing had been paid left no way
+  to tell "nobody has paid" from "this card doesn't say" (user, 2026-08-18).
+- **Payment status** names the state outright — *Unpaid* / *Part paid — KES X still due* / *Paid in
+  full* — instead of leaving it to be worked out by comparing three numbers.
+- ⚠️ **The card now explains its own contradiction.** "This visit" is the BILL total; "client
+  outstanding" is built from the visit's TASK totals. On prod visit 151 those read **3,528** and
+  **49,517** side by side with no hint why: the bill was raised on day one of a stay that has since
+  run 14 days. When the task total exceeds the bill, the card now says by how much and points at
+  **Rebuild from visit**.
+
+
 ### fix: a vaccination no longer grows a "Vet Visit" chip you cannot delete  —  2026-08-18
 🟢 **Record impact: display + a more honest message.** No data touched.
 - ⚠️ **CAUSE: a consumable was being read as clinical work.** A rabies vaccination bills two lines —
