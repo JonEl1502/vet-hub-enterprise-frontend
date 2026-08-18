@@ -196,7 +196,18 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     // non-module service categories on the bill (a consultation grafted onto
     // a grooming/boarding visit via Transfer/Add encounter). A grooming-only
     // visit stays grooming-only — its flow already carries the vet check.
-    const MODULE_KWS = ['groom', 'board', 'vaccin', 'retail', 'petshop', 'food', 'accessor'];
+    // ⚠️ 'consumable' and 'supply' are here because a CONSUMABLE IS NEVER
+    // CLINICAL WORK ON ITS OWN — it is always drawn BY something: the syringe
+    // and the vial belong to the vaccination, the gloves to the grooming.
+    //
+    // A rabies vaccination bills two lines: "Rabies vaccination" (category
+    // `Vaccination`) and "Rabies Vaccine (Nobivac Rabies)" (category
+    // `Consumables`). The second matched no module keyword, so it read as
+    // independent clinical content and stapled a "Vet Visit — clinical" chip
+    // onto a vaccination-only visit — which then could not be removed, because
+    // it is derived from a task and has no encounter row to delete
+    // (user, 2026-08-18).
+    const MODULE_KWS = ['groom', 'board', 'vaccin', 'retail', 'petshop', 'food', 'accessor', 'consumable', 'supply'];
     // Visit-LEVEL fee lines (after-hours / walk-in surcharge, house-call
     // call-out + travel) are properties of the visit, not clinical work —
     // counting them stapled a "Vet Visit — clinical" chip onto a plain boarding

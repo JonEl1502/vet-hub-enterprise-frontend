@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a vaccination no longer grows a "Vet Visit" chip you cannot delete  —  2026-08-18
+🟢 **Record impact: display + a more honest message.** No data touched.
+- ⚠️ **CAUSE: a consumable was being read as clinical work.** A rabies vaccination bills two lines —
+  *Rabies vaccination* (category `Vaccination`) and *Rabies Vaccine (Nobivac Rabies)* (category
+  **`Consumables`**). `Consumables` matched no module keyword, so it counted as independent clinical
+  content and stapled a **Vet Visit — clinical** chip onto a vaccination-only visit (user, 2026-08-18).
+- A consumable is **never** clinical work on its own — it is always drawn BY something: the vial and
+  syringe belong to the vaccination, the gloves to the grooming. `consumable`/`supply` now sit with
+  the other module keywords.
+- ⚠️ **And the × on that chip claimed success while doing nothing.** A task-derived chip has no
+  encounter row to delete, so it returned on the next reload — the same "says deleted and not
+  working" shape reported on 2026-08-04. It now says the services were removed and that the chip
+  clears once no such lines remain, instead of reporting a deletion that did not happen.
+
+
 ### fix: care-log entry time now shows what you set  —  2026-08-18
 🟢 **Record impact: display + one extra field sent.**
 - The entry list reads `recordedAt` instead of `logDate`, and reopening an entry seeds the picker

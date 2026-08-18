@@ -695,8 +695,22 @@ const VisitDetailInner: React.FC<Props> = ({
         catch { /* tasks are gone; the chip clears on next reload */ }
       }
       wiz.emit(`${enc.label} encounter removed from the visit`, 'alert');
-      toast.success(`${enc.label} removed from this visit`);
       onRefreshDashboard?.();
+
+      // ⚠️ NO ROW MEANS THE CHIP IS DERIVED FROM THE BILL, not stored — so
+      // there is nothing to delete and it comes straight back on reload.
+      // Claiming success here is the "says deleted and not working" bug in a
+      // second form (user, 2026-08-04 and again 2026-08-18): the services were
+      // removed, the chip was not, and the toast said otherwise.
+      if (!row) {
+        await wiz.reloadEncounters();
+        toast.success(
+          `${enc.label} services removed. The chip is derived from what is on the bill, so it clears once no ${enc.label.toLowerCase()} lines remain.`,
+          { duration: 8000 } as any,
+        );
+        return;
+      }
+      toast.success(`${enc.label} removed from this visit`);
     } catch (e: any) { toast.error(e?.message || 'Failed to remove the encounter'); }
   };
 
