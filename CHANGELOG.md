@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: open several invoices at once, jump to one from its payment  —  2026-08-18
+🟢 **Record impact: UI only.**
+- **Multiple invoices expand at once** (user, 2026-08-18). Opening one used to close the last, which
+  makes comparing two invoices — the reason you open them side by side — impossible. Each row keeps
+  its own fetched document, so two open invoices cannot show each other's lines.
+- **A payment's `INV #…` is now a link.** It switches to the Invoices tab, expands that invoice and
+  scrolls it into view. Landing on the right tab at the wrong scroll position leaves you hunting the
+  row you just navigated for.
+- **Collect** on a client card now lands on **Invoices** rather than the Financials overview — that
+  is where the collectable rows are.
+- The *Not finalized* wording now says "has no invoice yet", matching the corrected rule.
+
+### fix: client and pet tab strips scrolled vertically  —  2026-08-18
+🟢 **Record impact: display only.**
+- ⚠️ `overflow-x-auto` alone is not enough: CSS computes the OTHER axis to `auto` when one is set, so
+  a one-line tab strip grew a vertical scrollbar (user, 2026-08-18). Both strips now pin
+  `overflow-y-hidden`.
+
+
 ### feat: generate-invoice button generates, and every generate confirms  —  2026-08-18
 🟢 **Record impact: UI + confirmation dialogs.**
 - The footer **Generate invoice** now GENERATES it (user, 2026-08-18). It previously only switched to

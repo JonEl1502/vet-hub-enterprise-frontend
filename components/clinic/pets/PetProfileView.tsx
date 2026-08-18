@@ -1532,7 +1532,7 @@ const PetProfileView: React.FC<Props> = ({
 
         {/* Tab bar — underline style, matching the client profile. Deep-link
             ids are unchanged ('transactions' still lands on Financials). */}
-        <div data-tour="pet-tabs" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-x-auto no-scrollbar scroll-smooth">
+        <div data-tour="pet-tabs" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth">
           <div className="flex min-w-max px-2">
             {[
               { id: 'overview', label: 'Overview', icon: Heart },

@@ -42,6 +42,16 @@ interface Props {
    * now has top-level Invoices/Receipts tabs that each reuse this component. */
   only?: 'invoices' | 'payments' | 'receipts';
   /**
+   * Switch to another account tab (Invoices / Receipts) — supplied by the
+   * parent, which owns the tab state.
+   */
+  onGoTab?: (tab: string) => void;
+  /**
+   * "Open this visit's invoice when you load." Set by a cross-tab jump from a
+   * payment's INV reference; the row scrolls into view and expands itself.
+   */
+  focusVisitId?: string | null;
+  /**
    * Narrow every list to ONE patient — the Patient → Financials tab reuses this
    * over the OWNER's billing payload. Bills are matched by their pet; payments
    * and receipts by the visits they cover. Collection still settles against the
@@ -60,7 +70,7 @@ const money = (n: number, c: string) =>
 
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
-const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, onViewVisit, onChanged, only, petId, clientName, clientPhone }) => {
+const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, onViewVisit, onChanged, only, petId, clientName, clientPhone, onGoTab, focusVisitId }) => {
   const { user } = useAuth();
   // Permanent deletion is owner/manager/admin only — mirrors the server's
   // role gate on DELETE /transactions/:id so the button isn't offered to
@@ -83,7 +93,12 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
     });
   };
   // Expanded row → inline printable invoice document (user, 2026-08-02).
-  const [expandedVisit, setExpandedVisit] = React.useState<string | null>(null);
+  /**
+   * MANY invoices open at once (user, 2026-08-18). Opening one used to close
+   * the last, which makes comparing two invoices — the actual reason you open
+   * them side by side — impossible.
+   */
+  const [expandedVisits, setExpandedVisits] = React.useState<Set<string>>(new Set());
   // Receipts open in place too (user, 2026-08-04) — a receipt row that only
   // shows a number and a total is not the document anyone is looking for.
   const [expandedReceipt, setExpandedReceipt] = React.useState<string | null>(null);
@@ -95,18 +110,27 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   const [receiptLines, setReceiptLines] = React.useState<{ id: string; name: string; amount: number | null }[]>([]);
   const { selectedClinics } = useClinic();
   const clinicName = selectedClinics[0]?.name ?? '';
-  const [expandedDoc, setExpandedDoc] = React.useState<any | null>(null);
-  const [docLoading, setDocLoading] = React.useState(false);
+  // One fetched document per visit, kept so re-opening is instant and so two
+  // open invoices cannot overwrite each other's contents.
+  const [docsByVisit, setDocsByVisit] = React.useState<Record<string, any>>({});
+  const [loadingVisits, setLoadingVisits] = React.useState<Set<string>>(new Set());
+
   const toggleExpand = (inv: any) => {
-    const next = expandedVisit === inv.visitId ? null : inv.visitId;
-    setExpandedVisit(next); setExpandedDoc(null);
+    const id = String(inv.visitId);
+    const opening = !expandedVisits.has(id);
+    setExpandedVisits(prev => {
+      const n = new Set(prev);
+      opening ? n.add(id) : n.delete(id);
+      return n;
+    });
     const docId = inv.invoices?.[0]?.id;
-    if (next && docId) {
-      setDocLoading(true);
+    // Fetch once. A document already in hand is re-shown, not re-requested.
+    if (opening && docId && !docsByVisit[id]) {
+      setLoadingVisits(prev => new Set(prev).add(id));
       invoicesAPI.get(docId, { silent: true } as any)
-        .then(r => { if (r.success && r.data?.invoice) setExpandedDoc(r.data.invoice); })
+        .then(r => { if (r.success && r.data?.invoice) setDocsByVisit(prev => ({ ...prev, [id]: r.data.invoice })); })
         .catch(() => {})
-        .finally(() => setDocLoading(false));
+        .finally(() => setLoadingVisits(prev => { const n = new Set(prev); n.delete(id); return n; }));
     }
   };
   const [method, setMethod] = React.useState('CASH');
@@ -312,6 +336,30 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
     : invoices.filter(i => i.collectable || i.isPaid || (i.invoices?.length ?? 0) > 0);
   const notYetInvoiced = invoices.filter(i => !invoiceable.includes(i));
   const allOpen = invoiceable.filter(i => !isSettled(i));
+
+  /**
+   * Arrived here from a payment's INV link. Open that invoice and bring it into
+   * view — landing on the right TAB but the wrong scroll position leaves the
+   * user hunting the very row we just navigated for.
+   *
+   * Guarded on `invoices.length` so it fires once the list actually exists, and
+   * on a ref so a re-render does not keep re-scrolling under the user.
+   */
+  const focusedRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!focusVisitId || !invoices.length) return;
+    if (focusedRef.current === focusVisitId) return;
+    const inv = invoices.find(iv => String(iv.visitId) === String(focusVisitId));
+    if (!inv) return;
+    focusedRef.current = focusVisitId;
+    if (!expandedVisits.has(String(focusVisitId))) toggleExpand(inv);
+    // After the row expands — one frame is not enough, the document is fetched.
+    setTimeout(() => {
+      document.getElementById(`inv-row-${focusVisitId}`)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 350);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusVisitId, invoices.length]);
 
   // Search the invoice list, because a client with two patients wants to pay
   // for one of them. Matches the patient's name/species or the invoice number;
@@ -931,9 +979,15 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
               const settled = isSettled(inv);
               const partly = !settled && (inv.paid ?? 0) > 0;
               const docs = inv.invoices || [];
-              const isExpanded = expandedVisit === inv.visitId;
+              const isExpanded = expandedVisits.has(String(inv.visitId));
+              // Per-row document and loading flag — with several rows open, a
+              // single shared `expandedDoc` would show one invoice's lines
+              // under another invoice's header.
+              const expandedDoc = docsByVisit[String(inv.visitId)] ?? null;
+              const docLoading = loadingVisits.has(String(inv.visitId));
               return (
                 <div key={inv.visitId}
+                  id={`inv-row-${inv.visitId}`}
                   className={`px-3 py-2.5 rounded-xl border transition-all ${
                     picked ? 'border-seafoam bg-seafoam/5' : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
                   }`}>
@@ -980,7 +1034,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                     </span>
                   ) : !inv.collectable ? (
                     <span className="shrink-0 inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400"
-                      title="The visit is still open — its total can still change">
+                      title="The visit is still open and has no invoice yet, so its total can still change">
                       <AlertTriangle size={9} /> Not finalized
                     </span>
                   ) : (
@@ -1088,7 +1142,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                     </button>
                   ) : (
                     <button disabled
-                      title={`Visit #${inv.visitId} is open again, so its total can still change — finalize it before taking payment.`}
+                      title={`Visit #${inv.visitId} has no invoice and is still open, so its total can still change — finalize it or approve its bill before taking payment.`}
                       className="shrink-0 inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-400 cursor-not-allowed">
                       <CreditCard size={10} /> Finalize first
                     </button>
@@ -1236,7 +1290,18 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                               Visit #{al.visitId}{inv?.pet ? ` · ${inv.pet.name}` : ''}
                             </button>
                             {al.invoiceId && (
-                              <span className="shrink-0 text-[8px] font-black uppercase tracking-wider text-indigo-500">INV #{al.invoiceId}</span>
+                              /* Jump to the document itself. Seeing WHICH invoice
+                                 a payment filled is the point of this row, and
+                                 the number alone made you go and find it
+                                 (user, 2026-08-18). */
+                              <button type="button"
+                                onClick={() => onGoTab
+                                  ? onGoTab(`invoices:${al.visitId}`)
+                                  : onViewVisit?.(Number(al.visitId))}
+                                title="Open this invoice"
+                                className="shrink-0 text-[8px] font-black uppercase tracking-wider text-indigo-500 hover:text-indigo-700 hover:underline">
+                                INV #{al.invoiceId} →
+                              </button>
                             )}
                             <span className="shrink-0 text-[10px] font-black font-mono text-pine dark:text-zinc-100">{money(al.amountApplied, currency)}</span>
                           </div>

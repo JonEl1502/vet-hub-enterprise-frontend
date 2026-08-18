@@ -83,6 +83,18 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const { selectedClinics } = useClinic();
   const receiptClinicName = selectedClinics[0]?.name ?? '';
   const [activeTab, setActiveTab] = useState(initialTab);
+  /**
+   * Cross-tab jump: a payment's INV link asks for "invoices:<visitId>". The tab
+   * state lives here, so the compound value is unpacked here rather than every
+   * child inventing its own way to reach a sibling tab.
+   */
+  const [focusInvoiceVisitId, setFocusInvoiceVisitId] = useState<string | null>(null);
+  const goTab = (tab: string) => {
+    const [name, arg] = String(tab).split(':');
+    setFocusInvoiceVisitId(name === 'invoices' && arg ? arg : null);
+    setActiveTab(name as any);
+    onTabChange?.(name);
+  };
   // Shown immediately after upload so the new photo appears without waiting for
   // the parent's client list to refetch.
   const [avatarOverride, setAvatarOverride] = useState<string | null>(null);
@@ -1109,7 +1121,7 @@ const renderOverview = () => (
 
         {/* Tab bar — underline style (reference design). Deep-link ids are
             unchanged: 'transactions' is still the Payments tab. */}
-        <div data-tour="client-tabs" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-x-auto no-scrollbar scroll-smooth">
+        <div data-tour="client-tabs" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth">
            <div className="flex min-w-max px-2">
              {[
                { id: 'overview', label: 'Overview', icon: Activity },
@@ -1531,7 +1543,7 @@ const renderOverview = () => (
             canCollect={hasFullAccess}
             onRefresh={loadBilling}
             onViewVisit={onOpenVisitBill ?? onViewAppointment}
-            onGoTab={setActiveTab}
+            onGoTab={goTab}
             filters={accountFilters}
             kind={activeTab === 'credits' ? 'CREDIT' : activeTab === 'refunds' ? 'REFUND' : 'ALL'}
           />
@@ -1572,6 +1584,8 @@ const renderOverview = () => (
             clientName={client.name}
             clientPhone={client.phone}
             only="invoices"
+            onGoTab={goTab}
+            focusVisitId={focusInvoiceVisitId}
           />
         )}
         {activeTab === 'receipts' && (
