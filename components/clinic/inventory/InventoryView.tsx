@@ -1202,7 +1202,15 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                             <span className="col-span-3 font-bold text-pine dark:text-zinc-100">{label[m.type] || m.type}</span>
                             <span className="col-span-3 text-slate-400 truncate">{m.reference || '—'}</span>
                             <span className={`col-span-1 text-right font-black ${up ? 'text-emerald-600' : 'text-rose-600'}`}>{up ? '+' : ''}{m.quantity}</span>
-                            <span className="col-span-2 text-right font-black text-pine dark:text-zinc-100">{m.balanceAfter}</span>
+                            {/* Recorded before → after when the row carries it
+                                (backend 210); pre-210 rows fall back to the
+                                replayed balance, which a direct edit to
+                                inventory_items.quantity can shift. */}
+                            <span className="col-span-2 text-right font-black text-pine dark:text-zinc-100">
+                              {(m as any).balanceBefore != null
+                                ? <span className="font-mono">{(m as any).balanceBefore} → {m.balanceAfter}</span>
+                                : m.balanceAfter}
+                            </span>
                           </div>
                         );
                       })}
