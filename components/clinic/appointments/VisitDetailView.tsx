@@ -3709,8 +3709,8 @@ const VisitDetailInner: React.FC<Props> = ({
                   </button>
                 )}
                 {isFinalized && !appointment.isPaid && canUnlock && (
-                  <button onClick={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)} title="Unlock for editing" className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
-                    <Lock size={11} /> Unlock
+                  <button onClick={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)} title="Reopen the clinical workflow — steps, procedures and records become editable again. The bill has its own Reopen." className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white text-[9px] font-black uppercase tracking-widest transition-all">
+                    <Lock size={11} /> Unlock workflow
                   </button>
                 )}
                 {appointment.isPaid && <span className="text-[9px] font-bold text-white/50 uppercase tracking-widest self-center">Bill settled</span>}
@@ -8312,9 +8312,9 @@ const VisitDetailInner: React.FC<Props> = ({
                 />
               )}
               {isFinalized && canUnlock && (
-                <button onClick={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)} title="Unlock for editing"
+                <button onClick={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)} title="Reopen the clinical workflow — steps, procedures and records become editable again. The bill has its own Reopen."
                   className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 transition-all">
-                  <Lock size={12} /> Unlock
+                  <Lock size={12} /> Unlock workflow
                 </button>
               )}
               {/* An APPROVED/INVOICED bill means generation already happened —

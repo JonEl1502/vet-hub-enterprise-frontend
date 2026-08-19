@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: "Unlock" is now "Unlock workflow"  —  2026-08-18
+🟢 **Record impact: label only.**
+- Both Unlock buttons (visit header and footer) read **Unlock workflow** (user, 2026-08-18). They set
+  the visit back to IN_PROGRESS, which reopens the clinical workflow — steps, procedures and records.
+- ⚠️ That is a DIFFERENT act from the bill's own **Reopen bill**, and one word of ambiguity between
+  them decides whether a locked record or a frozen bill gets opened. The tooltip now says which is
+  which.
+
+
 ### feat: stock history shows the shelf before → after  —  2026-08-18
 🟢 **Record impact: display only.**
 - Each movement now reads e.g. **-2 Tablets · 48 → 46** (backend 210). The delta alone never answered
