@@ -24,6 +24,28 @@ const InlineConsumableSearch: React.FC<Props> = ({ visitId, currency = 'KES', on
   const [busyId, setBusyId] = React.useState<string | null>(null);
   React.useEffect(() => { ensureInventory?.(); }, [ensureInventory]);
 
+  /**
+   * Close on an outside click (user, 2026-08-18).
+   *
+   * The list rendered purely off `matches.length`, which is derived from the
+   * query — so the ONLY way to dismiss it was to clear the text. It sat over
+   * the running bill covering the lines underneath.
+   *
+   * ⚠️ `mousedown`, not `click`, and the option buttons use `onMouseDown` too —
+   * a `click` listener here would fire after the option's own handler and race
+   * it. Closing on mousedown while the target is inside the box is guarded by
+   * the `contains` check, so picking an item still works.
+   */
+  const boxRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!q) return;
+    const onDown = (e: MouseEvent) => {
+      if (boxRef.current && !boxRef.current.contains(e.target as Node)) setQ('');
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [q]);
+
   const matches = React.useMemo(() => {
     const needle = q.trim().toLowerCase();
     if (needle.length < 2) return [] as any[];
@@ -42,7 +64,7 @@ const InlineConsumableSearch: React.FC<Props> = ({ visitId, currency = 'KES', on
   };
 
   return (
-    <div className="relative">
+    <div className="relative" ref={boxRef}>
       <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
       <input
         value={q} onChange={e => setQ(e.target.value)} autoFocus

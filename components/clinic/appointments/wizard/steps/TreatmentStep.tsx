@@ -272,7 +272,27 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
         setData({ procedures: procRows.filter((_, j) => j !== i) });
         refreshVisit?.();
       }
-    } catch (e: any) { toast.error(e?.message || 'Failed to remove'); }
+    } catch (e: any) {
+      /**
+       * ⚠️ 404 MEANS IT IS ALREADY GONE — which is what was asked for.
+       *
+       * The draft keeps its own list of applied procedures, so an application
+       * deleted elsewhere (or in an earlier failed attempt) leaves a row here
+       * pointing at nothing. Clicking × then returned "Procedure application
+       * not found" AND kept the row, so the only way to clear it was to press a
+       * button that could never succeed (user, 2026-08-18).
+       *
+       * Treat absence as success: drop the row and say what happened, rather
+       * than reporting a failure to reach a state we are already in.
+       */
+      if (e?.response?.status === 404) {
+        setData({ procedures: procRows.filter((_, j) => j !== i) });
+        refreshVisit?.();
+        toast.success('That procedure was already removed — clearing it from the list');
+      } else {
+        toast.error(e?.response?.data?.message || e?.message || 'Failed to remove');
+      }
+    }
     finally { setRemovingProcIdx(null); }
   };
 

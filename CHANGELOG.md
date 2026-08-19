@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: removing an already-deleted procedure, and a search that would not close  —  2026-08-18
+🟢 **Record impact: UI only.**
+- ⚠️ **A 404 on remove now clears the row.** The wizard draft keeps its own list of applied
+  procedures, so an application deleted elsewhere left a row pointing at nothing: pressing × returned
+  *"Procedure application not found"* AND kept the row, so the only way to clear it was a button that
+  could never succeed (user, 2026-08-18). Absence IS the requested state — the row is dropped and the
+  toast says it was already removed.
+- **The inventory search closes on an outside click.** It rendered purely off the query text, so the
+  only way to dismiss it was to clear the field — meanwhile it covered the running bill beneath it.
+- ⚠️ Uses `mousedown`, matching the option buttons' own `onMouseDown`. A `click` listener would fire
+  after an option's handler and race it; the `contains` guard keeps picking an item working.
+
+
 ### change: "Unlock" is now "Unlock workflow"  —  2026-08-18
 🟢 **Record impact: label only.**
 - Both Unlock buttons (visit header and footer) read **Unlock workflow** (user, 2026-08-18). They set
