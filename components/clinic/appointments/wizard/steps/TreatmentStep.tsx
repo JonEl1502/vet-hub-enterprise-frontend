@@ -261,6 +261,29 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
     finally { setApplyingProc(false); }
   };
 
+  /**
+   * Close the procedure search on an outside click (user, 2026-08-18, twice).
+   *
+   * `onBlur` alone was not enough: the dropdown stays open while the pointer is
+   * anywhere that does not steal focus — the bill panel, empty space — so it
+   * sat over the page until the field was cleared by hand.
+   *
+   * `mousedown` matches the option buttons' own `onMouseDown`; the `contains`
+   * guard keeps picking a procedure working.
+   */
+  const procBoxRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!procFocus && !procSearch) return;
+    const onDown = (e: MouseEvent) => {
+      if (procBoxRef.current && !procBoxRef.current.contains(e.target as Node)) {
+        setProcFocus(false);
+        setProcSearch('');
+      }
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [procFocus, procSearch]);
+
   const removeProc = async (i: number) => {
     const p = procRows[i];
     if (!p.applicationId) { setData({ procedures: procRows.filter((_, j) => j !== i) }); return; }
@@ -568,7 +591,7 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
             The picker sat below a list that grows, so on a visit with a
             few procedures the way to add another was pushed off screen —
             the control you came for should not be the one you scroll to. */}
-        <div className="relative">
+        <div className="relative" ref={procBoxRef}>
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input className="field-input field-icon-left"
             placeholder={isVaccinationFlow ? 'Search procedures, vaccine packages or a single vaccine…' : 'Search your created procedures…'}
