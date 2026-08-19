@@ -47,6 +47,17 @@ interface Props {
    * in cards or flatten").
    */
   flat?: boolean;
+  /**
+   * Render the SEARCH ONLY, no list of what is already logged.
+   *
+   * For hosts that list those lines themselves. The boarding day block prints
+   * the day's items above the editor with their own delete, so the picker's
+   * copy showed every one of them a second time: opening "+ Add entry" to log
+   * the evening feed re-displayed the morning's tin directly underneath it,
+   * reading as if it were about to be added again (user, 2026-08-19: "i should
+   * not see the last added food/consumable again").
+   */
+  hideLoggedList?: boolean;
 }
 
 const FRACTIONAL_UNITS = new Set(['ml', 'mg', 'g', 'l', 'cc', 'mcg', 'iu']);
@@ -58,7 +69,7 @@ const stepFor = (unit?: string) => (unit && FRACTIONAL_UNITS.has(unit.toLowerCas
  * log: deducts stock and (if billable) adds an itemized charge. Logged lines
  * can be toggled billable or removed in place — the inline "edit bill".
  */
-const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = 'Consumables & items used', serviceTag, serviceTaskId, recordedAt, flat, dayKey }) => {
+const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = 'Consumables & items used', serviceTag, serviceTaskId, recordedAt, flat, dayKey, hideLoggedList }) => {
   const { inventory } = useData();
   const [allItems, setAllItems] = useState<AppointmentConsumable[]>([]);
   // Prefer the id; fall back to the old note match so rows logged before 200
@@ -275,8 +286,8 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
         </div>
       )}
 
-      {/* Logged lines */}
-      {loading ? (
+      {/* Logged lines — suppressed when the host prints them itself. */}
+      {hideLoggedList ? null : loading ? (
         <div className="flex items-center justify-center py-6"><Loader2 size={18} className="animate-spin text-seafoam" /></div>
       ) : items.length === 0 ? (
         <p className="text-[11px] text-slate-400 text-center py-3">No items logged yet.</p>

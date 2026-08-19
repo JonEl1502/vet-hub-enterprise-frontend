@@ -483,7 +483,12 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                             day a NEW row is filed under, dayKey decides which
                             rows are LISTED. Without it the heading said "this
                             day" over the whole visit's items. */}
-                        <ConsumablePicker flat compact appointmentId={stay.billing.appointmentId}
+                        {/* Search only. The day block already prints this day's
+                            items above, each with its own delete, so listing
+                            them again here showed the morning's tin sitting
+                            under the evening entry's search box as though it
+                            were about to be added a second time. */}
+                        <ConsumablePicker flat compact hideLoggedList appointmentId={stay.billing.appointmentId}
                           dayKey={dateKey}
                           recordedAt={dayDraft.at ? new Date(dayDraft.at).toISOString() : null}
                           onChanged={() => { load(); onChanged?.(); }} title="Items used this day" />
@@ -553,7 +558,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                       // 2026-08-06). Deleting restores stock and drops the
                       // charge, so it is gated on the stay still being open —
                       // a checked-out stay's bill is not ours to edit here.
-                      const consRows = dayCons.map(c => (
+                      const consRowsFor = (rows: any[]) => rows.map(c => (
                         <div key={`c-${c.id}`} className="mt-1.5 flex items-center gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg px-3 py-1.5 border border-emerald-100 dark:border-emerald-900/40">
                           <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 shrink-0">Item</span>
                           <span className="min-w-0 flex-1 text-[10px] text-pine dark:text-zinc-200 truncate">{c.inventoryItem?.name} × {Number(c.quantity)} {c.inventoryItem?.unit || ''}</span>
@@ -591,7 +596,8 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                           <p className="text-[10px] text-slate-400">
                             <span className="font-bold">Fed AM:</span> — · <span className="font-bold">Fed PM:</span> — · <span className="font-bold">Walked:</span> — · <span className="font-bold">Meds:</span> — · <span className="font-bold">Stool:</span> — · <span className="font-bold">Appetite:</span> — · <span className="font-bold">Notes:</span> —
                           </p>
-                          {consRows}
+                          {/* No rounds logged this day, so every item is loose. */}
+                          {consRowsFor(dayCons)}
                           <button onClick={() => openDayEditor(k)} className="mt-1.5 px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/20">
                             {editDay === k ? 'Close' : '✎ Fill this day'}
                           </button>
@@ -611,6 +617,37 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                       const stamp = (l: any) => l.recordedAt ?? l.createdAt ?? l.logDate;
                       const ordered = [...logs].sort((x, y) =>
                         new Date(stamp(x)).getTime() - new Date(stamp(y)).getTime());
+
+                      /**
+                       * FILE EACH ITEM UNDER THE ROUND IT WAS LOGGED IN.
+                       *
+                       * Items used to print in one lump at the foot of the day,
+                       * so a day with a morning and an evening feed showed both
+                       * tins together and neither said which meal it belonged
+                       * to (user, 2026-08-19: "each food/consumable to be under
+                       * the entry").
+                       *
+                       * There is no entry id on a consumable row to join on —
+                       * what they share is a TIME: logging from inside an entry
+                       * stamps the row with that entry's `recordedAt`. So an
+                       * item belongs to the LAST round at or before its own
+                       * stamp, which also does the sensible thing for a row
+                       * added outside the care log: it lands under the round it
+                       * followed. Anything earlier than the first round of the
+                       * day has no owner and stays at day level rather than
+                       * being back-dated into a round it preceded.
+                       */
+                      const consForEntry = new Map<string, any[]>();
+                      const consLoose: any[] = [];
+                      for (const c of dayCons) {
+                        const t = new Date(c.createdAt).getTime();
+                        let owner: any = null;
+                        for (const l of ordered) {
+                          if (new Date(stamp(l)).getTime() <= t) owner = l; else break;
+                        }
+                        if (owner) consForEntry.set(String(owner.id), [...(consForEntry.get(String(owner.id)) || []), c]);
+                        else consLoose.push(c);
+                      }
                       return (
                         <div key={k} className={editDay === k
                           ? 'py-2'
@@ -653,11 +690,17 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                                     {editDay === `${k}#${l.id}` ? 'Close' : '✎'}
                                   </button>
                                 </div>
+                                {/* This round's items, indented under it. */}
+                                <div className="pl-12">
+                                  {consRowsFor(consForEntry.get(String(l.id)) || [])}
+                                </div>
                                 {dayEditor(`${k}#${l.id}`)}
                               </div>
                             ))}
                           </div>
-                          {consRows}
+                          {/* Items with no round before them — kept at day level
+                              rather than hidden under a round they predate. */}
+                          {consRowsFor(consLoose)}
                           {/* Adding a round to THIS day — back-dated to it, so a
                               missed evening check can be filled in tomorrow. */}
                           <button onClick={() => openDayEditor(k)}

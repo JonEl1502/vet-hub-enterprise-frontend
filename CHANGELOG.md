@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: boarding items now sit under the round they were logged in  —  2026-08-19
+🟢 **Record impact: display only.** Nothing about how an item is recorded, priced or deducted changed.
+- **Items printed in one lump at the foot of the day.** A day with a morning and an evening feed
+  showed both tins together, neither saying which meal it belonged to
+  (user, 2026-08-19: *"each food/consumable to be under the entry"*). Each item now renders indented
+  under its own round.
+- ⚠️ **There is no entry id on a consumable row to join on** — what the two share is a TIME, because
+  logging from inside an entry stamps the row with that entry's `recordedAt`. An item is filed under
+  the **last round at or before its own stamp**, which also does the sensible thing for a row added
+  outside the care log: it lands under the round it followed. Anything earlier than the day's first
+  round has no owner and stays at day level rather than being back-dated into a round it preceded.
+- **The editor's picker no longer repeats them.** Opening "+ Add entry" re-listed the day's existing
+  items directly under the new entry's search box, reading as though the morning's tin were about to
+  be added a second time (user: *"i should not see the last added food/consumable again"*). New
+  `ConsumablePicker` prop **`hideLoggedList`** renders the search only, for hosts that print the
+  lines themselves. Default is unchanged, so every other caller keeps its list.
+- **Data dependency:** None.
+
 ### fix: a per-kg recipe dosed against 1 kg, and the applied card never appeared  —  2026-08-19
 🟢 **Record impact: display only on the frontend** (the billing half is in the backend entry).
 Three separate faults, all reported off one visit (prod visit 162, patient "rex"):
