@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: stock history shows the shelf before → after  —  2026-08-18
+🟢 **Record impact: display only.**
+- Each movement now reads e.g. **-2 Tablets · 48 → 46** (backend 210). The delta alone never answered
+  "how much was there when this dose was given" — the question every stock dispute turns on.
+- Rows written before 210 show the delta only; the pair is omitted rather than shown as 0, since 0 is
+  a real count.
+
+
 ### feat/fix: partner filter, search-first, Outpatient default, reminder jump  —  2026-08-18
 🟢 **Record impact: UI only.**
 - **Shares & Partners lists only what a partner will take.** It offered *Administration fee* to a

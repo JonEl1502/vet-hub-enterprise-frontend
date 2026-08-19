@@ -401,6 +401,15 @@ const StockManagerView: React.FC<Props> = ({ clinicId }) => {
                             <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Quantity</p>
                             <p className="font-bold text-pine dark:text-zinc-100">
                               {movement.quantity > 0 ? '+' : ''}{movement.quantity} {movement.inventoryItem?.unit}
+                              {/* What the shelf held either side of it (210).
+                                  The delta alone never answered "how much was
+                                  there when this dose was given" — the question
+                                  every stock dispute turns on. */}
+                              {movement.quantityBefore != null && movement.quantityAfter != null && (
+                                <span className="block text-[9px] font-bold text-slate-400 font-mono">
+                                  {movement.quantityBefore} → {movement.quantityAfter}
+                                </span>
+                              )}
                             </p>
                           </div>
                           {movement.batchNumber && (

@@ -28,6 +28,12 @@ export interface StockMovement {
   appointmentId?: string;
   movementType: StockMovementType;
   quantity: number;
+  /**
+   * The shelf either side of this movement (backend 210). NULL on rows written
+   * before it — treat as "unknown", never as 0, since 0 is a real count.
+   */
+  quantityBefore?: number | null;
+  quantityAfter?: number | null;
   batchNumber?: string;
   expiryDate?: string;
   costPrice?: number;
