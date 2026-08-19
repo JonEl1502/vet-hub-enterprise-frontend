@@ -25,6 +25,8 @@ interface ClientsViewProps {
   transactions: Transaction[];
   onViewClient: (id: number) => void;
   onViewFinance: (clientId: number) => void;
+  /** Open the client's Reminders tab with this reminder expanded. */
+  onViewReminder?: (clientId: number, reminderId: string) => void;
   onRegisterClient: () => void;
   onAddPetForClient: (id: number) => void;
   onPrebookAppointment: (clientId: number, petId: number) => void;
@@ -34,7 +36,7 @@ interface ClientsViewProps {
   onViewClientPets?: (clientId: number) => void;
 }
 
-const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, onViewFinance, onRegisterClient, onAddPetForClient, onPrebookAppointment, onEditClient, onDeleteClient, onViewPet, onViewClientPets }) => {
+const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, onViewFinance, onViewReminder, onRegisterClient, onAddPetForClient, onPrebookAppointment, onEditClient, onDeleteClient, onViewPet, onViewClientPets }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const { clients, pets, appointments, totals, isLoadingClients, isLoadingPets, refreshClients, ensureClients, ensurePets, ensureAppointments, clientStatus, setClientStatus } = useData();
   useEffect(() => { ensureClients(); ensurePets(); ensureAppointments(); }, [ensureClients, ensurePets, ensureAppointments]);
@@ -854,14 +856,22 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                             </span>
                           )}
                           {dueReminder && (
-                            <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ring-1 ${
+                            /* Clicking the badge opens the reminder, not just the
+                               tab (user, 2026-08-18). A badge that says something
+                               is overdue and then makes you find it is only half
+                               the message. */
+                            <button
+                              type="button"
+                              onClick={e => { e.stopPropagation(); onViewReminder?.(client.id, String(dueReminder.id)); }}
+                              title="Open this reminder"
+                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ring-1 transition-all hover:brightness-95 ${
                               reminderOverdue
                                 ? 'bg-red-50 dark:bg-red-900/30 text-red-600 dark:text-red-400 ring-red-200 dark:ring-red-700/50'
                                 : 'bg-seafoam/10 text-seafoam ring-seafoam/25'
                             }`}>
                               <BellRing size={9} className="shrink-0" />
                               {reminderOverdue ? 'Reminder overdue' : `Reminder ${formatDate(dueReminder.dueAt)}`}
-                            </span>
+                            </button>
                           )}
                         </div>
                       )}

@@ -14,6 +14,8 @@ interface Props {
   clientId?: number | string;
   /** petId -> display name, for labelling rows in client scope. */
   petNames?: Record<string, string>;
+  /** Open this reminder as soon as the rows load (2026-08-18). */
+  focusReminderId?: string | null;
   readOnly?: boolean;
 }
 
@@ -31,7 +33,7 @@ type Row = {
 
 const startOfToday = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); };
 
-const RemindersApptsTab: React.FC<Props> = ({ petId, clientId, petNames, readOnly }) => {
+const RemindersApptsTab: React.FC<Props> = ({ petId, clientId, petNames, readOnly, focusReminderId }) => {
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [bookings, setBookings] = useState<Appointment[]>([]);
   const [filter, setFilter] = useState<Filter>('upcoming');
@@ -85,6 +87,28 @@ const RemindersApptsTab: React.FC<Props> = ({ petId, clientId, petNames, readOnl
         ? new Date(b.when).getTime() - new Date(a.when).getTime()
         : new Date(a.when).getTime() - new Date(b.when).getTime());
   }, [reminders, bookings, filter, kindFilter]);
+
+  /**
+   * Arrived from the reminder badge on the clients list — open that reminder
+   * (user, 2026-08-18). A badge that announces something is overdue and then
+   * makes you hunt for it is only half the message.
+   *
+   * ⚠️ Runs off `rows`, not the raw fetch: the row is what the detail modal
+   * renders, and the FILTER may exclude it — an overdue reminder is hidden by
+   * "Today & future", so the filter is widened rather than opening nothing.
+   */
+  const focusedRef = React.useRef<string | null>(null);
+  React.useEffect(() => {
+    if (!focusReminderId || focusedRef.current === focusReminderId) return;
+    const row = rows.find(r => r.kind === 'reminder' && String(r.id) === String(focusReminderId));
+    if (!row) {
+      // Not in the current filter — widen once and let this effect run again.
+      if (filter !== 'all') setFilter('all');
+      return;
+    }
+    focusedRef.current = focusReminderId;
+    setViewRow(row);
+  }, [focusReminderId, rows, filter]);
 
   const overdue = (r: Row) => r.kind === 'reminder' && r.status === 'PENDING' && new Date(r.when).getTime() < Date.now();
 

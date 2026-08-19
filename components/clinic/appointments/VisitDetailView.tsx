@@ -323,6 +323,34 @@ const VisitDetailInner: React.FC<Props> = ({
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
 
   /**
+   * Which of this visit's service categories any partner will actually take
+   * (user, 2026-08-18).
+   *
+   * The panel listed EVERY task, so it offered to send "Administration fee" to
+   * a partner clinic — a fee no partner performs, and for which no agreed price
+   * can exist. Eligibility is per CATEGORY, so it is asked once per distinct
+   * category rather than once per task.
+   *
+   * null = not looked up yet; an empty Set = asked, nobody takes any of them.
+   */
+  const [partnerCats, setPartnerCats] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    const cats = Array.from(new Set((appointment.tasks || [])
+      .map(t => String(t.category || '').trim())
+      .filter(Boolean)));
+    if (!cats.length) { setPartnerCats(new Set()); return; }
+    let alive = true;
+    import('../../../services/modules/visitJobs.api').then(({ visitJobsAPI }) =>
+      Promise.all(cats.map(c =>
+        visitJobsAPI.eligiblePartners(c)
+          .then((r: any) => ({ c, n: (r?.data?.partners ?? r?.data ?? []).length }))
+          .catch(() => ({ c, n: 0 }))))
+        .then(rows => { if (alive) setPartnerCats(new Set(rows.filter(r => r.n > 0).map(r => r.c))); }))
+      .catch(() => { if (alive) setPartnerCats(new Set()); });
+    return () => { alive = false; };
+  }, [appointment.id, (appointment.tasks || []).length]);
+
+  /**
    * The footer button GENERATES the invoice rather than just walking you to the
    * Bill tab (user, 2026-08-18). A button labelled "Generate invoice" that only
    * changes tabs is a button that lies about what it does.
@@ -5182,7 +5210,12 @@ const VisitDetailInner: React.FC<Props> = ({
               <p className="text-[11px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 mb-1">Send a service to a partner clinic</p>
               <p className="text-[10px] text-slate-400 dark:text-zinc-500 mb-2">Partners with an agreed price for the service's category can be asked to handle it — they see it as a clinical-transfer visit on their side.</p>
               <div className="divide-y divide-slate-100 dark:divide-zinc-800">
-                {(appointment.tasks || []).map(task => {
+                {partnerCats !== null && (appointment.tasks || []).filter(t => partnerCats.has(String(t.category || '').trim())).length === 0 && (
+                  <p className="py-3 text-[11px] font-bold text-slate-400">
+                    No service on this visit matches any partner's agreed categories — nothing to send.
+                  </p>
+                )}
+                {(appointment.tasks || []).filter(t => partnerCats === null || partnerCats.has(String(t.category || '').trim())).map(task => {
                   const job = visitJobsForTasks.find(j => String(j.taskId ?? '') === String(task.id) && j.status !== 'DECLINED' && j.status !== 'CANCELLED');
                   const partnerName = job?.providerClinic?.name || 'partner clinic';
                   return (

@@ -46,6 +46,8 @@ interface Props {
   appointments: Visit[];
   onBack: () => void;
   initialTab?: string;
+  /** Open this reminder on the Reminders tab, expanded (2026-08-18). */
+  focusReminderId?: string | null;
   /**
    * Report the open tab up so the nav entry remembers it and Back returns
    * here as it was, rather than resetting to Overview.
@@ -76,7 +78,7 @@ interface Props {
   onAddPet?: () => void;
 }
 
-const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', onTabChange, appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onOpenMedicalRecord, onManageWorkflow, onViewVisitDetails, onScheduleAppointment, onAddPet, onOpenVisitBill }) => {
+const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', focusReminderId, onTabChange, appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onOpenMedicalRecord, onManageWorkflow, onViewVisitDetails, onScheduleAppointment, onAddPet, onOpenVisitBill }) => {
   // This view has no `activeClinic` prop; the printed document still needs a
   // clinic name on it. With a multi-clinic scope the first selected one is the
   // right answer here — the client is being viewed within that scope.
@@ -1187,6 +1189,7 @@ const renderOverview = () => (
           <RemindersApptsTab
             clientId={client.id}
             petNames={Object.fromEntries(pets.map(p => [String(p.id), p.name]))}
+            focusReminderId={focusReminderId}
           />
         )}
         {activeTab === 'pets' && (

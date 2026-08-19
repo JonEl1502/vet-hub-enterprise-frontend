@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat/fix: partner filter, search-first, Outpatient default, reminder jump  —  2026-08-18
+🟢 **Record impact: UI only.**
+- **Shares & Partners lists only what a partner will take.** It offered *Administration fee* to a
+  partner clinic — a fee no partner performs. Eligibility is asked once per distinct CATEGORY, and
+  when nothing matches it says so: *"No service on this visit matches any partner's agreed
+  categories — nothing to send."* (user, 2026-08-18)
+- **The procedure search sits ABOVE the added items.** It sat below a list that grows, so on a visit
+  with a few procedures the way to add another was pushed off screen — the control you came for
+  should not be the one you scroll to.
+- **Treat as defaults to Outpatient.** An unset value rendered BOTH buttons inactive, reading as
+  "nothing chosen" on a field that always has an answer. Inpatient is an explicit, pay-gated act and
+  is never what silence means.
+- **The reminder badge on a client card opens that reminder** — Reminders tab, modal open. ⚠️ If the
+  current filter excludes it (an overdue reminder is hidden by "Today & future") the filter widens to
+  All rather than opening nothing.
+
+
 ### feat: client profile refreshes when money lands elsewhere  —  2026-08-18
 🟢 **Record impact: display only.**
 - An open client profile listens for `client.credit.changed` and refetches billing + credit, so a

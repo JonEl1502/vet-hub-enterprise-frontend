@@ -318,7 +318,12 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
                 }
               }}
               className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
-                data?.treatAs === 'OUTPATIENT'
+                /* Outpatient is the DEFAULT (user, 2026-08-18): most visits are
+                   outpatient, and an unset value rendered BOTH buttons inactive,
+                   which read as "nothing chosen" on a field that always has an
+                   answer. Inpatient is an explicit act with a pay gate; it is
+                   never what silence means. */
+                (data?.treatAs ?? 'OUTPATIENT') === 'OUTPATIENT'
                   ? 'bg-seafoam text-white border-seafoam'
                   : 'bg-white dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
               }`}>
@@ -539,56 +544,10 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
 
       {show('procedures') && txTab === 'procedures' && (
       <Section icon={Scissors} title="Procedures Performed">
-        {/* Vaccinations recorded on this visit.
-            A vaccination added on the vaccination page creates a
-            VaccinationRecord + a visit task — NOT a ProcedureApplication — so
-            it never appeared in the list below and this panel read as empty
-            while the bill already carried the charge. Same clinical act showed
-            or didn't depending on which door it came through. Read-only here:
-            the vaccination page owns editing them. */}
-        {vaccineRows.length > 0 && (
-          <div className="space-y-1.5 mb-2">
-            {vaccineRows.map((v: any) => (
-              <div key={`vax-${v.id}`} className="flex items-center justify-between gap-2 px-2.5 py-2 bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 rounded-lg">
-                <span className="min-w-0 flex-1">
-                  <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{v.vaccineName}</span>
-                  <span className="block text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-                    Vaccination · {v.status}
-                  </span>
-                </span>
-                <span className="shrink-0 text-[8px] font-black uppercase tracking-widest text-slate-400">On vaccination page</span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Only CREATED procedure recipes (Billable Items → Procedures) are
-            selectable — picking one APPLIES the recipe to this visit (fees +
-            products land on the bill). No match → create it on the Procedures
-            page (opens in a new tab so this visit stays put). */}
-        {procRows.length > 0 && (
-          <div className="space-y-1.5">
-            {procRows.map((p, i) => (
-              <div key={i} className="flex items-center justify-between gap-2 px-2.5 py-2 bg-slate-50 dark:bg-zinc-950/40 rounded-lg">
-                <span className="min-w-0 text-xs font-bold text-pine dark:text-zinc-100 truncate">{p.name}</span>
-                {p.total != null && <span className="shrink-0 text-[10px] font-black text-slate-500 dark:text-zinc-400">{p.total.toLocaleString()}</span>}
-                <button type="button" disabled={removingProcIdx === i} onClick={() => removeProc(i)}
-                  title={p.applicationId ? 'Remove — deletes the recipe\'s un-billed lines' : 'Remove'}
-                  className="shrink-0 text-slate-400 hover:text-red-500 disabled:opacity-50">
-                  {removingProcIdx === i ? <Loader2 size={11} className="animate-spin" /> : '×'}
-                </button>
-              </div>
-            ))}
-          </div>
-        )}
-        {/* Every applied recipe in FULL — its meds, consumables and fees, with
-            per-line qty edit / billable toggle / remove (user, 2026-08-02:
-            "show all meds n consumables from the procedure and allow edit"). */}
-        {procRows.length > 0 && (
-          <div className="mt-2">
-            <AppliedProcedurePanel appointmentId={visit.id} onChanged={() => refreshVisit?.()} />
-          </div>
-        )}
+        {/* Search FIRST, then what has been added (user, 2026-08-18).
+            The picker sat below a list that grows, so on a visit with a
+            few procedures the way to add another was pushed off screen —
+            the control you came for should not be the one you scroll to. */}
         <div className="relative">
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input className="field-input field-icon-left"
@@ -660,6 +619,56 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
             </div>
           )}
         </div>
+        {/* Vaccinations recorded on this visit.
+            A vaccination added on the vaccination page creates a
+            VaccinationRecord + a visit task — NOT a ProcedureApplication — so
+            it never appeared in the list below and this panel read as empty
+            while the bill already carried the charge. Same clinical act showed
+            or didn't depending on which door it came through. Read-only here:
+            the vaccination page owns editing them. */}
+        {vaccineRows.length > 0 && (
+          <div className="space-y-1.5 mb-2">
+            {vaccineRows.map((v: any) => (
+              <div key={`vax-${v.id}`} className="flex items-center justify-between gap-2 px-2.5 py-2 bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-100 dark:border-emerald-900/40 rounded-lg">
+                <span className="min-w-0 flex-1">
+                  <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{v.vaccineName}</span>
+                  <span className="block text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                    Vaccination · {v.status}
+                  </span>
+                </span>
+                <span className="shrink-0 text-[8px] font-black uppercase tracking-widest text-slate-400">On vaccination page</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Only CREATED procedure recipes (Billable Items → Procedures) are
+            selectable — picking one APPLIES the recipe to this visit (fees +
+            products land on the bill). No match → create it on the Procedures
+            page (opens in a new tab so this visit stays put). */}
+        {procRows.length > 0 && (
+          <div className="space-y-1.5">
+            {procRows.map((p, i) => (
+              <div key={i} className="flex items-center justify-between gap-2 px-2.5 py-2 bg-slate-50 dark:bg-zinc-950/40 rounded-lg">
+                <span className="min-w-0 text-xs font-bold text-pine dark:text-zinc-100 truncate">{p.name}</span>
+                {p.total != null && <span className="shrink-0 text-[10px] font-black text-slate-500 dark:text-zinc-400">{p.total.toLocaleString()}</span>}
+                <button type="button" disabled={removingProcIdx === i} onClick={() => removeProc(i)}
+                  title={p.applicationId ? 'Remove — deletes the recipe\'s un-billed lines' : 'Remove'}
+                  className="shrink-0 text-slate-400 hover:text-red-500 disabled:opacity-50">
+                  {removingProcIdx === i ? <Loader2 size={11} className="animate-spin" /> : '×'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {/* Every applied recipe in FULL — its meds, consumables and fees, with
+            per-line qty edit / billable toggle / remove (user, 2026-08-02:
+            "show all meds n consumables from the procedure and allow edit"). */}
+        {procRows.length > 0 && (
+          <div className="mt-2">
+            <AppliedProcedurePanel appointmentId={visit.id} onChanged={() => refreshVisit?.()} />
+          </div>
+        )}
         {applyingProc && <p className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><Loader2 size={11} className="animate-spin" /> Applying recipe — fees & products landing on the bill…</p>}
       </Section>
       )}
