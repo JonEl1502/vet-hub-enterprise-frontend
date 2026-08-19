@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: switching an item's sell unit no longer leaves the price meaning the wrong thing  —  2026-08-19
+🟢 **Record impact: none** — a guard on the product form; no data touched, no pricing changed.
+- **The setup already existed and nobody could safely use it.** "Billed / sold in" + "mL in 1 Vial"
+  (2026-08-03) is exactly how you say *a vial holds 10 mL, I dispense in mL* — it makes the visit's
+  qty field read **QTY (ML)** and offers ¼/½/1 Vial shortcuts. But changing the sell unit **does not
+  rescale the price**: flip a 2,200-per-Vial ketamine to mL and it bills **2,200 per mL**, a 10×
+  overcharge on every dose, silently, on an item that looks correctly configured.
+- ⚠️ **Not one of prod's 69 vial/bottle/bag items had a sell unit set** — 35 Bottles, 19 Bags, 14
+  Vials, 1 Box, zero configured. So every container item could only be dispensed in fractions of a
+  container, which is what surfaced it (user, 2026-08-19, on a `0.25 Vials` ketamine line).
+- The form now warns **in money** the moment a split is created: *"Price is still 2,200 — per Vial,
+  not per mL. Billing 10 mL would charge 22,000 instead of 2,200"*, with **Rescale to 220 / mL** and
+  **Keep 2,200 / mL**.
+- ⚠️ Armed only on the transition **into** a split, capturing the price at that instant; re-picking
+  another sell unit while already split must not re-arm against an already-rescaled price. It stays
+  quiet once the price matches the ratio, however it got there, and never fires on merely opening a
+  saved item — a saved price already means what its saved units say.
+- ⚠️ Silent until **"mL in 1 Vial"** is filled, because that ratio *is* the size of the mistake.
+- **Data dependency:** None.
+
 ### fix: three views disagreed about the same open visits  —  2026-08-19
 🟢 **Record impact: display only.** Two reads corrected; nothing about how a visit is stored changed.
 Reported as one confusion across three screens on prod clinic 3, which has **6 visits still

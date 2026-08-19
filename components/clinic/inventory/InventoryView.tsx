@@ -292,6 +292,20 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     mainCategory: 'MEDICINE', subcategories: [], species: [], maxLevel: undefined, reorderQty: undefined, barcode: '', sellUnit: '', costUnit: '', sellQty: 1, packOf: undefined, injectionUnitMl: 10,
     feeService: undefined, feeAdmin: undefined, feeInjection: undefined, feePrescription: undefined,
   });
+  /**
+   * PRICE-BASIS GUARD — armed when the sell unit is switched away from the
+   * stock unit.
+   *
+   * Changing "Billed / sold in" does NOT rescale the price, so flipping a
+   * 2,200-per-Vial ketamine to mL and saving bills **2,200 per mL** — a 10×
+   * overcharge on every dose, silently, on an item that looked correctly
+   * configured. Nothing on the form said so, which is why not one of prod's 69
+   * vial/bottle/bag items had ever been given a sell unit (user, 2026-08-19).
+   *
+   * Holds the price as it stood the moment the split was created, so the
+   * warning can quote the real numbers and offer the divide.
+   */
+  const [priceBasisWarn, setPriceBasisWarn] = useState<{ stockUnit: string; priceAtSwitch: number } | null>(null);
   // Free-text entry for the "add subcategory" input.
   const [subcatDraft, setSubcatDraft] = useState('');
   // Index currently being dragged in the subcategory reorder list.
@@ -477,6 +491,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       feeInjection: fees.injection !== undefined ? Number(fees.injection) : undefined,
       feePrescription: fees.prescription !== undefined ? Number(fees.prescription) : undefined,
     });
+    // A saved item's price already means what its saved units say; only a
+    // change made in THIS session can put the two out of step.
+    setPriceBasisWarn(null);
     setIsAddModalOpen(true);
   };
 
@@ -736,6 +753,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       // editing a product never silently re-inherits a changed default.
       ...defaultItemFees(clinic),
     });
+    setPriceBasisWarn(null);
     setIsAddModalOpen(true);
   };
 
@@ -1627,7 +1645,23 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                         <select
                           className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                           value={itemForm.sellUnit || itemForm.unit}
-                          onChange={e => setItemForm({ ...itemForm, sellUnit: e.target.value })}
+                          onChange={e => {
+                            const next = e.target.value;
+                            const stock = (itemForm.unit || '').trim();
+                            const wasSplit = !!(itemForm.sellUnit || '').trim()
+                              && (itemForm.sellUnit || '').trim().toLowerCase() !== stock.toLowerCase();
+                            const nowSplit = !!next.trim() && next.trim().toLowerCase() !== stock.toLowerCase();
+                            // Arm only on the transition INTO a split — that is
+                            // the moment the entered price stops meaning what it
+                            // did. Re-picking another sell unit while already
+                            // split must not re-arm with an already-rescaled price.
+                            if (nowSplit && !wasSplit) {
+                              setPriceBasisWarn({ stockUnit: stock, priceAtSwitch: Number(itemForm.price) || 0 });
+                            } else if (!nowSplit) {
+                              setPriceBasisWarn(null);
+                            }
+                            setItemForm({ ...itemForm, sellUnit: next });
+                          }}
                           title="The unit this item is billed in — can differ from the unit bought"
                         >
                           {Array.from(new Set([itemForm.unit, ...ORDERED_UNITS])).map(un => <option key={un} value={un}>{un}</option>)}
@@ -1788,6 +1822,50 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                     />
                     <span className="text-xs font-bold text-pine dark:text-zinc-100 shrink-0 min-w-[2.5rem]">{itemForm.sellUnit || itemForm.unit}</span>
                   </div>
+                  {/* The price did not follow the unit — say so in money. */}
+                  {(() => {
+                    if (!priceBasisWarn) return null;
+                    const sellU = (itemForm.sellUnit || '').trim();
+                    const stockU = priceBasisWarn.stockUnit;
+                    const pack = Number(itemForm.packSize) || 0;
+                    // Nothing to warn about until we know how many sell units a
+                    // stock unit holds — that ratio IS the size of the mistake.
+                    if (!sellU || !stockU || sellU.toLowerCase() === stockU.toLowerCase() || pack <= 1) return null;
+                    const shown = Number(itemForm.price) || 0;
+                    const perQty = Number(itemForm.sellQty) || 1;
+                    // Already rescaled (by the button or by hand) — stay quiet.
+                    if (Math.abs(shown / perQty - priceBasisWarn.priceAtSwitch / pack) < 0.005) return null;
+                    const rescaled = Math.round((priceBasisWarn.priceAtSwitch / pack) * 100) / 100;
+                    const wouldCharge = Math.round((shown / perQty) * pack * 100) / 100;
+                    const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+                    return (
+                      <div className="mt-2 rounded-xl border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5 space-y-2">
+                        <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 leading-snug">
+                          Price is still <b>{fmt(priceBasisWarn.priceAtSwitch)}</b> — per <b>{stockU}</b>, not per <b>{sellU}</b>.
+                          {' '}Billing {fmt(pack)} {sellU} would charge <b>{fmt(wouldCharge)}</b> instead of {fmt(priceBasisWarn.priceAtSwitch)}.
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setItemForm({ ...itemForm, price: rescaled, sellQty: 1 });
+                              setPriceBasisWarn(null);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest hover:bg-amber-600"
+                          >
+                            Rescale to {fmt(rescaled)} / {sellU}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPriceBasisWarn(null)}
+                            className="px-3 py-1.5 rounded-lg bg-white dark:bg-zinc-800 border border-amber-300 dark:border-amber-900/60 text-amber-700 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest"
+                          >
+                            Keep {fmt(shown)} / {sellU}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
 
