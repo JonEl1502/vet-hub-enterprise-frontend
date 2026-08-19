@@ -76,6 +76,18 @@ export interface StepProps {
   deleteTask?: (taskId: number) => void;
   refreshVisit?: () => void; // re-fetch the visit after real writes (consumables…)
   /**
+   * The patient's weight for THIS visit, in kg — the Examination step's entry
+   * if there is one, otherwise whatever the patient record carries.
+   *
+   * ⚠️ A step gets only its OWN slice of the wizard data, so Treatment could
+   * not see the weight Examination had just captured four steps earlier. It
+   * applied per-kg recipes with no weight at all, and the server dosed them
+   * against its 1 kg fallback: a Drontal line billed 0.1 tablet for a dog
+   * (user, 2026-08-19, "its not picking correct value"). Anything that doses
+   * per kg must read the weight from here, not from `pet` alone.
+   */
+  patientWeightKg?: number | null;
+  /**
    * When a clinic-built workflow governs THIS stage, the set of field
    * suffixes it kept (`mentation`, `sys.eyes`, `notes`…). A built-in step
    * must render only these.

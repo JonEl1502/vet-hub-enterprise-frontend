@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a per-kg recipe dosed against 1 kg, and the applied card never appeared  —  2026-08-19
+🟢 **Record impact: display only on the frontend** (the billing half is in the backend entry).
+Three separate faults, all reported off one visit (prod visit 162, patient "rex"):
+- **The dose used no weight.** Examination captures "Weight (kg)" at step 2; the recipe applied at
+  step 6 never received it, because **a wizard step only gets its own slice of the draft**. The
+  server fell back to its 1 kg assumption and billed 0.1 of a Drontal tablet for a dog
+  (user: *"its not picking correct value"*). `StepProps.patientWeightKg` now carries this visit's
+  weight — the Examination entry first, the patient record second — and Treatment sends it on apply.
+- **The applied card never showed.** Two things could apply a recipe — the Treatment step's own
+  search and `AppliedProcedurePanel`'s dropdown — but the panel holds its own list and refetched
+  only after **its own** mutations. Applying from the search box billed the lines and left the panel
+  offering "Apply a procedure recipe…" as if nothing had happened. It now takes a **`refreshKey`**.
+- **…and could not show for an auto-applied recipe at all.** The card was gated on the draft's
+  `procedures` array, so a recipe auto-applied off a trigger service — the whole point of silent
+  auto-apply — was billed with no card, on a draft that had never heard of it. The panel is always
+  asked now; it renders null when the visit genuinely has none.
+- ⚠️ The assumed-weight fallback (211) is **untouched** — with a real weight now reaching apply, it
+  stops being the path most visits take, which is the point. Skipping the line instead was tried on
+  2026-08-18 and rejected the same day: *"applied 250 with the drug simply gone"*.
+- **Data dependency:** None.
+
 ### feat: the procedure card says what it assumed  —  2026-08-19
 🟢 **Record impact: display only.**
 - A blue banner names any line dosed on an assumed weight: *"No patient weight recorded — dosed at

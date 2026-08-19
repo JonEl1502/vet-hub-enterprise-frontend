@@ -263,6 +263,15 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
     refreshVisit: onRefreshVisit,
     onTriageStatusChange,
     onTriageDischarged,
+    // Weight captured THIS visit wins over the patient record — it is the
+    // fresher measurement, and on a patient never weighed before it is the
+    // only one. See StepProps.patientWeightKg for why this is lifted here.
+    patientWeightKg: (() => {
+      const typed = Number((state.data as any)?.examination?.weight);
+      if (Number.isFinite(typed) && typed > 0) return typed;
+      const onRecord = Number((pet as any)?.weightValue ?? (pet as any)?.weight);
+      return Number.isFinite(onRecord) && onRecord > 0 ? onRecord : null;
+    })(),
   }), [visit, pet, client, staff, activeClinic.currency, state.data, currentStep, fuNsKey, setStepData, emit, goServices, onAddService, onOpenModule, onHospitalize, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged]);
 
   const renderStep = () => {

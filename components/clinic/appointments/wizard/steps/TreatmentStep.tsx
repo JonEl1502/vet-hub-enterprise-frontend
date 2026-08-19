@@ -27,7 +27,7 @@ interface MedRow {
 // duration ride along as the prescription note. Gloves/syringes etc. are
 // added the same way with the Rx fields left blank.
 
-const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, refreshVisit, visibleFields, currency = 'KES', onHospitalize }) => {
+const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, refreshVisit, visibleFields, currency = 'KES', onHospitalize, patientWeightKg }) => {
   const show = showsField(visibleFields);
   /**
    * TABS, not one long column (user, 2026-08-14: "i find this difficult … put
@@ -180,6 +180,9 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
   const [procFocus, setProcFocus] = React.useState(false);
   const [applyingProc, setApplyingProc] = React.useState(false);
   const [removingProcIdx, setRemovingProcIdx] = React.useState<number | null>(null);
+  // Bumped whenever THIS step applies or removes a recipe, so the applied-
+  // procedure panel below refetches instead of keeping its mount-time list.
+  const [procRefresh, setProcRefresh] = React.useState(0);
   React.useEffect(() => {
     procedureTemplatesAPI.list().then(r => { if (r.success && r.data?.templates) setProcTemplates(r.data.templates); }).catch(() => {});
   }, []);
@@ -250,12 +253,22 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
   const applyProcedure = async (t: ProcedureTemplate) => {
     setApplyingProc(true);
     try {
-      const res = await procedureTemplatesAPI.apply(t.id, { appointmentId: visit.id });
+      /**
+       * Send the weight. Without it the server falls back to ASSUMED_WEIGHT_KG
+       * (1 kg) for every PER_KG line and bills the guess — a dog dewormer came
+       * out at 0.1 of a tablet (user, 2026-08-19). Examination captured the
+       * weight four steps earlier; it just had no way to reach this call.
+       */
+      const res = await procedureTemplatesAPI.apply(t.id, {
+        appointmentId: visit.id,
+        ...(patientWeightKg != null ? { weightKg: patientWeightKg } : {}),
+      });
       if (res.success) {
         setData({ procedures: [...procRows, { name: t.name, applicationId: res.data?.applicationId, total: res.data?.total }] });
         emit(`Procedure performed — ${t.name} (recipe applied · ${res.data?.created?.tasks ?? 0} services, ${res.data?.created?.products ?? 0} products)`, 'billing', true);
         setProcSearch('');
         refreshVisit?.();
+        setProcRefresh(n => n + 1);
       }
     } catch (e: any) { toast.error(e?.message || 'Failed to apply procedure'); }
     finally { setApplyingProc(false); }
@@ -294,6 +307,7 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
         toast.success('Procedure removed — its un-billed lines deleted');
         setData({ procedures: procRows.filter((_, j) => j !== i) });
         refreshVisit?.();
+        setProcRefresh(n => n + 1);
       }
     } catch (e: any) {
       /**
@@ -311,6 +325,7 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
       if (e?.response?.status === 404) {
         setData({ procedures: procRows.filter((_, j) => j !== i) });
         refreshVisit?.();
+        setProcRefresh(n => n + 1);
         toast.success('That procedure was already removed — clearing it from the list');
       } else {
         toast.error(e?.response?.data?.message || e?.message || 'Failed to remove');
@@ -718,12 +733,25 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
         )}
         {/* Every applied recipe in FULL — its meds, consumables and fees, with
             per-line qty edit / billable toggle / remove (user, 2026-08-02:
-            "show all meds n consumables from the procedure and allow edit"). */}
-        {procRows.length > 0 && (
-          <div className="mt-2">
-            <AppliedProcedurePanel appointmentId={visit.id} onChanged={() => refreshVisit?.()} />
-          </div>
-        )}
+            "show all meds n consumables from the procedure and allow edit").
+
+            ⚠️ NOT gated on `procRows` (user, 2026-08-19). The draft's own list
+            is local to this wizard, while an application lives on the server —
+            so a recipe that auto-applied off a trigger service, or was applied
+            in another session, had its fees sitting on the bill with nothing
+            under Procedures performed. The panel renders null when the visit
+            genuinely has no application, so asking it every time is safe.
+
+            `refreshKey` is what makes the search box above and this panel agree:
+            both can apply a recipe, and without it the panel kept showing its
+            empty picker while the bill already carried the lines. */}
+        <div className="mt-2">
+          <AppliedProcedurePanel
+            appointmentId={visit.id}
+            refreshKey={procRefresh}
+            onChanged={() => { refreshVisit?.(); setProcRefresh(n => n + 1); }}
+          />
+        </div>
         {applyingProc && <p className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><Loader2 size={11} className="animate-spin" /> Applying recipe — fees & products landing on the bill…</p>}
       </Section>
       )}

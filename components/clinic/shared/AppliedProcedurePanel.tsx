@@ -12,6 +12,18 @@ interface Props {
   billLocked?: boolean;
   currency?: string;
   onChanged?: () => void;
+  /**
+   * Bump to force a reload from the server.
+   *
+   * ⚠️ Load-bearing wherever something OUTSIDE this panel can apply or remove a
+   * recipe. The panel holds its own `apps` list and only refetches on mount or
+   * after its own mutations, so a recipe applied by the host — the wizard's
+   * Treatment step has its own procedure search — billed the lines while this
+   * panel went on showing its empty "Apply a procedure recipe…" picker
+   * (user, 2026-08-19: applied procedure on the bill, nothing under Procedures
+   * performed).
+   */
+  refreshKey?: string | number;
 }
 
 /**
@@ -20,7 +32,7 @@ interface Props {
  * lines, recommended (optional) diagnostics to tick on, skipped-item
  * warnings, and a weight/flags re-quote. All mutations are pre-settle only.
  */
-const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLocked = false, currency = 'KES', onChanged }) => {
+const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLocked = false, currency = 'KES', onChanged, refreshKey }) => {
   const [apps, setApps] = useState<ProcedureApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -40,7 +52,8 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
       }
     } catch (e) { console.error('Failed to load procedure applications', e); }
     finally { setLoading(false); }
-  }, [appointmentId, taskId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [appointmentId, taskId, refreshKey]);
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {
