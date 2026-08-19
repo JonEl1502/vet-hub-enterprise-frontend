@@ -42,9 +42,14 @@ const BLOCKS = [
      * on 18 Aug. The visit is still open work; it is just no longer inpatient
      * work, and the Consultation tile already counts it.
      */
-    match: (v: Visit) =>
-      (!!v.hospitalizationId && v.hospitalizationStatus !== 'DISCHARGED' && v.hospitalizationStatus !== 'CANCELLED')
-      || hasCategory(v, 'inpatient', 'hospital'),
+    match: (v: Visit) => v.hospitalizationId
+      // There IS an admission record — it is the authority, and the leftover
+      // "Inpatient Stay" charge on a discharged visit must not override it.
+      // Visit 151 carries exactly that line; an `||` on the category would have
+      // kept counting it after discharge.
+      ? v.hospitalizationStatus !== 'DISCHARGED' && v.hospitalizationStatus !== 'CANCELLED'
+      // No record to consult — fall back to what the visit was charged for.
+      : hasCategory(v, 'inpatient', 'hospital'),
   },
   {
     // No dedicated consultations page — the visits list IS that view.
