@@ -359,6 +359,11 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           groomingDetail: a.groomingDetail ?? {},
           boardingStayId: a.boardingStayId ?? null,
           hospitalizationId: a.hospitalizationId ?? null,
+          // Carry the STATUS too — an id proves an admission existed, not that
+          // it is still running. Without these the dashboard counted discharged
+          // patients as inpatients.
+          boardingStayStatus: a.boardingStayStatus ?? null,
+          hospitalizationStatus: a.hospitalizationStatus ?? null,
           totalCost: a.totalCost,
           isPaid: a.isPaid,
           prepaid: a.prepaid ?? false,

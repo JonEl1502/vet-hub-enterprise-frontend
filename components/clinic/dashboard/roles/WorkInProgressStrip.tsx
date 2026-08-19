@@ -32,7 +32,19 @@ const BLOCKS = [
   {
     key: 'inpatient', label: 'Inpatient', icon: BedDouble, view: 'inpatient',
     tint: 'text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/30',
-    match: (v: Visit) => !!(v as any).hospitalizationId || hasCategory(v, 'inpatient', 'hospital'),
+    /**
+     * ⚠️ An ADMITTED admission, not merely one that exists.
+     *
+     * This matched on `hospitalizationId` being set, which a discharged patient
+     * keeps forever — so the tile read 1 Inpatient while the Inpatient page
+     * showed none (user, 2026-08-19: "no inpatient … but here 1"). Prod visit
+     * 151 was the culprit: still IN_PROGRESS, but its admission was discharged
+     * on 18 Aug. The visit is still open work; it is just no longer inpatient
+     * work, and the Consultation tile already counts it.
+     */
+    match: (v: Visit) =>
+      (!!v.hospitalizationId && v.hospitalizationStatus !== 'DISCHARGED' && v.hospitalizationStatus !== 'CANCELLED')
+      || hasCategory(v, 'inpatient', 'hospital'),
   },
   {
     // No dedicated consultations page — the visits list IS that view.

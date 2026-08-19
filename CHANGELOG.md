@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: three views disagreed about the same open visits  —  2026-08-19
+🟢 **Record impact: display only.** Two reads corrected; nothing about how a visit is stored changed.
+Reported as one confusion across three screens on prod clinic 3, which has **6 visits still
+`IN_PROGRESS`, every one of them dated before today** (18 Jul – 18 Aug):
+- **Dashboard said 1 Inpatient, the Inpatient page said 0.** The tile matched on `hospitalizationId`
+  being set — which a discharged patient keeps forever. Visit 151 is still open but its admission was
+  discharged on 18 Aug, so it counted as inpatient work it no longer is. It now requires a
+  **non-discharged** admission, using the new `hospitalizationStatus`. The visit is still open work;
+  the Consultation tile already counts it.
+- **Dashboard said 5 Consultations, the Visits list said "No visits".** Both were reading correctly
+  and disagreeing anyway: the strip counts *in range **or** still open*, while the list filtered on
+  date alone — and its default window is **today → 2099**, which excludes every one of those six.
+  The list now keeps a still-open visit whatever day it began on
+  (user: *"show open and ones for only today too"*).
+- ⚠️ Only when the window **reaches today**. Looking back at a finished month should show that month,
+  not leak the currently-open cases into it — the same guard the dashboard strip already used.
+- ⚠️ `DataContext`'s mapper had to copy the two new status fields explicitly; a field it does not
+  name is dropped before any view sees it.
+- **Data dependency:** the matching backend commit (`boardingStayStatus` / `hospitalizationStatus` on
+  the appointment response). Ship them together — without it the status reads `null` and, since null
+  is not `'DISCHARGED'`, the Inpatient tile would keep counting discharged patients.
+
 ### fix: boarding items now sit under the round they were logged in  —  2026-08-19
 🟢 **Record impact: display only.** Nothing about how an item is recorded, priced or deducted changed.
 - **Items printed in one lump at the foot of the day.** A day with a morning and an evening feed

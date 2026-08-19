@@ -112,11 +112,26 @@ const VisitsListView: React.FC<Props> = ({
   const filtered = useMemo(() => {
     const startStr = dateRange.start ? toClinicDateStr(new Date(dateRange.start)) : null;
     const endStr = dateRange.end ? toClinicDateStr(new Date(dateRange.end)) : null;
+    /**
+     * A STILL-OPEN visit is today's work whatever day it began on.
+     *
+     * The default window is today→2099, so six visits left IN_PROGRESS between
+     * 18 Jul and 18 Aug all fell outside it and the list read "No visits" —
+     * while the dashboard, which already counts open-or-in-range, showed five
+     * consultations (user, 2026-08-19: "1 and visit 5 but 0 for today … show
+     * open and ones for only today too").
+     *
+     * Only when the window actually REACHES today: looking back at a finished
+     * month should show that month, not leak the currently-open cases into it.
+     */
+    const todayStr = toClinicDateStr(new Date());
+    const windowCoversToday = (!startStr || startStr <= todayStr) && (!endStr || endStr >= todayStr);
     return appointments
       .filter(appt => {
         const s = toClinicDateStr(new Date(appt.date));
-        if (startStr && s < startStr) return false;
-        if (endStr && s > endStr) return false;
+        const stillOpen = appt.status === ApptStatus.IN_PROGRESS && windowCoversToday;
+        if (!stillOpen && startStr && s < startStr) return false;
+        if (!stillOpen && endStr && s > endStr) return false;
         if (activeTab !== 'ALL' && appt.status !== activeTab) return false;
         if (searchQuery) {
           const q = searchQuery.toLowerCase();

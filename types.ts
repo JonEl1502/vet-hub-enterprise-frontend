@@ -586,6 +586,13 @@ export interface Visit {
   // Reverse links to the program record this appointment anchors.
   boardingStayId?: string | null;
   hospitalizationId?: string | null;
+  /**
+   * Whether that admission / stay is still RUNNING. The id outlives the
+   * discharge, so anything asking "is this patient in a kennel or a cage right
+   * now" must read the status, not the presence of an id.
+   */
+  boardingStayStatus?: string | null;
+  hospitalizationStatus?: string | null;
   tasks: ApptTask[];
   totalCost: number;
   isPaid: boolean;
