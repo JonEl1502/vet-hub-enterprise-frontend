@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: one card per procedure, with its actions on it  —  2026-08-18
+🟢 **Record impact: UI only.**
+- ⚠️ **The same procedure rendered TWICE** — a thin draft row with an × at the top, and the full card
+  below carrying its stages, warnings, price and its own edit / delete / re-evaluate. The screenshot
+  showed "Deworming (Dog)" three times over, with its actions split across two places
+  (user, 2026-08-18: *"this ui is confusing… in one card delete edit etc in the same card"*).
+- The thin list is now only for procedures with **no application behind them** — a draft entry typed
+  before it was applied, which has no card and would otherwise be unreachable. Everything applied
+  lives in one card with everything you can do to it.
+- The card's delete also treats **404 as already-removed** and reloads, matching the draft list — a
+  stale card could otherwise only be dismissed by a button that always failed.
+
+
 ### fix: removing an already-deleted procedure, and a search that would not close  —  2026-08-18
 🟢 **Record impact: UI only.**
 - ⚠️ **A 404 on remove now clears the row.** The wizard draft keeps its own list of applied

@@ -666,9 +666,21 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
             selectable — picking one APPLIES the recipe to this visit (fees +
             products land on the bill). No match → create it on the Procedures
             page (opens in a new tab so this visit stays put). */}
-        {procRows.length > 0 && (
+        {/* ⚠️ ONE CARD PER PROCEDURE (user, 2026-08-18: "this ui is confusing…
+            in one card delete edit etc in the same card").
+            
+            An APPLIED procedure already renders below as a full card carrying
+            its stages, its warnings, its price and its own edit / delete /
+            re-evaluate. Listing it again up here as a thin row with a second ×
+            showed the same procedure twice — the screenshot had "Deworming
+            (Dog)" three times over — and split its actions across two places.
+            
+            So this list is now ONLY for procedures with no application behind
+            them: a draft entry typed before it was applied, which has no card
+            and would otherwise be unreachable. */}
+        {procRows.filter(p => !p.applicationId).length > 0 && (
           <div className="space-y-1.5">
-            {procRows.map((p, i) => (
+            {procRows.map((p, i) => p.applicationId ? null : (
               <div key={i} className="flex items-center justify-between gap-2 px-2.5 py-2 bg-slate-50 dark:bg-zinc-950/40 rounded-lg">
                 <span className="min-w-0 text-xs font-bold text-pine dark:text-zinc-100 truncate">{p.name}</span>
                 {p.total != null && <span className="shrink-0 text-[10px] font-black text-slate-500 dark:text-zinc-400">{p.total.toLocaleString()}</span>}

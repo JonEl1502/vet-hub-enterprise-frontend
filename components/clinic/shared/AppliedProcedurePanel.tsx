@@ -139,7 +139,18 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
     try {
       const res = await procedureTemplatesAPI.removeApplication(app.id);
       if (res.success) { toast.success('Procedure removed — lines deleted'); await load(); onChanged?.(); }
-    } catch (e: any) { toast.error(e?.message || 'Failed to remove'); }
+    } catch (e: any) {
+      // 404 = already gone, which is the state that was asked for. Reload so
+      // the card disappears instead of reporting a failure to reach where we
+      // already are (same rule as the draft list — 2026-08-18).
+      if (e?.response?.status === 404) {
+        toast.success('That procedure was already removed');
+        await load();
+        onChanged?.();
+      } else {
+        toast.error(e?.response?.data?.message || e?.message || 'Failed to remove');
+      }
+    }
     finally { setBusy(null); }
   };
 
