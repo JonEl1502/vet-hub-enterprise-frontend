@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the procedure card says what it assumed  —  2026-08-19
+🟢 **Record impact: display only.**
+- A blue banner names any line dosed on an assumed weight: *"No patient weight recorded — dosed at
+  1 kg (0.1). Set the weight and re-evaluate to correct it."*
+- ⚠️ Shown SEPARATELY from skipped-item warnings because the action differs: a skip needs the line
+  adding, an assumption needs a number correcting and a re-evaluate — which the card already offers.
+
+
 ### fix: one card per procedure, with its actions on it  —  2026-08-18
 🟢 **Record impact: UI only.**
 - ⚠️ **The same procedure rendered TWICE** — a thin draft row with an × at the top, and the full card

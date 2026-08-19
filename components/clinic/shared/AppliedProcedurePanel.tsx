@@ -360,6 +360,20 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
                 </div>
               )}
 
+              {/* ASSUMED, not skipped — the line IS billed, on a guessed input
+                  (2026-08-19). Shown separately from skips because the action is
+                  different: a skip needs the line adding, an assumption needs a
+                  number correcting and a re-evaluate. */}
+              {((app.snapshot as any)?.assumptions ?? []).length > 0 && (
+                <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-2.5 space-y-0.5">
+                  {((app.snapshot as any).assumptions as any[]).map((a, i) => (
+                    <p key={i} className="flex items-start gap-1.5 text-[10px] font-bold text-sky-700 dark:text-sky-400">
+                      <Calculator size={11} className="mt-0.5 shrink-0" /> {a.name}: {a.reason}
+                    </p>
+                  ))}
+                </div>
+              )}
+
               {/* Skipped warnings */}
               {(app.skippedItems ?? []).length > 0 && (
                 <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-2.5 space-y-0.5">
