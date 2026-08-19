@@ -135,7 +135,7 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
       {scopeId != null && <ConversionPulse scopeId={scopeId} range={range} />}
 
       {/* Same strip every role sees: what the clinic is doing right now. */}
-      <WorkInProgressStrip visits={visits} range={range} onOpen={(view) => onNavigate?.(view)} />
+      <WorkInProgressStrip visits={visits} range={range} onOpen={(view, params) => onNavigate?.(view, params)} />
 
       {/* Row 1 — the day. Row 2 — the money and what needs chasing. */}
       <StatRow stats={[

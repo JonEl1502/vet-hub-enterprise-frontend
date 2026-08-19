@@ -112,7 +112,7 @@ const RoleDashboard: React.FC<Props> = ({ onNavigate }) => {
       />
 
       {/* Shared across every role: what the clinic is doing right now. */}
-      <WorkInProgressStrip visits={visits} range={range} onOpen={(view) => onNavigate?.(view)} />
+      <WorkInProgressStrip visits={visits} range={range} onOpen={(view, params) => onNavigate?.(view, params)} />
 
       {view}
     </div>

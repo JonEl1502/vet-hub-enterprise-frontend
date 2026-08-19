@@ -71,10 +71,15 @@ Reported as one confusion across three screens on prod clinic 3, which has **6 v
 - **Dashboard said 5 Consultations, the Visits list said "No visits".** Both were reading correctly
   and disagreeing anyway: the strip counts *in range **or** still open*, while the list filtered on
   date alone — and its default window is **today → 2099**, which excludes every one of those six.
-  The list now keeps a still-open visit whatever day it began on
-  (user: *"show open and ones for only today too"*).
-- ⚠️ Only when the window **reaches today**. Looking back at a finished month should show that month,
-  not leak the currently-open cases into it — the same guard the dashboard strip already used.
+- **The fix is an open-visits MODE, not an exception to the date filter.** New **Open visits** chip on
+  the Visits list shows every unfinished visit (`IN_PROGRESS` / `SCHEDULED` / `PENDING_PAYMENT`) at
+  any date, and the date picker greys out while it is on because it genuinely is not being applied.
+  Clicking a dashboard work-in-progress tile lands you in it — those counts include earlier days, so
+  the page they open must not hide them again.
+- ⚠️ **The first attempt merged open visits into the normal date-filtered list, and that was wrong.**
+  A filter reading "Aug 19 – Today" listing July visits reads as a broken date picker, which is
+  exactly how it landed (user: *"filter is for today but visits are past"*). The date range is now
+  either obeyed exactly or openly ignored — never half-applied.
 - ⚠️ `DataContext`'s mapper had to copy the two new status fields explicitly; a field it does not
   name is dropped before any view sees it.
 - **Data dependency:** the matching backend commit (`boardingStayStatus` / `hospitalizationStatus` on

@@ -30,6 +30,12 @@ interface Props {
   onViewDetails?: (id: number) => void;
   onEditAppointment?: (id: number) => void;
   onDeleteAppointment?: (id: number) => Promise<void>;
+  /**
+   * Land in open-visits mode — set when arriving from a dashboard
+   * work-in-progress tile, whose counts include visits opened on earlier days.
+   * Without it the tile said 5 and the list it opened said none.
+   */
+  initialOpenOnly?: boolean;
 }
 
 const VisitsListView: React.FC<Props> = ({
@@ -42,7 +48,8 @@ const VisitsListView: React.FC<Props> = ({
   onProcessPayment,
   onViewDetails,
   onEditAppointment,
-  onDeleteAppointment
+  onDeleteAppointment,
+  initialOpenOnly
 }) => {
   const { user } = useAuth();
   const canCreateVisit = userCan(user, 'create_appointments');
@@ -108,30 +115,43 @@ const VisitsListView: React.FC<Props> = ({
     return `${y}-${m}-${day}`;
   };
 
+  /**
+   * OPEN-VISITS MODE — every unfinished visit, at any date.
+   *
+   * A visit left IN_PROGRESS is still work whatever day it began on, and the
+   * default window (today→2099) hides all of them: six open since 18 Jul – 18
+   * Aug left the list reading "No visits" while the dashboard showed five.
+   *
+   * ⚠️ It is a MODE, not a quiet exception to the date filter. Merging those
+   * rows into a normal date-filtered list was the first attempt, and a filter
+   * reading "Aug 19 – Today" listing July visits reads as a broken date picker
+   * (user, 2026-08-19: "filter is for today but visits are past"). So the date
+   * filter is either obeyed exactly or openly ignored — never half-applied.
+   * Entered by clicking a dashboard work-in-progress tile, or the chip here.
+   */
+  const [openOnly, setOpenOnly] = useState(!!initialOpenOnly);
+  const OPEN_STATUSES: ApptStatus[] = [
+    ApptStatus.IN_PROGRESS, ApptStatus.SCHEDULED, ApptStatus.PENDING_PAYMENT,
+  ];
+  const openCount = useMemo(
+    () => appointments.filter(a => OPEN_STATUSES.includes(a.status)).length,
+    [appointments],
+  );
+
   // Client-side filtering
   const filtered = useMemo(() => {
     const startStr = dateRange.start ? toClinicDateStr(new Date(dateRange.start)) : null;
     const endStr = dateRange.end ? toClinicDateStr(new Date(dateRange.end)) : null;
-    /**
-     * A STILL-OPEN visit is today's work whatever day it began on.
-     *
-     * The default window is today→2099, so six visits left IN_PROGRESS between
-     * 18 Jul and 18 Aug all fell outside it and the list read "No visits" —
-     * while the dashboard, which already counts open-or-in-range, showed five
-     * consultations (user, 2026-08-19: "1 and visit 5 but 0 for today … show
-     * open and ones for only today too").
-     *
-     * Only when the window actually REACHES today: looking back at a finished
-     * month should show that month, not leak the currently-open cases into it.
-     */
-    const todayStr = toClinicDateStr(new Date());
-    const windowCoversToday = (!startStr || startStr <= todayStr) && (!endStr || endStr >= todayStr);
     return appointments
       .filter(appt => {
         const s = toClinicDateStr(new Date(appt.date));
-        const stillOpen = appt.status === ApptStatus.IN_PROGRESS && windowCoversToday;
-        if (!stillOpen && startStr && s < startStr) return false;
-        if (!stillOpen && endStr && s > endStr) return false;
+        if (openOnly) {
+          // Date deliberately not consulted — that is the whole point of the mode.
+          if (!OPEN_STATUSES.includes(appt.status)) return false;
+        } else {
+          if (startStr && s < startStr) return false;
+          if (endStr && s > endStr) return false;
+        }
         if (activeTab !== 'ALL' && appt.status !== activeTab) return false;
         if (searchQuery) {
           const q = searchQuery.toLowerCase();
@@ -152,10 +172,10 @@ const VisitsListView: React.FC<Props> = ({
         // Within same group: descending by date (future/latest first)
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
-  }, [appointments, dateRange, activeTab, searchQuery]);
+  }, [appointments, dateRange, activeTab, searchQuery, openOnly]);
 
   // Reset page when filters change
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, activeTab, dateRange]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, activeTab, dateRange, openOnly]);
 
   // Client-side pagination (list view only; calendar gets all filtered)
   const paginatedAppointments = useMemo(() => {
@@ -254,12 +274,32 @@ const VisitsListView: React.FC<Props> = ({
             mobile stacks them. The status select stays compact instead of
             stretching the row. */}
         <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2">
-          <DateRangePicker
-            value={dateRange}
-            onChange={handleDateRangeChange}
-            className="flex-1 sm:flex-none"
-            buttonClassName="w-full sm:w-auto justify-between"
-          />
+          {/* Greyed while open-visits mode is on — the dates genuinely are not
+              being applied, and leaving the control looking live is what made
+              the list read as a broken picker. */}
+          <div className={openOnly ? 'opacity-40 pointer-events-none flex-1 sm:flex-none' : 'flex-1 sm:flex-none'}
+            title={openOnly ? 'Date range is ignored while showing open visits' : undefined}>
+            <DateRangePicker
+              value={dateRange}
+              onChange={handleDateRangeChange}
+              buttonClassName="w-full sm:w-auto justify-between"
+            />
+          </div>
+          {/* Open visits, any date (user, 2026-08-19: "if click to show
+              open/non-complete visits thats when you can show them and date
+              filter must be ignored"). */}
+          <button
+            type="button"
+            onClick={() => setOpenOnly(v => !v)}
+            title={openOnly
+              ? 'Showing every unfinished visit, ignoring the date range'
+              : 'Show every unfinished visit, at any date'}
+            className={`w-full sm:w-auto px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-colors ${openOnly
+              ? 'bg-amber-500 text-white border-amber-500'
+              : 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 border-slate-200 dark:border-zinc-700 hover:border-amber-400'}`}
+          >
+            Open visits{openCount > 0 ? ` · ${openCount}` : ''}
+          </button>
           <select
             value={activeTab}
             onChange={(e) => setActiveTab(e.target.value as any)}

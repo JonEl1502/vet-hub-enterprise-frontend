@@ -18,7 +18,7 @@ interface Props {
    * argument and send every card to `appointments`, which is what made the
    * strip feel dead — five different cards, one destination.
    */
-  onOpen?: (view: string) => void;
+  onOpen?: (view: string, params?: any) => void;
   /** Day the dashboard is pointed at. Omitted = today (user, 2026-08-04). */
   range?: DayRange;
 }
@@ -106,10 +106,15 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
           const done = mine.filter(v =>
             v.status === ApptStatus.COMPLETED || v.status === ApptStatus.PENDING_PAYMENT).length;
           const Tag: any = onOpen ? 'button' : 'div';
+          // These counts include visits opened on EARLIER days, so the page they
+          // open must not then hide them behind a today-onwards date filter —
+          // the tile said 5 and the list it opened said none (user,
+          // 2026-08-19). `openOnly` tells the visits list to ignore dates and
+          // show every unfinished visit.
           return (
             <Tag
               key={b.key}
-              {...(onOpen ? { type: 'button', onClick: () => onOpen(b.view), title: `Open ${b.label}` } : {})}
+              {...(onOpen ? { type: 'button', onClick: () => onOpen(b.view, { openOnly: true }), title: `Open ${b.label}` } : {})}
               className={`rounded-2xl border border-slate-100 dark:border-zinc-800 p-3 text-left transition-all ${
                 onOpen ? 'hover:border-seafoam cursor-pointer' : ''
               }`}
