@@ -175,7 +175,12 @@ const CLINIC_ITEMS: MenuItem[] = [
       { id: 'procedures',       label: 'Procedures',       icon: ClipboardList },
       { id: 'clinic-billables', label: 'Billables',        icon: CircleDollarSign },
       { id: 'workflows',        label: 'Visit Workflows',  icon: Workflow },
-      { id: 'vaccine-packages', label: 'Vaccine Packages', icon: Syringe },
+      // Access removed on request (user, 2026-08-20). COMMENTED, not deleted:
+      // the `vaccine-packages` route and `VaccinePackagesView` are untouched, so
+      // existing deep links and the `vaccinations` record page — which lists
+      // this as its sidebar parent (navParent.ts) — keep working. Restore by
+      // uncommenting this line; nothing else has to change.
+      // { id: 'vaccine-packages', label: 'Vaccine Packages', icon: Syringe },
       { id: 'service-bundles',  label: 'Service Bundles',  icon: Layers },
       { id: 'purchase-orders',  label: 'Purchase Orders',  icon: ShoppingCart },
       { id: 'payables',         label: 'Payables',         icon: CircleDollarSign },

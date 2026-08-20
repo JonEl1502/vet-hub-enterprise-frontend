@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: Vaccine Packages removed from the sidebar  —  2026-08-20
+🟢 **Record impact: none** — navigation only; no data, no route, no component removed.
+- The **Inventory & Suppliers → Vaccine Packages** entry is gone from the sidebar on request
+  (user, 2026-08-20).
+- ⚠️ **Commented, not deleted.** The `vaccine-packages` route and `VaccinePackagesView` are untouched,
+  so existing deep links still resolve — and the **`vaccinations` record page names
+  `vaccine-packages` as its sidebar parent** (`navParent.ts`), which would break if the route went.
+  The `Syringe` import is deliberately left in place so restoring is a one-line uncomment.
+
 ### tweak: Meds & Consumables is a two-column grid  —  2026-08-20
 🟢 **Record impact: none.**
 - A surgical visit runs to 19 rows and each one is short, so a single column made a long scroll out of
