@@ -2867,7 +2867,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         }
         return <InpatientChartPage hospId={String(chartHospId)} onBack={goBack} onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} />;
       }
-      case 'grooming': return <GroomingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onNew={() => navigateTo('new-appointment', { initialEncounterType: 'GROOMING' })} openForAppointmentId={currentNav.params?.openForAppointmentId} />;
+      case 'grooming': return <GroomingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onNew={() => navigateTo('new-appointment', { initialEncounterType: 'GROOMING' })} openForAppointmentId={currentNav.params?.openForAppointmentId} onOpenBoarding={(stayId) => navigateTo('boarding-stay', { stayId })} onOpenInpatient={(hospId) => navigateTo('inpatient-chart', { hospId })} />;
       case 'vaccinations': {
         // Per-visit vaccination records + certificate full page (opened from
         // the visit workflow's module chips — not a sidebar item).

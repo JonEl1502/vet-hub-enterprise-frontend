@@ -17,14 +17,41 @@ interface Props {
   onChanged: () => void;
   // Jump to the visit workflow (finalize + settle live there).
   onOpenAppointment?: (appointmentId: string, settle?: boolean) => void;
+  /** Jump back to the record this grooming was spawned from. */
+  onOpenBoarding?: (stayId: string) => void;
+  onOpenInpatient?: (hospId: string) => void;
 }
+
+/**
+ * WHERE THIS GROOMING CAME FROM.
+ *
+ * Grooming is rarely booked on its own — it is added during a boarding stay, an
+ * admission, or a vet visit, and once you are on the grooming page there was
+ * nothing saying which, or any way back to it (user, 2026-08-20: "in grooming we
+ * can show where the grooming services were spawned from").
+ *
+ * Derived from the visit rather than stored: the visit already knows its
+ * encounter type and carries the reverse links to the stay/admission it anchors,
+ * so there is no new column to keep in step with reality.
+ */
+const originOf = (v: Visit): { label: string; kind: 'boarding' | 'inpatient' | 'visit'; id?: string } => {
+  const hosp = (v as any).hospitalizationId;
+  const hospLive = hosp && (v as any).hospitalizationStatus !== 'DISCHARGED' && (v as any).hospitalizationStatus !== 'CANCELLED';
+  if ((v as any).boardingStayId) return { label: 'From boarding', kind: 'boarding', id: String((v as any).boardingStayId) };
+  if (hospLive) return { label: 'From inpatient', kind: 'inpatient', id: String(hosp) };
+  const t = String((v as any).encounterType ?? '').toUpperCase();
+  if (t === 'VACCINATION') return { label: 'From vaccination', kind: 'visit' };
+  if (t === 'GROOMING') return { label: 'From direct visit', kind: 'visit' };
+  if (t === 'BOARDING') return { label: 'From boarding', kind: 'visit' };
+  return { label: 'From vet visit', kind: 'visit' };
+};
 
 /**
  * Full-page grooming record — replaces the slide-over drawer so the report
  * card (intake, before/after photos, groomer notes, consumables) has proper
  * space. Same drawer→page migration as Lab and Imaging.
  */
-const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChanged, onOpenAppointment }) => {
+const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChanged, onOpenAppointment, onOpenBoarding, onOpenInpatient }) => {
   // Terminal actions the report panel owns (Save report · Checkout). It holds
   // the handlers and the dirty/saving state; this page holds the bar. Empty
   // until the panel registers, so the bar simply renders without them.
@@ -93,11 +120,19 @@ const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChang
         title={<><Dog size={16} /> {pet?.name ?? appointment.pet?.name ?? 'Patient'}</>}
         condensedMeta={pet?.species ?? ''}
         subtitle={`${pet?.breed ? `${pet.breed} · ` : ''}${pet?.species ?? ''}${owner?.name ? ` · Owner: ${owner.name}` : ''}`}
-        right={
+        right={<>
+          {(() => {
+            const o = originOf(appointment);
+            return (
+              <span className="px-2.5 py-1 rounded-lg bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
+                {o.label}
+              </span>
+            );
+          })()}
           <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${STATUS_STYLE[displayStatus]}`}>
             {STATUS_LABEL[displayStatus]}
           </span>
-        }
+        </>}
       />
 
       {/* TWO COLUMNS, matching the inpatient chart and boarding stay
@@ -212,6 +247,21 @@ const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChang
             primary: a.primary,
             disabled: a.disabled,
           })),
+          // Back to the stay/admission this came from — so checkout can end
+          // where the work actually continues (user, 2026-08-20: "so I can
+          // checkout and go back to boarding/inpatient or go to billing tab").
+          ...(() => {
+            const o = originOf(appointment);
+            if (o.kind === 'boarding' && o.id && onOpenBoarding) {
+              return [{ key: 'origin', label: 'Back to boarding', icon: ExternalLink, tone: 'seafoam' as const,
+                onClick: () => onOpenBoarding(o.id!) }];
+            }
+            if (o.kind === 'inpatient' && o.id && onOpenInpatient) {
+              return [{ key: 'origin', label: 'Back to inpatient', icon: ExternalLink, tone: 'seafoam' as const,
+                onClick: () => onOpenInpatient(o.id!) }];
+            }
+            return [];
+          })(),
           ...(appointment.id != null && onOpenAppointment ? [{
             key: 'linked', label: 'Linked appointment', icon: ExternalLink, tone: 'seafoam' as const,
             onClick: () => onOpenAppointment(String(appointment.id), false),

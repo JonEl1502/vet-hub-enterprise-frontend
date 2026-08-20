@@ -13,6 +13,9 @@ interface Props {
   onOpenAppointment?: (appointmentId: string, settle?: boolean) => void;
   onNew?: () => void;
   openForAppointmentId?: string;
+  /** Back to the stay/admission a grooming was spawned from. */
+  onOpenBoarding?: (stayId: string) => void;
+  onOpenInpatient?: (hospId: string) => void;
 }
 
 const STATUS_STYLE: Record<string, string> = {
@@ -29,7 +32,7 @@ const STATUSES = [
   { value: 'COMPLETED', label: 'Completed' },
 ];
 
-const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppointmentId }) => {
+const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppointmentId, onOpenBoarding, onOpenInpatient }) => {
   const { appointments, pets, clients, refreshAppointments } = useData() as any;
   const [status, setStatus] = useState('all');
   const [search, setSearch] = useState('');
@@ -78,6 +81,8 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
         onBack={() => setOpenId(null)}
         onChanged={() => { refreshAppointments?.(); }}
         onOpenAppointment={onOpenAppointment}
+        onOpenBoarding={onOpenBoarding}
+        onOpenInpatient={onOpenInpatient}
       />
     );
   }

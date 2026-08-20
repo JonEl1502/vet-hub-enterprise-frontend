@@ -59,6 +59,33 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: boarding care log, new-visit picker, and where a grooming came from  —  2026-08-20
+🟢 **Record impact: display only**, except the boarding refresh fix (a read, not a write).
+Nine items reported off one boarding stay on mobile. Spec: `docs/HANDOFF_2026-08-20.md`.
+- ⚠️ **"Nothing added" and "can't see it till I save" were ONE bug, and the item HAD been added.**
+  The consumables effect depended on `[appointmentId, dailyLogs.length]`; logging an item changes
+  neither, so the row was written and the page kept the list it fetched before it. Prod visit 161
+  holds **two** Beef & Carrot rows stamped 16:11 — one per click, because the first looked like it
+  failed. A `consRefresh` counter now covers log and remove.
+- ⚠️ The per-entry editor passed a **composite `dayKey`** (`"2026-08-14#123"`) to `ConsumablePicker`,
+  which its day filter can never match. `openDayEditor`/`saveDayDraft` already stripped the `#`; the
+  picker did not.
+- **Pet gender** on the boarding header, and **two collapsibles** — stay details, and actions &
+  charges — each keeping its headline figure (day/kennel, accruing total) visible while closed.
+- **New Visit patient tiles** show name · gender · breed · species; species alone did not tell three
+  cats from one owner apart. **Add patient** moved below the list, where it stops competing with the
+  patients and stops moving as the pet count changes.
+- **Gate Check flattened** — it was three nested bordered cards before the first field. `Section`,
+  `BoardingIntakeFields` and `AdmissionGate` take `flat` now.
+- **Grooming says where it came from** — *From boarding / inpatient / vaccination / vet visit /
+  direct visit* — and offers **Back to boarding / Back to inpatient** beside Linked appointment and
+  Go to billing, so checkout ends where the work continues.
+- ⚠️ The origin is **derived** from the visit's encounter type and its reverse links, not stored —
+  no new column to fall out of step. The consequence is that it cannot say **which care-log DAY** a
+  grooming was added on; that part of the request needs a stored field and is **not done**.
+- **Data dependency:** None.
+
+
 ### fix: "Add procedure" beside "Add item"; profit counted a shelf in the wrong unit  —  2026-08-20
 🟢 **Record impact: display + UI.** No write path changed.
 - ⚠️ **The profit readout under-read a whole shelf by the pack factor.** "Quantity to add" is in STOCK
