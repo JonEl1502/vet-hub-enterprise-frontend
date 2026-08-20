@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ClipboardList, Loader2, Trash2, Check, Zap, AlertTriangle, Plus, Calculator, ChevronDown, ChevronRight, Pencil } from 'lucide-react';
+import { ClipboardList, Loader2, Trash2, Check, Zap, AlertTriangle, Plus, Calculator, ChevronDown, ChevronRight, Pencil, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { procedureTemplatesAPI, consumablesAPI, ProcedureApplication, ProcedureTemplate, dialog } from '../../../services';
 import QtyUnitControl from './QtyUnitControl';
@@ -24,6 +24,13 @@ interface Props {
    * performed).
    */
   refreshKey?: string | number;
+  /**
+   * Controlled picker. When provided, the recipe search is OPENED FROM OUTSIDE —
+   * the "Add procedure" button beside "Add item" on the bill — instead of the
+   * panel carrying a permanently-visible dropdown of its own.
+   */
+  pickerOpen?: boolean;
+  onPickerOpenChange?: (open: boolean) => void;
 }
 
 /**
@@ -32,7 +39,7 @@ interface Props {
  * lines, recommended (optional) diagnostics to tick on, skipped-item
  * warnings, and a weight/flags re-quote. All mutations are pre-settle only.
  */
-const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLocked = false, currency = 'KES', onChanged, refreshKey }) => {
+const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLocked = false, currency = 'KES', onChanged, refreshKey, pickerOpen, onPickerOpenChange }) => {
   const [apps, setApps] = useState<ProcedureApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -257,26 +264,96 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
     return templates;
   }, [templates, apps.length, taskId]);
 
+  // ── Recipe search ─────────────────────────────────────────────────────────
+  const [tplSearch, setTplSearch] = useState('');
+  const [tplOpenLocal, setTplOpenLocal] = useState(false);
+  const controlled = pickerOpen !== undefined;
+  const tplOpen = controlled ? !!pickerOpen : tplOpenLocal;
+  const setTplOpen = (v: boolean) => { if (controlled) onPickerOpenChange?.(v); else setTplOpenLocal(v); };
+  const pickerRef = React.useRef<HTMLDivElement>(null);
+  const closePicker = React.useCallback(() => { setTplOpen(false); setTplSearch(''); }, []);
+  const tplMatches = useMemo(() => {
+    const q = tplSearch.trim().toLowerCase();
+    if (!q) return applicable;
+    return applicable.filter(t => t.name.toLowerCase().includes(q));
+  }, [applicable, tplSearch]);
+
+  /**
+   * Close on any click outside the picker (user, 2026-08-20: "click outside to
+   * always close search drpdwns"). `mousedown` matches the option buttons' own
+   * handler order, and the `contains` guard keeps picking one working.
+   */
+  useEffect(() => {
+    if (!tplOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (pickerRef.current && !pickerRef.current.contains(e.target as Node)) closePicker();
+    };
+    document.addEventListener('mousedown', onDown);
+    return () => document.removeEventListener('mousedown', onDown);
+  }, [tplOpen, closePicker]);
+
   if (loading && apps.length === 0) {
     return <div className="flex items-center justify-center py-4"><Loader2 size={16} className="animate-spin text-seafoam" /></div>;
   }
-  if (apps.length === 0 && (applicable.length === 0 || billLocked)) return null;
+  /**
+   * Controlled: the picker is summoned by the "Add procedure" button, so the
+   * panel shows nothing at all until there is either an applied recipe to render
+   * or an explicit request to pick one. Uncontrolled keeps the old behaviour.
+   */
+  const showPicker = !billLocked && applicable.length > 0 && (controlled ? tplOpen : apps.length === 0);
+  if (apps.length === 0 && !showPicker) return null;
 
   return (
     <div className="space-y-3">
-      {/* Manual apply */}
-      {!billLocked && applicable.length > 0 && apps.length === 0 && (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 flex items-center gap-2">
-          <ClipboardList size={15} className="text-teal-500 shrink-0" />
-          <select
-            disabled={applying}
-            value=""
-            onChange={e => applyTemplate(e.target.value)}
-            className="flex-1 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam disabled:opacity-50">
-            <option value="">{applying ? 'Applying…' : 'Apply a procedure recipe…'}</option>
-            {applicable.map(t => <option key={t.id} value={t.id}>{t.name} · est. {currency} {t.estimatedTotal.toLocaleString()}</option>)}
-          </select>
-          {applying && <Loader2 size={15} className="animate-spin text-seafoam" />}
+      {/* Manual apply — a SEARCH, not a native select.
+          A raw <select> listed every recipe in one unfiltered column with no way
+          to narrow it and no way out but picking something, and two recipes
+          sharing a name were indistinguishable (user, 2026-08-20: "shouldnt this
+          drpdwn be just same as" the add-item search). This matches that: type
+          to filter, click outside or Cancel to leave. */}
+      {showPicker && (
+        <div ref={pickerRef} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 space-y-2">
+          <div className="flex items-center gap-2">
+            <ClipboardList size={15} className="text-teal-500 shrink-0" />
+            <input
+              value={tplSearch}
+              disabled={applying}
+              onFocus={() => setTplOpen(true)}
+              onChange={e => { setTplSearch(e.target.value); setTplOpen(true); }}
+              placeholder={applying ? 'Applying…' : 'Apply a procedure recipe…'}
+              className="flex-1 min-w-0 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam disabled:opacity-50"
+            />
+            {applying && <Loader2 size={15} className="animate-spin text-seafoam" />}
+            {(tplOpen || tplSearch) && !applying && (
+              <button type="button" onClick={closePicker} title="Close"
+                className="shrink-0 p-1.5 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          {tplOpen && !applying && (
+            <div className="max-h-64 overflow-y-auto custom-scrollbar rounded-xl border border-slate-100 dark:border-zinc-800 divide-y divide-slate-100 dark:divide-zinc-800">
+              {tplMatches.length === 0 ? (
+                <p className="px-3 py-3 text-[11px] font-bold text-slate-400">
+                  {tplSearch.trim() ? `Nothing matching "${tplSearch.trim()}"` : 'No recipes yet.'}
+                </p>
+              ) : tplMatches.map(t => (
+                <button key={t.id} type="button"
+                  onClick={() => { closePicker(); applyTemplate(t.id); }}
+                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-seafoam/5 transition-colors">
+                  <Plus size={12} className="text-teal-500 shrink-0" />
+                  <span className="flex-1 min-w-0 text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{t.name}</span>
+                  <span className="shrink-0 text-[10px] font-black text-slate-400">est. {currency} {t.estimatedTotal.toLocaleString()}</span>
+                </button>
+              ))}
+            </div>
+          )}
+          {tplOpen && !applying && (
+            <button type="button" onClick={closePicker}
+              className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-pine dark:hover:text-zinc-100 px-1">
+              Cancel
+            </button>
+          )}
         </div>
       )}
 

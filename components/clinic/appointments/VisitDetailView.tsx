@@ -239,6 +239,10 @@ const VisitDetailInner: React.FC<Props> = ({
   // same numbers. Lives here rather than in either component because both need
   // it and neither owns the other.
   const [liveBill, setLiveBill] = useState<Bill | null>(null);
+  // "Add procedure" sits beside "Add item" on the bill; it opens the recipe
+  // search inside AppliedProcedurePanel just below, rather than that panel
+  // carrying a permanently-visible dropdown of its own.
+  const [procPickerOpen, setProcPickerOpen] = useState(false);
   // Bumped to re-pulse the Bill tab's action when the footer sends you there.
   const [pulseBillAction, setPulseBillAction] = useState(0);
 
@@ -5764,6 +5768,7 @@ const VisitDetailInner: React.FC<Props> = ({
                          onBillChange={setLiveBill}
                          highlightAction={highlightBillAction || pulseBillAction > 0}
                          pulseNonce={pulseBillAction}
+                         onAddProcedure={() => setProcPickerOpen(true)}
                        />
                        {/* Procedure recipes applied to this visit — stage
                            checklist, optional diagnostics, weight/flags re-quote.
@@ -5775,6 +5780,8 @@ const VisitDetailInner: React.FC<Props> = ({
                          appointmentId={appointment.id}
                          billLocked={isFinalized || appointment.isPaid}
                          currency={activeClinic.currency}
+                         pickerOpen={procPickerOpen}
+                         onPickerOpenChange={setProcPickerOpen}
                          onChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); }}
                        />
                      </div>

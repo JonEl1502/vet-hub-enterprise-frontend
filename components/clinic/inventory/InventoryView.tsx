@@ -1694,6 +1694,14 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                               value={itemForm.packOf ?? ''}
                               onChange={e => setItemForm({ ...itemForm, packOf: e.target.value === '' ? undefined : Number(e.target.value) })}
                             />
+                            {/* Say so on the FORM, not just in a tooltip. Typing
+                                42 here and looking for it in the figures found
+                                nothing, because it changes nothing (user,
+                                2026-08-20: "show me how Vials per pack affects
+                                the numbers"). */}
+                            <p className="text-[9px] font-bold text-slate-400 px-1">
+                              Purchasing note only — does not affect stock, price or billing.
+                            </p>
                           </div>
                         </>
                       ) : (
@@ -1910,8 +1918,16 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 const profit = sale - perSaleUnitCost;
                 const markup = perSaleUnitCost > 0 ? (profit / perSaleUnitCost) * 100 : 0;
                 const marginPct = (profit / sale) * 100;
+                /**
+                 * ⚠️ "Quantity to add" is in STOCK units; `profit` is per SELL
+                 * unit. Multiplying them directly under-read the whole shelf by
+                 * the pack factor: 20 Vials of 50 mL at 14/mL showed "On 20 mL:
+                 * KES 280" instead of 1,000 mL worth KES 14,000 (user,
+                 * 2026-08-20). Convert first, and say both units.
+                 */
                 const qty = Number(itemForm.quantity) || 0;
-                const stockProfit = profit * qty;
+                const qtyInSell = sameUnit || !(pack > 0) ? qty : qty * pack;
+                const stockProfit = profit * qtyInSell;
                 const cur = clinic?.currency || 'KES';
                 const n = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 2 });
                 const loss = profit < 0;
@@ -1933,7 +1949,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                       </span>
                       {qty > 0 && (
                         <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
-                          On {n(qty)} {sellU}: <strong className={loss ? 'text-red-600' : 'text-pine dark:text-zinc-100'}>{cur} {n(stockProfit)}</strong>
+                          On {n(qty)} {itemForm.unit || sellU}
+                          {qtyInSell !== qty ? ` (${n(qtyInSell)} ${sellU})` : ''}
+                          : <strong className={loss ? 'text-red-600' : 'text-pine dark:text-zinc-100'}>{cur} {n(stockProfit)}</strong>
                         </span>
                       )}
                     </div>

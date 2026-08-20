@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: "Add procedure" beside "Add item"; profit counted a shelf in the wrong unit  —  2026-08-20
+🟢 **Record impact: display + UI.** No write path changed.
+- ⚠️ **The profit readout under-read a whole shelf by the pack factor.** "Quantity to add" is in STOCK
+  units while profit is per SELL unit, and they were multiplied directly: 20 Vials of 50 mL at
+  KES 14/mL showed **"On 20 mL: KES 280"** instead of 1,000 mL worth **KES 14,000** (user, 2026-08-20).
+  It converts first now and names both units — *On 20 Vials (1,000 mL)*.
+- **"Vials per pack" changes nothing, and now says so on the form.** It is a purchasing note held in
+  metadata; `packSize` — "mL in 1 Vial" — is the load-bearing bridge. Typing 42 there and looking for
+  it in the figures found nothing, because there was nothing to find (user: *"show me how Vials per
+  pack affect the numbers"*).
+- **The recipe picker is a search, not a native `<select>`.** It listed every recipe in one unfiltered
+  column with no way to narrow it and no way out but choosing something — and duplicate names were
+  indistinguishable. It now matches the add-item search: type to filter, click outside or Cancel to
+  leave, visible × to close (user: *"shouldnt this drpdwn be just same as"*, *"click outside to always
+  close search drpdwns n add a visible close btn"*).
+- **It opens from a new "Add procedure" button beside "Add item"** on the bill, rather than sitting
+  there permanently as a dropdown card (user: *"or add item next to it add procedure"*). The panel now
+  renders nothing at all when the visit has no applied recipe and none is being picked.
+- ⚠️ The picker is **controlled** when `pickerOpen` is passed and self-managed otherwise, so the other
+  mount (the retired services tab) keeps its old behaviour.
+- **Data dependency:** None.
+
 ### fix: the qty unit dropdown multiplied what you typed; dispensed lines reach the rail at once  —  2026-08-20
 🟢 **Record impact: display + input.** No write path changed.
 - ⚠️ **The unit dropdown silently multiplied the quantity.** The field read **QTY (TABLET)** while the

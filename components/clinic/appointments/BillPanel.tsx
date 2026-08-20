@@ -2,7 +2,7 @@ import React from 'react';
 import toast from 'react-hot-toast';
 import {
   ReceiptText, Loader2, RefreshCw, Trash2, Plus, Search,
-  CreditCard, CheckCircle2, AlertTriangle, Lock, Unlock, Send, Layers,
+  CreditCard, CheckCircle2, AlertTriangle, Lock, Unlock, Send, Layers, ClipboardList,
 } from 'lucide-react';
 import { Visit } from '../../../types';
 import { billsAPI, invoicesAPI, dialog } from '../../../services';
@@ -45,6 +45,13 @@ interface Props {
   highlightAction?: boolean;
   /** Bump to re-fire the pulse when the page sends you here again. */
   pulseNonce?: number;
+  /**
+   * Open the procedure-recipe picker. Rendered as a button beside "Add item"
+   * because that is where the same question gets asked — this bill needs another
+   * line — and a recipe is just a line that brings its own components
+   * (user, 2026-08-20: "or add item next to it add procedure").
+   */
+  onAddProcedure?: () => void;
 }
 
 const money = (n: number, c: string) =>
@@ -65,7 +72,7 @@ const KIND_LABEL: Record<string, string> = {
   SERVICE: 'Service', CONSUMABLE: 'Consumable', MEDICATION: 'Medication', OTHER: 'Other',
 };
 
-const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange, highlightAction, pulseNonce = 0 }) => {
+const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange, highlightAction, pulseNonce = 0, onAddProcedure }) => {
   const { inventory } = useData() as any;
   const [bill, setBill] = React.useState<Bill | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -723,6 +730,13 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 disabled:opacity-40">
               <Plus size={11} /> Add item
             </button>
+            {onAddProcedure && (
+              <button type="button" onClick={onAddProcedure} disabled={busy}
+                title="Apply a procedure recipe — adds its services and products to this bill"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 disabled:opacity-40">
+                <ClipboardList size={11} /> Add procedure
+              </button>
+            )}
             <button type="button" onClick={() => run(() => billsAPI.issue(visit.id, encounterId), 'Issued — awaiting payment')} disabled={busy || bill.total <= 0}
               title="Pay-first: quote the client now and collect before the work finishes"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam text-seafoam hover:bg-seafoam/10 disabled:opacity-40">
