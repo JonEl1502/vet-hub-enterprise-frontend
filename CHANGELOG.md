@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: triage charges reached the bill but not the rail; a blocked void now points at the payment  —  2026-08-20
+🟢 **Record impact: display + navigation.** No write path changed.
+- ⚠️ **Ticking an emergency intervention logged its consumables and told nothing to reload.** Stock
+  moved and the lines landed on the bill, while the Running Bill kept the total it already had —
+  after-hours 1,000 on the rail against **5,600** on the Bill tab (user, 2026-08-20). Same shape as
+  the dispense bug a day earlier: a real charge, an unrefreshed reader. `EmergencyTriagePanel` now
+  takes **`onChargesChanged`**, wired at both mounts.
+- **"Money has already been collected against this invoice" is now a modal that leads somewhere.**
+  It named the blocker and left you to find it, on a client who may have a page of payments. It now
+  offers **Open the payment** → the client's Payments tab, with the payment that settled *this*
+  invoice **glowed and scrolled into view** (user: *"glow the borders of the payment where this
+  invoice is"*).
+- ⚠️ The match is on the payment's **`allocations[].invoiceId`** — which invoices it actually settled
+  — not on dates or amounts, so a client with several same-value payments still gets the right one.
+- **Data dependency:** None.
+
 ### feat: a billed visit offers the unlock instead of just refusing  —  2026-08-20
 🟢 **Record impact: none** — it surfaces an unlock that already existed; unlocking itself is unchanged.
 - Every procedure mutation 400s with *"This visit is already billed — the procedure lines are locked"*

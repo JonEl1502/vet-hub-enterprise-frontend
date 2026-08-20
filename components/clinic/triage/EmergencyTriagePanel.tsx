@@ -20,6 +20,16 @@ interface Props {
   // Fires after "discharge to vet visit" saves — the parent clears the
   // stabilize gate and moves the workflow on to the normal clinical flow.
   onDischarged?: () => void;
+  /**
+   * Re-fetch the visit after a charge is written.
+   *
+   * ⚠️ Ticking an intervention logs its consumables — stock moves and the line
+   * lands on the bill — but nothing here told the app to reload, so the running
+   * bill kept the total it already had while the Bill tab showed the new lines
+   * (user, 2026-08-20: after-hours 1,000 on the rail against 5,600 on the bill).
+   * Same shape as the dispense bug: a real charge, an unrefreshed reader.
+   */
+  onChargesChanged?: () => void;
   // Stabilized/de-escalated visit: the triage stays VIEWABLE as the
   // emergency's medical/legal history but can no longer be edited.
   readOnly?: boolean;
@@ -99,7 +109,7 @@ const CheckChip: React.FC<{ on: boolean; label: string; onClick: () => void }> =
   </button>
 );
 
-const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId, petName, staff, onStatusChange, onDischarged, readOnly }) => {
+const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId, petName, staff, onStatusChange, onDischarged, readOnly, onChargesChanged }) => {
   const [record, setRecord] = useState<EmergencyTriageRecord | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -191,7 +201,10 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId,
       if (b?.consumables?.length) {
         Promise.all(b.consumables.map(cn => consumablesAPI.log(appointmentId, {
           inventoryItemId: cn.inventoryItemId, quantity: cn.qty, billable: true, notes: `Emergency: ${label}`,
-        }))).then(() => toast.success(`${label} — consumables logged (stock deducted & billed)`))
+        }))).then(() => {
+          toast.success(`${label} — consumables logged (stock deducted & billed)`);
+          onChargesChanged?.();
+        })
           .catch(() => toast.error(`${label}: failed to log consumables`));
       }
     }

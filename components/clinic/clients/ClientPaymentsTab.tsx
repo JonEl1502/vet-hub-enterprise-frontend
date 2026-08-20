@@ -47,6 +47,15 @@ interface Props {
    */
   onGoTab?: (tab: string) => void;
   /**
+   * Glow the payment(s) that settled THIS invoice, and scroll to the first.
+   *
+   * Set when arriving from "Money has already been collected against this
+   * invoice" — that error named the blocker and left the user to find it, and a
+   * client with a page of payments gives no clue which one is in the way
+   * (user, 2026-08-20: "glow the borders of the payment where this invoice is").
+   */
+  highlightInvoiceId?: string | number | null;
+  /**
    * "Open this visit's invoice when you load." Set by a cross-tab jump from a
    * payment's INV reference; the row scrolls into view and expands itself.
    */
@@ -72,8 +81,15 @@ const money = (n: number, c: string) =>
 
 const fmt = (d?: string | null) => (d ? new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—');
 
-const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, onViewVisit, onChanged, only, petId, clientName, clientPhone, onGoTab, focusVisitId, focusReceiptNumber }) => {
+const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, onViewVisit, onChanged, only, petId, clientName, clientPhone, onGoTab, focusVisitId, focusReceiptNumber, highlightInvoiceId }) => {
   const { user } = useAuth();
+  // Scrolls the glowed payment into view — a client can have a page of them.
+  const highlightRef = React.useRef<HTMLDivElement | null>(null);
+  React.useEffect(() => {
+    if (!highlightInvoiceId) return;
+    const t = setTimeout(() => highlightRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 350);
+    return () => clearTimeout(t);
+  }, [highlightInvoiceId]);
   // Permanent deletion is owner/manager/admin only — mirrors the server's
   // role gate on DELETE /transactions/:id so the button isn't offered to
   // someone who would just get a 403.
@@ -1280,10 +1296,16 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
           )}
           {payments.map(p => {
             const voided = p.status === 'VOIDED';
+            // The allocations say which invoices this payment actually settled.
+            const isTarget = highlightInvoiceId != null
+              && (p.allocations ?? []).some(a => String(a.invoiceId ?? '') === String(highlightInvoiceId));
             return (
               <div key={p.id}
-                className={`flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl border ${
-                  voided ? 'border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950 opacity-70' : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
+                ref={isTarget ? highlightRef : undefined}
+                className={`flex flex-wrap items-center gap-2 px-3 py-2.5 rounded-xl border transition-all ${
+                  isTarget ? 'border-amber-400 ring-2 ring-amber-400/50 bg-amber-50/60 dark:bg-amber-950/20 shadow-lg' : ''
+                } ${
+                  voided ? 'border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950 opacity-70' : isTarget ? '' : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
                 }`}>
                 <div className="min-w-0 flex-1">
                   <p className={`text-xs font-black truncate ${voided ? 'text-slate-400 line-through' : 'text-pine dark:text-zinc-100'}`}>

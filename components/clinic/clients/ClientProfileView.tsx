@@ -46,6 +46,8 @@ interface Props {
   appointments: Visit[];
   onBack: () => void;
   initialTab?: string;
+  /** Glow the payment that settled this invoice (arrived from a void attempt). */
+  highlightInvoiceId?: string | number | null;
   /** Open this reminder on the Reminders tab, expanded (2026-08-18). */
   focusReminderId?: string | null;
   /**
@@ -78,7 +80,7 @@ interface Props {
   onAddPet?: () => void;
 }
 
-const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', focusReminderId, onTabChange, appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onOpenMedicalRecord, onManageWorkflow, onViewVisitDetails, onScheduleAppointment, onAddPet, onOpenVisitBill }) => {
+const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', highlightInvoiceId, focusReminderId, onTabChange, appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onOpenMedicalRecord, onManageWorkflow, onViewVisitDetails, onScheduleAppointment, onAddPet, onOpenVisitBill }) => {
   // This view has no `activeClinic` prop; the printed document still needs a
   // clinic name on it. With a multi-clinic scope the first selected one is the
   // right answer here — the client is being viewed within that scope.
@@ -1587,6 +1589,7 @@ const renderOverview = () => (
             clientName={client.name}
             clientPhone={client.phone}
             only="payments"
+            highlightInvoiceId={highlightInvoiceId}
             onGoTab={goTab}
           />
         )}

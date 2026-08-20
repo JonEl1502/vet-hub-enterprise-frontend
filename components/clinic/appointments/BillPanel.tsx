@@ -52,6 +52,8 @@ interface Props {
    * (user, 2026-08-20: "or add item next to it add procedure").
    */
   onAddProcedure?: () => void;
+  /** Open the client's Payments tab with the payment on this invoice glowed. */
+  onOpenClientPayments?: (invoiceId: string | number) => void;
 }
 
 const money = (n: number, c: string) =>
@@ -72,7 +74,7 @@ const KIND_LABEL: Record<string, string> = {
   SERVICE: 'Service', CONSUMABLE: 'Consumable', MEDICATION: 'Medication', OTHER: 'Other',
 };
 
-const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange, highlightAction, pulseNonce = 0, onAddProcedure }) => {
+const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange, highlightAction, pulseNonce = 0, onAddProcedure, onOpenClientPayments }) => {
   const { inventory } = useData() as any;
   const [bill, setBill] = React.useState<Bill | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -858,11 +860,34 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
                   variant: 'danger',
                 });
                 if (!ok) return;
-                await run(async () => {
-                  await invoicesAPI.void(blocking.id, 'Voided to reopen the bill for correction');
-                  setInvoice(null);
-                  return billsAPI.reopen(visit.id);
-                }, 'Invoice voided — bill reopened');
+                try {
+                  await run(async () => {
+                    await invoicesAPI.void(blocking.id, 'Voided to reopen the bill for correction');
+                    setInvoice(null);
+                    return billsAPI.reopen(visit.id);
+                  }, 'Invoice voided — bill reopened');
+                } catch (e: any) {
+                  /**
+                   * "Money has already been collected against this invoice —
+                   * void the payment first, then void the invoice." A correct
+                   * refusal that named the blocker and left the user to find it,
+                   * on a client who may have a page of payments (user,
+                   * 2026-08-20: "show modal that leads to payment tab in client
+                   * n glow the borders of the payment where this invoice is").
+                   */
+                  const msg = String(e?.response?.data?.message ?? e?.message ?? '');
+                  if (/already been (collected|paid) against this invoice/i.test(msg) && onOpenClientPayments) {
+                    const go = await dialog.confirm({
+                      title: 'A payment is in the way',
+                      message: `${msg} Open the client's payments and the one covering ${blocking.number || 'this invoice'} will be highlighted — void that first, then come back and reopen the bill.`,
+                      confirmLabel: 'Open the payment',
+                      cancelLabel: 'Not now',
+                    });
+                    if (go) onOpenClientPayments(blocking.id);
+                  } else {
+                    toast.error(msg || 'Could not void the invoice');
+                  }
+                }
                 return;
               }
               run(() => billsAPI.reopen(visit.id), 'Bill reopened');

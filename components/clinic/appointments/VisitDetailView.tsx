@@ -101,7 +101,7 @@ interface Props {
   // The read-only Visit Details page. Mirrors its "Open Workflow" button so the
   // two views point at each other instead of only one way round.
   onOpenDetails?: () => void;
-  onNavigateToClient?: (clientId: number) => void;
+  onNavigateToClient?: (clientId: number, tab?: string, highlightInvoiceId?: string | number) => void;
   onNavigateToPet?: (petId: number) => void;
   onNavigateToStaff?: (staffId: number) => void;
   onNavigateToReminder?: (reminderId: number | string) => void;
@@ -4013,6 +4013,7 @@ const VisitDetailInner: React.FC<Props> = ({
           staff={staffMembers.map(s => ({ id: s.id, name: s.name }))}
           onStatusChange={(rec) => setTriageStabilized(rec.status === 'STABILIZED' || ['STABILIZED', 'IMPROVED', 'HOSPITALIZED'].includes(rec.outcome || ''))}
           onDischarged={handleTriageDischarged}
+          onChargesChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); }}
           /* Its own read-only mode rather than a fence — the panel already
              supports it, and it keeps its navigation live (2026-08-04). */
           readOnly={!isEmergency || !canWriteClinical}
@@ -5772,6 +5773,7 @@ const VisitDetailInner: React.FC<Props> = ({
                          highlightAction={highlightBillAction || pulseBillAction > 0}
                          pulseNonce={pulseBillAction}
                          onAddProcedure={() => setProcPickerOpen(true)}
+                         onOpenClientPayments={(invoiceId) => onNavigateToClient?.(appointment.clientId, 'payments', invoiceId)}
                        />
                        {/* Procedure recipes applied to this visit — stage
                            checklist, optional diagnostics, weight/flags re-quote.
