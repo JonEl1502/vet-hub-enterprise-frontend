@@ -27,7 +27,7 @@ interface MedRow {
 // duration ride along as the prescription note. Gloves/syringes etc. are
 // added the same way with the Rx fields left blank.
 
-const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, refreshVisit, visibleFields, currency = 'KES', onHospitalize, patientWeightKg }) => {
+const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, refreshVisit, visibleFields, currency = 'KES', onHospitalize, patientWeightKg, onRequestUnlock, canUnlock, billPaid }) => {
   const show = showsField(visibleFields);
   /**
    * TABS, not one long column (user, 2026-08-14: "i find this difficult … put
@@ -835,6 +835,9 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
           <AppliedProcedurePanel
             appointmentId={visit.id}
             refreshKey={procRefresh}
+            canUnlock={canUnlock}
+            billPaid={billPaid}
+            onRequestUnlock={onRequestUnlock}
             onChanged={() => { refreshVisit?.(); setProcRefresh(n => n + 1); }}
           />
         </div>

@@ -31,6 +31,15 @@ interface Props {
    */
   pickerOpen?: boolean;
   onPickerOpenChange?: (open: boolean) => void;
+  /**
+   * Reopen the clinical workflow so procedure lines become editable again.
+   * Undefined = this caller cannot offer it, and the dialog explains instead.
+   */
+  onRequestUnlock?: () => void | Promise<void>;
+  /** Whether the current user may unlock at all. */
+  canUnlock?: boolean;
+  /** A SETTLED bill cannot be helped by unlocking the workflow. */
+  billPaid?: boolean;
 }
 
 /**
@@ -39,7 +48,7 @@ interface Props {
  * lines, recommended (optional) diagnostics to tick on, skipped-item
  * warnings, and a weight/flags re-quote. All mutations are pre-settle only.
  */
-const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLocked = false, currency = 'KES', onChanged, refreshKey, pickerOpen, onPickerOpenChange }) => {
+const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLocked = false, currency = 'KES', onChanged, refreshKey, pickerOpen, onPickerOpenChange, onRequestUnlock, canUnlock, billPaid }) => {
   const [apps, setApps] = useState<ProcedureApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -99,13 +108,50 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
         toast.success("This visit's copy updated — your template is unchanged");
         onChanged?.();
       }
-    } catch (e: any) { toast.error(e?.message || 'Failed to save the copy'); }
+    } catch (e: any) { if (!(await offerUnlock(e))) toast.error(e?.message || 'Failed to save the copy'); }
     finally { setBusy(null); }
   };
 
   const replaceApp = (updated: ProcedureApplication | undefined) => {
     if (!updated) { load(); return; }
     setApps(prev => prev.map(a => a.id === updated.id ? updated : a));
+  };
+
+  /**
+   * A LOCKED VISIT IS A QUESTION, NOT A DEAD END.
+   *
+   * Every mutation here 400s with "This visit is already billed — the procedure
+   * lines are locked" once the visit is billed. That arrived as a red toast that
+   * named the obstacle and offered nothing, so the vet was told what they could
+   * not do and left to find the unlock themselves (user, 2026-08-20: "its bill
+   * so point user to unlock and in the error can be a modal and have the unlock
+   * button there too").
+   *
+   * ⚠️ Unlocking the WORKFLOW is what clears this guard — it tests
+   * `isPaid || PENDING_PAYMENT || COMPLETED`. A SETTLED bill is not helped by
+   * it, so that case says so rather than offering a button that cannot work.
+   */
+  const LOCKED_RE = /already billed|lines are locked|already settled|invoice can no longer be edited/i;
+  const offerUnlock = async (e: any): Promise<boolean> => {
+    const msg = String(e?.response?.data?.message ?? e?.message ?? '');
+    if (!LOCKED_RE.test(msg)) return false;
+    const unlockable = !!onRequestUnlock && !!canUnlock && !billPaid;
+    const ok = await dialog.confirm({
+      title: 'This visit is billed',
+      message: unlockable
+        ? 'Procedure lines are locked while the visit is billed. Unlocking the workflow makes them editable again — the bill itself is not changed, and you can re-bill when you are done.'
+        : billPaid
+          ? 'The bill for this visit is already SETTLED, so the procedure lines cannot be edited. Reverse or reopen the payment on the Bill & Invoice tab first.'
+          : 'Procedure lines are locked while the visit is billed, and your role cannot unlock it. Ask a clinic owner or admin to reopen the workflow.',
+      confirmLabel: unlockable ? 'Unlock workflow' : 'OK',
+      cancelLabel: unlockable ? 'Leave it locked' : 'Close',
+      variant: unlockable ? 'danger' : undefined,
+    } as any);
+    if (ok && unlockable) {
+      try { await onRequestUnlock!(); toast.success('Workflow unlocked — try that again'); onChanged?.(); }
+      catch { toast.error('Could not unlock the workflow'); }
+    }
+    return true;
   };
 
   const applyTemplate = async (templateId: string, allowDuplicate = false) => {
@@ -141,7 +187,7 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
         if (again) await applyTemplate(templateId, true);
         return;
       }
-      toast.error(e?.message || 'Failed to apply procedure');
+      if (!(await offerUnlock(e))) toast.error(e?.message || 'Failed to apply procedure');
     }
     finally { setApplying(false); }
   };
@@ -183,7 +229,7 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
         flags: q ? { inHeat: q.inHeat, pregnant: q.pregnant, emergency: q.emergency, outOfHours: q.outOfHours } : undefined,
       });
       if (res.success) { toast.success('Pricing re-evaluated'); replaceApp(res.data?.application); onChanged?.(); }
-    } catch (e: any) { toast.error(e?.message || 'Re-evaluation failed'); }
+    } catch (e: any) { if (!(await offerUnlock(e))) toast.error(e?.message || 'Re-evaluation failed'); }
     finally { setBusy(null); }
   };
 
@@ -209,7 +255,7 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
         await load();
         onChanged?.();
       }
-    } catch (e: any) { toast.error(e?.message || 'Failed to update the line'); }
+    } catch (e: any) { if (!(await offerUnlock(e))) toast.error(e?.message || 'Failed to update the line'); }
     finally { setBusy(null); }
   };
 
@@ -218,7 +264,7 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
     try {
       const res = await consumablesAPI.update(prodId, { billable });
       if (res.success) { await load(); onChanged?.(); }
-    } catch (e: any) { toast.error(e?.message || 'Failed to update the line'); }
+    } catch (e: any) { if (!(await offerUnlock(e))) toast.error(e?.message || 'Failed to update the line'); }
     finally { setBusy(null); }
   };
 
@@ -237,7 +283,7 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
     try {
       const res = await consumablesAPI.remove(prodId);
       if (res.success) { toast.success('Line removed'); await load(); onChanged?.(); }
-    } catch (e: any) { toast.error(e?.message || 'Failed to remove the line'); }
+    } catch (e: any) { if (!(await offerUnlock(e))) toast.error(e?.message || 'Failed to remove the line'); }
     finally { setBusy(null); }
   };
 
@@ -246,7 +292,7 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
     try {
       const res = await procedureTemplatesAPI.materializeItem(app.id, itemId);
       if (res.success) { toast.success(`"${name}" added to the visit`); replaceApp(res.data?.application); onChanged?.(); }
-    } catch (e: any) { toast.error(e?.message || 'Failed to add component'); }
+    } catch (e: any) { if (!(await offerUnlock(e))) toast.error(e?.message || 'Failed to add component'); }
     finally { setBusy(null); }
   };
 

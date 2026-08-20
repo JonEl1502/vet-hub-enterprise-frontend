@@ -3969,6 +3969,9 @@ const VisitDetailInner: React.FC<Props> = ({
           surgeryProgress={surgeryProgress}
           onDeleteEncounter={!(appointment.isPaid || appointment.status === ApptStatus.COMPLETED || isFinalized) ? handleDeleteEncounter : undefined}
           onRefreshVisit={onRefreshDashboard ? () => onRefreshDashboard() : undefined}
+          canUnlock={canUnlock}
+          billPaid={appointment.isPaid}
+          onRequestUnlock={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)}
           onTriageStatusChange={(rec) => setTriageStabilized(rec.status === 'STABILIZED' || ['STABILIZED', 'IMPROVED', 'HOSPITALIZED'].includes(rec.outcome || ''))}
           onTriageDischarged={handleTriageDischarged}
           onWorkflowComplete={() => {
@@ -5782,6 +5785,9 @@ const VisitDetailInner: React.FC<Props> = ({
                          currency={activeClinic.currency}
                          pickerOpen={procPickerOpen}
                          onPickerOpenChange={setProcPickerOpen}
+                         canUnlock={canUnlock}
+                         billPaid={appointment.isPaid}
+                         onRequestUnlock={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)}
                          onChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); }}
                        />
                      </div>

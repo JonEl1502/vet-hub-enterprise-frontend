@@ -88,6 +88,9 @@ interface Props {
   // progress without leaving the workflow.
   surgeryProgress?: { id: string; name: string; status: string }[];
   onRefreshVisit?: () => void;
+  onRequestUnlock?: () => void | Promise<void>;
+  canUnlock?: boolean;
+  billPaid?: boolean;
   onTriageStatusChange?: (rec: any) => void;
   onTriageDischarged?: () => void;
   // Fired when the last step's "Complete workflow" is pressed — the parent
@@ -147,7 +150,7 @@ const StepActionSlot: React.FC = () => {
   );
 };
 
-const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, lockReason = 'billed', goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onUpdateTask, onSwapTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
+const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeClinic, wiz, locked, lockReason = 'billed', goServices, goBilling, onAddService, onOpenModule, moduleLinks, onEscalate, escalating, onHospitalize, onStepComplete, onWorkStarted, onDeleteTask, onUpdateTask, onSwapTask, onRefreshVisit, onRequestUnlock, canUnlock, billPaid, onTriageStatusChange, onTriageDischarged, onWorkflowComplete, sideRail, onAddEncounter, onDeleteEncounter, surgeryProgress }) => {
   const { entry, steps, currentStep, goTo, prev, next, completeStep, isComplete, setStepData, emit, progress, state, resetWizard, availableEntries, switchEntry, templateStages, templateFields, template, setVisitTemplate } = wiz;
   const [billOpen, setBillOpen] = useState(true);
   /**
@@ -261,6 +264,9 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
     onHospitalize,
     deleteTask: onDeleteTask,
     refreshVisit: onRefreshVisit,
+    onRequestUnlock,
+    canUnlock,
+    billPaid,
     onTriageStatusChange,
     onTriageDischarged,
     // Weight captured THIS visit wins over the patient record — it is the
@@ -272,7 +278,7 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
       const onRecord = Number((pet as any)?.weightValue ?? (pet as any)?.weight);
       return Number.isFinite(onRecord) && onRecord > 0 ? onRecord : null;
     })(),
-  }), [visit, pet, client, staff, activeClinic.currency, state.data, currentStep, fuNsKey, setStepData, emit, goServices, onAddService, onOpenModule, onHospitalize, onDeleteTask, onRefreshVisit, onTriageStatusChange, onTriageDischarged]);
+  }), [visit, pet, client, staff, activeClinic.currency, state.data, currentStep, fuNsKey, setStepData, emit, goServices, onAddService, onOpenModule, onHospitalize, onDeleteTask, onRefreshVisit, onRequestUnlock, canUnlock, billPaid, onTriageStatusChange, onTriageDischarged]);
 
   const renderStep = () => {
     const stage = templateStages?.[currentStep];

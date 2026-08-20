@@ -88,6 +88,14 @@ export interface StepProps {
    */
   patientWeightKg?: number | null;
   /**
+   * Reopen the clinical workflow when a billed visit blocks an edit. The panels
+   * turn the server's "already billed — lines are locked" 400 into a dialog that
+   * offers this, instead of a toast that only names the obstacle.
+   */
+  onRequestUnlock?: () => void | Promise<void>;
+  canUnlock?: boolean;
+  billPaid?: boolean;
+  /**
    * When a clinic-built workflow governs THIS stage, the set of field
    * suffixes it kept (`mentation`, `sys.eyes`, `notes`…). A built-in step
    * must render only these.

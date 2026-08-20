@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: a billed visit offers the unlock instead of just refusing  —  2026-08-20
+🟢 **Record impact: none** — it surfaces an unlock that already existed; unlocking itself is unchanged.
+- Every procedure mutation 400s with *"This visit is already billed — the procedure lines are locked"*
+  once the visit is billed. That arrived as a red toast naming the obstacle and offering nothing, so
+  the vet was told what they could not do and left to find the unlock themselves (user, 2026-08-20:
+  *"its bill so point user to unlock and in the error can be a modal and have the unlock button
+  there too"*).
+- The panel now turns that 400 into a **dialog with an Unlock workflow button**, on apply,
+  re-evaluate, edit, remove and add-component alike.
+- ⚠️ **Unlocking the WORKFLOW is what clears this guard** — it tests
+  `isPaid || PENDING_PAYMENT || COMPLETED`. The bill is not touched, and you can re-bill afterwards.
+- ⚠️ **A SETTLED bill is not helped by it**, so that case says to reverse or reopen the payment on the
+  Bill & Invoice tab rather than offering a button that cannot work. A user whose role cannot unlock
+  is told who can, instead of being shown a dead control.
+- Wired from both mounts — the bill tab and the wizard's Treatment step, which is where it was hit.
+- **Data dependency:** None.
+
 ### feat: edit a logged portion in place, and the shelf follows  —  2026-08-20
 🔵 **Record impact: adjusts stock** — an edit moves the difference, same as logging would.
 - The care-log item row was read-only but for its bin, so half a tin instead of a whole one meant
