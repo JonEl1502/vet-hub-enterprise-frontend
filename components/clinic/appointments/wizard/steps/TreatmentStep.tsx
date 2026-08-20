@@ -5,7 +5,7 @@ import { Section, L, showsField } from '../fields';
 import AppliedProcedurePanel from '../../../shared/AppliedProcedurePanel';
 import VaccinationPanel from '../../VaccinationPanel';
 import TreatmentPlanPanel from '../../../inpatient/TreatmentPlanPanel';
-import QtyUnitControl, { sellUnitOf } from '../../../shared/QtyUnitControl';
+import QtyUnitControl, { sellUnitOf, stockPerSellUnit } from '../../../shared/QtyUnitControl';
 import VisitFeeLines from '../../VisitFeeLines';
 import { billsAPI } from '../../../../../services';
 import { useData } from '../../../../../contexts/DataContext';
@@ -134,7 +134,18 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
     if (!draft.itemId) { toast.error('Pick a product from inventory — that\'s what deducts stock'); return; }
     const qty = Number(draft.qty) || 0;
     if (qty <= 0) { toast.error('Enter a quantity to dispense'); return; }
-    if (draft.stock != null && qty > draft.stock) { toast.error(`Only ${draft.stock} ${draft.unit ?? ''} in stock`); return; }
+    /**
+     * ⚠️ Compare LIKE WITH LIKE. `draft.stock` is the balance in STOCK units
+     * (400 Packs) while `qty` is in SELL units (Tablets), so this refused the
+     * 401st tablet out of 400 packs — 4,800 tablets — and would have let a
+     * split-unit item look empty while a shelf of boxes sat behind it.
+     */
+    const perSell = stockPerSellUnit(draftItem || {});
+    if (draft.stock != null && qty * perSell > draft.stock + 1e-9) {
+      const available = draft.stock / perSell;
+      toast.error(`Only ${Number(available.toFixed(2)).toLocaleString()} ${sellUnitOf(draftItem || {})} in stock`);
+      return;
+    }
     setBusy(true);
     try {
       const res = await consumablesAPI.log(visit.id, {
@@ -515,14 +526,40 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
                   charge and the shelf are both visible BEFORE Add is pressed. */}
               {draft.itemId && (() => {
                 const q = Number(draft.qty) || 0;
-                const before = Number(draft.stock ?? 0);
-                const after = before - q;
+                /**
+                 * STOCK IS COUNTED IN PACKS, DISPENSED IN TABLETS.
+                 *
+                 * `draft.stock` is the balance in STOCK units and `q` is in
+                 * SELL units, so `before - q` subtracted tablets from a count of
+                 * packs and then labelled the result with the wrong unit: a
+                 * 400-pack shelf of 12s read "stock 400 → 399 Tablets" when it
+                 * holds 4,800 and one tablet leaves 4,799 (user, 2026-08-20:
+                 * "can we know the packs and tablets in total?").
+                 *
+                 * Both numbers are shown for a split-unit item, because both are
+                 * the answer to a real question — what can I give out, and how
+                 * many boxes are on the shelf.
+                 */
+                const perSell = stockPerSellUnit(draftItem || {});
+                const stockU = String((draftItem as any)?.unit ?? draft.unit ?? '').trim();
+                const sellU = sellUnitOf(draftItem || {});
+                const split = perSell !== 1 && !!stockU && stockU.toLowerCase() !== sellU.toLowerCase();
+                const beforeStock = Number(draft.stock ?? 0);
+                const afterStock = beforeStock - q * perSell;
+                // Same shelf, expressed in what you actually hand over.
+                const beforeSell = beforeStock / perSell;
+                const afterSell = beforeSell - q;
+                const before = split ? beforeSell : beforeStock;
+                const after = split ? afterSell : afterStock;
+                const tidy = (n: number) => Number(n.toFixed(2)).toLocaleString();
                 const lineTotal = (draft.price ?? 0) * q;
                 const feeTotal = itemFees.filter(f => feesOn[f.key]).reduce((t, f) => t + f.amount, 0);
                 return (
                   <p className="text-[9px] font-black mt-0.5 px-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     <span className="text-seafoam">
-                      ✓ {draft.price ? `${draft.price.toLocaleString()}/${draft.unit}` : 'from stock'}
+                      {/* Price is per SELL unit — quoting it against the stock
+                          unit read "60/Pack" on a 60-per-tablet item. */}
+                      ✓ {draft.price ? `${draft.price.toLocaleString()}/${sellU}` : 'from stock'}
                       {q > 0 && draft.price ? ` × ${q} = ${currency} ${lineTotal.toLocaleString()}` : ''}
                       {/* Fees are charged with it, so quote the REAL total. */}
                       {feeTotal > 0 && (
@@ -532,7 +569,8 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
                       )}
                     </span>
                     <span className={after < 0 ? 'text-rose-500' : 'text-slate-400'}>
-                      stock {before.toLocaleString()} → {after.toLocaleString()} {draft.unit}
+                      stock {tidy(before)} → {tidy(after)} {split ? sellU : draft.unit}
+                      {split && <> {' · '}{tidy(beforeStock)} → {tidy(afterStock)} {stockU}</>}
                       {after < 0 ? ' · not enough' : ''}
                     </span>
                   </p>

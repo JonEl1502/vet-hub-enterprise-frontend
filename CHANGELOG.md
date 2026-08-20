@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the dispense row subtracted tablets from a count of packs  —  2026-08-20
+🟢 **Record impact: display + a guard.** No stored quantity changed; the server always converted
+correctly. What was wrong was what the screen said, and what it let you do.
+- **Stock is counted in PACKS and dispensed in TABLETS, and the preview mixed them.** `before - qty`
+  took a sell-unit quantity off a stock-unit balance and labelled the result with the wrong unit:
+  Albendazole (400 packs of 12) read **"stock 400 → 388 Pack"** for 12 tablets. It holds **4,800**
+  tablets; 12 leaves **4,788** — or 399 packs (user, 2026-08-20: *"can we know the packs and tablets
+  in total?"*).
+- Now shows **both**, because both answer a real question — what can I hand out, and how many boxes
+  are on the shelf: *stock 4,800 → 4,788 Tablet · 400 → 399 Pack*. Single-unit items are unchanged.
+- **The price was quoted against the stock unit** — "60/Pack" on an item priced 60 per Tablet. Now
+  reads "60/Tablet", matching the line total beside it.
+- ⚠️ **The stock guard compared unlike units and blocked real dispensing.** `qty > draft.stock`
+  refused the 401st tablet out of 400 packs — 4,800 tablets — so a split-unit item looked empty with
+  a full shelf behind it. It now converts before comparing, and reports what is left in the unit you
+  are dispensing in.
+- **Data dependency:** None.
+
 ### fix: switching an item's sell unit no longer leaves the price meaning the wrong thing  —  2026-08-19
 🟢 **Record impact: none** — a guard on the product form; no data touched, no pricing changed.
 - **The setup already existed and nobody could safely use it.** "Billed / sold in" + "mL in 1 Vial"
