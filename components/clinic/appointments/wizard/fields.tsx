@@ -3,8 +3,17 @@ import React from 'react';
 // Small shared primitives for wizard step forms. Everything leans on the
 // global .field-* control standard from index.css.
 
-export const Section: React.FC<{ icon?: React.ElementType; title: string; children: React.ReactNode; tone?: 'red' }> = ({ icon: Icon, title, children, tone }) => (
-  <section className={`border rounded-xl p-4 space-y-3 ${tone === 'red' ? 'border-red-300 dark:border-red-900 bg-red-50/40 dark:bg-red-950/20' : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'}`}>
+/**
+ * `flat` drops the border/background for a Section rendered INSIDE another card.
+ * Gate Check was three nested bordered boxes before the first field — the outer
+ * card, "Boarding assessment", then "Admission gate" (user, 2026-08-20: "i feel
+ * these are too many cards in cards"). Same precedent as ConsumablePicker's
+ * `flat`, added for the same complaint on 2026-08-05.
+ */
+export const Section: React.FC<{ icon?: React.ElementType; title: string; children: React.ReactNode; tone?: 'red'; flat?: boolean }> = ({ icon: Icon, title, children, tone, flat }) => (
+  <section className={flat
+    ? 'space-y-3'
+    : `border rounded-xl p-4 space-y-3 ${tone === 'red' ? 'border-red-300 dark:border-red-900 bg-red-50/40 dark:bg-red-950/20' : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'}`}>
     <p className={`text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 ${tone === 'red' ? 'text-red-600 dark:text-red-400' : 'text-slate-400 dark:text-zinc-500'}`}>
       {Icon && <Icon size={11} />} {title}
     </p>

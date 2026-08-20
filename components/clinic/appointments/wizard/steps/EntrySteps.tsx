@@ -212,12 +212,12 @@ const FORMS: Record<string, EntryFormDef> = {
 // (Register Visit renders it above Date & Time for grooming/boarding/admission).
 // When petId is given, "Vaccines verified" auto-ticks from the patient's
 // ADMINISTERED vaccination records, each showing its date administered.
-export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (patch: any) => void; petId?: number | string | null; pet?: any; addService?: () => void }> = ({ formKey, data, setData, petId, pet, addService }) => {
+export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (patch: any) => void; petId?: number | string | null; pet?: any; addService?: () => void; flat?: boolean }> = ({ formKey, data, setData, petId, pet, addService, flat }) => {
   const form = FORMS[formKey];
   const d = data || {};
   if (!form) return null;
   return (
-    <Section icon={ClipboardList} title={form.title}>
+    <Section icon={ClipboardList} title={form.title} flat={flat}>
       {form.intro && <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">{form.intro}</p>}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {form.fields.map(f => {
@@ -253,6 +253,7 @@ export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (pat
                 <div key={f.key} className={`${span} space-y-4`}>
                   {f.key === 'boarding' ? (
                     <BoardingIntakeFields
+                      flat={flat}
                       value={iv} onChange={patch} required={false} showStay={false}
                       petId={petId ?? null}
                       petWeight={(pet as any)?.weight ?? null}

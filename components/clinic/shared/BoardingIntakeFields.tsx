@@ -50,10 +50,12 @@ interface Props {
   required?: boolean;
   /** Admit sets the stay window/kennel; hide where the caller owns them. */
   showStay?: boolean;
+  /** Rendered inside another card — drop the nested card chrome. */
+  flat?: boolean;
 }
 
 const BoardingIntakeFields: React.FC<Props> = ({
-  value, onChange, petId, petWeight, petWeightAt, currency = 'KES', required = true, showStay = true,
+  value, onChange, petId, petWeight, petWeightAt, currency = 'KES', required = true, showStay = true, flat = false,
 }) => (
   <>
     {showStay && (
@@ -80,6 +82,7 @@ const BoardingIntakeFields: React.FC<Props> = ({
     )}
 
     <AdmissionGate
+      flat={flat}
       petId={petId}
       petWeight={petWeight}
       petWeightAt={petWeightAt}

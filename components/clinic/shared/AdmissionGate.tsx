@@ -49,6 +49,8 @@ interface Props {
    * points rather than does. Always skippable either way.
    */
   onAddVaccination?: () => void;
+  /** Drop the card chrome when rendered inside another card. */
+  flat?: boolean;
   value: AdmissionGateValue;
   onChange: (patch: Partial<AdmissionGateValue>) => void;
   /** Drives prefill. Omit to disable it (the gate still works, just empty). */
@@ -108,7 +110,7 @@ export async function fetchAdministeredVaccines(petId: number | string): Promise
 }
 
 const AdmissionGate: React.FC<Props> = ({
-  value, onChange, petId, petWeight, petWeightAt, showWeight = true, required = true, className = '', onAddVaccination }) => {
+  value, onChange, petId, petWeight, petWeightAt, showWeight = true, required = true, className = '', onAddVaccination, flat = false }) => {
   // Issuing certificates is a paid capability; the gate itself is not.
   const canCertify = useFeature('capability:vaccination-certificates');
   const [agreedDismissed, setAgreedDismissed] = React.useState(false);
@@ -154,8 +156,11 @@ const AdmissionGate: React.FC<Props> = ({
     ? 'bg-amber-50/60 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30'
     : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800';
 
+  // `flat`: this gate is often rendered INSIDE another card (the register visit
+  // Gate Check). Three nested bordered boxes before the first field is what
+  // "too many cards in cards" meant (user, 2026-08-20).
   return (
-    <section className={`${shell} border rounded-2xl p-4 shadow-sm space-y-3 ${className}`}>
+    <section className={flat ? `space-y-3 ${className}` : `${shell} border rounded-2xl p-4 shadow-sm space-y-3 ${className}`}>
       <p className={`text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 ${
         required ? 'text-amber-700 dark:text-amber-400' : 'text-seafoam'
       }`}>

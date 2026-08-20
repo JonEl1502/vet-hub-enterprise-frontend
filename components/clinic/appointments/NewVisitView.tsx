@@ -1989,26 +1989,34 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                         <PetAvatar pet={p} size={30} rounded="rounded-lg" />
                         <span className="min-w-0 flex-1">
                           <span className="block text-pine dark:text-zinc-100 font-bold uppercase text-[8px] truncate">{p.name}</span>
+                          {/* Name · gender · breed · species (user, 2026-08-20).
+                              Species alone did not distinguish three cats from
+                              the same owner, which is the case this picker is
+                              for. Blanks are dropped rather than left as gaps. */}
                           <span className={`block uppercase text-[7px] font-bold truncate ${petDeceased ? 'text-red-500' : 'text-slate-400'}`}>
-                            {petDeceased ? 'Deceased' : p.species}
+                            {petDeceased ? 'Deceased' : [(p as any).gender, p.breed, p.species].filter(Boolean).join(' · ')}
                           </span>
                           {(() => { const tag = ownerTag(p.ownerId); return tag ? <span className="block normal-case text-[7px] font-semibold text-seafoam/80 truncate">{tag}</span> : null; })()}
                         </span>
                       </button>
                       );
                     })}
-                    {/* Case 1: add a patient under the selected client, inline. */}
-                    {!isLoadingPets && selectedClientId && selectedOwner && !initialParentApptId && (
-                      <button
-                        type="button"
-                        onClick={() => setShowInlineAddPet(v => !v)}
-                        className={`flex items-center justify-center gap-2 p-2 rounded-xl border border-dashed transition-all ${showInlineAddPet ? 'border-cyan bg-cyan/5' : 'border-slate-200 dark:border-zinc-700 hover:border-cyan/60 hover:bg-cyan/5'}`}
-                      >
-                        <UserPlus size={15} className="text-cyan shrink-0" />
-                        <p className="text-cyan font-bold uppercase text-[8px]">Add patient</p>
-                      </button>
-                    )}
                   </div>
+
+                  {/* BELOW the list, not inside it (user, 2026-08-20: "add
+                      patient button to go below the horizontal list"). As a
+                      tile it competed with the patients for the eye and moved
+                      position every time the client's pet count changed. */}
+                  {!isLoadingPets && selectedClientId && selectedOwner && !initialParentApptId && (
+                    <button
+                      type="button"
+                      onClick={() => setShowInlineAddPet(v => !v)}
+                      className={`w-full sm:w-auto flex items-center justify-center gap-2 px-3 py-2 rounded-xl border border-dashed transition-all ${showInlineAddPet ? 'border-cyan bg-cyan/5' : 'border-slate-200 dark:border-zinc-700 hover:border-cyan/60 hover:bg-cyan/5'}`}
+                    >
+                      <UserPlus size={15} className="text-cyan shrink-0" />
+                      <p className="text-cyan font-bold uppercase text-[9px]">Add patient</p>
+                    </button>
+                  )}
 
                   {!isLoadingPets && clientPets.length === 0 && selectedOwner && !showInlineAddPet && (
                     <p className="text-[10px] text-slate-400 px-1">This client has no patients yet — add one to start a visit.</p>
@@ -2414,7 +2422,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                     Skipped at registration — the gate check still runs as the first step of the visit workflow (mandatory there).
                   </p>
                 ) : (
-                  <GateCheckForm formKey={gateFormKey} data={gateData} setData={patch => setGateData((d: any) => ({ ...d, ...patch }))} petId={selectedPetId} pet={pets.find((p: any) => String(p.id) === String(selectedPetId))} />
+                  <GateCheckForm flat formKey={gateFormKey} data={gateData} setData={patch => setGateData((d: any) => ({ ...d, ...patch }))} petId={selectedPetId} pet={pets.find((p: any) => String(p.id) === String(selectedPetId))} />
                 )}
              </div>
            )}
