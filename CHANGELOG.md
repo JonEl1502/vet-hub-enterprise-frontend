@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the qty unit dropdown multiplied what you typed; dispensed lines reach the rail at once  —  2026-08-20
+🟢 **Record impact: display + input.** No write path changed.
+- ⚠️ **The unit dropdown silently multiplied the quantity.** The field read **QTY (TABLET)** while the
+  selector sat on **¼ Pack**, so a typed `12` dispensed **36 Tablets** — both readings on screen at
+  once (user, 2026-08-20: *"i dont understand the drpdwn"*). On an item with no split the same control
+  rendered as plain text, which read as a control that refused to open (*"the drpdwn is locked"* —
+  Amphotericin B, which is genuinely sold per vial).
+- **The dropdown is gone.** You type the number in the unit the item is billed in — mL, g, Tablet,
+  Vial — and the container equivalence sits beside it as text (*1 Pack = 12 Tablet*). Both complaints
+  were the same design: a unit picker where the unit was never in question.
+- ⚠️ **A dispensed line could sit in the database while the running bill showed the old total.** The
+  rail renders `visit.tasks`, which only change when the whole appointments list is refetched, so the
+  charge was real but invisible (user: *"sometimes i add something but does not add in running bill"*
+  — prod visit 85 had task 480 "Ketamine ×10 mL" 2,200 written while the rail read KES 5,000). The
+  line is now placed on the rail from the server's own response, keyed on the returned task id so the
+  later refetch replaces rather than duplicates it.
+- **A saved row recorded the STOCK unit**, labelling 10 mL of ketamine as "10 Vials". It now records
+  the sell unit, matching the quantity beside it.
+- **Data dependency:** None.
+
 ### fix: say plainly how much is being dispensed, and let the number be the number  —  2026-08-20
 🟢 **Record impact: display + input bounds.** Nothing stored changes shape.
 - ⚠️ **The box showed a different number than it billed.** The qty input rounded to 2dp while the

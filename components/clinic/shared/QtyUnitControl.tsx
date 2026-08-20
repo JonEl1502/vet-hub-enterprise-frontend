@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React from 'react';
 
 /**
  * ONE quantity+unit control for every place a consumable is attached
@@ -12,10 +12,10 @@ import React, { useMemo, useState, useEffect } from 'react';
  *   stores, what `price` multiplies — is in SELL units (`metadata.sellUnit`);
  * - stock is held in STOCK units (`unit`); `packSize` = sell units per stock
  *   unit bridges the two;
- * - unit choices are DERIVED from packSize, never hand-typed: sell unit ×1,
- *   ¼/½ stock unit, stock unit ×packSize;
- * - bounds: at least a quarter of the smallest unit, at most one purchase
- *   (stock) unit total — kills both the 1/1000-of-a-box and the 40-box typo.
+ * - you type in the SELL unit, always. The container equivalence is shown
+ *   beside the box as text, never as a selector that multiplies your number.
+ * - bounds: 0 → 100,000 sell units. The item's own `minSellQty` is the only
+ *   real floor and it is enforced where the line is ADDED, not mid-keystroke.
  */
 
 export interface UnitItemLike {
@@ -56,23 +56,6 @@ export const sellUnitOf = (item: UnitItemLike): string =>
 export const costPerSellUnit = (item: UnitItemLike & { costPrice?: number | null }): number =>
   Number(item?.costPrice ?? 0) * stockPerSellUnit(item);
 
-export interface UnitOption { label: string; sellQty: number }
-
-/** Derived choices, all expressed as "how many SELL units is one of these". */
-export const unitOptionsFor = (item: UnitItemLike): UnitOption[] => {
-  const sell = sellUnitOf(item);
-  const stock = String(item?.unit ?? '').trim();
-  const pack = Number(item?.packSize ?? 0);
-  if (!isSplitUnit(item) || !stock || !Number.isFinite(pack) || pack <= 1) {
-    return [{ label: sell, sellQty: 1 }];
-  }
-  const opts: UnitOption[] = [{ label: sell, sellQty: 1 }];
-  if (pack >= 8) opts.push({ label: `¼ ${stock}`, sellQty: pack / 4 });
-  if (pack >= 4) opts.push({ label: `½ ${stock}`, sellQty: pack / 2 });
-  opts.push({ label: stock, sellQty: pack });
-  return opts;
-};
-
 interface Props {
   item: UnitItemLike;
   /** Canonical quantity, in SELL units. */
@@ -83,81 +66,52 @@ interface Props {
   disabled?: boolean;
 }
 
+/**
+ * Quantity in the item's SELL unit. One number, one unit, no multiplier.
+ *
+ * ⚠️ This used to offer a unit dropdown — Tablet / ¼ Pack / ½ Pack / Pack —
+ * that silently multiplied what you typed. The field was labelled "QTY
+ * (TABLET)" while the selector sat on "¼ Pack", so 12 became 36 Tablets with
+ * both readings visible at once (user, 2026-08-20: "i dont understand the
+ * drpdwn"). On an item with no split it rendered as plain text instead, which
+ * read as a control that would not open ("the drpdwn is locked").
+ *
+ * Both complaints are the same design: a unit picker where the unit was never
+ * in question. You are dispensing in the unit the item is billed in — so type
+ * the number, and the container equivalence is shown as plain text beside it.
+ */
 const QtyUnitControl: React.FC<Props> = ({ item, value, onChange, className = '', compact = false, disabled = false }) => {
-  const options = useMemo(() => unitOptionsFor(item), [item]);
-  const split = options.length > 1;
-  // Pick the largest unit that divides the value cleanly, so a stored 100
-  // (pack 100) renders as "1 Box", 50 as "1 ½ Box", 2 as "2 Pair".
-  const initial = useMemo(() => {
-    for (let i = options.length - 1; i >= 0; i--) {
-      const q = value / options[i].sellQty;
-      if (q >= 1 && Math.abs(q - Math.round(q * 100) / 100) < 1e-9) return i;
-    }
-    return 0;
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-  const [unitIdx, setUnitIdx] = useState(initial);
-  useEffect(() => { if (unitIdx > options.length - 1) setUnitIdx(0); }, [options.length]); // item swapped
+  const sell = sellUnitOf(item);
+  const stock = String(item?.unit ?? '').trim();
+  const pack = Number(item?.packSize ?? 0);
+  const split = isSplitUnit(item) && !!stock && Number.isFinite(pack) && pack > 1;
 
-  const chosen = options[Math.min(unitIdx, options.length - 1)];
-  const displayQty = chosen ? value / chosen.sellQty : value;
-
-  /**
-   * FREE NUMERIC ENTRY, 0 → 100,000 sell units (user, 2026-08-20: "user can
-   * state in numeric 0.00 to 100000… ml/g/tablet/vials").
-   *
-   * ⚠️ Two old bounds were doing real damage. The floor forced ¼ of the chosen
-   * unit, so nothing finer than a quarter tablet could be typed. The ceiling was
-   * **one stock unit** — a 12-tablet pack capped every line at 12 tablets, with
-   * 4,800 on the shelf, and no message saying why the number refused to grow.
-   * The item's own `minSellQty` is the only real floor and it belongs at the
-   * point of ADD, not in the middle of typing.
-   */
-  const clamp = (sellUnits: number) => Math.min(MAX_SELL_QTY, Math.max(0, sellUnits));
-
-  const emit = (qtyInChosen: number, opt: UnitOption = chosen) => {
-    if (!Number.isFinite(qtyInChosen)) return;
-    onChange(Math.round(clamp(qtyInChosen * opt.sellQty) * 1000) / 1000);
-  };
+  const clamp = (n: number) => Math.min(MAX_SELL_QTY, Math.max(0, n));
 
   const inputCls = compact
-    ? 'w-14 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 py-0.5 text-center text-pine dark:text-zinc-100 outline-none text-[10px]'
-    : 'field-input w-20';
-  const selectCls = compact
-    ? 'bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 py-0.5 text-[10px] text-pine dark:text-zinc-100 outline-none'
-    : 'field-select w-28';
+    ? 'w-16 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 py-0.5 text-center text-pine dark:text-zinc-100 outline-none text-[10px]'
+    : 'field-input w-24';
 
   return (
-    <span className={`inline-flex items-center gap-1 ${className}`}>
+    <span className={`inline-flex items-center gap-1.5 ${className}`}>
       <input
         type="number" min={0} max={MAX_SELL_QTY} step="any" disabled={disabled}
         /**
-         * ⚠️ Show EXACTLY what will be billed.
-         *
-         * The box rounded to 2dp while the emitted value keeps 3, so a typed
-         * 0.254 sat in the field as "0.25" and charged 15.24 instead of 15 —
-         * the number on screen was not the number on the bill (user,
-         * 2026-08-20: "confusing as to how much am dispensing").
+         * ⚠️ Show EXACTLY what will be billed. The box rounded to 2dp while the
+         * stored value kept 3, so a typed 0.254 sat in the field as "0.25" and
+         * charged 15.24 instead of 15.
          */
-        value={Number.isFinite(displayQty) ? Number(displayQty.toFixed(3)) : ''}
-        onChange={e => emit(Number(e.target.value))}
+        value={Number.isFinite(value) ? Number(value.toFixed(3)) : ''}
+        onChange={e => {
+          const n = Number(e.target.value);
+          if (Number.isFinite(n)) onChange(Math.round(clamp(n) * 1000) / 1000);
+        }}
         className={inputCls}
-        title={split ? `Billed per ${sellUnitOf(item)}; 1 ${item.unit} = ${item.packSize} ${sellUnitOf(item)}` : undefined}
+        title={split ? `Billed per ${sell}; 1 ${stock} = ${pack} ${sell}` : undefined}
       />
-      {split ? (
-        <select
-          className={selectCls} disabled={disabled} value={unitIdx}
-          onChange={e => {
-            const idx = Number(e.target.value);
-            setUnitIdx(idx);
-            // Re-emit the same DISPLAY number in the new unit — picking "Box"
-            // after typing 1 means one box, not one pair.
-            emit(Number.isFinite(displayQty) && displayQty > 0 ? displayQty : 1, options[idx]);
-          }}
-        >
-          {options.map((o, i) => <option key={o.label} value={i}>{o.label}</option>)}
-        </select>
-      ) : (
-        <span className={compact ? 'text-[10px]' : 'text-xs text-slate-400'}>{chosen?.label}</span>
+      <span className={compact ? 'text-[10px] text-slate-500' : 'text-xs font-bold text-pine dark:text-zinc-100'}>{sell}</span>
+      {split && !compact && (
+        <span className="text-[9px] font-bold text-slate-400 whitespace-nowrap">1 {stock} = {pack} {sell}</span>
       )}
     </span>
   );

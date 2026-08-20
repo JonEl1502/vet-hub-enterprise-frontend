@@ -80,7 +80,7 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
       .catch(() => { /* strip stays empty */ });
     return () => { live = false; };
   }, [visit.id]);
-  const { inventory, ensureInventory } = useData() as any;
+  const { inventory, ensureInventory, updateAppointmentLocally } = useData() as any;
   React.useEffect(() => { ensureInventory?.(); }, [ensureInventory]);
 
   // Inventory autocomplete — the ONLY source; picking an item is what enables
@@ -165,8 +165,40 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
       });
       if (res.success) {
         const lineTotal = (res.data as any)?.lineCost ?? (draft.price ?? 0) * qty;
-        setData({ medications: [...meds, { drug: draft.drug, dose: draft.dose, route: draft.route, frequency: draft.frequency, duration: draft.duration, consumableId: (res.data as any)?.id, qty, unit: draft.unit, lineTotal }] });
+        // The SELL unit — what `qty` is actually counted in. Recording the stock
+        // unit here labelled 10 mL of ketamine as "10 Vials" on the saved row.
+        setData({ medications: [...meds, { drug: draft.drug, dose: draft.dose, route: draft.route, frequency: draft.frequency, duration: draft.duration, consumableId: (res.data as any)?.id, qty, unit: sellUnitOf(draftItem || {}), lineTotal }] });
         emit(`Medication dispensed — ${draft.drug} ×${qty}${draft.dose ? ` (${rxNote(draft)})` : ''} · stock deducted`, 'billing', true);
+
+        /**
+         * PUT THE LINE ON THE RAIL NOW, from the server's own response.
+         *
+         * The running bill renders `visit.tasks`, which only change when the
+         * whole appointments list is refetched — so the charge existed in the
+         * database while the rail still showed the old total, and the dispense
+         * looked like it had not been billed (user, 2026-08-20: "sometimes i
+         * add something but does not add in running bill"). Verified on prod
+         * visit 85: task 480 "Ketamine ×10 mL" 2,200 was written and the rail
+         * read KES 5,000.
+         *
+         * The refetch below still runs and reconciles; this just stops the rail
+         * depending on it having landed. Keyed on the REAL task id from the
+         * response, so the refetch replaces rather than duplicates it.
+         */
+        const newTaskId = (res.data as any)?.taskId;
+        if (newTaskId != null && updateAppointmentLocally) {
+          updateAppointmentLocally(Number(visit.id), (a: any) => {
+            const already = (a.tasks || []).some((t: any) => String(t.id) === String(newTaskId));
+            if (already) return a;
+            const line = {
+              id: Number(newTaskId), appointmentId: Number(visit.id),
+              name: `${draft.drug} ×${qty} ${sellUnitOf(draftItem || {})}`.trim(),
+              category: 'Consumables', status: 'PENDING',
+              price: lineTotal, selectedPhrases: [], medications: [],
+            };
+            return { ...a, tasks: [...(a.tasks || []), line], totalCost: Number(a.totalCost || 0) + Number(lineTotal || 0) };
+          });
+        }
 
         // Each ticked fee becomes its OWN bill line so it can be edited or
         // deleted independently of the product it came with.
