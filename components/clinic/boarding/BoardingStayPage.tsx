@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2, Receipt, ChevronDown } from 'lucide-react';
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
+import { sellUnitOf } from '../shared/QtyUnitControl';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
@@ -300,6 +301,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
    * Anything that logs or removes an item must bump this.
    */
   const [consRefresh, setConsRefresh] = useState(0);
+  const [savingConsQty, setSavingConsQty] = useState<string | null>(null);
   useEffect(() => {
     const apptId = stay?.billing?.appointmentId;
     if (!apptId) { setConsumables([]); return; }
@@ -629,7 +631,47 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                       const consRowsFor = (rows: any[]) => rows.map(c => (
                         <div key={`c-${c.id}`} className="mt-1.5 flex items-center gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg px-3 py-1.5 border border-emerald-100 dark:border-emerald-900/40">
                           <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 shrink-0">Item</span>
-                          <span className="min-w-0 flex-1 text-[10px] text-pine dark:text-zinc-200 truncate">{c.inventoryItem?.name} × {Number(c.quantity)} {c.inventoryItem?.unit || ''}</span>
+                          {/* PORTION IS EDITABLE IN PLACE (user, 2026-08-20:
+                              "allow to edit the consumable portion, recalc
+                              inventory"). Half a tin instead of a whole one used
+                              to mean deleting the line and logging it again,
+                              which moved stock twice. The server converts the
+                              delta to STOCK units and adjusts the shelf, so a
+                              1 → 0.5 edit returns exactly half a portion.
+                              ⚠️ The unit shown is the SELL unit — `quantity` is
+                              counted in what the item is billed in, not what it
+                              is stocked in. */}
+                          <span className="min-w-0 flex-1 text-[10px] text-pine dark:text-zinc-200 truncate flex items-center gap-1.5">
+                            <span className="truncate">{c.inventoryItem?.name}</span>
+                            <span className="shrink-0 text-slate-400">×</span>
+                            {active ? (
+                              <input
+                                type="number" min="0" step="any"
+                                defaultValue={Number(c.quantity)}
+                                disabled={savingConsQty === String(c.id)}
+                                onClick={e => e.stopPropagation()}
+                                onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                onBlur={async e => {
+                                  const next = Number(e.target.value);
+                                  const prev = Number(c.quantity);
+                                  if (!Number.isFinite(next) || next <= 0) { e.target.value = String(prev); return; }
+                                  if (Math.abs(next - prev) < 1e-9) return;
+                                  setSavingConsQty(String(c.id));
+                                  try {
+                                    await consumablesAPI.update(c.id, { quantity: next });
+                                    toast.success('Portion updated — stock adjusted');
+                                    await load(); setConsRefresh(n => n + 1); onChanged?.();
+                                  } catch (err: any) {
+                                    e.target.value = String(prev);
+                                    toast.error(err?.message || 'Could not update the portion');
+                                  } finally { setSavingConsQty(null); }
+                                }}
+                                className="w-14 shrink-0 px-1.5 py-0.5 rounded-md bg-white dark:bg-zinc-900 border border-emerald-200 dark:border-emerald-900/50 text-[10px] font-bold text-pine dark:text-zinc-100 text-center outline-none focus:ring-2 focus:ring-emerald-400/40 disabled:opacity-50"
+                              />
+                            ) : <span className="shrink-0 font-bold">{Number(c.quantity)}</span>}
+                            <span className="shrink-0 text-slate-400 truncate">{sellUnitOf(c.inventoryItem || {})}</span>
+                            {savingConsQty === String(c.id) && <Loader2 size={10} className="animate-spin text-emerald-600 shrink-0" />}
+                          </span>
                           <span className="text-[9px] font-black text-emerald-600 shrink-0">{c.billable ? fmtK(Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0))) : 'no charge'}</span>
                           {active && (
                             <button type="button" title={`Remove ${c.inventoryItem?.name ?? 'this item'} — returns the stock and drops the charge`}

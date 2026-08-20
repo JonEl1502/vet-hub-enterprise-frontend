@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: edit a logged portion in place, and the shelf follows  —  2026-08-20
+🔵 **Record impact: adjusts stock** — an edit moves the difference, same as logging would.
+- The care-log item row was read-only but for its bin, so half a tin instead of a whole one meant
+  **deleting the line and logging it again** — two stock movements for one correction
+  (user, 2026-08-20: *"allow to edit the consumable portion, recalc inventory"*).
+- The quantity is now an input on the row: save on blur or Enter, the charge re-prices, the visit
+  total follows and the shelf is adjusted by the difference. A non-numeric or ≤ 0 entry reverts, and
+  a failed save puts the old number back rather than leaving the row lying.
+- ⚠️ The unit beside it is the **SELL** unit — `quantity` is counted in what the item is billed in,
+  not what it is stocked in. The row previously printed `inventoryItem.unit`, which is only right for
+  items that do not split.
+- ⚠️ Editable only while the stay is OPEN, matching the bin next to it.
+- **Data dependency:** the matching backend commit — `updateConsumable` labelled the rewritten line in
+  the stock unit. Ship them together or editing a split item's portion renames it wrongly.
+
 ### fix: boarding care log, new-visit picker, and where a grooming came from  —  2026-08-20
 🟢 **Record impact: display only**, except the boarding refresh fix (a read, not a write).
 Nine items reported off one boarding stay on mobile. Spec: `docs/HANDOFF_2026-08-20.md`.
