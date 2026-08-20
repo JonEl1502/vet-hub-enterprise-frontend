@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2 , Receipt} from 'lucide-react';
+import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2, Receipt, ChevronDown } from 'lucide-react';
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
@@ -44,6 +44,43 @@ const ChipPick: React.FC<{ label: string; options: string[]; value?: string; onC
     </div>
   </div>
 );
+
+/**
+ * Collapsed-by-default disclosure, matching the "More filters" pattern the
+ * clients list uses (user, 2026-08-20: "make this info in a collapsible like
+ * extra filters for clients that comes from below").
+ *
+ * On mobile the stay page is a long scroll — a week of care log with the facts
+ * grid above it and the actions card below — and both of those are things you
+ * consult occasionally rather than read every time.
+ */
+const Disclosure: React.FC<{
+  title: string;
+  summary?: React.ReactNode;
+  defaultOpen?: boolean;
+  children: React.ReactNode;
+}> = ({ title, summary, defaultOpen = false, children }) => {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-3 px-4 sm:px-5 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors"
+      >
+        <span className="min-w-0 flex items-center gap-2">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">{title}</span>
+          {/* Keep the headline fact readable while collapsed, so closing it
+              never hides the number you opened the page for. */}
+          {!open && summary}
+        </span>
+        <ChevronDown size={14} className={`shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+      {open && <div className="px-4 sm:px-5 pb-4 sm:pb-5">{children}</div>}
+    </div>
+  );
+};
 
 const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAppointment, onOpenGrooming, embedded }) => {
   const [stay, setStay] = useState<BoardingStay | null>(null);
@@ -248,6 +285,21 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   };
 
   useEffect(() => { setStay(null); load(); }, [stayId, load]);
+  /**
+   * ⚠️ `consRefresh` is load-bearing.
+   *
+   * This used to re-run only when the appointment changed or the NUMBER OF
+   * ENTRIES changed. Logging an item changes neither — so the row was written
+   * to the database and this state kept the list it fetched before it. The item
+   * only appeared once a new entry was saved and `dailyLogs.length` moved, which
+   * is exactly how it was reported: "I can't see the item I have added till I
+   * save entry", and before that "nothing added" (user, 2026-08-20). It HAD been
+   * added — prod visit 161 holds two Beef & Carrot rows stamped 16:11, one per
+   * click, because the first looked like it had failed.
+   *
+   * Anything that logs or removes an item must bump this.
+   */
+  const [consRefresh, setConsRefresh] = useState(0);
   useEffect(() => {
     const apptId = stay?.billing?.appointmentId;
     if (!apptId) { setConsumables([]); return; }
@@ -256,7 +308,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
       .then(r => { if (alive && r.success && Array.isArray(r.data)) setConsumables(r.data); })
       .catch(() => {});
     return () => { alive = false; };
-  }, [stay?.billing?.appointmentId, stay?.dailyLogs?.length]);
+  }, [stay?.billing?.appointmentId, stay?.dailyLogs?.length, consRefresh]);
 
 
   /**
@@ -317,7 +369,13 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
         embedded={embedded}
         title={<><Dog size={16} /> {stay?.pet?.name ?? '…'}</>}
         condensedMeta={stay?.kennel ? `· Kennel ${stay.kennel}` : ''}
-        subtitle={stay ? `${stay.pet?.breed} · ${stay.pet?.species} · Owner: ${stay.client?.name}` : undefined}
+        // Gender belongs on the header (user, 2026-08-20) — it decides handling
+        // and housing, and reading it off the patient record meant leaving the
+        // stay. Omitted rather than shown blank when the pet has none.
+        subtitle={stay
+          ? [stay.pet?.breed, (stay.pet as any)?.gender, stay.pet?.species, `Owner: ${stay.client?.name}`]
+              .filter(Boolean).join(' · ')
+          : undefined}
         right={<>
           {stay && !active && (
             <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
@@ -345,7 +403,13 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
               lead rather than sitting under a scroll-length of care sheet.
               After check-out the grid shows the real check-in → check-out range
               and the billed day count. */}
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+          <Disclosure
+            title="Stay details"
+            summary={<span className="text-[11px] font-black text-pine dark:text-zinc-100 truncate">
+              {stay.status === 'ADMITTED' ? `Day ${Math.max(0, calendarDaysBetween(stay.dropOffAt)) + 1}` : 'Checked out'}
+              {stay.kennel ? ` · ${stay.kennel}` : ''}
+            </span>}
+          >
             <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
               <Fact label="Status" value={stay.status === 'ADMITTED'
                 ? `Day ${Math.max(0, calendarDaysBetween(stay.dropOffAt)) + 1}`
@@ -395,7 +459,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 );
               })()}
             </div>
-          </div>
+          </Disclosure>
 
           {/* TWO COLUMNS, matching the inpatient chart (user, 2026-08-04).
               ⚠️ This REVERSES the 2026-08-03 one-column call ("the context
@@ -488,10 +552,14 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                             them again here showed the morning's tin sitting
                             under the evening entry's search box as though it
                             were about to be added a second time. */}
+                        {/* ⚠️ `dateKey` is COMPOSITE on the per-entry editor —
+                            "2026-08-14#123" — because that is how the open
+                            editor is keyed. The picker wants a real day, so
+                            strip the entry id or its filter matches nothing. */}
                         <ConsumablePicker flat compact hideLoggedList appointmentId={stay.billing.appointmentId}
-                          dayKey={dateKey}
+                          dayKey={dateKey.split('#')[0]}
                           recordedAt={dayDraft.at ? new Date(dayDraft.at).toISOString() : null}
-                          onChanged={() => { load(); onChanged?.(); }} title="Items used this day" />
+                          onChanged={() => { load(); setConsRefresh(n => n + 1); onChanged?.(); }} title="Items used this day" />
                       </div>
                     )}
                     <div className="flex gap-2">
@@ -571,7 +639,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                                 try {
                                   await consumablesAPI.remove(c.id);
                                   toast.success('Item removed — stock returned');
-                                  await load(); onChanged?.();
+                                  await load(); setConsRefresh(n => n + 1); onChanged?.();
                                 } catch (e: any) { toast.error(e?.message || 'Could not remove the item'); }
                                 finally { setRemovingCons(null); }
                               }}
@@ -724,7 +792,29 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
               RecordPageHeader.tsx. The FACTS grid that used to open this card
               sits at the top of the page instead (user, 2026-08-04). */}
           <div className={`space-y-4 ${STICKY_RAIL}`}>
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
+            {/* Collapsed by default (user, 2026-08-20: "this section to go to
+                bottom collapsible"). On mobile the rail stacks under a week of
+                care log, and every one of these — open visit, grooming, pricing,
+                the vaccine gate, the accrual — is consulted occasionally rather
+                than read on every visit to the page. The accruing total stays
+                on the closed header so collapsing never hides the number. */}
+            <Disclosure
+              title="Actions & charges"
+              summary={(() => {
+                const days = Math.max(1, calendarDaysBetween(stay.dropOffAt, stay.actualPickupAt ?? undefined));
+                const r = Number(stay.dailyRate ?? clinicDayRate ?? 0) || 0;
+                const fp: any = (stay as any).foodProgram || {};
+                const foodPerDay = fp.providedByClient === false
+                  ? (Number(fp.ratePerMeal) || 0) * (Number(fp.mealsPerDay) || 0) : 0;
+                const itemsTotal = (consumables || []).reduce((sum: number, c: any) => sum + (c.billable
+                  ? Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0)) : 0), 0);
+                const total = days * (r + foodPerDay) + itemsTotal;
+                return total > 0
+                  ? <span className="text-[11px] font-black text-emerald-600 dark:text-emerald-400">KES {total.toLocaleString()}</span>
+                  : null;
+              })()}
+            >
+            <div className="space-y-3">
               {/* Secondary actions live HERE, not in the pinned bar (user,
                   2026-08-05) — mirrors the inpatient rail. */}
               <div className="flex flex-wrap items-center gap-2">
@@ -908,6 +998,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 );
               })()}
             </div>
+            </Disclosure>
 
             {/* Billing (finalize · reminder · settle) lives ONLY on the visit
                 workflow — checkout below completes the stay and routes there. */}
