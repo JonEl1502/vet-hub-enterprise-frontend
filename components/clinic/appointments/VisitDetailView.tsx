@@ -5715,13 +5715,19 @@ const VisitDetailInner: React.FC<Props> = ({
                            <p className="text-[10px] text-slate-300 dark:text-zinc-600 mt-1">No medications or consumables recorded for this appointment</p>
                          </div>
                        ) : (
-                         <div className="space-y-2">
+                         /* Two columns from `md` up (user, 2026-08-20: "this tab
+                            Meds & Consumables can be grid 2 since its not too
+                            long"). A surgical visit runs to 19 rows, each of them
+                            short — one column made a long scroll out of a list
+                            that fits a screen side by side. Single column on
+                            mobile, where two would truncate every name. */
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-2 items-start">
                            {medsTabItems.map((m, i) => (
-                             <div key={m.id ?? i} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 rounded-xl">
-                               <div className="flex items-center gap-3">
-                                 <div className="p-2 bg-purple-500/10 rounded-lg"><Pill size={14} className="text-purple-500" /></div>
-                                 <div>
-                                   <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase">{m.inventoryItem?.name || m.inventoryItemId}</p>
+                             <div key={m.id ?? i} className="flex items-center justify-between gap-2 p-3 bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700 rounded-xl">
+                               <div className="flex items-center gap-3 min-w-0">
+                                 <div className="p-2 bg-purple-500/10 rounded-lg shrink-0"><Pill size={14} className="text-purple-500" /></div>
+                                 <div className="min-w-0">
+                                   <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase truncate">{m.inventoryItem?.name || m.inventoryItemId}</p>
                                    <p className="text-[9px] text-slate-400 font-medium">{m.taskName}{m.inventoryItem?.category ? ` · ${m.inventoryItem.category}` : ''}</p>
                                    {(m as any).batchNumber && (
                                      <p className="text-[9px] font-black text-amber-600 dark:text-amber-500 mt-0.5">
@@ -5733,8 +5739,8 @@ const VisitDetailInner: React.FC<Props> = ({
                                    {m.notes && <p className="text-[9px] text-slate-400 italic mt-0.5">{m.notes}</p>}
                                  </div>
                                </div>
-                               <div className="text-right">
-                                 <p className="text-sm font-black text-pine dark:text-zinc-100">{m.quantity} {m.inventoryItem?.unit || 'unit(s)'}</p>
+                               <div className="text-right shrink-0">
+                                 <p className="text-sm font-black text-pine dark:text-zinc-100 whitespace-nowrap">{m.quantity} {m.inventoryItem?.unit || 'unit(s)'}</p>
                                  {(m as any).billable === false
                                    ? <p className="text-[8px] text-slate-400 font-black uppercase tracking-widest mt-0.5">Non-billable</p>
                                    : ((m as any).lineTotal != null

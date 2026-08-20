@@ -59,6 +59,12 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### tweak: Meds & Consumables is a two-column grid  —  2026-08-20
+🟢 **Record impact: none.**
+- A surgical visit runs to 19 rows and each one is short, so a single column made a long scroll out of
+  a list that fits a screen side by side (user, 2026-08-20). Two columns from `md` up, one on mobile
+  where two would truncate every name; long names truncate and the quantity no longer wraps.
+
 ### fix: triage charges reached the bill but not the rail; a blocked void now points at the payment  —  2026-08-20
 🟢 **Record impact: display + navigation.** No write path changed.
 - ⚠️ **Ticking an emergency intervention logged its consumables and told nothing to reload.** Stock
