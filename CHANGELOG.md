@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: two procedure searches on the same tab  —  2026-08-20
+🟢 **Record impact: none.**
+- The Treatment step has its own "Search your created procedures…" AND `AppliedProcedurePanel` was
+  rendering its "Apply a procedure recipe…" picker underneath it (user, 2026-08-20: *"we hv 2
+  Procedures searches"*). Yesterday's `pickerOpen` change made the panel's picker controlled on the
+  bill tab but left it self-managed here.
+- The panel is now mounted **controlled-and-closed** in the Treatment step, so it renders the applied
+  procedure cards only. One search, the step's own.
+
 ### tweak: "One invoice for everything" now sits on the right  —  2026-08-20
 🟢 **Record impact: none** — button ORDER only. Which button does what is unchanged.
 - New `reverseActions` on `ConfirmDialog` / `dialog.confirm` puts the cancel action on the right.

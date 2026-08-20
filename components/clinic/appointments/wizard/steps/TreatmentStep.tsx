@@ -832,8 +832,16 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
             both can apply a recipe, and without it the panel kept showing its
             empty picker while the bill already carried the lines. */}
         <div className="mt-2">
+          {/* ⚠️ pickerOpen={false} — this step has its OWN procedure search
+              above, so the panel must not render a second one. Leaving it
+              uncontrolled put "Search your created procedures…" and "Apply a
+              procedure recipe…" on the same tab (user, 2026-08-20: "we hv 2
+              Procedures searches"). Controlled-and-closed shows the applied
+              cards only. */}
           <AppliedProcedurePanel
             appointmentId={visit.id}
+            pickerOpen={false}
+            onPickerOpenChange={() => {}}
             refreshKey={procRefresh}
             canUnlock={canUnlock}
             billPaid={billPaid}
