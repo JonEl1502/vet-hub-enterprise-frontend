@@ -7485,15 +7485,30 @@ const VisitDetailInner: React.FC<Props> = ({
                 const stillOpen = appointment.status === ApptStatus.SCHEDULED
                   || appointment.status === ApptStatus.IN_PROGRESS;
                 if (!stillOpen) return null;
+                /**
+                 * PAY-FIRST DESERVES A STRONGER NUDGE (user, 2026-08-20: "this
+                 * to appear if user paid first to remind them to fill in").
+                 *
+                 * On a prepaid visit the money came in BEFORE the work was
+                 * written up, so the report is not merely "still open" — it is
+                 * the thing outstanding. Same block, named for what happened.
+                 */
+                const paidFirst = !!(appointment as any).prepaid;
                 return (
-                  <div className="rounded-xl border border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-950/20 p-3 space-y-2">
-                    <p className="text-[11px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
-                      Paid · record still open
+                  <div className={`rounded-xl border p-3 space-y-2 ${paidFirst
+                    ? 'border-amber-300 dark:border-amber-900/60 bg-amber-50/70 dark:bg-amber-950/20'
+                    : 'border-emerald-200 dark:border-emerald-900/50 bg-emerald-50/60 dark:bg-emerald-950/20'}`}>
+                    <p className={`text-[11px] font-black uppercase tracking-widest ${paidFirst
+                      ? 'text-amber-700 dark:text-amber-400'
+                      : 'text-emerald-700 dark:text-emerald-400'}`}>
+                      {paidFirst ? 'Paid up front · the report is still to write' : 'Paid · record still open'}
                     </p>
                     <p className="text-[11px] font-semibold text-slate-600 dark:text-zinc-300 leading-relaxed">
                       {isEmergency
                         ? 'Payment is in. This is an EMERGENCY visit — open triage now, or come back to it from Clinical Workflow.'
-                        : 'Payment is in. Nothing is locked: fill the report now, or come back to this visit later and finish it.'}
+                        : paidFirst
+                          ? 'The client has paid before the work was written up. Nothing is locked — fill the report now, or come back to this visit and finish it. It stays on the unfinished list until you do.'
+                          : 'Payment is in. Nothing is locked: fill the report now, or come back to this visit later and finish it.'}
                     </p>
                     <div className="flex flex-wrap gap-2">
                       {isEmergency ? (

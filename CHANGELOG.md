@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### tweak: the post-payment reminder names pay-first for what it is  —  2026-08-20
+🟢 **Record impact: none** — copy and colour on an existing block.
+- On a **prepaid** visit the money arrived BEFORE the work was written up, so the report is not merely
+  "still open" — it is the thing outstanding. The block now reads **"Paid up front · the report is
+  still to write"** in amber, and says the visit stays on the unfinished list until it is done
+  (user, 2026-08-20: *"this to appear if user paid first to remind them to fill in"*).
+- ⚠️ `appointment.prepaid` was never actually read here — the file only mentioned it in a comment
+  claiming the condition "mirrors the server's `prepaidStillOpen` exactly". It mirrored half of it.
+  The gating is unchanged (record editability is status-based); only the wording now distinguishes
+  the two cases.
+
 ### fix: two procedure searches on the same tab  —  2026-08-20
 🟢 **Record impact: none.**
 - The Treatment step has its own "Search your created procedures…" AND `AppliedProcedurePanel` was
