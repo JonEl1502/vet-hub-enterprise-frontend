@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: say plainly how much is being dispensed, and let the number be the number  —  2026-08-20
+🟢 **Record impact: display + input bounds.** Nothing stored changes shape.
+- ⚠️ **The box showed a different number than it billed.** The qty input rounded to 2dp while the
+  emitted value kept 3, so a typed `0.254` sat in the field as **0.25** and charged **15.24** instead
+  of 15. The field now shows exactly what will be billed (user, 2026-08-20: *"confusing as to how
+  much am dispensing"*).
+- ⚠️ **The qty was capped at ONE stock unit.** A 12-tablet pack refused a 13th tablet with 4,800 on
+  the shelf and no message explaining why the number would not grow. And the floor forced ¼ of the
+  chosen unit, so nothing finer than a quarter tablet could be typed at all.
+- **Free numeric entry, 0 → 100,000 sell units**, in whatever the item is sold in — mL, g, Tablet,
+  Vial (user: *"user can state in numeric 0.00 to 100000… ml/g/tablet/vials"*). The box now **starts
+  at the item's `minSellQty`** instead of a blanket 1.
+- ⚠️ The minimum is enforced at **Add**, not while typing — a floor inside the input fights you
+  halfway through "0.5". A product with no minimum stays freely divisible, which is the point for
+  liquids.
+- **The summary line leads with the dose** rather than opening on a unit price and burying the amount
+  inside a multiplication: *Dispensing **0.25 Tablet** · KES 15 (60/Tablet) · leaves 4,799.75 Tablet
+  (399.98 Pack) of 4,800*.
+- **Data dependency:** None — `inventory_items.min_sell_qty` (211) already exists.
+
 ### fix: the dispense row subtracted tablets from a count of packs  —  2026-08-20
 🟢 **Record impact: display + a guard.** No stored quantity changed; the server always converted
 correctly. What was wrong was what the screen said, and what it let you do.

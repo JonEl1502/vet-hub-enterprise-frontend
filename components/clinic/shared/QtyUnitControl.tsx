@@ -23,7 +23,17 @@ export interface UnitItemLike {
   packSize?: number | null;                   // sell units per stock unit
   metadata?: { sellUnit?: string | null } | null;
   sellUnit?: string | null;                   // some rows carry it flattened
+  minSellQty?: number | null;                 // smallest dispensable amount, in SELL units
 }
+
+/** Where the qty box starts for an item: its smallest dispensable amount. */
+export const defaultSellQty = (item: UnitItemLike): number => {
+  const min = Number(item?.minSellQty ?? 0);
+  return Number.isFinite(min) && min > 0 ? min : 1;
+};
+
+/** Free numeric entry, in sell units. */
+export const MAX_SELL_QTY = 100000;
 
 /** Stock units consumed by ONE sell unit (mirror of the server helper). */
 export const stockPerSellUnit = (item: UnitItemLike): number => {
@@ -91,10 +101,18 @@ const QtyUnitControl: React.FC<Props> = ({ item, value, onChange, className = ''
   const chosen = options[Math.min(unitIdx, options.length - 1)];
   const displayQty = chosen ? value / chosen.sellQty : value;
 
-  // Bounds in SELL units: ≥ ¼ of the chosen unit, ≤ one stock unit total
-  // ("max auto-matches the purchase unit"). Non-split items keep a sane cap.
-  const maxSell = split ? Number(item.packSize) : 9999;
-  const clamp = (sellUnits: number) => Math.min(maxSell, Math.max(chosen.sellQty * 0.25, sellUnits));
+  /**
+   * FREE NUMERIC ENTRY, 0 → 100,000 sell units (user, 2026-08-20: "user can
+   * state in numeric 0.00 to 100000… ml/g/tablet/vials").
+   *
+   * ⚠️ Two old bounds were doing real damage. The floor forced ¼ of the chosen
+   * unit, so nothing finer than a quarter tablet could be typed. The ceiling was
+   * **one stock unit** — a 12-tablet pack capped every line at 12 tablets, with
+   * 4,800 on the shelf, and no message saying why the number refused to grow.
+   * The item's own `minSellQty` is the only real floor and it belongs at the
+   * point of ADD, not in the middle of typing.
+   */
+  const clamp = (sellUnits: number) => Math.min(MAX_SELL_QTY, Math.max(0, sellUnits));
 
   const emit = (qtyInChosen: number, opt: UnitOption = chosen) => {
     if (!Number.isFinite(qtyInChosen)) return;
@@ -111,8 +129,16 @@ const QtyUnitControl: React.FC<Props> = ({ item, value, onChange, className = ''
   return (
     <span className={`inline-flex items-center gap-1 ${className}`}>
       <input
-        type="number" min={0.25} step={0.25} disabled={disabled}
-        value={Number.isFinite(displayQty) ? Math.round(displayQty * 100) / 100 : ''}
+        type="number" min={0} max={MAX_SELL_QTY} step="any" disabled={disabled}
+        /**
+         * ⚠️ Show EXACTLY what will be billed.
+         *
+         * The box rounded to 2dp while the emitted value keeps 3, so a typed
+         * 0.254 sat in the field as "0.25" and charged 15.24 instead of 15 —
+         * the number on screen was not the number on the bill (user,
+         * 2026-08-20: "confusing as to how much am dispensing").
+         */
+        value={Number.isFinite(displayQty) ? Number(displayQty.toFixed(3)) : ''}
         onChange={e => emit(Number(e.target.value))}
         className={inputCls}
         title={split ? `Billed per ${sellUnitOf(item)}; 1 ${item.unit} = ${item.packSize} ${sellUnitOf(item)}` : undefined}

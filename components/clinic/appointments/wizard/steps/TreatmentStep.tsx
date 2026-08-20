@@ -5,7 +5,7 @@ import { Section, L, showsField } from '../fields';
 import AppliedProcedurePanel from '../../../shared/AppliedProcedurePanel';
 import VaccinationPanel from '../../VaccinationPanel';
 import TreatmentPlanPanel from '../../../inpatient/TreatmentPlanPanel';
-import QtyUnitControl, { sellUnitOf, stockPerSellUnit } from '../../../shared/QtyUnitControl';
+import QtyUnitControl, { sellUnitOf, stockPerSellUnit, defaultSellQty } from '../../../shared/QtyUnitControl';
 import VisitFeeLines from '../../VisitFeeLines';
 import { billsAPI } from '../../../../../services';
 import { useData } from '../../../../../contexts/DataContext';
@@ -96,6 +96,9 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
   const pickItem = (it: any) => setDraft(prev => ({
     ...prev, drug: it.name, itemId: String(it.id), unit: it.unit,
     price: Number(it.price) || 0, stock: Number(it.quantity),
+    // Start at the item's smallest dispensable amount rather than a blanket 1 —
+    // for a tablet that is usually 1, for a liquid it is whatever the clinic set.
+    qty: defaultSellQty(it),
   }));
 
   /** The full inventory row behind the draft — QtyUnitControl and the fees need it. */
@@ -134,6 +137,13 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
     if (!draft.itemId) { toast.error('Pick a product from inventory — that\'s what deducts stock'); return; }
     const qty = Number(draft.qty) || 0;
     if (qty <= 0) { toast.error('Enter a quantity to dispense'); return; }
+    // The floor lives HERE, not in the input — typing "0.5" must not fight you
+    // halfway through. A product with no minimum stays freely divisible.
+    const minQty = Number((draftItem as any)?.minSellQty ?? 0);
+    if (minQty > 0 && qty < minQty - 1e-9) {
+      toast.error(`Smallest dispensable amount is ${minQty} ${sellUnitOf(draftItem || {})}`);
+      return;
+    }
     /**
      * ⚠️ Compare LIKE WITH LIKE. `draft.stock` is the balance in STOCK units
      * (400 Packs) while `qty` is in SELL units (Tablets), so this refused the
@@ -557,10 +567,15 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
                 return (
                   <p className="text-[9px] font-black mt-0.5 px-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                     <span className="text-seafoam">
-                      {/* Price is per SELL unit — quoting it against the stock
-                          unit read "60/Pack" on a 60-per-tablet item. */}
-                      ✓ {draft.price ? `${draft.price.toLocaleString()}/${sellU}` : 'from stock'}
-                      {q > 0 && draft.price ? ` × ${q} = ${currency} ${lineTotal.toLocaleString()}` : ''}
+                      {/* LEAD WITH THE DOSE. This opened with a unit price and
+                          buried the amount inside a multiplication — four unit
+                          words in one line, none of them plainly the answer to
+                          "how much am I giving?" (user, 2026-08-20). Price is
+                          also per SELL unit; quoting it against the stock unit
+                          read "60/Pack" on a 60-per-tablet item. */}
+                      {q > 0
+                        ? <>Dispensing <b>{tidy(q)} {sellU}</b>{draft.price ? <> · {currency} {lineTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} <span className="font-bold opacity-70">({draft.price.toLocaleString()}/{sellU})</span></> : ''}</>
+                        : <>✓ {draft.price ? `${draft.price.toLocaleString()}/${sellU}` : 'from stock'}</>}
                       {/* Fees are charged with it, so quote the REAL total. */}
                       {feeTotal > 0 && (
                         <> {' + '}{currency} {feeTotal.toLocaleString()} charges
@@ -569,8 +584,9 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
                       )}
                     </span>
                     <span className={after < 0 ? 'text-rose-500' : 'text-slate-400'}>
-                      stock {tidy(before)} → {tidy(after)} {split ? sellU : draft.unit}
-                      {split && <> {' · '}{tidy(beforeStock)} → {tidy(afterStock)} {stockU}</>}
+                      leaves {tidy(after)} {split ? sellU : draft.unit}
+                      {split && <> {' ('}{tidy(afterStock)} {stockU}{')'}</>}
+                      {' of '}{tidy(before)}{split ? ` ${sellU}` : ''}
                       {after < 0 ? ' · not enough' : ''}
                     </span>
                   </p>
