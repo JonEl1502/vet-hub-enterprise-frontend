@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### tweak: "One invoice for everything" now sits on the right  —  2026-08-20
+🟢 **Record impact: none** — button ORDER only. Which button does what is unchanged.
+- New `reverseActions` on `ConfirmDialog` / `dialog.confirm` puts the cancel action on the right.
+- ⚠️ **Position only, deliberately.** The obvious way to move a label rightward is to make it the
+  CONFIRM — but dismissing a dialog (Esc, backdrop) resolves as CANCEL, so the cancel action has to
+  stay the safe one. Swapping the roles here would have meant an accidental dismiss silently chose to
+  **split the invoice**; it still lands on one whole invoice.
+
 ### change: Vaccine Packages removed from the sidebar  —  2026-08-20
 🟢 **Record impact: none** — navigation only; no data, no route, no component removed.
 - The **Inventory & Suppliers → Vaccine Packages** entry is gone from the sidebar on request

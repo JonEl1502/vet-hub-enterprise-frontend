@@ -68,6 +68,7 @@ const DialogHost: React.FC = () => {
       confirmLabel={active.opts.confirmLabel || 'Confirm'}
       cancelLabel={active.opts.cancelLabel || 'Cancel'}
       variant={active.opts.variant || 'warning'}
+      reverseActions={(active.opts as any).reverseActions === true}
       onConfirm={() => dialog.finish(active.id, true)}
       onCancel={() => dialog.finish(active.id, false)}
     />

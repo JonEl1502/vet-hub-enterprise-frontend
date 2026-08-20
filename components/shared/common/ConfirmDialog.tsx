@@ -8,6 +8,16 @@ interface ConfirmDialogProps {
   message: string;
   confirmLabel?: string;
   cancelLabel?: string;
+  /**
+   * Render the CANCEL action on the right and confirm on the left.
+   *
+   * ⚠️ Position only — it does not change which button is the confirm. That
+   * matters: dismissing (Esc, backdrop) resolves as CANCEL, so the cancel action
+   * must stay the SAFE one. The split-invoice prompt wanted "One invoice for
+   * everything" on the right (user, 2026-08-20); making it the confirm instead
+   * would have meant an accidental dismiss silently chose to SPLIT the invoice.
+   */
+  reverseActions?: boolean;
   variant?: 'danger' | 'warning' | 'info';
   /** When true, hides the cancel button — use for alert-style notices. */
   alertOnly?: boolean;
@@ -22,6 +32,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   message,
   confirmLabel = 'Delete',
   cancelLabel = 'Cancel',
+  reverseActions = false,
   variant = 'danger',
   alertOnly = false,
   loading = false,
@@ -103,7 +114,7 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3">
+        <div className={`flex gap-3 ${reverseActions ? 'flex-row-reverse' : ''}`}>
           {!alertOnly && (
             <button
               onClick={onCancel}

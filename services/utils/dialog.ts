@@ -17,6 +17,8 @@ export interface ConfirmOptions {
   confirmLabel?: string;
   cancelLabel?: string;
   variant?: DialogVariant;
+  /** Show the cancel action on the RIGHT. Position only — see ConfirmDialog. */
+  reverseActions?: boolean;
 }
 
 export interface DeleteOptions {

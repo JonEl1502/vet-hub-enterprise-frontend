@@ -678,6 +678,11 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
                   confirmLabel: 'Split — invoice clinical now',
                   cancelLabel: 'One invoice for everything',
                   variant: 'info',
+                  // "One invoice for everything" sits on the RIGHT (user,
+                  // 2026-08-20). It stays the CANCEL action, so dismissing the
+                  // prompt still lands on one whole invoice rather than
+                  // silently splitting the bill.
+                  reverseActions: true,
                 });
                 scope = split ? 'CLINICAL' : 'FULL';
               }
