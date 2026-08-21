@@ -20,9 +20,16 @@ interface Props {
   availableEntries: { key: string }[];
   onAdd: (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING') => void;
   className?: string;
+  /**
+   * Short placeholder + tighter padding, for the phone bill bar and the
+   * workflow row. A native <select> shows one label at every breakpoint, so a
+   * responsive string is impossible — render the compact instance and the full
+   * one side by side under `sm:hidden` / `hidden sm:block` instead.
+   */
+  compact?: boolean;
 }
 
-const AddEncounterSelect: React.FC<Props> = ({ visit, availableEntries, onAdd, className = '' }) => {
+const AddEncounterSelect: React.FC<Props> = ({ visit, availableEntries, onAdd, className = '', compact = false }) => {
   const has = (...kws: string[]) =>
     (visit.tasks || []).some(t => kws.some(k => String(t.category || '').toLowerCase().includes(k)));
   const entryTaken = (...keys: string[]) => availableEntries.some(e => keys.includes(e.key));
@@ -55,9 +62,9 @@ const AddEncounterSelect: React.FC<Props> = ({ visit, availableEntries, onAdd, c
       value=""
       onChange={e => { const v = e.target.value as any; if (v) { onAdd(v); e.target.value = ''; } }}
       title="Hand this patient on to another encounter type — its service & fee land on this bill"
-      className={`px-2.5 py-2.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 text-[10px] font-black uppercase tracking-widest outline-none cursor-pointer hover:border-seafoam/50 transition-all ${className}`}
+      className={`shrink-0 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 font-black uppercase tracking-widest outline-none cursor-pointer hover:border-seafoam/50 transition-all ${compact ? 'px-2 py-1.5 text-[9px]' : 'px-2.5 py-2.5 text-[10px]'} ${className}`}
     >
-      <option value="">＋ Transfer / add encounter…</option>
+      <option value="">{compact ? '＋ Encounter' : '＋ Transfer / add encounter…'}</option>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   );

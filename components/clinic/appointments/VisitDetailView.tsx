@@ -8350,13 +8350,28 @@ const VisitDetailInner: React.FC<Props> = ({
               <div className="flex-1" />
               {/* Hand-off lives HERE now (user, 2026-08-02) — beside finalize /
                   payment, not in the wizard header. */}
+              {/* ⚠️ MOBILE TOO (user, 2026-08-21: "add it to mobile too
+                  everywhere"). This was `hidden sm:block`, so a phone had NO way
+                  to add an encounter anywhere in the app. Two instances rather
+                  than one responsive class: a native <select> renders one label
+                  at every width, and "＋ Transfer / add encounter…" does not fit
+                  a phone bill bar beside the total and the primary action. */}
               {!appointment.isPaid && (
-                <AddEncounterSelect
-                  visit={appointment}
-                  availableEntries={wiz.availableEntries}
-                  onAdd={handleAddEncounter}
-                  className="hidden sm:block"
-                />
+                <>
+                  <AddEncounterSelect
+                    visit={appointment}
+                    availableEntries={wiz.availableEntries}
+                    onAdd={handleAddEncounter}
+                    compact
+                    className="sm:hidden"
+                  />
+                  <AddEncounterSelect
+                    visit={appointment}
+                    availableEntries={wiz.availableEntries}
+                    onAdd={handleAddEncounter}
+                    className="hidden sm:block"
+                  />
+                </>
               )}
               {isFinalized && canUnlock && (
                 <button onClick={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)} title="Reopen the clinical workflow — steps, procedures and records become editable again. The bill has its own Reopen."

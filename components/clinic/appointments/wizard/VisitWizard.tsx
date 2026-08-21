@@ -10,6 +10,7 @@ import { STEP_DEFS } from './entryPoints';
 import TemplateStep from './steps/TemplateStep';
 import { workflowTemplatesAPI, procedureTemplatesAPI, ProcedureTemplate, toast } from '../../../../services';
 import InlineConsumableSearch from '../InlineConsumableSearch';
+import AddEncounterSelect from '../AddEncounterSelect';
 import { StepProps, WizardStepId, StaffOpt } from './types';
 // Inline add-service search on the Running Bill card (user, 2026-08-01) —
 // same control the Diagnostics step uses; context provided by VisitDetailView.
@@ -495,7 +496,7 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
                       // — the picker was moved out of this row to the payment bar
                       // on 2026-08-02, so the advice was unfollowable from here
                       // (user, 2026-08-21: "where do i add and encounter?").
-                      ? "This visit's base workflow. Every visit runs one, so it cannot be removed. To add a second workflow use “＋ Transfer / add encounter…” in the bill bar at the foot of this page."
+                      ? "This visit's base workflow. Every visit runs one, so it cannot be removed — add a second one with ＋ Encounter beside this chip."
                       : active ? 'Active workflow' : 'Switch the active workflow — steps you completed in the other flow are kept'}
                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${
                       active
@@ -536,11 +537,35 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
                   >×</span>
                 </span>
               )}
+              {/**
+               * ＋ Encounter, IN THE WORKFLOW ROW.
+               *
+               * It was moved OUT of here to the finalize/payment bar on
+               * 2026-08-02 — mid-flow it read as a mode switch, at the end as a
+               * hand-off. That reasoning still holds, and the bar keeps its full
+               * copy. What it missed: the bar renders ONLY on the Bill and
+               * Follow-up tabs, so on CLINICAL WORKFLOW there was no way to add
+               * an encounter at all, at any width — while the base chip beside
+               * it tells you to add one (user, 2026-08-21: "add it to mobile too
+               * everywhere").
+               *
+               * Compact, and NOT worded as a transfer here, so it reads as "add
+               * a second workflow" rather than "switch this one".
+               */}
+              {onAddEncounter && !locked && (
+                <AddEncounterSelect
+                  visit={visit}
+                  availableEntries={availableEntries}
+                  onAdd={onAddEncounter}
+                  compact
+                />
+              )}
             </div>
           )}
-          {/* The Transfer / add-encounter picker MOVED to the finalize/payment
-              bar (user, 2026-08-02) — see `AddEncounterSelect`. Mid-flow it
-              read as a mode switch; at the end it reads as a hand-off. */}
+          {/* The FULL "＋ Transfer / add encounter…" picker also sits in the
+              finalize/payment bar (user, 2026-08-02) — see `AddEncounterSelect`.
+              This row carries the compact twin because that bar only renders on
+              the Bill and Follow-up tabs. */}
           <div className="flex-1" />
           {/* Desktop: full escalation buttons */}
           {/* HOSPITALIZE / IN-PATIENT — hidden from the workflow header at the

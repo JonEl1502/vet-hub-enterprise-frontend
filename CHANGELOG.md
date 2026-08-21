@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: an encounter can be added on mobile — and from the Clinical Workflow tab at all  —  2026-08-21
+🟢 **Record impact: none** — placement of an existing control. The encounter it creates is unchanged.
+- **Two gaps, one of them worse than reported.** `AddEncounterSelect` was `hidden sm:block`, so no phone
+  could add an encounter. Checking that turned up the bigger one: the bar it lives in renders **only on
+  the Bill and Follow-up tabs**, so on **Clinical Workflow there was no control at any width** — while
+  the base-workflow chip sitting right there told you to add one (user, 2026-08-21: *"add it to mobile
+  too everywhere"*).
+- **Now in two places.** A compact **＋ Encounter** in the wizard's Workflow row, beside the chips, at
+  every breakpoint; and the bill bar keeps the full **＋ Transfer / add encounter…**, now rendered on
+  mobile too.
+- Two instances rather than one responsive class: a native `<select>` shows **one** label at every
+  width, and the full string does not fit a phone bill bar beside the total and the primary action. The
+  compact twin is `sm:hidden`, the full one `hidden sm:block`.
+- The 2026-08-02 decision to move this OUT of the wizard header still stands for the *transfer* wording
+  — mid-flow "Transfer" read as a mode switch. The row's copy is **＋ Encounter** for that reason: it
+  reads as adding a second workflow, not switching the current one.
+- The base-workflow tooltip now points at the control beside it instead of a bar on another tab.
+- Files: `clinic/appointments/AddEncounterSelect.tsx` (`compact`), `wizard/VisitWizard.tsx`,
+  `clinic/appointments/VisitDetailView.tsx`.
+- **Data dependency:** none — `POST /visits/:id/encounters` already existed.
+
+
 ### tweak: the base-workflow tooltip says WHERE to add an encounter  —  2026-08-21
 🟢 **Record impact: none** — tooltip copy.
 - Yesterday's tooltip told people to "add another encounter to switch" and pointed at nothing: the
