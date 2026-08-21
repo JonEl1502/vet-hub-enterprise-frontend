@@ -7609,6 +7609,40 @@ const VisitDetailInner: React.FC<Props> = ({
           ? (settleBase * discountVal) / 100
           : discountVal;
         const finalTotal = Math.max(0, settleBase - discountAmount);
+
+        /**
+         * ⚠️ ONE TOTAL FOR THE WHOLE COLLECTION — every figure below reads it.
+         *
+         * `finalTotal` is THIS visit only. Ticking other outstanding invoices
+         * adds them to the same payment, and the credit maths went on measuring
+         * against this visit alone: 4,400 of credit against a 1,717.5 visit read
+         * "nothing left to collect · 2,682.5 stays on account" while the
+         * selection actually totalled 22,917.5 (user, 2026-08-21: "do math").
+         * The truth is that the credit clears 4,400 of it and 18,517.5 still
+         * has to be collected — the opposite of what the modal said.
+         */
+        const settleAlsoTotal = settleOthers
+          .filter(r => settleAlso.has(r.visitId))
+          .reduce((n, r) => n + r.outstanding, 0);
+        const combinedDue = Math.round((finalTotal + settleAlsoTotal) * 100) / 100;
+        const typedAmount = parseFloat(settleAmountPaid);
+        const hasTyped = Number.isFinite(typedAmount) && typedAmount > 0;
+        /** What is being settled in this transaction — typed, else everything ticked. */
+        const settlingNow = hasTyped ? typedAmount : combinedDue;
+        /** Credit funds it FIRST; cash covers the rest. Mirrors the confirm handler. */
+        const creditApplied = settleUseCredit
+          ? Math.round(Math.min(settleCredit, settlingNow) * 100) / 100
+          : 0;
+        const cashWanted = Math.max(0, Math.round((settlingNow - creditApplied) * 100) / 100);
+        /** Still owed across the ticked invoices after this transaction. */
+        const stillOwed = Math.round((combinedDue - settlingNow) * 100) / 100;
+        /** Credit untouched by this transaction. */
+        const creditLeft = Math.round((settleCredit - creditApplied) * 100) / 100;
+        /** Paid MORE than everything ticked — the excess lands on account. */
+        const overpay = Math.round((settlingNow - combinedDue) * 100) / 100;
+        const curSym = client?.currency || activeClinic.currency || 'KES';
+        const fmtMoney = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
         return createPortal(
           <div className="fixed inset-0 bg-slate-900/70 dark:bg-black/80 z-[800] flex items-center justify-center p-4 sm:p-6 animate-in fade-in overflow-y-auto" onClick={() => setShowSettleModal(false)}>
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-3xl w-full my-auto rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
@@ -7949,19 +7983,12 @@ const VisitDetailInner: React.FC<Props> = ({
                       <span className="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 leading-snug mt-0.5">
                         {(() => {
                           if (!settleUseCredit) return 'Not being used — tap to spend it on this bill';
-                          // Mirror the Confirm handler exactly: credit is drawn
-                          // against what is being settled NOW, not the whole
-                          // bill — otherwise this line promises 800 while the
-                          // payment applies 500.
-                          const typed = parseFloat(settleAmountPaid);
-                          const settlingNow = Number.isFinite(typed) && typed > 0 ? typed : finalTotal;
-                          const draw = Math.min(settleCredit, settlingNow);
-                          const cash = Math.max(0, Math.round((settlingNow - draw) * 100) / 100);
-                          const cur = client?.currency || 'KES';
-                          const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
-                          return cash > 0.005
-                            ? `Deducting ${cur} ${fmt(draw)} from credit — collect ${cur} ${fmt(cash)} in ${settlePaymentMethod === 'CASH' ? 'cash' : 'payment'}`
-                            : `Deducting ${cur} ${fmt(draw)} from credit — nothing left to collect`;
+                          // Mirrors the confirm handler, and measures against the
+                          // WHOLE collection (this visit + every ticked invoice)
+                          // — the figures are derived once, above.
+                          return cashWanted > 0.005
+                            ? `Deducting ${curSym} ${fmtMoney(creditApplied)} from credit — collect ${curSym} ${fmtMoney(cashWanted)} in ${settlePaymentMethod === 'CASH' ? 'cash' : 'payment'}`
+                            : `Deducting ${curSym} ${fmtMoney(creditApplied)} from credit — nothing left to collect`;
                         })()}
                       </span>
                     </span>
@@ -7976,33 +8003,68 @@ const VisitDetailInner: React.FC<Props> = ({
                     one (user, 2026-08-13: "boldly say it … prompt user that
                     client credit is below outstanding bal"). Informational, not
                     a blocker: staff close it and carry on collecting the rest. */}
-                {settleUseCredit && settleCredit > 0.005 && (() => {
-                  const cur = client?.currency || 'KES';
-                  const fmt = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
-                  const short = Math.round((finalTotal - settleCredit) * 100) / 100;
-                  return short > 0.005 ? (
-                    <div className="rounded-xl border border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30 px-3.5 py-3">
-                      <p className="text-[11px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
-                        Credit does not cover this bill
-                      </p>
-                      <p className="mt-1 text-[11px] font-bold text-amber-700/90 dark:text-amber-400/90 leading-relaxed">
-                        {client?.name || 'The client'} has <b>{cur} {fmt(settleCredit)}</b> on account against{' '}
-                        <b>{cur} {fmt(finalTotal)}</b> owed. All of the credit is applied and{' '}
-                        <b>{cur} {fmt(short)}</b> still needs collecting.
-                      </p>
+                {/**
+                  * WHERE THE MONEY COMES FROM — the arithmetic laid out, not
+                  * asserted (user, 2026-08-21: "when credit is selected substract
+                  * n show allocation of funds n how much more in needed").
+                  *
+                  * Every row reads `combinedDue`, so ticking another invoice
+                  * moves all of them together. The old copy compared credit with
+                  * THIS VISIT alone and announced "nothing to collect" on a
+                  * 22,917.5 selection that credit covered 4,400 of.
+                  */}
+                {settleUseCredit && settleCredit > 0.005 && (
+                  <div className={`rounded-xl border px-3.5 py-3 ${
+                    cashWanted > 0.005
+                      ? 'border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30'
+                      : 'border-emerald-300 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/30'
+                  }`}>
+                    <p className={`text-[11px] font-black uppercase tracking-widest ${
+                      cashWanted > 0.005 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'
+                    }`}>
+                      {cashWanted > 0.005 ? 'Credit does not cover it all' : 'Paying from credit'}
+                    </p>
+                    <div className="mt-2 space-y-1 text-[11px] font-bold">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-slate-500 dark:text-zinc-400">
+                          {settleAlso.size > 0 ? `Due · ${settleAlso.size + 1} invoices` : 'Due on this invoice'}
+                        </span>
+                        <span className="font-mono text-pine dark:text-zinc-100">{curSym} {fmtMoney(combinedDue)}</span>
+                      </div>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-indigo-600 dark:text-indigo-400">
+                          − From credit{creditApplied < settleCredit - 0.005 ? ` (of ${curSym} ${fmtMoney(settleCredit)})` : ''}
+                        </span>
+                        <span className="font-mono text-indigo-600 dark:text-indigo-400">− {curSym} {fmtMoney(creditApplied)}</span>
+                      </div>
+                      <div className={`flex items-baseline justify-between gap-3 pt-1 border-t ${
+                        cashWanted > 0.005 ? 'border-amber-300/60 dark:border-amber-900/60' : 'border-emerald-300/60 dark:border-emerald-900/60'
+                      }`}>
+                        <span className={cashWanted > 0.005 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}>
+                          {cashWanted > 0.005 ? 'Still to collect now' : 'Nothing left to collect'}
+                        </span>
+                        <span className={`font-mono font-black ${cashWanted > 0.005 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                          {curSym} {fmtMoney(cashWanted)}
+                        </span>
+                      </div>
+                      {/* What the payment does NOT cover — a typed part payment
+                          leaves a real balance and it should be named here, not
+                          only under the amount box. */}
+                      {stillOwed > 0.005 && (
+                        <div className="flex items-baseline justify-between gap-3 text-slate-500 dark:text-zinc-400">
+                          <span>Left owing after this</span>
+                          <span className="font-mono">{curSym} {fmtMoney(stillOwed)}</span>
+                        </div>
+                      )}
+                      {creditLeft > 0.005 && (
+                        <div className="flex items-baseline justify-between gap-3 text-slate-500 dark:text-zinc-400">
+                          <span>Credit staying on account</span>
+                          <span className="font-mono">{curSym} {fmtMoney(creditLeft)}</span>
+                        </div>
+                      )}
                     </div>
-                  ) : (
-                    <div className="rounded-xl border border-emerald-300 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/30 px-3.5 py-3">
-                      <p className="text-[11px] font-black uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
-                        Paying from credit
-                      </p>
-                      <p className="mt-1 text-[11px] font-bold text-emerald-700/90 dark:text-emerald-400/90 leading-relaxed">
-                        <b>{cur} {fmt(finalTotal)}</b> comes off {client?.name || 'the client'}&apos;s credit —
-                        nothing to collect. <b>{cur} {fmt(settleCredit - finalTotal)}</b> stays on account.
-                      </p>
-                    </div>
-                  );
-                })()}
+                  </div>
+                )}
 
                 {/* AMOUNT PAID — a client who pays part of the bill should leave
                     a real balance, not a visit marked settled. Blank = in full,
@@ -8017,38 +8079,37 @@ const VisitDetailInner: React.FC<Props> = ({
                   </div>
                   <input
                     type="number" min="0" step="any" inputMode="decimal"
-                    placeholder={`${client?.currency || 'KES'} ${finalTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} — full`}
+                    placeholder={`${curSym} ${fmtMoney(combinedDue)} — full`}
                     value={settleAmountPaid}
                     onChange={e => setSettleAmountPaid(e.target.value)}
                     className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
                   />
-                  {(() => {
-                    const paid = parseFloat(settleAmountPaid);
-                    if (!Number.isFinite(paid) || paid <= 0) return null;
-                    const left = Math.round((finalTotal - paid) * 100) / 100;
-                    if (left > 0.005) return (
-                      <p className="mt-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 leading-relaxed">
-                        {client?.currency || 'KES'} {left.toLocaleString(undefined, { maximumFractionDigits: 2 })} stays outstanding on this visit.
-                        {settleUseCredit && settleCredit > 0.005 ? (
-                          <>
-                            {' '}It is drawn from {client?.name || 'the client'}&apos;s credit first, so
-                            only what credit cannot cover is collected — and the rest of the credit stays
-                            on the account.
-                          </>
-                        ) : (
-                          <>
-                            {' '}The {client?.currency || 'KES'} {paid.toLocaleString(undefined, { maximumFractionDigits: 2 })} is
-                            recorded on {client?.name || 'the client'}&apos;s account and applied here, so both sides reconcile.
-                          </>
-                        )}
-                      </p>
-                    );
-                    if (left < -0.005) return (
+                  {/* Live as you type, and against EVERYTHING ticked — short,
+                      exact, or over. Overpaying is a real workflow (the client
+                      rounds up, or leaves a float), so say where the extra goes
+                      instead of letting it appear on the account unannounced
+                      (user, 2026-08-21: "when typing show how much goes to
+                      credit if more paid"). */}
+                  {hasTyped && (() => {
+                    const scope = settleAlso.size > 0 ? `across the ${settleAlso.size + 1} invoices` : 'on this visit';
+                    if (overpay > 0.005) return (
                       <p className="mt-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 leading-relaxed">
-                        {client?.currency || 'KES'} {Math.abs(left).toLocaleString(undefined, { maximumFractionDigits: 2 })} over — the extra stays on the account as credit.
+                        Clears {curSym} {fmtMoney(combinedDue)} {scope} — <b>{curSym} {fmtMoney(overpay)}</b> over,
+                        which goes onto {client?.name || 'the client'}&apos;s account as credit
+                        {settleUseCredit && creditLeft > 0.005
+                          ? <> (bringing it to <b>{curSym} {fmtMoney(creditLeft + overpay)}</b>).</>
+                          : <>.</>}
                       </p>
                     );
-                    return <p className="mt-1.5 text-[10px] font-bold text-slate-400">Settles this visit in full.</p>;
+                    if (stillOwed > 0.005) return (
+                      <p className="mt-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 leading-relaxed">
+                        {curSym} {fmtMoney(stillOwed)} stays outstanding {scope}.
+                        {settleUseCredit && settleCredit > 0.005
+                          ? <> Credit funds {curSym} {fmtMoney(creditApplied)} of what is being paid now, so only {curSym} {fmtMoney(cashWanted)} is collected.</>
+                          : <> The {curSym} {fmtMoney(typedAmount)} is recorded on {client?.name || 'the client'}&apos;s account and applied here, so both sides reconcile.</>}
+                      </p>
+                    );
+                    return <p className="mt-1.5 text-[10px] font-bold text-slate-400">Settles {scope === 'on this visit' ? 'this visit' : 'all ticked invoices'} in full.</p>;
                   })()}
                 </div>
 
@@ -8116,12 +8177,27 @@ const VisitDetailInner: React.FC<Props> = ({
                     if (settleAlso.size > 0 && client) {
                       // ONE payment over this visit + the ticked invoices — the
                       // collect engine allocates and receipts per filled invoice.
+                      /**
+                       * ⚠️ THE AMOUNT AND THE CREDIT TOGGLE MUST TRAVEL WITH IT.
+                       *
+                       * This call used to send neither, so on a multi-invoice
+                       * collection the typed figure and the credit switch did
+                       * NOTHING — the modal offered both, and the server
+                       * collected the full combined total in cash regardless
+                       * (user, 2026-08-21, typing 5,000 against a 22,917.5
+                       * selection). `useCredit` is passed as the capped NUMBER
+                       * rather than `true` so the draw matches what the modal
+                       * just showed, and credit is not part of `amountTendered`
+                       * — it reduces the cash needed.
+                       */
                       setIsSettlingBill(true);
                       try {
                         const res = await clientsAPI.collect(client.id, {
                           visitIds: [String(appointment.id), ...Array.from(settleAlso)],
                           paymentMethod: settlePaymentMethod,
                           walletId: pickedWalletId ?? undefined,
+                          ...(hasTyped || creditApplied > 0.005 ? { amountTendered: cashWanted } : {}),
+                          ...(creditApplied > 0.005 ? { useCredit: creditApplied } : {}),
                           ...(discountVal > 0 ? { discountType: settleDiscountType, discountValue: discountVal } : {}),
                         });
                         if (res.success) {
@@ -8134,7 +8210,7 @@ const VisitDetailInner: React.FC<Props> = ({
                       finally { setIsSettlingBill(false); }
                       return;
                     }
-                    const paidNum = parseFloat(settleAmountPaid);
+                    const paidNum = typedAmount;
                     // Spending credit REQUIRES the account collect path, so the
                     // cash figure has to be explicit: the bill less whatever
                     // credit covers. Without this the settle-in-full path runs
@@ -8157,11 +8233,10 @@ const VisitDetailInner: React.FC<Props> = ({
                      * for something else — so the amount typed governs, and
                      * credit is drawn only up to it.
                      */
-                    const settlingNow = Number.isFinite(paidNum) && paidNum > 0 ? paidNum : finalTotal;
-                    const creditApplied = settleUseCredit
-                      ? Math.round(Math.min(settleCredit, settlingNow) * 100) / 100
-                      : 0;
-                    const cashWanted = Math.max(0, Math.round((settlingNow - creditApplied) * 100) / 100);
+                    // `settlingNow` / `creditApplied` / `cashWanted` are derived
+                    // once at the top of the modal, so what is written is exactly
+                    // what was displayed. With no other invoice ticked,
+                    // `combinedDue` is this visit's total.
                     await handleSettleBill(
                       settlePaymentMethod,
                       discountVal > 0 ? settleDiscountType : undefined,
@@ -8176,7 +8251,7 @@ const VisitDetailInner: React.FC<Props> = ({
                       // the floor without a word.
                       creditApplied > 0.005
                         || settleReference.trim().length > 0
-                        || (Number.isFinite(paidNum) && paidNum > 0 && Math.abs(paidNum - finalTotal) > 0.005)
+                        || (hasTyped && Math.abs(typedAmount - combinedDue) > 0.005)
                         ? cashWanted
                         : undefined,
                       creditApplied > 0.005 ? creditApplied : undefined,

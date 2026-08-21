@@ -59,6 +59,30 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the settle modal did its maths against ONE invoice while collecting several  —  2026-08-21
+🔴 **Record impact: money.** A multi-invoice collection previously ignored the typed amount and the
+credit toggle entirely. Both are now sent, so what is written matches what the modal shows.
+- **The display was wrong.** 4,400 of credit against a 1,717.5 visit read *"nothing left to collect ·
+  2,682.5 stays on account"* — while the ticked selection totalled **22,917.5**. The truth: credit
+  clears 4,400 and **18,517.5 still has to be collected**. Typing 5,000 was reported as *"3,282.5
+  over"* when it was in fact 17,917.5 **short** (user, 2026-08-21: *"do math"*).
+- **The write path was worse.** With other invoices ticked, `clientsAPI.collect` was called with
+  neither `amountTendered` nor `useCredit` — so on that path the amount box and the credit switch did
+  **nothing**, and the full combined total was collected in cash regardless of what was on screen.
+  Both now travel with the call; `useCredit` is sent as the capped NUMBER so the draw equals what was
+  displayed, and credit is not part of `amountTendered` because it reduces the cash needed.
+- **One money model, derived once.** `combinedDue` (this visit + every ticked invoice) now feeds the
+  credit block, the amount placeholder, the typing hint and the confirm handler, so display and write
+  cannot drift apart again.
+- **Allocation is shown, not asserted** (*"show allocation of funds n how much more in needed"*): Due →
+  − From credit → Still to collect now, plus "Left owing after this" and "Credit staying on account"
+  when either applies.
+- **Overpayment is named while typing** (*"show how much goes to credit if more paid"*): how much is
+  over, that it lands on the client's account as credit, and what the balance becomes.
+- Files: `clinic/appointments/VisitDetailView.tsx`.
+- **Data dependency:** none — `POST /clients/:id/collect` already accepted `amountTendered`/`useCredit`.
+
+
 ### change: any change on the Bill tab re-evaluates the recipes and syncs the bill  —  2026-08-21
 🔵 **Record impact: bill lines + visit tasks** — re-evaluation re-prices recipe lines; the sync appends
 new visit lines and drops task-backed lines whose task is gone. Hand-added lines are never touched.
