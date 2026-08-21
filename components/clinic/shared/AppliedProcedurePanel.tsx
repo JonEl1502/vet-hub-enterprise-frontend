@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ClipboardList, Loader2, Trash2, Check, Zap, AlertTriangle, Plus, Calculator, ChevronDown, ChevronRight, Pencil, X } from 'lucide-react';
+import { ClipboardList, Loader2, Trash2, Check, CheckSquare, Square, Zap, AlertTriangle, Plus, Calculator, ChevronDown, ChevronRight, Pencil, X } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { procedureTemplatesAPI, consumablesAPI, ProcedureApplication, ProcedureTemplate, dialog } from '../../../services';
+import { procedureTemplatesAPI, consumablesAPI, visitsAPI, ProcedureApplication, ProcedureTemplate, dialog } from '../../../services';
 import QtyUnitControl from './QtyUnitControl';
 
 interface Props {
@@ -287,6 +287,30 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
     finally { setBusy(null); }
   };
 
+  /**
+   * Untick a recommended item — take it back off the visit.
+   *
+   * There is no "dematerialize" endpoint, so this removes whatever the tick
+   * created: a stock-deducting PRODUCT goes through `consumablesAPI.remove`
+   * (which returns the stock), a plain SERVICE task through the visit's task
+   * delete. Both refetch, because the tick state is derived from the reloaded
+   * application.
+   */
+  const untickOptional = async (app: ProcedureApplication, itemId: string, name: string, task?: any, prod?: any) => {
+    // Same busy key the tick uses, so the chip shows its own spinner.
+    setBusy(`${app.id}:${itemId}`);
+    try {
+      if (prod) {
+        const res = await consumablesAPI.remove(String(prod.id));
+        if (res.success) { toast.success(`"${name}" removed — stock returned`); await load(); onChanged?.(); }
+      } else if (task) {
+        const res = await visitsAPI.deleteTask(Number(appointmentId), Number(task.id));
+        if (res.success) { toast.success(`"${name}" removed from the visit`); await load(); onChanged?.(); }
+      }
+    } catch (e: any) { if (!(await offerUnlock(e))) toast.error(e?.message || 'Failed to remove the item'); }
+    finally { setBusy(null); }
+  };
+
   const addOptional = async (app: ProcedureApplication, itemId: string, name: string) => {
     setBusy(`${app.id}:${itemId}`);
     try {
@@ -412,10 +436,23 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
           ...(app.tasks.some(t => !t.stageKey) ? [{ key: null, label: 'Other items' }] : []),
         ];
         const optionalItems = ((app.snapshot?.items ?? []) as any[]).filter(i => i.optional);
-        const isAdded = (i: any) =>
-          (i.serviceId && app.tasks.some(t => (t as any).serviceId ? String((t as any).serviceId) === String(i.serviceId) : t.name.startsWith(i.name)))
-          || (i.inventoryItemId && app.products.some(p => String(p.inventoryItem.id) === String(i.inventoryItemId)));
-        const pendingOptional = optionalItems.filter(i => !isAdded(i));
+        /**
+         * The visit task this optional item became, if it was ticked.
+         *
+         * ⚠️ MATCH BY NAME TOO. The old test needed `i.serviceId` or
+         * `i.inventoryItemId`; a plain FEE line carries neither, so
+         * "Vaccination certificate" never counted as added and the chip kept
+         * offering it — ON TOP OF the KES 200 certificate already sitting on
+         * the bill (user, 2026-08-21: "Vaccination if added dont added again
+         * the cert cost"). Ticking it twice charged twice.
+         */
+        const addedTaskFor = (i: any) => (app.tasks || []).find(t =>
+          ((i.serviceId && (t as any).serviceId) ? String((t as any).serviceId) === String(i.serviceId) : false)
+          || (!!i.name && (t.name === i.name || t.name.startsWith(i.name))));
+        const addedProductFor = (i: any) => i.inventoryItemId
+          ? app.products.find(p => String(p.inventoryItem.id) === String(i.inventoryItemId))
+          : undefined;
+        const isAdded = (i: any) => !!addedTaskFor(i) || !!addedProductFor(i);
 
         return (
           <div key={app.id} className="bg-white dark:bg-zinc-900 border border-teal-200 dark:border-teal-900/40 rounded-2xl overflow-hidden">
@@ -625,20 +662,40 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
                 </div>
               ))}
 
-              {/* Recommended (optional) diagnostics */}
-              {pendingOptional.length > 0 && !billLocked && (
+              {/* Recommended (optional) items — a TICK BOX, both ways.
+                  Every optional item shows: ticked ones are on the visit,
+                  unticked ones are not. Ticking adds the line, unticking
+                  removes it (user, 2026-08-21: "btn to be checked n
+                  uncheckable"). Previously only the UNADDED ones rendered, so a
+                  mis-tick could not be undone from here at all. */}
+              {optionalItems.length > 0 && !billLocked && (
                 <div className="border-t border-slate-100 dark:border-zinc-800 pt-2.5 space-y-1.5">
                   <p className="text-[9px] font-black uppercase tracking-widest text-violet-600">Recommended — tick what was performed</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {pendingOptional.map((i: any) => (
-                      <button key={i.id} type="button"
-                        onClick={() => addOptional(app, i.id, i.name)}
-                        disabled={busy === `${app.id}:${i.id}`}
-                        className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-violet-500/30 bg-violet-500/5 text-[10px] font-bold text-violet-600 hover:bg-violet-500/15 disabled:opacity-50">
-                        {busy === `${app.id}:${i.id}` ? <Loader2 size={11} className="animate-spin" /> : <Plus size={11} />}
-                        {i.name}{i.effectivePrice ? ` · ${currency} ${Number(i.effectivePrice).toLocaleString()}` : ''}
-                      </button>
-                    ))}
+                    {optionalItems.map((i: any) => {
+                      const addedTask = addedTaskFor(i);
+                      const addedProd = addedProductFor(i);
+                      const added = !!addedTask || !!addedProd;
+                      const itemBusy = busy === `${app.id}:${i.id}`;
+                      return (
+                        <button key={i.id} type="button"
+                          onClick={() => (added
+                            ? untickOptional(app, i.id, i.name, addedTask, addedProd)
+                            : addOptional(app, i.id, i.name))}
+                          disabled={itemBusy}
+                          title={added
+                            ? `${i.name} is on this visit — click to take it off`
+                            : `Add ${i.name} to this visit`}
+                          className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border text-[10px] font-bold disabled:opacity-50 transition-colors ${
+                            added
+                              ? 'border-violet-500 bg-violet-500/15 text-violet-700 dark:text-violet-300 hover:bg-violet-500/25'
+                              : 'border-violet-500/30 bg-violet-500/5 text-violet-600 hover:bg-violet-500/15'
+                          }`}>
+                          {itemBusy ? <Loader2 size={11} className="animate-spin" /> : added ? <CheckSquare size={11} /> : <Square size={11} />}
+                          {i.name}{i.effectivePrice ? ` · ${currency} ${Number(i.effectivePrice).toLocaleString()}` : ''}
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               )}

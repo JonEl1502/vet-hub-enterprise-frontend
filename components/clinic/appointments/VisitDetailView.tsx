@@ -152,6 +152,17 @@ const SENTIMENT_PRESETS: Record<'positive' | 'neutral' | 'negative', string[]> =
  */
 const SHOW_RETIRED_SERVICES_TAB = false;
 
+/**
+ * Module pages a visit must NOT link out to.
+ *
+ * The standalone per-visit **Vaccinations** page duplicated records the wizard's
+ * own vaccination steps already own, behind a second door — so the same work had
+ * two homes that could disagree (user, 2026-08-21: "I DONT want this page
+ * accessed"). The page and its route still exist; only the ways IN from a visit
+ * are closed, so restoring one is a set-membership change.
+ */
+const HIDDEN_MODULE_PAGES = new Set(['vaccinations']);
+
 // Hook-safety guard — the inner view declares dozens of hooks. Returning
 // early from INSIDE it when visit/pet data is briefly missing (e.g. a
 // DataContext refresh swapping lists mid-render) makes React see fewer
@@ -3805,7 +3816,7 @@ const VisitDetailInner: React.FC<Props> = ({
             for (const t of appointment.tasks || []) {
               const lc = (t.category || '').toLowerCase();
               const moduleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
-              if (!moduleId || seen.has(moduleId)) continue;
+              if (!moduleId || seen.has(moduleId) || HIDDEN_MODULE_PAGES.has(moduleId)) continue;
               seen.add(moduleId);
               links.push({ category: t.category, moduleId });
             }
@@ -3922,7 +3933,7 @@ const VisitDetailInner: React.FC<Props> = ({
           onOpenModule={onOpenModule ? (category: string) => {
             const lc = (category || '').toLowerCase();
             const moduleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
-            if (moduleId) onOpenModule(moduleId, String(appointment.id));
+            if (moduleId && !HIDDEN_MODULE_PAGES.has(moduleId)) onOpenModule(moduleId, String(appointment.id));
           } : undefined}
           moduleLinks={(() => {
             // Distinct module pages this visit touches — quick-nav at the
@@ -3932,7 +3943,7 @@ const VisitDetailInner: React.FC<Props> = ({
             for (const t of appointment.tasks || []) {
               const lc = (t.category || '').toLowerCase();
               const moduleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
-              if (!moduleId || seen.has(moduleId)) continue;
+              if (!moduleId || seen.has(moduleId) || HIDDEN_MODULE_PAGES.has(moduleId)) continue;
               seen.add(moduleId);
               links.push({ category: t.category, label: t.category });
             }

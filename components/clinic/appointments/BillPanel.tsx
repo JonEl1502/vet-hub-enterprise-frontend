@@ -287,12 +287,27 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
   /**
    * How far the BILL trails the WORK on the visit.
    *
-   * `visit.totalCost` is the task sum; `bill.total` is what will actually be
-   * charged. They diverge when a bill is snapshotted early and the visit keeps
-   * running — prod visit 151 billed 3,528 against 49,392 of tasks. Positive
-   * means the client would be under-charged by that much.
+   * `bill.total` is what will actually be charged. Positive means the client
+   * would be under-charged by that much — a bill snapshotted early while the
+   * visit kept running (prod visit 151 billed 3,528 against 49,392 of tasks).
+   *
+   * ⚠️ MEASURED FROM THE TASKS, NOT `visit.totalCost`.
+   *
+   * `totalCost` is a denormalised column and it DRIFTS — 10 prod visits carry a
+   * wrong one, in both directions. This badge read it while the amber banner
+   * twenty lines below read the live task sum, so the two indicators on the
+   * same card disagreed: the user deleted the duplicate lines, the banner
+   * cleared, and the button went on advertising "· +400" for work that was no
+   * longer on the visit (user, 2026-08-21: "when deleted them Rebuild from
+   * visit · +400 should not be there because i did it then deleted duplicates").
+   *
+   * The tasks are the truth. `totalCost` is only the fallback for a visit
+   * whose tasks were not included in the payload.
    */
-  const billBehindBy = Math.max(0, Number(visit.totalCost || 0) - Number(bill.total || 0));
+  const visitWorkTotal = Array.isArray(visit.tasks) && visit.tasks.length
+    ? (visit.tasks as any[]).reduce((sum, t) => sum + (Number(t.price) || 0), 0)
+    : Number(visit.totalCost || 0);
+  const billBehindBy = Math.max(0, visitWorkTotal - Number(bill.total || 0));
   const delta = bill.deltaAmount ?? null;
 
   return (

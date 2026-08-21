@@ -107,7 +107,13 @@ interface Props {
 // (standard consultation, follow-up review, house call) get no link.
 const ENTRY_PAGE_CATEGORY: Record<string, string> = {
   grooming: 'grooming',
-  vaccination: 'vaccination',
+  // ⚠️ VACCINATION DELIBERATELY OMITTED (user, 2026-08-21: "I DONT want this
+  // page accessed" — the standalone per-visit Vaccinations page, and "comment
+  // this" on the button that opened it). The vaccination work is done in the
+  // wizard's own steps; that page duplicated the same records behind a second
+  // door. Commented rather than deleted — the page and its route still exist,
+  // so restoring the entry point is one line.
+  // vaccination: 'vaccination',
   boarding: 'boarding',
   admission: 'hospitalization',
   surgery: 'surgery',

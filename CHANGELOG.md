@@ -59,6 +59,50 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: recommended items tick BOTH ways, and stop re-charging what is already billed  —  2026-08-21
+🔵 **Record impact: visit tasks** — unticking now DELETES the visit task (or the consumable line, which
+returns stock). Nothing is deleted without a click on a ticked chip.
+- **The certificate could be charged twice.** `isAdded` needed `serviceId` or `inventoryItemId` to
+  recognise an item as already added. A plain FEE line carries neither, so "Vaccination certificate"
+  never counted — the chip went on offering it while KES 200 of certificate already sat on the bill
+  (user, 2026-08-21: *"Vaccination if added dont added again the cert cost"*). Matching now falls back
+  to the item NAME.
+- **The chip is a tick box, both ways** (*"btn to be checked n uncheckable"*). Every optional item now
+  renders — ticked ones are on the visit, unticked ones are not. Before, only the un-added ones showed,
+  so a mis-tick could not be undone from this panel at all.
+  - Unticking removes what the tick created: a stock-deducting product goes through
+    `consumablesAPI.remove` (stock returns), a plain service through the visit's task delete. There is
+    no "dematerialize" endpoint, so this is deliberate rather than symmetric.
+- Files: `clinic/shared/AppliedProcedurePanel.tsx`.
+- **Data dependency:** none — `DELETE /visits/:id/tasks/:taskId` and `DELETE /consumables/:id` exist.
+
+### fix: "Rebuild from visit · +400" measured from a column that drifts  —  2026-08-21
+🟢 **Record impact: none** — the badge only reports; the rebuild it offers is unchanged.
+- The badge read `visit.totalCost` while the amber banner on the same card read the live **task sum**.
+  So the two disagreed: the duplicate lines were deleted, the banner cleared, and the button went on
+  advertising **· +400** for work no longer on the visit (user, 2026-08-21: *"when deleted them Rebuild
+  from visit · +400 should not be there because i did it then deleted duplicates"*).
+- `total_cost` is a denormalised column and it **drifts** — 10 prod visits carry a wrong one, in both
+  directions. The badge now measures from `visit.tasks`, and falls back to `totalCost` only when the
+  payload carried no tasks.
+- ⚠️ This fixes the READOUT, not the drift. The column is still wrong on those 10 visits.
+- Files: `clinic/appointments/BillPanel.tsx`.
+- **Data dependency:** none.
+
+### change: a visit no longer links out to the standalone Vaccinations page  —  2026-08-21
+🟢 **Record impact: none** — no route or record removed, only the ways in from a visit.
+- The per-visit Vaccinations page duplicated records the wizard's own vaccination steps already own,
+  behind a second door, so the same work had two homes that could disagree (user, 2026-08-21: *"I DONT
+  want this page accessed"*, *"comment this"*).
+- Three entry points closed: the wizard header's **Open Vaccination page** (`ENTRY_PAGE_CATEGORY`), the
+  violet **Open Vaccination page** chips under the visit header, and the `moduleLinks` quick-nav — all
+  now filtered through one `HIDDEN_MODULE_PAGES` set.
+- Commented, not deleted: the page and its route still exist, so restoring an entry point is a
+  set-membership change.
+- Files: `wizard/VisitWizard.tsx`, `clinic/appointments/VisitDetailView.tsx`.
+- **Data dependency:** none.
+
+
 ### fix: an encounter can be added on mobile — and from the Clinical Workflow tab at all  —  2026-08-21
 🟢 **Record impact: none** — placement of an existing control. The encounter it creates is unchanged.
 - **Two gaps, one of them worse than reported.** `AddEncounterSelect` was `hidden sm:block`, so no phone
