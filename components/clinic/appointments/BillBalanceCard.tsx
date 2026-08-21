@@ -3,6 +3,7 @@ import { Receipt, Printer } from 'lucide-react';
 import { Visit } from '../../../types';
 import { Bill } from '../../../services/modules/bills.api';
 import { petsAPI } from '../../../services';
+import { useData } from '../../../contexts/DataContext';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import { InfoCard, InfoRow } from './PatientRail';
 import { ApptStatus } from '../../../types';
@@ -37,6 +38,14 @@ const BillBalanceCard: React.FC<Props> = ({
   visit, currency, allAppointments, bill, onNavigateToVisit, onOpenInvoice,
 }) => {
   const [snapshotBalance, setSnapshotBalance] = React.useState<number | null>(null);
+  /**
+   * The unpaid list is per CLIENT, and a client can have several animals — so
+   * "#135 · 27/07/2026" alone does not say who the debt is for (user,
+   * 2026-08-21). `visit.pet` rides on the list rows, but fall back to the pets
+   * store by id: a row whose `pet` the mapper never filled would otherwise
+   * render a bare separator.
+   */
+  const { pets } = useData() as any;
 
   // Re-read the client's balance whenever the bill actually moves. Keyed on
   // total+status rather than the object: BillPanel replaces `bill` on every
@@ -53,6 +62,9 @@ const BillBalanceCard: React.FC<Props> = ({
       .catch(() => { /* falls back to the local sum below */ });
     return () => { alive = false; };
   }, [visit.petId, billKey]);
+
+  const petNameFor = (a: Visit): string | null =>
+    a.pet?.name || (pets || []).find((p: any) => Number(p.id) === Number(a.petId))?.name || null;
 
   const unpaid = allAppointments
     .filter(a => a.clientId === visit.clientId && !a.isPaid
@@ -143,8 +155,11 @@ const BillBalanceCard: React.FC<Props> = ({
                 onClick={() => onNavigateToVisit?.(a.id)}
                 className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900 hover:border-amber-400 transition-all text-left"
               >
-                <span className="text-[10px] font-bold text-pine dark:text-zinc-100">#{a.id} · {formatDate(a.date)}</span>
-                <span className="text-[10px] font-black font-mono text-amber-700 dark:text-amber-400">{(a.totalCost || 0).toLocaleString()}</span>
+                <span className="min-w-0 text-[10px] font-bold text-pine dark:text-zinc-100 truncate">
+                  #{a.id} · {formatDate(a.date)}
+                  {petNameFor(a) && <span className="text-slate-500 dark:text-zinc-400"> · {petNameFor(a)}</span>}
+                </span>
+                <span className="shrink-0 text-[10px] font-black font-mono text-amber-700 dark:text-amber-400">{(a.totalCost || 0).toLocaleString()}</span>
               </button>
             ))}
           </div>

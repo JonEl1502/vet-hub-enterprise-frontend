@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### tweak: unpaid visits name the patient  —  2026-08-21
+🟢 **Record impact: none** — display only, on data the row already carried.
+- The **Unpaid visits** list on Bill & Balance read `#135 · 27/07/2026` and nothing else. The list is
+  per **client**, and a client can have several animals, so it never said who the debt was for
+  (user, 2026-08-21: *"mention the patient too"*). Rows now read `#135 · 27/07/2026 · Bella`.
+- Falls back to the pets store by `petId` when a row's `pet` is absent, rather than rendering a bare
+  trailing separator — the DataContext mapper is the usual reason a field goes missing on a list row.
+- The amount is `shrink-0` and the label truncates, so a long pet name cannot push the figure out.
+- Files: `clinic/appointments/BillBalanceCard.tsx`.
+- **Data dependency:** none — `Visit.pet` is already in the appointments mapper.
+
+
 ### fix: a workflow you never added no longer appears, and the base one stops pretending it can go  —  2026-08-21
 🟢 **Record impact: none** — this only changes which workflow chips are OFFERED. No task, encounter or
 bill line is created or deleted by it.
