@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### tweak: the payment-posted dialog stacks its actions  —  2026-08-21
+🟢 **Record impact: none** — layout.
+- Three actions side by side in a `max-w-sm` dialog wrapped the middle label onto two lines and made
+  all three read as cramped (user, 2026-08-21: *"too squeszed"*). Each action now gets its own
+  full-width row and **Later** drops to a subordinate text button.
+- Files: `clinic/appointments/VisitDetailView.tsx`.
+- **Data dependency:** none.
+
+
 ### fix: two defects found by testing the settle panel on staging  —  2026-08-21
 🔴 **Record impact: money** — one of these made a valid collection 400, the other made Confirm appear
 to do nothing. Neither moved money incorrectly; both stopped a payment being taken.

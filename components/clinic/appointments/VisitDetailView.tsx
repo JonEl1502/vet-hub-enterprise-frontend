@@ -8573,9 +8573,13 @@ const VisitDetailInner: React.FC<Props> = ({
                 );
               })()}
 
-              <div className="flex flex-wrap gap-2 pt-1">
+              {/* STACKED, not squeezed (user, 2026-08-21: "too squeszed"). Three
+                  actions side by side in a max-w-sm dialog wrapped the middle
+                  label onto two lines and made all three read as cramped. Each
+                  action gets its own full-width row; "Later" stays subordinate. */}
+              <div className="flex flex-col gap-2 pt-1">
                 <button onClick={() => { setSettleResult(null); setWorkflowTab('billing'); setActiveBottomTab('receipt'); }}
-                  className="flex-1 min-w-[8rem] py-2.5 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">
+                  className="w-full py-2.5 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">
                   {settleResult.outstandingAfter > 0.005 ? 'View reconciliation' : `Receipt · ${pet.name}`}
                 </button>
                 {/**
@@ -8593,12 +8597,12 @@ const VisitDetailInner: React.FC<Props> = ({
                   <button
                     onClick={() => { setSettleResult(null); onNavigateToClient?.(appointment.clientId, 'payments'); }}
                     title={`This payment also settled ${settleResult.alsoPaidCount} other invoice${settleResult.alsoPaidCount === 1 ? '' : 's'} — see the full reconciliation on the client`}
-                    className="flex-1 min-w-[8rem] py-2.5 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">
+                    className="w-full py-2.5 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">
                     Client payments · {(settleResult.alsoPaidCount ?? 0) + 1} invoices
                   </button>
                 )}
                 <button onClick={() => setSettleResult(null)}
-                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:border-seafoam hover:text-seafoam transition-all">
+                  className="w-full py-2 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all">
                   Later
                 </button>
               </div>
