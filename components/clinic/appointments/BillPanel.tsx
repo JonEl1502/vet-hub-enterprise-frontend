@@ -5,7 +5,7 @@ import {
   CreditCard, CheckCircle2, AlertTriangle, Lock, Unlock, Send, Layers, ClipboardList,
 } from 'lucide-react';
 import { Visit } from '../../../types';
-import { billsAPI, invoicesAPI, dialog } from '../../../services';
+import { billsAPI, invoicesAPI, procedureTemplatesAPI, dialog } from '../../../services';
 import servicesAPI, { CatalogService } from '../../../services/modules/services.api';
 import { useData } from '../../../contexts/DataContext';
 import { Bill, BillLine, BILL_CLIENT_APPROVAL_CHANNELS, BillClientApprovalChannel } from '../../../services/modules/bills.api';
@@ -169,6 +169,46 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
     try { const res = await fn(); apply(res); if (done) toast.success(done); onChanged?.(); }
     catch (e: any) { toast.error(e?.message || 'Something went wrong'); }
     finally { setBusy(false); }
+  };
+
+  /**
+   * Rebuild from visit = RE-EVALUATE the recipes, THEN rebuild the lines.
+   *
+   * The bill copies the visit's tasks. A procedure's per-kg lines and pricing
+   * rules live on its APPLICATION, and they are only re-priced when someone
+   * presses Re-evaluate on that card — so rebuilding first copied stale recipe
+   * lines and the bill came back with the old figures, which reads as "rebuild
+   * didn't work" (user, 2026-08-21: "let rebuilt to do reevaluate then
+   * rebuilt").
+   *
+   * Each application is re-evaluated against ITS OWN stored facts — the weight
+   * and flags already on the card. This re-prices from the current recipe and
+   * current prices; it does NOT invent new facts, so nothing changes for a
+   * visit whose recipes are already current.
+   *
+   * Best-effort per application: one recipe that cannot re-evaluate (locked,
+   * deleted template) must not block the rebuild, which is the part the user
+   * actually pressed.
+   */
+  const rebuildFromVisit = async () => {
+    let reevaluated = 0;
+    try {
+      const r = await procedureTemplatesAPI.listApplications(visit.id, { showError: false } as any);
+      const apps = r.success ? (r.data?.applications ?? []) : [];
+      for (const app of apps) {
+        const ok = await procedureTemplatesAPI.reevaluate(app.id, {
+          weightKg: app.weightKg != null ? Number(app.weightKg) : undefined,
+          flags: (app.flags ?? undefined) as any,
+        }, { showError: false } as any).then(res => !!res?.success).catch(() => false);
+        if (ok) reevaluated++;
+      }
+    } catch { /* no applications, or the list failed — rebuild alone still helps */ }
+    return run(
+      () => billsAPI.refresh(visit.id, encounterId),
+      reevaluated > 0
+        ? `Re-evaluated ${reevaluated} procedure${reevaluated === 1 ? '' : 's'}, then rebuilt from the visit`
+        : 'Rebuilt from the visit',
+    );
   };
 
   const addFromCatalog = (s: CatalogService) => run(
@@ -736,10 +776,10 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
                 completely normal until you compare it with the visit
                 (user, 2026-08-18). The button that fixes it says so itself,
                 rather than waiting to be found. */}
-            <button type="button" onClick={() => run(() => billsAPI.refresh(visit.id, encounterId), 'Rebuilt from the visit')} disabled={busy}
+            <button type="button" onClick={rebuildFromVisit} disabled={busy}
               title={billBehindBy > 1
-                ? `The visit records ${billBehindBy.toLocaleString()} more than this bill — rebuild to pull the current figures in`
-                : 'Re-read the visit and rebuild these lines'}
+                ? `Re-evaluate the visit's procedure recipes, then rebuild — the visit records ${billBehindBy.toLocaleString()} more than this bill`
+                : "Re-evaluate the visit's procedure recipes, then re-read the visit and rebuild these lines"}
               className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest disabled:opacity-40 transition-colors ${
                 billBehindBy > 1
                   ? 'needs-attention bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border border-amber-400'

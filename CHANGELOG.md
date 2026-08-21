@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: "Rebuild from visit" re-evaluates the procedure recipes first  —  2026-08-21
+🔵 **Record impact: visit tasks** — re-evaluation re-prices per-kg lines and pricing-rule adjustments on
+each applied procedure, against the facts already stored on it. No new facts are invented.
+- The bill copies the visit's TASKS. A procedure's per-kg lines and pricing rules live on its
+  **application**, and were only re-priced when someone pressed **Re-evaluate** on that card — so
+  rebuilding copied stale recipe lines and the bill came back with the old figures, which reads as the
+  rebuild not working (user, 2026-08-21: *"let rebuilt to do reevaluate then rebuilt"*).
+- Rebuild now runs Re-evaluate on every application on the visit, then rebuilds. Each is re-evaluated
+  against **its own** stored weight and flags, so a visit whose recipes are already current is unchanged.
+- Best-effort per application: one recipe that cannot re-evaluate (locked, template deleted) does not
+  block the rebuild, which is the part actually pressed. The toast says how many were re-evaluated.
+- Files: `clinic/appointments/BillPanel.tsx`.
+- **Data dependency:** none — `POST /procedure-templates/applications/:id/reevaluate` already existed.
+
+
 ### fix: recommended items tick BOTH ways, and stop re-charging what is already billed  —  2026-08-21
 🔵 **Record impact: visit tasks** — unticking now DELETES the visit task (or the consumable line, which
 returns stock). Nothing is deleted without a click on a ticked chip.
