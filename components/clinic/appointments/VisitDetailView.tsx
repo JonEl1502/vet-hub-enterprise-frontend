@@ -380,6 +380,26 @@ const VisitDetailInner: React.FC<Props> = ({
    * the same rule drifting apart — so when this visit is a split candidate the
    * dialog says so and offers that route instead.
    */
+  /**
+   * A MONEY MILESTONE ON THE JOURNEY.
+   *
+   * The timeline recorded the clinical work in detail and then simply stopped —
+   * every event on prod visit 165 was a workflow or encounter change, and the
+   * bill, the invoice and a cheque for 22,917.5 left no trace at all (user,
+   * 2026-08-21: "timeline to show evething till when settled"). A visit's story
+   * does not end when the vet puts the pen down.
+   *
+   * Written BOTH ways on purpose: `wiz.emit` puts it on the local journey
+   * immediately, `visitsAPI.addEvent` persists it to `visit_events` so it is
+   * still there tomorrow, on another device, for someone who was not in the room.
+   * Best-effort on the server leg — a failed audit write must never take a
+   * payment down with it.
+   */
+  const emitMoneyEvent = (label: string) => {
+    wiz.emit(label, 'billing', true);
+    visitsAPI.addEvent(appointment.id, { label, kind: 'billing' }).catch(() => {});
+  };
+
   const generateInvoiceFromFooter = async () => {
     const currency = (client as any)?.currency || 'KES';
     const total = Number(liveBill?.total || 0);
@@ -403,6 +423,7 @@ const VisitDetailInner: React.FC<Props> = ({
     try {
       await invoicesAPI.generate(appointment.id, { scope: 'FULL' } as any);
       toast.success('Invoice generated');
+      emitMoneyEvent(`Invoice generated — ${currency} ${total.toLocaleString()}`);
       onRefreshDashboard?.();
       setActiveBottomTab('bill');
     } catch (e: any) {
@@ -1210,6 +1231,19 @@ const VisitDetailInner: React.FC<Props> = ({
   // existing collect allocation engine (FIFO/manual, settlements many-to-many).
   const [settleOthers, setSettleOthers] = useState<{ visitId: string; date: string; outstanding: number; petName?: string | null }[]>([]);
   const [settleAlso, setSettleAlso] = useState<Set<string>>(new Set());
+  /**
+   * SPLIT THE PAYMENT BY HAND — visitId → the amount typed for it.
+   *
+   * Empty means "let the server allocate", which is what a collection has always
+   * done: oldest first, with any discount spread pro-rata. That default is right
+   * most of the time, but it is the clinic's money decision, not ours — a client
+   * paying 20,000 across two invoices may well want it weighted differently
+   * (user, 2026-08-21: "allow user to choose which invoice gets what amt").
+   *
+   * Only sent when at least one row is typed; the untouched rows keep the
+   * server's own allocation for the remainder.
+   */
+  const [settleAllocs, setSettleAllocs] = useState<Record<string, string>>({});
   const [settleOthersOpen, setSettleOthersOpen] = useState(false);
   const [settlePaymentMethod, setSettlePaymentMethod] = useState<string | null>(null);
   const [settleDiscountType, setSettleDiscountType] = useState<'PERCENTAGE' | 'FIXED'>('PERCENTAGE');
@@ -1238,6 +1272,13 @@ const VisitDetailInner: React.FC<Props> = ({
     creditAdded?: number;
     /** Existing credit spent on this collection — the server's `creditUsed`. */
     creditUsed?: number;
+    /**
+     * How many OTHER visits this one payment also settled. Drives the second
+     * button on the completion dialog: one payment across several invoices is
+     * reconciled on the CLIENT, not on any single visit, so that is where the
+     * dialog has to be able to send you.
+     */
+    alsoPaidCount?: number;
   }>(null);
   const [clientDiscounts, setClientDiscounts] = useState<ClientDiscount[]>([]);
   const [selectedClientDiscount, setSelectedClientDiscount] = useState<ClientDiscount | null>(null);
@@ -2879,6 +2920,12 @@ const VisitDetailInner: React.FC<Props> = ({
         });
         if (res.success) {
           const left = Number(res.data?.allocations?.[0]?.outstandingAfter ?? 0);
+          const rcp = res.data?.receipt?.receiptNumber;
+          emitMoneyEvent(
+            left > 0.005
+              ? `Part payment received — ${activeClinic.currency} ${Number(amountPaid ?? 0).toLocaleString()} by ${paymentMethod}; ${activeClinic.currency} ${left.toLocaleString()} still owed`
+              : `Bill SETTLED — ${activeClinic.currency} ${Number(amountPaid ?? 0).toLocaleString()} by ${paymentMethod}${rcp ? ` · ${rcp}` : ''}`,
+          );
           setSettleResult({
             amount: amountPaid ?? 0,
             outstandingAfter: left,
@@ -2927,6 +2974,10 @@ const VisitDetailInner: React.FC<Props> = ({
       const done = await onProcessPayment(appointment.id, paymentMethod, discountType, discountValue, walletId ?? null);
       // The prop may resolve to void (older call sites), so narrow before reading.
       const posted = (done && typeof done === 'object') ? done : undefined;
+      emitMoneyEvent(
+        `Bill SETTLED — ${activeClinic.currency} ${Number(posted?.amount ?? appointment.totalCost ?? 0).toLocaleString()} by ${paymentMethod}`
+        + (posted?.receiptNumber ? ` · ${posted.receiptNumber}` : ''),
+      );
       setSettleResult({
         amount: Number(posted?.amount ?? appointment.totalCost ?? 0),
         outstandingAfter: 0,
@@ -3023,7 +3074,7 @@ const VisitDetailInner: React.FC<Props> = ({
   };
 
   const openSettleModal = async () => {
-    setSettleAlso(new Set()); setSettleOthersOpen(false); setSettleOthers([]);
+    setSettleAlso(new Set()); setSettleOthersOpen(false); setSettleOthers([]); setSettleAllocs({});
     if (client) {
       clientsAPI.getBilling(client.id, { silent: true } as any).then(r => {
         const rows = (r.data?.invoices || [])
@@ -3262,6 +3313,28 @@ const VisitDetailInner: React.FC<Props> = ({
         const creditLeft = Math.round((settleCredit - creditApplied) * 100) / 100;
         /** Paid MORE than everything ticked — the excess lands on account. */
         const overpay = Math.round((settlingNow - combinedDue) * 100) / 100;
+        /**
+         * MANUAL SPLIT — only when the user has actually typed one.
+         *
+         * `settleAllocs` holds what was typed per visit. A row left blank keeps
+         * the server's own allocation, so a half-filled split is still coherent.
+         */
+        const allocRows: { visitId: string; label: string; due: number }[] = [
+          { visitId: String(appointment.id), label: `${pet.name} · #${appointment.id}`, due: finalTotal },
+          ...settleOthers.filter(r => settleAlso.has(r.visitId)).map(r => ({
+            visitId: r.visitId,
+            label: `${r.petName || 'Visit'} · #${r.visitId}`,
+            due: r.outstanding,
+          })),
+        ];
+        const allocOf = (id: string) => {
+          const v = parseFloat(settleAllocs[id] ?? '');
+          return Number.isFinite(v) && v > 0 ? v : 0;
+        };
+        const allocTyped = allocRows.some(r => (settleAllocs[r.visitId] ?? '').trim() !== '');
+        const allocTotal = Math.round(allocRows.reduce((n, r) => n + allocOf(r.visitId), 0) * 100) / 100;
+        /** What the split does not account for — must not exceed the payment. */
+        const allocOver = Math.round((allocTotal - settlingNow) * 100) / 100;
         const curSym = client?.currency || activeClinic.currency || 'KES';
         const fmtMoney = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
@@ -3794,6 +3867,48 @@ const VisitDetailInner: React.FC<Props> = ({
                         })}
                       </div>
                     )}
+                    {/**
+                      * WHO GETS WHAT. Blank rows keep the server's allocation
+                      * (oldest first, discount pro-rata) — the split is offered,
+                      * never forced, because that default is right most of the
+                      * time and typing four numbers to accept it would be worse.
+                      */}
+                    {settleAlso.size > 0 && (
+                      <div className="px-3 py-2.5 border-t border-amber-200 dark:border-amber-900/50 space-y-1.5">
+                        <div className="flex items-baseline justify-between gap-2">
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Split this payment</span>
+                          {allocTyped ? (
+                            <button type="button" onClick={() => setSettleAllocs({})}
+                              className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam">
+                              Clear · allocate automatically
+                            </button>
+                          ) : (
+                            <span className="text-[9px] font-bold uppercase tracking-widest text-slate-300">Optional · oldest first by default</span>
+                          )}
+                        </div>
+                        {allocRows.map(r => (
+                          <div key={r.visitId} className="flex items-center gap-2">
+                            <span className="flex-1 min-w-0 text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{r.label}</span>
+                            <span className="shrink-0 text-[9px] font-bold text-slate-400 font-mono">due {fmtMoney(r.due)}</span>
+                            <input
+                              type="number" min="0" step="any"
+                              placeholder="auto"
+                              value={settleAllocs[r.visitId] ?? ''}
+                              onChange={e => setSettleAllocs(prev => ({ ...prev, [r.visitId]: e.target.value }))}
+                              className="w-24 shrink-0 px-2 py-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[12px] font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                            />
+                          </div>
+                        ))}
+                        {allocTyped && (
+                          <div className={`flex items-baseline justify-between text-[10px] font-black ${allocOver > 0.005 ? 'text-rose-600' : 'text-slate-500 dark:text-zinc-400'}`}>
+                            <span>{allocOver > 0.005 ? 'Split exceeds the payment' : 'Allocated'}</span>
+                            <span className="font-mono">
+                              {curSym} {fmtMoney(allocTotal)} of {curSym} {fmtMoney(settlingNow)}
+                            </span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                     {settleAlso.size > 0 && (
                       <div className="px-3 py-2 bg-seafoam/10 flex items-center justify-between">
                         <span className="text-[9px] font-black uppercase tracking-widest text-seafoam">Paying together · {settleAlso.size + 1} invoices</span>
@@ -3834,6 +3949,13 @@ const VisitDetailInner: React.FC<Props> = ({
                     const pickedWalletId = settleSelectedWalletId && !SYNTHETIC_WALLET_IDS.has(settleSelectedWalletId)
                       ? settleSelectedWalletId
                       : null;
+                    if (allocTyped && allocOver > 0.005) {
+                      // Refuse rather than let the server silently truncate: the
+                      // split is a money instruction and a wrong one is worse
+                      // than none.
+                      toast.error(`The split allocates ${curSym} ${fmtMoney(allocTotal)} but only ${curSym} ${fmtMoney(settlingNow)} is being paid`);
+                      return;
+                    }
                     if (settleAlso.size > 0 && client) {
                       // ONE payment over this visit + the ticked invoices — the
                       // collect engine allocates and receipts per filled invoice.
@@ -3858,13 +3980,64 @@ const VisitDetailInner: React.FC<Props> = ({
                           walletId: pickedWalletId ?? undefined,
                           ...(hasTyped || creditApplied > 0.005 ? { amountTendered: cashWanted } : {}),
                           ...(creditApplied > 0.005 ? { useCredit: creditApplied } : {}),
+                          // Only the rows actually typed. A blank row keeps the
+                          // server's own allocation for the remainder.
+                          ...(allocTyped
+                            ? { allocations: allocRows
+                                .filter(r => (settleAllocs[r.visitId] ?? '').trim() !== '' && allocOf(r.visitId) > 0)
+                                .map(r => ({ visitId: r.visitId, amount: allocOf(r.visitId) })) }
+                            : {}),
                           ...(discountVal > 0 ? { discountType: settleDiscountType, discountValue: discountVal } : {}),
                         });
                         if (res.success) {
-                          toast.success(`Payment collected across ${settleAlso.size + 1} invoices${res.data?.receipt?.receiptNumber ? ` · ${res.data.receipt.receiptNumber}` : ''}`);
+                          const d: any = res.data ?? {};
+                          const rcp = d.receipt?.receiptNumber;
+                          const allocs: any[] = d.allocations ?? [];
+                          const mine = allocs.find(a => String(a.visitId) === String(appointment.id));
+                          const leftHere = Number(mine?.outstandingAfter ?? 0);
+                          toast.success(`Payment collected across ${settleAlso.size + 1} invoices${rcp ? ` · ${rcp}` : ''}`);
+                          /**
+                           * ⚠️ THIS PATH RECORDED NOTHING AT ALL.
+                           *
+                           * It toasted and closed, so a cheque for 22,917.5 across
+                           * two invoices left the visit's timeline exactly as it
+                           * was — the journey ended at the clinical work and the
+                           * money was invisible (prod visit 165, user 2026-08-21).
+                           * Name the amount, the method, this visit's share and
+                           * the fact it was a joint payment: "settled" on its own
+                           * does not explain a figure that never matches the bill.
+                           */
+                          emitMoneyEvent(
+                            (leftHere > 0.005
+                              ? `Part payment received — ${activeClinic.currency} ${fmtMoney(settlingNow)} by ${settlePaymentMethod}`
+                              : `Bill SETTLED — ${activeClinic.currency} ${fmtMoney(settlingNow)} by ${settlePaymentMethod}`)
+                            + ` across ${settleAlso.size + 1} invoices`
+                            + (mine ? `; ${activeClinic.currency} ${fmtMoney(Number(mine.amountApplied || 0))} applied to this visit` : '')
+                            + (creditApplied > 0.005 ? `; ${activeClinic.currency} ${fmtMoney(creditApplied)} from credit` : '')
+                            + (Number(d.creditAdded ?? 0) > 0.005 ? `; ${activeClinic.currency} ${fmtMoney(Number(d.creditAdded))} to credit` : '')
+                            + (rcp ? ` · ${rcp}` : ''),
+                          );
                           setShowSettleModal(false);
                           updateAppointmentOptimistically(appointment.id, appt => ({ ...appt, isPaid: true } as any));
                           await onRefreshDashboard?.();
+                          /**
+                           * The completion dialog now shows on THIS path too
+                           * (user, 2026-08-21: "on complete show dialog to go to
+                           * recept for this visit and if another visit was paid
+                           * too show 1 more btn to go to payments in tab in
+                           * clients"). It never did — the multi-invoice branch
+                           * returned early, so the one collection that most needs
+                           * explaining was the one that explained nothing.
+                           */
+                          setSettleResult({
+                            amount: settlingNow,
+                            outstandingAfter: leftHere,
+                            receiptNumber: rcp ?? null,
+                            allocations: allocs,
+                            creditAdded: Number(d.creditAdded ?? 0),
+                            creditUsed: Number(d.creditUsed ?? creditApplied ?? 0),
+                            alsoPaidCount: settleAlso.size,
+                          });
                         }
                       } catch (e: any) { toast.error(e?.message || 'Failed to collect'); }
                       finally { setIsSettlingBill(false); }
@@ -6912,6 +7085,39 @@ const VisitDetailInner: React.FC<Props> = ({
                                </div>
                              </div>
                            )}
+                           {/**
+                             * DISCOUNT ON THE INVOICE, not only the receipt.
+                             *
+                             * The receipt already broke out Amount → Discount
+                             * applied → Final amount, but the invoice printed a
+                             * single "Total Settlement" — so the document the
+                             * CLIENT is given to check never showed the money
+                             * they were let off, and the two papers for the same
+                             * visit did not tally on their face (user,
+                             * 2026-08-21: "invoice show discounts too there").
+                             *
+                             * Only rendered when there IS one; an invoice with no
+                             * discount keeps its single clean line.
+                             */}
+                           {(() => {
+                             const invDiscount = Number(selectedInv?.discount ?? 0);
+                             if (!(invDiscount > 0.005)) return null;
+                             const invSubtotal = Number(selectedInv?.subtotal ?? docTotal + invDiscount);
+                             return (
+                               <div className="px-4 pt-3 space-y-1.5 border-t border-slate-100 dark:border-zinc-800">
+                                 <div className="flex justify-between items-baseline">
+                                   <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Subtotal</span>
+                                   <Money amount={invSubtotal} currency={sourceCurrency} target={printCurrency} hideOriginal showCode
+                                     primaryClassName="text-[13px] font-black text-pine dark:text-zinc-100 font-mono" />
+                                 </div>
+                                 <div className="flex justify-between items-baseline">
+                                   <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-widest">Discount applied</span>
+                                   <Money amount={-invDiscount} currency={sourceCurrency} target={printCurrency} hideOriginal showCode
+                                     primaryClassName="text-[13px] font-black text-emerald-600 dark:text-emerald-400 font-mono" />
+                                 </div>
+                               </div>
+                             );
+                           })()}
                            {/* Total */}
                            <div className="p-4 bg-pine/5 dark:bg-pine/10 border-t-2 border-pine flex justify-between items-end">
                              <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Settlement</span>
@@ -8330,11 +8536,30 @@ const VisitDetailInner: React.FC<Props> = ({
                 );
               })()}
 
-              <div className="flex gap-2 pt-1">
-                <button onClick={() => { setSettleResult(null); setActiveBottomTab('receipt'); }}
-                  className="flex-1 py-2.5 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">
-                  {settleResult.outstandingAfter > 0.005 ? 'View reconciliation' : 'View receipt'}
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button onClick={() => { setSettleResult(null); setWorkflowTab('billing'); setActiveBottomTab('receipt'); }}
+                  className="flex-1 min-w-[8rem] py-2.5 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">
+                  {settleResult.outstandingAfter > 0.005 ? 'View reconciliation' : `Receipt · ${pet.name}`}
                 </button>
+                {/**
+                  * ONE PAYMENT, SEVERAL VISITS → the second door.
+                  *
+                  * This visit's receipt only ever shows THIS visit's share, so on
+                  * a joint collection it cannot answer "where did the rest go".
+                  * That reconciliation lives on the CLIENT's payments tab, which
+                  * lists the payment and every invoice it filled (user,
+                  * 2026-08-21). Offered only when another visit was actually
+                  * paid — a second button on a single-visit payment would send
+                  * people looking for something that is not there.
+                  */}
+                {(settleResult.alsoPaidCount ?? 0) > 0 && (
+                  <button
+                    onClick={() => { setSettleResult(null); onNavigateToClient?.(appointment.clientId, 'payments'); }}
+                    title={`This payment also settled ${settleResult.alsoPaidCount} other invoice${settleResult.alsoPaidCount === 1 ? '' : 's'} — see the full reconciliation on the client`}
+                    className="flex-1 min-w-[8rem] py-2.5 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest active:scale-95 transition-all">
+                    Client payments · {(settleResult.alsoPaidCount ?? 0) + 1} invoices
+                  </button>
+                )}
                 <button onClick={() => setSettleResult(null)}
                   className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:border-seafoam hover:text-seafoam transition-all">
                   Later

@@ -1103,6 +1103,26 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                         of {money(inv.total, currency)}
                       </span>
                     )}
+                    {/**
+                      * DISCOUNT ON THE INVOICE ROW.
+                      *
+                      * Receipt rows in this tab have always shown their discount;
+                      * invoice rows showed only a total, so money the client was
+                      * let off was invisible until a receipt existed for it
+                      * (user, 2026-08-21: "invoice show discounts too there").
+                      * Summed across the visit's documents — a split-invoiced
+                      * visit carries one per document.
+                      */}
+                    {(() => {
+                      const disc = (inv.invoices || []).reduce((n: number, d: any) => n + Number(d?.discount ?? 0), 0);
+                      if (!(disc > 0.005)) return null;
+                      return (
+                        <span className="block text-[8px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400"
+                          title="Discount already applied to this invoice">
+                          −{money(disc, currency)} discount
+                        </span>
+                      );
+                    })()}
                   </span>
 
                   {/* Every payment that went against THIS invoice. `settlements`

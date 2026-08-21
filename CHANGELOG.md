@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: choose what each invoice gets, show discounts on invoices, and put the money on the timeline  —  2026-08-21
+🔵 **Record impact: allocations + audit events.** A typed split instructs the server where the money
+lands. Money milestones are now written to `visit_events`.
+- **Split the payment by hand** (user, 2026-08-21: *"allow user to choose which invoice gets what amt"*).
+  Every invoice in the collection gets an amount box beside its due figure. Blank keeps the server's
+  allocation — oldest first, discount pro-rata — because that default is right most of the time and
+  typing numbers to accept it would be worse. A split that allocates more than is being paid is
+  **refused before sending**: a wrong money instruction is worse than none.
+- **Discounts show on the invoice and on the client's invoice rows** (*"invoice show discounts too
+  there"*). The receipt already broke out Amount → Discount applied → Final, but the invoice — the
+  document the CLIENT is handed — printed one total, so the two papers for the same visit did not tally
+  on their face. Client-tab invoice rows show it too; only receipt rows did before.
+- **The timeline runs to settlement** (*"timeline to show evething till when settled"*). It recorded
+  the clinical work in detail and stopped: on prod visit 165 a cheque for 22,917.5 across two invoices
+  left no trace at all. Invoice generation, part payments and settlement now land on the journey AND in
+  `visit_events`, so the record survives the device. A joint payment names this visit's share, the
+  credit spent, the credit created and the receipt — "settled" alone cannot explain a figure that never
+  matches the bill.
+- **The completion dialog shows on joint collections**, which it never did — that branch toasted and
+  returned early, so the one payment that most needs explaining explained nothing. It offers the
+  receipt for this visit and, when other visits were paid too, a second button to the client's payments
+  tab, because a joint collection reconciles on the CLIENT, not on any single visit.
+- Files: `clinic/appointments/VisitDetailView.tsx`, `clinic/clients/ClientPaymentsTab.tsx`.
+- **Data dependency:** none — `allocations` and `POST /visits/:id/events` already existed.
+
+
 ### fix: cheque payments were 500ing — the frontend sent a sentinel as a wallet id  —  2026-08-21
 🔴 **Record impact: money** — cheque collections were failing outright with "Internal server error".
 - The settle panel strips `__cash__` from `walletId` before posting, but `__cheque__` was added later
