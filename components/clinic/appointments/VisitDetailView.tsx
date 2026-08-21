@@ -678,6 +678,9 @@ const VisitDetailInner: React.FC<Props> = ({
   // A REASON is captured first (why is the patient moving workflows?) and
   // travels on the service note + journey + server transfer event.
   const [pendingTransfer, setPendingTransfer] = useState<string | null>(null);
+  // Bumped by anything on the Bill tab that can move the visit's tasks, so the
+  // bill re-evaluates its recipes and syncs instead of drifting from the visit.
+  const [billSyncNonce, setBillSyncNonce] = useState(0);
   // Remove a NON-PRIMARY encounter from the visit (workflow chip ✕): after
   // an explicit confirmation, delete every service of that encounter's
   // category from the bill. The chip disappears because availableEntries
@@ -5800,6 +5803,7 @@ const VisitDetailInner: React.FC<Props> = ({
                          onBillChange={setLiveBill}
                          highlightAction={highlightBillAction || pulseBillAction > 0}
                          pulseNonce={pulseBillAction}
+                         syncNonce={billSyncNonce}
                          onAddProcedure={() => setProcPickerOpen(true)}
                          onOpenClientPayments={(invoiceId) => onNavigateToClient?.(appointment.clientId, 'payments', invoiceId)}
                        />
@@ -5818,7 +5822,12 @@ const VisitDetailInner: React.FC<Props> = ({
                          canUnlock={canUnlock}
                          billPaid={appointment.isPaid}
                          onRequestUnlock={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)}
-                         onChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); }}
+                         // Every change down here re-evaluates the recipes and
+                         // syncs the bill above (user, 2026-08-21: "actually
+                         // everything on this tab when changed reevalute n
+                         // rebuilt bill"). Unticking an item deleted its task
+                         // but left the bill line standing.
+                         onChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); setBillSyncNonce(n => n + 1); }}
                        />
                      </div>
                    )}

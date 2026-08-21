@@ -136,6 +136,17 @@ export const billsAPI = {
   refresh: (visitId: number | string, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
     post(`/visits/${visitId}/bill/refresh${encQ(encounterId)}`, {}, { showError: true, ...options }),
 
+  /**
+   * Non-destructive sync — append what the visit gained, drop the task-backed
+   * lines whose task is gone, LEAVE HAND-ADDED LINES ALONE.
+   *
+   * Use this for automatic calls. `refresh` deletes every line and re-snapshots,
+   * which silently destroys a line typed in by hand at bill review, so it stays
+   * reserved for the button a human actually presses.
+   */
+  sync: (visitId: number | string, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill; changed: number }>> =>
+    post(`/visits/${visitId}/bill/sync${encQ(encounterId)}`, {}, { showError: false, ...options }),
+
   addLine: (visitId: number | string, data: BillLineInput, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
     post(`/visits/${visitId}/bill/lines${encQ(encounterId)}`, data, { showError: true, ...options }),
 

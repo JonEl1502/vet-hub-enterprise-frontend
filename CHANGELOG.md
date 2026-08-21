@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: any change on the Bill tab re-evaluates the recipes and syncs the bill  —  2026-08-21
+🔵 **Record impact: bill lines + visit tasks** — re-evaluation re-prices recipe lines; the sync appends
+new visit lines and drops task-backed lines whose task is gone. Hand-added lines are never touched.
+- Unticking the certificate deleted its visit task and dropped the recipe card to KES 1,517.5, while
+  the bill above went on listing the certificate and totalling 1,717.50 — the two halves of the same
+  tab disagreeing about what the client owes (user, 2026-08-21: *"so uncheck cert to also reavlute n
+  rebuild… actually everything on this tab when changed reevalute n rebuilt bill"*).
+- Anything the applied-procedure panel changes now re-evaluates every recipe on the visit, then brings
+  the bill back in line.
+- ⚠️ **It SYNCS, it does not `refresh`.** `refresh` deletes every bill line and re-snapshots — right
+  when a human presses "Rebuild from visit", fatal as an automatic call, because it would silently
+  destroy a line typed in by hand at bill review. The automatic path uses the new
+  `POST /visits/:id/bill/sync`, which only appends what is missing and drops lines whose task is gone.
+- Locked bills are never touched behind the user's back — an approved bill is a document, and work
+  logged after approval belongs on a new one.
+- Files: `clinic/appointments/BillPanel.tsx`, `clinic/appointments/VisitDetailView.tsx`,
+  `services/modules/bills.api.ts`.
+- **Data dependency:** backend `POST /visits/:id/bill/sync` (same-day backend entry) must be live.
+
+
 ### change: "Rebuild from visit" re-evaluates the procedure recipes first  —  2026-08-21
 🔵 **Record impact: visit tasks** — re-evaluation re-prices per-kg lines and pricing-rule adjustments on
 each applied procedure, against the facts already stored on it. No new facts are invented.

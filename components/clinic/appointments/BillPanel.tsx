@@ -46,6 +46,12 @@ interface Props {
   /** Bump to re-fire the pulse when the page sends you here again. */
   pulseNonce?: number;
   /**
+   * Bump when ANYTHING else on the Bill tab changed — the applied-procedure
+   * panel below, chiefly. The bill re-evaluates the visit's recipes and then
+   * SYNCS (never `refresh`, which would destroy hand-added lines).
+   */
+  syncNonce?: number;
+  /**
    * Open the procedure-recipe picker. Rendered as a button beside "Add item"
    * because that is where the same question gets asked — this bill needs another
    * line — and a recipe is just a line that brings its own components
@@ -74,7 +80,7 @@ const KIND_LABEL: Record<string, string> = {
   SERVICE: 'Service', CONSUMABLE: 'Consumable', MEDICATION: 'Medication', OTHER: 'Other',
 };
 
-const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange, highlightAction, pulseNonce = 0, onAddProcedure, onOpenClientPayments }) => {
+const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange, highlightAction, pulseNonce = 0, syncNonce = 0, onAddProcedure, onOpenClientPayments }) => {
   const { inventory } = useData() as any;
   const [bill, setBill] = React.useState<Bill | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -210,6 +216,47 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
         : 'Rebuilt from the visit',
     );
   };
+
+  /**
+   * Anything changed on this tab → re-evaluate the recipes, then bring the bill
+   * back in line (user, 2026-08-21: "actually everything on this tab when
+   * changed reevalute n rebuilt bill").
+   *
+   * ⚠️ SYNC, NOT REFRESH. `refresh` deletes every bill line and re-snapshots
+   * from the visit — right when a human presses "Rebuild from visit", fatal as
+   * an automatic call, because it would silently destroy the line someone typed
+   * in by hand at bill review (the forgotten E-collar). `sync` appends what the
+   * visit gained and drops only the lines whose TASK is gone.
+   *
+   * Fires on the panel below going quiet: unticking the certificate deleted its
+   * task and dropped the recipe to 1,517.5, while the bill went on listing the
+   * certificate and totalling 1,717.50.
+   */
+  const autoSyncRef = React.useRef(0);
+  React.useEffect(() => {
+    if (!syncNonce || syncNonce === autoSyncRef.current) return;
+    autoSyncRef.current = syncNonce;
+    // Locked bills are documents, not drafts — work logged after approval
+    // belongs on a new one, so never touch them behind the user's back.
+    if (!bill?.editable) return;
+    let alive = true;
+    (async () => {
+      try {
+        const r = await procedureTemplatesAPI.listApplications(visit.id, { showError: false } as any);
+        for (const app of (r.success ? r.data?.applications ?? [] : [])) {
+          await procedureTemplatesAPI.reevaluate(app.id, {
+            weightKg: app.weightKg != null ? Number(app.weightKg) : undefined,
+            flags: (app.flags ?? undefined) as any,
+          }, { showError: false } as any).catch(() => {});
+        }
+      } catch { /* no recipes on this visit — the sync below still matters */ }
+      const res = await billsAPI.sync(visit.id, encounterId).catch(() => null);
+      if (!alive || !res?.success) return;
+      apply(res);
+      if (res.data?.changed) toast.success('Bill brought in line with the visit');
+    })();
+    return () => { alive = false; };
+  }, [syncNonce, bill?.editable]);
 
   const addFromCatalog = (s: CatalogService) => run(
     () => billsAPI.addLine(visit.id, {
