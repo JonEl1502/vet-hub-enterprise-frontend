@@ -785,8 +785,19 @@ const VisitDetailInner: React.FC<Props> = ({
       // removed, the chip was not, and the toast said otherwise.
       if (!row) {
         await wiz.reloadEncounters();
+        /**
+         * ⚠️ The vet-visit family is the visit's BASE flow — `resolveEntryPoint`
+         * falls back to `standard`, so its chip is NOT derived from bill lines
+         * and removing every service does not clear it. Promising otherwise is
+         * the same "says deleted and not working" bug this branch exists to
+         * avoid, one level up (user, 2026-08-20: "i still cant remove vet visit
+         * … why?"). Say which case this is.
+         */
+        const VET_FAMILY = ['standard', 'houseCall', 'followUp', 'routineCheck', 'surgery', 'admission'];
         toast.success(
-          `${enc.label} services removed. The chip is derived from what is on the bill, so it clears once no ${enc.label.toLowerCase()} lines remain.`,
+          VET_FAMILY.includes(entryKey)
+            ? `${enc.label} services removed. The chip stays because it is this visit's BASE workflow — every visit runs one. Change the visit type to swap it.`
+            : `${enc.label} services removed. The chip is derived from what is on the bill, so it clears once no ${enc.label.toLowerCase()} lines remain.`,
           { duration: 8000 } as any,
         );
         return;

@@ -59,6 +59,33 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a workflow you never added no longer appears, and the base one stops pretending it can go  —  2026-08-21
+🟢 **Record impact: none** — this only changes which workflow chips are OFFERED. No task, encounter or
+bill line is created or deleted by it.
+- **"i deleted Vaccination n vet visit came added itself."** Deleting the Vaccination encounter left
+  its vaccine lines on the bill; `availableEntries` then re-derived a flow from those lines and pushed
+  a chip back on. A workflow the user had just removed reappeared on its own.
+- **New rule (user, 2026-08-20: *"if its the base thats okay but if we have another other or others
+  dont [activate] unless added"*).** Once a visit has **encounter rows**, only the **base** flow may be
+  inferred — every other chip must come from a row somebody deliberately added. A row is a statement of
+  intent; a task-derived chip is a guess, and a guess that survives a deletion is a bug.
+  - Legacy visits are untouched: with **no** rows at all the old task derivation still returns every
+    chip, so visit 137's task-only grooming+vet chips still stand.
+  - The vet-family guard stays — a bare After-hours fee is not a consultation and must not staple a
+    Vet Visit chip onto a direct vaccination visit.
+- **"i still cant remove vet visit why?"** Because it was never derived from the bill. `resolveEntryPoint`
+  falls back to `standard`, so **Vet Visit — clinical is the visit's BASE workflow** — the surface the
+  wizard renders when nothing else claims the visit. Removing every vet-visit service could not clear it.
+  - The ✕ is now **hidden when it is the only chip**, with a tooltip saying it is the base workflow.
+    Offering a control that cannot work was the actual defect.
+  - The removal toast no longer promises the chip "clears once no … lines remain" for a base flow — it
+    says the chip stays and that changing the visit type is what swaps it. That toast branch exists to
+    avoid claiming success that did not happen; it was doing the opposite one level up.
+- Files: `wizard/useVisitWizard.ts` (`availableEntries`), `wizard/VisitWizard.tsx` (chip ✕ + tooltip),
+  `appointments/VisitDetailView.tsx` (`handleDeleteEncounter` toast).
+- **Data dependency:** none — existing `visit_encounters` rows and task categories only.
+
+
 ### change: the custom workflow is a chip in the Workflow row, and removable  —  2026-08-20
 🟢 **Record impact: none** — clearing it is a per-visit form choice, not a data change.
 - The clinic's own workflow showed as a read-only badge in the header strip, styled unlike anything

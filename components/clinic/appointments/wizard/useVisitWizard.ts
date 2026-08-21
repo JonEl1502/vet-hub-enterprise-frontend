@@ -240,10 +240,34 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     // excluded here too: legacy visits carry them under 'Consultation', which
     // walked straight through this guard on a boarding visit.
     const hasConsultTask = (visit.tasks || []).some(t => (t.category || '').toLowerCase().includes('consult') && !isVisitFee(t));
-    for (const e of fromTasks) {
-      const fam = famOf(e.key);
-      if (fam === 'vet' && !hasConsultTask) continue;
-      if (!covered.has(fam)) { covered.add(fam); fromRows.push(e); }
+    /**
+     * ⚠️ ONCE A VISIT HAS ENCOUNTER ROWS, ONLY THE BASE FLOW MAY BE INFERRED.
+     *
+     * Rule from the user (2026-08-20): *"if its the base thats okay, but if we
+     * have another other or others, dont [activate] unless added."*
+     *
+     * A row means somebody deliberately ADDED that workflow, so it is a
+     * statement of intent about the whole visit. Task-derived chips are a
+     * guess, and a guess that outlives a deletion is a bug: deleting the
+     * Vaccination encounter left its vaccine lines on the bill, the loop below
+     * re-derived a flow from them, and a workflow the user had just removed
+     * reappeared on its own ("i deleted Vaccination n vet visit came added
+     * itself").
+     *
+     * The BASE flow is exempt — `resolveEntryPoint` always resolves one, every
+     * visit runs one, and it is the surface the wizard falls back to. Everything
+     * else must be added explicitly.
+     *
+     * Legacy visits are untouched: with no rows at all this returns `fromTasks`
+     * above, so visit 137's task-only chips still stand.
+     */
+    const baseEntry = ENTRY_POINTS[resolved.key];
+    if (baseEntry) {
+      const fam = famOf(baseEntry.key);
+      // Still guarded: a bare After-hours fee is not a consultation, so it must
+      // not staple a vet chip onto a direct vaccination visit ("just one").
+      const allowed = fam !== 'vet' || hasConsultTask;
+      if (allowed && !covered.has(fam)) fromRows.push(baseEntry);
     }
     return fromRows;
   }, [visit, resolved.key, encounters]);

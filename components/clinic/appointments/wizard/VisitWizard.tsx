@@ -468,13 +468,30 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
                 // ALL chips are deletable (user, 2026-08-02) — the visit can be
                 // emptied and re-picked via Transfer/Add. Row-primary deletion is
                 // still refused server-side and surfaces as a toast.
-                const removable = !!onDeleteEncounter;
+                /**
+                 * ⚠️ A VISIT'S ONLY WORKFLOW CANNOT BE REMOVED.
+                 *
+                 * `resolveEntryPoint` falls back to `standard` — "Vet Visit —
+                 * clinical" is the BASE flow, always resolved so the wizard has
+                 * steps to render. It is not derived from bill lines, so
+                 * removing every vet-visit service does not clear it: the ✕ took
+                 * the services away, the toast promised the chip would follow,
+                 * and it never did (user, 2026-08-20: "i still cant remove vet
+                 * visit … why?").
+                 *
+                 * Offering a ✕ that cannot work is the bug. With one chip left
+                 * there is nothing to fall back to, so it says so instead.
+                 */
+                const isOnlyWorkflow = availableEntries.length === 1;
+                const removable = !!onDeleteEncounter && !isOnlyWorkflow;
                 return (
                   <button
                     key={e.key}
                     type="button"
                     onClick={() => { if (!active) switchEntry(e.key); }}
-                    title={active ? 'Active workflow' : 'Switch the active workflow — steps you completed in the other flow are kept'}
+                    title={isOnlyWorkflow
+                      ? "This visit's base workflow. Every visit runs one, so it cannot be removed — add another encounter to switch, or change the visit type."
+                      : active ? 'Active workflow' : 'Switch the active workflow — steps you completed in the other flow are kept'}
                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${
                       active
                         ? 'bg-seafoam !text-white border-seafoam shadow-sm cursor-default'
