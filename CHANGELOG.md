@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### tweak: smaller locked banner, a header that stays on one row, procedure above the invoice  —  2026-08-21
+🟢 **Record impact: none** — layout and ordering.
+- **"Visit locked" was a hero card** — `p-5`, a 24px icon in its own tinted tile, a two-line paragraph —
+  and on a phone it pushed the patient header, the bill and the tabs below the fold on every paid visit
+  (user, 2026-08-21: *"Visit locked msg card too big on both desktop n mobile"*). It is a status note
+  now: one line, with the explanation kept on wider screens.
+- **The header stacked on mobile**, dropping the Visit Details button below the title as a lone blue
+  square that read as a stray tile rather than the counterpart to "Open Workflow" (*"back button and
+  details pagr nav button look off"*). One row at every width, and Back uses the `ArrowLeft` icon
+  instead of a bare "←" character.
+- **The procedure recipes now sit ABOVE the invoice summary** (*"shouldn't the procedure be abve invoice
+  information"*). The recipe generated the lines it sits under; the invoice is the document that closes
+  them off. Passed to `BillPanel` as a `beneathLines` slot so the panel keeps knowing nothing about
+  procedures.
+- Files: `clinic/appointments/VisitDetailView.tsx`, `clinic/appointments/BillPanel.tsx`.
+- **Data dependency:** none.
+
+
 ### feat: correct a stabilization quantity in place, and a smaller triage action bar  —  2026-08-21
 🔵 **Record impact: stock + bill.** Editing a logged quantity moves inventory to match — up takes more,
 down returns it — and reprices the line.

@@ -52,6 +52,12 @@ interface Props {
    */
   syncNonce?: number;
   /**
+   * Rendered between the bill lines and the invoice summary — the applied
+   * procedure recipes. A slot rather than an import so BillPanel keeps knowing
+   * nothing about procedures.
+   */
+  beneathLines?: React.ReactNode;
+  /**
    * Open the procedure-recipe picker. Rendered as a button beside "Add item"
    * because that is where the same question gets asked — this bill needs another
    * line — and a recipe is just a line that brings its own components
@@ -80,7 +86,7 @@ const KIND_LABEL: Record<string, string> = {
   SERVICE: 'Service', CONSUMABLE: 'Consumable', MEDICATION: 'Medication', OTHER: 'Other',
 };
 
-const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange, highlightAction, pulseNonce = 0, syncNonce = 0, onAddProcedure, onOpenClientPayments }) => {
+const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange, highlightAction, pulseNonce = 0, syncNonce = 0, beneathLines, onAddProcedure, onOpenClientPayments }) => {
   const { inventory } = useData() as any;
   const [bill, setBill] = React.useState<Bill | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -651,6 +657,17 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
           </div>
         </div>
       )}
+
+      {/**
+        * The applied-procedure recipes, ABOVE the invoice (user, 2026-08-21:
+        * "in bill shouldn't the procedure be abve invoice information").
+        *
+        * The recipe is what GENERATED the lines above it, so it belongs with
+        * them; the invoice is the document that closes them off. Reading
+        * bill → invoice → recipe put the working surface after the receipt-like
+        * summary, which is backwards.
+        */}
+      {beneathLines}
 
       {/* Invoice — the financial document generated from the approved bill.
           It is never edited: wrong invoice ⇒ void, fix the bill, regenerate. */}

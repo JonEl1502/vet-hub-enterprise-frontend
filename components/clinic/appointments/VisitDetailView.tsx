@@ -7,7 +7,7 @@ import remarkGfm from 'remark-gfm';
 import { Visit, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalRecord, Client, ClientDiscount, TaskAttachment, TaskAttachmentKind, ENCOUNTER_TYPES } from '../../../types';
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
-  CreditCard, Check, Stethoscope, Download, Printer, Calendar, MessageSquare,
+  CreditCard, Check, ArrowLeft, Stethoscope, Download, Printer, Calendar, MessageSquare,
   Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, ChevronUp, ChevronDown, Bell, Tag, MoreHorizontal, ReceiptText, ArrowRightLeft } from 'lucide-react';
 import { ownerAbbrev } from '../shared/ownerAbbrev';
 import { SERVICE_CATEGORIES } from '../../../constants';
@@ -4290,12 +4290,21 @@ const VisitDetailInner: React.FC<Props> = ({
         </div>
       )}
 
-      <header className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <button onClick={() => handleNavigationWithCheck(onBack)} className="p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-seafoam hover:text-pine rounded-xl shadow-sm transition-all active:scale-95">←</button>
-          <div>
+      {/* ⚠️ ONE ROW AT EVERY WIDTH (user, 2026-08-21: "back button and details
+          pagr nav button look off"). The header was `flex-col md:flex-row`, so
+          on a phone the Details button dropped BELOW the title as a lone blue
+          square with nothing beside it — it read as a stray tile rather than
+          this view's counterpart to "Open Workflow". Back was also a bare "←"
+          character rather than the icon used everywhere else. */}
+      <header className="flex flex-row items-center justify-between gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <button onClick={() => handleNavigationWithCheck(onBack)} title="Back"
+            className="shrink-0 p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-seafoam hover:text-pine rounded-xl shadow-sm transition-all active:scale-95 flex items-center justify-center">
+            <ArrowLeft size={15} />
+          </button>
+          <div className="min-w-0">
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase leading-none">Visit Workflow</h1>
+              <h1 className="text-base sm:text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase leading-none truncate">Visit Workflow</h1>
               {appointment.status === ApptStatus.COMPLETED && <span className="bg-emerald-500/10 text-emerald-500 text-[8px] px-2 py-0.5 rounded-full border border-emerald-500/20 font-black uppercase tracking-widest">Finalized</span>}
               {isFollowUpAppointment && (
                 <span className="bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 text-[8px] px-2 py-0.5 rounded-full border border-indigo-500/20 font-black uppercase tracking-widest flex items-center gap-1">
@@ -4319,7 +4328,8 @@ const VisitDetailInner: React.FC<Props> = ({
         {onOpenDetails && (
           <button
             onClick={() => handleNavigationWithCheck(onOpenDetails)}
-            className="shrink-0 self-start md:self-auto flex items-center gap-2 px-3 py-2 bg-seafoam hover:bg-seafoam/90 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
+            title="Visit Details"
+            className="shrink-0 flex items-center gap-2 px-2.5 sm:px-3 py-2 bg-seafoam hover:bg-seafoam/90 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
           >
             <ReceiptText size={13} />
             <span className="hidden sm:inline">Visit Details</span>
@@ -4459,20 +4469,20 @@ const VisitDetailInner: React.FC<Props> = ({
 
 
       {/* Lock Banner for Paid Visits */}
+      {/* ⚠️ A STATUS NOTE, NOT A HERO CARD (user, 2026-08-21: "Visit locked msg
+          card too big on both desktop n mobile"). At `p-5` with a 24px icon in
+          its own tinted tile and a two-line paragraph, it was the tallest thing
+          on the page — on a phone it pushed the patient header, the bill and the
+          tabs below the fold, on every visit that had been paid. It says one
+          thing and it should cost one line to say it. */}
       {appointment.isPaid && (
-        <div className="bg-amber-500/10 border-2 border-amber-500/30 rounded-2xl p-5 flex items-start gap-4 animate-in fade-in slide-in-from-top-2">
-          <div className="p-3 bg-amber-500/20 rounded-xl">
-            <Lock size={24} className="text-amber-600" />
-          </div>
-          <div className="flex-1">
-            <h3 className="text-sm font-black text-amber-700 dark:text-amber-500 uppercase tracking-widest mb-1">
-              Visit Locked
-            </h3>
-            <p className="text-xs text-amber-600 dark:text-amber-400 leading-relaxed">
-              This appointment is locked because payment has been processed ({appointment.paymentMethod}).
-              To make changes, please contact the clinic owner.
-            </p>
-          </div>
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 flex items-center gap-2 animate-in fade-in">
+          <Lock size={13} className="text-amber-600 shrink-0" />
+          <p className="min-w-0 text-[11px] font-bold text-amber-700 dark:text-amber-400 leading-snug">
+            <span className="font-black uppercase tracking-widest">Visit locked</span>
+            <span className="hidden sm:inline"> — paid by {appointment.paymentMethod}. Contact the clinic owner to make changes.</span>
+            <span className="sm:hidden"> · paid by {appointment.paymentMethod}</span>
+          </p>
         </div>
       )}
 
@@ -6774,30 +6784,34 @@ const VisitDetailInner: React.FC<Props> = ({
                          highlightAction={highlightBillAction || pulseBillAction > 0}
                          pulseNonce={pulseBillAction}
                          syncNonce={billSyncNonce}
+                         beneathLines={(
+                           <>
+                       {/* Procedure recipes applied to this visit — stage
+                               checklist, optional diagnostics, weight/flags re-quote.
+                               It used to live on Categories & Services; retiring that
+                               tab would have hidden applied procedures completely, so
+                               it moved HERE — the recipe is what generated the bill
+                               lines above, so it belongs beside them. */}
+                           <AppliedProcedurePanel
+                             appointmentId={appointment.id}
+                             billLocked={isFinalized || appointment.isPaid}
+                             currency={activeClinic.currency}
+                             pickerOpen={procPickerOpen}
+                             onPickerOpenChange={setProcPickerOpen}
+                             canUnlock={canUnlock}
+                             billPaid={appointment.isPaid}
+                             onRequestUnlock={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)}
+                             // Every change down here re-evaluates the recipes and
+                             // syncs the bill above (user, 2026-08-21: "actually
+                             // everything on this tab when changed reevalute n
+                             // rebuilt bill"). Unticking an item deleted its task
+                             // but left the bill line standing.
+                             onChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); setBillSyncNonce(n => n + 1); }}
+                           />
+                           </>
+                         )}
                          onAddProcedure={() => setProcPickerOpen(true)}
                          onOpenClientPayments={(invoiceId) => onNavigateToClient?.(appointment.clientId, 'payments', invoiceId)}
-                       />
-                       {/* Procedure recipes applied to this visit — stage
-                           checklist, optional diagnostics, weight/flags re-quote.
-                           It used to live on Categories & Services; retiring that
-                           tab would have hidden applied procedures completely, so
-                           it moved HERE — the recipe is what generated the bill
-                           lines above, so it belongs beside them. */}
-                       <AppliedProcedurePanel
-                         appointmentId={appointment.id}
-                         billLocked={isFinalized || appointment.isPaid}
-                         currency={activeClinic.currency}
-                         pickerOpen={procPickerOpen}
-                         onPickerOpenChange={setProcPickerOpen}
-                         canUnlock={canUnlock}
-                         billPaid={appointment.isPaid}
-                         onRequestUnlock={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)}
-                         // Every change down here re-evaluates the recipes and
-                         // syncs the bill above (user, 2026-08-21: "actually
-                         // everything on this tab when changed reevalute n
-                         // rebuilt bill"). Unticking an item deleted its task
-                         // but left the bill line standing.
-                         onChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); setBillSyncNonce(n => n + 1); }}
                        />
                      </div>
                    )}
