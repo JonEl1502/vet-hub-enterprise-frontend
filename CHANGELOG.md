@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: cheque payments were 500ing — the frontend sent a sentinel as a wallet id  —  2026-08-21
+🔴 **Record impact: money** — cheque collections were failing outright with "Internal server error".
+- The settle panel strips `__cash__` from `walletId` before posting, but `__cheque__` was added later
+  (2026-08-13) and never added to that guard, so it went to the server as though it were a wallet id
+  and died on `BigInt("__cheque__")` (prod, client 113, visits 165 + 135).
+- The guard now tests a SET of synthetic ids, so the next off-wallet method cannot reintroduce it. The
+  server was hardened in the same pass — see the backend changelog; it no longer trusts the field at all.
+- Files: `clinic/appointments/VisitDetailView.tsx`.
+- **Data dependency:** backend `walletIdOrNull` hardening (same-day) — but this fix stands alone.
+
+### tweak: discount is one field and a switch; the bill card runs full width  —  2026-08-21
+🟢 **Record impact: none** — layout.
+- **Discount** was a labelled section with two full-width buttons and a large input — three rows for an
+  optional field that is empty on most payments, sitting above the ones that are not. It is now a
+  single row beside the money controls: a narrow number field and a two-state **% / currency** switch,
+  with the computed reduction shown inline once there is one (user, 2026-08-21: *"make discount small
+  and move it somwhere here … field and checkbox/swtch for %tage/fixed"*).
+- **The header bill card** sat in a two-column grid whose second card — Follow-ups & Reminders — moved
+  out to its own tab long ago, leaving one card and half a header of empty blue (*"should we extend
+  this to the end"*). One column now, so the card and its Finalize → Bill → Invoice → Settle track run
+  the full width.
+- Files: `clinic/appointments/VisitDetailView.tsx`.
+- **Data dependency:** none.
+
+
 ### change: Settle is a top-level tab that closes when you leave it, and the panel is tighter  —  2026-08-21
 🟢 **Record impact: none** — layout and placement. Payment logic unchanged.
 - **Moved up a level** (user, 2026-08-21: *"Settle tab to be upto not next to invoice n bill"*). Beside

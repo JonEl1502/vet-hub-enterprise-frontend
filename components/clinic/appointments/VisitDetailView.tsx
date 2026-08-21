@@ -3475,36 +3475,6 @@ const VisitDetailInner: React.FC<Props> = ({
                   </div>
                 )}
 
-                {/* Manual Discount */}
-                <div>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">{clientDiscounts.length > 0 ? 'Manual Override' : 'Discount'} <span className="text-slate-300 normal-case font-bold">(optional)</span></p>
-                  <div className="flex gap-2 mb-2">
-                    {(['PERCENTAGE', 'FIXED'] as const).map(t => (
-                      <button
-                        key={t}
-                        onClick={() => { setSettleDiscountType(t); setSettleDiscountValue(''); setSelectedClientDiscount(null); }}
-                        className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${settleDiscountType === t && !selectedClientDiscount ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-amber-600' : 'border-slate-100 dark:border-zinc-800 text-slate-400 hover:border-amber-300'}`}
-                      >
-                        {t === 'PERCENTAGE' ? '% Off' : 'Fixed'}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="0"
-                      max={settleDiscountType === 'PERCENTAGE' ? 100 : undefined}
-                      placeholder={settleDiscountType === 'PERCENTAGE' ? 'e.g. 10' : 'e.g. 500'}
-                      value={settleDiscountValue}
-                      onChange={e => { setSettleDiscountValue(e.target.value); setSelectedClientDiscount(null); }}
-                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm font-black text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-400 pr-16"
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase">
-                      {settleDiscountType === 'PERCENTAGE' ? '%' : (client?.currency || 'KES')}
-                    </span>
-                  </div>
-                </div>
-
                 {/* Total summary MOVED to the header. */}
 
                 {/* PAYMENT REFERENCE — the payer's own identifier. Shown for
@@ -3574,6 +3544,62 @@ const VisitDetailInner: React.FC<Props> = ({
                     credit just grew (prod #157 banked 1,200 nobody chose).
                     Applying it routes through the account collect endpoint,
                     the only path that can spend it. */}
+                {/**
+                  * DISCOUNT — ONE FIELD AND A SWITCH (user, 2026-08-21: "make
+                  * discount small and move it somwhere here … field and
+                  * checkbox/swtch for %tage/fixed").
+                  *
+                  * It was a labelled section with two full-width buttons and a
+                  * large input — three rows for an optional field that is empty
+                  * on most payments, sitting above the ones that are not. Now a
+                  * single row beside the money controls: type a number, flick
+                  * the switch for % or fixed.
+                  */}
+                <div className="flex items-center gap-2">
+                  <span className="shrink-0 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                    {clientDiscounts.length > 0 ? 'Manual override' : 'Discount'}
+                  </span>
+                  <div className="relative w-28">
+                    <input
+                      type="number" min="0" step="any"
+                      max={settleDiscountType === 'PERCENTAGE' ? 100 : undefined}
+                      placeholder={settleDiscountType === 'PERCENTAGE' ? 'e.g. 10' : 'e.g. 500'}
+                      value={settleDiscountValue}
+                      onChange={e => { setSettleDiscountValue(e.target.value); setSelectedClientDiscount(null); }}
+                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg pl-2.5 pr-7 py-1.5 text-[13px] font-black text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-400"
+                    />
+                    <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[9px] font-black text-slate-400 uppercase">
+                      {settleDiscountType === 'PERCENTAGE' ? '%' : curSym}
+                    </span>
+                  </div>
+                  {/* The switch: two states, so one control — not two buttons
+                      where only one can ever be on. */}
+                  <div className="inline-flex rounded-lg border border-slate-200 dark:border-zinc-700 overflow-hidden">
+                    {(['PERCENTAGE', 'FIXED'] as const).map(t => (
+                      <button
+                        key={t}
+                        type="button"
+                        role="switch"
+                        aria-checked={settleDiscountType === t}
+                        onClick={() => { setSettleDiscountType(t); setSettleDiscountValue(''); setSelectedClientDiscount(null); }}
+                        className={`px-2.5 py-1.5 text-[9px] font-black uppercase tracking-wider transition-all ${
+                          settleDiscountType === t && !selectedClientDiscount
+                            ? 'bg-amber-400 text-white'
+                            : 'bg-white dark:bg-zinc-900 text-slate-400 hover:text-amber-500'
+                        }`}
+                      >
+                        {t === 'PERCENTAGE' ? '%' : curSym}
+                      </button>
+                    ))}
+                  </div>
+                  {discountAmount > 0 && (
+                    <span className="text-[10px] font-black text-amber-600 dark:text-amber-400 font-mono">
+                      − {curSym} {fmtMoney(discountAmount)}
+                    </span>
+                  )}
+                  <span className="ml-auto text-[9px] font-bold text-slate-300 uppercase tracking-widest">optional</span>
+                </div>
+
                 {/* CREDIT + AMOUNT, side by side — the two controls that decide
                     what is actually collected (user, 2026-08-21). */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-start">
@@ -3793,7 +3819,19 @@ const VisitDetailInner: React.FC<Props> = ({
                     // Only forward the wallet id when the user picked an
                     // actual wallet (cash is wallet-less; the server falls
                     // back to the main wallet for receipts).
-                    const pickedWalletId = settleSelectedWalletId && settleSelectedWalletId !== CASH_OPTION_ID
+                    /**
+                     * ⚠️ EVERY SYNTHETIC OPTION IS WALLET-LESS, not just cash.
+                     *
+                     * This guard was written when `__cash__` was the only
+                     * sentinel. `__cheque__` arrived later (2026-08-13) and was
+                     * never added, so a cheque collection posted
+                     * `walletId: "__cheque__"` and the server died on
+                     * `BigInt("__cheque__")` — a 500 on a real payment
+                     * (user, 2026-08-21). Test the SET, so the next off-wallet
+                     * method cannot reintroduce this.
+                     */
+                    const SYNTHETIC_WALLET_IDS = new Set([CASH_OPTION_ID, CHEQUE_OPTION_ID]);
+                    const pickedWalletId = settleSelectedWalletId && !SYNTHETIC_WALLET_IDS.has(settleSelectedWalletId)
                       ? settleSelectedWalletId
                       : null;
                     if (settleAlso.size > 0 && client) {
@@ -4305,8 +4343,12 @@ const VisitDetailInner: React.FC<Props> = ({
             </div>
           </div>
 
-          {/* Action grid — Bill and Follow-up as two cards */}
-          <div className="relative z-10 mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-white/10 pt-3">
+          {/* Action grid — Bill was one of TWO cards; the Follow-ups card moved
+              out to its own tab, leaving this a two-column grid holding one
+              card and half a header of empty blue (user, 2026-08-21: "should we
+              extend this to the end"). One column now, so the bill card and its
+              Finalize → Bill → Invoice → Settle track run the full width. */}
+          <div className="relative z-10 mt-3 grid grid-cols-1 gap-2 border-t border-white/10 pt-3">
             {/* Bill card. On a CLINICAL_TRANSFER visit (168) the whole billing
                 surface is suppressed — the provider is paid via the job's
                 escrow payout at the requester's settlement; billing the
