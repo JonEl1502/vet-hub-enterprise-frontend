@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: Settle is a top-level tab that closes when you leave it, and the panel is tighter  —  2026-08-21
+🟢 **Record impact: none** — layout and placement. Payment logic unchanged.
+- **Moved up a level** (user, 2026-08-21: *"Settle tab to be upto not next to invoice n bill"*). Beside
+  Bill and Invoice it read as one more document to browse; in the top strip it reads as the act it is,
+  and it gets the full width.
+- **It closes when you switch away** (*"if user switches from it it shhould close till settle invoice is
+  clicked again"*). The tab is transient — an action in progress, not a place — so it must not sit
+  there afterwards inviting a second, half-remembered payment. Reopening resets every field, as before.
+  - This also removed a latent conflict: the effect that snaps the Bill sub-tab back to `bill` would
+    have knocked a Settle **sub**-tab out from under the user on any workflow-tab change.
+- **The total is in the header.** It was a card three sections down, so the one figure the panel is
+  about scrolled away while you typed (*"put total n subtotal upto header"*). Subtotal and discount
+  ride above it, small; the header names the invoice count when several are being paid together.
+- **Payment reference and paying account are side by side**, and the credit card sits beside **Amount
+  paid** — the two controls that decide what is actually collected, together (*"put in grid 2"*).
+- **The credit card looks pressable** (*"doesnt look clickable"*): a real tick box, `role="switch"`,
+  `aria-checked`, hover state and a tooltip that says what tapping does. It was a static-looking summary.
+- Sizes reduced throughout — header, panel padding and inputs.
+- Files: `clinic/appointments/VisitDetailView.tsx`.
+- **Data dependency:** none.
+
+
 ### change: Settle is a TAB beside Bill and Invoice, not a full-screen modal  —  2026-08-21
 🟢 **Record impact: none** — same panel, same payment logic, different place on the page.
 - It was a portal overlay covering the page, which put the bill it settles BEHIND it: to check a line
