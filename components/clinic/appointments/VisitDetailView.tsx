@@ -1389,7 +1389,21 @@ const VisitDetailInner: React.FC<Props> = ({
           // Default selection (only if the user hasn't picked yet): the main
           // wallet, else first, else cash. Guarded so a silent refresh never
           // stomps a selection already made in an open modal.
-          if (!settleSelectedWalletId) {
+          /**
+           * ⚠️ ALSO RE-DERIVE WHEN THE METHOD IS MISSING.
+           *
+           * `settleSelectedWalletId` survives between opens, but
+           * `openSettleModal` resets `settlePaymentMethod` to the visit's own
+           * (null on an unpaid visit). On the SECOND open this guard was
+           * therefore false, the method was never re-derived, and the panel
+           * showed a wallet card highlighted while the method behind it was
+           * null — Confirm hit `if (!settlePaymentMethod) return` and the
+           * payment appeared to do nothing (staging test, 2026-08-21).
+           *
+           * Testing the METHOD too cannot stomp a deliberate choice: picking
+           * cash, cheque or another wallet always leaves it truthy.
+           */
+          if (!settleSelectedWalletId || !settlePaymentMethod) {
             const main = wallets.find(w => w.isMain) || wallets[0];
             if (main) {
               setSettleSelectedWalletId(String(main.id));
@@ -3333,8 +3347,29 @@ const VisitDetailInner: React.FC<Props> = ({
         };
         const allocTyped = allocRows.some(r => (settleAllocs[r.visitId] ?? '').trim() !== '');
         const allocTotal = Math.round(allocRows.reduce((n, r) => n + allocOf(r.visitId), 0) * 100) / 100;
-        /** What the split does not account for — must not exceed the payment. */
-        const allocOver = Math.round((allocTotal - settlingNow) * 100) / 100;
+        /**
+         * ⚠️ THE SPLIT DIVIDES THE CASH, NOT THE WHOLE SETTLEMENT.
+         *
+         * The server spends CREDIT first — oldest invoice first, funded by the
+         * oldest unapplied payment — and only then validates the manual
+         * allocations against what each invoice still owes. So allocations must
+         * add up to `cashWanted`, not to credit + cash.
+         *
+         * Totalling against the whole settlement sent
+         * `allocations: [3500, 2208.8]` with `amountTendered: 700` and the server
+         * refused: "Cannot apply 3500.00 to an invoice with only 0.00
+         * outstanding" — credit had already cleared that invoice (staging test,
+         * 2026-08-21). The money never moved; it 400'd and rolled back.
+         *
+         * Credit allocation is NOT user-directed: each credit settlement names
+         * exactly one funding transaction, which is what keeps the credit
+         * derivation reversible. Splitting the cash is the part that is ours to
+         * offer.
+         */
+        const allocBasis = cashWanted;
+        const allocOver = Math.round((allocTotal - allocBasis) * 100) / 100;
+        /** Nothing to divide when credit covers the lot. */
+        const allocPossible = allocBasis > 0.005;
         const curSym = client?.currency || activeClinic.currency || 'KES';
         const fmtMoney = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
@@ -3873,10 +3908,12 @@ const VisitDetailInner: React.FC<Props> = ({
                       * never forced, because that default is right most of the
                       * time and typing four numbers to accept it would be worse.
                       */}
-                    {settleAlso.size > 0 && (
+                    {settleAlso.size > 0 && allocPossible && (
                       <div className="px-3 py-2.5 border-t border-amber-200 dark:border-amber-900/50 space-y-1.5">
                         <div className="flex items-baseline justify-between gap-2">
-                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Split this payment</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                            Split the {curSym} {fmtMoney(allocBasis)} being collected
+                          </span>
                           {allocTyped ? (
                             <button type="button" onClick={() => setSettleAllocs({})}
                               className="text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam">
@@ -3901,9 +3938,9 @@ const VisitDetailInner: React.FC<Props> = ({
                         ))}
                         {allocTyped && (
                           <div className={`flex items-baseline justify-between text-[10px] font-black ${allocOver > 0.005 ? 'text-rose-600' : 'text-slate-500 dark:text-zinc-400'}`}>
-                            <span>{allocOver > 0.005 ? 'Split exceeds the payment' : 'Allocated'}</span>
+                            <span>{allocOver > 0.005 ? 'Split exceeds what is being collected' : 'Allocated'}</span>
                             <span className="font-mono">
-                              {curSym} {fmtMoney(allocTotal)} of {curSym} {fmtMoney(settlingNow)}
+                              {curSym} {fmtMoney(allocTotal)} of {curSym} {fmtMoney(allocBasis)}
                             </span>
                           </div>
                         )}
@@ -3953,7 +3990,7 @@ const VisitDetailInner: React.FC<Props> = ({
                       // Refuse rather than let the server silently truncate: the
                       // split is a money instruction and a wrong one is worse
                       // than none.
-                      toast.error(`The split allocates ${curSym} ${fmtMoney(allocTotal)} but only ${curSym} ${fmtMoney(settlingNow)} is being paid`);
+                      toast.error(`The split allocates ${curSym} ${fmtMoney(allocTotal)} but only ${curSym} ${fmtMoney(allocBasis)} is being collected${creditApplied > 0.005 ? ' — credit is applied separately, oldest invoice first' : ''}`);
                       return;
                     }
                     if (settleAlso.size > 0 && client) {
@@ -3982,7 +4019,7 @@ const VisitDetailInner: React.FC<Props> = ({
                           ...(creditApplied > 0.005 ? { useCredit: creditApplied } : {}),
                           // Only the rows actually typed. A blank row keeps the
                           // server's own allocation for the remainder.
-                          ...(allocTyped
+                          ...(allocTyped && allocPossible
                             ? { allocations: allocRows
                                 .filter(r => (settleAllocs[r.visitId] ?? '').trim() !== '' && allocOf(r.visitId) > 0)
                                 .map(r => ({ visitId: r.visitId, amount: allocOf(r.visitId) })) }

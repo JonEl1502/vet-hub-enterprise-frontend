@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: two defects found by testing the settle panel on staging  —  2026-08-21
+🔴 **Record impact: money** — one of these made a valid collection 400, the other made Confirm appear
+to do nothing. Neither moved money incorrectly; both stopped a payment being taken.
+- **The split divided the wrong pot.** The server spends CREDIT first — oldest invoice first, funded by
+  the oldest unapplied payment — and only THEN validates manual allocations against what each invoice
+  still owes. The editor totalled against credit + cash, so it sent
+  `allocations: [3500, 2208.8]` with `amountTendered: 700` and the server refused: *"Cannot apply
+  3500.00 to an invoice with only 0.00 outstanding"* — credit had already cleared that invoice. The
+  400 rolled back cleanly; no transaction was written.
+  - The split now divides **what is actually being collected**, is labelled with that figure, and is
+    hidden entirely when credit covers everything — there is nothing to divide.
+  - Credit allocation stays FIFO and is deliberately NOT user-directed: each credit settlement names
+    exactly one funding transaction, which is what keeps the credit derivation reversible.
+- **Confirm silently did nothing on a re-opened panel.** `settleSelectedWalletId` survives between
+  opens, but `openSettleModal` resets `settlePaymentMethod` to the visit's own — null on an unpaid
+  visit. On the second open the wallet-defaulting guard was therefore false, so the method was never
+  re-derived: a wallet card sat highlighted with no method behind it, and Confirm hit its
+  `!settlePaymentMethod` guard. The guard now re-derives when the METHOD is missing too, which cannot
+  stomp a deliberate choice because picking cash, cheque or a wallet always leaves it truthy.
+- Verified on staging: the payload now carries `amountTendered`, `useCredit` and `allocations`
+  correctly, and the over-allocation guard blocks submission with no network call.
+- Files: `clinic/appointments/VisitDetailView.tsx`.
+- **Data dependency:** none.
+
+
 ### feat: choose what each invoice gets, show discounts on invoices, and put the money on the timeline  —  2026-08-21
 🔵 **Record impact: allocations + audit events.** A typed split instructs the server where the money
 lands. Money milestones are now written to `visit_events`.
