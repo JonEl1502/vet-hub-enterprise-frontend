@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: Settle is a TAB beside Bill and Invoice, not a full-screen modal  —  2026-08-21
+🟢 **Record impact: none** — same panel, same payment logic, different place on the page.
+- It was a portal overlay covering the page, which put the bill it settles BEHIND it: to check a line
+  you closed the payment, looked, and reopened — losing whatever was typed (user, 2026-08-21: *"can we
+  make it a tab that opens when settle invoice is clicked"*). Now it sits in the Bill & Invoice tab
+  strip, so the bill is one click away and the typed amount survives the trip.
+- Every existing trigger still works unchanged — the bill bar, the pay gate, the summary preview, the
+  client-balance row. `openSettleModal` sets the tab as well as the flag, so no caller had to learn
+  about tabs.
+- The tab only lists once payment has been opened; an empty Settle tab on a visit with nothing to
+  collect is a dead end, and the button that opens it is never far. Its ✕ returns to the Bill tab.
+- Labelled **Collect** on a pay-first quote and **Settle** otherwise, matching the action.
+- Files: `clinic/appointments/VisitDetailView.tsx`.
+- **Data dependency:** none.
+
+
 ### fix: the settle modal did its maths against ONE invoice while collecting several  —  2026-08-21
 🔴 **Record impact: money.** A multi-invoice collection previously ignored the typed amount and the
 credit toggle entirely. Both are now sent, so what is written matches what the modal shows.

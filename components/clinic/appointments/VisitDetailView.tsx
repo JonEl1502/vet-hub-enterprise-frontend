@@ -242,7 +242,7 @@ const VisitDetailInner: React.FC<Props> = ({
   // 'record' merged into the per-workflow report tabs: the diagnostic record
   // lives inside Medical Report; grooming notes inside Grooming Report;
   // the boarding care log inside Boarding Report.
-  const [activeBottomTab, setActiveBottomTab] = useState<'report' | 'groomingReport' | 'boardingReport' | 'medications' | 'bill' | 'invoice' | 'receipt'>(initialBottomTab ?? 'report');
+  const [activeBottomTab, setActiveBottomTab] = useState<'report' | 'groomingReport' | 'boardingReport' | 'medications' | 'bill' | 'invoice' | 'receipt' | 'settle'>(initialBottomTab ?? 'report');
   // A second navigation into an already-mounted view must still land on the
   // requested tab — the initial state alone only covers the first mount.
   useEffect(() => { if (initialBottomTab) setActiveBottomTab(initialBottomTab); }, [initialBottomTab, appointment.id]);
@@ -3081,6 +3081,15 @@ const VisitDetailInner: React.FC<Props> = ({
         .catch(() => { /* the modal works without it */ });
     }
     setShowSettleModal(true);
+    /**
+     * …and GO to it. Settle is a tab now, not an overlay that appears over
+     * whatever you were looking at (user, 2026-08-21). Both are set here so
+     * every existing caller — the bill bar, the pay gate, the summary preview,
+     * the client-balance row — lands on the panel without each one being taught
+     * about tabs.
+     */
+    setWorkflowTab('billing');
+    setActiveBottomTab('settle');
     // Load active client discounts
     if (client) {
       try {
@@ -3182,6 +3191,698 @@ const VisitDetailInner: React.FC<Props> = ({
       />
     );
   }
+
+  /**
+   * SETTLE — a TAB, not a modal (user, 2026-08-21: "can we make it a tab that
+   * opens when settle invoice is clicked").
+   *
+   * It was a full-screen portal over the page, which meant the bill it settles
+   * was behind it: to check a line you closed the payment, looked, and opened it
+   * again, losing what you had typed. As a tab it sits beside Bill and Invoice,
+   * and `openSettleModal` switches to it.
+   *
+   * `showSettleModal` still gates the WORK (it triggers the wallet/credit load),
+   * so the panel is only built once that data has been asked for.
+   */
+  const settlePanel = showSettleModal ? (() => {
+        const discountVal = parseFloat(settleDiscountValue) || 0;
+        /**
+         * Collect what is OUTSTANDING, not the bill's face value.
+         *
+         * ⚠️ This used to base everything on `appointment.totalCost`, which is
+         * the whole receivable — so a visit that had already been part paid
+         * offered to collect the full amount again. Prod visit #142: 2,517.50
+         * paid, a 2,500 consultation added afterwards, and the modal proposed
+         * 5,017.50 "paying in full". `reconciliationState.balance` is the
+         * server's own figure (final − paid), and it falls back to totalCost
+         * only when no money has landed yet.
+         */
+        const alreadyPaid = reconciliationState?.paidSoFar ?? 0;
+        const settleBase = alreadyPaid > 0.005
+          ? (reconciliationState?.balance ?? appointment.totalCost)
+          : appointment.totalCost;
+        const discountAmount = settleDiscountType === 'PERCENTAGE'
+          ? (settleBase * discountVal) / 100
+          : discountVal;
+        const finalTotal = Math.max(0, settleBase - discountAmount);
+
+        /**
+         * ⚠️ ONE TOTAL FOR THE WHOLE COLLECTION — every figure below reads it.
+         *
+         * `finalTotal` is THIS visit only. Ticking other outstanding invoices
+         * adds them to the same payment, and the credit maths went on measuring
+         * against this visit alone: 4,400 of credit against a 1,717.5 visit read
+         * "nothing left to collect · 2,682.5 stays on account" while the
+         * selection actually totalled 22,917.5 (user, 2026-08-21: "do math").
+         * The truth is that the credit clears 4,400 of it and 18,517.5 still
+         * has to be collected — the opposite of what the modal said.
+         */
+        const settleAlsoTotal = settleOthers
+          .filter(r => settleAlso.has(r.visitId))
+          .reduce((n, r) => n + r.outstanding, 0);
+        const combinedDue = Math.round((finalTotal + settleAlsoTotal) * 100) / 100;
+        const typedAmount = parseFloat(settleAmountPaid);
+        const hasTyped = Number.isFinite(typedAmount) && typedAmount > 0;
+        /** What is being settled in this transaction — typed, else everything ticked. */
+        const settlingNow = hasTyped ? typedAmount : combinedDue;
+        /** Credit funds it FIRST; cash covers the rest. Mirrors the confirm handler. */
+        const creditApplied = settleUseCredit
+          ? Math.round(Math.min(settleCredit, settlingNow) * 100) / 100
+          : 0;
+        const cashWanted = Math.max(0, Math.round((settlingNow - creditApplied) * 100) / 100);
+        /** Still owed across the ticked invoices after this transaction. */
+        const stillOwed = Math.round((combinedDue - settlingNow) * 100) / 100;
+        /** Credit untouched by this transaction. */
+        const creditLeft = Math.round((settleCredit - creditApplied) * 100) / 100;
+        /** Paid MORE than everything ticked — the excess lands on account. */
+        const overpay = Math.round((settlingNow - combinedDue) * 100) / 100;
+        const curSym = client?.currency || activeClinic.currency || 'KES';
+        const fmtMoney = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+        return (
+          <div className="animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden flex flex-col">
+              {/* Header */}
+              <div className="bg-pine px-6 py-5 flex items-center justify-between">
+                <div>
+                  {/* You settle an INVOICE, not a bill — the modal is only reachable
+                      once one exists (or on a pay-first quote). */}
+                  <p className="text-[8px] font-black text-white/50 uppercase tracking-[0.2em]">{billStage === 'PAY_FIRST' ? 'Collect pay-first' : 'Settle invoice'}</p>
+                  <p className="text-lg font-black text-white uppercase tracking-tight leading-tight">#{appointment.id} — {pet.name}</p>
+                </div>
+                <button onClick={() => { setShowSettleModal(false); setActiveBottomTab('bill'); }} title="Close payment and go back to the bill" className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-all"><X size={16} /></button>
+              </div>
+              <div className="h-1 bg-gradient-to-r from-seafoam via-cyan to-seafoam" />
+
+              <div className="p-6 space-y-5">
+                {/* Wallet picker — each option IS a payment method via its
+                    walletType (Pochi/Till/Paybill → M_PESA, Bank → BANK_
+                    TRANSFER, Digital → CARD, Virtual → CASH). Cash is a
+                    synthetic always-present option for off-wallet pays. */}
+                <div>
+                  <div className="flex items-baseline justify-between mb-3">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Settle Into</p>
+                    {selectedWallet && (
+                      <p className="text-[9px] font-black text-seafoam uppercase tracking-widest">
+                        {walletTypeLabel(selectedWallet.walletType)} → {walletTypeToPaymentMethod(selectedWallet.walletType).replace('_', ' ')}
+                      </p>
+                    )}
+                    {settleSelectedWalletId === CASH_OPTION_ID && (
+                      <p className="text-[9px] font-black text-seafoam uppercase tracking-widest">Cash · Off-Wallet</p>
+                    )}
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 max-h-52 overflow-y-auto pr-1">
+                    {settleWalletLoading ? (
+                      <div className="text-center py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Loading wallets…</div>
+                    ) : (
+                      <>
+                        {settleWallets.map(w => {
+                          const selected = String(w.id) === settleSelectedWalletId;
+                          return (
+                            <button
+                              key={w.id}
+                              onClick={() => {
+                                setSettleSelectedWalletId(String(w.id));
+                                setSettlePaymentMethod(walletTypeToPaymentMethod(w.walletType));
+                              }}
+                              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
+                                selected
+                                  ? 'border-seafoam bg-seafoam/10'
+                                  : 'border-slate-100 dark:border-zinc-800 hover:border-seafoam/40'
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <div className={`p-1.5 rounded-lg ${selected ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
+                                  <Wallet size={13} />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <p className={`text-[11px] font-black uppercase tracking-tight truncate ${selected ? 'text-pine dark:text-zinc-100' : 'text-pine/80 dark:text-zinc-300'}`}>{w.name}</p>
+                                    {w.isMain && <span className="text-[6px] font-black px-1 py-px rounded-full bg-pine text-white uppercase tracking-widest">Main</span>}
+                                  </div>
+                                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{walletTypeLabel(w.walletType)}</p>
+                                </div>
+                              </div>
+                              <div className="shrink-0 text-right">
+                                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Balance</p>
+                                <p className={`text-[11px] font-black font-mono tabular-nums ${selected ? 'text-seafoam' : 'text-pine dark:text-zinc-200'}`}>
+                                  {(w.currency || activeClinic.currency || 'KES')} {Number(w.balance || 0).toLocaleString()}
+                                </p>
+                              </div>
+                            </button>
+                          );
+                        })}
+                        {/* Cash — always available, has no wallet */}
+                        <button
+                          onClick={() => {
+                            setSettleSelectedWalletId(CASH_OPTION_ID);
+                            setSettlePaymentMethod('CASH');
+                          }}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
+                            settleSelectedWalletId === CASH_OPTION_ID
+                              ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
+                              : 'border-dashed border-slate-200 dark:border-zinc-700 hover:border-emerald-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`p-1.5 rounded-lg ${settleSelectedWalletId === CASH_OPTION_ID ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
+                              <Coins size={13} />
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-black uppercase tracking-tight text-pine dark:text-zinc-100">Cash</p>
+                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Off-Wallet · Counter Receipt</p>
+                            </div>
+                          </div>
+                        </button>
+                        {/* Cheque — off-wallet like cash, but it CLEARS LATER.
+                            It gets its own method (201) rather than being
+                            filed as cash or as a bank transfer, both of which
+                            misstate where the money actually is today. */}
+                        <button
+                          onClick={() => {
+                            setSettleSelectedWalletId(CHEQUE_OPTION_ID);
+                            setSettlePaymentMethod('CHEQUE');
+                          }}
+                          className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
+                            settleSelectedWalletId === CHEQUE_OPTION_ID
+                              ? 'border-sky-400 bg-sky-50 dark:bg-sky-900/20'
+                              : 'border-dashed border-slate-200 dark:border-zinc-700 hover:border-sky-300'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <div className={`p-1.5 rounded-lg ${settleSelectedWalletId === CHEQUE_OPTION_ID ? 'bg-sky-500 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
+                              <ReceiptText size={13} />
+                            </div>
+                            <div>
+                              <p className="text-[11px] font-black uppercase tracking-tight text-pine dark:text-zinc-100">Cheque</p>
+                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Off-Wallet · Clears Later</p>
+                            </div>
+                          </div>
+                        </button>
+                      </>
+                    )}
+                  </div>
+                </div>
+
+                {/* Gateway flow — shows when clinic has configured the matching provider */}
+                {gatewayAvailable(settlePaymentMethod) && (
+                  <div className="bg-seafoam/10 border border-seafoam/30 rounded-xl p-3 space-y-2">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={useGateway}
+                        onChange={(e) => setUseGateway(e.target.checked)}
+                      />
+                      <span className="text-[10px] font-black text-pine uppercase tracking-widest">
+                        {settlePaymentMethod === 'M_PESA' ? 'Push STK to customer phone' : 'Charge card via Stripe'}
+                      </span>
+                    </label>
+                    {useGateway && settlePaymentMethod === 'M_PESA' && (
+                      <div>
+                        <label className="text-[8px] font-black text-seafoam uppercase tracking-widest">Customer phone</label>
+                        <input
+                          type="tel"
+                          value={mpesaPhone}
+                          onChange={(e) => setMpesaPhone(e.target.value)}
+                          placeholder="07XX or 2547XX"
+                          className="w-full mt-1 bg-white dark:bg-zinc-800 border border-seafoam/30 rounded-lg px-3 py-2 text-sm font-medium text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30"
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Client Discounts */}
+                {clientDiscounts.length > 0 && (
+                  <div>
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Client Discounts</p>
+                    <div className="space-y-1.5">
+                      {clientDiscounts.map(cd => (
+                        <button
+                          key={cd.id}
+                          onClick={() => {
+                            if (selectedClientDiscount?.id === cd.id) {
+                              setSelectedClientDiscount(null);
+                              setSettleDiscountType('PERCENTAGE');
+                              setSettleDiscountValue('');
+                            } else {
+                              setSelectedClientDiscount(cd);
+                              setSettleDiscountType(cd.discountType);
+                              setSettleDiscountValue(String(cd.value));
+                            }
+                          }}
+                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
+                            selectedClientDiscount?.id === cd.id
+                              ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
+                              : 'border-slate-100 dark:border-zinc-800 hover:border-emerald-300'
+                          }`}
+                        >
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase truncate">{cd.name}</p>
+                            <p className="text-[8px] font-bold text-slate-400">Expires {formatDate(cd.expiresAt)}</p>
+                          </div>
+                          <span className={`text-sm font-black shrink-0 ml-2 ${selectedClientDiscount?.id === cd.id ? 'text-emerald-600' : 'text-slate-500'}`}>
+                            {cd.discountType === 'PERCENTAGE' ? `${cd.value}%` : `${client?.currency || 'KES'} ${Number(cd.value).toLocaleString()}`}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                    {selectedClientDiscount && (
+                      <p className="text-[8px] font-bold text-emerald-500 mt-1.5 italic">This discount will be redeemed on payment</p>
+                    )}
+                  </div>
+                )}
+
+                {/* Manual Discount */}
+                <div>
+                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">{clientDiscounts.length > 0 ? 'Manual Override' : 'Discount'} <span className="text-slate-300 normal-case font-bold">(optional)</span></p>
+                  <div className="flex gap-2 mb-2">
+                    {(['PERCENTAGE', 'FIXED'] as const).map(t => (
+                      <button
+                        key={t}
+                        onClick={() => { setSettleDiscountType(t); setSettleDiscountValue(''); setSelectedClientDiscount(null); }}
+                        className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${settleDiscountType === t && !selectedClientDiscount ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-amber-600' : 'border-slate-100 dark:border-zinc-800 text-slate-400 hover:border-amber-300'}`}
+                      >
+                        {t === 'PERCENTAGE' ? '% Off' : 'Fixed'}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="0"
+                      max={settleDiscountType === 'PERCENTAGE' ? 100 : undefined}
+                      placeholder={settleDiscountType === 'PERCENTAGE' ? 'e.g. 10' : 'e.g. 500'}
+                      value={settleDiscountValue}
+                      onChange={e => { setSettleDiscountValue(e.target.value); setSelectedClientDiscount(null); }}
+                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm font-black text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-400 pr-16"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase">
+                      {settleDiscountType === 'PERCENTAGE' ? '%' : (client?.currency || 'KES')}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Total summary */}
+                <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-xl p-4 space-y-2">
+                  {/* When part of this visit is already paid, say so — a bare
+                      "Subtotal 2,500" against a 5,017.50 bill is what made the
+                      numbers look like they disagreed. */}
+                  {alreadyPaid > 0.005 && (
+                    <>
+                      <div className="flex justify-between text-[10px] font-black uppercase text-slate-400">
+                        <span>Bill total</span>
+                        <span>{client?.currency || 'KES'} {appointment.totalCost.toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-[10px] font-black uppercase text-emerald-600">
+                        <span>Already paid</span>
+                        <span>− {client?.currency || 'KES'} {alreadyPaid.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex justify-between text-[10px] font-black uppercase text-slate-400">
+                    <span>{alreadyPaid > 0.005 ? 'Balance due' : 'Subtotal'}</span>
+                    <span>{client?.currency || 'KES'} {settleBase.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                  </div>
+                  {discountAmount > 0 && (
+                    <div className="flex justify-between text-[10px] font-black uppercase text-amber-500">
+                      <span>Discount</span>
+                      <span>− {client?.currency || 'KES'} {discountAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                    </div>
+                  )}
+                  <div className="flex justify-between items-baseline text-base font-black uppercase text-pine dark:text-zinc-100 border-t border-slate-200 dark:border-zinc-700 pt-2 mt-1">
+                    <span>Total</span>
+                    <span>
+                      {discountAmount > 0 && (
+                        <s className="text-slate-400 text-[11px] font-bold mr-2">{client?.currency || 'KES'} {settleBase.toLocaleString(undefined, { maximumFractionDigits: 2 })}</s>
+                      )}
+                      <span className="text-seafoam">{client?.currency || 'KES'} {finalTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                    </span>
+                  </div>
+                </div>
+
+                {/* PAYMENT REFERENCE — the payer's own identifier. Shown for
+                    every method that HAS one; cash across a counter does not,
+                    so it stays out of the way there. Required-looking for a
+                    cheque, because a cheque with no number cannot be chased
+                    when it bounces — but not enforced: a clinic mid-transaction
+                    must never be blocked by a field. */}
+                {settlePaymentMethod !== 'CASH' && (
+                  <div>
+                    <div className="flex items-baseline justify-between mb-2">
+                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                        {settlePaymentMethod === 'CHEQUE' ? 'Cheque number' : 'Payment reference'}
+                      </p>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">
+                        {settlePaymentMethod === 'CHEQUE' ? 'Recommended' : 'Optional'}
+                      </span>
+                    </div>
+                    <input
+                      type="text"
+                      value={settleReference}
+                      onChange={e => setSettleReference(e.target.value)}
+                      maxLength={100}
+                      placeholder={
+                        settlePaymentMethod === 'CHEQUE' ? 'Cheque no. — e.g. 004512'
+                        : settlePaymentMethod === 'M_PESA' ? 'M-Pesa code — e.g. SFH4KJ21XZ'
+                        : settlePaymentMethod === 'BANK_TRANSFER' ? 'Bank slip / transfer ref'
+                        : 'Card auth or reference'
+                      }
+                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-mono text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                    />
+                    {/* WHO paid, beside the transaction's own reference. */}
+                    <div className="mt-3">
+                      <div className="flex items-baseline justify-between mb-2">
+                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                          {settlePaymentMethod === 'M_PESA' ? 'Paying phone number'
+                            : settlePaymentMethod === 'CHEQUE' ? 'Drawer account / bank'
+                            : 'Paying account number'}
+                        </p>
+                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">Optional</span>
+                      </div>
+                      <input
+                        type="text"
+                        value={settlePayer}
+                        onChange={e => setSettlePayer(e.target.value)}
+                        maxLength={60}
+                        placeholder={settlePaymentMethod === 'M_PESA' ? 'e.g. 0722 000 000' : 'Account the money came from'}
+                        className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-mono text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                      />
+                    </div>
+                    {settlePaymentMethod === 'CHEQUE' && (
+                      <p className="mt-1.5 text-[10px] font-bold text-sky-600 dark:text-sky-400 leading-relaxed">
+                        Recorded as a cheque, not as cash — the drawer is not increased. It shows on the
+                        client&apos;s account straight away and clears with the bank in its own time.
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                {/* CREDIT ON ACCOUNT — money the clinic ALREADY holds for this
+                    client, offered before any is asked for. It was invisible
+                    here, so a client with credit was asked for cash and the
+                    credit just grew (prod #157 banked 1,200 nobody chose).
+                    Applying it routes through the account collect endpoint,
+                    the only path that can spend it. */}
+                {settleCredit > 0.005 && (
+                  <button
+                    type="button"
+                    onClick={() => setSettleUseCredit(v => !v)}
+                    className={`w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border text-left transition-all ${
+                      settleUseCredit
+                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40'
+                        : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 hover:border-indigo-300'
+                    }`}
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-[9px] font-black uppercase tracking-widest text-indigo-500">Credit on account</span>
+                      <span className="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 leading-snug mt-0.5">
+                        {(() => {
+                          if (!settleUseCredit) return 'Not being used — tap to spend it on this bill';
+                          // Mirrors the confirm handler, and measures against the
+                          // WHOLE collection (this visit + every ticked invoice)
+                          // — the figures are derived once, above.
+                          return cashWanted > 0.005
+                            ? `Deducting ${curSym} ${fmtMoney(creditApplied)} from credit — collect ${curSym} ${fmtMoney(cashWanted)} in ${settlePaymentMethod === 'CASH' ? 'cash' : 'payment'}`
+                            : `Deducting ${curSym} ${fmtMoney(creditApplied)} from credit — nothing left to collect`;
+                        })()}
+                      </span>
+                    </span>
+                    <span className={`shrink-0 text-sm font-black font-mono ${settleUseCredit ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-zinc-400'}`}>
+                      {client?.currency || 'KES'} {settleCredit.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </span>
+                  </button>
+                )}
+
+                {/* CREDIT IS BEING SPENT — said plainly, not left to be inferred
+                    from a toggle's tint, and the shortfall named when there is
+                    one (user, 2026-08-13: "boldly say it … prompt user that
+                    client credit is below outstanding bal"). Informational, not
+                    a blocker: staff close it and carry on collecting the rest. */}
+                {/**
+                  * WHERE THE MONEY COMES FROM — the arithmetic laid out, not
+                  * asserted (user, 2026-08-21: "when credit is selected substract
+                  * n show allocation of funds n how much more in needed").
+                  *
+                  * Every row reads `combinedDue`, so ticking another invoice
+                  * moves all of them together. The old copy compared credit with
+                  * THIS VISIT alone and announced "nothing to collect" on a
+                  * 22,917.5 selection that credit covered 4,400 of.
+                  */}
+                {settleUseCredit && settleCredit > 0.005 && (
+                  <div className={`rounded-xl border px-3.5 py-3 ${
+                    cashWanted > 0.005
+                      ? 'border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30'
+                      : 'border-emerald-300 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/30'
+                  }`}>
+                    <p className={`text-[11px] font-black uppercase tracking-widest ${
+                      cashWanted > 0.005 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'
+                    }`}>
+                      {cashWanted > 0.005 ? 'Credit does not cover it all' : 'Paying from credit'}
+                    </p>
+                    <div className="mt-2 space-y-1 text-[11px] font-bold">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-slate-500 dark:text-zinc-400">
+                          {settleAlso.size > 0 ? `Due · ${settleAlso.size + 1} invoices` : 'Due on this invoice'}
+                        </span>
+                        <span className="font-mono text-pine dark:text-zinc-100">{curSym} {fmtMoney(combinedDue)}</span>
+                      </div>
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="text-indigo-600 dark:text-indigo-400">
+                          − From credit{creditApplied < settleCredit - 0.005 ? ` (of ${curSym} ${fmtMoney(settleCredit)})` : ''}
+                        </span>
+                        <span className="font-mono text-indigo-600 dark:text-indigo-400">− {curSym} {fmtMoney(creditApplied)}</span>
+                      </div>
+                      <div className={`flex items-baseline justify-between gap-3 pt-1 border-t ${
+                        cashWanted > 0.005 ? 'border-amber-300/60 dark:border-amber-900/60' : 'border-emerald-300/60 dark:border-emerald-900/60'
+                      }`}>
+                        <span className={cashWanted > 0.005 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}>
+                          {cashWanted > 0.005 ? 'Still to collect now' : 'Nothing left to collect'}
+                        </span>
+                        <span className={`font-mono font-black ${cashWanted > 0.005 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                          {curSym} {fmtMoney(cashWanted)}
+                        </span>
+                      </div>
+                      {/* What the payment does NOT cover — a typed part payment
+                          leaves a real balance and it should be named here, not
+                          only under the amount box. */}
+                      {stillOwed > 0.005 && (
+                        <div className="flex items-baseline justify-between gap-3 text-slate-500 dark:text-zinc-400">
+                          <span>Left owing after this</span>
+                          <span className="font-mono">{curSym} {fmtMoney(stillOwed)}</span>
+                        </div>
+                      )}
+                      {creditLeft > 0.005 && (
+                        <div className="flex items-baseline justify-between gap-3 text-slate-500 dark:text-zinc-400">
+                          <span>Credit staying on account</span>
+                          <span className="font-mono">{curSym} {fmtMoney(creditLeft)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* AMOUNT PAID — a client who pays part of the bill should leave
+                    a real balance, not a visit marked settled. Blank = in full,
+                    which is what this modal always did. */}
+                <div>
+                  <div className="flex items-baseline justify-between mb-2">
+                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Amount paid</p>
+                    <button type="button" onClick={() => setSettleAmountPaid('')}
+                      className={`text-[9px] font-black uppercase tracking-widest ${settleAmountPaid.trim() === '' ? 'text-seafoam' : 'text-slate-400 hover:text-seafoam'}`}>
+                      Paying in full
+                    </button>
+                  </div>
+                  <input
+                    type="number" min="0" step="any" inputMode="decimal"
+                    placeholder={`${curSym} ${fmtMoney(combinedDue)} — full`}
+                    value={settleAmountPaid}
+                    onChange={e => setSettleAmountPaid(e.target.value)}
+                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+                  />
+                  {/* Live as you type, and against EVERYTHING ticked — short,
+                      exact, or over. Overpaying is a real workflow (the client
+                      rounds up, or leaves a float), so say where the extra goes
+                      instead of letting it appear on the account unannounced
+                      (user, 2026-08-21: "when typing show how much goes to
+                      credit if more paid"). */}
+                  {hasTyped && (() => {
+                    const scope = settleAlso.size > 0 ? `across the ${settleAlso.size + 1} invoices` : 'on this visit';
+                    if (overpay > 0.005) return (
+                      <p className="mt-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 leading-relaxed">
+                        Clears {curSym} {fmtMoney(combinedDue)} {scope} — <b>{curSym} {fmtMoney(overpay)}</b> over,
+                        which goes onto {client?.name || 'the client'}&apos;s account as credit
+                        {settleUseCredit && creditLeft > 0.005
+                          ? <> (bringing it to <b>{curSym} {fmtMoney(creditLeft + overpay)}</b>).</>
+                          : <>.</>}
+                      </p>
+                    );
+                    if (stillOwed > 0.005) return (
+                      <p className="mt-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 leading-relaxed">
+                        {curSym} {fmtMoney(stillOwed)} stays outstanding {scope}.
+                        {settleUseCredit && settleCredit > 0.005
+                          ? <> Credit funds {curSym} {fmtMoney(creditApplied)} of what is being paid now, so only {curSym} {fmtMoney(cashWanted)} is collected.</>
+                          : <> The {curSym} {fmtMoney(typedAmount)} is recorded on {client?.name || 'the client'}&apos;s account and applied here, so both sides reconcile.</>}
+                      </p>
+                    );
+                    return <p className="mt-1.5 text-[10px] font-bold text-slate-400">Settles {scope === 'on this visit' ? 'this visit' : 'all ticked invoices'} in full.</p>;
+                  })()}
+                </div>
+
+                {/* Other outstanding balances — tick to pay together (one
+                    payment, one receipt run, many invoices). */}
+                {settleOthers.length > 0 && (
+                  <div className="border border-amber-200 dark:border-amber-900/50 rounded-xl overflow-hidden">
+                    <button type="button" onClick={() => setSettleOthersOpen(o => !o)}
+                      className="w-full flex items-center justify-between px-3 py-2 bg-amber-50/70 dark:bg-amber-950/20 text-left">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
+                        Other outstanding · {settleOthers.length} invoice{settleOthers.length === 1 ? '' : 's'} · {activeClinic.currency} {settleOthers.reduce((n, r) => n + r.outstanding, 0).toLocaleString()}
+                      </span>
+                      <span className="text-[9px] font-black uppercase tracking-widest text-amber-600">{settleOthersOpen ? 'hide' : 'add to this payment'}</span>
+                    </button>
+                    {settleOthersOpen && (
+                      <div className="p-2 space-y-1 max-h-40 overflow-y-auto">
+                        {settleOthers.map(r => {
+                          const on = settleAlso.has(r.visitId);
+                          return (
+                            <button key={r.visitId} type="button"
+                              onClick={() => setSettleAlso(prev => { const n = new Set(prev); on ? n.delete(r.visitId) : n.add(r.visitId); return n; })}
+                              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left transition-all ${on ? 'border-seafoam bg-seafoam/10' : 'border-slate-100 dark:border-zinc-800 hover:border-seafoam/40'}`}>
+                              <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] font-black shrink-0 ${on ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-transparent'}`}>✓</span>
+                              {/* Pet FIRST — it is how staff recognise the
+                                  visit; the number and date are the reference,
+                                  not the identity (user, 2026-08-18). */}
+                              <span className="flex-1 min-w-0 text-[11px] font-bold text-pine dark:text-zinc-100 truncate">
+                                {r.petName ? <>{r.petName} <span className="text-slate-400 font-semibold">· #{r.visitId} · {new Date(r.date).toLocaleDateString()}</span></>
+                                           : <>Visit #{r.visitId} · {new Date(r.date).toLocaleDateString()}</>}
+                              </span>
+                              <span className="text-[11px] font-black text-amber-600 font-mono">{activeClinic.currency} {r.outstanding.toLocaleString()}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {settleAlso.size > 0 && (
+                      <div className="px-3 py-2 bg-seafoam/10 flex items-center justify-between">
+                        <span className="text-[9px] font-black uppercase tracking-widest text-seafoam">Paying together · {settleAlso.size + 1} invoices</span>
+                        <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono">
+                          {activeClinic.currency} {(finalTotal + settleOthers.filter(r => settleAlso.has(r.visitId)).reduce((n, r) => n + r.outstanding, 0)).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Confirm */}
+                <button
+                  onClick={async () => {
+                    if (isSettlingBill) return;
+                    if (!settlePaymentMethod) { toast.error('Select a wallet from the options above — payment settles into it'); return; }
+                    // Redeem client discount if selected
+                    if (selectedClientDiscount && client) {
+                      try {
+                        await clientDiscountsAPI.redeem(client.id, selectedClientDiscount.id, appointment.id);
+                      } catch { /* redemption logged server-side, payment still proceeds */ }
+                    }
+                    // Only forward the wallet id when the user picked an
+                    // actual wallet (cash is wallet-less; the server falls
+                    // back to the main wallet for receipts).
+                    const pickedWalletId = settleSelectedWalletId && settleSelectedWalletId !== CASH_OPTION_ID
+                      ? settleSelectedWalletId
+                      : null;
+                    if (settleAlso.size > 0 && client) {
+                      // ONE payment over this visit + the ticked invoices — the
+                      // collect engine allocates and receipts per filled invoice.
+                      /**
+                       * ⚠️ THE AMOUNT AND THE CREDIT TOGGLE MUST TRAVEL WITH IT.
+                       *
+                       * This call used to send neither, so on a multi-invoice
+                       * collection the typed figure and the credit switch did
+                       * NOTHING — the modal offered both, and the server
+                       * collected the full combined total in cash regardless
+                       * (user, 2026-08-21, typing 5,000 against a 22,917.5
+                       * selection). `useCredit` is passed as the capped NUMBER
+                       * rather than `true` so the draw matches what the modal
+                       * just showed, and credit is not part of `amountTendered`
+                       * — it reduces the cash needed.
+                       */
+                      setIsSettlingBill(true);
+                      try {
+                        const res = await clientsAPI.collect(client.id, {
+                          visitIds: [String(appointment.id), ...Array.from(settleAlso)],
+                          paymentMethod: settlePaymentMethod,
+                          walletId: pickedWalletId ?? undefined,
+                          ...(hasTyped || creditApplied > 0.005 ? { amountTendered: cashWanted } : {}),
+                          ...(creditApplied > 0.005 ? { useCredit: creditApplied } : {}),
+                          ...(discountVal > 0 ? { discountType: settleDiscountType, discountValue: discountVal } : {}),
+                        });
+                        if (res.success) {
+                          toast.success(`Payment collected across ${settleAlso.size + 1} invoices${res.data?.receipt?.receiptNumber ? ` · ${res.data.receipt.receiptNumber}` : ''}`);
+                          setShowSettleModal(false);
+                          updateAppointmentOptimistically(appointment.id, appt => ({ ...appt, isPaid: true } as any));
+                          await onRefreshDashboard?.();
+                        }
+                      } catch (e: any) { toast.error(e?.message || 'Failed to collect'); }
+                      finally { setIsSettlingBill(false); }
+                      return;
+                    }
+                    const paidNum = typedAmount;
+                    // Spending credit REQUIRES the account collect path, so the
+                    // cash figure has to be explicit: the bill less whatever
+                    // credit covers. Without this the settle-in-full path runs
+                    // and the credit is never touched.
+                    /**
+                     * "AMOUNT PAID" IS WHAT IS BEING SETTLED NOW — credit funds
+                     * it FIRST, cash covers whatever is left.
+                     *
+                     * ⚠️ This used to size the credit against the whole bill and
+                     * the cash against the typed amount, so both were sent at
+                     * once: a client with 3,600 credit paying 500 of an 800 bill
+                     * sent `useCredit: 800` AND `amountTendered: 500` — 1,300
+                     * against an 800 bill. The server capped the credit at what
+                     * was owed, took the 500 cash on top, and handed it straight
+                     * back as credit. The client paid cash to gain credit
+                     * (prod #158, user 2026-08-13).
+                     *
+                     * Settling part of a bill you have the credit to clear is a
+                     * legitimate choice — the owner may be holding that credit
+                     * for something else — so the amount typed governs, and
+                     * credit is drawn only up to it.
+                     */
+                    // `settlingNow` / `creditApplied` / `cashWanted` are derived
+                    // once at the top of the modal, so what is written is exactly
+                    // what was displayed. With no other invoice ticked,
+                    // `combinedDue` is this visit's total.
+                    await handleSettleBill(
+                      settlePaymentMethod,
+                      discountVal > 0 ? settleDiscountType : undefined,
+                      discountVal > 0 ? discountVal : undefined,
+                      pickedWalletId,
+                      // Only a DIFFERENT amount takes the collect path; blank or
+                      // exactly-the-total keeps the original settle-in-full flow.
+                      // Applying credit always takes it — that path is the only
+                      // one that can spend credit — and so does a REFERENCE,
+                      // because `onProcessPayment` has nowhere to put one, so a
+                      // cheque number typed here would otherwise be dropped on
+                      // the floor without a word.
+                      creditApplied > 0.005
+                        || settleReference.trim().length > 0
+                        || (hasTyped && Math.abs(typedAmount - combinedDue) > 0.005)
+                        ? cashWanted
+                        : undefined,
+                      creditApplied > 0.005 ? creditApplied : undefined,
+                    );
+                  }}
+                  disabled={isSettlingBill}
+                  className="w-full py-3.5 bg-seafoam text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-seafoam/90 active:scale-95 transition-all shadow-lg hover:shadow-seafoam/30 disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  {isSettlingBill ? 'Settling…' : `Confirm Payment${selectedClientDiscount ? ' & Redeem Discount' : ''}`}
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })() : null;
 
   return (
     <div ref={billBarRootRef} className="space-y-6 animate-in slide-in-from-bottom-2 duration-300 pb-20">
@@ -5339,6 +6040,12 @@ const VisitDetailInner: React.FC<Props> = ({
                    {(workflowTab === 'billing'
                      ? [
                          { id: 'bill', label: 'Bill', icon: ReceiptText },
+                         // Settle is a TAB, not an overlay (user, 2026-08-21).
+                         // It only lists once payment has been opened — an empty
+                         // Settle tab on a visit with nothing to collect is a
+                         // dead end, and the button that opens it is never far.
+                         ...(showSettleModal
+                           ? [{ id: 'settle', label: billStage === 'PAY_FIRST' ? 'Collect' : 'Settle', icon: CreditCard }] : []),
                          // No Invoice tab until the Bill has GENERATED one
                          // (user, 2026-08-03: "we can't display Invoice before
                          // Generate invoice is clicked").
@@ -5831,6 +6538,11 @@ const VisitDetailInner: React.FC<Props> = ({
                        />
                      </div>
                    )}
+
+                   {/* The payment panel, in the tab strip beside the bill it
+                       settles — so a line can be checked without closing the
+                       payment and losing what was typed. */}
+                   {activeBottomTab === 'settle' && settlePanel}
 
                    {activeBottomTab === 'invoice' && (() => {
                      // Resolve which currency the invoice prints in. Default
@@ -7588,686 +8300,6 @@ const VisitDetailInner: React.FC<Props> = ({
 
       {/* Settle Bill Modal — portalled to body so the backdrop escapes any
           ancestor with a transform/filter and truly covers the viewport. */}
-      {showSettleModal && (() => {
-        const discountVal = parseFloat(settleDiscountValue) || 0;
-        /**
-         * Collect what is OUTSTANDING, not the bill's face value.
-         *
-         * ⚠️ This used to base everything on `appointment.totalCost`, which is
-         * the whole receivable — so a visit that had already been part paid
-         * offered to collect the full amount again. Prod visit #142: 2,517.50
-         * paid, a 2,500 consultation added afterwards, and the modal proposed
-         * 5,017.50 "paying in full". `reconciliationState.balance` is the
-         * server's own figure (final − paid), and it falls back to totalCost
-         * only when no money has landed yet.
-         */
-        const alreadyPaid = reconciliationState?.paidSoFar ?? 0;
-        const settleBase = alreadyPaid > 0.005
-          ? (reconciliationState?.balance ?? appointment.totalCost)
-          : appointment.totalCost;
-        const discountAmount = settleDiscountType === 'PERCENTAGE'
-          ? (settleBase * discountVal) / 100
-          : discountVal;
-        const finalTotal = Math.max(0, settleBase - discountAmount);
-
-        /**
-         * ⚠️ ONE TOTAL FOR THE WHOLE COLLECTION — every figure below reads it.
-         *
-         * `finalTotal` is THIS visit only. Ticking other outstanding invoices
-         * adds them to the same payment, and the credit maths went on measuring
-         * against this visit alone: 4,400 of credit against a 1,717.5 visit read
-         * "nothing left to collect · 2,682.5 stays on account" while the
-         * selection actually totalled 22,917.5 (user, 2026-08-21: "do math").
-         * The truth is that the credit clears 4,400 of it and 18,517.5 still
-         * has to be collected — the opposite of what the modal said.
-         */
-        const settleAlsoTotal = settleOthers
-          .filter(r => settleAlso.has(r.visitId))
-          .reduce((n, r) => n + r.outstanding, 0);
-        const combinedDue = Math.round((finalTotal + settleAlsoTotal) * 100) / 100;
-        const typedAmount = parseFloat(settleAmountPaid);
-        const hasTyped = Number.isFinite(typedAmount) && typedAmount > 0;
-        /** What is being settled in this transaction — typed, else everything ticked. */
-        const settlingNow = hasTyped ? typedAmount : combinedDue;
-        /** Credit funds it FIRST; cash covers the rest. Mirrors the confirm handler. */
-        const creditApplied = settleUseCredit
-          ? Math.round(Math.min(settleCredit, settlingNow) * 100) / 100
-          : 0;
-        const cashWanted = Math.max(0, Math.round((settlingNow - creditApplied) * 100) / 100);
-        /** Still owed across the ticked invoices after this transaction. */
-        const stillOwed = Math.round((combinedDue - settlingNow) * 100) / 100;
-        /** Credit untouched by this transaction. */
-        const creditLeft = Math.round((settleCredit - creditApplied) * 100) / 100;
-        /** Paid MORE than everything ticked — the excess lands on account. */
-        const overpay = Math.round((settlingNow - combinedDue) * 100) / 100;
-        const curSym = client?.currency || activeClinic.currency || 'KES';
-        const fmtMoney = (n: number) => n.toLocaleString(undefined, { maximumFractionDigits: 2 });
-
-        return createPortal(
-          <div className="fixed inset-0 bg-slate-900/70 dark:bg-black/80 z-[800] flex items-center justify-center p-4 sm:p-6 animate-in fade-in overflow-y-auto" onClick={() => setShowSettleModal(false)}>
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-3xl w-full my-auto rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200 overflow-hidden max-h-[92vh] flex flex-col" onClick={e => e.stopPropagation()}>
-              {/* Header */}
-              <div className="bg-pine px-6 py-5 flex items-center justify-between">
-                <div>
-                  {/* You settle an INVOICE, not a bill — the modal is only reachable
-                      once one exists (or on a pay-first quote). */}
-                  <p className="text-[8px] font-black text-white/50 uppercase tracking-[0.2em]">{billStage === 'PAY_FIRST' ? 'Collect pay-first' : 'Settle invoice'}</p>
-                  <p className="text-lg font-black text-white uppercase tracking-tight leading-tight">#{appointment.id} — {pet.name}</p>
-                </div>
-                <button onClick={() => setShowSettleModal(false)} className="p-1.5 rounded-lg text-white/50 hover:text-white hover:bg-white/10 transition-all"><X size={16} /></button>
-              </div>
-              <div className="h-1 bg-gradient-to-r from-seafoam via-cyan to-seafoam" />
-
-              <div className="p-6 space-y-5 overflow-y-auto">
-                {/* Wallet picker — each option IS a payment method via its
-                    walletType (Pochi/Till/Paybill → M_PESA, Bank → BANK_
-                    TRANSFER, Digital → CARD, Virtual → CASH). Cash is a
-                    synthetic always-present option for off-wallet pays. */}
-                <div>
-                  <div className="flex items-baseline justify-between mb-3">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Settle Into</p>
-                    {selectedWallet && (
-                      <p className="text-[9px] font-black text-seafoam uppercase tracking-widest">
-                        {walletTypeLabel(selectedWallet.walletType)} → {walletTypeToPaymentMethod(selectedWallet.walletType).replace('_', ' ')}
-                      </p>
-                    )}
-                    {settleSelectedWalletId === CASH_OPTION_ID && (
-                      <p className="text-[9px] font-black text-seafoam uppercase tracking-widest">Cash · Off-Wallet</p>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-1.5 max-h-52 overflow-y-auto pr-1">
-                    {settleWalletLoading ? (
-                      <div className="text-center py-4 text-[10px] font-black uppercase text-slate-400 tracking-widest">Loading wallets…</div>
-                    ) : (
-                      <>
-                        {settleWallets.map(w => {
-                          const selected = String(w.id) === settleSelectedWalletId;
-                          return (
-                            <button
-                              key={w.id}
-                              onClick={() => {
-                                setSettleSelectedWalletId(String(w.id));
-                                setSettlePaymentMethod(walletTypeToPaymentMethod(w.walletType));
-                              }}
-                              className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
-                                selected
-                                  ? 'border-seafoam bg-seafoam/10'
-                                  : 'border-slate-100 dark:border-zinc-800 hover:border-seafoam/40'
-                              }`}
-                            >
-                              <div className="flex items-center gap-2.5 min-w-0">
-                                <div className={`p-1.5 rounded-lg ${selected ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
-                                  <Wallet size={13} />
-                                </div>
-                                <div className="min-w-0">
-                                  <div className="flex items-center gap-1.5">
-                                    <p className={`text-[11px] font-black uppercase tracking-tight truncate ${selected ? 'text-pine dark:text-zinc-100' : 'text-pine/80 dark:text-zinc-300'}`}>{w.name}</p>
-                                    {w.isMain && <span className="text-[6px] font-black px-1 py-px rounded-full bg-pine text-white uppercase tracking-widest">Main</span>}
-                                  </div>
-                                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">{walletTypeLabel(w.walletType)}</p>
-                                </div>
-                              </div>
-                              <div className="shrink-0 text-right">
-                                <p className="text-[7px] font-black text-slate-400 uppercase tracking-widest">Balance</p>
-                                <p className={`text-[11px] font-black font-mono tabular-nums ${selected ? 'text-seafoam' : 'text-pine dark:text-zinc-200'}`}>
-                                  {(w.currency || activeClinic.currency || 'KES')} {Number(w.balance || 0).toLocaleString()}
-                                </p>
-                              </div>
-                            </button>
-                          );
-                        })}
-                        {/* Cash — always available, has no wallet */}
-                        <button
-                          onClick={() => {
-                            setSettleSelectedWalletId(CASH_OPTION_ID);
-                            setSettlePaymentMethod('CASH');
-                          }}
-                          className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
-                            settleSelectedWalletId === CASH_OPTION_ID
-                              ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
-                              : 'border-dashed border-slate-200 dark:border-zinc-700 hover:border-emerald-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <div className={`p-1.5 rounded-lg ${settleSelectedWalletId === CASH_OPTION_ID ? 'bg-emerald-500 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
-                              <Coins size={13} />
-                            </div>
-                            <div>
-                              <p className="text-[11px] font-black uppercase tracking-tight text-pine dark:text-zinc-100">Cash</p>
-                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Off-Wallet · Counter Receipt</p>
-                            </div>
-                          </div>
-                        </button>
-                        {/* Cheque — off-wallet like cash, but it CLEARS LATER.
-                            It gets its own method (201) rather than being
-                            filed as cash or as a bank transfer, both of which
-                            misstate where the money actually is today. */}
-                        <button
-                          onClick={() => {
-                            setSettleSelectedWalletId(CHEQUE_OPTION_ID);
-                            setSettlePaymentMethod('CHEQUE');
-                          }}
-                          className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
-                            settleSelectedWalletId === CHEQUE_OPTION_ID
-                              ? 'border-sky-400 bg-sky-50 dark:bg-sky-900/20'
-                              : 'border-dashed border-slate-200 dark:border-zinc-700 hover:border-sky-300'
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <div className={`p-1.5 rounded-lg ${settleSelectedWalletId === CHEQUE_OPTION_ID ? 'bg-sky-500 text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
-                              <ReceiptText size={13} />
-                            </div>
-                            <div>
-                              <p className="text-[11px] font-black uppercase tracking-tight text-pine dark:text-zinc-100">Cheque</p>
-                              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Off-Wallet · Clears Later</p>
-                            </div>
-                          </div>
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Gateway flow — shows when clinic has configured the matching provider */}
-                {gatewayAvailable(settlePaymentMethod) && (
-                  <div className="bg-seafoam/10 border border-seafoam/30 rounded-xl p-3 space-y-2">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={useGateway}
-                        onChange={(e) => setUseGateway(e.target.checked)}
-                      />
-                      <span className="text-[10px] font-black text-pine uppercase tracking-widest">
-                        {settlePaymentMethod === 'M_PESA' ? 'Push STK to customer phone' : 'Charge card via Stripe'}
-                      </span>
-                    </label>
-                    {useGateway && settlePaymentMethod === 'M_PESA' && (
-                      <div>
-                        <label className="text-[8px] font-black text-seafoam uppercase tracking-widest">Customer phone</label>
-                        <input
-                          type="tel"
-                          value={mpesaPhone}
-                          onChange={(e) => setMpesaPhone(e.target.value)}
-                          placeholder="07XX or 2547XX"
-                          className="w-full mt-1 bg-white dark:bg-zinc-800 border border-seafoam/30 rounded-lg px-3 py-2 text-sm font-medium text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30"
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Client Discounts */}
-                {clientDiscounts.length > 0 && (
-                  <div>
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Client Discounts</p>
-                    <div className="space-y-1.5">
-                      {clientDiscounts.map(cd => (
-                        <button
-                          key={cd.id}
-                          onClick={() => {
-                            if (selectedClientDiscount?.id === cd.id) {
-                              setSelectedClientDiscount(null);
-                              setSettleDiscountType('PERCENTAGE');
-                              setSettleDiscountValue('');
-                            } else {
-                              setSelectedClientDiscount(cd);
-                              setSettleDiscountType(cd.discountType);
-                              setSettleDiscountValue(String(cd.value));
-                            }
-                          }}
-                          className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl border-2 text-left transition-all ${
-                            selectedClientDiscount?.id === cd.id
-                              ? 'border-emerald-400 bg-emerald-50 dark:bg-emerald-900/20'
-                              : 'border-slate-100 dark:border-zinc-800 hover:border-emerald-300'
-                          }`}
-                        >
-                          <div className="min-w-0">
-                            <p className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase truncate">{cd.name}</p>
-                            <p className="text-[8px] font-bold text-slate-400">Expires {formatDate(cd.expiresAt)}</p>
-                          </div>
-                          <span className={`text-sm font-black shrink-0 ml-2 ${selectedClientDiscount?.id === cd.id ? 'text-emerald-600' : 'text-slate-500'}`}>
-                            {cd.discountType === 'PERCENTAGE' ? `${cd.value}%` : `${client?.currency || 'KES'} ${Number(cd.value).toLocaleString()}`}
-                          </span>
-                        </button>
-                      ))}
-                    </div>
-                    {selectedClientDiscount && (
-                      <p className="text-[8px] font-bold text-emerald-500 mt-1.5 italic">This discount will be redeemed on payment</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Manual Discount */}
-                <div>
-                  <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">{clientDiscounts.length > 0 ? 'Manual Override' : 'Discount'} <span className="text-slate-300 normal-case font-bold">(optional)</span></p>
-                  <div className="flex gap-2 mb-2">
-                    {(['PERCENTAGE', 'FIXED'] as const).map(t => (
-                      <button
-                        key={t}
-                        onClick={() => { setSettleDiscountType(t); setSettleDiscountValue(''); setSelectedClientDiscount(null); }}
-                        className={`flex-1 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border transition-all ${settleDiscountType === t && !selectedClientDiscount ? 'border-amber-400 bg-amber-50 dark:bg-amber-900/20 text-amber-600' : 'border-slate-100 dark:border-zinc-800 text-slate-400 hover:border-amber-300'}`}
-                      >
-                        {t === 'PERCENTAGE' ? '% Off' : 'Fixed'}
-                      </button>
-                    ))}
-                  </div>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="0"
-                      max={settleDiscountType === 'PERCENTAGE' ? 100 : undefined}
-                      placeholder={settleDiscountType === 'PERCENTAGE' ? 'e.g. 10' : 'e.g. 500'}
-                      value={settleDiscountValue}
-                      onChange={e => { setSettleDiscountValue(e.target.value); setSelectedClientDiscount(null); }}
-                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-2.5 text-sm font-black text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-amber-400 pr-16"
-                    />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400 uppercase">
-                      {settleDiscountType === 'PERCENTAGE' ? '%' : (client?.currency || 'KES')}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Total summary */}
-                <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-xl p-4 space-y-2">
-                  {/* When part of this visit is already paid, say so — a bare
-                      "Subtotal 2,500" against a 5,017.50 bill is what made the
-                      numbers look like they disagreed. */}
-                  {alreadyPaid > 0.005 && (
-                    <>
-                      <div className="flex justify-between text-[10px] font-black uppercase text-slate-400">
-                        <span>Bill total</span>
-                        <span>{client?.currency || 'KES'} {appointment.totalCost.toLocaleString()}</span>
-                      </div>
-                      <div className="flex justify-between text-[10px] font-black uppercase text-emerald-600">
-                        <span>Already paid</span>
-                        <span>− {client?.currency || 'KES'} {alreadyPaid.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                      </div>
-                    </>
-                  )}
-                  <div className="flex justify-between text-[10px] font-black uppercase text-slate-400">
-                    <span>{alreadyPaid > 0.005 ? 'Balance due' : 'Subtotal'}</span>
-                    <span>{client?.currency || 'KES'} {settleBase.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                  </div>
-                  {discountAmount > 0 && (
-                    <div className="flex justify-between text-[10px] font-black uppercase text-amber-500">
-                      <span>Discount</span>
-                      <span>− {client?.currency || 'KES'} {discountAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between items-baseline text-base font-black uppercase text-pine dark:text-zinc-100 border-t border-slate-200 dark:border-zinc-700 pt-2 mt-1">
-                    <span>Total</span>
-                    <span>
-                      {discountAmount > 0 && (
-                        <s className="text-slate-400 text-[11px] font-bold mr-2">{client?.currency || 'KES'} {settleBase.toLocaleString(undefined, { maximumFractionDigits: 2 })}</s>
-                      )}
-                      <span className="text-seafoam">{client?.currency || 'KES'} {finalTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                    </span>
-                  </div>
-                </div>
-
-                {/* PAYMENT REFERENCE — the payer's own identifier. Shown for
-                    every method that HAS one; cash across a counter does not,
-                    so it stays out of the way there. Required-looking for a
-                    cheque, because a cheque with no number cannot be chased
-                    when it bounces — but not enforced: a clinic mid-transaction
-                    must never be blocked by a field. */}
-                {settlePaymentMethod !== 'CASH' && (
-                  <div>
-                    <div className="flex items-baseline justify-between mb-2">
-                      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                        {settlePaymentMethod === 'CHEQUE' ? 'Cheque number' : 'Payment reference'}
-                      </p>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">
-                        {settlePaymentMethod === 'CHEQUE' ? 'Recommended' : 'Optional'}
-                      </span>
-                    </div>
-                    <input
-                      type="text"
-                      value={settleReference}
-                      onChange={e => setSettleReference(e.target.value)}
-                      maxLength={100}
-                      placeholder={
-                        settlePaymentMethod === 'CHEQUE' ? 'Cheque no. — e.g. 004512'
-                        : settlePaymentMethod === 'M_PESA' ? 'M-Pesa code — e.g. SFH4KJ21XZ'
-                        : settlePaymentMethod === 'BANK_TRANSFER' ? 'Bank slip / transfer ref'
-                        : 'Card auth or reference'
-                      }
-                      className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-mono text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
-                    />
-                    {/* WHO paid, beside the transaction's own reference. */}
-                    <div className="mt-3">
-                      <div className="flex items-baseline justify-between mb-2">
-                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
-                          {settlePaymentMethod === 'M_PESA' ? 'Paying phone number'
-                            : settlePaymentMethod === 'CHEQUE' ? 'Drawer account / bank'
-                            : 'Paying account number'}
-                        </p>
-                        <span className="text-[9px] font-black uppercase tracking-widest text-slate-300">Optional</span>
-                      </div>
-                      <input
-                        type="text"
-                        value={settlePayer}
-                        onChange={e => setSettlePayer(e.target.value)}
-                        maxLength={60}
-                        placeholder={settlePaymentMethod === 'M_PESA' ? 'e.g. 0722 000 000' : 'Account the money came from'}
-                        className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-mono text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
-                      />
-                    </div>
-                    {settlePaymentMethod === 'CHEQUE' && (
-                      <p className="mt-1.5 text-[10px] font-bold text-sky-600 dark:text-sky-400 leading-relaxed">
-                        Recorded as a cheque, not as cash — the drawer is not increased. It shows on the
-                        client&apos;s account straight away and clears with the bank in its own time.
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                {/* CREDIT ON ACCOUNT — money the clinic ALREADY holds for this
-                    client, offered before any is asked for. It was invisible
-                    here, so a client with credit was asked for cash and the
-                    credit just grew (prod #157 banked 1,200 nobody chose).
-                    Applying it routes through the account collect endpoint,
-                    the only path that can spend it. */}
-                {settleCredit > 0.005 && (
-                  <button
-                    type="button"
-                    onClick={() => setSettleUseCredit(v => !v)}
-                    className={`w-full flex items-center justify-between gap-3 px-3.5 py-3 rounded-xl border text-left transition-all ${
-                      settleUseCredit
-                        ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-950/40'
-                        : 'border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 hover:border-indigo-300'
-                    }`}
-                  >
-                    <span className="min-w-0">
-                      <span className="block text-[9px] font-black uppercase tracking-widest text-indigo-500">Credit on account</span>
-                      <span className="block text-[10px] font-bold text-slate-500 dark:text-zinc-400 leading-snug mt-0.5">
-                        {(() => {
-                          if (!settleUseCredit) return 'Not being used — tap to spend it on this bill';
-                          // Mirrors the confirm handler, and measures against the
-                          // WHOLE collection (this visit + every ticked invoice)
-                          // — the figures are derived once, above.
-                          return cashWanted > 0.005
-                            ? `Deducting ${curSym} ${fmtMoney(creditApplied)} from credit — collect ${curSym} ${fmtMoney(cashWanted)} in ${settlePaymentMethod === 'CASH' ? 'cash' : 'payment'}`
-                            : `Deducting ${curSym} ${fmtMoney(creditApplied)} from credit — nothing left to collect`;
-                        })()}
-                      </span>
-                    </span>
-                    <span className={`shrink-0 text-sm font-black font-mono ${settleUseCredit ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-500 dark:text-zinc-400'}`}>
-                      {client?.currency || 'KES'} {settleCredit.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                    </span>
-                  </button>
-                )}
-
-                {/* CREDIT IS BEING SPENT — said plainly, not left to be inferred
-                    from a toggle's tint, and the shortfall named when there is
-                    one (user, 2026-08-13: "boldly say it … prompt user that
-                    client credit is below outstanding bal"). Informational, not
-                    a blocker: staff close it and carry on collecting the rest. */}
-                {/**
-                  * WHERE THE MONEY COMES FROM — the arithmetic laid out, not
-                  * asserted (user, 2026-08-21: "when credit is selected substract
-                  * n show allocation of funds n how much more in needed").
-                  *
-                  * Every row reads `combinedDue`, so ticking another invoice
-                  * moves all of them together. The old copy compared credit with
-                  * THIS VISIT alone and announced "nothing to collect" on a
-                  * 22,917.5 selection that credit covered 4,400 of.
-                  */}
-                {settleUseCredit && settleCredit > 0.005 && (
-                  <div className={`rounded-xl border px-3.5 py-3 ${
-                    cashWanted > 0.005
-                      ? 'border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/30'
-                      : 'border-emerald-300 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/30'
-                  }`}>
-                    <p className={`text-[11px] font-black uppercase tracking-widest ${
-                      cashWanted > 0.005 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'
-                    }`}>
-                      {cashWanted > 0.005 ? 'Credit does not cover it all' : 'Paying from credit'}
-                    </p>
-                    <div className="mt-2 space-y-1 text-[11px] font-bold">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-slate-500 dark:text-zinc-400">
-                          {settleAlso.size > 0 ? `Due · ${settleAlso.size + 1} invoices` : 'Due on this invoice'}
-                        </span>
-                        <span className="font-mono text-pine dark:text-zinc-100">{curSym} {fmtMoney(combinedDue)}</span>
-                      </div>
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-indigo-600 dark:text-indigo-400">
-                          − From credit{creditApplied < settleCredit - 0.005 ? ` (of ${curSym} ${fmtMoney(settleCredit)})` : ''}
-                        </span>
-                        <span className="font-mono text-indigo-600 dark:text-indigo-400">− {curSym} {fmtMoney(creditApplied)}</span>
-                      </div>
-                      <div className={`flex items-baseline justify-between gap-3 pt-1 border-t ${
-                        cashWanted > 0.005 ? 'border-amber-300/60 dark:border-amber-900/60' : 'border-emerald-300/60 dark:border-emerald-900/60'
-                      }`}>
-                        <span className={cashWanted > 0.005 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}>
-                          {cashWanted > 0.005 ? 'Still to collect now' : 'Nothing left to collect'}
-                        </span>
-                        <span className={`font-mono font-black ${cashWanted > 0.005 ? 'text-amber-700 dark:text-amber-400' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                          {curSym} {fmtMoney(cashWanted)}
-                        </span>
-                      </div>
-                      {/* What the payment does NOT cover — a typed part payment
-                          leaves a real balance and it should be named here, not
-                          only under the amount box. */}
-                      {stillOwed > 0.005 && (
-                        <div className="flex items-baseline justify-between gap-3 text-slate-500 dark:text-zinc-400">
-                          <span>Left owing after this</span>
-                          <span className="font-mono">{curSym} {fmtMoney(stillOwed)}</span>
-                        </div>
-                      )}
-                      {creditLeft > 0.005 && (
-                        <div className="flex items-baseline justify-between gap-3 text-slate-500 dark:text-zinc-400">
-                          <span>Credit staying on account</span>
-                          <span className="font-mono">{curSym} {fmtMoney(creditLeft)}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                {/* AMOUNT PAID — a client who pays part of the bill should leave
-                    a real balance, not a visit marked settled. Blank = in full,
-                    which is what this modal always did. */}
-                <div>
-                  <div className="flex items-baseline justify-between mb-2">
-                    <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Amount paid</p>
-                    <button type="button" onClick={() => setSettleAmountPaid('')}
-                      className={`text-[9px] font-black uppercase tracking-widest ${settleAmountPaid.trim() === '' ? 'text-seafoam' : 'text-slate-400 hover:text-seafoam'}`}>
-                      Paying in full
-                    </button>
-                  </div>
-                  <input
-                    type="number" min="0" step="any" inputMode="decimal"
-                    placeholder={`${curSym} ${fmtMoney(combinedDue)} — full`}
-                    value={settleAmountPaid}
-                    onChange={e => setSettleAmountPaid(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
-                  />
-                  {/* Live as you type, and against EVERYTHING ticked — short,
-                      exact, or over. Overpaying is a real workflow (the client
-                      rounds up, or leaves a float), so say where the extra goes
-                      instead of letting it appear on the account unannounced
-                      (user, 2026-08-21: "when typing show how much goes to
-                      credit if more paid"). */}
-                  {hasTyped && (() => {
-                    const scope = settleAlso.size > 0 ? `across the ${settleAlso.size + 1} invoices` : 'on this visit';
-                    if (overpay > 0.005) return (
-                      <p className="mt-1.5 text-[10px] font-bold text-emerald-600 dark:text-emerald-400 leading-relaxed">
-                        Clears {curSym} {fmtMoney(combinedDue)} {scope} — <b>{curSym} {fmtMoney(overpay)}</b> over,
-                        which goes onto {client?.name || 'the client'}&apos;s account as credit
-                        {settleUseCredit && creditLeft > 0.005
-                          ? <> (bringing it to <b>{curSym} {fmtMoney(creditLeft + overpay)}</b>).</>
-                          : <>.</>}
-                      </p>
-                    );
-                    if (stillOwed > 0.005) return (
-                      <p className="mt-1.5 text-[10px] font-bold text-amber-600 dark:text-amber-400 leading-relaxed">
-                        {curSym} {fmtMoney(stillOwed)} stays outstanding {scope}.
-                        {settleUseCredit && settleCredit > 0.005
-                          ? <> Credit funds {curSym} {fmtMoney(creditApplied)} of what is being paid now, so only {curSym} {fmtMoney(cashWanted)} is collected.</>
-                          : <> The {curSym} {fmtMoney(typedAmount)} is recorded on {client?.name || 'the client'}&apos;s account and applied here, so both sides reconcile.</>}
-                      </p>
-                    );
-                    return <p className="mt-1.5 text-[10px] font-bold text-slate-400">Settles {scope === 'on this visit' ? 'this visit' : 'all ticked invoices'} in full.</p>;
-                  })()}
-                </div>
-
-                {/* Other outstanding balances — tick to pay together (one
-                    payment, one receipt run, many invoices). */}
-                {settleOthers.length > 0 && (
-                  <div className="border border-amber-200 dark:border-amber-900/50 rounded-xl overflow-hidden">
-                    <button type="button" onClick={() => setSettleOthersOpen(o => !o)}
-                      className="w-full flex items-center justify-between px-3 py-2 bg-amber-50/70 dark:bg-amber-950/20 text-left">
-                      <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
-                        Other outstanding · {settleOthers.length} invoice{settleOthers.length === 1 ? '' : 's'} · {activeClinic.currency} {settleOthers.reduce((n, r) => n + r.outstanding, 0).toLocaleString()}
-                      </span>
-                      <span className="text-[9px] font-black uppercase tracking-widest text-amber-600">{settleOthersOpen ? 'hide' : 'add to this payment'}</span>
-                    </button>
-                    {settleOthersOpen && (
-                      <div className="p-2 space-y-1 max-h-40 overflow-y-auto">
-                        {settleOthers.map(r => {
-                          const on = settleAlso.has(r.visitId);
-                          return (
-                            <button key={r.visitId} type="button"
-                              onClick={() => setSettleAlso(prev => { const n = new Set(prev); on ? n.delete(r.visitId) : n.add(r.visitId); return n; })}
-                              className={`w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left transition-all ${on ? 'border-seafoam bg-seafoam/10' : 'border-slate-100 dark:border-zinc-800 hover:border-seafoam/40'}`}>
-                              <span className={`w-4 h-4 rounded flex items-center justify-center text-[10px] font-black shrink-0 ${on ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-transparent'}`}>✓</span>
-                              {/* Pet FIRST — it is how staff recognise the
-                                  visit; the number and date are the reference,
-                                  not the identity (user, 2026-08-18). */}
-                              <span className="flex-1 min-w-0 text-[11px] font-bold text-pine dark:text-zinc-100 truncate">
-                                {r.petName ? <>{r.petName} <span className="text-slate-400 font-semibold">· #{r.visitId} · {new Date(r.date).toLocaleDateString()}</span></>
-                                           : <>Visit #{r.visitId} · {new Date(r.date).toLocaleDateString()}</>}
-                              </span>
-                              <span className="text-[11px] font-black text-amber-600 font-mono">{activeClinic.currency} {r.outstanding.toLocaleString()}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )}
-                    {settleAlso.size > 0 && (
-                      <div className="px-3 py-2 bg-seafoam/10 flex items-center justify-between">
-                        <span className="text-[9px] font-black uppercase tracking-widest text-seafoam">Paying together · {settleAlso.size + 1} invoices</span>
-                        <span className="text-sm font-black text-pine dark:text-zinc-100 font-mono">
-                          {activeClinic.currency} {(finalTotal + settleOthers.filter(r => settleAlso.has(r.visitId)).reduce((n, r) => n + r.outstanding, 0)).toLocaleString()}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Confirm */}
-                <button
-                  onClick={async () => {
-                    if (isSettlingBill) return;
-                    if (!settlePaymentMethod) { toast.error('Select a wallet from the options above — payment settles into it'); return; }
-                    // Redeem client discount if selected
-                    if (selectedClientDiscount && client) {
-                      try {
-                        await clientDiscountsAPI.redeem(client.id, selectedClientDiscount.id, appointment.id);
-                      } catch { /* redemption logged server-side, payment still proceeds */ }
-                    }
-                    // Only forward the wallet id when the user picked an
-                    // actual wallet (cash is wallet-less; the server falls
-                    // back to the main wallet for receipts).
-                    const pickedWalletId = settleSelectedWalletId && settleSelectedWalletId !== CASH_OPTION_ID
-                      ? settleSelectedWalletId
-                      : null;
-                    if (settleAlso.size > 0 && client) {
-                      // ONE payment over this visit + the ticked invoices — the
-                      // collect engine allocates and receipts per filled invoice.
-                      /**
-                       * ⚠️ THE AMOUNT AND THE CREDIT TOGGLE MUST TRAVEL WITH IT.
-                       *
-                       * This call used to send neither, so on a multi-invoice
-                       * collection the typed figure and the credit switch did
-                       * NOTHING — the modal offered both, and the server
-                       * collected the full combined total in cash regardless
-                       * (user, 2026-08-21, typing 5,000 against a 22,917.5
-                       * selection). `useCredit` is passed as the capped NUMBER
-                       * rather than `true` so the draw matches what the modal
-                       * just showed, and credit is not part of `amountTendered`
-                       * — it reduces the cash needed.
-                       */
-                      setIsSettlingBill(true);
-                      try {
-                        const res = await clientsAPI.collect(client.id, {
-                          visitIds: [String(appointment.id), ...Array.from(settleAlso)],
-                          paymentMethod: settlePaymentMethod,
-                          walletId: pickedWalletId ?? undefined,
-                          ...(hasTyped || creditApplied > 0.005 ? { amountTendered: cashWanted } : {}),
-                          ...(creditApplied > 0.005 ? { useCredit: creditApplied } : {}),
-                          ...(discountVal > 0 ? { discountType: settleDiscountType, discountValue: discountVal } : {}),
-                        });
-                        if (res.success) {
-                          toast.success(`Payment collected across ${settleAlso.size + 1} invoices${res.data?.receipt?.receiptNumber ? ` · ${res.data.receipt.receiptNumber}` : ''}`);
-                          setShowSettleModal(false);
-                          updateAppointmentOptimistically(appointment.id, appt => ({ ...appt, isPaid: true } as any));
-                          await onRefreshDashboard?.();
-                        }
-                      } catch (e: any) { toast.error(e?.message || 'Failed to collect'); }
-                      finally { setIsSettlingBill(false); }
-                      return;
-                    }
-                    const paidNum = typedAmount;
-                    // Spending credit REQUIRES the account collect path, so the
-                    // cash figure has to be explicit: the bill less whatever
-                    // credit covers. Without this the settle-in-full path runs
-                    // and the credit is never touched.
-                    /**
-                     * "AMOUNT PAID" IS WHAT IS BEING SETTLED NOW — credit funds
-                     * it FIRST, cash covers whatever is left.
-                     *
-                     * ⚠️ This used to size the credit against the whole bill and
-                     * the cash against the typed amount, so both were sent at
-                     * once: a client with 3,600 credit paying 500 of an 800 bill
-                     * sent `useCredit: 800` AND `amountTendered: 500` — 1,300
-                     * against an 800 bill. The server capped the credit at what
-                     * was owed, took the 500 cash on top, and handed it straight
-                     * back as credit. The client paid cash to gain credit
-                     * (prod #158, user 2026-08-13).
-                     *
-                     * Settling part of a bill you have the credit to clear is a
-                     * legitimate choice — the owner may be holding that credit
-                     * for something else — so the amount typed governs, and
-                     * credit is drawn only up to it.
-                     */
-                    // `settlingNow` / `creditApplied` / `cashWanted` are derived
-                    // once at the top of the modal, so what is written is exactly
-                    // what was displayed. With no other invoice ticked,
-                    // `combinedDue` is this visit's total.
-                    await handleSettleBill(
-                      settlePaymentMethod,
-                      discountVal > 0 ? settleDiscountType : undefined,
-                      discountVal > 0 ? discountVal : undefined,
-                      pickedWalletId,
-                      // Only a DIFFERENT amount takes the collect path; blank or
-                      // exactly-the-total keeps the original settle-in-full flow.
-                      // Applying credit always takes it — that path is the only
-                      // one that can spend credit — and so does a REFERENCE,
-                      // because `onProcessPayment` has nowhere to put one, so a
-                      // cheque number typed here would otherwise be dropped on
-                      // the floor without a word.
-                      creditApplied > 0.005
-                        || settleReference.trim().length > 0
-                        || (hasTyped && Math.abs(typedAmount - combinedDue) > 0.005)
-                        ? cashWanted
-                        : undefined,
-                      creditApplied > 0.005 ? creditApplied : undefined,
-                    );
-                  }}
-                  disabled={isSettlingBill}
-                  className="w-full py-3.5 bg-seafoam text-white rounded-xl font-black text-[11px] uppercase tracking-widest hover:bg-seafoam/90 active:scale-95 transition-all shadow-lg hover:shadow-seafoam/30 disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {isSettlingBill ? 'Settling…' : `Confirm Payment${selectedClientDiscount ? ' & Redeem Discount' : ''}`}
-                </button>
-              </div>
-            </div>
-          </div>,
-          document.body,
-        );
-      })()}
 
       {/* Gateway payment status (Stripe / Mpesa async flows) */}
       {gatewayStatus && (
