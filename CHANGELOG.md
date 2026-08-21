@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### tweak: the base-workflow tooltip says WHERE to add an encounter  —  2026-08-21
+🟢 **Record impact: none** — tooltip copy.
+- Yesterday's tooltip told people to "add another encounter to switch" and pointed at nothing: the
+  add-encounter picker was moved OUT of the workflow row and down to the finalize/payment bar on
+  2026-08-02, so the advice was unfollowable from where it was given (user, 2026-08-21: *"where do i
+  add and encounter?"*). It now names the control — **＋ Transfer / add encounter…** — and the bar it
+  sits in.
+- Files: `wizard/VisitWizard.tsx`.
+- **Data dependency:** none.
+- ⚠️ **Known gap, not fixed here:** `AddEncounterSelect` is `hidden sm:block`, so on a phone there is
+  **no way to add an encounter at all**. Registered in `docs/HANDOFF_2026-08-20.md`.
+
+
 ### tweak: unpaid visits name the patient  —  2026-08-21
 🟢 **Record impact: none** — display only, on data the row already carried.
 - The **Unpaid visits** list on Bill & Balance read `#135 · 27/07/2026` and nothing else. The list is
