@@ -125,6 +125,49 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId,
   const [outcome, setOutcome] = useState<TriageOutcome | null>(null);
   const [notes, setNotes] = useState('');
   const [newReading, setNewReading] = useState<Record<string, string>>({});
+  /**
+   * The consumables ACTUALLY LOGGED on this visit.
+   *
+   * The stabilization lines below were drawn from the intervention's CONFIG —
+   * "Royal Canin Adult Dog 3kg ×1 Bags" is what the protocol says to give, not
+   * what was given. Ticking the intervention logs a real consumable (deducting
+   * stock and billing it), and until now there was no way to correct that number
+   * from here: an emergency where two bags went out had to be fixed on another
+   * screen (user, 2026-08-21: "i want to edit quantity here").
+   *
+   * Keyed by inventory item so a staged line can find its logged row.
+   */
+  const [logged, setLogged] = useState<any[]>([]);
+  const [qtyBusy, setQtyBusy] = useState<string | null>(null);
+  const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});
+  const loadLogged = useCallback(() => {
+    consumablesAPI.list(appointmentId)
+      .then(r => { if (r.success) setLogged((r.data as any[]) || []); })
+      .catch(() => { /* the staged view still renders from config */ });
+  }, [appointmentId]);
+  useEffect(() => { loadLogged(); }, [loadLogged]);
+  /** The logged row for a protocol line — matched on the item, newest first. */
+  const loggedFor = useCallback((inventoryItemId?: string) => {
+    if (!inventoryItemId) return null;
+    const rows = logged.filter(l => String(l.inventoryItemId) === String(inventoryItemId));
+    return rows.length ? rows[rows.length - 1] : null;
+  }, [logged]);
+  /**
+   * Save a corrected quantity. `consumablesAPI.update` moves stock when the line
+   * was deducted at the point of use — up takes more, down returns it — so this
+   * is a real inventory correction, not a display edit.
+   */
+  const saveQty = useCallback(async (row: any, raw: string) => {
+    const q = parseFloat(raw);
+    if (!Number.isFinite(q) || q < 0) return;
+    if (Math.abs(q - Number(row.quantity)) < 0.0001) return;
+    setQtyBusy(String(row.id));
+    try {
+      const r = await consumablesAPI.update(row.id, { quantity: q });
+      if (r.success) { await loadLogged(); onChargesChanged?.(); }
+    } catch { /* the API surfaces its own error */ }
+    finally { setQtyBusy(null); }
+  }, [loadLogged, onChargesChanged]);
   const [newEvent, setNewEvent] = useState('');
   // ABCDE mini-wizard position (A=0 … E=4).
   const [abcdeIdx, setAbcdeIdx] = useState(0);
@@ -183,7 +226,7 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId,
     const b = billables[billableKey(g, k)];
     return (b?.consumables || []).map(cn => {
       const it = invById.get(cn.inventoryItemId);
-      return { name: cn.name, qty: Number(cn.qty) || 0, unit: cn.unit, amount: Number(it?.price ?? 0) * (Number(cn.qty) || 0) };
+      return { name: cn.name, qty: Number(cn.qty) || 0, unit: cn.unit, inventoryItemId: cn.inventoryItemId, amount: Number(it?.price ?? 0) * (Number(cn.qty) || 0) };
     });
   }, [billables, invById]);
 
@@ -442,12 +485,47 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId,
                         <span className="font-black font-mono text-amber-600 dark:text-amber-400 shrink-0">{currency} {fee.toLocaleString()}</span>
                       </div>
                     ) : null}
-                    {cons.map((l, i) => (
-                      <div key={i} className="flex items-baseline justify-between gap-2 text-[9px]">
-                        <span className="font-bold text-slate-500 dark:text-zinc-400 truncate">📦 {l.name} ×{l.qty}{l.unit ? ` ${l.unit}` : ''}</span>
-                        <span className="font-black font-mono text-emerald-600 dark:text-emerald-400 shrink-0">{currency} {l.amount.toLocaleString()}</span>
-                      </div>
-                    ))}
+                    {cons.map((l, i) => {
+                      /**
+                       * The line shows the PROTOCOL quantity; the box edits the
+                       * one actually logged. Without a logged row there is
+                       * nothing to correct yet, so it stays read-only text
+                       * rather than offering an edit that would go nowhere.
+                       */
+                      const row = loggedFor(l.inventoryItemId);
+                      const key = row ? String(row.id) : '';
+                      const shown = row ? (qtyDraft[key] ?? String(row.quantity)) : null;
+                      return (
+                        <div key={i} className="flex items-center justify-between gap-2 text-[9px]">
+                          <span className="font-bold text-slate-500 dark:text-zinc-400 truncate min-w-0">
+                            📦 {l.name}
+                            {!row && <> ×{l.qty}</>}
+                            {l.unit ? ` ${l.unit}` : ''}
+                          </span>
+                          <span className="flex items-center gap-1.5 shrink-0">
+                            {row && !readOnly && (
+                              <>
+                                <span className="text-slate-400">×</span>
+                                <input
+                                  type="number" min="0" step="any"
+                                  value={shown ?? ''}
+                                  disabled={qtyBusy === key}
+                                  onChange={e => setQtyDraft(p => ({ ...p, [key]: e.target.value }))}
+                                  onBlur={e => saveQty(row, e.target.value)}
+                                  onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                                  title="Quantity actually used — saving moves stock to match"
+                                  className="w-14 px-1.5 py-0.5 rounded border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-[10px] font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-1 focus:ring-seafoam disabled:opacity-50"
+                                />
+                              </>
+                            )}
+                            {row && readOnly && <span className="font-bold text-slate-500">×{row.quantity}</span>}
+                            <span className="font-black font-mono text-emerald-600 dark:text-emerald-400">
+                              {currency} {(row ? Number(row.lineTotal ?? 0) : l.amount).toLocaleString()}
+                            </span>
+                          </span>
+                        </div>
+                      );
+                    })}
                   </div>
                 );
               })}
@@ -571,14 +649,23 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId,
           The spacer keeps the last content clear of the fixed bar. */}
       {!readOnly && (
         <>
-          <div className="h-16 sm:h-20" aria-hidden />
-          <div className="fixed bottom-0 right-0 left-0 md:left-[var(--vh-sidebar-w,16rem)] z-40 px-3 sm:px-4 py-2 sm:py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-sm shadow-[0_-4px_16px_rgba(0,0,0,0.10)] flex flex-col sm:flex-row gap-2">
-            <button onClick={save} disabled={saving} className="flex-1 py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
-              {saving ? <Loader2 size={15} className="animate-spin" /> : <Save size={15} />} Save triage
+          {/* ⚠️ TWO FULL-WIDTH BARS IS TOO MUCH FURNITURE (user, 2026-08-21:
+              "buttons too big eesp in mobile"). They were `flex-1 py-3` with a
+              15px icon and a long label, so on a phone they STACKED — two
+              chunky bars eating a third of the screen above the keyboard, on a
+              form you scroll constantly.
+              Now: Save is sized to its content, Discharge takes the remaining
+              width because it is the act that ends the triage, and the long
+              label shortens on small screens. */}
+          <div className="h-12 sm:h-16" aria-hidden />
+          <div className="fixed bottom-0 right-0 left-0 md:left-[var(--vh-sidebar-w,16rem)] z-40 px-3 sm:px-4 py-1.5 sm:py-2 border-t border-slate-200 dark:border-zinc-800 bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-sm shadow-[0_-4px_16px_rgba(0,0,0,0.10)] flex flex-row items-center gap-2">
+            <button onClick={save} disabled={saving} className="shrink-0 px-3 sm:px-4 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
+              {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
             </button>
             <button onClick={discharge} disabled={saving} title="Marks the patient stabilized and continues with the normal clinical flow"
-              className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 transition-colors">
-              {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Stabilized → discharge to vet visit
+              className="flex-1 min-w-0 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50 transition-colors">
+              {saving ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />}
+              <span className="truncate"><span className="sm:hidden">Stabilized → vet visit</span><span className="hidden sm:inline">Stabilized → discharge to vet visit</span></span>
             </button>
           </div>
         </>

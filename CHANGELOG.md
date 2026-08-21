@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: correct a stabilization quantity in place, and a smaller triage action bar  —  2026-08-21
+🔵 **Record impact: stock + bill.** Editing a logged quantity moves inventory to match — up takes more,
+down returns it — and reprices the line.
+- **Quantity is editable on the stabilization lines** (user, 2026-08-21: *"i want to edit quantity
+  here"*). Those lines were drawn from the intervention's CONFIG — "Royal Canin Adult Dog 3kg ×1 Bags"
+  is what the protocol says to give, not what was given. Ticking the intervention logs a real
+  consumable, and correcting it meant leaving the emergency for another screen.
+  - The box is bound to the **logged row**, not the protocol figure, and saves through
+    `consumablesAPI.update`, so stock follows the correction.
+  - A line with no logged row yet stays read-only text rather than offering an edit that would go
+    nowhere, and a read-only (closed) triage shows the number without a box.
+- **The action bar was two full-width bars** that stacked on a phone, eating a third of the screen
+  above the keyboard on a form you scroll constantly (*"buttons too big eesp in mobile"*). Save is now
+  sized to its content, Discharge takes the rest because it is the act that ends the triage, and its
+  label shortens to "Stabilized → vet visit" on small screens.
+- Files: `clinic/triage/EmergencyTriagePanel.tsx`.
+- **Data dependency:** none — `PATCH /consumables/:id` already existed.
+
+
 ### tweak: the payment-posted dialog stacks its actions  —  2026-08-21
 🟢 **Record impact: none** — layout.
 - Three actions side by side in a `max-w-sm` dialog wrapped the middle label onto two lines and made
