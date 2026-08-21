@@ -366,16 +366,11 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
         <span className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${entry.key === 'emergency' ? 'text-red-600 dark:text-red-400' : 'text-pine dark:text-zinc-100'}`}>
           {entry.icon} {entry.label}
         </span>
-        {/* Which FORM is being filled in. Only shown when it is the clinic's
-            own workflow — on a shipped preset there is nothing to say. */}
-        {template && template.ownerType === 'CLINIC' && (
-          <span
-            title={`Using custom ${template.name} workflow — your clinic's version, not the VetHubCore default. Change it from the workflow menu.`}
-            className="flex items-center gap-1 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam/10 text-seafoam border border-seafoam/20 cursor-help"
-          >
-            <Workflow size={10} /> Custom · {template.name}
-          </span>
-        )}
+        {/* The clinic's own workflow used to sit HERE as a read-only badge,
+            styled unlike anything around it and with no way to drop it. It now
+            renders as a chip in the Workflow row with the encounters, ✕ and all
+            (user, 2026-08-20: "custom workflow to appear as other and be
+            deletable … bring it here"). */}
         {/* HIDDEN at the user's request (2026-07-29): the mid-visit workflow
             picker. The workflow is already chosen at REGISTRATION and resolved
             from the entry point, so offering a switch here let staff re-point a
@@ -500,6 +495,25 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
                   </button>
                 );
               })}
+              {/* The clinic's own version of the form. Removing it does NOT drop
+                  an encounter — it clears the per-visit template override, so
+                  the visit falls back to the VetHubCore default for its entry
+                  point. Worded that way in the tooltip so ✕ here is not mistaken
+                  for ✕ on an encounter chip beside it. */}
+              {template && template.ownerType === 'CLINIC' && (
+                <span
+                  title={`Custom form: your clinic's "${template.name}", not the VetHubCore default. Remove it to use the default for this visit.`}
+                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-indigo-300 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-widest"
+                >
+                  <Workflow size={10} /> Custom · {template.name}
+                  <span
+                    role="button"
+                    title={`Use the default form instead of "${template.name}" on this visit`}
+                    onClick={() => setVisitTemplate(null)}
+                    className="ml-0.5 -mr-1 px-1 rounded text-indigo-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/40 transition-all cursor-pointer"
+                  >×</span>
+                </span>
+              )}
             </div>
           )}
           {/* The Transfer / add-encounter picker MOVED to the finalize/payment

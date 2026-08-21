@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: the custom workflow is a chip in the Workflow row, and removable  —  2026-08-20
+🟢 **Record impact: none** — clearing it is a per-visit form choice, not a data change.
+- The clinic's own workflow showed as a read-only badge in the header strip, styled unlike anything
+  near it and with no way to drop it (user, 2026-08-20: *"custom workflow to appear as other and be
+  deletable … bring it here"*). It now sits in the **Workflow row** with the encounter chips, ✕ and
+  all.
+- ⚠️ **Its ✕ does NOT delete an encounter.** It clears the per-visit template override, so the visit
+  falls back to the VetHubCore default form for its entry point. The tooltip says so, because that ✕
+  sits inches from encounter chips whose ✕ removes real billable work.
+- Kept visually distinct (indigo, not seafoam) for the same reason: it is a different KIND of thing
+  from the encounters beside it.
+
 ### tweak: the post-payment reminder names pay-first for what it is  —  2026-08-20
 🟢 **Record impact: none** — copy and colour on an existing block.
 - On a **prepaid** visit the money arrived BEFORE the work was written up, so the report is not merely
