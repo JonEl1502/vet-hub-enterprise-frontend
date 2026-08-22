@@ -10,7 +10,8 @@ import TransferClinicModal from '../clinic-mgmt/TransferClinicModal';
 import { useData } from '../../../contexts/DataContext';
 import WalkInModal from './WalkInModal';
 import { Zap } from 'lucide-react';
-import { clientsAPI, remindersAPI } from '../../../services';
+import { clientsAPI, remindersAPI, toast } from '../../../services';
+import { dialog } from '../../../services/utils/dialog';
 import type { Reminder } from '../../../services';
 import PetAvatar from '../shared/PetAvatar';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -69,20 +70,30 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
     const amount = Number(client.legacyBalance ?? 0);
     const cur = client.currency || 'KES';
     const src = client.legacyBalanceSource || 'the previous system';
-    const ok = window.confirm(
-      `Raise an invoice for ${cur} ${amount.toLocaleString()} carried over from ${src}?\n\n` +
-      `${client.name} will owe this in VetHub and it will appear in reports and ageing. ` +
-      `This cannot be undone from here — an invoice raised in error has to be voided.`,
-    );
+    // App dialog, never window.confirm — a native browser prompt looks like it
+    // came from somewhere else, and this one is asking to create a financial
+    // document.
+    const ok = await dialog.confirm({
+      title: 'Raise this carried-over balance?',
+      message:
+        `${cur} ${amount.toLocaleString()} carried over from ${src}.\n\n` +
+        `${client.name} will owe this in VetHub and it will appear in reports and ageing. ` +
+        `An invoice raised in error has to be voided — it cannot be undone from here.`,
+      confirmLabel: `Raise ${cur} ${amount.toLocaleString()}`,
+      variant: 'warning',
+    });
     if (!ok) return;
     setActualising(String(client.id));
     try {
       const res: any = await clientsAPI.actualiseLegacyBalance(client.id);
       const num = res?.data?.invoiceNumber || res?.invoiceNumber;
       await refreshClients();
-      window.alert(num ? `Invoice ${num} raised for ${cur} ${amount.toLocaleString()}.` : 'Invoice raised.');
+      toast.success(num ? `Invoice ${num} raised` : 'Invoice raised');
+      // Land on the document we just created rather than leaving them on a
+      // list where the only visible change is a button disappearing.
+      onViewFinance(client.id);
     } catch (err: any) {
-      window.alert(err?.response?.data?.message || err?.message || 'Could not raise the invoice.');
+      toast.error(err?.response?.data?.message || err?.message || 'Could not raise the invoice');
     } finally {
       setActualising(null);
     }

@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: Actualise uses the VetHub dialog, and lands you on the invoice  —  2026-08-22
+🔵 **Record impact: none.** Interaction only.
+- Confirmation moved from `window.confirm` to the app's own `dialog.confirm` (user, 2026-08-22). A
+  native browser prompt reads as if it came from somewhere else — a poor look on the one action that
+  creates a financial document. Same for the result: `toast` instead of `window.alert`.
+- After a successful raise, the client card opens that client's **Invoices** tab and the profile
+  switches to it, rather than leaving you on a list whose only visible change is a button vanishing.
+
+
 ### fix: THE reason clients showed no patients — DataContext dropped the fields  —  2026-08-22
 🔵 **Record impact: none.** Read path only.
 - The clients API embeds each client's `pets` and `petCount`, and now `legacyBalance` too. **The

@@ -26,6 +26,7 @@ import ReconciliationDocument from '../receipts/ReconciliationDocument';
 import { printElementAsPdf } from '../shared/printPdf';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { clientDiscountsAPI, clientsAPI, messagingAPI, toast, PlatformMessage } from '../../../services';
+import { dialog } from '../../../services/utils/dialog';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
 import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell, Star, ScrollText, FolderOpen, Camera, Loader2 } from 'lucide-react';
 import RemindersApptsTab from '../shared/RemindersApptsTab';
@@ -233,17 +234,24 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
 
   const handleActualise = async () => {
     const cur = client.currency || 'KES';
-    if (!window.confirm(
-      `Raise an invoice for ${cur} ${legacyBalance.toLocaleString()} carried over from ${legacySource || 'the previous system'}?\n\n` +
-      `${client.name} will owe this in VetHub and it will show in reports and ageing. ` +
-      `An invoice raised in error has to be voided — it cannot be undone from here.`,
-    )) return;
+    const ok = await dialog.confirm({
+      title: 'Raise this carried-over balance?',
+      message:
+        `${cur} ${legacyBalance.toLocaleString()} carried over from ${legacySource || 'the previous system'}.\n\n` +
+        `${client.name} will owe this in VetHub and it will show in reports and ageing. ` +
+        `An invoice raised in error has to be voided — it cannot be undone from here.`,
+      confirmLabel: `Raise ${cur} ${legacyBalance.toLocaleString()}`,
+      variant: 'warning',
+    });
+    if (!ok) return;
     setActualising(true);
     try {
       const res: any = await clientsAPI.actualiseLegacyBalance(client.id);
       const num = res?.data?.invoiceNumber || res?.invoiceNumber;
       setLegacyCleared(true);
       toast.success(num ? `Invoice ${num} raised` : 'Invoice raised');
+      // Straight to the document — the invoice is the whole point of pressing.
+      setActiveTab('invoices');
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err?.message || 'Could not raise the invoice');
     } finally {

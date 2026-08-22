@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Loader2, RefreshCw, AlertTriangle, CheckCircle2, CreditCard, Search } from 'lucide-react';
 import { clientsAPI, toast } from '../../../services';
+import { dialog } from '../../../services/utils/dialog';
 
 /**
  * Carried-over debts — the bulk end of migration 212.
@@ -80,11 +81,16 @@ const LegacyDebtsPanel: React.FC = () => {
     const list = rows.filter(r => picked.has(r.id));
     if (!list.length) return;
     const sum = list.reduce((n, r) => n + Number(r.amount || 0), 0);
-    if (!window.confirm(
-      `Raise ${list.length} invoice${list.length === 1 ? '' : 's'} totalling ${money(sum)}?\n\n` +
-      `Each client will owe their amount in VetHub, and it will appear in reports and ageing. ` +
-      `Invoices raised in error have to be voided individually.`,
-    )) return;
+    const ok = await dialog.confirm({
+      title: `Raise ${list.length} invoice${list.length === 1 ? '' : 's'}?`,
+      message:
+        `${money(sum)} across ${list.length} client${list.length === 1 ? '' : 's'}.\n\n` +
+        `Each will owe their amount in VetHub and it will appear in reports and ageing. ` +
+        `Invoices raised in error have to be voided one by one.`,
+      confirmLabel: `Raise ${list.length}`,
+      variant: 'warning',
+    });
+    if (!ok) return;
 
     setRunning(true);
     setProgress({ done: 0, of: list.length, failed: 0 });
