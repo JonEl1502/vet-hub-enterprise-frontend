@@ -9,6 +9,7 @@ import { supplierSubscriptionAPI, SupplierSubscription, SubscriptionPackage, Upg
 import { toast } from '../../../services/utils/toast';
 import { cache } from '../../../services/utils/cache';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import { PlanCard } from '../../clinic/billing/PlanCard';
 
 const SupplierBillingView: React.FC = () => {
   const { user } = useAuth();
@@ -109,6 +110,13 @@ const SupplierBillingView: React.FC = () => {
     Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000));
 
   const currentTier = subscription?.package?.tier ?? -1;
+
+  // Add-ons layer OVER a base plan; listing one here would let a supplier
+  // "subscribe" to it and replace their real plan. Mirrors the clinic page.
+  const basePackages = React.useMemo(
+    () => packages.filter((p) => !p.isAddon).sort((a, b) => a.tier - b.tier),
+    [packages],
+  );
 
   if (loading) {
     return (
@@ -236,121 +244,43 @@ const SupplierBillingView: React.FC = () => {
           </h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
-          {packages
-            .sort((a, b) => a.tier - b.tier)
-            .map(pkg => {
-              const PlanIcon = getPlanIcon(pkg.name);
-              const isCurrent = subscription?.packageId === pkg.id && subscription?.isActive;
-              const isUpgrade = pkg.tier > currentTier;
-              const isDowngrade = pkg.tier < currentTier && currentTier !== -1;
-              const preview = previews[pkg.id];
-              const isLoading = actionLoading === pkg.id;
+        {/* Same PlanCard the clinic billing page uses (user, 2026-08-22:
+            "copy exactly as clinic billing but pkgs are for supplier
+            filtered"), so cycle pickers, discounts, feature lists and the
+            downgrade gate all behave identically. The catalog is the ONE
+            catalog filtered to audiences=['SUPPLIER'] — 113.
 
-              return (
-                <div
-                  key={pkg.id}
-                  className={`relative bg-white dark:bg-zinc-900 rounded-2xl border-2 shadow-sm flex flex-col overflow-hidden transition-all hover:shadow-lg ${
-                    isCurrent
-                      ? 'border-seafoam'
-                      : isUpgrade
-                      ? 'border-slate-200 dark:border-zinc-700 hover:border-seafoam/40'
-                      : 'border-slate-100 dark:border-zinc-800 opacity-80'
-                  }`}
-                >
-                  {isCurrent && (
-                    <div className="absolute top-0 right-0 bg-seafoam text-white text-[9px] font-black uppercase tracking-widest px-3 py-1 rounded-bl-xl">
-                      Current
-                    </div>
-                  )}
-
-                  <div className="p-6 flex-1 flex flex-col gap-4">
-                    {/* Header */}
-                    <div className="flex items-center gap-3">
-                      <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${isCurrent ? 'bg-seafoam/10 text-seafoam' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400'}`}>
-                        <PlanIcon size={22} />
-                      </div>
-                      <div>
-                        <h3 className="font-black text-pine dark:text-zinc-100">{pkg.name}</h3>
-                        <p className="text-xs text-slate-400 capitalize">{pkg.billingCycle.toLowerCase()} billing</p>
-                      </div>
-                    </div>
-
-                    {/* Price */}
-                    <div>
-                      <span className="text-3xl font-black text-pine dark:text-zinc-100">
-                        {user?.supplier?.currency ?? 'KES'} {Number(pkg.price).toLocaleString()}
-                      </span>
-                      <span className="text-slate-400 text-xs ml-1">/mo</span>
-                    </div>
-
-                    {/* Proration note */}
-                    {isUpgrade && preview && (
-                      <div className="bg-seafoam/5 border border-seafoam/20 rounded-xl p-3">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-seafoam mb-1">Upgrade Cost</p>
-                        <div className="flex justify-between text-xs">
-                          <span className="text-slate-500">Credit from current plan</span>
-                          <span className="font-bold text-green-600">− {user?.supplier?.currency ?? 'KES'} {preview.creditAvailable.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between text-xs font-black mt-1">
-                          <span className="text-pine dark:text-zinc-100">Due now</span>
-                          <span className="text-pine dark:text-zinc-100">{user?.supplier?.currency ?? 'KES'} {preview.amountDue.toFixed(2)}</span>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Features */}
-                    <ul className="space-y-2 flex-1">
-                      {pkg.features.map((f, i) => (
-                        <li key={i} className="flex items-start gap-2 text-xs text-slate-600 dark:text-zinc-400">
-                          <CheckCircle2 size={13} className="text-seafoam shrink-0 mt-0.5" />
-                          {f}
-                        </li>
-                      ))}
-                    </ul>
-
-                    {/* Limits */}
-                    <div className="flex gap-3 text-[10px] text-slate-400 flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <Users size={10} /> {pkg.maxStaff === -1 ? 'Unlimited' : pkg.maxStaff} staff
-                      </span>
-                      {pkg.storageGb > 0 && (
-                        <span className="flex items-center gap-1">
-                          <HardDrive size={10} /> {pkg.storageGb} GB
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* CTA */}
-                  <div className="px-6 pb-5">
-                    <button
-                      onClick={() => handleSubscribe(pkg)}
-                      disabled={isCurrent || isLoading || !!isDowngrade}
-                      className={`w-full py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 ${
-                        isCurrent
-                          ? 'bg-seafoam/10 text-seafoam cursor-default'
-                          : isDowngrade
-                          ? 'bg-slate-100 dark:bg-zinc-800 text-slate-300 dark:text-zinc-600 cursor-not-allowed'
-                          : 'bg-pine dark:bg-zinc-100 text-white dark:text-pine hover:bg-seafoam hover:dark:bg-seafoam hover:text-white active:scale-95 shadow-md'
-                      }`}
-                    >
-                      {isLoading ? (
-                        <Loader2 size={14} className="animate-spin" />
-                      ) : isCurrent ? (
-                        <><CheckCircle2 size={14} /> Current Plan</>
-                      ) : isDowngrade ? (
-                        'Contact Support to Downgrade'
-                      ) : isUpgrade ? (
-                        <><ArrowUpRight size={14} /> Upgrade</>
-                      ) : (
-                        <><Star size={14} /> Subscribe</>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
+            ⚠️ NO CLINIC ID ANYWHERE. Every clinic-only rail is deliberately
+            left unwired: `onPayWithPaystack` would POST /subscriptions/
+            paystack/initiate, which requires an x-clinic-id header and 400s
+            "clinicId is required" for a supplier. Suppliers activate through
+            the supplier-scoped subscribe endpoint via onSelect instead. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {basePackages.map((pkg, i) => (
+            <PlanCard
+              key={pkg.id}
+              pkg={pkg}
+              isCurrent={subscription?.packageId === pkg.id && !!subscription?.isActive}
+              isLoading={actionLoading === pkg.id}
+              onSelect={() => handleSubscribe(pkg)}
+              onPayWithMpesa={undefined}
+              onPayWithPaystack={undefined}
+              /* supplier_subscriptions stores no purchased-cycle column (unlike
+                 clinic_subscriptions), so the plan's own cycle is the best
+                 signal available for dimming cycle downgrades. */
+              currentSubBillingCycle={
+                (subscription?.packageId === pkg.id ? (subscription?.package?.billingCycle as any) : null) ?? null
+              }
+              currentSubTier={subscription?.package?.tier ?? null}
+              getPlanIcon={getPlanIcon}
+              delay={i * 60}
+              inheritsFrom={
+                [...basePackages]
+                  .filter((o) => o.tier < pkg.tier)
+                  .sort((x, y) => y.tier - x.tier)[0] ?? null
+              }
+            />
+          ))}
         </div>
 
         {packages.length === 0 && !loading && (

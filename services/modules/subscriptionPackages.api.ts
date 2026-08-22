@@ -39,7 +39,7 @@ export interface SubscriptionPackagePlan {
   updatedAt?: string;
 }
 
-export type BillingOptionCycle = 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
+export type BillingOptionCycle = 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL';
 export type PackageAudience = 'CLINIC' | 'SUPPLIER' | 'FREELANCER' | 'CLIENT' | 'LIVESTOCK';
 
 export interface BillingOption {

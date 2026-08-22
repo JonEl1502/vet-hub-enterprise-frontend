@@ -666,6 +666,8 @@ const SubPackagesAdminPage: React.FC = () => {
                       <select value={selected.billingCycle} onChange={e => updateSelectedField('billingCycle', e.target.value)} className={inputCls}>
                         <option value="MONTHLY">Monthly</option>
                         <option value="YEARLY">Yearly</option>
+                        <option value="BIENNIAL">2 Years</option>
+                        <option value="TRIENNIAL">3 Years</option>
                       </select>
                     </Field>
                     <Field label="Tier">
@@ -887,6 +889,9 @@ const CYCLES: { value: BillingOptionCycle; label: string }[] = [
   { value: 'QUARTERLY',  label: 'Quarterly (3 mo)' },
   { value: 'SEMIANNUAL', label: '6 Months' },
   { value: 'YEARLY',     label: 'Yearly' },
+  // 217 — multi-year prepay presets (user, 2026-08-22).
+  { value: 'BIENNIAL',   label: '2 Years' },
+  { value: 'TRIENNIAL',  label: '3 Years' },
 ];
 
 interface BillingOptionsEditorProps {

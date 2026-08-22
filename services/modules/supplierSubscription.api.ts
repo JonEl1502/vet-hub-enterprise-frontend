@@ -6,18 +6,15 @@
 import { get, post, del } from '../api/client';
 import { ApiResponse } from '../api/types';
 
-export interface SubscriptionPackage {
-  id: string;
-  name: string;
-  price: number;
-  tier: number;
-  features: string[];
-  billingCycle: 'MONTHLY' | 'YEARLY';
-  maxPatients: number;
-  maxStaff: number;
-  storageGb: number;
-  stripePriceId?: string | null;
-}
+/**
+ * Re-exported from the canonical clinic type so the supplier billing page can
+ * feed the SAME PlanCard the clinic page uses. It used to be a narrower local
+ * shape, and the mapper below quietly dropped billingOptions / featureKeys /
+ * featuredCycle — so every supplier plan rendered as a bare monthly price with
+ * no cycle picker (user, 2026-08-22).
+ */
+export type { SubscriptionPackage } from './stripe.api';
+import type { SubscriptionPackage } from './stripe.api';
 
 export interface SupplierSubscription {
   id: string;
@@ -80,16 +77,32 @@ export const supplierSubscriptionAPI = {
     const res = await get<any>('/stripe/supplier/info', {
       headers: { 'x-supplier-id': supplierId },
     });
+    // Carry the WHOLE package through. Anything this mapper forgets is
+    // invisible on the page no matter what the API sent.
     const packages: SubscriptionPackage[] = (res.data?.packages ?? []).map((p: any) => ({
       id: String(p.id),
       name: p.name,
       price: Number(p.price),
+      currency: p.currency ?? 'KES',
       tier: p.tier ?? 0,
       features: p.features ?? [],
+      featureKeys: p.featureKeys ?? [],
+      isAddon: p.isAddon ?? false,
       billingCycle: p.billingCycle ?? 'MONTHLY',
+      featuredCycle: p.featuredCycle ?? 'MONTHLY',
       maxPatients: p.maxPatients ?? -1,
+      maxClients: p.maxClients ?? -1,
       maxStaff: p.maxStaff ?? -1,
       storageGb: p.storageGb ?? 0,
+      maxBranches: p.maxBranches ?? 0,
+      audiences: p.audiences ?? ['SUPPLIER'],
+      billingOptions: (p.billingOptions ?? []).map((o: any) => ({
+        id: String(o.id),
+        cycle: o.cycle,
+        price: Number(o.price),
+        currency: o.currency ?? p.currency ?? 'KES',
+        discountPct: Number(o.discountPct ?? 0),
+      })),
       stripePriceId: p.stripePriceId ?? null,
     }));
     return { ...res, data: { packages } };

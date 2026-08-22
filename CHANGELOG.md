@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: 2-year and 3-year billing cycles  —  2026-08-22
+🟢 **Record impact: none.**
+- Admin → Plans → **Billing options** now has a **2 Years** and a **3 Years** row alongside Monthly,
+  Quarterly, 6 Months and Yearly, each with its own price and discount % (user, 2026-08-22). The
+  rows render from the `CYCLES` list, so adding the presets was enough — nothing is hand-wired.
+- **Featured cycle** picker gains both, and plan cards label them `2 Years` / `3 Years` with `2yr` /
+  `3yr` suffixes and 730 / 1095-day maths for the per-month comparison and cycle-downgrade gate.
+- Needs backend migration 217 (enum values) — the picker 400s against an un-migrated API.
+
+### change: supplier billing uses the clinic's PlanCard  —  2026-08-22
+🟢 **Record impact: none.**
+- The supplier billing page had its own hand-rolled plan card: one flat monthly price, no cycle
+  picker, no discounts, no feature-key list (user, 2026-08-22: *"copy exactly as clinic billing but
+  pkgs are for supplier filtered"*). It now renders the **same `PlanCard`** as the clinic page,
+  against the same one-catalog API filtered to `audiences has 'SUPPLIER'`.
+- `supplierSubscription.api` re-exports the canonical `SubscriptionPackage` type instead of a
+  narrower local one — its mapper had been dropping `billingOptions`, `featureKeys`, `featuredCycle`
+  and `isAddon`, so those fields could never reach the card no matter what the API returned.
+- Add-ons are filtered out of the plan grid, matching the clinic page — an add-on is tier 0 and
+  subscribing to one would replace the supplier's real plan.
+- ⚠️ **No clinic id anywhere on this page**, by design (user: *"not requirement for clinic id in
+  supplier, i keep getting that error"*). `onPayWithPaystack` is deliberately left unwired:
+  `/subscriptions/paystack/initiate` requires an `x-clinic-id` header and answers *"clinicId is
+  required"* for a supplier. Suppliers activate through the supplier-scoped subscribe endpoint via
+  the card's fallback CTA. Paystack for suppliers needs a backend schema change and is not built.
+
 ### remove: Lipana payment rail removed from every screen  —  2026-08-22
 🟢 **Record impact: none.** Lipana ceased operating in Kenya (user, 2026-08-22). Paystack (card +
 mobile money) is now the only subscription rail.

@@ -13,13 +13,13 @@ interface PlanCardProps {
   onSelect: () => void;
   onPayWithMpesa?: () => void;
   /** Paystack hosted checkout (card + mobile money). Redirects off-site. */
-  onPayWithPaystack?: (optionId: string | null, cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY') => void;
+  onPayWithPaystack?: (optionId: string | null, cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL') => void;
   paystackLoading?: boolean;
   getPlanIcon: (name: string) => React.ElementType;
   delay: number;
   /** Current sub on this clinic — used to dim cycle-downgrade choices when
    *  the user is viewing their own package. */
-  currentSubBillingCycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | null;
+  currentSubBillingCycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL' | null;
   /** Tier of the user's active package. Drives the cross-package
    *  downgrade gate (Pro user can't subscribe to Manager). */
   currentSubTier?: number | null;
@@ -35,20 +35,24 @@ interface PlanCardProps {
   inheritsFrom?: Pick<SubscriptionPackage, 'name' | 'featureKeys' | 'maxBranches'> | null;
 }
 
-const CYCLE_LABEL: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', string> = {
+const CYCLE_LABEL: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL', string> = {
   MONTHLY: 'Monthly',
   QUARTERLY: 'Quarterly',
   SEMIANNUAL: '6 Months',
   YEARLY: 'Yearly',
+  BIENNIAL: '2 Years',
+  TRIENNIAL: '3 Years',
 };
-const CYCLE_DAYS_FE: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', number> = {
-  MONTHLY: 30, QUARTERLY: 90, SEMIANNUAL: 180, YEARLY: 365,
+const CYCLE_DAYS_FE: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL', number> = {
+  MONTHLY: 30, QUARTERLY: 90, SEMIANNUAL: 180, YEARLY: 365, BIENNIAL: 730, TRIENNIAL: 1095,
 };
-const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY', string> = {
+const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL', string> = {
   MONTHLY: 'mo',
   QUARTERLY: '3mo',
   SEMIANNUAL: '6mo',
   YEARLY: 'yr',
+  BIENNIAL: '2yr',
+  TRIENNIAL: '3yr',
 };
 
 export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithPaystack, paystackLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget, inheritsFrom }) => {
@@ -64,7 +68,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
   // For the user's CURRENT package: any cycle shorter than what they're on
   // is a downgrade — disable it. New packages are unaffected.
   const currentCycleDays = (isCurrent && currentSubBillingCycle) ? CYCLE_DAYS_FE[currentSubBillingCycle] : 0;
-  const isCycleDowngrade = (c: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY') =>
+  const isCycleDowngrade = (c: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL') =>
     isCurrent && currentCycleDays > 0 && CYCLE_DAYS_FE[c] < currentCycleDays;
   // Cross-package tier downgrade — user is on a higher-tier package and
   // viewing a lower-tier one. We don't offer downgrades, so the whole
@@ -81,14 +85,14 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
     ? pkg.billingOptions
     : [{
         id: '',
-        cycle: (pkg.billingCycle as 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY') || 'MONTHLY',
+        cycle: (pkg.billingCycle as 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL') || 'MONTHLY',
         price: pkg.price,
         currency: pkg.currency || 'KES',
         discountPct: 0,
       }];
   // Default to the admin-chosen featured cycle when present (and an active
   // option exists for it); else first option's cycle.
-  const featured = (pkg.featuredCycle || 'MONTHLY') as 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
+  const featured = (pkg.featuredCycle || 'MONTHLY') as 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL';
   // On the user's CURRENT plan, preselect their ACTUAL cycle (so a Pro/6-Months
   // user isn't shown Monthly by default). Otherwise use the admin-featured
   // cycle, falling back to the first available option.
@@ -96,7 +100,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
     isCurrent && currentSubBillingCycle && cycleOptions.some((o) => o.cycle === currentSubBillingCycle)
       ? currentSubBillingCycle
       : (cycleOptions.find((o) => o.cycle === featured)?.cycle ?? cycleOptions[0].cycle);
-  const [selectedCycle, setSelectedCycle] = useState<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY'>(initialCycle);
+  const [selectedCycle, setSelectedCycle] = useState<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL'>(initialCycle);
   // "On current cycle" = the user is on this package AND has the same
   // cycle selected. Drives whether we show the 'Current Plan' chip vs an
   // 'Upgrade' Pay button. Declared here so selectedCycle is in scope.

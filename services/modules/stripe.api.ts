@@ -35,13 +35,13 @@ export interface SubscriptionPackage {
   /** Per-cycle pricing variants (Monthly/Quarterly/6mo/Yearly). When present the billing UI shows a cycle selector; the selected option's id+price drive the subscribe flow. */
   billingOptions?: Array<{
     id: string;
-    cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
+    cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL';
     price: number;
     currency: string;
     discountPct: number;
   }>;
   /** Admin-chosen "featured" billing cycle — the one the customer sees pre-selected on the plan card. */
-  featuredCycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
+  featuredCycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL';
   /** Which account types this package is offered to (chips in the admin editor). */
   audiences?: Array<'CLINIC' | 'SUPPLIER' | 'FREELANCER'>;
 }
@@ -62,7 +62,7 @@ export interface ClinicSubscriptionInfo {
   cancellationReason?: string | null;
   cancelledAt?: string | null;
   cancellationScheduledFor?: string | null;
-  billingCycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
+  billingCycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL';
   package: SubscriptionPackage | null;
 }
 

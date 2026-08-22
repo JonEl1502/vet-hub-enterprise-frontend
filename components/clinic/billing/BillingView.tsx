@@ -36,7 +36,7 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
  */
 /** Short suffix per billing cycle, for add-on pricing lines. */
 const CYCLE_SUFFIX_MAP: Record<string, string> = {
-  MONTHLY: 'mo', QUARTERLY: '3mo', SEMIANNUAL: '6mo', YEARLY: 'yr',
+  MONTHLY: 'mo', QUARTERLY: '3mo', SEMIANNUAL: '6mo', YEARLY: 'yr', BIENNIAL: '2yr', TRIENNIAL: '3yr',
 };
 
 const docNo = (prefix: 'INV' | 'RCP', row: PaymentHistoryRow) =>
@@ -320,7 +320,7 @@ const BillingView: React.FC = () => {
   const handlePaystackPay = async (
     pkg: SubscriptionPackage,
     optionId: string | null,
-    cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY',
+    cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL',
   ) => {
     if (!clinicId) return;
     const email = user?.email?.trim();
@@ -1259,7 +1259,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
   const displayPrice = matchingOption?.price ?? sub.package?.price ?? 0;
   const displayCurrency = matchingOption?.currency ?? sub.package?.currency ?? 'KES';
   const CYCLE_LABEL_LOCAL: Record<string, string> = {
-    MONTHLY: 'month', QUARTERLY: '3 months', SEMIANNUAL: '6 months', YEARLY: 'year',
+    MONTHLY: 'month', QUARTERLY: '3 months', SEMIANNUAL: '6 months', YEARLY: 'year', BIENNIAL: '2 years', TRIENNIAL: '3 years',
   };
   const cycleLabel = CYCLE_LABEL_LOCAL[subCycle] ?? 'cycle';
   const days = daysLeft;

@@ -58,7 +58,7 @@ export const vethubPaystackAPI = {
     args: {
       packageId: string | number;
       billingOptionId?: string | number;
-      cycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';
+      cycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL';
       email: string;
       phone?: string;
     }

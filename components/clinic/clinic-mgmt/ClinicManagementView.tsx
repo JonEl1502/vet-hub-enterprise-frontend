@@ -380,7 +380,7 @@ const ClinicManagementView: React.FC<Props> = ({
   // Honest active-sub price + cycle label, matching the Billing page: use the
   // subscription's actual billing cycle and the per-cycle option price (the
   // package's base monthly price doesn't move when a clinic buys a longer cycle).
-  const CYCLE_LABEL: Record<string, string> = { MONTHLY: 'month', QUARTERLY: '3 months', SEMIANNUAL: '6 months', YEARLY: 'year' };
+  const CYCLE_LABEL: Record<string, string> = { MONTHLY: 'month', QUARTERLY: '3 months', SEMIANNUAL: '6 months', YEARLY: 'year', BIENNIAL: '2 years', TRIENNIAL: '3 years' };
   const activeSubCycle = activeSub?.billingCycle ?? activeSub?.package?.billingCycle ?? 'MONTHLY';
   const activeSubPkg = activeSub ? apiPackages.find(p => p.id === activeSub.packageId) : null;
   const activeSubPrice = (activeSubPkg?.billingOptions?.find((o: any) => o.cycle === activeSubCycle)?.price)
