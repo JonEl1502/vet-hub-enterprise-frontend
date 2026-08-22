@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: diagnostic rows keep two buttons, the rest go in a menu  —  2026-08-22
+🟢 **Record impact: none.**
+- Each request carried five chips — Complete, View result, Full page, To partner, Remove — wrapping
+  across three lines, and the two that matter were the hardest to pick out (user, 2026-08-22:
+  *"some button there can be in drop down"*).
+- **Complete** and **View result** stay out. **Full page**, **To partner** and **Remove from visit**
+  move into a `⋮` menu, with a click-away catcher so it dismisses on touch.
+- ⚠️ An **existing partner job chip stays visible**: it is status, not an action. Hiding a job's
+  progress in a menu would hide the answer to *"where is this test?"*.
+
 ### change: the day editor closes after you record  —  2026-08-22
 🟢 **Record impact: none.**
 - The inpatient day editor sat permanently open under every day, so after pressing **Add entry** the

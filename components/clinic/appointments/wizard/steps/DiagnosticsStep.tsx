@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FlaskConical, FileSearch, Lightbulb, Plus, ExternalLink, FileText, Eye, EyeOff, Loader2, Building2, Trash2 } from 'lucide-react';
+import { FlaskConical, FileSearch, Lightbulb, Plus, ExternalLink, FileText, Eye, EyeOff, Loader2, Building2, Trash2, MoreVertical } from 'lucide-react';
 import { StepProps } from '../types';
 import InlineServiceSearch from '../../../shared/InlineServiceSearch';
 import { useServiceInject } from '../../../shared/ServiceInjectContext';
@@ -120,6 +120,8 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
   // match them to requests (taskId first, visit-level as fallback).
   const [viewing, setViewing] = useState<Record<string, boolean>>({});
   const [completing, setCompleting] = useState<string | null>(null);
+  /** Which row's overflow menu is open (2026-08-22). */
+  const [rowMenu, setRowMenu] = useState<string | null>(null);
   const [recs, setRecs] = useState<ModuleRecs | null>(null);
   const [recsLoading, setRecsLoading] = useState(false);
 
@@ -264,41 +266,66 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
                       className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${isViewing ? 'bg-cyan-600 text-white border-cyan-600' : 'border-cyan-300 dark:border-cyan-800 text-cyan-600 dark:text-cyan-400 hover:bg-cyan-600 hover:text-white'}`}>
                       {isViewing ? <EyeOff size={10} /> : <Eye size={10} />} {isViewing ? 'Hide' : 'View result'}
                     </button>
-                    {openModule && (
-                      <button type="button" onClick={() => openModule(t.category)}
-                        title={`Open the ${t.category} page for this visit — results & full details`}
-                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-seafoam/30 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
-                        <ExternalLink size={10} /> Full page
-                      </button>
-                    )}
-                    {/* Send this request to a partner clinic (visit jobs, 168):
-                        partners with an agreed price for the category can take
-                        it — they see a clinical-transfer visit on their side.
-                        Once SENT the chip becomes the partner + status, opening
-                        the tracking/negotiation dialog (user, 2026-08-01). */}
+                    {/* An existing partner job stays VISIBLE — it is status,
+                        not an action, and hiding a job's progress in a menu
+                        would be hiding the answer to "where is this test?". */}
                     {(() => {
                       const job = jobForTask(t.id);
-                      if (job) return <OutsourcedJobChip job={job} onChanged={loadJobs} />;
-                      return !visit.isPaid ? (
-                        <OutsourceServiceButton variant="chip" visitId={visit.id} taskId={t.id} category={t.category} serviceName={t.name} currency={currency}
-                          onCreated={() => { emit(`${t.name} sent to a partner clinic`, 'action', true); loadJobs(); }} />
-                      ) : null;
+                      return job ? <OutsourcedJobChip job={job} onChanged={loadJobs} /> : null;
                     })()}
-                    {/* Anything added is deletable before payment — the bill
-                        line + its auto-created module record go together. */}
-                    {deleteTask && !visit.isPaid && (
-                      <button type="button"
-                        onClick={async () => {
-                          const ok = await dialog.confirmDelete({ title: 'Remove diagnostic request', message: 'Removes the service from this visit and its bill (the linked record is cleaned up too).', entityName: t.name });
-                          if (!ok) return;
-                          deleteTask(Number(t.id));
-                          emit(`Removed ${t.name} from the visit`, 'billing', true);
-                        }}
-                        title="Remove this request from the visit & bill"
-                        className="p-1.5 rounded-lg text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-all">
-                        <Trash2 size={12} />
+
+                    {/* ── EVERYTHING ELSE IN A MENU ─────────────────────────
+                        Five buttons per row across three rows is a wall of
+                        chips, and the two that matter — Complete and View
+                        result — were the hardest to pick out (user, 2026-08-22:
+                        "some button there can be in drop down"). Full page,
+                        To partner and Remove move in here; the two primary
+                        actions stay out. */}
+                    <div className="relative">
+                      <button
+                        type="button"
+                        onClick={() => setRowMenu(m => (m === String(t.id) ? null : String(t.id)))}
+                        title="More actions"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all"
+                      >
+                        <MoreVertical size={13} />
                       </button>
-                    )}
+                      {rowMenu === String(t.id) && (
+                        <>
+                          {/* Click-away catcher — a menu you cannot dismiss by
+                              clicking elsewhere is a trap on touch. */}
+                          <div className="fixed inset-0 z-10" onClick={() => setRowMenu(null)} />
+                          <div className="absolute right-0 top-full mt-1 z-20 w-52 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl overflow-hidden py-1">
+                            {openModule && (
+                              <button type="button"
+                                onClick={() => { setRowMenu(null); openModule(t.category); }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800">
+                                <ExternalLink size={12} className="text-seafoam" /> Full page
+                              </button>
+                            )}
+                            {!jobForTask(t.id) && !visit.isPaid && (
+                              <div className="px-2 py-1" onClick={() => setRowMenu(null)}>
+                                <OutsourceServiceButton variant="chip" visitId={visit.id} taskId={t.id} category={t.category} serviceName={t.name} currency={currency}
+                                  onCreated={() => { emit(`${t.name} sent to a partner clinic`, 'action', true); loadJobs(); }} />
+                              </div>
+                            )}
+                            {deleteTask && !visit.isPaid && (
+                              <button type="button"
+                                onClick={async () => {
+                                  setRowMenu(null);
+                                  const ok = await dialog.confirmDelete({ title: 'Remove diagnostic request', message: 'Removes the service from this visit and its bill (the linked record is cleaned up too).', entityName: t.name });
+                                  if (!ok) return;
+                                  deleteTask(Number(t.id));
+                                  emit(`Removed ${t.name} from the visit`, 'billing', true);
+                                }}
+                                className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30">
+                                <Trash2 size={12} /> Remove from visit
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </div>
                   {/* Results / notes recorded on the service line show inline. */}
                   {t.notes && (
