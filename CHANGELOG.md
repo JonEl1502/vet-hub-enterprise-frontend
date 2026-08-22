@@ -59,6 +59,13 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: full-width Cancel/Admit slabs  —  2026-08-22
+🔵 **Record impact: none.**
+- `flex-1` on both footer buttons made two half-width slabs: a ~900px ADMIT reads as a banner rather
+  than a control, and gave Cancel the same visual weight as the primary action. Both the in-patient
+  admit gate and the walk-in modal now size to content and sit right-aligned.
+
+
 ### feat: the admission gate prompts when it is still blank  —  2026-08-22
 🔵 **Record impact: none.** Prompt only.
 - Admission is already step 1 for any in-patient visit (`ENTRY_POINTS.admission`, and any visit with a

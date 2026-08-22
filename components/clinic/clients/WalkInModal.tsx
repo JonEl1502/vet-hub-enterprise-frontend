@@ -87,9 +87,9 @@ const WalkInModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
             <p className="text-[10px] text-amber-700 dark:text-amber-400 font-medium">This record will be flagged <b>“needs update”</b> — the rest can be filled later by you or the owner.</p>
           </div>
 
-          <div className="flex gap-3 pt-1">
-            <button type="button" onClick={onClose} disabled={submitting} className="flex-1 px-5 py-3 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-black text-sm uppercase tracking-wide hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-50">Cancel</button>
-            <button type="submit" disabled={submitting} className="flex-1 px-5 py-3 bg-seafoam text-white rounded-xl font-black text-sm uppercase tracking-wide hover:bg-seafoam/90 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-seafoam/20">
+          <div className="flex justify-end gap-3 pt-1">
+            <button type="button" onClick={onClose} disabled={submitting} className="px-5 py-2.5 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-black text-xs uppercase tracking-wide hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-50">Cancel</button>
+            <button type="submit" disabled={submitting} className="px-8 py-2.5 bg-seafoam text-white rounded-xl font-black text-xs uppercase tracking-wide hover:bg-seafoam/90 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-seafoam/20">
               {submitting ? <><Loader2 size={18} className="animate-spin" /> Saving…</> : <><UserPlus size={18} /> Register</>}
             </button>
           </div>
