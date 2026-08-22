@@ -19,6 +19,9 @@ export const STEP_DEFS: Record<WizardStepId, WizardStepDef> = {
   dewormingAssessment:   { id: 'dewormingAssessment', label: 'Deworming Protocol', short: 'Deworming' },
   surgicalAssessment:    { id: 'surgicalAssessment', label: 'Surgical Assessment', short: 'Surgical Assessment' },
   admission:             { id: 'admission', label: 'Hospital Admission', short: 'Admission' },
+  // The chart is a SEPARATE step from the gate (user, 2026-08-22): the gate is
+  // filled once at the door, the chart is returned to every day of the stay.
+  inpatientChart:        { id: 'inpatientChart', label: 'In-patient Chart', short: 'Chart' },
   priorPlan:             { id: 'priorPlan', label: 'Previous Visit — Plan & Outcome', short: 'Prior Plan' },
   reviewHistory:         { id: 'reviewHistory', label: 'Follow-up Review', short: 'Review History' },
   visitDetails:          { id: 'visitDetails', label: 'House-call Visit Details', short: 'Visit Details' },
@@ -62,7 +65,7 @@ export const ENTRY_POINTS: Record<string, EntryPointDef> = {
   // history/diagnostics ceremony.
   routineCheck: { key: 'routineCheck', label: 'Routine Check', icon: '✅', steps: ['examination', 'assessment', 'treatment', 'communication', 'followUp'] },
   surgery:      { key: 'surgery', label: 'Surgery', icon: '🔪', steps: ['surgicalAssessment', 'history', 'examination', 'diagnostics', 'treatment', 'communication', 'followUp'] },
-  admission:    { key: 'admission', label: 'Hospital Admission', icon: '🏥', steps: ['admission', ...CORE] },
+  admission:    { key: 'admission', label: 'Hospital Admission', icon: '🏥', steps: ['admission', 'inpatientChart', ...CORE] },
   // A follow-up opens on the PRIOR visit's follow-up plan — "what were they
   // told to come back for" — carried over from the originating wizard's last
   // step. Progress/compliance capture (reviewHistory) follows it; the two

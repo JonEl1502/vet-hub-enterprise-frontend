@@ -391,24 +391,40 @@ export const BoardingStayStep: React.FC<StepProps> = ({ visit, refreshVisit, emi
   )
 );
 
-// Hospital admission step — same treatment for inpatients: the admission
-// intake plus the real inpatient chart (MAR, fluids, feeding, nursing and
-// progress notes, discharge) embedded once the patient is hospitalized.
-export const AdmissionEntryStep: React.FC<StepProps> = ({ visit, pet, data, setData, refreshVisit, emit }) => (
+/**
+ * Step 1 — the admission GATE only (user, 2026-08-22).
+ *
+ * The whole in-patient chart used to hang off the bottom of this step: intake
+ * form, then a dashed rule, then monitoring, the daily sheet, treatment plan and
+ * discharge. One screen carrying two jobs — the ten-second gate you fill at the
+ * door, and the chart you return to every day for a week. Scrolling past a
+ * finished form to reach today's vitals is the wrong shape for both.
+ *
+ * The chart is now its own step (see InpatientChartStep), so admission is what
+ * step 1 says it is.
+ */
+export const AdmissionEntryStep: React.FC<StepProps> = ({ pet, data, setData }) => (
   <div className="space-y-4">
     <GateCheckForm formKey="admission" data={data} setData={setData} petId={pet?.id} pet={pet} />
+  </div>
+);
+
+/**
+ * Step 2 — the in-patient chart: MAR, fluids, feeding, nursing and progress
+ * notes, discharge. The thing staff come BACK to, given its own page.
+ */
+export const InpatientChartStep: React.FC<StepProps> = ({ visit, refreshVisit, emit }) => (
+  <div className="space-y-4">
     {visit.hospitalizationId ? (
-      <div className="pt-4 border-t-2 border-dashed border-slate-200 dark:border-zinc-800">
-        <InpatientChartPage
-          hospId={String(visit.hospitalizationId)}
-          embedded
-          onBack={() => {}}
-          onChanged={() => { emit('Inpatient chart updated', 'action', true); refreshVisit?.(); }}
-        />
-      </div>
+      <InpatientChartPage
+        hospId={String(visit.hospitalizationId)}
+        embedded
+        onBack={() => {}}
+        onChanged={() => { emit('Inpatient chart updated', 'action', true); refreshVisit?.(); }}
+      />
     ) : (
       <p className="px-3 py-2.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
-        Not hospitalized yet — use Hospitalize / In-Patient on the visit header and the full chart (MAR, fluids, notes) manages right here.
+        Not hospitalized yet — use Hospitalize / In-Patient on the visit header, and the full chart (MAR, fluids, notes) opens here.
       </p>
     )}
   </div>

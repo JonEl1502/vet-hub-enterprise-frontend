@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: the in-patient chart is its own step, not bolted under Admission  —  2026-08-22
+🔵 **Record impact: none.** Workflow layout.
+- Step 1 carried two jobs: the admission **gate** you fill once at the door, and the **chart** you come
+  back to every day of the stay — intake form, dashed rule, then monitoring, daily sheet, treatment
+  plan and discharge, all on one scroll (user, 2026-08-22: *"this ui is off … adm gate to page 1 …
+  so one more"*).
+- Admission is now step 1 and is only the gate. **In-patient Chart is step 2**, so today's vitals are
+  not behind a form somebody finished last Tuesday. The remaining clinical steps shift down by one.
+
+
 ### fix: in-patient cards show admitted AND discharged dates  —  2026-08-22
 🔵 **Record impact: none.**
 - The card showed one date or the other, so a discharged stay lost its admission date entirely — and a
