@@ -39,8 +39,19 @@ const Pagination: React.FC<PaginationProps> = ({
 
   if (compact) {
     if (totalPages <= 1) return null;
+    const cFrom = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
+    const cTo = Math.min(currentPage * itemsPerPage, totalItems);
     return (
       <div className="flex items-center gap-1.5 px-2 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl">
+        {/* The count belongs at the TOP as well, not only under the list
+            (user, 2026-08-22): on a long page you decide whether to page or
+            filter BEFORE scrolling to the bottom to find out how many there
+            are. */}
+        <p className="shrink-0 text-[9px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-wider whitespace-nowrap pr-1">
+          <span className="text-pine dark:text-zinc-100">{cFrom}-{cTo}</span>
+          <span className="text-slate-400">/</span>
+          <span className="text-pine dark:text-zinc-100">{totalItems}</span>
+        </p>
         <button
           onClick={() => handlePageClick(currentPage - 1)}
           disabled={!hasPreviousPage}

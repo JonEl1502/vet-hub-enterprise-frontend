@@ -46,6 +46,8 @@ interface Props {
   transactions: Transaction[];
   appointments: Visit[];
   onBack: () => void;
+  /** Arrived here by pressing Actualise on the clients list — ask straight away. */
+  autoActualiseLegacy?: boolean;
   initialTab?: string;
   /** Glow the payment that settled this invoice (arrived from a void attempt). */
   highlightInvoiceId?: string | number | null;
@@ -81,7 +83,7 @@ interface Props {
   onAddPet?: () => void;
 }
 
-const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', highlightInvoiceId, focusReminderId, onTabChange, appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onOpenMedicalRecord, onManageWorkflow, onViewVisitDetails, onScheduleAppointment, onAddPet, onOpenVisitBill }) => {
+const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appointments, onBack, initialTab = 'overview', autoActualiseLegacy = false, highlightInvoiceId, focusReminderId, onTabChange, appointmentsUnpaidOnly = false, onViewPet, onOpenMessaging, allMessages, onUpdateClient, onProcessPayment, onViewAppointment, onOpenMedicalRecord, onManageWorkflow, onViewVisitDetails, onScheduleAppointment, onAddPet, onOpenVisitBill }) => {
   // This view has no `activeClinic` prop; the printed document still needs a
   // clinic name on it. With a multi-clinic scope the first selected one is the
   // right answer here — the client is being viewed within that scope.
@@ -231,6 +233,17 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const [legacyCleared, setLegacyCleared] = useState(false);
   const legacyBalance = legacyCleared ? 0 : Number((client as any).legacyBalance ?? 0);
   const legacySource = (client as any).legacyBalanceSource as string | undefined;
+
+  // Arrived from the clients list via Actualise — open the confirm once the
+  // profile is on screen, so the decision is made with the client's real
+  // balance and history visible rather than over a grid of cards.
+  const autoAsked = React.useRef(false);
+  useEffect(() => {
+    if (!autoActualiseLegacy || autoAsked.current) return;
+    if (!(legacyBalance > 0)) return;
+    autoAsked.current = true;
+    handleActualise();
+  }, [autoActualiseLegacy, legacyBalance]);
 
   const handleActualise = async () => {
     const cur = client.currency || 'KES';
@@ -382,55 +395,63 @@ const renderOverview = () => (
       <div className="lg:col-span-2 space-y-4">
         {/* Single summary card: stats + upcoming + identity, sections split by accent dividers */}
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-xl overflow-hidden divide-y divide-seafoam/25">
+        {/* THREE sections, not six columns.
+            Six equal cells squeezed "0 / Total / 0 / Done / 0 / Upcoming /
+            KES 0 / Avg-Visit / KES 0 / Lifetime" into a strip too tight to read
+            (user, 2026-08-22). They are really three ideas — how many visits,
+            what it is worth, and talk to them — so group them that way and let
+            each breathe. */}
         <div data-tour="client-stats" className="flex divide-x divide-seafoam/25">
-          {/* Counts — 3 cols */}
-          <div className="flex-1 min-w-0">
-            <div className="grid grid-cols-3 divide-x divide-seafoam/25">
-              <div className="p-2.5 text-center">
-                <div className="flex items-center justify-center mb-1.5">
-                  <div className="p-1.5 bg-seafoam/10 rounded-lg"><Calendar size={12} className="text-seafoam" /></div>
-                </div>
-                <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{totalAppointments}</p>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Total</p>
+          {/* VISITS — one heading, three figures under it */}
+          <div className="flex-1 min-w-0 p-3">
+            <div className="flex items-center gap-1.5 mb-2">
+              <div className="p-1 bg-seafoam/10 rounded-md"><Calendar size={11} className="text-seafoam" /></div>
+              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Visits</p>
+            </div>
+            <div className="flex items-end gap-4">
+              <div>
+                <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none">{totalAppointments}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Total</p>
               </div>
-              <div className="p-2.5 text-center">
-                <div className="flex items-center justify-center mb-1.5">
-                  <div className="p-1.5 bg-emerald-500/10 rounded-lg"><CheckCircle2 size={12} className="text-emerald-500" /></div>
-                </div>
-                <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{completedAppointments}</p>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Done</p>
+              <div>
+                <p className="text-xl font-black text-emerald-600 dark:text-emerald-400 leading-none">{completedAppointments}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Done</p>
               </div>
-              <div className="p-2.5 text-center">
-                <div className="flex items-center justify-center mb-1.5">
-                  <div className="p-1.5 bg-amber-500/10 rounded-lg"><Clock size={12} className="text-amber-500" /></div>
-                </div>
-                <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{upcomingAppointments}</p>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Upcoming</p>
+              <div>
+                <p className="text-xl font-black text-amber-600 dark:text-amber-400 leading-none">{upcomingAppointments}</p>
+                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Upcoming</p>
               </div>
             </div>
           </div>
-          {/* Avg/Visit + Lifetime spend (owners) or Last Visit (staff/vets) */}
+
+          {/* SPEND — or last visit for staff who cannot see money */}
           {hasFullAccess ? (
-            <>
-              <div className="w-[20%] p-2.5 text-center flex flex-col items-center justify-center">
-                <div className="p-1.5 bg-purple-500/10 rounded-lg mb-1.5"><TrendingUp size={12} className="text-purple-500" /></div>
-                <p className="text-xs font-black text-pine dark:text-zinc-100 leading-tight mb-0.5">{client.currency} {averageSpendPerVisit.toFixed(0)}</p>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Avg/Visit</p>
+            <div className="flex-1 min-w-0 p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="p-1 bg-seafoam/10 rounded-md"><CreditCard size={11} className="text-seafoam" /></div>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Spend</p>
               </div>
-              <div className="w-[24%] p-2.5 text-center flex flex-col items-center justify-center">
-                <div className="p-1.5 bg-seafoam/10 rounded-lg mb-1.5"><CreditCard size={12} className="text-seafoam" /></div>
-                <p className="text-xs font-black text-pine dark:text-zinc-100 leading-tight mb-0.5">{client.currency} {(client.totalSpent || 0).toLocaleString()}</p>
-                <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Lifetime</p>
+              <div className="flex items-end gap-4">
+                <div className="min-w-0">
+                  <p className="text-base font-black text-pine dark:text-zinc-100 leading-none truncate">{client.currency} {(client.totalSpent || 0).toLocaleString()}</p>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Lifetime</p>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-base font-black text-purple-600 dark:text-purple-400 leading-none truncate">{client.currency} {averageSpendPerVisit.toFixed(0)}</p>
+                  <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Avg/Visit</p>
+                </div>
               </div>
-            </>
+            </div>
           ) : (
-            <div className="flex-1 p-2.5 text-center flex flex-col items-center justify-center">
-              <div className="p-1.5 bg-cyan-500/10 rounded-lg mb-1.5"><Activity size={12} className="text-cyan-500" /></div>
+            <div className="flex-1 min-w-0 p-3">
+              <div className="flex items-center gap-1.5 mb-2">
+                <div className="p-1 bg-cyan-500/10 rounded-md"><Activity size={11} className="text-cyan-500" /></div>
+                <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Last Visit</p>
+              </div>
               {(() => {
                 const last = appointments.filter(a => a.status === ApptStatus.COMPLETED).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())[0];
-                return <p className="text-sm font-black text-pine dark:text-zinc-100 leading-tight mb-0.5">{last ? formatDate(last.date) : '—'}</p>;
+                return <p className="text-base font-black text-pine dark:text-zinc-100 leading-none">{last ? formatDate(last.date) : '—'}</p>;
               })()}
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Last Visit</p>
             </div>
           )}
           {/* Quick messaging entry */}

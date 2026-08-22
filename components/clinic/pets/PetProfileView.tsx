@@ -24,6 +24,7 @@ import ClientAccountHub, { ClientStatementTab, preferredMethod, AccountStatCards
 import ClientPaymentsTab from '../clients/ClientPaymentsTab';
 import ClientBillsTab from '../clients/ClientBillsTab';
 import CreditTopUpModal from '../clients/CreditTopUpModal';
+import LinkOwnerModal from './LinkOwnerModal';
 import type { ClientBilling } from '../../../services/modules/clients.api';
 
 /**
@@ -183,6 +184,7 @@ const PetProfileView: React.FC<Props> = ({
   const [certKind, setCertKind] = useState<'BIRTH' | 'DEATH' | null>(null);
   // Reminder being edited from the timeline (null = not editing).
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
+  const [linkOwnerOpen, setLinkOwnerOpen] = useState(false);
   // Orphaned-owner reassignment (shown when the pet has no linked owner).
   const [reassignQuery, setReassignQuery] = useState('');
   const [reassignResults, setReassignResults] = useState<{ id: number; name: string; phone?: string }[]>([]);
@@ -1428,9 +1430,19 @@ const PetProfileView: React.FC<Props> = ({
                       </div>
                     </>
                   ) : (
-                    <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-900">
+                    /* Clickable: an orphan has nobody to bill, remind or call,
+                       so the badge announcing it should be the way to fix it.
+                       It used to be inert, with the only cure in a panel far
+                       below — so the obvious thing to click did nothing. */
+                    <button
+                      type="button"
+                      onClick={() => setLinkOwnerOpen(true)}
+                      title="Find or create this patient's owner"
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-900 hover:bg-amber-100 dark:hover:bg-amber-950/60 transition-colors"
+                    >
                       <AlertCircle size={11} /> Orphaned · no owner linked
-                    </span>
+                      <span className="ml-1 underline decoration-dotted">Link owner</span>
+                    </button>
                   )}
                 </div>
               </div>
@@ -2549,6 +2561,13 @@ const PetProfileView: React.FC<Props> = ({
            </div>
         </div>
       )}
+      <LinkOwnerModal
+        petId={pet.id}
+        petName={pet.name}
+        open={linkOwnerOpen}
+        onClose={() => setLinkOwnerOpen(false)}
+        onLinked={() => onNavigatePet(pet.id)}
+      />
     </div>
   );
 };

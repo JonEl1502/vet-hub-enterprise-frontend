@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: link an owner to an orphaned patient — find one or create one  —  2026-08-22
+🟡 **Record impact: pets.owner_id.** Links a patient to a client; creates a client in the create path.
+- The "Orphaned · no owner linked" badge was inert, and the only cure sat in a panel far below, so the
+  obvious thing to click did nothing. The badge now opens a dialog with **Find existing** and
+  **Create new**.
+- Create exists because search alone assumes the owner is already in VetHub — precisely the case that
+  fails after a migration, where the pet came across and its owner did not. The client is created and
+  linked in one action, so a half-finished attempt cannot leave the patient orphaned AND add a stray
+  client beside it.
+
+### change: Actualise from the list opens the client first  —  2026-08-22
+🔵 **Record impact: none** (the invoice is still only raised on confirm).
+- Confirming over a grid of cards means deciding to bill someone while their record is a 200px tile —
+  you cannot see what they already owe or whether it is even the right person. The list now opens the
+  client and asks there, where the balance, history and the resulting invoice all live.
+
+### fix: client overview stats were too squeezed to read  —  2026-08-22
+🔵 **Record impact: none.**
+- Six equal cells crushed "0 Total · 0 Done · 0 Upcoming · KES 0 Avg/Visit · KES 0 Lifetime" into an
+  unreadable strip (user, 2026-08-22). They are three ideas — how many visits, what it is worth, and
+  message them — so they are now three grouped sections.
+- The result count (`1-10/74`) also appears on the TOP pager, not only under the list: you decide
+  whether to page or filter before scrolling to the bottom to learn how many there are.
+
+
 ### fix: patients beyond the loaded page said "Pet not found"  —  2026-08-22
 🔵 **Record impact: none.** Read path.
 - Context loads ONE page of pets (limit 1000). Westlands Paws has **4,047**, so opening roughly three

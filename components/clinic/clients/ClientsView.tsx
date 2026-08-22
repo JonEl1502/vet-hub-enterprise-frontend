@@ -27,6 +27,8 @@ interface ClientsViewProps {
   transactions: Transaction[];
   onViewClient: (id: number) => void;
   onViewFinance: (clientId: number) => void;
+  /** Open the client and raise their carried-over balance there. */
+  onActualiseClient?: (clientId: number) => void;
   /** Open the client's Reminders tab with this reminder expanded. */
   onViewReminder?: (clientId: number, reminderId: string) => void;
   onRegisterClient: () => void;
@@ -38,7 +40,7 @@ interface ClientsViewProps {
   onViewClientPets?: (clientId: number) => void;
 }
 
-const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, onViewFinance, onViewReminder, onRegisterClient, onAddPetForClient, onPrebookAppointment, onEditClient, onDeleteClient, onViewPet, onViewClientPets }) => {
+const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, onViewFinance, onActualiseClient, onViewReminder, onRegisterClient, onAddPetForClient, onPrebookAppointment, onEditClient, onDeleteClient, onViewPet, onViewClientPets }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const { clients, pets, appointments, totals, isLoadingClients, isLoadingPets, refreshClients, ensureClients, ensurePets, ensureAppointments, clientStatus, setClientStatus } = useData();
   useEffect(() => { ensureClients(); ensurePets(); ensureAppointments(); }, [ensureClients, ensurePets, ensureAppointments]);
@@ -69,13 +71,24 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
    * can be chased for. The server is idempotent, so a double press is safe, but
    * the person pressing should still know what they are doing.
    */
+  /**
+   * From the LIST, Actualise takes you to the client FIRST and asks there.
+   *
+   * Confirming over a grid of cards means deciding to bill someone while their
+   * record is a 200px tile — you cannot see what they already owe, what they
+   * were invoiced, or whether this is even the right person. The profile has
+   * all of that, and it is where the resulting invoice lands anyway.
+   */
   const handleActualise = async (client: any) => {
+    onActualiseClient?.(client.id);
+  };
+
+  // Kept for the profile's own button (see ClientProfileView) — the list no
+  // longer confirms in place.
+  const handleActualiseInline = async (client: any) => {
     const amount = Number(client.legacyBalance ?? 0);
     const cur = client.currency || 'KES';
     const src = client.legacyBalanceSource || 'the previous system';
-    // App dialog, never window.confirm — a native browser prompt looks like it
-    // came from somewhere else, and this one is asking to create a financial
-    // document.
     const ok = await dialog.confirm({
       title: 'Raise this carried-over balance?',
       message:
