@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import ListFilterBar, { inRange } from '../shared/ListFilterBar';
+import { DateRange } from '../../shared/common/DateRangePicker';
 import { Slice, Loader2, Search, Clock } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
 import { surgeryAPI, SurgeryRecord } from '../../../services';
@@ -59,6 +61,7 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment, onOpenRecord, openFor
   const [loading, setLoading] = useState(true);
   const [status, setStatus] = useState('all');
   const [search, setSearch] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -84,8 +87,9 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment, onOpenRecord, openFor
     const q = search.trim().toLowerCase();
     return records
       .filter(r => status === 'all' || r.status === status)
+      .filter(r => !dateRange || inRange((r as any).performedAt || (r as any).createdAt, dateRange))
       .filter(r => !q || `${petName(r)} ${r.serviceName}`.toLowerCase().includes(q));
-  }, [records, status, search, pets]);
+  }, [records, status, search, dateRange, pets]);
 
   // Group services by their visit so all surgery services for one appointment
   // sit together in a single card (each service keeps its own settings).
@@ -109,17 +113,23 @@ const SurgeryView: React.FC<Props> = ({ onOpenAppointment, onOpenRecord, openFor
             <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">Procedures performed across visits</p>
           </div>
         </div>
-        {/* Stack to one column on phones so neither control is squeezed. */}
-        <div className="grid grid-cols-1 sm:flex sm:items-center gap-2 w-full sm:w-auto">
-          <div className="relative">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search patient / procedure" className={`${fieldCls} pl-9 w-full sm:w-56`} />
-          </div>
-          <select value={status} onChange={e => setStatus(e.target.value)} className={`${fieldCls} w-full sm:w-36`}>
-            {STATUSES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
-        </div>
       </div>
+
+      {/* Same bar as Boarding / In-patient / Grooming / Lab / Imaging (user,
+          2026-08-22). Surgery had a cramped search box and a status DROPDOWN
+          jammed into the header row — the odd one out, and the reason the page
+          read as unfinished. Status becomes pills like everywhere else, and the
+          page gains a date range it never had. */}
+      <ListFilterBar
+        search={search}
+        onSearch={setSearch}
+        dateRange={dateRange}
+        onDateRange={setDateRange}
+        statuses={STATUSES}
+        status={status}
+        onStatus={setStatus}
+        searchPlaceholder="Search patient / procedure"
+      />
 
       {loading ? (
         <div className="py-20"><LoadingSpinner size="lg" message="Loading surgeries..." /></div>

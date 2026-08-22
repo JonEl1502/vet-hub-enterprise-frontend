@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: setting a trial could hit the wrong clinic without saying so  —  2026-08-22
+🔴 **Record impact: clinic trial dates.** Guardrails, no schema change.
+- The free-trial control **shares its clinic selector with tier assignment** and said only "the
+  selected clinic". So a trial could be set — or **cleared** — on whichever row happened to still be
+  picked, with nothing on screen to catch it. A "0" intended for one clinic cleared another's trial
+  (user, 2026-08-22).
+- The control now **names the target** where the action is, and confirms before writing: *"Clear the
+  trial on Kabi Vets Clinic - Kinoo?"* with a warning that a clinic without an active subscription
+  loses access immediately. Clearing is styled as the destructive action it is.
+
+### change: Surgery joins the shared list filter bar  —  2026-08-22
+🔵 **Record impact: none.**
+- Surgery was the odd one out — a cramped search box and a status **dropdown** jammed into the header
+  row (user, 2026-08-22: *"ugly"*). It now uses the same bar as Boarding / In-patient / Grooming /
+  Lab / Imaging: status as pills, and a date range it never had.
+
+
 ### feat: In-patient gets ward counts, like Boarding's occupancy cards  —  2026-08-22
 🔵 **Record impact: none.**
 - "124 shown" answers how big the LIST is — a filter fact that says nothing about how many animals

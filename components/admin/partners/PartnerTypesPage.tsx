@@ -129,10 +129,25 @@ const PartnerTypesPage: React.FC<Props> = ({ onBack }) => {
     } finally { setSavingId(null); }
   };
 
+  const selectedEntityLabel = entityOptions.find(o => o.id === entityId)?.label || '';
+
   const doSetTrial = async () => {
     if (!entityId) { toast.error('Pick a clinic/supplier/freelancer'); return; }
     const days = trialDays === '' ? null : Number(trialDays);
     if (days !== null && (!Number.isFinite(days) || days < 0)) { toast.error('Enter a valid number of days'); return; }
+    // Say the NAME out loud before writing. Clearing a trial cuts a live
+    // tenant's access, and the only thing standing between "extend Kode-37"
+    // and "cut off Kabi Vets" was remembering what the dropdown still held.
+    const target = selectedEntityLabel || `${entity} #${entityId}`;
+    const ok = await dialog.confirm({
+      title: days ? `Give ${target} a ${days}-day trial?` : `Clear the trial on ${target}?`,
+      message: days
+        ? `Their trial will end ${new Date(Date.now() + days * 86400000).toDateString()}.`
+        : `${target} will have NO free trial. If they have no active subscription they lose access immediately.`,
+      confirmLabel: days ? `Set ${days} days` : 'Clear trial',
+      variant: days ? 'info' : 'danger',
+    });
+    if (!ok) return;
     setSettingTrial(true);
     try {
       const res = await trialAPI.set({ entity, entityId, days });
@@ -244,7 +259,18 @@ const PartnerTypesPage: React.FC<Props> = ({ onBack }) => {
 
         {/* Free-trial control — uses the entity + selection chosen above. */}
         <div className="px-4 pb-4 border-t border-slate-100 dark:border-zinc-800 pt-4">
-          <p className="text-[11px] font-bold text-slate-400 mb-2">Free trial — set/extend trial days for the selected {entity === 'user' ? 'freelancer' : entity}</p>
+          {/* NAME the target. This control shares its selector with tier
+              assignment and used to say only "the selected clinic", so a trial
+              could be set or cleared on whichever row happened to still be
+              picked — a cross-tenant write with nothing on screen to catch it
+              (user, 2026-08-22: a "0" intended for one clinic cleared another's
+              trial). Now the clinic is named right where the action is. */}
+          <p className="text-[11px] font-bold text-slate-400 mb-2">
+            Free trial — set/extend trial days for{' '}
+            {selectedEntityLabel
+              ? <span className="text-pine dark:text-zinc-100 font-black">{selectedEntityLabel}</span>
+              : <span className="text-rose-500">no {entity} selected</span>}
+          </p>
           <div className="flex items-end gap-3 flex-wrap">
             <div>
               <label className="field-label">Trial days</label>
