@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: the M-Pesa (Lipana) button is hidden on plan cards  —  2026-08-22
+🟢 **Record impact: none** — a payment rail is hidden, not removed. No pricing, plan or subscription
+data changes.
+- Plan cards offered two rails at the same price — **Pay with M-Pesa** (Lipana STK push) and **Card or
+  Mobile** (Paystack). The M-Pesa button is commented out (user, 2026-08-22: *"comment lipana button"*);
+  Paystack carries subscription payments meanwhile.
+- Commented, not deleted: `onPayWithLipana`, `lipanaLoading`, the phone-number modal and the whole STK
+  round-trip stay wired end to end, so restoring the rail is uncommenting one block.
+- ⚠️ **The gate had to change too.** It read `lipanaEnabled && (onPayWithLipana || onPayWithPaystack)`,
+  which was fine while M-Pesa was primary — but with the M-Pesa button gone, that flag would have taken
+  **Paystack down with it** the moment Lipana was switched off, leaving plan cards with no way to pay at
+  all. Paystack now stands on its own handler.
+- Files: `clinic/billing/PlanCard.tsx`.
+- **Data dependency:** none.
+
+
 ### change: the in-patient chart is its own step, not bolted under Admission  —  2026-08-22
 🔵 **Record impact: none.** Workflow layout.
 - Step 1 carried two jobs: the admission **gate** you fill once at the door, and the **chart** you come

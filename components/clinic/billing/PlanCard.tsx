@@ -395,9 +395,19 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
       {/* Payment options — the user chooses a method. M-Pesa (Lipana STK push)
           and/or Card + Mobile Money (Paystack hosted checkout). Amounts are
           identical; only the rail differs. */}
-      {!onCurrentCycle && !isTierDowngrade && lipanaEnabled && (onPayWithLipana || onPayWithPaystack) && (
+      {/* ⚠️ THE GATE NO LONGER DEPENDS ON LIPANA.
+          It read `lipanaEnabled && (…)`, which was fine while M-Pesa was the
+          primary rail — but with the Lipana button commented out below, that
+          flag would have taken PAYSTACK down with it the moment Lipana was
+          switched off. Paystack now stands on its own handler. */}
+      {!onCurrentCycle && !isTierDowngrade && ((lipanaEnabled && onPayWithLipana) || onPayWithPaystack) && (
         <div className="mt-auto w-full space-y-2">
-          {onPayWithLipana && (
+          {/* ── LIPANA / M-PESA STK — HIDDEN (user, 2026-08-22: "comment lipana
+              button"). Commented rather than deleted: `onPayWithLipana`,
+              `lipanaLoading` and the whole STK round-trip stay wired end to end,
+              so restoring the rail is uncommenting this block. Card + mobile
+              money via Paystack carries subscription payments meanwhile. */}
+          {/* {onPayWithLipana && (
             <button
               onClick={() => onPayWithLipana(selectedOption.id || null, selectedCycle)}
               disabled={lipanaLoading || paystackLoading || !(Number(selectedOption.price) > 0)}
@@ -410,7 +420,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
                 <>📱 {isCurrent ? 'Upgrade' : 'Pay'} with M-Pesa — {formatPrice(selectedOption.price, selectedOption.currency)}</>
               )}
             </button>
-          )}
+          )} */}
           {onPayWithPaystack && (
             <button
               onClick={() => onPayWithPaystack(selectedOption.id || null, selectedCycle)}
