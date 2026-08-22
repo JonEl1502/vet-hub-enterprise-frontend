@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: every imported visit printed a bare "0" on the patient timeline  —  2026-08-22
+🟢 **Record impact: none — the data was fine, the render was not.**
+- `hasDetail` was `c.kind === 'visit' && (c.services?.length || c.categories?.length)`. With no
+  services and no categories that evaluates to the **number 0**, and `{0 && …}` renders a literal
+  **"0"** in JSX rather than nothing. Every imported visit has neither (LeagPro rows carried no
+  service lines), so each card showed a stray `0` under its subtitle (user, 2026-08-22).
+- Coerced to a real boolean. This was the only instance of the pattern in the codebase — I checked.
+- ⚠️ Not a bug, for the record: **Spend KES 0.00 beside Outstanding KES 8,500** is correct. Spend
+  counts money *received*; those imported visits are unpaid. And LeagPro genuinely stored each day
+  of a hospitalisation as its own KES 500 visit — the import mirrored that faithfully rather than
+  inventing a stay.
+
 ### change: one card per moment on the daily sheet  —  2026-08-22
 🟢 **Record impact: none** (presentation only — nothing is re-linked in the database).
 - Vitals, the entry and the items given with it were three separate strips — a *"1 vitals entry

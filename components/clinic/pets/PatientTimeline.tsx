@@ -155,7 +155,17 @@ const PatientTimeline: React.FC<Props> = ({ entries, reminders = [], bookings = 
       <ol className="relative border-l border-slate-200 dark:border-zinc-800 ml-3 space-y-4">
         {cards.map((c) => {
           const Icon = c.icon;
-          const hasDetail = c.kind === 'visit' && (c.services?.length || c.categories?.length);
+          /**
+           * ⚠️ MUST be a boolean, not a number.
+           *
+           * This read `(c.services?.length || c.categories?.length)`. With no
+           * services and no categories that is `0` — and `{0 && …}` renders a
+           * literal **"0"** in JSX, not nothing. Every imported visit (which has
+           * neither, because LeagPro's rows carried no service lines) printed a
+           * bare "0" under its subtitle (user, 2026-08-22). The data was fine;
+           * the render was not.
+           */
+          const hasDetail = c.kind === 'visit' && !!((c.services?.length ?? 0) || (c.categories?.length ?? 0));
           const isOpen = expanded.has(c.key);
           return (
             <li key={c.key} className="ml-6">
