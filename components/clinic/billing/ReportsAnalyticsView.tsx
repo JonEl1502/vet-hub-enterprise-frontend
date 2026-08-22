@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
-  ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip,
+  ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Brush,
   ComposedChart, Bar, PieChart, Pie, Cell,
 } from 'recharts';
 import {
@@ -74,6 +74,9 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
   // Compared-to is a PICKER too (user, 2026-08-03): an explicit pick wins;
   // clearing it falls back to the equal-length window ending just before `from`.
   const [compareRange, setCompareRange] = useState<DateRange | null>(null);
+  // Off by default: a second pre-filled picker beside the first reads as a
+  // required field, and it drives every "from KES x" delta on the page.
+  const [compareOn, setCompareOn] = useState(false);
   const prevTo = useMemo(() => compareRange?.end ?? new Date(from.getTime() - 86_400_000), [compareRange, from]);
   const prevFrom = useMemo(() => compareRange?.start ?? new Date(prevTo.getTime() - spanMs), [compareRange, prevTo, spanMs]);
 
@@ -229,13 +232,13 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
 
   // ── KPI cards ────────────────────────────────────────────────────────────
   const kpis = [
-    { label: 'Total Revenue', value: money(revenue), icon: Landmark, chip: 'bg-emerald-500/10 text-emerald-500', delta: pctDelta(revenue, prevTotals?.revenue ?? 0), prev: prevTotals?.revenue },
-    { label: 'Total Expenses', value: money(expenses), icon: Receipt, chip: 'bg-rose-500/10 text-rose-500', delta: pctDelta(expenses, prevTotals?.expenses ?? 0), prev: prevTotals?.expenses, badDeltaUp: true },
-    { label: 'Net Profit', value: money(netProfit), icon: CircleDollarSign, chip: 'bg-purple-500/10 text-purple-500', delta: pctDelta(netProfit, prevTotals?.netProfit ?? 0), prev: prevTotals?.netProfit },
+    { label: 'Total Revenue', value: money(revenue), icon: Landmark, chip: 'bg-emerald-500/10 text-emerald-500', delta: compareOn ? pctDelta(revenue, prevTotals?.revenue ?? 0) : null, prev: compareOn ? prevTotals?.revenue : undefined },
+    { label: 'Total Expenses', value: money(expenses), icon: Receipt, chip: 'bg-rose-500/10 text-rose-500', delta: compareOn ? pctDelta(expenses, prevTotals?.expenses ?? 0) : null, prev: compareOn ? prevTotals?.expenses : undefined, badDeltaUp: true },
+    { label: 'Net Profit', value: money(netProfit), icon: CircleDollarSign, chip: 'bg-purple-500/10 text-purple-500', delta: compareOn ? pctDelta(netProfit, prevTotals?.netProfit ?? 0) : null, prev: compareOn ? prevTotals?.netProfit : undefined },
     { label: 'Cash Balance', value: money(cashBalance), icon: Wallet, chip: 'bg-sky-500/10 text-sky-500', delta: null, prev: undefined },
     { label: 'Outstanding (AR)', value: money(arTotal), icon: FileText, chip: 'bg-amber-500/10 text-amber-600', delta: null, prev: undefined, badDeltaUp: true },
     { label: 'Payables (AP)', value: money(apTotal), icon: CreditCard, chip: 'bg-indigo-500/10 text-indigo-500', delta: null, prev: undefined, badDeltaUp: true },
-    { label: 'Gross Profit Margin', value: `${margin.toFixed(1)}%`, icon: Percent, chip: 'bg-teal-500/10 text-teal-600', delta: prevMargin != null ? Math.round((margin - prevMargin) * 10) / 10 : null, prev: undefined, isPoints: true },
+    { label: 'Gross Profit Margin', value: `${margin.toFixed(1)}%`, icon: Percent, chip: 'bg-teal-500/10 text-teal-600', delta: compareOn && prevMargin != null ? Math.round((margin - prevMargin) * 10) / 10 : null, prev: undefined, isPoints: true },
   ];
 
   // Payables list — invoices with due dates first, fallback to A/P summary rows.
@@ -305,13 +308,30 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
               value={customRange}
               onChange={r => setCustomRange(r && r.start && r.end ? r : null)}
             />
-            <span className="hidden md:inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">
-              Compared to:
-              <DateRangePicker
-                value={compareRange ?? { start: prevFrom, end: prevTo }}
-                onChange={r => setCompareRange(r && r.start && r.end ? r : null)}
+            {/* Comparison is OPT-IN (user, 2026-08-22).
+                Two date pickers side by side, both pre-filled, read as "which
+                one am I meant to set?" — and the second silently drives every
+                "▾ 100% from KES x" figure on the page. Off by default there is
+                one picker and one meaning; tick the box and the comparison
+                appears next to it. */}
+            <label className="hidden md:inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={compareOn}
+                onChange={e => { setCompareOn(e.target.checked); if (!e.target.checked) setCompareRange(null); }}
+                className="w-3.5 h-3.5 rounded border-slate-300 dark:border-zinc-600 text-seafoam focus:ring-seafoam"
               />
-            </span>
+              Compare
+            </label>
+            {compareOn && (
+              <span className="hidden md:inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">
+                to:
+                <DateRangePicker
+                  value={compareRange ?? { start: prevFrom, end: prevTo }}
+                  onChange={r => setCompareRange(r && r.start && r.end ? r : null)}
+                />
+              </span>
+            )}
             <div className="relative">
               <button onClick={() => setQuickOpen(o => !o)}
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-seafoam text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all shadow-sm">
@@ -409,6 +429,15 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                     <Line type="monotone" dataKey="revenue" name="Revenue" stroke={C.green} strokeWidth={2} dot={{ r: 2 }} />
                     <Line type="monotone" dataKey="expenses" name="Expenses" stroke={C.red} strokeWidth={2} dot={{ r: 2 }} />
                     <Line type="monotone" dataKey="netProfit" name="Profit" stroke={C.purple} strokeWidth={2} dot={{ r: 2 }} />
+                    {/* Zoom + scroll (user, 2026-08-22). Drag the handles to
+                        narrow the window, drag the middle to slide it. Only
+                        worth showing once there are enough points that a month
+                        of daily data is unreadable at full width — below that
+                        it is furniture. */}
+                    {perfData.length > 12 && (
+                      <Brush dataKey="label" height={22} travellerWidth={8} stroke={C.green}
+                        fill="transparent" tickFormatter={() => ''} />
+                    )}
                   </LineChart>
                 </ResponsiveContainer>
               </div>
@@ -442,6 +471,10 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                     <Bar dataKey="revenue" name="Money In" fill={C.green} radius={[2, 2, 0, 0]} maxBarSize={8} />
                     <Bar dataKey="out" name="Money Out" fill={C.red} radius={[2, 2, 0, 0]} maxBarSize={8} />
                     <Line type="monotone" dataKey="netProfit" name="Net Cash Flow" stroke={C.purple} strokeWidth={2} dot={false} />
+                    {cashData.length > 12 && (
+                      <Brush dataKey="label" height={22} travellerWidth={8} stroke={C.green}
+                        fill="transparent" tickFormatter={() => ''} />
+                    )}
                   </ComposedChart>
                 </ResponsiveContainer>
               </div>

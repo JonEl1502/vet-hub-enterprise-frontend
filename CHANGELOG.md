@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: Finance & BI — comparison is opt-in, and charts zoom/scroll  —  2026-08-22
+🔵 **Record impact: none.**
+- Two pre-filled date pickers side by side read as "which one am I meant to set?", and the second
+  silently drove every "▾ 100% from KES x" figure on the page (user, 2026-08-22). Comparison is now a
+  **Compare** checkbox, off by default: one picker, one meaning. With it off the deltas are hidden
+  too — showing a delta with nothing to compare against is what caused the confusion.
+- **Financial Performance and Cash Flow charts now zoom and scroll** via a brush: drag the handles to
+  narrow the window, drag the middle to slide it. Only appears past 12 points, below which a month of
+  daily data still reads fine at full width.
+
+
 ### fix: orphan badge wrapped onto two lines; client stats now 4:3:3  —  2026-08-22
 🔵 **Record impact: none.**
 - The "Orphaned · no owner linked / Link owner" pill wrapped and hung an underlined link off the end,
