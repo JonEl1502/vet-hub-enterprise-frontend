@@ -90,7 +90,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
 
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MERCHANT_ADMIN';
 
-  type ClientFilter = 'all' | 'upcoming' | 'pastCount' | 'hasVaccines';
+  type ClientFilter = 'all' | 'upcoming' | 'pastCount' | 'hasVaccines' | 'hasPets' | 'noPets';
   const [clientFilter, setClientFilter] = useState<ClientFilter>('all');
   const [pastCountMin, setPastCountMin] = useState<number>(3);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
@@ -207,6 +207,16 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
       list = list.filter(client =>
         pets.some(p => p.ownerId === client.id && (p.vaccinationCount ?? p.vaccinations?.length ?? 0) > 0)
       );
+    } else if (clientFilter === 'hasPets' || clientFilter === 'noPets') {
+      // Trust the server's petCount when it is present: `pets` here is only the
+      // slice this view has loaded, so counting it alone would call a client
+      // pet-less merely because their pet is on a page we have not fetched.
+      const owns = (client: any) => {
+        const n = (client as any).petCount;
+        if (typeof n === 'number') return n > 0;
+        return pets.some(p => p.ownerId === client.id);
+      };
+      list = clientFilter === 'hasPets' ? list.filter(owns) : list.filter(c => !owns(c));
     }
     if (letterFilter) {
       list = list.filter(c => {
@@ -501,6 +511,8 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                   {clientFilter === 'upcoming' && 'Upcoming Visit'}
                   {clientFilter === 'pastCount' && `With ${pastCountMin}+ Past Visits`}
                   {clientFilter === 'hasVaccines' && 'With Vaccinated Pets'}
+                  {clientFilter === 'hasPets' && 'With Pets'}
+                  {clientFilter === 'noPets' && 'Without Pets'}
                 </span>
                 {clientFilter !== 'all' && (
                   <span
@@ -530,6 +542,18 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                       className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${clientFilter === 'upcoming' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
                     >
                       Upcoming Visit
+                    </button>
+                    <button
+                      onClick={() => { setClientFilter('hasPets'); setPastCountDialogOpen(false); setFilterDropdownOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${clientFilter === 'hasPets' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
+                    >
+                      With Pets
+                    </button>
+                    <button
+                      onClick={() => { setClientFilter('noPets'); setPastCountDialogOpen(false); setFilterDropdownOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${clientFilter === 'noPets' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
+                    >
+                      Without Pets
                     </button>
                     <button
                       onClick={() => { setClientFilter('hasVaccines'); setPastCountDialogOpen(false); setFilterDropdownOpen(false); }}

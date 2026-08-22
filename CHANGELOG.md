@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: filter clients by "With Pets" / "Without Pets"  —  2026-08-22
+🔵 **Record impact: none.** Read-only filter.
+- Two new options in the Clients filter. "Without Pets" is the one that earns its place: after a data
+  migration it shows exactly who arrived with no patient attached (224 of Westlands Paws' 2,244).
+- Uses the server's `petCount` when present rather than counting the loaded `pets` slice — counting
+  locally would call a client pet-less merely because their pet sits on a page not yet fetched.
+
+
 ### feat: Actualise a brought-forward balance from the client card  —  2026-08-22
 🔵 **Record impact: none directly** — but the button CREATES an invoice (backend 212).
 - A clinic migrating off another system arrives owing money that was never billed here. It now shows
