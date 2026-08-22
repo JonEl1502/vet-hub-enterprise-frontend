@@ -1,6 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { LogOut, Bell, Shield, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network, Zap, ArrowUpRight, Compass, MessageSquare } from 'lucide-react';
+import { LogOut, Bell, Shield, Calculator, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network, Zap, ArrowUpRight, Compass, MessageSquare } from 'lucide-react';
+import PopCalculator from '../common/PopCalculator';
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { useOptionalTour } from '../../../contexts/TourContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -88,6 +89,7 @@ const Navbar: React.FC<NavbarProps> = ({
 }) => {
   const [showUserDropdown, setShowUserDropdown]     = useState(false);
   const [showNotifications, setShowNotifications]   = useState(false);
+  const [showCalc, setShowCalc]                     = useState(false);
   const [notifTab, setNotifTab]                     = useState<'all' | 'reminders' | 'appointments' | 'messaging' | 'orders' | 'b2b'>('all');
   const [dueReminders, setDueReminders]             = useState<Reminder[]>([]);
   const [todayAppts, setTodayAppts]                 = useState<Visit[]>([]);
@@ -328,6 +330,19 @@ const Navbar: React.FC<NavbarProps> = ({
 
         {/* ── Take a tour ── */}
         <TourLauncherButton />
+
+        {/* ── Calculator ── a floating, draggable panel rather than a modal:
+            the numbers being copied are on the page underneath (user,
+            2026-08-22). Mounted here so it is reachable from every screen. */}
+        <button
+          onClick={() => setShowCalc(v => !v)}
+          className={`p-2 transition-all rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 ${showCalc ? 'text-seafoam' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-100'}`}
+          title="Calculator"
+          aria-label="Calculator"
+        >
+          <Calculator size={18} />
+        </button>
+        <PopCalculator open={showCalc} onClose={() => setShowCalc(false)} />
 
         {/* ── Notifications ── */}
         <div className="relative" ref={notifRef}>

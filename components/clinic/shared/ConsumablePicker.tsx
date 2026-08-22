@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Package, Search, Plus, Loader2, Trash2, Tag, TagsIcon, AlertCircle } from 'lucide-react';
+import { Package, Search, Plus, Loader2, Trash2, Tag, TagsIcon, AlertCircle, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
-import { consumablesAPI, AppointmentConsumable, vaccinePackagesAPI, VaccinePackage } from '../../../services';
+import { consumablesAPI, AppointmentConsumable, vaccinePackagesAPI, VaccinePackage, billsAPI } from '../../../services';
 import { sellUnitOf, stockPerSellUnit, isSplitUnit } from './QtyUnitControl';
 
 interface Props {
@@ -99,6 +99,29 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
   const [billable, setBillable] = useState(true);
   const [unitPrice, setUnitPrice] = useState<number>(0);
 
+  /**
+   * Per-item service charges (`metadata.fees` — injection, administration,
+   * service, prescription), written by the product form.
+   *
+   * ⚠️ They were NOT charged from here. A product carrying a KES 550 injection
+   * fee, given on the inpatient chart, billed only the dose (user, 2026-08-22:
+   * "no injection fee"). The visit wizard's TreatmentStep already charges them
+   * as their own bill lines; this is the same mechanism, so a fee behaves the
+   * same wherever the item is dispensed from.
+   */
+  const FEE_LABELS: Record<string, string> = {
+    injection: 'Injection fee', admin: 'Administration fee',
+    service: 'Service charge', prescription: 'Prescription fee',
+  };
+  const [feesOn, setFeesOn] = useState<Record<string, boolean>>({});
+
+  /** Inline edit of an already-logged line (user, 2026-08-22: "allow edit").
+      Correcting a mistyped dose meant delete-and-retype, which bounced stock
+      out and back and left two movements in the ledger for one correction. */
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editQty, setEditQty] = useState<number>(0);
+  const [editPrice, setEditPrice] = useState<number>(0);
+
   const [packages, setPackages] = useState<VaccinePackage[]>([]);
   const [applyingPkg, setApplyingPkg] = useState(false);
 
@@ -126,6 +149,21 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
 
   const selected = useMemo(() => inventory.find((i: any) => String(i.id) === selectedId) ?? null, [inventory, selectedId]);
 
+  const itemFees: { key: string; label: string; amount: number }[] = useMemo(() => {
+    const fees = (selected as any)?.metadata?.fees || {};
+    return Object.entries(fees)
+      .filter(([, v]) => v != null && Number(v) > 0)
+      .map(([k, v]) => ({ key: k, label: FEE_LABELS[k] || k, amount: Number(v) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
+  // Every configured fee starts ON — the clinic set it up precisely so it gets
+  // charged. Untick to waive this one time.
+  useEffect(() => {
+    setFeesOn(Object.fromEntries(itemFees.map(f => [f.key, true])));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedId]);
+  const feeTotal = itemFees.filter(f => feesOn[f.key]).reduce((t, f) => t + f.amount, 0);
+
   const matches = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return [] as any[];
@@ -140,9 +178,15 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
     setUnitPrice(Number(i.price) || 0);
   };
 
-  const reset = () => { setSelectedId(null); setSearch(''); setQty(1); setBillable(true); setUnitPrice(0); };
+  const reset = () => { setSelectedId(null); setSearch(''); setQty(1); setBillable(true); setUnitPrice(0); setFeesOn({}); };
 
-  const overStock = selected ? qty > Number(selected.quantity) : false;
+  /**
+   * ⚠️ `qty` is in SELL units (mL) but `quantity` is STOCK (Bottle), so the old
+   * `qty > quantity` compared two different things: 300 mL against 5 Bottles
+   * read as "in stock" when the shelf held 250 mL. Convert first.
+   */
+  const qtyInStock = selected ? qty * stockPerSellUnit(selected as any) : 0;
+  const overStock = selected ? qtyInStock > Number(selected.quantity) : false;
   const lineTotal = billable ? unitPrice * qty : 0;
 
   const add = async () => {
@@ -159,13 +203,56 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
         recordedAt: recordedAt || undefined,
       });
       if (res.success) {
-        toast.success(`${selected.name} logged${billable ? ` · KES ${(unitPrice * qty).toLocaleString()}` : ' (non-billable)'}`);
+        // Each ticked fee becomes its OWN bill line, so it can be edited or
+        // removed independently of the product it came with.
+        const picked = billable ? itemFees.filter(f => feesOn[f.key]) : [];
+        for (const f of picked) {
+          try {
+            await billsAPI.addLine(appointmentId as any, {
+              name: `${f.label} — ${selected.name}`,
+              kind: 'SERVICE',
+              quantity: 1,
+              unitPrice: f.amount,
+              category: 'Fees',
+            } as any);
+          } catch { toast.error(`Could not add the ${f.label.toLowerCase()}`); }
+        }
+        const feesAdded = picked.reduce((t, f) => t + f.amount, 0);
+        toast.success(
+          `${selected.name} logged${billable ? ` · KES ${(unitPrice * qty).toLocaleString()}` : ' (non-billable)'}`
+          + (feesAdded > 0 ? ` + KES ${feesAdded.toLocaleString()} fees` : ''),
+        );
         reset();
         await load();
         onChanged?.();
       }
     } catch (e: any) { toast.error(e?.message || 'Failed to log consumable'); }
     finally { setBusy(false); }
+  };
+
+  const startEdit = (c: AppointmentConsumable) => {
+    setEditId(String(c.id));
+    setEditQty(Number(c.quantity) || 0);
+    setEditPrice(Number(c.unitPrice) || 0);
+  };
+
+  const saveEdit = async (c: AppointmentConsumable) => {
+    setBusyLineId(c.id);
+    try {
+      // `quantity` moves stock on the server (up = take more, down = return),
+      // so a correction is one adjustment rather than a delete + re-add.
+      const res = await consumablesAPI.update(c.id, {
+        quantity: editQty,
+        ...(c.billable ? { unitPrice: editPrice } : {}),
+      });
+      if (res.success) {
+        toast.success('Line updated — stock adjusted');
+        setEditId(null);
+        await load();
+        onChanged?.();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Could not update the line'); }
+    finally { setBusyLineId(null); }
   };
 
   const toggleBillable = async (c: AppointmentConsumable) => {
@@ -259,14 +346,48 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
                 {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add
               </button>
             </div>
-            {/* Only meaningful when the units differ — otherwise it restates itself. */}
-            {isSplitUnit(selected as any) && qty > 0 && (
+            {/* Both units, always — the small one that is billed and the big
+                one that leaves the shelf (user, 2026-08-22: "show deduction to
+                show small unit n bigger one"). */}
+            {qty > 0 && (
               <p className="w-full text-[10px] font-bold text-slate-400">
-                {qty} {sellUnitOf(selected as any)} · draws{' '}
-                {(qty * stockPerSellUnit(selected as any)).toLocaleString(undefined, { maximumFractionDigits: 3 })} {selected.unit} from stock
+                Giving <strong className="text-pine dark:text-zinc-100">{qty.toLocaleString()} {sellUnitOf(selected as any)}</strong>
+                {isSplitUnit(selected as any) && (
+                  <> · draws <strong className="text-pine dark:text-zinc-100">
+                    {qtyInStock.toLocaleString(undefined, { maximumFractionDigits: 3 })} {selected.unit}
+                  </strong> from stock · 1 {selected.unit} = {(1 / stockPerSellUnit(selected as any)).toLocaleString(undefined, { maximumFractionDigits: 3 })} {sellUnitOf(selected as any)}</>
+                )}
+                <span className="text-slate-400"> · {Number(selected.quantity).toLocaleString()} {selected.unit} left</span>
               </p>
             )}
-            {overStock && <p className="w-full flex items-center gap-1 text-[10px] font-bold text-rose-500"><AlertCircle size={11} /> Only {Number(selected.quantity)} {selected.unit} in stock</p>}
+
+            {/* Service charges configured on the product. Ticked = charged. */}
+            {itemFees.length > 0 && billable && (
+              <div className="w-full flex flex-wrap items-center gap-1.5 pt-1 border-t border-slate-100 dark:border-zinc-800">
+                <span className="text-[9px] font-black uppercase tracking-wider text-slate-400">Charges</span>
+                {itemFees.map(f => (
+                  <button
+                    key={f.key}
+                    type="button"
+                    onClick={() => setFeesOn(o => ({ ...o, [f.key]: !o[f.key] }))}
+                    title={feesOn[f.key] ? 'Charged with this item — click to waive' : 'Waived — click to charge'}
+                    className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider border transition-colors ${
+                      feesOn[f.key]
+                        ? 'bg-seafoam/10 text-seafoam border-seafoam/40'
+                        : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700 line-through'
+                    }`}
+                  >
+                    {f.label} {f.amount.toLocaleString()}
+                  </button>
+                ))}
+                {feeTotal > 0 && (
+                  <span className="ml-auto text-[10px] font-black text-pine dark:text-zinc-100">
+                    Total KES {(lineTotal + feeTotal).toLocaleString()}
+                  </span>
+                )}
+              </div>
+            )}
+            {overStock && <p className="w-full flex items-center gap-1 text-[10px] font-bold text-rose-500"><AlertCircle size={11} /> Only {Number(selected.quantity)} {selected.unit} in stock ({(Number(selected.quantity) / stockPerSellUnit(selected as any)).toLocaleString(undefined, { maximumFractionDigits: 2 })} {sellUnitOf(selected as any)})</p>}
           </div>
         )}
       </div>
@@ -294,12 +415,18 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
       ) : (
         <div className="space-y-1.5">
           {items.map(c => (
-            <div key={c.id} className="flex items-center gap-2 px-2.5 py-2 bg-slate-50 dark:bg-zinc-950/40 rounded-lg">
+            <React.Fragment key={c.id}>
+            <div className="flex items-center gap-2 px-2.5 py-2 bg-slate-50 dark:bg-zinc-950/40 rounded-lg">
               <span className="min-w-0 flex-1">
                 {/* The amount ADMINISTERED, in the unit it was given in. */}
                 <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">
                   {c.inventoryItem.name}{' '}
                   <span className="text-seafoam font-black">{c.quantity} {sellUnitOf(c.inventoryItem as any)}</span>
+                  {isSplitUnit(c.inventoryItem as any) && (
+                    <span className="text-slate-400 font-bold">
+                      {' '}({(Number(c.quantity) * stockPerSellUnit(c.inventoryItem as any)).toLocaleString(undefined, { maximumFractionDigits: 3 })} {c.inventoryItem.unit})
+                    </span>
+                  )}
                 </span>
                 <span className="block text-[9px] text-slate-400">
                   {c.batchNumber ? <span className="font-bold text-amber-600 dark:text-amber-500">Batch {c.batchNumber} · </span> : ''}
@@ -312,10 +439,46 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
                 className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider ${c.billable ? 'bg-seafoam/10 text-seafoam' : 'bg-slate-200 dark:bg-zinc-800 text-slate-400'}`}>
                 {c.billable ? `KES ${c.lineTotal.toLocaleString()}` : 'Non-bill'}
               </button>
+              <button type="button" onClick={() => (editId === String(c.id) ? setEditId(null) : startEdit(c))} disabled={busyLineId === c.id}
+                title="Edit amount or price" className="p-1.5 rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-seafoam disabled:opacity-50">
+                <Pencil size={12} />
+              </button>
               <button type="button" onClick={() => remove(c)} disabled={busyLineId === c.id} className="p-1.5 rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-500 disabled:opacity-50">
                 {busyLineId === c.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
               </button>
             </div>
+            {editId === String(c.id) && (
+              <div className="flex flex-wrap items-end gap-2 px-2.5 py-2 -mt-1 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded-lg">
+                <div>
+                  <label className="block text-[9px] font-black uppercase tracking-wider text-slate-500 mb-0.5">
+                    Amount ({sellUnitOf(c.inventoryItem as any)})
+                  </label>
+                  <input type="number" min={0} step={stepFor(sellUnitOf(c.inventoryItem as any))} value={editQty}
+                    onChange={e => setEditQty(Number(e.target.value))}
+                    className="w-24 px-2 py-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-md text-sm font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+                </div>
+                {c.billable && (
+                  <div>
+                    <label className="block text-[9px] font-black uppercase tracking-wider text-slate-500 mb-0.5">Unit price</label>
+                    <input type="number" min={0} value={editPrice} onChange={e => setEditPrice(Number(e.target.value))}
+                      className="w-24 px-2 py-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-md text-sm font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+                  </div>
+                )}
+                <p className="text-[9px] font-bold text-slate-400">
+                  {isSplitUnit(c.inventoryItem as any) && <>draws {(editQty * stockPerSellUnit(c.inventoryItem as any)).toLocaleString(undefined, { maximumFractionDigits: 3 })} {c.inventoryItem.unit} · </>}
+                  stock is adjusted by the difference
+                </p>
+                <div className="ml-auto flex items-center gap-1.5">
+                  <button type="button" onClick={() => setEditId(null)}
+                    className="px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-wider text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">Cancel</button>
+                  <button type="button" onClick={() => saveEdit(c)} disabled={busyLineId === c.id || editQty <= 0}
+                    className="px-2.5 py-1 rounded-md bg-pine text-white text-[9px] font-black uppercase tracking-wider hover:bg-pine/90 disabled:opacity-50">
+                    {busyLineId === c.id ? <Loader2 size={11} className="animate-spin" /> : 'Save'}
+                  </button>
+                </div>
+              </div>
+            )}
+            </React.Fragment>
           ))}
         </div>
       )}

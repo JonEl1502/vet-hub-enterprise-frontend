@@ -77,6 +77,65 @@ const SUBCATEGORY_PRESETS: Record<MainCategory, string[]> = {
 
 // Reordered dispensing units — the ones staff actually price against sit first,
 // with mL deliberately in the second slot (per requirement).
+
+/**
+ * ONE place that converts between the three units a product can carry, because
+ * two readouts disagreeing about money is worse than either being wrong alone.
+ *
+ * A product is BOUGHT in a stock unit (Bottle), SOLD in a sell unit (mL), and
+ * `packSize` bridges them (50 mL in 1 Bottle). "Quantity to add" is always in
+ * STOCK units; `price` is always per SELL unit.
+ *
+ * ⚠️ THE BUG THIS EXISTS TO KILL (user, 2026-08-22). Both readouts did
+ * `price * quantity` — a per-mL price times a bottle count. 300 Bottles of
+ * 50 mL at KES 250/mL showed a sale value of KES 75,000 instead of
+ * KES 3,750,000, and "Total buy cost" (which IS the wallet debit and the Total
+ * Due) read KES 2,400 instead of KES 120,000. The inline band had been fixed
+ * for one case on 2026-08-20, but it decided WHETHER to convert by comparing
+ * the cost unit against the sell unit — the wrong axis. The conversion is
+ * driven by stock-vs-sell; the cost unit only decides which of the two the
+ * cost price is quoted in.
+ */
+function unitMath(f: {
+  unit?: string; sellUnit?: string; costUnit?: string;
+  packSize?: number; quantity?: number | string;
+  price?: number | string; costPrice?: number | string; sellQty?: number | string;
+}) {
+  const stockU = String(f.unit || '').trim();
+  const sellU = String(f.sellUnit || '').trim() || stockU;
+  const costU = String(f.costUnit || '').trim() || stockU;
+  const pack = Number(f.packSize) || 0;
+
+  const split = !!sellU && !!stockU && sellU.toLowerCase() !== stockU.toLowerCase();
+  // Without a pack size a split is unresolvable — say so rather than guess 1:1.
+  const sellPerStock = split ? (pack > 0 ? pack : 0) : 1;
+
+  const qty = Number(f.quantity) || 0;                 // in STOCK units
+  const qtyInSell = sellPerStock > 0 ? qty * sellPerStock : 0;
+
+  // The displayed sale price covers `sellQty` units ("250 per 1 mL").
+  const salePerSell = (Number(f.price) || 0) / (Number(f.sellQty) || 1);
+  const cost = Number(f.costPrice) || 0;
+
+  // Which unit is the cost quoted in? Anything else we cannot convert.
+  const costIsStock = costU.toLowerCase() === stockU.toLowerCase();
+  const costIsSell = costU.toLowerCase() === sellU.toLowerCase();
+  const costPerSell = costIsSell ? cost : (sellPerStock > 0 ? cost / sellPerStock : null);
+  const costPerStock = costIsStock ? cost : (costIsSell ? cost * sellPerStock : null);
+
+  const resolvable = sellPerStock > 0 && (costIsStock || costIsSell);
+  const buyTotal = costPerStock != null ? costPerStock * qty : null;
+  const saleTotal = sellPerStock > 0 ? salePerSell * qtyInSell : null;
+
+  return {
+    stockU, sellU, costU, pack, split, sellPerStock,
+    qty, qtyInSell, salePerSell, cost, costPerSell, costPerStock,
+    costIsStock, costIsSell, resolvable,
+    buyTotal, saleTotal,
+    profit: buyTotal != null && saleTotal != null ? saleTotal - buyTotal : null,
+  };
+}
+
 const ORDERED_UNITS: string[] = [
   'Tablet', 'mL', 'Capsule', 'Vial', 'Ampoule', 'Sachet', 'Bottle', 'Syringe', 'Drop', 'Suppository',
   'Item', 'Unit', 'Piece', 'Pair', 'Set', 'Pack', 'Box', 'Roll', 'Tube', 'Bag', 'Can', 'Pouch', 'Sheet',
@@ -1346,7 +1405,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
 
             <form id="add-stock-form" onSubmit={handleFormSubmit} className="space-y-4">
               <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
-                <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">1</span> Basic Information
+                <span className="w-4 h-4 rounded-md bg-seafoam/15 text-seafoam flex items-center justify-center text-[9px]">1</span> Basic Information
               </p>
               {/* Row 1: Name + Main category bucket */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1354,7 +1413,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Product Name *</label>
                   <input
                     required
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     placeholder="e.g. Amoxicillin 500mg"
                     value={itemForm.name}
                     onChange={e => setItemForm({ ...itemForm, name: e.target.value })}
@@ -1440,7 +1499,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                     onChange={e => setSubcatDraft(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addSubcat(subcatDraft); } }}
                     placeholder={itemForm.mainCategory === 'MEDICINE' ? 'Choose or type e.g. Antibiotic → Cephalosporin…' : 'Choose or type e.g. Surgical Supplies → Sutures…'}
-                    className="flex-1 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="flex-1 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                   />
                   <datalist id="subcat-presets">
                     {SUBCATEGORY_PRESETS[itemForm.mainCategory]
@@ -1468,7 +1527,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   </label>
                   <input
                     required
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     placeholder="e.g. VAC-123456"
                     value={itemForm.sku}
                     onChange={e => setItemForm({ ...itemForm, sku: e.target.value })}
@@ -1477,7 +1536,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Supplier</label>
                   <select
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={itemForm.supplierId || ''}
                     onChange={e => setItemForm({ ...itemForm, supplierId: e.target.value ? Number(e.target.value) : undefined })}
                   >
@@ -1493,7 +1552,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Manufacturer</label>
                   <input
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     placeholder="e.g. Rekodi Pharmaceuticals"
                     value={itemForm.manufacturer}
                     onChange={e => setItemForm({ ...itemForm, manufacturer: e.target.value })}
@@ -1548,14 +1607,14 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               </div>
 
               <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 pt-2 border-t border-slate-100 dark:border-zinc-800">
-                <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">2</span> Clinical & Regulatory
+                <span className="w-4 h-4 rounded-md bg-seafoam/15 text-seafoam flex items-center justify-center text-[9px]">2</span> Clinical & Regulatory
               </p>
               {/* Row 2c: Country of origin, storage conditions, prescription-only — mockup parity */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Country of Origin</label>
                   <input
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     placeholder="e.g. Kenya"
                     value={itemForm.countryOfOrigin}
                     onChange={e => setItemForm({ ...itemForm, countryOfOrigin: e.target.value })}
@@ -1564,7 +1623,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Storage Conditions</label>
                   <select
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={itemForm.storageConditions}
                     onChange={e => setItemForm({ ...itemForm, storageConditions: e.target.value })}
                   >
@@ -1585,14 +1644,18 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               </div>
 
               <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 pt-2 border-t border-slate-100 dark:border-zinc-800">
-                <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">3</span> Stock & Batch
+                <span className="w-4 h-4 rounded-md bg-seafoam/15 text-seafoam flex items-center justify-center text-[9px]">3</span> Stock & Batch
               </p>
-              {/* Row 3: Batch, Expiry, Unit */}
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              {/* Row 3: Batch, Expiry. "Units bought" moved down into the
+                  BUY panel — sitting up here it was a whole row away from the
+                  sell unit, which is exactly what made the two easy to confuse
+                  (user, 2026-08-22: "rearrange so as not to confuse, esp buying
+                  vs selling unit"). */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Batch Number</label>
                   <input
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     placeholder="BATCH-001"
                     value={itemForm.batchNumber}
                     onChange={e => setItemForm({ ...itemForm, batchNumber: e.target.value })}
@@ -1602,25 +1665,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Expiry Date</label>
                   <input
                     type="date"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={itemForm.expiryDate}
                     onChange={e => setItemForm({ ...itemForm, expiryDate: e.target.value })}
                   />
-                </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Units bought *</label>
-                  <select
-                    required
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-                    value={itemForm.unit}
-                    onChange={e => setItemForm({ ...itemForm, unit: e.target.value })}
-                  >
-                    {/* Reordered list — dispensing units first (mL in slot 2).
-                        Always include the current value so a unit picked from the
-                        reference catalog still renders even if unlisted. */}
-                    {Array.from(new Set([...ORDERED_UNITS, ...(itemForm.unit ? [itemForm.unit] : [])]))
-                      .map(u => <option key={u} value={u}>{u}</option>)}
-                  </select>
                 </div>
               </div>
 
@@ -1639,11 +1687,54 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 const split = !!sellU && sellU.toLowerCase() !== u.toLowerCase();
                 return (
                   <>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {/* ── HOW YOU BUY IT ─────────────────────────────── */}
+                      <div className="space-y-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50/60 dark:bg-zinc-800/40 p-3">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">You buy &amp; stock it in</p>
+                        <div className="space-y-1">
+                          <label className="''' + LBL + '''">Units bought *</label>
+                          <select
+                            required
+                            className="''' + FIELD + ''' appearance-none"
+                            value={itemForm.unit}
+                            onChange={e => setItemForm({ ...itemForm, unit: e.target.value })}
+                            title="The unit stock is counted in — what you order and what sits on the shelf"
+                          >
+                            {Array.from(new Set([...ORDERED_UNITS, ...(itemForm.unit ? [itemForm.unit] : [])]))
+                              .map(un => <option key={un} value={un}>{un}</option>)}
+                          </select>
+                          <p className="text-[9px] font-bold text-slate-400 px-1">Stock is counted in this unit.</p>
+                        </div>
+                        <div className="space-y-1">
+                          <label className="''' + LBL + '''">
+                            {plural} per pack <span className="text-slate-400 normal-case font-bold">(optional)</span>
+                          </label>
+                          <input
+                            type="number" min="0"
+                            className="''' + FIELD + '''"
+                            placeholder={`e.g. 30 ${plural} per box`}
+                            title="Outer pack, for purchasing reference only"
+                            value={split ? (itemForm.packOf ?? '') : (itemForm.packSize ?? '')}
+                            onChange={e => {
+                              const v = e.target.value === '' ? undefined : Number(e.target.value);
+                              setItemForm(split ? { ...itemForm, packOf: v } : { ...itemForm, packSize: v });
+                            }}
+                          />
+                          {split && (
+                            <p className="text-[9px] font-bold text-slate-400 px-1">
+                              Purchasing note only — does not affect stock, price or billing.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* ── HOW YOU SELL IT ────────────────────────────── */}
+                      <div className="space-y-2 rounded-xl border border-seafoam/30 bg-seafoam/[0.04] p-3">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-seafoam">You bill &amp; sell it in</p>
                       <div className="space-y-1">
-                        <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Billed / sold in *</label>
+                        <label className="''' + LBL + '''">Billed / sold in *</label>
                         <select
-                          className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                          className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                           value={itemForm.sellUnit || itemForm.unit}
                           onChange={e => {
                             const next = e.target.value;
@@ -1667,63 +1758,58 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                           {Array.from(new Set([itemForm.unit, ...ORDERED_UNITS])).map(un => <option key={un} value={un}>{un}</option>)}
                         </select>
                       </div>
-                      {split ? (
-                        <>
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
-                              {sellU} <span className="normal-case">in 1</span> {u} *
-                            </label>
-                            <input
-                              type="number" min="0" step="any"
-                              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-                              placeholder={`e.g. 100 ${sellU} per ${u}`}
-                              title={`How many ${sellU} one ${u} contains — drives stock deduction and pricing`}
-                              value={itemForm.packSize ?? ''}
-                              onChange={e => setItemForm({ ...itemForm, packSize: e.target.value === '' ? undefined : Number(e.target.value) })}
-                            />
-                          </div>
-                          <div className="space-y-1">
-                            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
-                              {plural} per pack <span className="text-slate-400 normal-case font-bold">(optional)</span>
-                            </label>
-                            <input
-                              type="number" min="0"
-                              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-                              placeholder={`e.g. 30 ${plural} per box`}
-                              title="Outer pack, for purchasing reference only"
-                              value={itemForm.packOf ?? ''}
-                              onChange={e => setItemForm({ ...itemForm, packOf: e.target.value === '' ? undefined : Number(e.target.value) })}
-                            />
-                            {/* Say so on the FORM, not just in a tooltip. Typing
-                                42 here and looking for it in the figures found
-                                nothing, because it changes nothing (user,
-                                2026-08-20: "show me how Vials per pack affects
-                                the numbers"). */}
-                            <p className="text-[9px] font-bold text-slate-400 px-1">
-                              Purchasing note only — does not affect stock, price or billing.
-                            </p>
-                          </div>
-                        </>
-                      ) : (
-                        <div className="space-y-1 sm:col-span-2">
+                      {split && (
+                        <div className="space-y-1">
                           <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
-                            {plural} <span className="normal-case">(units)</span> per pack <span className="text-slate-400 normal-case font-bold">(optional)</span>
+                            {sellU} <span className="normal-case">in 1</span> {u} *
                           </label>
                           <input
-                            type="number" min="0"
-                            className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-                            placeholder={`e.g. 30 ${itemForm.unit || 'units'} per box`}
+                            type="number" min="0" step="any"
+                            className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                            placeholder={`e.g. 100 ${sellU} per ${u}`}
+                            title={`How many ${sellU} one ${u} contains — drives stock deduction and pricing`}
                             value={itemForm.packSize ?? ''}
                             onChange={e => setItemForm({ ...itemForm, packSize: e.target.value === '' ? undefined : Number(e.target.value) })}
                           />
+                          <p className="text-[9px] font-bold text-slate-400 px-1">
+                            The bridge between the two units — drives stock deduction and pricing.
+                          </p>
                         </div>
                       )}
+                      </div>
                     </div>
+
+                    {/* The whole relationship in one plain sentence, so nobody
+                        has to infer it from four separate labels. */}
+                    {(() => {
+                      const b = unitMath(itemForm as any);
+                      if (!b.split) {
+                        return (
+                          <p className="text-[10px] font-bold text-slate-400 px-1">
+                            Bought and sold in the same unit ({b.stockU || '—'}) — one {b.stockU || 'unit'} on the shelf is one {b.stockU || 'unit'} on the bill.
+                          </p>
+                        );
+                      }
+                      if (b.sellPerStock === 0) {
+                        return (
+                          <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 px-2 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900">
+                            You buy in <strong>{b.stockU}</strong> but bill in <strong>{b.sellU}</strong> — say how many {b.sellU} are in 1 {b.stockU} above, or stock and money will both be wrong.
+                          </p>
+                        );
+                      }
+                      return (
+                        <p className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-zinc-800/50 border border-slate-200 dark:border-zinc-700">
+                          Buy in <strong className="text-pine dark:text-zinc-100">{b.stockU}</strong>, bill in <strong className="text-seafoam">{b.sellU}</strong> ·
+                          {' '}1 {b.stockU} = <strong className="text-pine dark:text-zinc-100">{b.sellPerStock.toLocaleString()} {b.sellU}</strong>
+                        </p>
+                      );
+                    })()}
+
                     {/* Billable — BELOW the buy/bill statement (user request). */}
                     <div className="space-y-1">
                       <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Billable</label>
                       <button type="button" onClick={() => setItemForm({ ...itemForm, billable: !itemForm.billable })}
-                        className={`w-full px-3 py-2.5 rounded-xl text-sm font-black uppercase tracking-wider border ${itemForm.billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
+                        className={`w-full px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wider border ${itemForm.billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
                         {itemForm.billable ? 'Billable' : 'Non-billable'}
                       </button>
                     </div>
@@ -1732,21 +1818,43 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
               })()}
 
               <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 pt-2 border-t border-slate-100 dark:border-zinc-800">
-                <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">4</span> Levels & Pricing
+                <span className="w-4 h-4 rounded-md bg-seafoam/15 text-seafoam flex items-center justify-center text-[9px]">4</span> Levels & Pricing
               </p>
               {/* Row 4a: Quantity + Min threshold */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Quantity to add *</label>
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
+                    Quantity to add{itemForm.unit ? <span className="text-slate-400 normal-case font-bold"> ({itemForm.unit})</span> : null} *
+                  </label>
                   <input
                     type="number"
                     required
                     min="0"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     placeholder="0"
                     value={itemForm.quantity}
                     onChange={e => setItemForm({ ...itemForm, quantity: Number(e.target.value) })}
                   />
+                  {/* What that quantity is in the SMALL unit — the number the
+                      clinic actually dispenses and bills (user, 2026-08-22:
+                      "show total of small unit when user edit Quantity to
+                      add"). Typing 300 Bottles and reading "300" everywhere
+                      hid that the shelf really holds 15,000 mL. */}
+                  {(() => {
+                    const q = unitMath(itemForm as any);
+                    if (!q.split || !q.qty) return null;
+                    if (q.sellPerStock === 0) return (
+                      <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 px-1">
+                        Set {q.sellU} in 1 {q.stockU} above to see the {q.sellU} total.
+                      </p>
+                    );
+                    return (
+                      <p className="text-[9px] font-bold text-slate-500 dark:text-zinc-400 px-1">
+                        = <strong className="text-pine dark:text-zinc-100">{q.qtyInSell.toLocaleString()} {q.sellU}</strong>
+                        <span className="text-slate-400"> · {q.qty.toLocaleString()} × {q.sellPerStock.toLocaleString()}</span>
+                      </p>
+                    );
+                  })()}
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Min stock alert *</label>
@@ -1754,7 +1862,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                     type="number"
                     required
                     min="0"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     placeholder="5"
                     value={itemForm.minThreshold}
                     onChange={e => setItemForm({ ...itemForm, minThreshold: Number(e.target.value) })}
@@ -1767,19 +1875,19 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Max level</label>
                   <input type="number" min="0" placeholder="—"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={itemForm.maxLevel ?? ''} onChange={e => setItemForm({ ...itemForm, maxLevel: e.target.value === '' ? undefined : Number(e.target.value) })} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Reorder qty</label>
                   <input type="number" min="0" placeholder="Auto"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={itemForm.reorderQty ?? ''} onChange={e => setItemForm({ ...itemForm, reorderQty: e.target.value === '' ? undefined : Number(e.target.value) })} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Barcode</label>
                   <input type="text" placeholder="Scan / type"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={itemForm.barcode} onChange={e => setItemForm({ ...itemForm, barcode: e.target.value })} />
                 </div>
               </div>
@@ -1792,7 +1900,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   <div className="flex gap-2">
                     <input
                       type="number" step="0.01" min="0"
-                      className="flex-1 min-w-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                      className="flex-1 min-w-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                       placeholder="0.00"
                       value={itemForm.costPrice}
                       onChange={e => setItemForm({ ...itemForm, costPrice: Number(e.target.value) })}
@@ -1815,7 +1923,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   <div className="flex gap-2 items-center">
                     <input
                       type="number" required step="0.01" min="0"
-                      className="flex-1 min-w-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                      className="flex-1 min-w-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                       placeholder="0.00"
                       value={itemForm.price}
                       onChange={e => setItemForm({ ...itemForm, price: Number(e.target.value) })}
@@ -1885,17 +1993,16 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   when that's available and otherwise say why there's no
                   number, rather than showing a confident wrong one. */}
               {(() => {
-                const cost = Number(itemForm.costPrice) || 0;
-                // Displayed price covers sellQty units — maths run per single unit.
-                const sale = (Number(itemForm.price) || 0) / (Number(itemForm.sellQty) || 1);
+                // Same unitMath() the checkout aside uses — two readouts that
+                // disagree about money is worse than either being wrong alone.
+                const mm = unitMath(itemForm as any);
+                const cost = mm.cost;
+                const sale = mm.salePerSell;
                 if (sale <= 0) return null;
-                const costU = itemForm.costUnit || itemForm.unit;
-                const sellU = itemForm.sellUnit || itemForm.unit;
-                const pack = Number(itemForm.packSize) || 0;
-                const sameUnit = costU === sellU;
-                // Different units: only comparable if we know how many sale
-                // units come out of one cost unit.
-                const perSaleUnitCost = sameUnit ? cost : (pack > 0 ? cost / pack : null);
+                const costU = mm.costU;
+                const sellU = mm.sellU;
+                const pack = mm.pack;
+                const perSaleUnitCost = mm.resolvable ? mm.costPerSell : null;
 
                 if (cost <= 0) {
                   return (
@@ -1908,8 +2015,9 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   return (
                     <div className="px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900">
                       <p className="text-[10px] font-bold text-amber-800 dark:text-amber-300">
-                        Cost is per <strong>{costU}</strong> but sale is per <strong>{sellU}</strong> — set <strong>units per pack</strong> above
-                        (how many {sellU} come from one {costU}) and the margin appears here.
+                        {mm.split && mm.sellPerStock === 0
+                          ? <>Set <strong>{sellU} in 1 {mm.stockU}</strong> above — without it a per-{sellU} margin cannot be worked out.</>
+                          : <>Cost is quoted per <strong>{costU}</strong>, which is neither the stock unit ({mm.stockU}) nor the sell unit ({sellU}) — no margin shown.</>}
                       </p>
                     </div>
                   );
@@ -1925,8 +2033,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                  * KES 280" instead of 1,000 mL worth KES 14,000 (user,
                  * 2026-08-20). Convert first, and say both units.
                  */
-                const qty = Number(itemForm.quantity) || 0;
-                const qtyInSell = sameUnit || !(pack > 0) ? qty : qty * pack;
+                const qty = mm.qty;
+                const qtyInSell = mm.qtyInSell;
                 const stockProfit = profit * qtyInSell;
                 const cur = clinic?.currency || 'KES';
                 const n = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 2 });
@@ -1955,9 +2063,11 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                         </span>
                       )}
                     </div>
-                    {!sameUnit && (
+                    {mm.split && (
                       <p className="text-[9px] font-bold text-slate-400 mt-1">
-                        Cost {cur} {n(cost)} per {costU} ÷ {n(pack)} = {cur} {n(perSaleUnitCost)} per {sellU}
+                        1 {mm.stockU} = {n(mm.sellPerStock)} {sellU}
+                        {mm.costIsStock && <> · cost {cur} {n(cost)} per {costU} ÷ {n(pack)} = {cur} {n(perSaleUnitCost || 0)} per {sellU}</>}
+                        {mm.costIsSell && <> · cost {cur} {n(cost)} per {sellU}</>}
                       </p>
                     )}
                     <p className="text-[9px] font-bold text-slate-400 mt-0.5">
@@ -1969,7 +2079,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
 
               {/* Service charges — each checkbox reveals its amount field */}
               <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 pt-2 border-t border-slate-100 dark:border-zinc-800">
-                <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">5</span> Service Charges <span className="text-slate-400 normal-case font-bold tracking-normal">— added at billing time</span>
+                <span className="w-4 h-4 rounded-md bg-seafoam/15 text-seafoam flex items-center justify-center text-[9px]">5</span> Service Charges <span className="text-slate-400 normal-case font-bold tracking-normal">— added at billing time</span>
               </p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {FEE_DEFS.map(fee => {
@@ -2050,13 +2160,17 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 cart: line item preview, qty × cost = total, deduct
                 toggle, source wallet picker, save action. */}
             {(() => {
-              const qty = Number(itemForm.quantity) || 0;
-              const cost = Number(itemForm.costPrice) || 0;
-              const sale = Number(itemForm.price) || 0;
-              const projected = cost * qty;             // total buy cost (wallet debit)
-              const totalSale = sale * qty;             // potential revenue on this batch
+              // ⚠️ `projected` is the WALLET DEBIT and the Total Due, so it has
+              // to be the real money, converted through packSize — not
+              // cost × bottle-count. See unitMath().
+              const m = unitMath(itemForm as any);
+              const qty = m.qty;
+              const cost = m.cost;
+              const sale = m.salePerSell;
+              const projected = m.buyTotal ?? 0;        // total buy cost (wallet debit)
+              const totalSale = m.saleTotal ?? 0;       // potential revenue on this batch
               const grossProfit = totalSale - projected;
-              const marginPct = sale > 0 ? ((sale - cost) / sale) * 100 : 0;
+              const marginPct = totalSale > 0 ? (grossProfit / totalSale) * 100 : 0;
               const enabled = !editingItem && deductFromWallet && projected > 0;
               const picked = stockWallets.find((w: any) => String(w.id) === String(selectedStockWalletId));
               const ccy = clinic?.currency || 'KES';
@@ -2092,7 +2206,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                       {/* ── Live P&L on this batch ─────────────────────────── */}
                       <div className={`rounded-xl border p-3 space-y-1.5 ${grossProfit >= 0 ? 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20' : 'bg-rose-50 dark:bg-rose-500/10 border-rose-100 dark:border-rose-500/20'}`}>
                         <div className="flex items-center justify-between">
-                          <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Profit / Loss on {qty || 0} {itemForm.unit}</p>
+                          <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Profit / Loss on {qty || 0} {m.stockU}{m.split && m.qtyInSell ? ` (${m.qtyInSell.toLocaleString()} ${m.sellU})` : ''}</p>
                           <span className={`text-[8px] font-black px-1.5 py-0.5 rounded ${grossProfit >= 0 ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300' : 'bg-rose-500/15 text-rose-600 dark:text-rose-300'}`}>
                             {sale > 0 ? `${marginPct.toFixed(0)}% margin` : '—'}
                           </span>
@@ -2111,8 +2225,17 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                             {grossProfit >= 0 ? '+' : ''}{ccy} {grossProfit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
-                        {(costUnit !== sellUnit) && (
-                          <p className="text-[8px] font-bold text-amber-600 dark:text-amber-400 leading-tight pt-0.5">⚠ Buy unit ({costUnit}) differs from sell unit ({sellUnit}) — P&L assumes 1:1; adjust if they aren't.</p>
+                        {m.split && m.sellPerStock > 0 && (
+                          <p className="text-[8px] font-bold text-slate-400 leading-tight pt-0.5">
+                            1 {m.stockU} = {m.sellPerStock.toLocaleString()} {m.sellU} · cost quoted per {m.costU}
+                          </p>
+                        )}
+                        {!m.resolvable && (
+                          <p className="text-[8px] font-bold text-amber-600 dark:text-amber-400 leading-tight pt-0.5">
+                            {m.split && m.sellPerStock === 0
+                              ? <>⚠ Set <strong>{m.sellU} in 1 {m.stockU}</strong> above — without it these totals cannot be worked out.</>
+                              : <>⚠ Cost is quoted per <strong>{m.costU}</strong>, which is neither the stock unit ({m.stockU}) nor the sell unit ({m.sellU}) — totals are not shown.</>}
+                          </p>
                         )}
                       </div>
 
@@ -2280,13 +2403,13 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Quantity received *</label>
                   <input type="number" step="0.001" min="0" autoFocus placeholder={restockForm.qtyMode !== 'unit' ? `No. of ${restockContainerLabel(restockForm.qtyMode).toLowerCase()}s` : `Qty in ${restockItem.unit}`}
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={restockForm.quantity} onChange={e => setRestockForm(f => ({ ...f, quantity: e.target.value }))} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Received as</label>
                   <select
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={restockForm.qtyMode}
                     onChange={e => {
                       const m = e.target.value;
@@ -2303,7 +2426,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   <div className="col-span-2 space-y-1">
                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Units per {restockContainerLabel(restockForm.qtyMode).toLowerCase()} ({restockItem.unit})</label>
                     <input type="number" step="0.001" min="0" placeholder="e.g. 500"
-                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                       value={restockForm.packSize} onChange={e => setRestockForm(f => ({ ...f, packSize: e.target.value }))} />
                     {restockEffectiveQty() > 0 && <p className="text-[10px] font-black text-seafoam px-1">= {restockEffectiveQty()} {restockItem.unit} added to stock</p>}
                   </div>
@@ -2311,25 +2434,25 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Batch ref</label>
                   <input placeholder="BATCH-002"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={restockForm.batchNumber} onChange={e => setRestockForm(f => ({ ...f, batchNumber: e.target.value }))} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Buy price / {restockItem.unit}</label>
                   <input type="number" step="0.01" min="0" placeholder="0.00"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={restockForm.costPrice} onChange={e => setRestockForm(f => ({ ...f, costPrice: e.target.value }))} />
                 </div>
                 <div className="space-y-1">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Sale price / {restockItem.unit}</label>
                   <input type="number" step="0.01" min="0" placeholder="0.00"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={restockForm.sellingPrice} onChange={e => setRestockForm(f => ({ ...f, sellingPrice: e.target.value }))} />
                 </div>
                 <div className="space-y-1 col-span-2">
                   <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Expiry date</label>
                   <input type="date"
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                     value={restockForm.expiryDate} onChange={e => setRestockForm(f => ({ ...f, expiryDate: e.target.value }))} />
                 </div>
               </div>
@@ -2361,7 +2484,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
             <div className="space-y-1">
               <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Adjustment ({adjustItem.unit})</label>
               <input type="number" step="any" autoFocus placeholder="e.g. -2 (loss) or 5 (found)"
-                className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-black outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                 value={adjustDelta} onChange={e => setAdjustDelta(e.target.value)} />
               {adjustDelta && !Number.isNaN(Number(adjustDelta)) && (
                 <p className="text-[10px] font-bold text-slate-400 px-1">New on hand: <span className="text-pine dark:text-zinc-100">{Number(adjustItem.quantity) + Number(adjustDelta)} {adjustItem.unit}</span></p>
@@ -2375,7 +2498,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 ))}
               </div>
               <input type="text" placeholder="Reason for adjustment…"
-                className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                 value={adjustReason} onChange={e => setAdjustReason(e.target.value)} />
             </div>
             <div className="flex gap-2">

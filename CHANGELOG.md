@@ -59,6 +59,66 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: product P&L multiplied a per-mL price by a bottle count  —  2026-08-22
+🔴 **Record impact: none on stored rows — but this was WRONG MONEY on screen, and the wrong
+number was the wallet debit.** No backfill needed; nothing was persisted from it.
+- Both readouts on the product form did `price × quantity`. `price` is per **sell** unit (mL);
+  `quantity` is in **stock** units (Bottle). For 300 Bottles of 50 mL at KES 250/mL the form showed
+  a sale value of **KES 75,000 instead of KES 3,750,000**, and "Total buy cost" — which is the
+  **wallet debit and the Total Due** — read **KES 2,400 instead of KES 120,000** (user, 2026-08-22).
+- The inline margin band had been half-fixed on 2026-08-20, but it decided *whether* to convert by
+  comparing the **cost unit against the sell unit** — the wrong axis. When both were mL (cost per mL,
+  sold per mL) it concluded "same unit, no conversion" and multiplied by the bottle count anyway.
+  The conversion is driven by **stock vs sell**; the cost unit only says which of the two the cost
+  price is quoted in.
+- Both readouts now share one `unitMath()` helper, so they cannot drift apart again. It also reports
+  when a figure is **not derivable** — split units with no pack size, or a cost quoted in a third
+  unit — instead of printing a confident wrong number.
+- The old *"P&L assumes 1:1; adjust if they aren't"* warning only fired when cost unit ≠ sell unit,
+  so in exactly the broken case above it stayed silent.
+
+### fix: service charges were not applied outside the visit wizard  —  2026-08-22
+🟢 **Record impact: none.**
+- A product with an injection fee configured, dispensed from the **inpatient chart** (or anywhere
+  else using `ConsumablePicker`), billed only the dose — the KES 550 injection fee never reached the
+  bill (user, 2026-08-22: *"no injection fee"*). `TreatmentStep` charged them; nothing else did.
+- `ConsumablePicker` now reads `metadata.fees`, shows each configured charge as a tickable chip
+  (on by default, click to waive), and adds each ticked one as its own bill line — the same
+  mechanism the visit wizard uses, so a fee behaves the same wherever the item is dispensed from.
+
+### fix: over-stock check compared sell units against stock units  —  2026-08-22
+🟢 **Record impact: none.**
+- `ConsumablePicker` tested `qty > item.quantity` — mL against Bottles. Giving 300 mL from a shelf
+  holding 5 Bottles (250 mL) passed the check. It now converts through `packSize` first, and the
+  warning states the remaining stock in both units.
+
+### feat: draggable pop-up calculator  —  2026-08-22
+🟢 **Record impact: none.**
+- Calculator icon in the top bar opens a small floating panel, draggable anywhere, position
+  remembered between sessions (user, 2026-08-22). Deliberately **not** a modal — a modal would cover
+  the figures being copied from. Keyboard-driven, and it ignores keystrokes while focus is in a
+  field so typing a price into the form underneath never lands in the calculator.
+- Arithmetic only: the expression is whitelist-checked before evaluation, `%` is divide-by-100.
+
+### change: product form separates BUY from SELL  —  2026-08-22
+🟢 **Record impact: none** (layout + labels).
+- "Units bought" sat on the batch row, a whole row away from "Billed / sold in" — which is what made
+  the two easy to confuse (user, 2026-08-22: *"rearrange so as not to confuse, esp buying vs selling
+  unit"*). They now sit side by side in two labelled panels — **You buy & stock it in** /
+  **You bill & sell it in** — with the pack-size bridge in the sell panel.
+- Below them, the whole relationship in one sentence: *Buy in Bottle, bill in mL · 1 Bottle = 50 mL*,
+  and a warning in its place when the bridge is missing.
+- **Quantity to add** is labelled with the stock unit and now shows the sell-unit total underneath —
+  `= 15,000 mL · 300 × 50` (user: *"show total of small unit when user edit Quantity to add"*).
+- Fields throughout the form are a step smaller (user: *"make it smaller ui also just a bit"*).
+
+### feat: edit a logged consumable in place  —  2026-08-22
+🟢 **Record impact: none.**
+- Correcting a mistyped dose meant delete-and-re-add, which bounced stock out and back and left two
+  movements in the ledger for one correction (user: *"allow edit"*). Each logged line now has an
+  edit control for amount and unit price; the server adjusts stock by the difference.
+- Logged lines show both units — `4 mL (0.08 Bottle)` — as does the add row before you commit.
+
 ### feat: 2-year and 3-year billing cycles  —  2026-08-22
 🟢 **Record impact: none.**
 - Admin → Plans → **Billing options** now has a **2 Years** and a **3 Years** row alongside Monthly,
