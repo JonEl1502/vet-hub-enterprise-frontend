@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
+import ListFilterBar, { inRange } from '../shared/ListFilterBar';
+import { DateRange } from '../../shared/common/DateRangePicker';
 import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, Share2, FileText, Upload, Clock } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import PartnerPicker from '../shared/PartnerPicker';
@@ -31,6 +33,8 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
   const [loading, setLoading] = useState(true);
   const [source, setSource] = useState('all');
   const [search, setSearch] = useState('');
+  // Date range now that the shared bar provides one (previously lab had none).
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [editing, setEditing] = useState<any | null>(null);
   const [sharing, setSharing] = useState<LabRecord | null>(null);
   // Full-page record detail (was a right-side drawer) — better space for
@@ -58,10 +62,13 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = source === 'INCOMING' ? records.filter(isIncoming) : records;
+    // Date filter comes with the shared bar — lab had no way to narrow by date
+    // before, which on a clinic with years of panels made the page unusable.
+    if (dateRange) list = list.filter(r => inRange(r.resultDate || r.createdAt, dateRange));
     if (!q) return list;
     return list.filter(r => `${r.pet?.name ?? ''} ${r.panelName} ${r.externalSource ?? ''}`.toLowerCase().includes(q));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [records, search, source, selectedClinicIds]);
+  }, [records, search, source, dateRange, selectedClinicIds]);
 
   // Group panels/tests by their visit so all of a patient's lab work for one
   // visit sits in a single card (mirrors the Surgery page).
@@ -296,10 +303,21 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
         </div>
       ) : (
         <>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800">{SOURCES.map(s => <button key={s.value} onClick={() => setSource(s.value)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${source === s.value ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>{s.label}</button>)}</div>
-            <div className="relative flex-1 min-w-[180px]"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search patient, panel, lab" className="w-full pl-9 pr-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" /></div>
-          </div>
+          {/* Same filter bar as Boarding / In-patient / Grooming (user,
+              2026-08-22). The search input here was a hand-copied twin of the
+              shared one — identical classes, drifting independently. Source
+              pills stay, because "internal vs external lab" is a filter the
+              other modules have no equivalent of. */}
+          <ListFilterBar
+            search={search}
+            onSearch={setSearch}
+            dateRange={dateRange}
+            onDateRange={setDateRange}
+            statuses={SOURCES}
+            status={source}
+            onStatus={setSource}
+            searchPlaceholder="Search patient, panel, lab"
+          />
           {loading ? <div className="py-16"><LoadingSpinner size="lg" message="Loading lab records..." /></div>
           : filtered.length === 0 ? <div className="flex flex-col items-center justify-center text-center py-16"><FlaskConical size={28} className="text-slate-300 dark:text-zinc-700 mb-3" /><p className="text-sm font-bold text-slate-400">No lab records</p></div>
           : (

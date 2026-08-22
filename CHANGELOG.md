@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: Laboratory and Imaging use the shared list filter bar  —  2026-08-22
+🔵 **Record impact: none.**
+- Boarding, In-patient and Grooming already shared `ListFilterBar`; Lab and Imaging carried a
+  hand-copied twin of the same search input — identical classes, free to drift apart (user,
+  2026-08-22: *"unify filter for boarding n inpatient n do same to others too"*).
+- Both now use the shared bar, which also **gives them a date range they never had** — on a clinic
+  with years of panels and studies, a list you cannot narrow by date is unusable. Their own
+  dimensions ride in the status slot: **source** (internal / incoming) for Lab, **modality** for
+  Imaging.
+
+
 ### fix: billing reloaded twice on every tab switch; the subscription invoice is now a page  —  2026-08-22
 🟢 **Record impact: none** — fetching behaviour and layout.
 - **It reloaded twice, and blanked the page each time.** `visibilitychange` AND `focus` both fire when a
