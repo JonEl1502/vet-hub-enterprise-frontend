@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: In-patient gets ward counts, like Boarding's occupancy cards  —  2026-08-22
+🔵 **Record impact: none.**
+- "124 shown" answers how big the LIST is — a filter fact that says nothing about how many animals
+  are actually in the ward or how much work is waiting on them. After the migration the gap was
+  stark: 124 shown, every one of them historical (user, 2026-08-22).
+- Three cards now lead the page: **In the ward · Tasks due · Meds due**, counted from ALL rows rather
+  than the filtered list, so "how many are in tonight" cannot change because someone typed in the
+  search box. Tasks and meds go amber/rose only when something is actually outstanding.
+
+
 ### change: Laboratory and Imaging use the shared list filter bar  —  2026-08-22
 🔵 **Record impact: none.**
 - Boarding, In-patient and Grooming already shared `ListFilterBar`; Lab and Imaging carried a

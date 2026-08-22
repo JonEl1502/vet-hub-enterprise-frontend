@@ -89,6 +89,19 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
     });
   }, [rows, status, search, dateRange]);
 
+  /**
+   * Ward counts come from ALL rows, never the filtered list — "how many animals
+   * are in tonight" must not change because someone typed in the search box.
+   */
+  const wardCounts = useMemo(() => {
+    const admittedRows = rows.filter(h => h.status === 'ADMITTED');
+    return {
+      admitted: admittedRows.length,
+      tasksDue: admittedRows.reduce((n, h) => n + (due[h.id]?.tasksDue ?? 0), 0),
+      medsDue: admittedRows.reduce((n, h) => n + (due[h.id]?.medsDue ?? 0), 0),
+    };
+  }, [rows, due]);
+
   // Admission is a full in-app page now — render it in place of the list so
   // the sidebar/breadcrumb stay visible (it used to be a full-screen modal).
   if (admitOpen) {
@@ -118,6 +131,26 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
         <div className="flex items-center gap-3">
           {/* Default daily rate is set in Clinic Management → Billables, not here. */}
           <button onClick={() => { setAdmitCtx(null); setAdmitOpen(true); }} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> Admit</button>
+        </div>
+      </div>
+
+      {/* Ward-at-a-glance cards, matching Boarding's occupancy pair (user,
+          2026-08-22). "124 shown" answers how big the LIST is, which is a
+          filter fact — it says nothing about how many animals are actually in
+          the ward right now, or how much work is waiting on them. After the
+          migration that gap was stark: 124 shown, all of them historical. */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 max-w-2xl">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-slate-400"><Stethoscope size={15} /><span className="text-[9px] font-black uppercase tracking-widest">In the ward</span></div>
+          <p className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 mt-1">{wardCounts.admitted}</p>
+        </div>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-slate-400"><ClipboardCheck size={15} /><span className="text-[9px] font-black uppercase tracking-widest">Tasks due</span></div>
+          <p className={`text-2xl sm:text-3xl font-black mt-1 ${wardCounts.tasksDue > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-pine dark:text-zinc-100'}`}>{wardCounts.tasksDue}</p>
+        </div>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 sm:p-4 shadow-sm">
+          <div className="flex items-center gap-2 text-slate-400"><Pill size={15} /><span className="text-[9px] font-black uppercase tracking-widest">Meds due</span></div>
+          <p className={`text-2xl sm:text-3xl font-black mt-1 ${wardCounts.medsDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-pine dark:text-zinc-100'}`}>{wardCounts.medsDue}</p>
         </div>
       </div>
 
