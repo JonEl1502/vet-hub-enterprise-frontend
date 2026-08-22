@@ -200,6 +200,22 @@ export interface ClientBilling {
 }
 
 export const clientsAPI = {
+  /**
+   * Brought-forward balances (212) — money a client owed in the system the
+   * clinic migrated off. Until actualised it is only a remembered figure, so it
+   * is deliberately absent from ageing and revenue reports.
+   */
+  getLegacyBalances: async (options?: RequestOptions): Promise<ApiResponse<any>> =>
+    get('/clients/legacy-balances', { cache: false, ...options }),
+
+  /**
+   * Turn one brought-forward balance into a real LEGACY bill + invoice so it can
+   * be collected like anything else. Idempotent server-side — a second press
+   * cannot bill the client twice.
+   */
+  actualiseLegacyBalance: async (clientId: string | number, body?: { dueDate?: string }): Promise<ApiResponse<any>> =>
+    post(`/clients/${clientId}/actualise-legacy-balance`, body ?? {}),
+
   /** Invoices + payments + receipts for the client's Payments tab. */
   getBilling: async (clientId: string | number, options?: RequestOptions): Promise<ApiResponse<ClientBilling>> =>
     get(`/clients/${clientId}/billing`, { cache: false, ...options }),

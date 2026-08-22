@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Actualise a brought-forward balance from the client card  —  2026-08-22
+🔵 **Record impact: none directly** — but the button CREATES an invoice (backend 212).
+- A clinic migrating off another system arrives owing money that was never billed here. It now shows
+  on the client card as an amber **Actualise KES x,xxx** action; pressing it raises a real LEGACY
+  invoice so the debt can be collected through the normal flow.
+- Deliberately **not** folded into the card's existing `outstanding` figure: that number is real
+  receivables this clinic invoiced, and quietly adding money it never billed would misstate what is
+  owed. Confirmed before raising, since an invoice created in error has to be voided.
+
+### fix: migrated pets displayed as "126 YEARS"  —  2026-08-22
+🔵 **Record impact: none.** Display only.
+- Pets with no known birthday carry a sentinel `dob`; the card rendered it as a real age. Age is now
+  omitted when unknown, and `age ?? 0` no longer turns "we don't know" into "0" (a newborn).
+
+
 ### tweak: smaller locked banner, a header that stays on one row, procedure above the invoice  —  2026-08-21
 🟢 **Record impact: none** — layout and ordering.
 - **"Visit locked" was a hero card** — `p-5`, a 24px icon in its own tinted tile, a two-line paragraph —

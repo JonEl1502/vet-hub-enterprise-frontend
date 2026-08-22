@@ -162,7 +162,10 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
             species: String(p.species || ''),
             breed: String(p.breed || ''),
             gender: (String(p.gender || 'Male')) as 'Male' | 'Female',
-            age: p.age ?? 0,
+            // Age stays EMPTY when unknown. `?? 0` used to turn "we don't know"
+            // into "0", which reads as a newborn. Migrated records carry a
+            // sentinel dob and the API now returns null age for them.
+            age: p.age ?? '',
             dob: p.dob || '',
             weight: p.weightValue != null ? `${p.weightValue}${p.weightUnit || 'kg'}` : (p.weight || ''),
             avatar: String(p.avatarUrl || p.avatar || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.name}`),
@@ -573,7 +576,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                               </span>
                             )}
                           </div>
-                          <p className="text-seafoam dark:text-zinc-500 text-[8px] font-black uppercase tracking-widest">{pet.breed} • {pet.species} • {pet.age}</p>
+                          <p className="text-seafoam dark:text-zinc-500 text-[8px] font-black uppercase tracking-widest">{[pet.breed, pet.species, pet.age].filter(Boolean).join(' • ')}</p>
                           {/* Owning clinic/branch — only when multiple clinics are in scope. */}
                           <ScopeClinicBadge clinicId={(pet as any).clinicId} clinicName={pet.clinicName} className="mt-1" />
                         </div>

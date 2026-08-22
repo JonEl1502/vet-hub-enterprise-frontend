@@ -55,6 +55,39 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const [showWalkIn, setShowWalkIn] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [transferTarget, setTransferTarget] = useState<Client | null>(null);
+  // id of the client whose brought-forward balance is mid-flight (212)
+  const [actualising, setActualising] = useState<string | null>(null);
+
+  /**
+   * Turn a brought-forward balance into a real invoice.
+   *
+   * Confirmed first, deliberately: this CREATES a financial document the client
+   * can be chased for. The server is idempotent, so a double press is safe, but
+   * the person pressing should still know what they are doing.
+   */
+  const handleActualise = async (client: any) => {
+    const amount = Number(client.legacyBalance ?? 0);
+    const cur = client.currency || 'KES';
+    const src = client.legacyBalanceSource || 'the previous system';
+    const ok = window.confirm(
+      `Raise an invoice for ${cur} ${amount.toLocaleString()} carried over from ${src}?\n\n` +
+      `${client.name} will owe this in VetHub and it will appear in reports and ageing. ` +
+      `This cannot be undone from here — an invoice raised in error has to be voided.`,
+    );
+    if (!ok) return;
+    setActualising(String(client.id));
+    try {
+      const res: any = await clientsAPI.actualiseLegacyBalance(client.id);
+      const num = res?.data?.invoiceNumber || res?.invoiceNumber;
+      await refreshClients();
+      window.alert(num ? `Invoice ${num} raised for ${cur} ${amount.toLocaleString()}.` : 'Invoice raised.');
+    } catch (err: any) {
+      window.alert(err?.response?.data?.message || err?.message || 'Could not raise the invoice.');
+    } finally {
+      setActualising(null);
+    }
+  };
+
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MERCHANT_ADMIN';
 
   type ClientFilter = 'all' | 'upcoming' | 'pastCount' | 'hasVaccines';
@@ -1111,6 +1144,24 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                     <button onClick={e => { e.stopPropagation(); onViewFinance(client.id); }} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${outstanding > 0 ? 'bg-rose-600 text-white hover:bg-rose-700' : 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700'}`}>
                       <CreditCard size={12} /> {outstanding > 0 ? `Collect ${(client.currency || 'KES')} ${outstanding.toLocaleString()}` : 'Payments'}
                     </button>
+                    {/* Brought-forward balance (212). Deliberately NOT folded into
+                        `outstanding` above: that figure is real receivables this
+                        clinic invoiced, and quietly adding money it never billed
+                        would misstate what is owed. It becomes real only when
+                        someone presses this, which raises a LEGACY invoice. */}
+                    {Number((client as any).legacyBalance ?? 0) > 0 && (
+                      <button
+                        title={`Raise an invoice for the ${(client as any).legacyBalanceSource || 'previous system'} balance so it can be collected here`}
+                        disabled={actualising === String(client.id)}
+                        onClick={e => { e.stopPropagation(); handleActualise(client); }}
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 disabled:opacity-50 transition-all"
+                      >
+                        <CreditCard size={12} />
+                        {actualising === String(client.id)
+                          ? 'Raising…'
+                          : `Actualise ${(client.currency || 'KES')} ${Number((client as any).legacyBalance).toLocaleString()}`}
+                      </button>
+                    )}
                   </div>
                 </motion.div>
               );
