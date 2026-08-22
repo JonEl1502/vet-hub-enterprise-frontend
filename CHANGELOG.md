@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: record a diagnostic result from the request row  —  2026-08-22
+🟡 **Record impact: lab_records / imaging_records.** Writes notes, findings and attachments.
+- The Diagnostic Requests panel could only DISPLAY a result and said *"results are attached from the
+  {category} page once uploaded"* — a page change, a re-search for the same patient and a walk back,
+  for the commonest action on a request. Findings, images and PDFs now go in on the row itself, with
+  **Save** or **Save & mark resulted** (user, 2026-08-22).
+- Files go straight to storage via a presigned PUT, so a 12MB radiograph never travels through the
+  API, and the URL is written to the record only once the bytes land — a failed upload leaves no
+  broken reference. Attachments are shown before saving and can be removed.
+- Saving forces a reload of the record; without that the panel kept rendering the pre-save copy and
+  the user's own edit looked like it had not taken.
+
+### feat: filter patients by Orphaned / With an owner  —  2026-08-22
+🔵 **Record impact: none.**
+- An orphaned patient has nobody to bill, remind or call, so being able to LIST them is the difference
+  between fixing a few and never finding them.
+
+### fix: "126" was still showing as a patient's age  —  2026-08-22
+🔵 **Record impact: none.**
+- The API was fixed to return `null` for a sentinel date of birth, but the client read
+  `p.age || calculateAge(p.dob)` and had its OWN age function — so a correct null fell straight
+  through and recomputed 126. Both halves now agree, and `??` replaces `||` so a real age of 0
+  (a patient under a year old) is no longer discarded as falsy.
+
+
 ### feat: link an owner to an orphaned patient — find one or create one  —  2026-08-22
 🟡 **Record impact: pets.owner_id.** Links a patient to a client; creates a client in the create path.
 - The "Orphaned · no owner linked" badge was inert, and the only cure sat in a panel far below, so the

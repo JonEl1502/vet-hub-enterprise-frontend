@@ -104,14 +104,25 @@ export const useData = () => {
   return context;
 };
 
-const calculateAge = (dob: string): number => {
-  if (!dob) return 0;
+/**
+ * Age from a date of birth, or null when we genuinely do not know.
+ *
+ * `pets.dob` is NOT NULL, so a patient whose birthday nobody recorded carries a
+ * sentinel (migrated records use 1900-01-01). This function used to subtract
+ * the years regardless and hand back **126**, which the card printed as if it
+ * were real. The API was fixed to return null for those — but the caller reads
+ * `p.age || calculateAge(p.dob)`, so a correct null fell straight through to
+ * here and the 126 came back. Both halves have to agree.
+ */
+const calculateAge = (dob: string): number | null => {
+  if (!dob) return null;
   const birth = new Date(dob);
+  if (Number.isNaN(birth.getTime()) || birth.getFullYear() <= 1900) return null;
   const today = new Date();
   let age = today.getFullYear() - birth.getFullYear();
   const m = today.getMonth() - birth.getMonth();
   if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
-  return age;
+  return age < 0 ? null : age;
 };
 
 export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -319,7 +330,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           breed: String(p.breed || ''),
           gender: String(p.gender || ''),
           dob: String(p.dob || ''),
-          age: p.age || calculateAge(p.dob),
+          // ?? not ||: a genuine age of 0 (under a year old) is falsy, and `||`
+          // would throw it away and recompute.
+          age: p.age ?? calculateAge(p.dob),
           weight: `${p.weightValue || 0}${p.weightUnit || 'kg'}`,
           avatar: String(p.avatarUrl || `https://api.dicebear.com/7.x/bottts/svg?seed=${p.name}`),
           medicalHistory: [],

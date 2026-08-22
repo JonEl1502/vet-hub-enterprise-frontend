@@ -112,7 +112,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
     return m;
   }, [clinics]);
 
-  type PetFilter = 'all' | 'upcoming' | 'pastCount' | 'hasVaccines';
+  type PetFilter = 'all' | 'upcoming' | 'pastCount' | 'hasVaccines' | 'orphaned' | 'withOwner';
   const [petFilter, setPetFilter] = useState<PetFilter>('all');
   const [pastCountMin, setPastCountMin] = useState<number>(3);
   const [filterDropdownOpen, setFilterDropdownOpen] = useState(false);
@@ -223,6 +223,15 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
       });
     } else if (petFilter === 'hasVaccines') {
       list = list.filter(pet => (pet.vaccinationCount ?? pet.vaccinations?.length ?? 0) > 0);
+    } else if (petFilter === 'orphaned' || petFilter === 'withOwner') {
+      // An orphan has nobody to bill, remind or call, so being able to LIST
+      // them is the difference between fixing a few and never finding them.
+      // `ownerId` 0/null both mean unlinked depending on where the row came from.
+      const hasOwner = (pet: any) => {
+        const o = pet.ownerId;
+        return o !== null && o !== undefined && Number(o) > 0;
+      };
+      list = petFilter === 'orphaned' ? list.filter(p => !hasOwner(p)) : list.filter(hasOwner);
     }
     if (letterFilter) {
       list = list.filter(p => {
@@ -330,6 +339,8 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                   {petFilter === 'upcoming' && 'Upcoming Visit'}
                   {petFilter === 'pastCount' && `With ${pastCountMin}+ Past Visits`}
                   {petFilter === 'hasVaccines' && 'With Vaccination Records'}
+                  {petFilter === 'orphaned' && 'Orphaned — no owner'}
+                  {petFilter === 'withOwner' && 'With an owner'}
                 </span>
                 {petFilter !== 'all' && (
                   <span
@@ -359,6 +370,18 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                       className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${petFilter === 'upcoming' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
                     >
                       Upcoming Visit
+                    </button>
+                    <button
+                      onClick={() => { setPetFilter('orphaned'); setPastCountDialogOpen(false); setFilterDropdownOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${petFilter === 'orphaned' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
+                    >
+                      Orphaned — no owner
+                    </button>
+                    <button
+                      onClick={() => { setPetFilter('withOwner'); setPastCountDialogOpen(false); setFilterDropdownOpen(false); }}
+                      className={`w-full text-left px-3 py-2 rounded-lg text-xs font-bold transition-all ${petFilter === 'withOwner' ? 'bg-seafoam text-white shadow-md' : 'text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800'}`}
+                    >
+                      With an owner
                     </button>
                     <button
                       onClick={() => { setPetFilter('hasVaccines'); setPastCountDialogOpen(false); setFilterDropdownOpen(false); }}

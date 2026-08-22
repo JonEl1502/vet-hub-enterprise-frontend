@@ -340,7 +340,7 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
         <input type="number" min={0} placeholder="0" value={fees[HOUSE_CALL_DISTANCE_KEY] ?? ''} onChange={e => setFee(HOUSE_CALL_DISTANCE_KEY, e.target.value)}
           className="w-24 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-2 py-1.5 text-[12px] font-black text-emerald-700 dark:text-emerald-400 outline-none focus:ring-2 focus:ring-seafoam/30 text-right" />
       </div>
-      <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">Saved automatically on this device — moves to clinic settings (all devices) in the API phase.</p>
+      <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">Saved in this browser only — a colleague on another device will not see these.</p>
     </div>
 
     {/* ── Emergency protocol billables ── */}
@@ -454,7 +454,14 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
         ))}
       </div>
       <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">
-        Saved automatically on this device. ⚠️ UI phase: the config moves to clinic settings (all devices) when the emergency-billables API lands; priced fees currently stage on the triage panel and are added to the bill at finalize in the API phase — attached consumables bill &amp; deduct immediately.
+        {/* The warning is real — this config is per-browser — but it used to be
+            written for developers ("UI phase", "when the API lands"), which
+            means nothing to the person actually pricing an oxygen cage. Say
+            what it costs THEM: a colleague on another machine sees none of it. */}
+        <strong className="text-amber-600">Saved in this browser only.</strong> A colleague on another
+        device or browser will not see these prices — set them again there, until clinic-wide saving
+        arrives. Priced interventions are added to the bill when the visit is finalised; attached
+        consumables bill and deduct stock immediately.
       </p>
     </div>
     </div>

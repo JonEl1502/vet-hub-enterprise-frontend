@@ -11,6 +11,7 @@ import { useAuth } from '../../../../../contexts/AuthContext';
 import { OutsourceServiceButton, OutsourcedJobChip } from '../../VisitOutsource';
 import { visitJobsAPI } from '../../../../../services/modules/visitJobs.api';
 import type { VisitJob } from '../../../../../services/modules/visitJobs.api';
+import InlineResultEditor from './InlineResultEditor';
 
 // Diagnostics rides on the visit's REAL service line-items: any lab/imaging/
 // dental service added to the visit shows here as a request. This step is
@@ -122,8 +123,12 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
   const [recs, setRecs] = useState<ModuleRecs | null>(null);
   const [recsLoading, setRecsLoading] = useState(false);
 
-  const loadRecords = async () => {
-    if (recs || recsLoading) return;
+  const loadRecords = async (force = false) => {
+    // `force` matters after saving a result inline: without it the early return
+    // below keeps showing the pre-save record, so the user's own edit looks
+    // like it did not take.
+    if (!force && (recs || recsLoading)) return;
+    if (recsLoading) return;
     setRecsLoading(true);
     try {
       const [labRes, imgRes] = await Promise.all([
@@ -308,11 +313,23 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
                       {recsLoading && !recs ? (
                         <p className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><Loader2 size={11} className="animate-spin" /> Loading result…</p>
                       ) : match?.type === 'lab' ? (
-                        <LabResultInline r={match.lab} />
+                        <>
+                          <LabResultInline r={match.lab} />
+                          {/* Record it HERE. Sending someone to another page to
+                              type a result they are looking at is the reason
+                              results arrive late. */}
+                          <InlineResultEditor kind="lab" lab={match.lab} onSaved={() => loadRecords(true)} />
+                        </>
                       ) : match?.type === 'imaging' ? (
-                        <ImagingResultInline r={match.img} />
+                        <>
+                          <ImagingResultInline r={match.img} />
+                          <InlineResultEditor kind="imaging" imaging={match.img} onSaved={() => loadRecords(true)} />
+                        </>
                       ) : (
-                        <p className="text-[10px] font-bold text-slate-400">No result record yet — results are attached from the {t.category} page once uploaded.</p>
+                        <p className="text-[10px] font-bold text-slate-400">
+                          No result record yet — it is created when the {t.category} request is started.
+                          Open <strong>Full page</strong> to begin one.
+                        </p>
                       )}
                     </div>
                   )}
