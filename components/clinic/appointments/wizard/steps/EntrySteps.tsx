@@ -216,9 +216,48 @@ export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (pat
   const form = FORMS[formKey];
   const d = data || {};
   if (!form) return null;
+
+  /**
+   * Nudge when the gate is still blank.
+   *
+   * This step is FIRST for a reason — it is the record of why the animal was
+   * admitted, where it is, and whether to resuscitate. An imported visit
+   * arrives with all of that empty, because the old system never captured it,
+   * and an empty form looks identical to a form somebody deliberately left
+   * blank. Say which it is, and name the fields that matter rather than
+   * scolding about "required fields" — none of these are required, they are
+   * just the ones you regret not having at 2am.
+   */
+  const KEY_FIELDS: Record<string, { key: string; label: string }[]> = {
+    admission: [
+      { key: 'reason', label: 'reason for admission' },
+      { key: 'ward', label: 'ward / cage' },
+      { key: 'code', label: 'resuscitation code' },
+    ],
+  };
+  const missing = (KEY_FIELDS[formKey] || []).filter(f => {
+    const v = d[f.key];
+    return v == null || String(v).trim() === '';
+  });
+
   return (
     <Section icon={ClipboardList} title={form.title} flat={flat}>
       {form.intro && <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">{form.intro}</p>}
+      {missing.length > 0 && (
+        <div className="flex items-start gap-2 px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/20">
+          <AlertTriangle size={13} className="text-amber-600 dark:text-amber-400 mt-0.5 shrink-0" />
+          <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300">
+            Admission details not recorded yet — please add the{' '}
+            {missing.map((f, i) => (
+              <span key={f.key}>
+                {i > 0 ? (i === missing.length - 1 ? ' and ' : ', ') : ''}
+                <strong>{f.label}</strong>
+              </span>
+            ))}
+            . On a visit brought over from another system these are blank because the old records never held them.
+          </p>
+        </div>
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         {form.fields.map(f => {
           const span = f.span === 2 ? 'md:col-span-2' : '';

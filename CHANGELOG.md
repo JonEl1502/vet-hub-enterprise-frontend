@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the admission gate prompts when it is still blank  —  2026-08-22
+🔵 **Record impact: none.** Prompt only.
+- Admission is already step 1 for any in-patient visit (`ENTRY_POINTS.admission`, and any visit with a
+  hospitalisation routes there whatever its type) — but on a migrated visit every field arrives empty,
+  and an empty form looks identical to one somebody deliberately left blank.
+- The step now names what is missing — **reason for admission, ward / cage, resuscitation code** — and
+  says why it is blank on an imported visit. Worded as the fields you regret not having at 2am rather
+  than "required fields", because none of them are required.
+
+
 ### change: Finance & BI — comparison is opt-in, and charts zoom/scroll  —  2026-08-22
 🔵 **Record impact: none.**
 - Two pre-filled date pickers side by side read as "which one am I meant to set?", and the second
