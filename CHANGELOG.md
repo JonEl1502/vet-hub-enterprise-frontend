@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: visits list printed "NULL" as a payment status; date range now sticks  —  2026-08-22
+🔵 **Record impact: none.**
+- The payment pill was `isPaid ? paymentMethod : 'Unpaid'`, so a visit that was paid but carried no
+  method rendered the literal string **NULL** — true of every migrated visit and of any KES 0 visit
+  where no money ever changed hands. A pill reading NULL looks like a broken record; it now says
+  **No charge** at zero and **Paid** when the method is unknown.
+- The **date range survives navigation** (user, 2026-08-22): picking "Jul 24 – Today", opening a
+  client and pressing Back used to snap the list back to today, so the filter had to be re-picked
+  after every single record.
+
+
 ### fix: full-width Cancel/Admit slabs  —  2026-08-22
 🔵 **Record impact: none.**
 - `flex-1` on both footer buttons made two half-width slabs: a ~900px ADMIT reads as a banner rather

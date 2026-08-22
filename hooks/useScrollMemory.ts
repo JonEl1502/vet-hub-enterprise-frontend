@@ -90,3 +90,26 @@ export function useRememberedState<T>(key: string, initial: T): [T, (v: T) => vo
 export function forgetRememberedState(key: string) {
   listState.delete(key);
 }
+
+/**
+ * Like useRememberedState, but for values that must survive a JSON round trip
+ * (a Date becomes a string in the store and has to come back as a Date).
+ *
+ * Used for list date ranges: picking "Jul 24 – Today", opening a client and
+ * pressing Back used to snap the list back to today, so the filter had to be
+ * set again after every single record.
+ */
+export function useRememberedRange<T extends { start: Date | null; end: Date | null }>(
+  key: string,
+  initial: () => T,
+): [T, (v: T) => void] {
+  const [value, setValue] = useState<T>(() => {
+    const raw = listState.get(key) as any;
+    if (raw && (raw.start || raw.end)) {
+      return { ...raw, start: raw.start ? new Date(raw.start) : null, end: raw.end ? new Date(raw.end) : null } as T;
+    }
+    return initial();
+  });
+  const set = (v: T) => { listState.set(key, v); setValue(v); };
+  return [value, set];
+}

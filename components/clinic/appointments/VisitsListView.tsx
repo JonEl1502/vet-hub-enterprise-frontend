@@ -1,4 +1,5 @@
 
+import { useRememberedRange } from '../../../hooks/useScrollMemory';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Visit, ApptStatus, Pet, User, Clinic } from '../../../types';
 import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope, X, Users } from 'lucide-react';
@@ -52,6 +53,20 @@ const VisitsListView: React.FC<Props> = ({
   initialOpenOnly
 }) => {
   const { user } = useAuth();
+  /**
+   * What the payment pill should say.
+   *
+   * It used to be `isPaid ? paymentMethod : 'Unpaid'`, which printed the literal
+   * string **"NULL"** whenever a visit was paid but carried no method — true of
+   * every migrated visit, and of any KES 0 visit where nobody ever took money.
+   * A pill reading NULL is worse than no pill: it looks like a broken record.
+   */
+  const payLabel = (a: any): string => {
+    if (!a?.isPaid) return 'Unpaid';
+    if (!Number(a?.totalCost || 0)) return 'No charge';
+    return a?.paymentMethod || 'Paid';
+  };
+
   const canCreateVisit = userCan(user, 'create_appointments');
   const canEditVisit = userCan(user, 'edit_appointments');
   const canDeleteVisit = userCan(user, 'delete_appointments');
@@ -83,7 +98,10 @@ const VisitsListView: React.FC<Props> = ({
   });
 
   // Date range for client-side filtering — default today through far future
-  const [dateRange, setDateRange] = useState<DateRange>(() => {
+  // Survives opening a visit/client and pressing Back (user, 2026-08-22) —
+  // otherwise the list snapped to today and the range had to be re-picked after
+  // every record.
+  const [dateRange, setDateRange] = useRememberedRange<DateRange>('visits:dateRange', () => {
     const today = startOfToday();
     const farFuture = new Date(2099, 11, 31);
     return { start: today, end: farFuture };
@@ -566,7 +584,7 @@ const VisitsListView: React.FC<Props> = ({
                               : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                               }`}>
                               <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${appt.isPaid ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-                              {appt.isPaid ? `${appt.paymentMethod}` : 'Unpaid'}
+                              {payLabel(appt)}
                             </span>
                           </td>
 
@@ -847,7 +865,7 @@ const VisitsListView: React.FC<Props> = ({
                             : 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                             }`}>
                             <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${appt.isPaid ? 'bg-emerald-500' : 'bg-amber-500'}`}></span>
-                            {appt.isPaid ? appt.paymentMethod : 'Unpaid'}
+                            {payLabel(appt)}
                           </span>
                         </div>
                       </div>
