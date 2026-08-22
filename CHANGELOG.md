@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: "0 PATIENTS" on client cards + Actualise on the client profile  —  2026-08-22
+🔵 **Record impact: none** on the count fix; the Actualise button CREATES an invoice (backend 212).
+- The card counted the `pets` slice held in context, which is ONE PAGE. On a clinic with thousands of
+  patients most clients' pets are not in it, so cards read "0 PATIENTS" for clients who plainly had
+  one. The count now comes from the server's `petCount`; the local slice is used only for the FACES
+  we actually hold, and where none are loaded the card says "Open profile to view" rather than "None".
+- The client profile header gains a **CARRIED OVER** cell beside Outstanding Balance, with Actualise.
+  Kept separate from Outstanding on purpose: that figure is what this clinic invoiced.
+
+
 ### feat: filter clients by "With Pets" / "Without Pets"  —  2026-08-22
 🔵 **Record impact: none.** Read-only filter.
 - Two new options in the Clients filter. "Without Pets" is the one that earns its place: after a data

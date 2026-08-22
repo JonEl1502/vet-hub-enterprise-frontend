@@ -757,6 +757,14 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 p-4 overflow-visible">
             {filteredClients.map((client, index) => {
               const clientPets = getClientPets(client.id);
+              // `pets` in context is only the page this view has loaded, so on a
+              // clinic with thousands of patients most clients' pets are simply
+              // absent from it — which rendered "0 PATIENTS" for clients who
+              // plainly have one. The server's petCount is authoritative; the
+              // local slice is only good for showing FACES we actually hold.
+              const petTotal = typeof (client as any).petCount === 'number'
+                ? (client as any).petCount
+                : clientPets.length;
               const alerts = getUpcomingClientAlerts(client.id);
               const alert = alerts[0] ?? null;
               const extraAlerts = alerts.length - 1;
@@ -1066,9 +1074,9 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
 
                         <button className="relative z-10 w-9 h-9 flex items-center justify-center bg-slate-100 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl hover:bg-emerald-500 hover:text-white transition-all duration-200">
                           <PawPrint size={14} />
-                          {clientPets.length > 0 && (
+                          {petTotal > 0 && (
                             <span className="absolute -top-1 -right-1 min-w-[14px] h-4 bg-emerald-500 text-white text-[9px] font-semibold rounded-full flex items-center justify-center border border-white shadow-sm">
-                              {clientPets.length}
+                              {petTotal}
                             </span>
                           )}
                         </button>
@@ -1111,7 +1119,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                         not a comma-separated string in a tile. */}
                     <div className="min-w-0">
                       <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                        {clientPets.length} Patient{clientPets.length === 1 ? '' : 's'}
+                        {petTotal} Patient{petTotal === 1 ? '' : 's'}
                       </p>
                       {clientPets.length > 0 ? (
                         <div className="flex items-center gap-1.5 flex-wrap">
@@ -1129,6 +1137,11 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                             <span className="text-[10px] font-black text-slate-400">+{clientPets.length - 4}</span>
                           )}
                         </div>
+                      ) : petTotal > 0 ? (
+                        // We KNOW they have patients (server count) but this page
+                        // has not loaded those pet rows, so there are no faces to
+                        // draw. Say that, rather than "None" — which is a lie.
+                        <p className="text-[11px] font-bold text-slate-400">Open profile to view</p>
                       ) : (
                         <p className="text-[11px] font-bold text-slate-400">None</p>
                       )}

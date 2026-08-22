@@ -220,6 +220,36 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
     .filter(p => p.status !== 'VOIDED')
     .sort((a, b) => new Date(b.settledAt || b.createdAt).getTime() - new Date(a.settledAt || a.createdAt).getTime())[0] ?? null;
   const headerOutstanding = billing?.outstanding ?? client.outstandingBalance ?? 0;
+
+  // ── Brought-forward balance (212) ─────────────────────────────────────────
+  // Money owed in the system this clinic migrated off. Held apart from
+  // headerOutstanding on purpose: that figure is what WE invoiced, and folding
+  // in a debt we never billed would misstate it. Actualise turns it into a real
+  // invoice, at which point it moves into Outstanding and this disappears.
+  const [actualising, setActualising] = useState(false);
+  const [legacyCleared, setLegacyCleared] = useState(false);
+  const legacyBalance = legacyCleared ? 0 : Number((client as any).legacyBalance ?? 0);
+  const legacySource = (client as any).legacyBalanceSource as string | undefined;
+
+  const handleActualise = async () => {
+    const cur = client.currency || 'KES';
+    if (!window.confirm(
+      `Raise an invoice for ${cur} ${legacyBalance.toLocaleString()} carried over from ${legacySource || 'the previous system'}?\n\n` +
+      `${client.name} will owe this in VetHub and it will show in reports and ageing. ` +
+      `An invoice raised in error has to be voided — it cannot be undone from here.`,
+    )) return;
+    setActualising(true);
+    try {
+      const res: any = await clientsAPI.actualiseLegacyBalance(client.id);
+      const num = res?.data?.invoiceNumber || res?.invoiceNumber;
+      setLegacyCleared(true);
+      toast.success(num ? `Invoice ${num} raised` : 'Invoice raised');
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || 'Could not raise the invoice');
+    } finally {
+      setActualising(false);
+    }
+  };
   /**
    * Where a visit sits on Bill → Invoice → Payment, for the visit-card menu.
    * The menu used to offer "Process Payment" and "Invoice" on every visit,
@@ -1101,7 +1131,7 @@ const renderOverview = () => (
             <div className="shrink-0 w-full xl:w-auto flex flex-col justify-between gap-3">
               {hasFullAccess ? (
                 <>
-                  <div className="grid grid-cols-2 sm:grid-cols-4 rounded-xl border border-slate-100 dark:border-zinc-800 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-zinc-800 overflow-hidden">
+                  <div className={`grid grid-cols-2 ${legacyBalance > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} rounded-xl border border-slate-100 dark:border-zinc-800 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-zinc-800 overflow-hidden`}>
                     <div className="px-4 py-3 text-center">
                       <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Spend (Lifetime)</p>
                       <p className="text-sm font-black font-mono text-pine dark:text-zinc-100 whitespace-nowrap">{money2(client.totalSpent || 0)}</p>
@@ -1120,6 +1150,21 @@ const renderOverview = () => (
                         <p className="text-[7px] font-black uppercase tracking-widest text-rose-400 mt-0.5">Click to settle</p>
                       )}
                     </button>
+                    {/* CARRIED OVER (212). Deliberately its own cell rather than
+                        folded into Outstanding Balance above: that figure is money
+                        THIS clinic invoiced, and quietly adding a debt it never
+                        billed would misstate what the client owes. Pressing this
+                        raises a real LEGACY invoice, after which the amount moves
+                        into Outstanding Balance and this cell disappears. */}
+                    {legacyBalance > 0 && (
+                      <button type="button" onClick={handleActualise} disabled={actualising}
+                        title={`Raise an invoice for the ${legacySource || 'previous system'} balance so it can be collected here`}
+                        className="px-4 py-3 text-center transition-all hover:bg-amber-50/60 dark:hover:bg-amber-950/20 active:scale-[0.98] disabled:opacity-50">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Carried Over</p>
+                        <p className="text-sm font-black font-mono text-amber-600 dark:text-amber-400 whitespace-nowrap">{money2(legacyBalance)}</p>
+                        <p className="text-[7px] font-black uppercase tracking-widest text-amber-500 mt-0.5">{actualising ? 'Raising…' : 'Actualise'}</p>
+                      </button>
+                    )}
                     <button type="button" onClick={() => setTopUpOpen(true)}
                       title="Receive a payment from this client, ahead of any bill"
                       className="px-4 py-3 text-center transition-all hover:bg-emerald-50/60 dark:hover:bg-emerald-950/20 active:scale-[0.98]">
