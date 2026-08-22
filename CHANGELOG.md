@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: THE reason clients showed no patients — DataContext dropped the fields  —  2026-08-22
+🔵 **Record impact: none.** Read path only.
+- The clients API embeds each client's `pets` and `petCount`, and now `legacyBalance` too. **The
+  DataContext mapper is an allow-list and copied none of them**, so every consumer saw `undefined`:
+  cards read "0 PATIENTS" with no pet faces, the profile showed "PETS (0)", and the Actualise button
+  never appeared for anyone. The API had been correct throughout — verified client-by-client against
+  the database.
+- Mapper now carries `pets`, `petCount`, `legacyBalance`, `legacyBalanceSource`. `getClientPets`
+  prefers the server's embedded list and keeps the loaded slice only as a fallback — that slice is one
+  page, so on a clinic with 4,047 patients it is empty for most clients.
+
+
 ### feat: "Carried-over debts" tab in Import data — actualise in bulk  —  2026-08-22
 🔵 **Record impact: none directly** — but each row RAISES an invoice (backend 212).
 - The first live migration landed **738** carried-over balances (KES 16.8M). Pressing Actualise 738

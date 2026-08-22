@@ -354,7 +354,27 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
     setCurrentPage(1);
   };
 
-  const getClientPets = (clientId: number) => pets.filter(p => p.ownerId === clientId);
+  /**
+   * A client's pets, preferring the ones the SERVER sent with that client.
+   *
+   * `pets` from context is only the page this view has loaded — on a clinic
+   * with thousands of patients most clients' pets are simply not in it, so
+   * filtering it alone drew no pet faces at all for clients who plainly have
+   * them. The clients list already embeds each client's own pets, which is
+   * both authoritative and free; context is now just the fallback for callers
+   * that pass an id with no client object to hand.
+   */
+  const getClientPets = (clientId: number, client?: any) => {
+    const embedded = client?.pets;
+    if (Array.isArray(embedded) && embedded.length) {
+      return embedded.map((p: any) => ({
+        ...p,
+        id: typeof p.id === 'string' ? parseInt(p.id) : p.id,
+        ownerId: clientId,
+      }));
+    }
+    return pets.filter(p => p.ownerId === clientId);
+  };
 
   /**
    * Card badges (user, 2026-08-03): the two things a front desk actually looks
@@ -756,7 +776,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
           )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 p-4 overflow-visible">
             {filteredClients.map((client, index) => {
-              const clientPets = getClientPets(client.id);
+              const clientPets = getClientPets(client.id, client);
               // `pets` in context is only the page this view has loaded, so on a
               // clinic with thousands of patients most clients' pets are simply
               // absent from it — which rendered "0 PATIENTS" for clients who

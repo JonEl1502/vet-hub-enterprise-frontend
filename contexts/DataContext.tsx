@@ -273,7 +273,22 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           joinDate: String(c.joinedAt || new Date().toISOString().split('T')[0]),
           totalSpent: Number(c.totalSpent) || 0,
           lastVisit: String(c.lastVisitAt || ''),
-        }));
+          // ⚠️ This mapper is allow-list: a field it does not copy is GONE, no
+          // matter that the API sent it. These four were being dropped, which
+          // is why client cards showed "0 PATIENTS" with no pet faces for
+          // clients who plainly had pets, and why the Actualise button never
+          // appeared on anyone. The API was right the whole time.
+          petCount: typeof c.petCount === 'number' ? c.petCount : undefined,
+          pets: Array.isArray(c.pets)
+            ? c.pets.map((p: any) => ({
+                ...p,
+                id: typeof p.id === 'string' ? parseInt(p.id) : p.id,
+                ownerId: parseInt(c.id),
+              }))
+            : undefined,
+          legacyBalance: c.legacyBalance != null ? Number(c.legacyBalance) : null,
+          legacyBalanceSource: c.legacyBalanceSource ?? null,
+        }) as any);
         setClients(mapped);
         const totalFromServer = Number(response.data?.pagination?.totalItems);
         setTotals(prev => ({ ...prev, clients: Number.isFinite(totalFromServer) ? totalFromServer : mapped.length }));
@@ -592,7 +607,20 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const getClientById = useCallback((id: number) => clients.find(c => c.id === id), [clients]);
   const getPetById = useCallback((id: number) => pets.find(p => p.id === id), [pets]);
-  const getClientPets = useCallback((clientId: number) => pets.filter(p => p.ownerId === clientId), [pets]);
+  /**
+   * A client's pets — the SERVER's copy first.
+   *
+   * `pets` here is only the page this context has loaded. On a clinic with
+   * thousands of patients most clients' pets are absent from it, so filtering
+   * it alone returned an empty list for clients who plainly have pets (the
+   * client profile then showed "PETS (0)"). The clients list embeds each
+   * client's own pets, so prefer those and keep the slice as the fallback.
+   */
+  const getClientPets = useCallback((clientId: number) => {
+    const embedded = (clients.find(c => c.id === clientId) as any)?.pets;
+    if (Array.isArray(embedded) && embedded.length) return embedded as Pet[];
+    return pets.filter(p => p.ownerId === clientId);
+  }, [pets, clients]);
 
   const addClientOptimistically = useCallback((c: Client) => setClients(prev => [...prev, c]), []);
   const updateClientOptimistically = useCallback((id: number, upd: (c: Client) => Client) => setClients(prev => prev.map(c => c.id === id ? upd(c) : c)), []);
