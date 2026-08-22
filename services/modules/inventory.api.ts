@@ -17,7 +17,12 @@ export interface InventoryItem {
     supplierId: string;
     supplierName: string | null;
     isDefault: boolean;
+    /** Always PER STOCK UNIT — what every calculation should use. */
     costPrice: number | null;
+    /** 219 — what was typed, and what it meant. */
+    costBasis?: 'UNIT' | 'PACK';
+    costInput?: number | null;
+    costPackQty?: number | null;
     supplierSku?: string | null;
     leadTimeDays?: number | null;
   }>;
@@ -147,6 +152,11 @@ export interface CreateInventoryItemData {
     supplierId: string | number;
     isDefault?: boolean;
     costPrice?: number | null;
+    /** 219 — 'UNIT' (per stock unit) or 'PACK' (per outer pack). */
+    costBasis?: 'UNIT' | 'PACK';
+    /** The figure as typed; the server derives costPrice from it. */
+    costInput?: number | null;
+    costPackQty?: number | null;
     supplierSku?: string | null;
     leadTimeDays?: number | null;
   }>;
@@ -183,6 +193,11 @@ export interface UpdateInventoryItemData {
     supplierId: string | number;
     isDefault?: boolean;
     costPrice?: number | null;
+    /** 219 — 'UNIT' (per stock unit) or 'PACK' (per outer pack). */
+    costBasis?: 'UNIT' | 'PACK';
+    /** The figure as typed; the server derives costPrice from it. */
+    costInput?: number | null;
+    costPackQty?: number | null;
     supplierSku?: string | null;
     leadTimeDays?: number | null;
   }>;

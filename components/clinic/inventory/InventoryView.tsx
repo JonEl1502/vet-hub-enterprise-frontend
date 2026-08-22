@@ -336,7 +336,12 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       supplierId: string | number;
       supplierName?: string | null;
       isDefault: boolean;
+      /** Per STOCK unit — derived server-side; never edited directly. */
       costPrice?: number | null;
+      /** 219 — what was typed and what it meant. */
+      costBasis?: 'UNIT' | 'PACK';
+      costInput?: number | null;
+      costPackQty?: number | null;
     }>;
     // Structured category + pricing/fee metadata (persisted to metadata JSONB)
     mainCategory: 'MEDICINE' | 'CONSUMABLE';
@@ -560,9 +565,12 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
             supplierName: l.supplierName ?? null,
             isDefault: !!l.isDefault,
             costPrice: l.costPrice ?? null,
+            costBasis: l.costBasis === 'PACK' ? 'PACK' : 'UNIT',
+            costInput: l.costInput ?? l.costPrice ?? null,
+            costPackQty: l.costPackQty ?? null,
           }))
         : (item.supplierId
-            ? [{ supplierId: String(item.supplierId), isDefault: true, costPrice: item.costPrice ?? null }]
+            ? [{ supplierId: String(item.supplierId), isDefault: true, costPrice: item.costPrice ?? null, costBasis: 'UNIT' as const, costInput: item.costPrice ?? null, costPackQty: null }]
             : []),
       mainCategory: (meta.mainCategory === 'CONSUMABLE' ? 'CONSUMABLE' : 'MEDICINE'),
       subcategories: Array.isArray(meta.subcategories) ? meta.subcategories : [],
@@ -1622,18 +1630,66 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                             {sup?.name ?? link.supplierName ?? `Supplier ${link.supplierId}`}
                             {link.isDefault && <span className="ml-1.5 text-[9px] font-black uppercase tracking-wider text-seafoam">Default</span>}
                           </span>
-                          <input
-                            type="number" min="0" step="any"
-                            placeholder="Their price"
-                            title="What THIS supplier charges — leave blank if unknown"
-                            value={link.costPrice ?? ''}
-                            onChange={e => setItemForm(f => ({
+                          {/* 219 — a price with no unit is a guess. "1,200"
+                              means one thing per Tablet and quite another per
+                              box of 24 (user, 2026-08-22: "set their price per
+                              bought unit or the bigger one if set").
+
+                              The per-pack option only appears when the product
+                              actually HAS an outer pack; offering it otherwise
+                              would invite a division by nothing. */}
+                          {(() => {
+                            const stockU = itemForm.unit || 'unit';
+                            // The outer pack: `packOf` once buy and sell units
+                            // differ, otherwise `packSize` carries it.
+                            const sellU = (itemForm.sellUnit || '').trim();
+                            const isSplit = !!sellU && sellU.toLowerCase() !== stockU.toLowerCase();
+                            const packQty = Number(isSplit ? itemForm.packOf : itemForm.packSize) || 0;
+                            const basis = link.costBasis === 'PACK' ? 'PACK' : 'UNIT';
+                            const perUnit = link.costInput != null
+                              ? (basis === 'PACK' && packQty > 0 ? Number(link.costInput) / packQty : Number(link.costInput))
+                              : null;
+                            const patch = (over: any) => setItemForm(f => ({
                               ...f,
-                              suppliers: (f.suppliers ?? []).map((l, i) => i === idx
-                                ? { ...l, costPrice: e.target.value === '' ? null : Number(e.target.value) } : l),
-                            }))}
-                            className="w-24 px-2 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-md text-xs font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
-                          />
+                              suppliers: (f.suppliers ?? []).map((l, i) => i === idx ? { ...l, ...over } : l),
+                            }));
+                            return (
+                              <span className="flex items-center gap-1.5">
+                                <input
+                                  type="number" min="0" step="any"
+                                  placeholder="Their price"
+                                  title={`What THIS supplier charges per ${basis === 'PACK' ? `pack of ${packQty}` : stockU} — leave blank if unknown`}
+                                  value={link.costInput ?? ''}
+                                  onChange={e => {
+                                    const v = e.target.value === '' ? null : Number(e.target.value);
+                                    patch({ costInput: v, costPackQty: basis === 'PACK' ? packQty : null });
+                                  }}
+                                  className="w-24 px-2 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-md text-xs font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                                />
+                                {packQty > 0 ? (
+                                  <select
+                                    value={basis}
+                                    onChange={e => patch({
+                                      costBasis: e.target.value as 'UNIT' | 'PACK',
+                                      costPackQty: e.target.value === 'PACK' ? packQty : null,
+                                    })}
+                                    title="Is that price for one unit, or for a whole pack?"
+                                    className="w-28 px-1.5 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-md text-[10px] font-bold text-slate-500 dark:text-zinc-400 outline-none focus:ring-2 focus:ring-seafoam/20"
+                                  >
+                                    <option value="UNIT">per {stockU}</option>
+                                    <option value="PACK">per pack of {packQty}</option>
+                                  </select>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap">per {stockU}</span>
+                                )}
+                                {basis === 'PACK' && perUnit != null && packQty > 0 && (
+                                  <span className="text-[10px] font-bold text-slate-400 whitespace-nowrap" title="What that works out to per stock unit — this is the figure reorder estimates use">
+                                    = {perUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })}/{stockU}
+                                  </span>
+                                )}
+                              </span>
+                            );
+                          })()}
                           <button
                             type="button"
                             title="Remove this supplier"
@@ -1659,7 +1715,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                         setItemForm(f => {
                           const existing = f.suppliers ?? [];
                           if (existing.some(l => String(l.supplierId) === id)) return f;   // no duplicates
-                          const next = [...existing, { supplierId: id, isDefault: existing.length === 0, costPrice: null }];
+                          const next = [...existing, { supplierId: id, isDefault: existing.length === 0, costPrice: null, costBasis: 'UNIT' as const, costInput: null, costPackQty: null }];
                           return { ...f, suppliers: next, supplierId: Number(next.find(l => l.isDefault)!.supplierId) };
                         });
                       }}

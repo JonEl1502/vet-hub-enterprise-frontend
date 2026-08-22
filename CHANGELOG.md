@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the calculator never appeared  —  2026-08-22
+🔴 **My own bug, shipped hours earlier.** The launcher sits in the Navbar, whose `<nav>` carries
+`backdrop-blur-xl`. **`backdrop-filter` makes an element a containing block for `position: fixed`
+descendants**, so the panel resolved `left/top` against a 64px-tall bar instead of the viewport and
+opened outside its parent's box — the button toggled state, nothing showed (user: *"calculator not
+opening"*). It is now portalled to `<body>`. The same trap applies to `transform`, `filter` and
+`will-change`, which is why the fix is a portal rather than hunting down one offending class.
+
+### feat: supplier prices state their unit  —  2026-08-22
+🟢 **Record impact: none.** Needs backend migration 219.
+- The **Their price** box was a bare number: 1,200 could mean per tablet or per box of 24 (user,
+  2026-08-22: *"set their price per bought unit or the bigger one if set"*). Each row now names the
+  unit, and where the product actually has an outer pack, offers **per {unit}** / **per pack of N**.
+- Choosing per-pack shows the derived figure inline — `= 50/Tablet` — because that is the number
+  reorder estimates use, and it should not be a surprise.
+- The per-pack option only appears when a pack size exists; offering it otherwise would invite a
+  division by nothing.
+
 ### fix: the buy/sell panels rendered unstyled  —  2026-08-22
 🔴 **My own bug, shipped this morning.** The BUY panel's field classes were written as a literal
 `"''' + FIELD + '''"` — a scripting artefact that survived into the JSX — so "Units bought" and

@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Delete, Equal, Minus } from 'lucide-react';
 
 /**
@@ -143,6 +144,18 @@ const PopCalculator: React.FC<Props> = ({ open, onClose }) => {
 
   if (!open) return null;
 
+  /**
+   * ⚠️ PORTALLED TO <body>, and it has to be.
+   *
+   * The launcher lives in the Navbar, whose <nav> carries `backdrop-blur-xl`.
+   * `backdrop-filter` makes an element a CONTAINING BLOCK for `position: fixed`
+   * descendants, so rendering in place resolved `left/top` against a 64px-tall
+   * bar instead of the viewport — the panel opened outside its parent's box and
+   * was effectively invisible (user, 2026-08-22: "calculator not opening").
+   * Same trap applies to `transform`, `filter` and `will-change`, so the portal
+   * is the fix rather than hunting for one offending class.
+   */
+
   const KEYS: { t: string; label?: string; kind?: 'op' | 'eq' | 'fn' }[] = [
     { t: 'C', kind: 'fn' }, { t: '(', kind: 'fn' }, { t: ')', kind: 'fn' }, { t: '÷', kind: 'op' },
     { t: '7' }, { t: '8' }, { t: '9' }, { t: '×', kind: 'op' },
@@ -151,7 +164,7 @@ const PopCalculator: React.FC<Props> = ({ open, onClose }) => {
     { t: '0' }, { t: '.' }, { t: '%', kind: 'fn' }, { t: '=', kind: 'eq' },
   ];
 
-  return (
+  return createPortal(
     <div
       className="fixed z-[80] select-none"
       style={{ left: pos.x, top: pos.y, width: PANEL_W }}
@@ -225,7 +238,8 @@ const PopCalculator: React.FC<Props> = ({ open, onClose }) => {
           </>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 
