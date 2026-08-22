@@ -79,6 +79,8 @@ import SupplierMetricsDashboard from './components/admin/platform/SupplierMetric
 import ScopePickerModal, { type PickItem } from './components/admin/platform/ScopePickerModal';
 import ClinicManagementView from './components/clinic/clinic-mgmt/ClinicManagementView';
 import ImportDataView from './components/shared/common/ImportDataView';
+import PetFetchGate from './components/clinic/pets/PetFetchGate';
+import useScrollMemory from './hooks/useScrollMemory';
 import BillingTiersView from './components/clinic/billing/BillingTiersView';
 import VisitDetailView from './components/clinic/appointments/VisitDetailView';
 import VaccinationRecordPage from './components/clinic/appointments/VaccinationRecordPage';
@@ -340,6 +342,22 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const [navStack, setNavStack] = useState<NavState[]>([{ view: getInitialView() }]);
   const currentNav = navStack[navStack.length - 1];
   const activeView = currentNav.view;
+
+  /**
+   * Put the user back where they were when they press Back.
+   *
+   * Keyed on the view plus the params that decide WHICH record is shown, so
+   * every client profile keeps its own offset and none inherits another's.
+   * `page` is deliberately part of the key: paging is a different screenful,
+   * and page 7's offset means nothing on page 2.
+   */
+  const scrollKey = React.useMemo(() => {
+    const p: any = currentNav.params || {};
+    const identity = [p.clientId, p.petId, p.appointmentId, p.stayId, p.page, p.initialTab]
+      .filter(v => v !== undefined && v !== null).join(':');
+    return `${currentNav.view}|${identity}`;
+  }, [currentNav.view, currentNav.params]);
+  useScrollMemory(scrollKey, navStack.length > 0);
 
   // Cache-miss fetch tracking — avoid duplicate API calls for individual records
   const [fetchingApptId, setFetchingApptId] = useState<number | null>(null);
@@ -2543,28 +2561,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         // Get pet from context (should be available from auto-fetch cache)
         const pet = getPetById(pId);
         if (!pet) {
-          // Pet not found in cache - this could happen if:
-          // 1. The pet was just created and cache hasn't refreshed
-          // 2. The pet is beyond the first 100 records
-          // 3. The pet was deleted
-          return (
-            <div className="p-6">
-              <button onClick={goBack} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-zinc-800 rounded-lg hover:bg-slate-300 dark:hover:bg-zinc-700">
-                ← Back
-              </button>
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                <p className="text-yellow-800 dark:text-yellow-200">Pet not found. The pet may have been deleted or you may not have access to view it.</p>
-                <button
-                  onClick={() => refreshPets()}
-                  className="mt-3 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
-                >
-                  Refresh Data
-                </button>
-              </div>
-            </div>
-          );
+          // Not in the loaded page — fetch that one pet rather than declaring it
+          // gone. With 4,047 patients most ids are legitimately absent here.
+          return <PetFetchGate petId={pId} onBack={goBack} />;
         }
-
         return <PetProfileView
           pet={pet}
           owner={getClientById(pet.ownerId)}

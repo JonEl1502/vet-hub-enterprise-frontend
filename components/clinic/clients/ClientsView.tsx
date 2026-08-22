@@ -12,6 +12,7 @@ import WalkInModal from './WalkInModal';
 import { Zap } from 'lucide-react';
 import { clientsAPI, remindersAPI, toast } from '../../../services';
 import { dialog } from '../../../services/utils/dialog';
+import { useRememberedState, forgetRememberedState } from '../../../hooks/useScrollMemory';
 import type { Reminder } from '../../../services';
 import PetAvatar from '../shared/PetAvatar';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -51,7 +52,9 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const hasFullAccess = FULL_ACCESS_ROLES.includes((user?.role as UserRole));
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
+  // Survives leaving for a client and pressing Back — landing on page 1 after
+  // every record is what makes a 2,244-row list unworkable.
+  const [currentPage, setCurrentPage] = useRememberedState('clients:page', 1);
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [showWalkIn, setShowWalkIn] = useState(false);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -249,7 +252,12 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
     return list;
   }, [searchFiltered, pets, appointments, dateRange, clientFilter, pastCountMin, letterFilter, advOutstanding, advMinSpent, advClientType]);
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, dateRange, clientFilter, pastCountMin]);
+  useEffect(() => {
+    // The result set changed, so a remembered page is meaningless — page 7 of a
+    // 3-page result shows nothing at all.
+    forgetRememberedState('clients:page');
+    setCurrentPage(1);
+  }, [searchQuery, dateRange, clientFilter, pastCountMin]);
 
   /**
    * PAGES BEYOND WHAT IS CACHED ARE FETCHED FROM THE SERVER.
@@ -320,7 +328,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   // A letter (or the scope it applies to) changing means page 3 of the old
   // result set is meaningless — go back to the start rather than showing a
   // page that may not exist in the new one.
-  useEffect(() => { setCurrentPage(1); }, [letterFilter, letterField]);
+  useEffect(() => { forgetRememberedState('clients:page'); setCurrentPage(1); }, [letterFilter, letterField]);
 
   const paginatedClients = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;

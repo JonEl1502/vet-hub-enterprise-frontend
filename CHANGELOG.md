@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: patients beyond the loaded page said "Pet not found"  —  2026-08-22
+🔵 **Record impact: none.** Read path.
+- Context loads ONE page of pets (limit 1000). Westlands Paws has **4,047**, so opening roughly three
+  thousand of them hit *"Pet not found. The pet may have been deleted or you may not have access"* —
+  alarming, and untrue. The code even predicted it: *"the pet is beyond the first 100 records"*.
+- Now fetches the single pet that was asked for (`ensurePetById`) and renders the profile. The
+  missing-record message survives only for a fetch that genuinely fails.
+
+### feat: lists remember your page and scroll position  —  2026-08-22
+🔵 **Record impact: none.**
+- Opening a client from page 7 and pressing Back landed you at the top of page 1. Both the page and
+  the offset are now restored (user, 2026-08-22). Session-scoped and keyed per screen, so two clients'
+  profiles never inherit each other's position.
+- Scroll is kept OUT of React state deliberately — routing every wheel tick through a re-render would
+  make the whole app stutter while scrolling. Restore waits two frames so the list has its real
+  height; scrolling to an offset a short page cannot accept silently clamps to 0.
+- A changed filter or search **forgets** the page: page 7 of a 3-page result shows nothing.
+
+
 ### change: Actualise uses the VetHub dialog, and lands you on the invoice  —  2026-08-22
 🔵 **Record impact: none.** Interaction only.
 - Confirmation moved from `window.confirm` to the app's own `dialog.confirm` (user, 2026-08-22). A

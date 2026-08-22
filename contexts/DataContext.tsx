@@ -67,6 +67,8 @@ interface DataContextType {
   // On-demand loaders — fetch only if stale, no-op if fresh
   ensureClients: () => Promise<void>;
   ensurePets: () => Promise<void>;
+  /** Fetch ONE pet by id and merge it into `pets` if the page-limited list missed it. */
+  ensurePetById: (id: number) => Promise<boolean>;
   ensureAppointments: () => Promise<void>;
   ensureTransactions: () => Promise<void>;
   ensureInventory: () => Promise<void>;
@@ -608,6 +610,33 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const getClientById = useCallback((id: number) => clients.find(c => c.id === id), [clients]);
   const getPetById = useCallback((id: number) => pets.find(p => p.id === id), [pets]);
   /**
+   * Pull a single pet in when the list did not include it.
+   *
+   * `fetchPets` takes one page (limit 1000). A clinic that migrated 4,047
+   * patients therefore has thousands of pets that are NOT in context, and
+   * opening one showed "Pet not found. The pet may have been deleted" — which
+   * is alarming and untrue. Fetch the one that was asked for instead.
+   */
+  const ensurePetById = useCallback(async (id: number): Promise<boolean> => {
+    if (pets.some(p => p.id === id)) return true;
+    try {
+      const res: any = await petsAPI.getById(id, { cache: false } as any);
+      const p = res?.data?.pet ?? res?.data;
+      if (!p?.id) return false;
+      const one: any = {
+        ...p,
+        id: parseInt(p.id),
+        clinicId: p.clinicId != null ? parseInt(p.clinicId) : undefined,
+        ownerId: p.ownerId != null ? parseInt(p.ownerId) : undefined,
+      };
+      setPets(prev => (prev.some(x => x.id === one.id) ? prev : [...prev, one as Pet]));
+      return true;
+    } catch {
+      return false;
+    }
+  }, [pets]);
+
+  /**
    * A client's pets — the SERVER's copy first.
    *
    * `pets` here is only the page this context has loaded. On a clinic with
@@ -646,7 +675,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     ensureClients, ensurePets, ensureAppointments, ensureTransactions, ensureInventory,
     refreshClients, refreshPets, refreshAppointments, refreshTransactions, refreshInventory,
     updateAppointmentLocally,
-    getClientById, getPetById, getClientPets,
+    getClientById, getPetById, getClientPets, ensurePetById,
     addClientOptimistically, updateClientOptimistically, removeClientOptimistically,
     addPetOptimistically, updatePetOptimistically, removePetOptimistically,
     addAppointmentOptimistically, updateAppointmentOptimistically, removeAppointmentOptimistically,
