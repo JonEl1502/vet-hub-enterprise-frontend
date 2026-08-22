@@ -154,7 +154,17 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
                     and the due-counts do not fit on one line, and the counts
                     were being pushed off the card. */}
                 <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[10px] text-slate-400 dark:text-zinc-500 font-medium">
-                  <span className="truncate max-w-full">{isActive ? `Admitted ${formatDate(h.admittedAt)}` : `Discharged ${h.dischargedAt ? formatDate(h.dischargedAt) : ''}`}{h.cage ? ` · ${h.cage}` : ''}</span>
+                  {/* BOTH dates (user, 2026-08-22). It used to show one or the
+                      other, so a discharged stay lost its admission date — and a
+                      migrated record, whose discharge date was never captured,
+                      rendered the bare word "Discharged" with nothing after it.
+                      Admitted always shows; the discharge half says plainly when
+                      the date is not on record rather than trailing off. */}
+                  <span className="truncate max-w-full">
+                    {`Admitted ${formatDate(h.admittedAt)}`}
+                    {!isActive && ` · Discharged ${h.dischargedAt ? formatDate(h.dischargedAt) : '(date not recorded)'}`}
+                    {h.cage ? ` · ${h.cage}` : ''}
+                  </span>
                   {isActive && counts && (
                     <span className="flex items-center gap-2 shrink-0">
                       {!!counts.tasksDue && <span className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400"><ClipboardCheck size={11} /> {counts.tasksDue}</span>}

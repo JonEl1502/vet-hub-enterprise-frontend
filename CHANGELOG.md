@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: in-patient cards show admitted AND discharged dates  —  2026-08-22
+🔵 **Record impact: none.**
+- The card showed one date or the other, so a discharged stay lost its admission date entirely — and a
+  migrated stay, whose discharge date was never captured at source, rendered the bare word
+  "Discharged" with nothing after it (user, 2026-08-22).
+- Admitted always shows; the discharge half says **"(date not recorded)"** where the source never held
+  one, rather than trailing off into blank space.
+
+
 ### fix: visits list printed "NULL" as a payment status; date range now sticks  —  2026-08-22
 🔵 **Record impact: none.**
 - The payment pill was `isPaid ? paymentMethod : 'Unpaid'`, so a visit that was paid but carried no
