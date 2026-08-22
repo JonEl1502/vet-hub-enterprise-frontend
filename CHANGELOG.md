@@ -78,6 +78,21 @@ mobile money) is now the only subscription rail.
   more). It is **kept** in Admin → Subscription payments, which lists historical attempts — 16
   successful Lipana payments would otherwise vanish from the ledger.
 
+### feat: package and bundle detail pages  —  2026-08-22
+🟢 **Record impact: none** (read-only view over data already returned by the list endpoint).
+- Vaccine packages and service bundles were a grid of cards and nothing else — the per-item
+  breakdown had nowhere to live, so a card had to choose between naming its items and showing its
+  price (user, 2026-08-22: *"show create ones in beautiful cards n detail pages"*).
+- **Cards** are now clickable, taller and carry badges (item count, pricing mode, an Inactive flag),
+  the description, the first three items, and the price above a divider. The per-card pencil/trash
+  buttons are gone — a whole card being a click target and containing two other click targets is a
+  mis-tap waiting to happen; edit and delete now live on the detail page.
+- **Detail page** shows every line item in a table (item · qty · unit · line total) beside a pricing
+  panel that spells out mode, subtotal, discount and the final "Sells for". Back link returns to the
+  grid; **New package / New bundle** is hidden while a detail page is open.
+- Detail is resolved from `packages`/`bundles` **by id, not by holding a copy of the row**, so an
+  edit-and-save refreshes what the detail page shows instead of leaving it stale.
+
 ### fix: package and bundle forms fill the page  —  2026-08-22
 🟢 **Record impact: none** (layout only).
 - **Vaccine Packages → New package** and **Service Bundles → New bundle** were capped at

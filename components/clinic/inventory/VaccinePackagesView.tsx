@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Syringe, Plus, Loader2, Trash2, Search, X, Pencil, Layers } from 'lucide-react';
+import { Syringe, Plus, Loader2, Trash2, Search, X, Pencil, Layers, ArrowLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { vaccinePackagesAPI, VaccinePackage, PackagePricingMode, PackagePayload } from '../../../services';
@@ -29,6 +29,9 @@ const VaccinePackagesView: React.FC = () => {
   const [editing, setEditing] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
   const [itemSearch, setItemSearch] = useState('');
+  // Detail page — a card is a summary; this is the whole package, with the
+  // per-item breakdown that never fits in a card.
+  const [detailId, setDetailId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -36,6 +39,11 @@ const VaccinePackagesView: React.FC = () => {
     catch (e) { console.error(e); } finally { setLoading(false); }
   }, []);
   useEffect(() => { load(); }, [load]);
+
+  const detail = useMemo(
+    () => (detailId ? packages.find(p => p.id === detailId) ?? null : null),
+    [detailId, packages],
+  );
 
   const matches = useMemo(() => {
     const q = itemSearch.trim().toLowerCase();
@@ -108,7 +116,7 @@ const VaccinePackagesView: React.FC = () => {
             <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">{packages.length} package{packages.length === 1 ? '' : 's'} · bundle vaccines & set pricing</p>
           </div>
         </div>
-        {!editing && pkg.create && <button onClick={startNew} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New package</button>}
+        {!editing && !detailId && pkg.create && <button onClick={startNew} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New package</button>}
       </div>
 
       {editing ? (
@@ -194,6 +202,107 @@ const VaccinePackagesView: React.FC = () => {
             </button>
           </div>
         </div>
+      ) : detail ? (
+        /* ── Detail page ─────────────────────────────────────────────
+           The card shows what a package IS; this shows what it COSTS and
+           why — every line item, its quantity, and how the pricing mode
+           arrives at the final figure. */
+        <div className="space-y-4">
+          <button
+            onClick={() => setDetailId(null)}
+            className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-colors"
+          >
+            <ArrowLeft size={13} /> All packages
+          </button>
+
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+            <div className="p-5 md:p-6 border-b border-slate-100 dark:border-zinc-800 flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h2 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">{detail.name}</h2>
+                  {!detail.isActive && (
+                    <span className="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-wider">Inactive</span>
+                  )}
+                </div>
+                {detail.description && <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1">{detail.description}</p>}
+              </div>
+              <div className="flex gap-2">
+                {pkg.edit && (
+                  <button onClick={() => startEdit(detail)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800">
+                    <Pencil size={12} /> Edit
+                  </button>
+                )}
+                {pkg.delete && (
+                  <button onClick={async () => { await remove(detail); setDetailId(null); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-200 dark:border-rose-900/40 text-[10px] font-black uppercase tracking-widest text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/20">
+                    <Trash2 size={12} /> Delete
+                  </button>
+                )}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-5 gap-x-6 gap-y-5 p-5 md:p-6">
+              {/* Items */}
+              <div className="lg:col-span-3">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-2">
+                  Items ({detail.items.length})
+                </p>
+                {detail.items.length === 0 ? (
+                  <p className="text-xs text-slate-400">No items in this package.</p>
+                ) : (
+                  <div className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">
+                    <table className="w-full text-left">
+                      <thead className="bg-slate-50 dark:bg-zinc-950/40">
+                        <tr>
+                          <th className="px-3 py-2 text-[9px] font-black uppercase tracking-wider text-slate-500">Item</th>
+                          <th className="px-3 py-2 text-[9px] font-black uppercase tracking-wider text-slate-500 text-center w-16">Qty</th>
+                          <th className="px-3 py-2 text-[9px] font-black uppercase tracking-wider text-slate-500 text-right w-28">Unit</th>
+                          <th className="px-3 py-2 text-[9px] font-black uppercase tracking-wider text-slate-500 text-right w-28">Line</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {detail.items.map(i => (
+                          <tr key={i.inventoryItemId} className="border-t border-slate-100 dark:border-zinc-800">
+                            <td className="px-3 py-2 text-xs font-bold text-pine dark:text-zinc-100">{i.name}</td>
+                            <td className="px-3 py-2 text-xs text-slate-500 text-center">{i.quantity}</td>
+                            <td className="px-3 py-2 text-xs text-slate-500 text-right">{Number(i.price).toLocaleString()}</td>
+                            <td className="px-3 py-2 text-xs font-bold text-pine dark:text-zinc-100 text-right">{(Number(i.price) * i.quantity).toLocaleString()}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+
+              {/* Pricing */}
+              <div className="lg:col-span-2 bg-slate-50/70 dark:bg-zinc-950/40 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 self-start">
+                <p className="text-[10px] font-black uppercase tracking-wider text-slate-600 dark:text-zinc-400 mb-3">Pricing</p>
+                <dl className="space-y-2 text-xs">
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-500 dark:text-zinc-400">Mode</dt>
+                    <dd className="font-bold text-pine dark:text-zinc-100">{detail.pricingMode === 'BATCH' ? 'Batch price' : 'Sum of items'}</dd>
+                  </div>
+                  <div className="flex justify-between gap-3">
+                    <dt className="text-slate-500 dark:text-zinc-400">Subtotal</dt>
+                    <dd className="font-bold text-pine dark:text-zinc-100">KES {detail.pricing.sell.toLocaleString()}</dd>
+                  </div>
+                  {detail.pricing.sell !== detail.pricing.sellAfterDiscount && (
+                    <div className="flex justify-between gap-3">
+                      <dt className="text-slate-500 dark:text-zinc-400">Discount</dt>
+                      <dd className="font-bold text-emerald-600 dark:text-emerald-400">
+                        &minus; KES {(detail.pricing.sell - detail.pricing.sellAfterDiscount).toLocaleString()}
+                      </dd>
+                    </div>
+                  )}
+                </dl>
+                <div className="mt-3 pt-3 border-t border-slate-200 dark:border-zinc-800">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Sells for</p>
+                  <p className="text-3xl font-black text-pine dark:text-zinc-100 leading-tight">KES {detail.pricing.sellAfterDiscount.toLocaleString()}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : loading ? (
         <div className="py-16"><LoadingSpinner size="lg" message="Loading packages..." /></div>
       ) : packages.length === 0 ? (
@@ -203,25 +312,45 @@ const VaccinePackagesView: React.FC = () => {
           <p className="text-xs text-slate-400 dark:text-zinc-600 mt-1">Bundle vaccines and set batch or itemized pricing.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4">
           {packages.map(p => (
-            <div key={p.id} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm ${!p.isActive ? 'opacity-60' : ''}`}>
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <div className="min-w-0">
-                  <h3 className="text-sm font-black text-pine dark:text-zinc-100 truncate">{p.name}</h3>
-                  <p className="text-[10px] text-slate-400">{p.pricingMode === 'BATCH' ? 'Batch price' : 'Sum of items'} · {p.items.length} item{p.items.length === 1 ? '' : 's'}</p>
+            <button
+              key={p.id}
+              onClick={() => setDetailId(p.id)}
+              className={`group text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm hover:shadow-md hover:border-seafoam/50 hover:-translate-y-0.5 transition-all flex flex-col ${!p.isActive ? 'opacity-60' : ''}`}
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-base font-black text-pine dark:text-zinc-100 truncate group-hover:text-seafoam transition-colors">{p.name}</h3>
+                  {p.description && <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 line-clamp-1">{p.description}</p>}
                 </div>
-                <div className="flex gap-1 shrink-0">
-                  {pkg.edit && <button onClick={() => startEdit(p)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-seafoam"><Pencil size={13} /></button>}
-                  {pkg.delete && <button onClick={() => remove(p)} className="p-1.5 rounded-lg text-slate-400 hover:bg-rose-50 hover:text-rose-500"><Trash2 size={13} /></button>}
-                </div>
+                <ChevronRight size={16} className="shrink-0 mt-1 text-slate-300 dark:text-zinc-600 group-hover:text-seafoam group-hover:translate-x-0.5 transition-all" />
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400 mb-2 line-clamp-1">{p.items.map(i => `${i.name}${i.quantity > 1 ? ` ×${i.quantity}` : ''}`).join(', ')}</p>
-              <div className="flex items-baseline gap-2">
-                <span className="text-lg font-black text-pine dark:text-zinc-100">KES {p.pricing.sellAfterDiscount.toLocaleString()}</span>
+
+              <div className="flex flex-wrap gap-1.5 my-3">
+                <span className="px-2 py-0.5 rounded-md bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 text-[9px] font-black uppercase tracking-wider">
+                  {p.items.length} item{p.items.length === 1 ? '' : 's'}
+                </span>
+                <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-black uppercase tracking-wider">
+                  {p.pricingMode === 'BATCH' ? 'Batch price' : 'Sum of items'}
+                </span>
+                {!p.isActive && (
+                  <span className="px-2 py-0.5 rounded-md bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-wider">Inactive</span>
+                )}
+              </div>
+
+              {/* First three items by name — enough to recognise the package
+                  without turning the card into a table. */}
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-2 flex-1">
+                {p.items.slice(0, 3).map(i => `${i.name}${i.quantity > 1 ? ` \u00d7${i.quantity}` : ''}`).join(' · ')}
+                {p.items.length > 3 && ` · +${p.items.length - 3} more`}
+              </p>
+
+              <div className="flex items-baseline gap-2 mt-4 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                <span className="text-xl font-black text-pine dark:text-zinc-100">KES {p.pricing.sellAfterDiscount.toLocaleString()}</span>
                 {p.pricing.sell !== p.pricing.sellAfterDiscount && <span className="text-[11px] text-slate-400 line-through">KES {p.pricing.sell.toLocaleString()}</span>}
               </div>
-            </div>
+            </button>
           ))}
         </div>
       )}
