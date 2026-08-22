@@ -403,7 +403,7 @@ const renderOverview = () => (
             each breathe. */}
         <div data-tour="client-stats" className="flex divide-x divide-seafoam/25">
           {/* VISITS — one heading, three figures under it */}
-          <div className="flex-1 min-w-0 p-3">
+          <div className="flex-[4] min-w-0 p-3">
             <div className="flex items-center gap-1.5 mb-2">
               <div className="p-1 bg-seafoam/10 rounded-md"><Calendar size={11} className="text-seafoam" /></div>
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Visits</p>
@@ -426,7 +426,7 @@ const renderOverview = () => (
 
           {/* SPEND — or last visit for staff who cannot see money */}
           {hasFullAccess ? (
-            <div className="flex-1 min-w-0 p-3">
+            <div className="flex-[3] min-w-0 p-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <div className="p-1 bg-seafoam/10 rounded-md"><CreditCard size={11} className="text-seafoam" /></div>
                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Spend</p>
@@ -443,7 +443,7 @@ const renderOverview = () => (
               </div>
             </div>
           ) : (
-            <div className="flex-1 min-w-0 p-3">
+            <div className="flex-[3] min-w-0 p-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <div className="p-1 bg-cyan-500/10 rounded-md"><Activity size={11} className="text-cyan-500" /></div>
                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Last Visit</p>
@@ -456,7 +456,7 @@ const renderOverview = () => (
           )}
           {/* Quick messaging entry */}
           {onOpenMessaging && (
-            <button onClick={onOpenMessaging} title="Messaging Portal" className="px-2.5 flex flex-col items-center justify-center gap-1.5 hover:bg-seafoam/5 transition-colors shrink-0">
+            <button onClick={onOpenMessaging} title="Messaging Portal" className="flex-[3] min-w-0 px-2.5 flex flex-col items-center justify-center gap-1.5 hover:bg-seafoam/5 transition-colors">
               <div className="p-1.5 bg-seafoam/10 rounded-lg"><MessageSquare size={12} className="text-seafoam" /></div>
               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Message</p>
             </button>

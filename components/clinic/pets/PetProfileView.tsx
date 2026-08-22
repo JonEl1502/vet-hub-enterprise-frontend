@@ -16,7 +16,7 @@ import { clientsAPI } from '../../../services';
 import { toast } from '../../../services/utils/toast';
 import { remindersAPI, appointmentsAPI } from '../../../services';
 import type { Reminder, Appointment } from '../../../services';
-import { Heart, Activity, Calendar, CalendarPlus, Syringe, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical, Smile, Camera, Loader2, User, Phone } from 'lucide-react';
+import { Heart, Activity, Calendar, CalendarPlus, Syringe, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical, Smile, Camera, Loader2, User, Phone, UserPlus } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -1434,14 +1434,21 @@ const PetProfileView: React.FC<Props> = ({
                        so the badge announcing it should be the way to fix it.
                        It used to be inert, with the only cure in a panel far
                        below — so the obvious thing to click did nothing. */
+                    /* One compact pill that IS the action — the previous one wrapped
+                       onto two lines and hung an underlined "Link owner" off the
+                       end, which read like a mistake. nowrap keeps it on one
+                       line at any width. */
                     <button
                       type="button"
                       onClick={() => setLinkOwnerOpen(true)}
                       title="Find or create this patient's owner"
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-900 hover:bg-amber-100 dark:hover:bg-amber-950/60 transition-colors"
+                      className="group inline-flex items-center gap-1.5 pl-2.5 pr-2 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest whitespace-nowrap bg-amber-50 dark:bg-amber-950/40 text-amber-600 border border-amber-200 dark:border-amber-900 hover:bg-amber-500 hover:text-white hover:border-amber-500 transition-colors"
                     >
-                      <AlertCircle size={11} /> Orphaned · no owner linked
-                      <span className="ml-1 underline decoration-dotted">Link owner</span>
+                      <AlertCircle size={11} className="shrink-0" />
+                      No owner
+                      <span className="inline-flex items-center gap-0.5 pl-1.5 ml-0.5 border-l border-amber-300/70 group-hover:border-white/40">
+                        <UserPlus size={10} /> Link
+                      </span>
                     </button>
                   )}
                 </div>

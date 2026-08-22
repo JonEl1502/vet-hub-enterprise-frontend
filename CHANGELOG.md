@@ -59,6 +59,13 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: orphan badge wrapped onto two lines; client stats now 4:3:3  —  2026-08-22
+🔵 **Record impact: none.**
+- The "Orphaned · no owner linked / Link owner" pill wrapped and hung an underlined link off the end,
+  reading like a mistake. It is now one nowrap pill — **No owner | + Link** — that IS the action.
+- Client overview sections sized 4:3:3 (Visits : Spend : Message) per the user.
+
+
 ### feat: Billables — set boarding / in-patient rates by species and size  —  2026-08-22
 🔵 **Record impact: none directly** (rows land in `clinic_stay_rates`, backend 213).
 - Dog and Cat sit in the species list with everything else behind the same dropdown, so the everyday
