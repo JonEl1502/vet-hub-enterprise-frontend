@@ -306,18 +306,53 @@ const VisitsListView: React.FC<Props> = ({
           {/* Open visits, any date (user, 2026-08-19: "if click to show
               open/non-complete visits thats when you can show them and date
               filter must be ignored"). */}
-          <button
-            type="button"
-            onClick={() => setOpenOnly(v => !v)}
-            title={openOnly
-              ? 'Showing every unfinished visit, ignoring the date range'
-              : 'Show every unfinished visit, at any date'}
-            className={`w-full sm:w-auto px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-colors ${openOnly
-              ? 'bg-amber-500 text-white border-amber-500'
-              : 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 border-slate-200 dark:border-zinc-700 hover:border-amber-400'}`}
-          >
-            Open visits{openCount > 0 ? ` · ${openCount}` : ''}
-          </button>
+          {/* ATTENTION when there is unfinished work (user, 2026-08-22:
+              "blink or show alert for Open visits").
+
+              An unfinished visit is money not yet billed, so the chip should
+              not sit there looking like every other filter. When there are
+              open visits and you are NOT already looking at them, a pulsing
+              ring and a dot mark it.
+
+              The RING pulses, not the label: blinking text is genuinely hard
+              to read, and this sits next to numbers people need to trust.
+              Once the filter is on, the pulse stops — you are already looking
+              at them, and a nag that never ends stops being a signal. */}
+          {(() => {
+            const nagging = openCount > 0 && !openOnly;
+            return (
+              <div className="relative w-full sm:w-auto">
+                {nagging && (
+                  <span
+                    aria-hidden
+                    className="absolute -inset-0.5 rounded-xl ring-2 ring-amber-400/70 animate-pulse pointer-events-none"
+                  />
+                )}
+                <button
+                  type="button"
+                  onClick={() => setOpenOnly(v => !v)}
+                  title={openOnly
+                    ? 'Showing every unfinished visit, ignoring the date range'
+                    : openCount > 0
+                      ? `${openCount} visit${openCount === 1 ? '' : 's'} still unfinished — click to show them all, at any date`
+                      : 'Show every unfinished visit, at any date'}
+                  className={`relative w-full sm:w-auto px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-colors ${openOnly
+                    ? 'bg-amber-500 text-white border-amber-500'
+                    : nagging
+                      ? 'bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-300 border-amber-400'
+                      : 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 border-slate-200 dark:border-zinc-700 hover:border-amber-400'}`}
+                >
+                  Open visits{openCount > 0 ? ` · ${openCount}` : ''}
+                  {nagging && (
+                    <span aria-hidden className="absolute -top-1 -right-1 flex h-2.5 w-2.5">
+                      <span className="absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75 animate-ping" />
+                      <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-amber-500" />
+                    </span>
+                  )}
+                </button>
+              </div>
+            );
+          })()}
           <select
             value={activeTab}
             onChange={(e) => setActiveTab(e.target.value as any)}

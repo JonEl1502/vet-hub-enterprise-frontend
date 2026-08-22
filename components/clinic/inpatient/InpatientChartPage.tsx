@@ -1,7 +1,7 @@
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import { dialog } from '../../../services/utils/dialog';
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2, Trash2 , Receipt} from 'lucide-react';
+import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2, Trash2, Receipt, Pencil, X} from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import TreatmentPlanPanel from './TreatmentPlanPanel';
 import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
@@ -41,6 +41,22 @@ const LOG_KINDS: { value: LogKind; label: string }[] = [
 ];
 const isTask = (k: LogKind) => k === 'TREATMENT_TASK' || k === 'MEDICATION';
 const fieldCls = 'w-full px-2.5 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-xs text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
+
+/**
+ * The FIELDS each kind records, in form order, so a saved entry can be read
+ * back field-by-field instead of as one squashed sentence (user, 2026-08-22:
+ * "just show me in details what was added … i find this lacking").
+ */
+const LOG_FIELDS: Record<string, Array<[string, string, string?]>> = {
+  MEDICATION:     [['drug', 'Drug'], ['dose', 'Dose'], ['route', 'Route']],
+  TREATMENT_TASK: [['task', 'Task']],
+  FLUID_INTAKE:   [['type', 'Type'], ['amount', 'Amount', 'ml']],
+  FLUID_OUTPUT:   [['type', 'Type'], ['amount', 'Amount', 'ml']],
+  FEEDING:        [['food', 'Food'], ['offered', 'Offered'], ['eaten', 'Eaten']],
+  ELIMINATION:    [['urination', 'Urination'], ['defecation', 'Defecation']],
+};
+const logFieldsFor = (kind: string): Array<[string, string, string?]> =>
+  LOG_FIELDS[kind] ?? [['note', 'Note']];
 
 const logSummary = (kind: LogKind, d: Record<string, any>): string => {
   switch (kind) {
@@ -125,6 +141,18 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   // consumables picker record entries AS this datetime — a paper day sheet can
   // be keyed in after the fact. Null = normal "now" logging.
   const [backfillAt, setBackfillAt] = useState<string | null>(null);
+  /**
+   * Which day's editor is open, and whether it is writing a NEW entry or
+   * editing an existing one.
+   *
+   * The editor used to sit permanently open under every day: after pressing
+   * "Add entry" the whole TPR grid, the kind chips and the drug fields were
+   * still staring back at you, with the thing you had just recorded reduced to
+   * a one-line strip below (user, 2026-08-22: "after i click add entry i dont
+   * want to see this"). Now it opens on demand and closes on save.
+   */
+  const [openEditorDay, setOpenEditorDay] = useState<string | null>(null);
+  const [editingLogId, setEditingLogId] = useState<string | null>(null);
   /** Which day of the stay the chart is showing — see BoardingStayPage. */
   const [careDay, setCareDay] = useState<string | null>(null);
   const load = useCallback(async () => {
@@ -239,6 +267,23 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
     }
     setBusy(true);
     try {
+      if (editingLogId) {
+        /**
+         * EDITING an existing entry — same panel, same fields. Only the entry's
+         * own data is patched: the drug it dispensed is a separate consumable
+         * line with its own edit control, and re-logging it here would deduct
+         * the stock a second time.
+         */
+        await inpatientAPI.updateLog(editingLogId, { data: { ...logData } });
+        toast.success('Entry updated');
+        setLogData({});
+        resetDrug();
+        setEditingLogId(null);
+        setOpenEditorDay(null);
+        await load();
+        onChanged?.();
+        return;
+      }
       await inpatientAPI.addLog(hospId, { kind: logKind, status: isTask(logKind) ? 'due' : undefined, data: { ...logData }, ...(backfillAt ? { loggedAt: new Date(backfillAt).toISOString() } : {}) } as any);
       const apptId = h?.billing?.appointmentId;
       if (logKind === 'MEDICATION' && drugItem && apptId && drugQty > 0) {
@@ -257,9 +302,28 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
       }
       setLogData({});
       resetDrug();
+      // Close the editor — what you just recorded is now shown as a summary
+      // below, not as a form still waiting for input.
+      setOpenEditorDay(null);
       await load();
       onChanged?.();
     } finally { setBusy(false); }
+  };
+
+  /** Reopen the SAME panel, prefilled, to correct an entry. */
+  const startEditLog = (dayKey: string, log: { id: string; kind: string; data: Record<string, any> }) => {
+    setOpenEditorDay(dayKey);
+    setEditingLogId(log.id);
+    setLogKind(log.kind as LogKind);
+    setLogData({ ...(log.data || {}) });
+    resetDrug();
+  };
+
+  const cancelEditor = () => {
+    setOpenEditorDay(null);
+    setEditingLogId(null);
+    setLogData({});
+    resetDrug();
   };
 
   const toggleTask = async (logId: string, status: string | null) => {
@@ -548,10 +612,30 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                               two cards at the top of the page: TPR, every entry
                               kind, and the items used — all stamped with this
                               day's date. */}
-                          {active && (
+                          {/* Closed by default — press to write. Leaving the
+                              whole form open under every day meant the thing
+                              you had just saved was buried under the form that
+                              saved it. */}
+                          {active && openEditorDay !== k && (
+                            <button
+                              type="button"
+                              onClick={() => { setOpenEditorDay(k); setEditingLogId(null); setLogData({}); resetDrug(); }}
+                              className="mb-3 w-full py-2 rounded-xl border border-dashed border-seafoam/40 bg-seafoam/[0.03] text-seafoam font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 hover:bg-seafoam/10 transition-colors"
+                            >
+                              <Plus size={13} /> Record on day {dayNo}
+                            </button>
+                          )}
+
+                          {active && openEditorDay === k && (
                             <div className="mb-3 rounded-xl border border-seafoam/30 bg-seafoam/[0.04] dark:bg-seafoam/[0.06] p-3 space-y-2.5">
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-[9px] font-black uppercase tracking-widest text-seafoam">Record on day {dayNo}</span>
+                                <span className="text-[9px] font-black uppercase tracking-widest text-seafoam">
+                                  {editingLogId ? `Editing entry · day ${dayNo}` : `Record on day ${dayNo}`}
+                                </span>
+                                <button type="button" onClick={cancelEditor} title="Close without saving"
+                                  className="p-1 rounded-md text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-rose-500">
+                                  <X size={13} />
+                                </button>
                                 <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 ml-auto">Time</label>
                                 <input type="datetime-local" className={fieldCls + ' !w-auto'}
                                   value={backfillAt || ''} onChange={e => setBackfillAt(e.target.value || null)} />
@@ -619,7 +703,13 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                     above add entry … are for that entry").
                                     `flat` so it doesn't add a card inside the
                                     entry card. */}
-                                {h.billing?.appointmentId && (
+                                {/* Hidden while EDITING: this picker logs a new
+                                    consumable for the day, it does not belong to
+                                    the entry being corrected. Leaving it open
+                                    invited a second deduction for a dose that was
+                                    only being reworded. Items already logged have
+                                    their own edit control in the list below. */}
+                                {h.billing?.appointmentId && !editingLogId && (
                                   <div className="mt-3 pt-3 border-t border-seafoam/20">
                                     <ConsumablePicker flat appointmentId={h.billing.appointmentId}
                                       dayKey={k}
@@ -629,9 +719,15 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                   </div>
                                 )}
 
-                                <button onClick={addLog} disabled={busy} className="mt-3 w-full py-2 bg-white dark:bg-zinc-900 hover:bg-seafoam/10 text-seafoam border border-seafoam/40 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
-                                  {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} Add entry
-                                </button>
+                                <div className="mt-3 flex items-center gap-2">
+                                  <button onClick={cancelEditor} type="button"
+                                    className="px-3 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800">
+                                    Cancel
+                                  </button>
+                                  <button onClick={addLog} disabled={busy} className="flex-1 py-2 bg-white dark:bg-zinc-900 hover:bg-seafoam/10 text-seafoam border border-seafoam/40 rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
+                                    {busy ? <Loader2 size={13} className="animate-spin" /> : <Plus size={13} />} {editingLogId ? 'Save changes' : 'Add entry'}
+                                  </button>
+                                </div>
                               </div>
                             </div>
                           )}
@@ -652,25 +748,62 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                   <span className="text-[10px] text-pine dark:text-zinc-200">{vitalsCount} vitals entr{vitalsCount === 1 ? 'y' : 'ies'} (table above)</span>
                                 </div>
                               )}
-                              {logs.map(l => (
-                                <div key={l.id} className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-800/50 rounded-lg px-3 py-2 border border-slate-100 dark:border-zinc-800">
-                                  {isTask(l.kind) ? (
-                                    <button onClick={() => toggleTask(l.id, l.status)} className="shrink-0">{l.status === 'done' ? <CheckCircle2 size={15} className="text-emerald-500" /> : <Circle size={15} className="text-amber-500" />}</button>
-                                  ) : <Activity size={13} className="text-seafoam shrink-0" />}
-                                  <div className="min-w-0 flex-1">
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 mr-1.5">{LOG_KINDS.find(kk => kk.value === l.kind)?.label}</span>
-                                    <span className="text-[11px] text-pine dark:text-zinc-200">{logSummary(l.kind, l.data)}</span>
+                              {/* ── A SAVED ENTRY, read back field by field ──────
+                                  Same shape as the form that wrote it — labelled
+                                  values, not one squashed sentence — but flat and
+                                  not editable, so it reads as a record rather than
+                                  an input still waiting for you (user, 2026-08-22).
+                                  The pencil reopens the very same panel, prefilled. */}
+                              {logs.map(l => {
+                                const fields = logFieldsFor(l.kind)
+                                  .map(([key, label, suffix]) => [label, l.data?.[key], suffix] as const)
+                                  .filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '');
+                                const isEditing = editingLogId === l.id;
+                                return (
+                                <div key={l.id} className={`rounded-lg px-3 py-2 border ${isEditing
+                                  ? 'bg-seafoam/10 border-seafoam/40'
+                                  : 'bg-slate-50 dark:bg-zinc-800/50 border-slate-100 dark:border-zinc-800'}`}>
+                                  <div className="flex items-center gap-2">
+                                    {isTask(l.kind) ? (
+                                      <button onClick={() => toggleTask(l.id, l.status)} title={l.status === 'done' ? 'Done — click to reopen' : 'Due — click to mark done'} className="shrink-0">{l.status === 'done' ? <CheckCircle2 size={15} className="text-emerald-500" /> : <Circle size={15} className="text-amber-500" />}</button>
+                                    ) : <Activity size={13} className="text-seafoam shrink-0" />}
+                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{LOG_KINDS.find(kk => kk.value === l.kind)?.label}</span>
+                                    {l.status === 'done' && (
+                                      <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600">Done</span>
+                                    )}
+                                    <span className="ml-auto text-[9px] text-slate-400 shrink-0">{formatTime(l.loggedAt)}</span>
+                                    {active && (
+                                      <>
+                                        <button type="button" title="Edit this entry"
+                                          onClick={() => (isEditing ? cancelEditor() : startEditLog(k, { id: l.id, kind: l.kind, data: l.data || {} }))}
+                                          className="shrink-0 p-1 rounded-md text-slate-300 hover:text-seafoam hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">
+                                          <Pencil size={11} />
+                                        </button>
+                                        <button type="button" title="Delete this entry" disabled={removing === `l-${l.id}`}
+                                          onClick={() => removeLog({ id: l.id, kind: l.kind })}
+                                          className="shrink-0 p-1 rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40">
+                                          {removing === `l-${l.id}` ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                                        </button>
+                                      </>
+                                    )}
                                   </div>
-                                  <span className="text-[9px] text-slate-400 shrink-0">{formatTime(l.loggedAt)}</span>
-                                  {active && (
-                                    <button type="button" title="Delete this entry" disabled={removing === `l-${l.id}`}
-                                      onClick={() => removeLog({ id: l.id, kind: l.kind })}
-                                      className="shrink-0 p-1 rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40">
-                                      {removing === `l-${l.id}` ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-                                    </button>
+                                  {fields.length > 0 ? (
+                                    <div className="mt-1.5 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1 pl-[22px]">
+                                      {fields.map(([label, value, suffix]) => (
+                                        <div key={label} className="min-w-0">
+                                          <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+                                          <span className="block text-[11px] font-bold text-pine dark:text-zinc-200 break-words">
+                                            {String(value)}{suffix ? ` ${suffix}` : ''}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  ) : (
+                                    <p className="mt-1 pl-[22px] text-[10px] text-slate-400 italic">Nothing recorded on this entry.</p>
                                   )}
                                 </div>
-                              ))}
+                                );
+                              })}
                               {dayCons.map(c => (
                                 <div key={`c-${c.id}`} className="flex items-center gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg px-3 py-1.5 border border-emerald-100 dark:border-emerald-900/40">
                                   <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 shrink-0">Item</span>

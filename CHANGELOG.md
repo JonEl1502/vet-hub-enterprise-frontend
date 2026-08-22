@@ -59,6 +59,36 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: the day editor closes after you record  —  2026-08-22
+🟢 **Record impact: none.**
+- The inpatient day editor sat permanently open under every day, so after pressing **Add entry** the
+  whole TPR grid, the kind chips and the drug fields were still staring back at you — and the thing
+  you had just saved was reduced to a one-line strip beneath the form that saved it (user,
+  2026-08-22: *"after i click add entry i dont want to see this"*).
+- It now opens on demand (**＋ Record on day N**) and closes on save.
+
+### change: a saved entry reads back field by field  —  2026-08-22
+🟢 **Record impact: none.**
+- A logged entry was one squashed sentence — `drug · dose · route` run together (user:
+  *"just show me in details what was added … i find this lacking"*). Each entry now prints its
+  fields **labelled, in the order the form asks for them**: Drug / Dose / Route, Type / Amount,
+  Food / Offered / Eaten, and so on.
+- Same shape as the form that wrote it, but flat and not editable — a record, not an input still
+  waiting for you. The **pencil reopens the very same panel, prefilled**, and saves back over the
+  original rather than creating a second entry.
+- ⚠️ The item picker is **hidden while editing**: it logs a *new* consumable for the day, not the
+  entry being corrected. Leaving it open invited a second stock deduction for a dose that was only
+  being reworded. Items already logged keep their own edit control in the list.
+
+### feat: unfinished visits ask for attention  —  2026-08-22
+🟢 **Record impact: none.**
+- **Open visits · N** now pulses with an amber ring and a dot when there is unfinished work and you
+  are not already looking at it (user, 2026-08-22: *"blink or show alert for Open visits"*). An
+  unfinished visit is money not yet billed; the chip should not look like every other filter.
+- The **ring** pulses, not the label — blinking text is hard to read and this sits beside numbers
+  people need to trust. Turning the filter on stops the pulse: you are already looking at them, and
+  a nag that never ends stops being a signal.
+
 ### fix: the calculator never appeared  —  2026-08-22
 🔴 **My own bug, shipped hours earlier.** The launcher sits in the Navbar, whose `<nav>` carries
 `backdrop-blur-xl`. **`backdrop-filter` makes an element a containing block for `position: fixed`
