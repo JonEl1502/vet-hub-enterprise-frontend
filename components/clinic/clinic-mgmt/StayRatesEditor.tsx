@@ -17,11 +17,26 @@ import { dialog } from '../../../services/utils/dialog';
  * automatically. That will be rare at first: thousands of migrated patients
  * have no weight recorded, and those fall back to the band picked at admission.
  */
+/**
+ * Weight bands (user, 2026-08-22): 0–10, 10+–20, 20+–40, 40+–60, 60+.
+ *
+ * The boundaries do NOT overlap: each band's max is EXCLUSIVE, so a 10.0 kg
+ * patient is Small and 10.1 kg is Medium. Written the way the user says them
+ * aloud — "10+ – 20" — because "10–20" next to "0–10" invites the question of
+ * where exactly a 10 kg dog lands, and a rate table cannot be ambiguous about
+ * the animal in front of you.
+ */
 const BANDS: { value: SizeBand; label: string; min: number; max: number | null }[] = [
-  { value: 'SMALL',  label: 'Small',  min: 0,  max: 10 },
-  { value: 'MEDIUM', label: 'Medium', min: 10, max: 25 },
-  { value: 'LARGE',  label: 'Large',  min: 25, max: null },
+  { value: 'SMALL',  label: 'Small',       min: 0,  max: 10 },
+  { value: 'MEDIUM', label: 'Medium',      min: 10, max: 20 },
+  { value: 'LARGE',  label: 'Large',       min: 20, max: 40 },
+  { value: 'XLARGE', label: 'Extra large', min: 40, max: 60 },
+  { value: 'GIANT',  label: 'Giant',       min: 60, max: null },
 ];
+
+/** "0–10 kg", "10+ – 20 kg", "60+ kg" — the boundary is visible, not implied. */
+const bandRange = (b: { min: number; max: number | null }) =>
+  b.max == null ? `${b.min}+ kg` : `${b.min === 0 ? '0' : `${b.min}+`} – ${b.max} kg`;
 
 // Dog and Cat are the everyday cases; the rest sit behind the same dropdown so
 // the common path is two clicks and the long tail is still reachable.
@@ -132,7 +147,7 @@ const StayRatesEditor: React.FC<{ currency?: string }> = ({ currency = 'KES' }) 
                 <tr key={r.id} className="border-t border-slate-100 dark:border-zinc-800">
                   <td className="px-3 py-2 font-bold text-pine dark:text-zinc-100">{r.species || <span className="text-slate-400 font-medium">Any</span>}</td>
                   <td className="px-3 py-2">{r.sizeBand ? r.sizeBand.charAt(0) + r.sizeBand.slice(1).toLowerCase() : <span className="text-slate-400">Any</span>}</td>
-                  <td className="px-3 py-2 text-slate-500">{r.minKg != null ? `${r.minKg}${r.maxKg != null ? `–${r.maxKg}` : '+'} kg` : '—'}</td>
+                  <td className="px-3 py-2 text-slate-500">{r.minKg != null ? bandRange({ min: Number(r.minKg), max: r.maxKg != null ? Number(r.maxKg) : null }) : '—'}</td>
                   <td className="px-3 py-2 text-right font-mono font-black text-pine dark:text-zinc-100">{currency} {r.rate.toLocaleString()}</td>
                   <td className="px-3 py-2">
                     <div className="flex items-center justify-end gap-1">
@@ -169,7 +184,7 @@ const StayRatesEditor: React.FC<{ currency?: string }> = ({ currency = 'KES' }) 
           <select value={draft.sizeBand} onChange={e => setDraft(d => ({ ...d, sizeBand: e.target.value }))}
             className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-xs">
             <option value="">Any size</option>
-            {BANDS.map(b => <option key={b.value} value={b.value}>{b.label} ({b.min}{b.max != null ? `–${b.max}` : '+'} kg)</option>)}
+            {BANDS.map(b => <option key={b.value} value={b.value}>{b.label} ({bandRange(b)})</option>)}
           </select>
         </div>
         <div>

@@ -9,7 +9,7 @@ import { get, post, del } from '../api/client';
 import { ApiResponse, RequestOptions } from '../api/types';
 
 export type StayService = 'BOARDING' | 'INPATIENT';
-export type SizeBand = 'SMALL' | 'MEDIUM' | 'LARGE';
+export type SizeBand = 'SMALL' | 'MEDIUM' | 'LARGE' | 'XLARGE' | 'GIANT';
 
 export interface StayRate {
   id: string;

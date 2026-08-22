@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: five weight bands for stay rates  —  2026-08-22
+🔵 **Record impact: none.**
+- **0–10 · 10+–20 · 20+–40 · 40+–60 · 60+ kg** — Small, Medium, Large, Extra large, Giant (user,
+  2026-08-22). Labels show the boundary (`10+ – 20 kg`) instead of implying it, because "10–20" next
+  to "0–10" leaves a 10 kg dog ambiguous and a rate table cannot be vague about the animal in front
+  of you.
+
+
 ### fix: setting a trial could hit the wrong clinic without saying so  —  2026-08-22
 🔴 **Record impact: clinic trial dates.** Guardrails, no schema change.
 - The free-trial control **shares its clinic selector with tier assignment** and said only "the
