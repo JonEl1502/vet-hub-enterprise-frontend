@@ -4,6 +4,7 @@ import { StepProps } from '../types';
 import InlineServiceSearch from '../../../shared/InlineServiceSearch';
 import { useServiceInject } from '../../../shared/ServiceInjectContext';
 import { Section, L, showsField } from '../fields';
+import { surgeryAPI } from '../../../../../services';
 import { labAPI, imagingAPI, LabRecord, ImagingRecord, dialog, visitsAPI, toast, procedureTemplatesAPI, ProcedureTemplate } from '../../../../../services';
 import { formatDate } from '../../../../../services/utils/dateFormatter';
 import { useAuth } from '../../../../../contexts/AuthContext';
@@ -34,10 +35,13 @@ const flagTone: Record<string, string> = { HIGH: 'text-rose-500', LOW: 'text-amb
 
 const isDiagnostic = (category?: string) => {
   const c = (category || '').toLowerCase();
-  return ['lab', 'imaging', 'diagnostic', 'x-ray', 'xray', 'ultrasound', 'radiolog', 'dental'].some(k => c.includes(k));
+  // 2026-08-22: surgery joins the panel so it gets the same inline result
+  // editor — the user asked for parity ("if lab collapsible is for lab,
+  // surgery same"), and a surgery report is a result like any other.
+  return ['lab', 'imaging', 'diagnostic', 'x-ray', 'xray', 'ultrasound', 'radiolog', 'dental', 'surg', 'theatre', 'operation'].some(k => c.includes(k));
 };
 
-type ModuleRecs = { lab: LabRecord[]; imaging: ImagingRecord[] };
+type ModuleRecs = { lab: LabRecord[]; imaging: ImagingRecord[]; surgery: any[] };
 
 // Compact inline render of a lab result (markers + notes + attachments).
 const LabResultInline: React.FC<{ r: LabRecord }> = ({ r }) => (
@@ -133,15 +137,17 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
     if (recsLoading) return;
     setRecsLoading(true);
     try {
-      const [labRes, imgRes] = await Promise.all([
+      const [labRes, imgRes, surgRes] = await Promise.all([
         labAPI.list({ petId: visit.petId }),
         imagingAPI.list({ petId: visit.petId }),
+        surgeryAPI.list({ petId: visit.petId }).catch(() => ({ success: false } as any)),
       ]);
       setRecs({
         lab: labRes.success ? (labRes.data?.records || []) : [],
         imaging: imgRes.success ? (imgRes.data?.records || []) : [],
+        surgery: (surgRes as any)?.success ? ((surgRes as any).data?.records || []) : [],
       });
-    } catch { setRecs({ lab: [], imaging: [] }); }
+    } catch { setRecs({ lab: [], imaging: [], surgery: [] }); }
     finally { setRecsLoading(false); }
   };
 
@@ -155,6 +161,10 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
     const img = recs.imaging.find(r => String(r.taskId ?? '') === tid)
       || recs.imaging.find(r => String(r.appointmentId ?? '') === vid);
     if (img) return { type: 'imaging' as const, img };
+    // Surgery matches on taskId only — a visit can carry several procedures and
+    // falling back to "any surgery on this visit" would attach the wrong report.
+    const surg = (recs.surgery || []).find((r: any) => String(r.taskId ?? '') === tid);
+    if (surg) return { type: 'surgery' as const, surg };
     return null;
   };
 
@@ -351,6 +361,13 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
                         <>
                           <ImagingResultInline r={match.img} />
                           <InlineResultEditor kind="imaging" imaging={match.img} onSaved={() => loadRecords(true)} />
+                        </>
+                      ) : match?.type === 'surgery' ? (
+                        <>
+                          <p className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 mb-1.5">
+                            {match.surg.serviceName} · {String(match.surg.status || '').replace(/_/g, ' ').toLowerCase()}
+                          </p>
+                          <InlineResultEditor kind="surgery" surgery={match.surg} onSaved={() => loadRecords(true)} />
                         </>
                       ) : (
                         <p className="text-[10px] font-bold text-slate-400">

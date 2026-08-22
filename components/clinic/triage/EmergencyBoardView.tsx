@@ -3,6 +3,8 @@ import { Siren, AlertTriangle, Loader2, RefreshCw, HeartPulse, ChevronRight, Clo
 import { triageAPI, EmergencyTriageRecord, TriageCategory } from '../../../services';
 import { formatTime } from '../../../services/utils/dateFormatter';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import ListFilterBar from '../shared/ListFilterBar';
+import type { DateRange } from '../../shared/common/DateRangePicker';
 
 interface Props {
   onOpenVisit?: (appointmentId: number) => void;
@@ -26,6 +28,17 @@ const EmergencyBoardView: React.FC<Props> = ({ onOpenVisit, onStartVisit }) => {
   const [records, setRecords] = useState<EmergencyTriageRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<'active' | 'all'>('active');
+  /**
+   * Real filters (user, 2026-08-22: "filters").
+   *
+   * The board had an Active/All toggle and nothing else, so finding one case on
+   * a busy day meant reading every card. Search, date range and a triage-category
+   * pill row, using the same `ListFilterBar` as the other list pages so the
+   * controls behave the same everywhere.
+   */
+  const [search, setSearch] = useState('');
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  const [category, setCategory] = useState<string>('ALL');
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -38,10 +51,26 @@ const EmergencyBoardView: React.FC<Props> = ({ onOpenVisit, onStartVisit }) => {
 
   useEffect(() => { load(); }, [load]);
 
-  const sorted = useMemo(
-    () => [...records].sort((a, b) => (CATEGORY_META[a.triageCategory as TriageCategory]?.rank ?? 9) - (CATEGORY_META[b.triageCategory as TriageCategory]?.rank ?? 9)),
-    [records],
-  );
+  const sorted = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return records
+      .filter(r => {
+        if (!q) return true;
+        return `${r.pet?.name ?? ''} ${r.pet?.breed ?? ''} ${r.pet?.species ?? ''} ${(r as any).presentingComplaint ?? ''}`
+          .toLowerCase().includes(q);
+      })
+      .filter(r => category === 'ALL' || r.triageCategory === category)
+      .filter(r => {
+        if (!dateRange) return true;
+        // Fall back to createdAt: a triage record always has one, and an
+        // unparseable date must EXCLUDE rather than pad the range.
+        const raw = (r as any).arrivedAt ?? (r as any).createdAt;
+        if (!raw) return false;
+        const d = new Date(raw);
+        return !isNaN(d.getTime()) && d >= dateRange.start && d <= dateRange.end;
+      })
+      .sort((a, b) => (CATEGORY_META[a.triageCategory as TriageCategory]?.rank ?? 9) - (CATEGORY_META[b.triageCategory as TriageCategory]?.rank ?? 9));
+  }, [records, search, category, dateRange]);
   const activeCount = records.filter(r => r.status === 'IN_PROGRESS').length;
 
   return (
@@ -64,10 +93,31 @@ const EmergencyBoardView: React.FC<Props> = ({ onOpenVisit, onStartVisit }) => {
         </div>
       </header>
 
+      <ListFilterBar
+        search={search}
+        onSearch={setSearch}
+        dateRange={dateRange}
+        onDateRange={setDateRange}
+        searchPlaceholder="Search patient, breed or complaint…"
+        statuses={[
+          { value: 'ALL', label: 'All' },
+          ...(Object.keys(CATEGORY_META) as TriageCategory[]).map(c => ({
+            value: c,
+            // Strip the emoji for the pill — a coloured dot inside a pill that
+            // is itself a colour state reads as two competing signals.
+            label: CATEGORY_META[c].label.replace(/^[^ ]+ /, ''),
+          })),
+        ]}
+        status={category}
+        onStatus={setCategory}
+      />
+
       {loading ? (
         <div className="py-24"><LoadingSpinner size="lg" message="Loading emergencies..." /></div>
       ) : sorted.length === 0 ? (
-        <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-30 uppercase font-black text-[10px] tracking-[0.3em]">No emergency cases</div>
+        <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-30 uppercase font-black text-[10px] tracking-[0.3em]">
+          {records.length === 0 ? 'No emergency cases' : 'No cases match these filters'}
+        </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {sorted.map(r => {

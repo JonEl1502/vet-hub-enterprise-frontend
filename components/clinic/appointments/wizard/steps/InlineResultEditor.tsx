@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { Loader2, Upload, X, CheckCircle2, Save, ImagePlus, Paperclip } from 'lucide-react';
 import { labAPI, imagingAPI, LabRecord, ImagingRecord } from '../../../../../services/modules/diagnostics.api';
 import { uploadsAPI } from '../../../../../services/modules/uploads.api';
-import { toast } from '../../../../../services';
+import { toast, surgeryAPI } from '../../../../../services';
 
 /**
  * Record a diagnostic result WHERE THE REQUEST IS (user, 2026-08-22).
@@ -18,20 +18,27 @@ import { toast } from '../../../../../services';
  * the bytes land — a failed upload leaves no broken reference behind.
  */
 type Props = {
-  kind: 'lab' | 'imaging';
+  /** 2026-08-22: surgery records get the same inline editor — a surgeon
+   *  photographing a site should not have to leave the visit to attach it. */
+  kind: 'lab' | 'imaging' | 'surgery';
   lab?: LabRecord;
   imaging?: ImagingRecord;
+  surgery?: any;
   onSaved: () => void;
 };
 
-const InlineResultEditor: React.FC<Props> = ({ kind, lab, imaging, onSaved }) => {
-  const [text, setText] = useState<string>(kind === 'lab' ? (lab?.notes ?? '') : (imaging?.findings ?? ''));
+const InlineResultEditor: React.FC<Props> = ({ kind, lab, imaging, surgery, onSaved }) => {
+  const [text, setText] = useState<string>(
+    kind === 'lab' ? (lab?.notes ?? '')
+    : kind === 'surgery' ? (surgery?.findings ?? '')
+    : (imaging?.findings ?? ''),
+  );
   const [busy, setBusy] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [pending, setPending] = useState<{ url: string; name: string; isImage: boolean }[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
 
-  const recordId = kind === 'lab' ? lab?.id : imaging?.id;
+  const recordId = kind === 'lab' ? lab?.id : kind === 'surgery' ? surgery?.id : imaging?.id;
 
   const pickFiles = async (files: FileList | null) => {
     if (!files?.length || !recordId) return;
@@ -71,6 +78,15 @@ const InlineResultEditor: React.FC<Props> = ({ kind, lab, imaging, onSaved }) =>
           notes: text,
           attachments: [...existing, ...pending.map(p => ({ url: p.url, name: p.name, kind: p.isImage ? 'IMAGE' : 'FILE' }))],
           ...(markResulted ? { status: 'RESULTED' as any, resultDate: new Date().toISOString() } : {}),
+        } as any);
+      } else if (kind === 'surgery') {
+        // SurgeryRecord.images is a plain string[], not the {url,…} shape the
+        // other two use — append URLs, do not spread objects into it.
+        const existing: string[] = Array.isArray(surgery?.images) ? surgery.images : [];
+        await surgeryAPI.update(recordId, {
+          findings: text,
+          images: [...existing, ...pending.map(p => p.url)],
+          ...(markResulted ? { status: 'COMPLETED' as any } : {}),
         } as any);
       } else {
         const existing = (imaging?.images ?? []).map((im: any) => typeof im === 'string' ? { url: im } : im);

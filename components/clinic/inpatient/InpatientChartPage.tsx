@@ -509,7 +509,20 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
           <div className={`${pane ? (pane === 'chart' ? '' : 'hidden') : 'lg:col-span-2'} space-y-4`}>
             {/* Vitals */}
             <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
-              <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5 mb-2"><Thermometer size={13} /> Monitoring (TPR)</p>
+              {/* ⚠️ Yes, a reading appears here AND on its day below — and that
+                  is the point, not an oversight (user, 2026-08-22: "n that is
+                  duplicate or?"). These answer different questions: this table
+                  is the TREND across the whole stay, newest first, for spotting
+                  a climbing temperature at a glance; the day card shows the same
+                  reading beside the entry it was taken with. The heading says so
+                  rather than leaving two identical-looking lists to be
+                  reconciled by the reader. */}
+              <div className="flex flex-wrap items-baseline gap-2 mb-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5"><Thermometer size={13} /> Monitoring (TPR)</p>
+                <span className="text-[9px] font-bold text-slate-400">
+                  Trend across the whole stay · last {Math.min(8, (h.vitals || []).length)} — each reading also shows on its own day below
+                </span>
+              </div>
               {/* The TPR inputs moved into the daily sheet, onto the day you are
                   filling (user, 2026-08-04: "move them to daily log similar to
                   boarding"). Recording is per-day; this stays the read-across. */}

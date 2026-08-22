@@ -1557,6 +1557,10 @@ const PetProfileView: React.FC<Props> = ({
             {[
               { id: 'overview', label: 'Overview', icon: Heart },
               { id: 'timeline', label: 'Timeline', icon: Clock },
+              // VISITS (user, 2026-08-22): the timeline is a narrative; this is
+              // the same table Visits shows, scoped to this patient, for when
+              // you want to scan status and money rather than read a story.
+              { id: 'visits', label: 'Visits', icon: Calendar },
               // ONE Records tab (user, 2026-08-03). Medical, grooming,
               // boarding, inpatient, vaccination and deworming are all records
               // of the same patient — they are sub-views in there, not a row of
@@ -1591,6 +1595,126 @@ const PetProfileView: React.FC<Props> = ({
         {/* Records (077 + 2026-08-03) — everything clinical: vet visits, consults,
             hospitalizations, surgeries, lab AND vaccinations (with record +
             certificate access from the Vaccinations sub-tab). */}
+        {activeTab === 'visits' && (() => {
+          /**
+           * The visits table, scoped to this patient.
+           *
+           * Same columns and visual language as the Visits page, minus the
+           * Patient column — on a patient's own profile every row is this
+           * patient, so a column repeating its name is dead width.
+           *
+           * Not a shared component: the Visits page's table is welded to that
+           * page's pagination, filters, bulk actions and row handlers. Lifting
+           * it out is a refactor of its own; copying the seven columns is not.
+           */
+          const rows = [...appointments].sort(
+            (a, b) => new Date(b.date as any).getTime() - new Date(a.date as any).getTime(),
+          );
+          const statusTone: Record<string, string> = {
+            [ApptStatus.SCHEDULED]: 'bg-cyan-50 text-cyan-700 dark:bg-cyan-950/30 dark:text-cyan-300',
+            [ApptStatus.IN_PROGRESS]: 'bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-300',
+            [ApptStatus.COMPLETED]: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-300',
+            [ApptStatus.PENDING_PAYMENT]: 'bg-orange-50 text-orange-700 dark:bg-orange-950/30 dark:text-orange-300',
+            [ApptStatus.CANCELLED]: 'bg-rose-50 text-rose-700 dark:bg-rose-950/30 dark:text-rose-300',
+          };
+          const rowTint: Record<string, string> = {
+            [ApptStatus.SCHEDULED]: 'bg-cyan-500/[0.03]',
+            [ApptStatus.IN_PROGRESS]: 'bg-amber-500/[0.04]',
+            [ApptStatus.COMPLETED]: 'bg-emerald-500/[0.03]',
+            [ApptStatus.PENDING_PAYMENT]: 'bg-orange-500/[0.04]',
+            [ApptStatus.CANCELLED]: 'bg-red-500/[0.03]',
+          };
+          const money = (n: any) => `${activeClinic?.currency || 'KES'} ${Number(n || 0).toLocaleString()}`;
+
+          if (rows.length === 0) {
+            return (
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-10 text-center">
+                <Calendar size={28} className="mx-auto mb-3 text-slate-300 dark:text-zinc-700" />
+                <p className="text-sm font-bold text-slate-400">No visits yet for {pet.name}.</p>
+              </div>
+            );
+          }
+
+          return (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm min-w-[720px]">
+                  <thead>
+                    <tr className="bg-gradient-to-r from-slate-50 to-slate-100/60 dark:from-zinc-800/80 dark:to-zinc-800/40 border-b border-slate-200 dark:border-zinc-700/60">
+                      {['Visit Type', 'Services', 'Payment', 'Status', 'Scheduled', 'Actions'].map((h, i) => (
+                        <th key={h} className={`px-5 py-4 text-[9px] font-black uppercase tracking-[0.15em] text-slate-400 dark:text-zinc-500 whitespace-nowrap ${i >= 3 && i <= 3 ? 'text-center' : ''} ${h === 'Actions' ? 'text-center' : ''}`}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100/80 dark:divide-zinc-800/60">
+                    {rows.map(v => {
+                      const services = (v.tasks || []).length;
+                      const cats = [...new Set((v.tasks || []).map((t: any) => t.category).filter(Boolean))];
+                      return (
+                        <tr key={v.id} className={`${rowTint[v.status] || ''} hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors`}>
+                          <td className="px-5 py-3">
+                            <span className="block text-xs font-black text-pine dark:text-zinc-100">
+                              {String(v.visitType || v.encounterType || 'Visit').replace(/_/g, ' ')}
+                            </span>
+                            <span className="block text-[10px] text-slate-400">#{v.id}</span>
+                          </td>
+                          <td className="px-5 py-3">
+                            {services > 0 ? (
+                              <>
+                                <span className="block text-xs font-bold text-pine dark:text-zinc-100">{services} service{services === 1 ? '' : 's'}</span>
+                                {cats.length > 0 && (
+                                  <span className="block text-[10px] text-slate-400 truncate max-w-[180px]">{cats.join(' · ')}</span>
+                                )}
+                              </>
+                            ) : (
+                              // Imported visits carry a total but no basket —
+                              // say so rather than showing a blank cell.
+                              <span className="text-[10px] text-slate-400 italic">Not itemised</span>
+                            )}
+                          </td>
+                          <td className="px-5 py-3">
+                            <span className="block text-xs font-black text-pine dark:text-zinc-100">{money(v.totalCost)}</span>
+                            <span className={`block text-[10px] font-black uppercase tracking-wider ${v.isPaid ? 'text-emerald-600' : 'text-orange-500'}`}>
+                              {v.isPaid ? 'Paid' : 'Due'}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 text-center">
+                            <span className={`inline-block px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${statusTone[v.status] || 'bg-slate-100 text-slate-500'}`}>
+                              {String(v.status).replace(/_/g, ' ')}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 whitespace-nowrap">
+                            <span className="block text-xs font-bold text-pine dark:text-zinc-100">{v.date ? formatDate(v.date as any) : '—'}</span>
+                            <span className="block text-[10px] text-slate-400">{v.date ? formatTime(v.date as any) : ''}</span>
+                          </td>
+                          <td className="px-5 py-3 text-center whitespace-nowrap">
+                            <button
+                              type="button"
+                              onClick={() => onViewAppointment?.(Number(v.id))}
+                              className="px-2.5 py-1 rounded-lg border border-seafoam/40 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all"
+                            >
+                              Open
+                            </button>
+                            {!v.isPaid && onOpenVisitBill && (
+                              <button
+                                type="button"
+                                onClick={() => onOpenVisitBill(Number(v.id))}
+                                className="ml-1.5 px-2.5 py-1 rounded-lg border border-orange-300 text-orange-600 text-[9px] font-black uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all"
+                              >
+                                Bill
+                              </button>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          );
+        })()}
+
         {activeTab === 'records' && (
            <div className="flex flex-wrap gap-1 bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-fit max-w-full mb-6">
              {([

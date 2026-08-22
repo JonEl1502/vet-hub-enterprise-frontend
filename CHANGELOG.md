@@ -59,6 +59,45 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Visits tab on the patient profile  —  2026-08-22
+🟢 **Record impact: none.**
+- A **Visits** tab beside Timeline, using the same columns and visual language as the Visits page —
+  Visit Type · Services · Payment · Status · Scheduled · Actions (user, 2026-08-22). The timeline is
+  a narrative; this is for scanning status and money.
+- **No Patient column**: on a patient's own profile every row is that patient, so it would be dead
+  width. Imported visits show *"Not itemised"* rather than an empty Services cell — they carry a
+  total but no basket.
+- ⚠️ Not extracted from `VisitsListView`: that table is welded to its page's pagination, filters,
+  bulk actions and row handlers. Lifting it out is a refactor of its own; copying six columns is not.
+
+### feat: filters on the Emergency board  —  2026-08-22
+🟢 **Record impact: none.**
+- The board had an Active/All toggle and nothing else, so finding one case on a busy day meant
+  reading every card (user, 2026-08-22: *"filters"*). It now uses the shared `ListFilterBar`:
+  search (patient, breed, complaint), date range, and a triage-category pill row.
+- The empty state distinguishes **"No emergency cases"** from **"No cases match these filters"** —
+  the same words for both is how people conclude a filter is broken.
+
+### feat: surgery gets the inline result editor  —  2026-08-22
+🟢 **Record impact: none.**
+- Surgery services now appear in the visit's Diagnostics panel and open the same inline collapsible
+  as lab and imaging, with photo/PDF upload straight onto the record (user, 2026-08-22: *"if lab
+  collapsible is for lab, surgery same"*). A surgeon photographing a site should not have to leave
+  the visit to attach it.
+- ⚠️ Surgery matches on **taskId only**, unlike lab/imaging which fall back to "any record on this
+  visit". A visit can carry several procedures, and that fallback would attach the wrong report.
+- ⚠️ `SurgeryRecord.images` is a plain `string[]`, not the `{url,…}` shape the other two use — the
+  save path appends URLs rather than spreading objects into it.
+
+### change: the TPR table says what it is for  —  2026-08-22
+🟢 **Record impact: none.**
+- With vitals now shown on their day, a reading appears both in the stay-wide **Monitoring (TPR)**
+  table and on its day card — and the user rightly asked whether that was a duplicate.
+- It is the same reading answering two questions: the table is the **trend across the whole stay**,
+  newest first, for spotting a climbing temperature at a glance; the day card shows it beside the
+  entry it was taken with. The heading now says exactly that, instead of leaving two
+  identical-looking lists for the reader to reconcile.
+
 ### fix: every imported visit printed a bare "0" on the patient timeline  —  2026-08-22
 🟢 **Record impact: none — the data was fine, the render was not.**
 - `hasDetail` was `c.kind === 'visit' && (c.services?.length || c.categories?.length)`. With no
