@@ -123,12 +123,14 @@ const ServiceBundlesView: React.FC = () => {
       </div>
 
       {editing ? (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4 max-w-2xl">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 md:p-6 shadow-sm space-y-5">
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{editing.id ? 'Edit bundle' : 'New bundle'}</h2>
             <button onClick={() => setEditing(null)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"><X size={18} /></button>
           </div>
 
+          <div className="grid grid-cols-1 lg:grid-cols-5 gap-x-6 gap-y-5 items-start">
+          <div className="lg:col-span-3 space-y-5">
           <div><label className={labelCls}>Name *</label><input className={fieldCls} value={editing.name} onChange={e => setEditing({ ...editing, name: e.target.value })} placeholder="Full groom + nails" /></div>
           <div><label className={labelCls}>Description</label><input className={fieldCls} value={editing.description} onChange={e => setEditing({ ...editing, description: e.target.value })} placeholder="What's included" /></div>
 
@@ -162,6 +164,9 @@ const ServiceBundlesView: React.FC = () => {
             )}
           </div>
 
+          </div>
+
+          <div className="lg:col-span-2 space-y-5 lg:bg-slate-50/70 lg:dark:bg-zinc-950/40 lg:border lg:border-slate-200 lg:dark:border-zinc-800 lg:rounded-2xl lg:p-4">
           <div>
             <label className={labelCls}>Pricing</label>
             <div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl w-max">
@@ -175,16 +180,17 @@ const ServiceBundlesView: React.FC = () => {
           </div>
 
           {editing.pricingMode === 'BATCH' && (
-            <div className="max-w-[220px]"><label className={labelCls}>Bundle price (KES)</label><input type="number" min="0" className={fieldCls} value={editing.batchPrice} onChange={e => setEditing({ ...editing, batchPrice: e.target.value })} /></div>
+            <div><label className={labelCls}>Bundle price (KES)</label><input type="number" min="0" className={fieldCls} value={editing.batchPrice} onChange={e => setEditing({ ...editing, batchPrice: e.target.value })} /></div>
           )}
 
-          <div className="grid grid-cols-2 gap-4 items-end">
-            <div><label className={labelCls}>Discount (KES)</label><input type="number" min="0" className={fieldCls} value={editing.discount} onChange={e => setEditing({ ...editing, discount: e.target.value })} placeholder="0" /></div>
-            <div className="text-right">
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Sells for</p>
-              <p className="text-2xl font-black text-pine dark:text-zinc-100">KES {draftPricing.after.toLocaleString()}</p>
-              {draftPricing.sell !== draftPricing.after && <p className="text-[10px] text-slate-400 line-through">KES {draftPricing.sell.toLocaleString()}</p>}
-            </div>
+          <div><label className={labelCls}>Discount (KES)</label><input type="number" min="0" className={fieldCls} value={editing.discount} onChange={e => setEditing({ ...editing, discount: e.target.value })} placeholder="0" /></div>
+
+          <div className="pt-1 border-t border-slate-200 dark:border-zinc-800">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-3">Sells for</p>
+            <p className="text-3xl font-black text-pine dark:text-zinc-100 leading-tight">KES {draftPricing.after.toLocaleString()}</p>
+            {draftPricing.sell !== draftPricing.after && <p className="text-[10px] text-slate-400 line-through">KES {draftPricing.sell.toLocaleString()}</p>}
+          </div>
+          </div>
           </div>
 
           <div className="flex gap-2 pt-1">

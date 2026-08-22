@@ -25,14 +25,6 @@ export interface PlatformSettings {
   hasMpesaPasskey: boolean;
   hasPesapalConsumerKey: boolean;
   hasPesapalConsumerSecret: boolean;
-  // Lipana — one API key drives STK + payment links; webhook secret is a
-  // separate value that confirms payment. Amounts come from the package
-  // table, so there's no amount config here.
-  lipanaPublishableKey: string | null;
-  lipanaCallbackBaseUrl: string | null;
-  lipanaTestMode: boolean;
-  hasLipanaSecretKey: boolean;
-  hasLipanaWebhookSecret: boolean;
   // Paystack — a single secret key is enough; Paystack signs webhooks with
   // it, and we use the hosted-redirect flow (no public key needed).
   paystackPublicKey: string | null;
@@ -64,11 +56,6 @@ export interface PlatformSettingsUpdate {
   pesapalIpnId?: string | null;
   pesapalCallbackBaseUrl?: string | null;
   pesapalTestMode?: boolean;
-  lipanaSecretKey?: string | null;
-  lipanaWebhookSecret?: string | null;
-  lipanaPublishableKey?: string | null;
-  lipanaCallbackBaseUrl?: string | null;
-  lipanaTestMode?: boolean;
   paystackSecretKey?: string | null;
   paystackWebhookSecret?: string | null;
   paystackPublicKey?: string | null;

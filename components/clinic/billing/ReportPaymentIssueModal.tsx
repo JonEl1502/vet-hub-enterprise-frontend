@@ -146,7 +146,6 @@ const ReportPaymentIssueModal: React.FC<Props> = ({ isOpen, onClose, onSubmitted
                 <option value="">—</option>
                 <option value="MPESA">M-Pesa</option>
                 <option value="PAYSTACK">Paystack</option>
-                <option value="LIPANA">Lipana</option>
                 <option value="PESAPAL">Pesapal</option>
               </select>
             </div>

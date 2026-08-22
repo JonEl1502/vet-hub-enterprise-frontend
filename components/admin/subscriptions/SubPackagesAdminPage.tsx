@@ -199,7 +199,6 @@ const SubPackagesAdminPage: React.FC = () => {
       billingCycle: selected.billingCycle,
       isActive: selected.isActive,
       name: selected.name,
-      lipanaStaticLinkUrl: selected.lipanaStaticLinkUrl ?? null,
       featuredCycle: selected.featuredCycle ?? 'MONTHLY',
       audiences: (selected.audiences && selected.audiences.length > 0) ? selected.audiences : ['CLINIC'],
     });
@@ -728,36 +727,6 @@ const SubPackagesAdminPage: React.FC = () => {
                         <option value="YEARLY">Yearly</option>
                       </select>
                     </Field>
-                    <div className="sm:col-span-2 lg:col-span-3">
-                      <label className="flex items-start gap-3 p-3 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700 cursor-pointer hover:bg-slate-100 dark:hover:bg-zinc-800">
-                        <input
-                          type="checkbox"
-                          // Enabled = the field EXISTS (even while empty). Reading
-                          // the value here made an empty-but-enabled link render as
-                          // unchecked, with its own input visible underneath.
-                          checked={selected.lipanaStaticLinkUrl != null}
-                          onChange={(e) => updateSelectedField('lipanaStaticLinkUrl', e.target.checked ? (selected.lipanaStaticLinkUrl ?? '') : null)}
-                          className="mt-0.5 accent-pine"
-                        />
-                        <div className="flex-1">
-                          <p className="text-xs font-bold text-pine dark:text-zinc-100">Add a custom Lipana payment link</p>
-                          <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">
-                            Optional. The in-app Pay button doesn't need this — it runs Lipana STK directly. Set a link only when you want a shareable Lipana hosted page (marketing, WhatsApp, walk-in sales).
-                          </p>
-                        </div>
-                      </label>
-                      {selected.lipanaStaticLinkUrl != null && (
-                        <div className="mt-2">
-                          <input
-                            type="url"
-                            placeholder="https://lipana.dev/pay/vethub-pro"
-                            value={selected.lipanaStaticLinkUrl ?? ''}
-                            onChange={e => updateSelectedField('lipanaStaticLinkUrl', e.target.value)}
-                            className={inputCls}
-                          />
-                        </div>
-                      )}
-                    </div>
                   </div>
                   <div className="flex justify-end">
                     <button
@@ -773,7 +742,7 @@ const SubPackagesAdminPage: React.FC = () => {
                     <div>
                       <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Billing Options</p>
                       <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
-                        One row per cycle. Each has its own price, discount %, and Lipana payment link.
+                        One row per cycle — its own price and discount %.
                       </p>
                     </div>
                     <BillingOptionsEditor
@@ -963,8 +932,6 @@ const BillingOptionRow: React.FC<BillingOptionRowProps> = ({ packageId, cycleLab
   // Optional custom URL. Checkbox toggles visibility; default off so admins
   // don't have to think about it. URL is not used for payment — it's only
   // for shareable marketing pages.
-  const [useUrl, setUseUrl] = useState<boolean>(!!existing?.lipanaStaticLinkUrl);
-  const [url, setUrl] = useState<string>(existing?.lipanaStaticLinkUrl ?? '');
   const [saving, setSaving] = useState(false);
 
   const save = async () => {
@@ -976,7 +943,6 @@ const BillingOptionRow: React.FC<BillingOptionRowProps> = ({ packageId, cycleLab
         price: priceNum,
         currency: defaultCurrency,
         discountPct: discountPct ? Number(discountPct) : 0,
-        lipanaStaticLinkUrl: useUrl ? (url.trim() || null) : null,
         isActive: true,
       });
       if (res.success && res.data?.option) onSaved(res.data.option);
@@ -1021,24 +987,6 @@ const BillingOptionRow: React.FC<BillingOptionRowProps> = ({ packageId, cycleLab
           Save
         </button>
       </div>
-      <label className="flex items-center gap-2 text-[10px] font-bold text-slate-500 dark:text-zinc-400 cursor-pointer">
-        <input
-          type="checkbox"
-          checked={useUrl}
-          onChange={(e) => setUseUrl(e.target.checked)}
-          className="accent-pine"
-        />
-        <span>Add a custom Lipana payment link for this cycle (optional, marketing only)</span>
-      </label>
-      {useUrl && (
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://lipana.dev/pay/..."
-          className={inputCls}
-        />
-      )}
     </div>
   );
 };

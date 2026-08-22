@@ -32,8 +32,6 @@ export interface SubscriptionPackage {
   maxBranches?: number;
   /** Optional — populated only by callers that still need it (e.g. supplier flow); not on the clinic /stripe/info response. */
   stripePriceId?: string | null;
-  /** Optional Lipana hosted-pay URL for this tier (e.g. https://lipana.dev/pay/vethub-pro). When set, the billing UI shows a secondary "Pay via Lipana" button. */
-  lipanaStaticLinkUrl?: string | null;
   /** Per-cycle pricing variants (Monthly/Quarterly/6mo/Yearly). When present the billing UI shows a cycle selector; the selected option's id+price drive the subscribe flow. */
   billingOptions?: Array<{
     id: string;
@@ -41,7 +39,6 @@ export interface SubscriptionPackage {
     price: number;
     currency: string;
     discountPct: number;
-    lipanaStaticLinkUrl: string | null;
   }>;
   /** Admin-chosen "featured" billing cycle — the one the customer sees pre-selected on the plan card. */
   featuredCycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY';

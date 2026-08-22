@@ -30,10 +30,6 @@ export interface SubscriptionPackagePlan {
   isActive: boolean;
   discountPercentage?: number;
   stripePriceId?: string | null;
-  // Optional Lipana hosted-pay URL for this tier (set by admin). When
-  // populated, clinic billing screens render a secondary "Pay via Lipana"
-  // button alongside the in-app subscribe CTA.
-  lipanaStaticLinkUrl?: string | null;
   // Admin-chosen default billing cycle the customer card opens on.
   featuredCycle?: BillingOptionCycle;
   /** Which account types this package is offered to. Defaults to ['CLINIC']. */
@@ -52,7 +48,6 @@ export interface BillingOption {
   price: number;
   currency: string;
   discountPct: number;
-  lipanaStaticLinkUrl: string | null;
   isActive: boolean;
   sortOrder: number;
 }
@@ -61,7 +56,6 @@ export interface BillingOptionInput {
   price: number;
   currency?: string;
   discountPct?: number;
-  lipanaStaticLinkUrl?: string | null;
   isActive?: boolean;
   sortOrder?: number;
 }
@@ -85,7 +79,6 @@ export interface CreatePackagePayload {
   isActive?: boolean;
   discountPercentage?: number;
   stripePriceId?: string | null;
-  lipanaStaticLinkUrl?: string | null;
   featuredCycle?: BillingOptionCycle;
   audiences?: PackageAudience[];
 }

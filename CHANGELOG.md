@@ -59,6 +59,34 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### remove: Lipana payment rail removed from every screen  —  2026-08-22
+🟢 **Record impact: none.** Lipana ceased operating in Kenya (user, 2026-08-22). Paystack (card +
+mobile money) is now the only subscription rail.
+- **Billing → Plans**: the STK-push modal, its phone-choice step, the 2-minute status poll and all
+  of its state are gone. The "Pay with M-Pesa" button had already been commented out; the code
+  behind it is now deleted rather than dormant. `PlanCard` no longer takes `onPayWithLipana` /
+  `lipanaLoading`, and the payment gate keys off Paystack alone.
+- **Add-ons and "upgrade to next tier"** used to open the Lipana modal — both now go through
+  Paystack, so neither is a dead button.
+- **Admin → Platform settings**: the whole Lipana provider tab (API key, webhook secret, save and
+  clear) is removed. ⚠️ "LipaNaMpesaOnline" in the **M-Pesa** tab is Safaricom Daraja's own term for
+  its STK product and is unrelated — it stays.
+- **Admin → Plans**: the *"Add a custom Lipana payment link"* checkbox and URL field are gone from
+  both the plan form and every per-cycle billing-option row — the fields the screenshot flagged as
+  unusable. Billing options keep price and discount %.
+- **Report a payment issue**: `LIPANA` dropped from the channel picker (you cannot pay that way any
+  more). It is **kept** in Admin → Subscription payments, which lists historical attempts — 16
+  successful Lipana payments would otherwise vanish from the ledger.
+
+### fix: package and bundle forms fill the page  —  2026-08-22
+🟢 **Record impact: none** (layout only).
+- **Vaccine Packages → New package** and **Service Bundles → New bundle** were capped at
+  `max-w-2xl`, so on a normal desktop the form sat as a narrow column in a mostly empty page (user,
+  2026-08-22: *"this ui is bad n meh, widen to fit"*).
+- Both now use a **3:2 two-column layout** at `lg` and up: name, description and the item picker on
+  the left; pricing mode, batch price, discount and the running "Sells for" total in a tinted panel
+  on the right. Below `lg` they stack exactly as before, so mobile is unchanged.
+
 ### change: five weight bands for stay rates  —  2026-08-22
 🔵 **Record impact: none.**
 - **0–10 · 10+–20 · 20+–40 · 40+–60 · 60+ kg** — Small, Medium, Large, Extra large, Giant (user,
