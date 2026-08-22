@@ -59,6 +59,63 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the buy/sell panels rendered unstyled  —  2026-08-22
+🔴 **My own bug, shipped this morning.** The BUY panel's field classes were written as a literal
+`"''' + FIELD + '''"` — a scripting artefact that survived into the JSX — so "Units bought" and
+"Units per pack" rendered as raw unstyled controls with the label running into the value
+(*"Units bought *Tablet"*). Repaired, and every field in those panels now carries real classes.
+
+### change: buy panel amber, sell panel blue  —  2026-08-22
+🟢 **Record impact: none.**
+- **You buy & stock it in** is amber, **You bill & sell it in** is blue, both in light shades (user,
+  2026-08-22). Two panels that decide two different numbers should not be the same colour.
+- **Billable** is now a small checkbox chip in violet rather than a full-width bar — it is a yes/no
+  on one property and should not outweigh the units above it.
+
+### feat: the date range picks WHICH date  —  2026-08-22
+🟢 **Record impact: none.**
+- The inventory range filtered on expiry **OR** any batch's received date, whichever matched — so
+  "this month" quietly meant two things at once and a row could appear for a reason you could not
+  see. A selector beside the picker now chooses: **Expiry date · Date bought · Last updated ·
+  Date added** (user, 2026-08-22). Defaults to expiry.
+- A missing or unparseable date now EXCLUDES the row instead of padding the range.
+
+### feat: many suppliers per product, chosen at reorder  —  2026-08-22
+🟢 **Record impact: none.** Needs backend migration 218.
+- The product form's single Supplier dropdown is now a list: add any number, tick one as default,
+  and record what each one charges (user, 2026-08-22). Removing the default promotes another — the
+  list is never left without one.
+- **Suggested reorders** turns the supplier column into a per-row dropdown when a product has
+  alternatives (single-source items stay plain text, not a select with one option). Est. cost
+  follows the chosen supplier's own price when they have one on file.
+- Items saved before 218 fall back to their single supplier, so nothing shows an empty list.
+
+### fix: confirm before deleting, across the app  —  2026-08-22
+🟢 **Record impact: none** — but these were one-click, no-questions destructive actions.
+- **Inpatient chart**: only MEDICATION entries confirmed, so the trash beside a treatment task
+  deleted it on a single mis-click. Every kind confirms now.
+- **Consumables** (chart, boarding day sheet): removing a line RETURNS STOCK and rewrites the bill.
+  Both did it silently; both now confirm and say what the removal costs.
+- Nine `window.confirm` / bare `confirm()` sites converted to the app dialog — the native one cannot
+  be styled, is suppressed by some browsers, and looks nothing like the rest of VetHub.
+- **Deactivate workflow** now confirms.
+
+### change: adding an entry looks different from the entries  —  2026-08-22
+🟢 **Record impact: none.**
+- The search box and the already-logged rows sat in one flat card, so a line that was already
+  recorded **and already billed** read like a field you were still filling in (user, 2026-08-22:
+  *"ui to add a record to be different from display of the entries, its confusing to have one ui"*).
+- The add area is now a dashed, tinted **Add an item** zone; below it a **Recorded (n)** heading with
+  its running total. One is where you type, the other is what is.
+
+### feat: logged items show the sum, not just the total  —  2026-08-22
+🟢 **Record impact: none.**
+- Each billable line now prints `KES 10 × 400 ml = KES 4,000` (user, 2026-08-22). A bare "KES 4,000"
+  is unauditable — 400 mL at 10 and 400 mL at 100 render identically without the multiplication.
+- Products carrying service charges say so — *"Carries Injection fee KES 550 — billed as its own
+  line"*. Worded as **carries**, not *charged*: whether it was applied was decided by the tick boxes
+  at add-time and lives on its own bill line, so claiming otherwise would be a guess.
+
 ### fix: product P&L multiplied a per-mL price by a bottle count  —  2026-08-22
 🔴 **Record impact: none on stored rows — but this was WRONG MONEY on screen, and the wrong
 number was the wallet debit.** No backfill needed; nothing was persisted from it.

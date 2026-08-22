@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { dialog } from '../../../services/utils/dialog';
 import {
   Workflow, Plus, Loader2, Copy, Pencil, Trash2, Search, Share2, Globe2, Lock, Star, ArrowDownToLine,
 } from 'lucide-react';
@@ -126,6 +127,15 @@ const WorkflowsView: React.FC<Props> = ({ onOpenBuilder }) => {
   };
 
   const deactivate = async (t: WorkflowTemplate) => {
+    // Deactivating pulls a workflow out of every future visit — confirm it
+    // (user, 2026-08-22: "across app when user deletes some things confirm").
+    const ok = await dialog.confirm({
+      title: 'Deactivate workflow?',
+      message: `"${t.name}" will stop being offered on new visits. Visits already using it are unaffected.`,
+      confirmLabel: 'Deactivate',
+      variant: 'warning',
+    });
+    if (!ok) return;
     setBusyId(t.id);
     try {
       const res = await workflowTemplatesAPI.remove(t.id);

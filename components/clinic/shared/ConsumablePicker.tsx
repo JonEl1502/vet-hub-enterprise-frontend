@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { Package, Search, Plus, Loader2, Trash2, Tag, TagsIcon, AlertCircle, Pencil } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { dialog } from '../../../services/utils/dialog';
 import { useData } from '../../../contexts/DataContext';
 import { consumablesAPI, AppointmentConsumable, vaccinePackagesAPI, VaccinePackage, billsAPI } from '../../../services';
 import { sellUnitOf, stockPerSellUnit, isSplitUnit } from './QtyUnitControl';
@@ -265,6 +266,16 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
   };
 
   const remove = async (c: AppointmentConsumable) => {
+    // Confirm first (user, 2026-08-22: "across app when user deletes some
+    // things confirm first"). Removing a line RETURNS STOCK and rewrites the
+    // bill — a mis-click on a 12px icon should not do either silently.
+    const ok = await dialog.confirmDelete({
+      entityName: `${c.inventoryItem.name} × ${c.quantity} ${sellUnitOf(c.inventoryItem as any)}`,
+      message: c.billable
+        ? `Remove this line? KES ${Number(c.lineTotal ?? 0).toLocaleString()} comes off the bill and the stock is returned.`
+        : 'Remove this line? The stock is returned.',
+    });
+    if (!ok) return;
     setBusyLineId(c.id);
     try {
       const res = await consumablesAPI.remove(c.id);
@@ -285,8 +296,16 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
         {billableTotal > 0 && <span className="ml-auto text-[11px] font-black text-pine dark:text-zinc-100">KES {billableTotal.toLocaleString()}</span>}
       </div>
 
-      {/* Add form */}
-      <div className="space-y-2">
+      {/* ── ADD ZONE ────────────────────────────────────────────────
+          Deliberately styled UNLIKE the list below (user, 2026-08-22: "ui to
+          add a record to be different from display of the entries, its
+          confusing to have one ui"). The search box and the logged rows sat
+          in the same flat card, so "Lactated Ringer's 400 ml" read as a
+          field you were filling in rather than a line already recorded and
+          already billed. Dashed border + tint + its own heading = a place
+          where you TYPE something new. Solid rows below = what IS. */}
+      <div className="space-y-2 rounded-xl border border-dashed border-seafoam/40 bg-seafoam/[0.03] p-2.5">
+        <p className="text-[9px] font-black uppercase tracking-widest text-seafoam/70">Add an item</p>
         <div className="relative">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -414,6 +433,15 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
         <p className="text-[11px] text-slate-400 text-center py-3">No items logged yet.</p>
       ) : (
         <div className="space-y-1.5">
+          <div className="flex items-center gap-2 pt-1">
+            <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+              Recorded ({items.length})
+            </span>
+            <span className="flex-1 h-px bg-slate-200 dark:bg-zinc-800" />
+            {billableTotal > 0 && (
+              <span className="text-[9px] font-black text-pine dark:text-zinc-100">KES {billableTotal.toLocaleString()}</span>
+            )}
+          </div>
           {items.map(c => (
             <React.Fragment key={c.id}>
             <div className="flex items-center gap-2 px-2.5 py-2 bg-slate-50 dark:bg-zinc-950/40 rounded-lg">
@@ -428,6 +456,33 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
                     </span>
                   )}
                 </span>
+                {/* HOW the figure was reached (user, 2026-08-22: "show
+                    clinic's sale price x units n any fee accompanied with
+                    it"). A bare "KES 4,000" is unauditable — 400 mL at 10 is
+                    right, 400 mL at 100 is a decimal-point disaster, and both
+                    render the same without the multiplication written out. */}
+                {c.billable && (
+                  <span className="block text-[9px] font-bold text-slate-500 dark:text-zinc-400">
+                    KES {Number(c.unitPrice ?? 0).toLocaleString()} × {Number(c.quantity).toLocaleString()} {sellUnitOf(c.inventoryItem as any)}
+                    {' = '}
+                    <strong className="text-pine dark:text-zinc-100">KES {Number(c.lineTotal ?? 0).toLocaleString()}</strong>
+                  </span>
+                )}
+                {/* Charges the PRODUCT carries. Worded as "carries", not
+                    "charged": whether each was actually applied was decided by
+                    the tick boxes at add-time and lives on its own bill line,
+                    not on this row — claiming otherwise would be a guess. */}
+                {(() => {
+                  const fees = Object.entries(((c.inventoryItem as any)?.metadata?.fees) || {})
+                    .filter(([, v]) => v != null && Number(v) > 0);
+                  if (!fees.length || !c.billable) return null;
+                  return (
+                    <span className="block text-[9px] font-bold text-violet-600 dark:text-violet-400">
+                      Carries {fees.map(([k, v]) => `${FEE_LABELS[k] || k} KES ${Number(v).toLocaleString()}`).join(' · ')}
+                      <span className="text-slate-400 font-bold"> — billed as its own line</span>
+                    </span>
+                  );
+                })()}
                 <span className="block text-[9px] text-slate-400">
                   {c.batchNumber ? <span className="font-bold text-amber-600 dark:text-amber-500">Batch {c.batchNumber} · </span> : ''}
                   {c.inventoryItem.form ?? 'UNIT'}

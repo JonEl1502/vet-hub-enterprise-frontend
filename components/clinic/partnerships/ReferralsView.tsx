@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import { dialog } from '../../../services/utils/dialog';
 import { Referral, ReferralStatus, Clinic, Pet, Handshake, HandshakeStatus } from '../../../types';
 import ClinicLogo from '../clinic-mgmt/ClinicLogo';
 import { Search, ArrowUpRight, ArrowDownLeft, MoreVertical, Handshake as HandshakeIcon, ShieldCheck, Eye, X, Loader2, ArrowRight, Globe, RefreshCw, Clock, CheckCircle2, XCircle, Pencil, Trash2, Send } from 'lucide-react';
@@ -51,7 +52,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
     } catch (e: any) { toast.error(e?.message || 'Failed to update request'); } finally { setBusyId(null); }
   };
   const deleteHandshake = async (h: Handshake, partnerName: string) => {
-    if (!window.confirm(`Delete the partnership request with ${partnerName}? This can’t be undone.`)) return;
+    if (!(await dialog.confirm({ message: `Delete the partnership request with ${partnerName}? This can’t be undone.`, variant: 'danger', confirmLabel: 'Confirm' }))) return;
     setBusyId(String(h.id));
     try {
       const res = await handshakesAPI.delete(h.id as any);

@@ -11,6 +11,17 @@ import { PaginationParams, PaginationMeta, buildPaginationQuery } from '../types
  * Inventory Item data type
  */
 export interface InventoryItem {
+  /** 218 — every supplier this product can be bought from, default first. */
+  suppliers?: Array<{
+    id?: string;
+    supplierId: string;
+    supplierName: string | null;
+    isDefault: boolean;
+    costPrice: number | null;
+    supplierSku?: string | null;
+    leadTimeDays?: number | null;
+  }>;
+
   id: string;
   clinicId: string;
   name: string;
@@ -131,6 +142,15 @@ export const INVENTORY_FORMS: { value: InventoryForm; label: string }[] = [
  * Create Inventory Item data
  */
 export interface CreateInventoryItemData {
+  /** 218 — full supplier list. Omit to leave links alone; `[]` clears them. */
+  suppliers?: Array<{
+    supplierId: string | number;
+    isDefault?: boolean;
+    costPrice?: number | null;
+    supplierSku?: string | null;
+    leadTimeDays?: number | null;
+  }>;
+
   name: string;
   category: string;
   sku: string;
@@ -158,6 +178,15 @@ export interface CreateInventoryItemData {
  * Update Inventory Item data
  */
 export interface UpdateInventoryItemData {
+  /** 218 — full supplier list. Omit to leave links alone; `[]` clears them. */
+  suppliers?: Array<{
+    supplierId: string | number;
+    isDefault?: boolean;
+    costPrice?: number | null;
+    supplierSku?: string | null;
+    leadTimeDays?: number | null;
+  }>;
+
   name?: string;
   category?: string;
   sku?: string;

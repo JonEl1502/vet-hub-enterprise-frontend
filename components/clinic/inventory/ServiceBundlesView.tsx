@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { dialog } from '../../../services/utils/dialog';
 import { Layers, Plus, Loader2, Trash2, Search, X, Pencil, ArrowLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { serviceBundlesAPI, ServiceBundle, BundlePricingMode, BundlePayload } from '../../../services';
@@ -109,7 +110,7 @@ const ServiceBundlesView: React.FC = () => {
   };
 
   const remove = async (b: ServiceBundle) => {
-    if (!confirm(`Delete bundle "${b.name}"?`)) return;
+    if (!(await dialog.confirmDelete({ entityName: b.name, message: 'Delete this bundle? This cannot be undone.' }))) return;
     try { const res = await serviceBundlesAPI.remove(b.id); if (res.success) { toast.success('Deleted'); await load(); } }
     catch (e: any) { toast.error(e?.message || 'Failed to delete'); }
   };

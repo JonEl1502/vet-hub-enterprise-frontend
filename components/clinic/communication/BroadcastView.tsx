@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { dialog } from '../../../services/utils/dialog';
 import {
   Mail, Send, Users, History, AlertCircle, CheckCircle2, Loader2, Filter, ChevronDown,
   RotateCcw, MessageCircle, Monitor, Syringe, Bug, Wallet, PawPrint, Activity,
@@ -157,7 +158,7 @@ const BroadcastView: React.FC = () => {
   const handleSend = async () => {
     if (!canSend) return;
     const chLabel = channels.map((c) => CHANNELS.find((x) => x.v === c)?.label).join(', ');
-    if (!window.confirm(`Send this message to up to ${reach} client(s) via ${chLabel}? This cannot be undone.`)) return;
+    if (!(await dialog.confirm({ message: `Send this message to up to ${reach} client(s) via ${chLabel}? This cannot be undone.`, variant: 'danger', confirmLabel: 'Confirm' }))) return;
 
     setSending(true);
     try {

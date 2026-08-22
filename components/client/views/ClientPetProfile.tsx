@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { dialog } from '../../../services/utils/dialog';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   ArrowLeft, Syringe, FileText, Slice, Scissors, Home, Printer, Loader2, Plus,
@@ -469,7 +470,7 @@ const MemoriesTab: React.FC<{ petId: string; petName: string }> = ({ petId, petN
   };
 
   const remove = async (m: PortalMemory) => {
-    if (!window.confirm('Delete this memory?')) return;
+    if (!(await dialog.confirm({ message: 'Delete this memory?', variant: 'danger', confirmLabel: 'Confirm' }))) return;
     await clientPortalAPI.deleteMemory(m.id);
     load();
   };

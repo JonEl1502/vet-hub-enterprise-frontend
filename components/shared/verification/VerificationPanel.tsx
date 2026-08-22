@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { dialog } from '../../../services/utils/dialog';
 import { ShieldCheck, ShieldAlert, Clock, Loader2, Check } from 'lucide-react';
 import { verificationAPI, toast } from '../../../services';
 import type { VerificationInfo, BusinessDocument, BusinessDocType, DocumentSide, UploadScope } from '../../../services';
@@ -105,7 +106,7 @@ const VerificationPanel: React.FC<Props> = ({ entity, entityId }) => {
 
   // Revoke ALL documents → drops the verified badge back to pending review.
   const revokeAll = async () => {
-    if (!window.confirm('Revoke verification? This removes the verified badge and marks all documents rejected — the owner must re-submit.')) return;
+    if (!(await dialog.confirm({ message: 'Revoke verification? This removes the verified badge and marks all documents rejected — the owner must re-submit.', variant: 'danger', confirmLabel: 'Confirm' }))) return;
     setActing(true);
     try {
       await verificationAPI.adminRevoke(entity, entityId, {});
@@ -116,7 +117,7 @@ const VerificationPanel: React.FC<Props> = ({ entity, entityId }) => {
 
   // Revoke a single document (admin viewing the panel).
   const revokeDoc = async (docId: string) => {
-    if (!window.confirm('Revoke this document? It will be marked rejected and the clinic returns to pending review.')) return;
+    if (!(await dialog.confirm({ message: 'Revoke this document? It will be marked rejected and the clinic returns to pending review.', variant: 'danger', confirmLabel: 'Confirm' }))) return;
     await verificationAPI.adminRevoke(entity, entityId, { docId });
     toast.success('Document revoked');
     await load();

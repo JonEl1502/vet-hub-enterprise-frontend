@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { dialog } from '../../../services/utils/dialog';
 import { ArrowRightLeft, Upload, Loader2, X, FileText, CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { clinicTransfersAPI, ClinicTransfer, uploadsAPI, toast } from '../../../services';
 
@@ -26,7 +27,7 @@ const ClinicTransferCard: React.FC = () => {
   const latest = transfers[0];
 
   const cancel = async (id: string) => {
-    if (!window.confirm('Cancel this transfer request?')) return;
+    if (!(await dialog.confirm({ message: 'Cancel this transfer request?', variant: 'danger', confirmLabel: 'Confirm' }))) return;
     const res = await clinicTransfersAPI.cancel(id);
     if (res.success) { toast.success('Transfer request cancelled'); load(); }
   };

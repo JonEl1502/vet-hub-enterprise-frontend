@@ -29,6 +29,9 @@ const InventoryDashboard: React.FC<{ currency?: string; refreshKey?: number }> =
   const [data, setData] = useState<Dash | null>(null);
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
+  /** 218 — which supplier each reorder row is aimed at. Keyed by item id;
+   *  absent means "the item's default", so nothing needs pre-populating. */
+  const [pickedSupplier, setPickedSupplier] = useState<Record<string, string>>({});
 
   const load = () => {
     setLoading(true);
@@ -127,8 +130,43 @@ const InventoryDashboard: React.FC<{ currency?: string; refreshKey?: number }> =
                         <span className="col-span-4 font-black text-pine dark:text-zinc-100 truncate">{s.name}</span>
                         <span className={`col-span-2 text-right font-bold ${s.currentQty <= 0 ? 'text-rose-600' : 'text-amber-600'}`}>{s.currentQty} {s.unit}</span>
                         <span className="col-span-2 text-right font-black text-seafoam">+{s.recommendedQty}</span>
-                        <span className="col-span-2 text-right font-bold text-slate-500 dark:text-zinc-400">{money(s.estimatedCost)}</span>
-                        <span className="col-span-2 text-slate-400 truncate">{s.supplierName || '—'}</span>
+                        {(() => {
+                          const picked = pickedSupplier[s.id] ?? s.supplierId;
+                          const opt = ((s as any).supplierOptions ?? []).find((o: any) => String(o.supplierId) === String(picked));
+                          const cost = opt?.costPrice != null
+                            ? Math.round(opt.costPrice * s.recommendedQty)
+                            : s.estimatedCost;
+                          return (
+                            <span className="col-span-2 text-right font-bold text-slate-500 dark:text-zinc-400" title={opt?.costPrice != null ? `${money(opt.costPrice)} per ${s.unit} from ${opt.supplierName ?? 'this supplier'}` : 'Using the item cost price — this supplier has no price on file'}>
+                              {money(cost)}
+                            </span>
+                          );
+                        })()}
+                        {/* 218 — pick the supplier per row. A product with
+                            alternatives becomes a dropdown; a single-source one
+                            stays plain text rather than a select with one
+                            option. Est. cost follows THAT supplier's price when
+                            they have one on file, so switching supplier shows
+                            what it actually costs. */}
+                        <span className="col-span-2 min-w-0">
+                          {(s as any).supplierOptions && (s as any).supplierOptions.length > 1 ? (
+                            <select
+                              value={pickedSupplier[s.id] ?? (s.supplierId ?? '')}
+                              onChange={e => setPickedSupplier(p => ({ ...p, [s.id]: e.target.value }))}
+                              title="Which supplier to order this from"
+                              className="w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-md px-1.5 py-1 text-[10px] font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                            >
+                              {(s as any).supplierOptions.map((o: any) => (
+                                <option key={o.supplierId} value={o.supplierId}>
+                                  {o.supplierName ?? 'Supplier'}{o.isDefault ? ' (default)' : ''}
+                                  {o.costPrice != null ? ` — ${money(o.costPrice)}` : ''}
+                                </option>
+                              ))}
+                            </select>
+                          ) : (
+                            <span className="text-slate-400 truncate block">{s.supplierName || '—'}</span>
+                          )}
+                        </span>
                       </div>
                     ))}
                   </div>

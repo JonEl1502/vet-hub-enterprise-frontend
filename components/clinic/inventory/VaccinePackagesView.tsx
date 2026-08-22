@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { dialog } from '../../../services/utils/dialog';
 import { Syringe, Plus, Loader2, Trash2, Search, X, Pencil, Layers, ArrowLeft, ChevronRight } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
@@ -98,7 +99,7 @@ const VaccinePackagesView: React.FC = () => {
   };
 
   const remove = async (p: VaccinePackage) => {
-    if (!confirm(`Delete package "${p.name}"?`)) return;
+    if (!(await dialog.confirmDelete({ entityName: p.name, message: 'Delete this package? This cannot be undone.' }))) return;
     try { const res = await vaccinePackagesAPI.remove(p.id); if (res.success) { toast.success('Deleted'); await load(); } }
     catch (e: any) { toast.error(e?.message || 'Failed to delete'); }
   };

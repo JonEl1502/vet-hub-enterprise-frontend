@@ -1,4 +1,5 @@
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
+import { dialog } from '../../../services/utils/dialog';
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2, Trash2 , Receipt} from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
@@ -189,12 +190,25 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   };
 
   const removeLog = async (log: { id: string; kind: string }) => {
-    // A MEDICATION entry does not own its stock or its charge — administering a
-    // drug writes this log AND a separate consumable. Deleting only this row
-    // would silently leave the client charged, so say so rather than guess.
-    if (log.kind === 'MEDICATION' && !window.confirm(
-      'Delete this medication entry?\n\nThe drug\'s stock deduction and charge are a separate item on this day — remove that too if the dose was never given.'
-    )) return;
+    /**
+     * EVERY kind confirms now (user, 2026-08-22: "across app when user deletes
+     * some things confirm first"). Only MEDICATION used to, so the trash icon
+     * beside a treatment task deleted it on a single mis-click.
+     *
+     * A MEDICATION entry also does not own its stock or its charge —
+     * administering a drug writes this log AND a separate consumable — so say
+     * so rather than let someone assume the charge went with it.
+     *
+     * Uses the app dialog, not window.confirm: the native one cannot be styled,
+     * is suppressed by some browsers, and looks nothing like the rest of VetHub.
+     */
+    const ok = await dialog.confirmDelete({
+      entityName: log.kind.replace(/_/g, ' ').toLowerCase(),
+      message: log.kind === 'MEDICATION'
+        ? "Delete this medication entry? The drug's stock deduction and charge are a SEPARATE item on this day — remove that too if the dose was never given."
+        : 'Delete this entry? This cannot be undone.',
+    });
+    if (!ok) return;
     setRemoving(`l-${log.id}`);
     try {
       await inpatientAPI.deleteLog(log.id);
@@ -205,6 +219,11 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   };
 
   const removeConsumable = async (consId: string, name?: string) => {
+    const ok = await dialog.confirmDelete({
+      entityName: name || 'this item',
+      message: 'Remove this item? It comes off the bill and the stock is returned.',
+    });
+    if (!ok) return;
     setRemoving(`c-${consId}`);
     try {
       await consumablesAPI.remove(consId as any);

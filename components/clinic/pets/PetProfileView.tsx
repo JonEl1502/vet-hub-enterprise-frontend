@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { dialog } from '../../../services/utils/dialog';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Pet, Visit, ApptStatus, Client, Clinic, Message, FULL_ACCESS_ROLES, UserRole } from '../../../types';
 import VaccinePassportModal from './VaccinePassportModal';
@@ -256,7 +257,7 @@ const PetProfileView: React.FC<Props> = ({
   }, [pet.id, loadClinical]);
 
   const handleDeleteReminder = useCallback(async (r: Reminder) => {
-    if (!window.confirm('Delete this reminder? This cannot be undone.')) return;
+    if (!(await dialog.confirm({ message: 'Delete this reminder? This cannot be undone.', variant: 'danger', confirmLabel: 'Confirm' }))) return;
     const res = await remindersAPI.remove(r.id);
     if (res.success) loadClinical();
   }, [loadClinical]);

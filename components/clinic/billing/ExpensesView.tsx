@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { dialog } from '../../../services/utils/dialog';
 import { Banknote, Loader2, Plus, Trash2, Wallet } from 'lucide-react';
 import PageHeader from '../../shared/common/PageHeader';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
@@ -73,7 +74,7 @@ const ExpensesView: React.FC<Props> = ({ currency = 'KES' }) => {
   };
 
   const remove = async (row: Expense) => {
-    if (!window.confirm(`Delete ${row.category} — ${money(row.amount)} (${fmt(row.incurredAt)})?`)) return;
+    if (!(await dialog.confirm({ message: `Delete ${row.category} — ${money(row.amount)} (${fmt(row.incurredAt)})?`, variant: 'danger', confirmLabel: 'Confirm' }))) return;
     setBusy(true);
     try {
       const res = await expensesAPI.remove(row.id);

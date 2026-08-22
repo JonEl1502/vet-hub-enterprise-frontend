@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { dialog } from '../../../services/utils/dialog';
 import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2, Receipt, ChevronDown } from 'lucide-react';
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import { sellUnitOf } from '../shared/QtyUnitControl';
@@ -677,6 +678,13 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                             <button type="button" title={`Remove ${c.inventoryItem?.name ?? 'this item'} — returns the stock and drops the charge`}
                               disabled={removingCons === String(c.id)}
                               onClick={async () => {
+                                // Confirm first — this returns stock AND drops
+                                // the charge (user, 2026-08-22).
+                                const ok = await dialog.confirmDelete({
+                                  entityName: c.inventoryItem?.name ?? 'this item',
+                                  message: 'Remove this item? It comes off the bill and the stock is returned.',
+                                });
+                                if (!ok) return;
                                 setRemovingCons(String(c.id));
                                 try {
                                   await consumablesAPI.remove(c.id);

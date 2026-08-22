@@ -286,6 +286,16 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
 
   // Date range filter state
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  /**
+   * WHICH date the range filters on (user, 2026-08-22).
+   *
+   * It used to filter on expiry OR any batch's received date, whichever
+   * matched — so "this month" quietly meant two different things at once and
+   * a row could appear for a reason you could not see. An inventory row
+   * carries four dates that answer four different questions; the range is
+   * useless until you say which one you mean.
+   */
+  const [dateField, setDateField] = useState<'expiry' | 'received' | 'updated' | 'created'>('expiry');
 
   // Fetch suppliers from API
   const [suppliers, setSuppliers] = useState<APISupplier[]>([]);
@@ -320,6 +330,14 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
     costPrice: number;
     expiryDate: string;
     supplierId: number | undefined;
+    /** 218 — every supplier this product can be bought from. `supplierId`
+     *  above mirrors whichever one is `isDefault`. */
+    suppliers?: Array<{
+      supplierId: string | number;
+      supplierName?: string | null;
+      isDefault: boolean;
+      costPrice?: number | null;
+    }>;
     // Structured category + pricing/fee metadata (persisted to metadata JSONB)
     mainCategory: 'MEDICINE' | 'CONSUMABLE';
     subcategories: string[];
@@ -534,6 +552,18 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       costPrice: item.costPrice,
       expiryDate: item.expiryDate,
       supplierId: item.supplierId ?? undefined,
+      // 218 — fall back to the single supplier so an item saved before the
+      // migration still shows one row rather than an empty list.
+      suppliers: Array.isArray((item as any).suppliers) && (item as any).suppliers.length
+        ? (item as any).suppliers.map((l: any) => ({
+            supplierId: String(l.supplierId),
+            supplierName: l.supplierName ?? null,
+            isDefault: !!l.isDefault,
+            costPrice: l.costPrice ?? null,
+          }))
+        : (item.supplierId
+            ? [{ supplierId: String(item.supplierId), isDefault: true, costPrice: item.costPrice ?? null }]
+            : []),
       mainCategory: (meta.mainCategory === 'CONSUMABLE' ? 'CONSUMABLE' : 'MEDICINE'),
       subcategories: Array.isArray(meta.subcategories) ? meta.subcategories : [],
       species: Array.isArray(item.species) ? item.species : [],
@@ -610,24 +640,29 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       })
       .filter(item => {
         if (!dateRange) return true;
+        const inRange = (v: unknown) => {
+          if (!v) return false;
+          const d = new Date(v as string);
+          // An unparseable or missing date must EXCLUDE the row. Letting it
+          // through would pad every range with rows that have no such date.
+          return !isNaN(d.getTime()) && d >= dateRange.start && d <= dateRange.end;
+        };
 
-        // Check if item's expiry date falls within the date range
-        const expiryDate = new Date(item.expiryDate);
-        if (expiryDate >= dateRange.start && expiryDate <= dateRange.end) {
-          return true;
+        switch (dateField) {
+          case 'received':
+            // Any batch received in the window counts — an item restocked
+            // three times is "bought in March" if any of those landed in March.
+            return (item.batchHistory ?? []).some(b => inRange(b.receivedDate));
+          case 'updated':
+            return inRange((item as any).updatedAt);
+          case 'created':
+            return inRange((item as any).createdAt);
+          case 'expiry':
+          default:
+            return inRange(item.expiryDate);
         }
-
-        // Check if any batch history received date falls within the date range
-        if (item.batchHistory && item.batchHistory.length > 0) {
-          return item.batchHistory.some(batch => {
-            const receivedDate = new Date(batch.receivedDate);
-            return receivedDate >= dateRange.start && receivedDate <= dateRange.end;
-          });
-        }
-
-        return false;
       });
-  }, [inventory, activeCategory, statusFilter, searchQuery, clinic.id, dateRange]);
+  }, [inventory, activeCategory, statusFilter, searchQuery, clinic.id, dateRange, dateField]);
 
   // Pagination for inventory items
   const {
@@ -986,12 +1021,28 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
         {/* Row 2 — Date range + Status + Add + Reload.
             Mobile: controls stack so nothing is squeezed; sm+: one row. */}
         <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-          <DateRangePicker
-            value={dateRange}
-            onChange={setDateRange}
-            className="w-full sm:flex-1 sm:min-w-0"
-            buttonClassName="w-full justify-between"
-          />
+          <div className="flex w-full sm:flex-1 sm:min-w-0 items-stretch gap-2">
+            {/* Which date the range means. Sits BESIDE the picker, not in a
+                settings menu — reading "1–31 Aug" without knowing whether that
+                is expiry or delivery tells you nothing. */}
+            <select
+              value={dateField}
+              onChange={e => setDateField(e.target.value as typeof dateField)}
+              title="Which date the range filters on"
+              className="w-36 sm:w-40 shrink-0 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl px-2.5 py-2.5 text-xs font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+            >
+              <option value="expiry">Expiry date</option>
+              <option value="received">Date bought</option>
+              <option value="updated">Last updated</option>
+              <option value="created">Date added</option>
+            </select>
+            <DateRangePicker
+              value={dateRange}
+              onChange={setDateRange}
+              className="flex-1 min-w-0"
+              buttonClassName="w-full justify-between"
+            />
+          </div>
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value as InventoryStatus | 'ALL')}
@@ -1533,16 +1584,93 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                     onChange={e => setItemForm({ ...itemForm, sku: e.target.value })}
                   />
                 </div>
-                <div className="space-y-1">
-                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Supplier</label>
-                  <select
-                    className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-                    value={itemForm.supplierId || ''}
-                    onChange={e => setItemForm({ ...itemForm, supplierId: e.target.value ? Number(e.target.value) : undefined })}
-                  >
-                    <option value="">Select Supplier (Optional)</option>
-                    {suppliers.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-                  </select>
+                {/* ── SUPPLIERS (218) ─────────────────────────────────
+                    A product is rarely single-sourced: the usual supplier is
+                    out of stock, or a second one is cheaper this month (user,
+                    2026-08-22). List them all, mark ONE default, and the
+                    reorder screen offers the rest without leaving the page.
+
+                    `supplierId` is kept in step with the default so every
+                    existing read path — POs, exports, the item list — keeps
+                    working unchanged. */}
+                <div className="space-y-1 sm:col-span-2">
+                  <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
+                    Suppliers <span className="text-slate-400 normal-case font-bold">— tick one as default for reordering</span>
+                  </label>
+                  <div className="space-y-1.5">
+                    {(itemForm.suppliers ?? []).map((link, idx) => {
+                      const sup = suppliers.find(x => String(x.id) === String(link.supplierId));
+                      return (
+                        <div key={`${link.supplierId}-${idx}`} className="flex flex-wrap items-center gap-2 px-2.5 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/60">
+                          <button
+                            type="button"
+                            onClick={() => setItemForm(f => ({
+                              ...f,
+                              // Exactly one default — picking a new one clears
+                              // the old, mirroring the server-side invariant.
+                              suppliers: (f.suppliers ?? []).map((l, i) => ({ ...l, isDefault: i === idx })),
+                              supplierId: Number(link.supplierId),
+                            }))}
+                            title={link.isDefault ? 'Default supplier for reordering' : 'Make this the default'}
+                            className={`w-4 h-4 shrink-0 rounded-full border flex items-center justify-center ${
+                              link.isDefault ? 'bg-seafoam border-seafoam' : 'bg-white dark:bg-zinc-900 border-slate-300 dark:border-zinc-600'
+                            }`}
+                          >
+                            {link.isDefault && <span className="w-1.5 h-1.5 rounded-full bg-white" />}
+                          </button>
+                          <span className="text-xs font-bold text-pine dark:text-zinc-100 flex-1 min-w-0 truncate">
+                            {sup?.name ?? link.supplierName ?? `Supplier ${link.supplierId}`}
+                            {link.isDefault && <span className="ml-1.5 text-[9px] font-black uppercase tracking-wider text-seafoam">Default</span>}
+                          </span>
+                          <input
+                            type="number" min="0" step="any"
+                            placeholder="Their price"
+                            title="What THIS supplier charges — leave blank if unknown"
+                            value={link.costPrice ?? ''}
+                            onChange={e => setItemForm(f => ({
+                              ...f,
+                              suppliers: (f.suppliers ?? []).map((l, i) => i === idx
+                                ? { ...l, costPrice: e.target.value === '' ? null : Number(e.target.value) } : l),
+                            }))}
+                            className="w-24 px-2 py-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-md text-xs font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+                          />
+                          <button
+                            type="button"
+                            title="Remove this supplier"
+                            onClick={() => setItemForm(f => {
+                              const next = (f.suppliers ?? []).filter((_, i) => i !== idx);
+                              // Never leave a list with no default.
+                              if (next.length && !next.some(l => l.isDefault)) next[0] = { ...next[0], isDefault: true };
+                              return { ...f, suppliers: next, supplierId: next.find(l => l.isDefault)?.supplierId ? Number(next.find(l => l.isDefault)!.supplierId) : undefined };
+                            })}
+                            className="p-1 rounded-md text-slate-400 hover:bg-rose-50 hover:text-rose-500"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      );
+                    })}
+
+                    <select
+                      value=""
+                      onChange={e => {
+                        const id = e.target.value;
+                        if (!id) return;
+                        setItemForm(f => {
+                          const existing = f.suppliers ?? [];
+                          if (existing.some(l => String(l.supplierId) === id)) return f;   // no duplicates
+                          const next = [...existing, { supplierId: id, isDefault: existing.length === 0, costPrice: null }];
+                          return { ...f, suppliers: next, supplierId: Number(next.find(l => l.isDefault)!.supplierId) };
+                        });
+                      }}
+                      className="w-full bg-slate-50 dark:bg-zinc-800 border border-dashed border-slate-300 dark:border-zinc-600 rounded-lg px-2.5 py-2 text-slate-500 dark:text-zinc-400 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+                    >
+                      <option value="">+ Add a supplier…</option>
+                      {suppliers
+                        .filter(x => !(itemForm.suppliers ?? []).some(l => String(l.supplierId) === String(x.id)))
+                        .map(x => <option key={x.id} value={x.id}>{x.name}</option>)}
+                    </select>
+                  </div>
                 </div>
               </div>
 
@@ -1689,13 +1817,13 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                   <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       {/* ── HOW YOU BUY IT ─────────────────────────────── */}
-                      <div className="space-y-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50/60 dark:bg-zinc-800/40 p-3">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">You buy &amp; stock it in</p>
+                      <div className="space-y-2 rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-950/15 p-3">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-amber-700/80 dark:text-amber-400/80">You buy &amp; stock it in</p>
                         <div className="space-y-1">
-                          <label className="''' + LBL + '''">Units bought *</label>
+                          <label className="text-[9px] font-black uppercase tracking-widest px-1 text-amber-700 dark:text-amber-400">Units bought *</label>
                           <select
                             required
-                            className="''' + FIELD + ''' appearance-none"
+                            className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm appearance-none"
                             value={itemForm.unit}
                             onChange={e => setItemForm({ ...itemForm, unit: e.target.value })}
                             title="The unit stock is counted in — what you order and what sits on the shelf"
@@ -1706,12 +1834,12 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                           <p className="text-[9px] font-bold text-slate-400 px-1">Stock is counted in this unit.</p>
                         </div>
                         <div className="space-y-1">
-                          <label className="''' + LBL + '''">
+                          <label className="text-[9px] font-black uppercase tracking-widest px-1 text-amber-700 dark:text-amber-400">
                             {plural} per pack <span className="text-slate-400 normal-case font-bold">(optional)</span>
                           </label>
                           <input
                             type="number" min="0"
-                            className="''' + FIELD + '''"
+                            className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                             placeholder={`e.g. 30 ${plural} per box`}
                             title="Outer pack, for purchasing reference only"
                             value={split ? (itemForm.packOf ?? '') : (itemForm.packSize ?? '')}
@@ -1729,10 +1857,10 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                       </div>
 
                       {/* ── HOW YOU SELL IT ────────────────────────────── */}
-                      <div className="space-y-2 rounded-xl border border-seafoam/30 bg-seafoam/[0.04] p-3">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-seafoam">You bill &amp; sell it in</p>
+                      <div className="space-y-2 rounded-xl border border-sky-200 dark:border-sky-900/50 bg-sky-50/60 dark:bg-sky-950/15 p-3">
+                        <p className="text-[9px] font-black uppercase tracking-widest text-sky-700/80 dark:text-sky-400/80">You bill &amp; sell it in</p>
                       <div className="space-y-1">
-                        <label className="''' + LBL + '''">Billed / sold in *</label>
+                        <label className="text-[9px] font-black uppercase tracking-widest px-1 text-amber-700 dark:text-amber-400">Billed / sold in *</label>
                         <select
                           className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2.5 py-2 text-pine dark:text-zinc-100 font-bold outline-none appearance-none focus:ring-2 focus:ring-seafoam/20 text-sm"
                           value={itemForm.sellUnit || itemForm.unit}
@@ -1760,7 +1888,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                       </div>
                       {split && (
                         <div className="space-y-1">
-                          <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
+                          <label className="text-[9px] font-black text-sky-700 dark:text-sky-400 uppercase tracking-widest px-1">
                             {sellU} <span className="normal-case">in 1</span> {u} *
                           </label>
                           <input
@@ -1805,14 +1933,31 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                       );
                     })()}
 
-                    {/* Billable — BELOW the buy/bill statement (user request). */}
-                    <div className="space-y-1">
-                      <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Billable</label>
-                      <button type="button" onClick={() => setItemForm({ ...itemForm, billable: !itemForm.billable })}
-                        className={`w-full px-3 py-2 rounded-lg text-xs font-black uppercase tracking-wider border ${itemForm.billable ? 'bg-seafoam/10 text-seafoam border-seafoam/40' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
-                        {itemForm.billable ? 'Billable' : 'Non-billable'}
-                      </button>
-                    </div>
+                    {/* Billable — a small checkbox-style chip rather than a
+                        full-width bar (user, 2026-08-22). It is a yes/no on one
+                        property, so it should not carry more visual weight than
+                        the units it sits under. Violet, so it reads as its own
+                        thing next to the amber BUY and blue SELL panels. */}
+                    <button
+                      type="button"
+                      onClick={() => setItemForm({ ...itemForm, billable: !itemForm.billable })}
+                      aria-pressed={itemForm.billable}
+                      title={itemForm.billable ? 'Charged to the client when dispensed' : 'Used but never charged (e.g. consumables you absorb)'}
+                      className={`inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wider transition-colors ${
+                        itemForm.billable
+                          ? 'bg-violet-50 dark:bg-violet-950/20 text-violet-700 dark:text-violet-300 border-violet-300 dark:border-violet-800'
+                          : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'
+                      }`}
+                    >
+                      <span className={`w-3.5 h-3.5 rounded flex items-center justify-center border ${
+                        itemForm.billable
+                          ? 'bg-violet-600 border-violet-600 text-white'
+                          : 'bg-white dark:bg-zinc-900 border-slate-300 dark:border-zinc-600'
+                      }`}>
+                        {itemForm.billable && <Check size={10} strokeWidth={4} />}
+                      </span>
+                      {itemForm.billable ? 'Billable' : 'Non-billable'}
+                    </button>
                   </>
                 );
               })()}
