@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import {
   CreditCard, Calendar, CheckCircle2, Zap, Crown, Building2, Rocket,
   ExternalLink, RefreshCw, AlertTriangle, Package, ArrowUpRight, Settings,
-  Check, FileText, ReceiptText, X,
+  Check, FileText, ReceiptText, X, ArrowLeft,
 } from 'lucide-react';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -134,9 +134,13 @@ const BillingView: React.FC = () => {
     }
   }, [clinicId]);
 
-  const fetchInfo = useCallback(async () => {
+  /**
+   * @param silent - refresh WITHOUT the loading skeleton. A background
+   *   re-check must not blank a page the user is already reading.
+   */
+  const fetchInfo = useCallback(async (silent = false) => {
     if (!clinicId) return;
-    setLoading(true);
+    if (!silent) setLoading(true);
     setError(null);
     try {
       const res = await stripeAPI.getInfo(clinicId);
@@ -145,7 +149,7 @@ const BillingView: React.FC = () => {
     } catch {
       setError('Failed to load billing information.');
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
     fetchHistory();
     // Entitlements too: buying an add-on changes featureKeys, and every settle
@@ -159,25 +163,43 @@ const BillingView: React.FC = () => {
 
   useEffect(() => { fetchInfo(); }, [fetchInfo]);
 
-  // Refetch billing info whenever the tab regains focus. Covers the
-  // common case where a payment webhook landed while the user was on
-  // their phone approving the STK push, and they return to the desktop
-  // tab expecting their plan to be updated.
+  /**
+   * Re-check billing when the tab comes back — quietly, once, and only if it
+   * was actually away.
+   *
+   * ⚠️ THIS USED TO RELOAD THE PAGE TWICE ON EVERY ALT-TAB.
+   *
+   * `visibilitychange` AND `focus` both fire on return and both ran the same
+   * work, so a glance at another window and back triggered two full refreshes —
+   * and because `fetchInfo` set the loading flag, each one blanked the page into
+   * its skeleton. It also called `fetchHistory` on top of the one `fetchInfo`
+   * already does, so a single resume fired history three times (user,
+   * 2026-08-22: "billing page keeps reloading if i move to new screen n back …
+   * and does twice").
+   *
+   * Now: one throttled handler, `silent` so nothing blanks, and a 30s floor so
+   * flicking between windows costs nothing. The reason it exists is unchanged —
+   * a payment webhook can land while the user is away approving on their phone.
+   */
+  const lastResumeRef = React.useRef(0);
   useEffect(() => {
     if (!clinicId) return;
-    const onVisible = () => {
-      if (document.visibilityState === 'visible') {
-        fetchInfo();
-        fetchHistory();
-      }
+    const RESUME_THROTTLE_MS = 30_000;
+    const onResume = () => {
+      if (document.visibilityState !== 'visible') return;
+      const now = Date.now();
+      if (now - lastResumeRef.current < RESUME_THROTTLE_MS) return;
+      lastResumeRef.current = now;
+      // `fetchInfo` already refreshes history, entitlements and usage.
+      fetchInfo(true);
     };
-    document.addEventListener('visibilitychange', onVisible);
-    window.addEventListener('focus', onVisible);
+    document.addEventListener('visibilitychange', onResume);
+    window.addEventListener('focus', onResume);
     return () => {
-      document.removeEventListener('visibilitychange', onVisible);
-      window.removeEventListener('focus', onVisible);
+      document.removeEventListener('visibilitychange', onResume);
+      window.removeEventListener('focus', onResume);
     };
-  }, [clinicId, fetchInfo, fetchHistory]);
+  }, [clinicId, fetchInfo]);
 
   const handleCheckout = async (priceId: string, packageId: string) => {
     if (!clinicId) return;
@@ -619,6 +641,29 @@ const BillingView: React.FC = () => {
     { id: 'tickets' as const, label: 'Tickets', icon: LifeBuoy, count: null as number | null },
   ];
 
+  /**
+   * THE SUBSCRIPTION INVOICE IS A PAGE, NOT A DIALOG (user, 2026-08-22: "make it
+   * a page to view").
+   *
+   * It is a document — read, checked against a bank statement, printed. A
+   * `max-w-md` overlay with a dimmed billing table behind it made it feel like
+   * a confirmation prompt, and left no room to read it. Rendered as its own
+   * page it gets the width, and Back returns to the list.
+   *
+   * Placed AFTER every hook, so the early return cannot change hook order.
+   */
+  if (invoiceRow) {
+    return (
+      <InvoiceModal
+        row={invoiceRow}
+        clinicName={clinicName}
+        onClose={() => setInvoiceRow(null)}
+        formatDate={formatDate}
+        onViewReceipt={() => { setInvoiceRow(null); setReceiptRow(invoiceRow); }}
+      />
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 16 }}
@@ -635,7 +680,10 @@ const BillingView: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={fetchInfo}
+            // ⚠️ WRAPPED, not passed bare. `fetchInfo(silent?)` as a click
+            // handler would receive the MouseEvent as `silent` — truthy — so a
+            // manual Refresh would run with no spinner and look dead.
+            onClick={() => fetchInfo()}
             className="p-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100 transition-all"
             title="Refresh"
           >
@@ -1120,16 +1168,7 @@ const BillingView: React.FC = () => {
         <ReceiptModal row={receiptRow} onClose={() => setReceiptRow(null)} formatDate={formatDate} />
       )}
 
-      {/* ── Invoice modal ───────────────────────────────────────── */}
-      {invoiceRow && (
-        <InvoiceModal
-          row={invoiceRow}
-          clinicName={clinicName}
-          onClose={() => setInvoiceRow(null)}
-          formatDate={formatDate}
-          onViewReceipt={() => { setInvoiceRow(null); setReceiptRow(invoiceRow); }}
-        />
-      )}
+      {/* The invoice renders as its own PAGE — see the early return above. */}
 
       {/* ── Cancel subscription modal ───────────────────────────── */}
       {showCancel && sub && (
@@ -1731,11 +1770,18 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ row, clinicName, onClose, f
   const handlePrint = () => window.print();
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:block">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm print:hidden" onClick={onClose} />
+    <div className="space-y-4 pb-20 animate-in fade-in duration-200 print:p-0 print:block">
+      {/* Back, not a dismiss — this is a page in the billing section. Hidden in
+          print so the paper carries the document alone. */}
+      <button
+        onClick={onClose}
+        className="print:hidden inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-pine dark:hover:text-zinc-100 transition-all"
+      >
+        <ArrowLeft size={13} /> Back to billing
+      </button>
       <div
         id="vethub-invoice-printable"
-        className="relative w-full max-w-md bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 fade-in duration-150 print:max-w-none print:rounded-none print:shadow-none print:border-0 print:p-8"
+        className="relative w-full max-w-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm p-6 sm:p-8 flex flex-col gap-4 print:max-w-none print:rounded-none print:shadow-none print:border-0 print:p-8"
       >
         <div className="flex items-start justify-between gap-3">
           <div>

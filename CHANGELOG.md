@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: billing reloaded twice on every tab switch; the subscription invoice is now a page  —  2026-08-22
+🟢 **Record impact: none** — fetching behaviour and layout.
+- **It reloaded twice, and blanked the page each time.** `visibilitychange` AND `focus` both fire when a
+  tab regains focus, and both ran the same refresh — so glancing at another window and back triggered
+  two full reloads. Because `fetchInfo` set the loading flag, each one dropped the page to its skeleton.
+  It also called `fetchHistory` on top of the one `fetchInfo` already does, so a single resume fetched
+  history three times (user, 2026-08-22: *"billing page keeps reloading if i move to new screen n back …
+  and does twice"*).
+  - Now one throttled handler with a **30-second floor**, refreshing **silently** so nothing blanks.
+  - The reason it exists is unchanged: a payment webhook can land while the user is away approving on
+    their phone.
+  - ⚠️ `fetchInfo` gained a `silent` parameter, so the Refresh button is wrapped as `() => fetchInfo()`.
+    Passed bare it would have received the MouseEvent as `silent` — truthy — and a manual refresh would
+    have run with no spinner and looked dead.
+- **The subscription invoice is a page, not a dialog** (*"make it a page to view"*). It is a document —
+  read, checked against a statement, printed — and a `max-w-md` overlay over a dimmed billing table read
+  as a confirmation prompt with no room to read it. It now renders as its own page at `max-w-2xl` with
+  **Back to billing**, via an early return placed after every hook so hook order cannot change.
+- Files: `clinic/billing/BillingView.tsx`.
+- **Data dependency:** none.
+
+
 ### change: the M-Pesa (Lipana) button is hidden on plan cards  —  2026-08-22
 🟢 **Record impact: none** — a payment rail is hidden, not removed. No pricing, plan or subscription
 data changes.
