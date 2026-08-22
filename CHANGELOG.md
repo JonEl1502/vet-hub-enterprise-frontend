@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: "Carried-over debts" tab in Import data — actualise in bulk  —  2026-08-22
+🔵 **Record impact: none directly** — but each row RAISES an invoice (backend 212).
+- The first live migration landed **738** carried-over balances (KES 16.8M). Pressing Actualise 738
+  times individually is nobody's afternoon, so the Import screen gains a fifth tab listing them all,
+  searchable, with select-and-raise.
+- Invoices are raised **sequentially, not in parallel**: each takes a number from a shared counter and
+  writes a bill + invoice, and concurrency there buys lock contention, not speed. A failure is counted
+  and the run continues, so one bad row cannot strand the other 737 — and since the server is
+  idempotent per client, re-running the batch cannot double-bill anyone.
+- The tab is a migration follow-up, not an importer: no file, no template, no column mapping. It sits
+  here because this is where you land after bringing a clinic's data across.
+
+
 ### fix: "0 PATIENTS" on client cards + Actualise on the client profile  —  2026-08-22
 🔵 **Record impact: none** on the count fix; the Actualise button CREATES an invoice (backend 212).
 - The card counted the `pets` slice held in context, which is ONE PAGE. On a clinic with thousands of

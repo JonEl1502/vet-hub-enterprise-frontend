@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Upload, Download, FileSpreadsheet, CheckCircle2, AlertTriangle,
   X, Loader2, ArrowLeft, Users, PawPrint, Package, UserCog, RefreshCw,
-  ClipboardPaste, Wand2, ArrowRight, Pencil, Trash2,
+  ClipboardPaste, Wand2, ArrowRight, Pencil, Trash2, CreditCard,
 } from 'lucide-react';
 import {
   SCHEMAS,
@@ -21,12 +21,22 @@ import {
 import { COUNTRIES } from '../../../utils/countries';
 import { importsAPI, ImportResult } from '../../../services/modules/imports.api';
 import ManagingSwitcher from './ManagingSwitcher';
+import LegacyDebtsPanel from './LegacyDebtsPanel';
 
-const CLINIC_TABS: { entity: ImportEntity; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
+/**
+ * Not an importer — a migration FOLLOW-UP. It reads balances already on the
+ * clients and turns them into invoices, so it has no file, no template and no
+ * column mapping. It lives here because this is where someone lands after
+ * bringing a clinic's data across, and the debt is the last piece of that job.
+ */
+const LEGACY_DEBTS = '__legacy_debts__';
+
+const CLINIC_TABS: { entity: string; label: string; icon: React.ComponentType<{ size?: number }> }[] = [
   { entity: 'clients',   label: 'Clients',   icon: Users     },
   { entity: 'pets',      label: 'Pets',      icon: PawPrint  },
   { entity: 'inventory', label: 'Inventory', icon: Package   },
   { entity: 'staff',     label: 'Staff',     icon: UserCog   },
+  { entity: LEGACY_DEBTS, label: 'Carried-over debts', icon: CreditCard },
 ];
 
 // A supplier has no clients, pets or clinic staff — only a catalogue. Showing
@@ -47,10 +57,13 @@ const ImportDataView: React.FC<ImportDataViewProps> = ({ onBack, initialEntity, 
   const TABS = audience === 'supplier' ? SUPPLIER_TABS : CLINIC_TABS;
   // Default follows the audience — a supplier has only one importer, and
   // defaulting to 'clients' would open a tab that is not in their TABS list.
-  const [active, setActive] = useState<ImportEntity>(
+  const [active, setActive] = useState<string>(
     initialEntity ?? (audience === 'supplier' ? 'supplier-products' : 'clients'),
   );
-  const schema = getSchema(active);
+  const isLegacy = active === LEGACY_DEBTS;
+  // getSchema would throw on the pseudo-tab, so only ask for one when it is a
+  // real importer.
+  const schema = isLegacy ? null : getSchema(active as ImportEntity);
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-zinc-950">
@@ -102,7 +115,9 @@ const ImportDataView: React.FC<ImportDataViewProps> = ({ onBack, initialEntity, 
 
       {/* Panel — re-keys on tab switch so local state resets */}
       <div className="max-w-6xl mx-auto px-6 py-8">
-        <EntityImportPanel key={schema.entity} schema={schema} />
+        {isLegacy
+          ? <LegacyDebtsPanel />
+          : <EntityImportPanel key={schema!.entity} schema={schema!} />}
       </div>
     </div>
   );
