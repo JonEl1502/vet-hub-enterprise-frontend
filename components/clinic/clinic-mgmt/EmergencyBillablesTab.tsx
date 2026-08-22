@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import StayRatesEditor from './StayRatesEditor';
 import { Siren, Package, X, Search, CreditCard, BedDouble, Stethoscope } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
 import {
@@ -170,6 +171,16 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
       <div className="flex flex-wrap gap-3">
         <DefaultRateEditor field="boardingDayRate" label="Boarding — daily rate" />
         <DefaultRateEditor field="inpatientDayRate" label="In-patient — daily rate" />
+      </div>
+
+      {/* By species and size (213). The two flat rates above stay as the final
+          fallback, so this section is purely additive — a clinic that ignores it
+          is charged exactly as before. */}
+      <div className="pt-3 mt-1 border-t border-slate-100 dark:border-zinc-800">
+        <h3 className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-2">
+          Rates by species &amp; size
+        </h3>
+        <StayRatesEditor currency={currency} />
       </div>
     </div>
 

@@ -101,6 +101,8 @@ export type { PlatformMessage } from './modules/messaging.api';
 export type { PortalClinic, PortalPet, PortalAppointment, PortalMessage, PortalInvoice, PortalMyClinic, PortalVisitDetail, PortalReminder, PortalMemory, PortalMemoriesResult, PortalPetTransfer, VisitRating } from './modules/clientPortal.api';
 export { petTransfersAPI } from './modules/petTransfers.api';
 export type { StaffPetTransfer } from './modules/petTransfers.api';
+export { stayRatesAPI } from './modules/stayRates.api';
+export type { StayRate, StayService, SizeBand } from './modules/stayRates.api';
 export { uploadsAPI } from './modules/uploads.api';
 export type { UploadScope, SignedUrlResult } from './modules/uploads.api';
 export { verificationAPI } from './modules/verification.api';

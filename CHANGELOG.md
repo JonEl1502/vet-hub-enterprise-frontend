@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Billables — set boarding / in-patient rates by species and size  —  2026-08-22
+🔵 **Record impact: none directly** (rows land in `clinic_stay_rates`, backend 213).
+- Dog and Cat sit in the species list with everything else behind the same dropdown, so the everyday
+  case is two clicks and the long tail is still reachable. Size bands carry their weight window
+  (Small 0–10, Medium 10–25, Large 25+), and one row per service can be **starred as the fallback**.
+- Purely additive: the two flat rates stay as the last rung, so a clinic that ignores this section is
+  charged exactly as before.
+
+
 ### feat: record a diagnostic result from the request row  —  2026-08-22
 🟡 **Record impact: lab_records / imaging_records.** Writes notes, findings and attachments.
 - The Diagnostic Requests panel could only DISPLAY a result and said *"results are attached from the
