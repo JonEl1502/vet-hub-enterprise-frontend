@@ -473,7 +473,12 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
                     the tick boxes at add-time and lives on its own bill line,
                     not on this row — claiming otherwise would be a guess. */}
                 {(() => {
-                  const fees = Object.entries(((c.inventoryItem as any)?.metadata?.fees) || {})
+                  // The API forwards these as `fees` (metadata itself is not
+                  // exposed); the metadata path is kept as a fallback for any
+                  // caller that still hands us a raw inventory row.
+                  const fees = Object.entries(
+                    ((c.inventoryItem as any)?.fees) || ((c.inventoryItem as any)?.metadata?.fees) || {},
+                  )
                     .filter(([, v]) => v != null && Number(v) > 0);
                   if (!fees.length || !c.billable) return null;
                   return (

@@ -711,7 +711,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                     their own edit control in the list below. */}
                                 {h.billing?.appointmentId && !editingLogId && (
                                   <div className="mt-3 pt-3 border-t border-seafoam/20">
-                                    <ConsumablePicker flat appointmentId={h.billing.appointmentId}
+                                    <ConsumablePicker flat hideLoggedList appointmentId={h.billing.appointmentId}
                                       dayKey={k}
                                       recordedAt={backfillAt ? new Date(backfillAt).toISOString() : null}
                                       onChanged={() => { load(); onChanged?.(); }}
@@ -804,10 +804,31 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                 </div>
                                 );
                               })}
-                              {dayCons.map(c => (
+                              {dayCons.map(c => {
+                                const fees = Object.entries(((c.inventoryItem as any)?.fees) || {})
+                                  .filter(([, v]) => v != null && Number(v) > 0);
+                                return (
                                 <div key={`c-${c.id}`} className="flex items-center gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg px-3 py-1.5 border border-emerald-100 dark:border-emerald-900/40">
                                   <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 shrink-0">Item</span>
-                                  <span className="min-w-0 flex-1 text-[10px] text-pine dark:text-zinc-200 truncate">{c.inventoryItem?.name} × {Number(c.quantity)} {c.inventoryItem?.unit || ''}</span>
+                                  <span className="min-w-0 flex-1">
+                                    <span className="block text-[10px] text-pine dark:text-zinc-200 truncate">
+                                      {c.inventoryItem?.name} × {Number(c.quantity)} {c.inventoryItem?.unit || ''}
+                                    </span>
+                                    {/* The sum, not just the total — the picker
+                                        used to show this and no longer lists
+                                        these rows, so it moves here rather than
+                                        being lost. */}
+                                    {c.billable && (
+                                      <span className="block text-[9px] font-bold text-slate-500 dark:text-zinc-400">
+                                        {fmtK(Number(c.unitPrice) || 0)} × {Number(c.quantity)} {c.inventoryItem?.unit || ''}
+                                      </span>
+                                    )}
+                                    {fees.length > 0 && c.billable && (
+                                      <span className="block text-[9px] font-bold text-violet-600 dark:text-violet-400">
+                                        Carries {fees.map(([k2, v]) => `${k2} ${fmtK(Number(v))}`).join(' · ')} — own bill line
+                                      </span>
+                                    )}
+                                  </span>
                                   <span className="text-[9px] font-black text-emerald-600 shrink-0">{c.billable ? fmtK(Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0))) : 'no charge'}</span>
                                   {active && (
                                     <button type="button" title={`Remove ${c.inventoryItem?.name ?? 'this item'} — returns the stock and drops the charge`}
@@ -817,7 +838,8 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                     </button>
                                   )}
                                 </div>
-                              ))}
+                                );
+                              })}
                             </div>
                           )}
                         </div>

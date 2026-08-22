@@ -403,9 +403,46 @@ export const BoardingStayStep: React.FC<StepProps> = ({ visit, refreshVisit, emi
  * The chart is now its own step (see InpatientChartStep), so admission is what
  * step 1 says it is.
  */
-export const AdmissionEntryStep: React.FC<StepProps> = ({ pet, data, setData }) => (
-  <div className="space-y-4">
-    <GateCheckForm formKey="admission" data={data} setData={setData} petId={pet?.id} pet={pet} />
+export const AdmissionEntryStep: React.FC<StepProps> = ({ pet, data, setData, visit, refreshVisit, emit }) => (
+  <div className="space-y-5">
+    {/* ── SECTION 1 — the gate you fill at the door ─────────────────── */}
+    <section className="space-y-3">
+      <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+        <span className="w-4 h-4 rounded-md bg-seafoam/15 text-seafoam flex items-center justify-center text-[9px]">1</span>
+        Admission gate
+      </p>
+      <GateCheckForm formKey="admission" data={data} setData={setData} petId={pet?.id} pet={pet} />
+    </section>
+
+    {/* ── SECTION 2 — the chart you come back to every day ───────────
+        On the same page as the gate (user, 2026-08-22: "same to be here
+        but as sec 2, sec 1 is admission gate"). A clinical workflow has no
+        separate chart step, so without this the daily sheet was reachable
+        only from the standalone in-patient page. */}
+    {visit?.hospitalizationId ? (
+      <section className="space-y-3">
+        <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+          <span className="w-4 h-4 rounded-md bg-seafoam/15 text-seafoam flex items-center justify-center text-[9px]">2</span>
+          Daily sheet &amp; chart
+        </p>
+        <InpatientChartPage
+          hospId={String(visit.hospitalizationId)}
+          embedded
+          onBack={() => {}}
+          onChanged={() => { emit?.('Inpatient chart updated', 'action', true); refreshVisit?.(); }}
+        />
+      </section>
+    ) : (
+      <section className="space-y-3">
+        <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+          <span className="w-4 h-4 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-400 flex items-center justify-center text-[9px]">2</span>
+          Daily sheet &amp; chart
+        </p>
+        <p className="px-3 py-2.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+          Not hospitalized yet — use Hospitalize / In-Patient on the visit header, and the daily sheet (MAR, fluids, notes) opens here.
+        </p>
+      </section>
+    )}
   </div>
 );
 

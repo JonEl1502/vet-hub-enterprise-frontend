@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the day's items were listed twice  —  2026-08-22
+🟢 **Record impact: none.**
+- The inpatient day editor printed the day's consumables itself AND the item picker inside it
+  printed the same rows again, so one dose appeared as **Recorded (1)** in the form and again as
+  **ITEM …** below it — reading as two doses at a glance (user, 2026-08-22: *"here should be rec for
+  that day or empty"*).
+- The picker now runs with `hideLoggedList` — it is the place you ADD an item, the day's list is the
+  place you read them back. `ConsumablePicker` has had that prop since the boarding sheet hit the
+  same problem; the chart simply never passed it.
+- Nothing was lost in the move: the day's rows now carry the `price × qty` line and the
+  *"Carries injection fee — own bill line"* note the picker used to show.
+
+### change: admission gate and daily sheet on one page, as sections 1 and 2  —  2026-08-22
+🟢 **Record impact: none.**
+- A **clinical** workflow has no separate chart step, so on those visits the daily sheet was
+  reachable only from the standalone in-patient page — the Admission step showed the gate and
+  nothing else (user, 2026-08-22: *"same to be here but as sec 2, sec 1 is admission gate"*).
+- The Admission step now renders **1 · Admission gate** then **2 · Daily sheet & chart**, with a
+  clear "not hospitalized yet" note in section 2 when there is no stay.
+- The `inpatientChart` **step** is dropped from the admission entry point — it would have shown the
+  chart twice. Its definition and render branch are kept so any clinic-built workflow that names it
+  explicitly still works.
+
 ### change: diagnostic rows keep two buttons, the rest go in a menu  —  2026-08-22
 🟢 **Record impact: none.**
 - Each request carried five chips — Complete, View result, Full page, To partner, Remove — wrapping

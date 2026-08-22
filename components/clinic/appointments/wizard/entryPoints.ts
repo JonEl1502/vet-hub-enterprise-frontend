@@ -65,7 +65,9 @@ export const ENTRY_POINTS: Record<string, EntryPointDef> = {
   // history/diagnostics ceremony.
   routineCheck: { key: 'routineCheck', label: 'Routine Check', icon: '✅', steps: ['examination', 'assessment', 'treatment', 'communication', 'followUp'] },
   surgery:      { key: 'surgery', label: 'Surgery', icon: '🔪', steps: ['surgicalAssessment', 'history', 'examination', 'diagnostics', 'treatment', 'communication', 'followUp'] },
-  admission:    { key: 'admission', label: 'Hospital Admission', icon: '🏥', steps: ['admission', 'inpatientChart', ...CORE] },
+  admission:    { key: 'admission', label: 'Hospital Admission', icon: '🏥', // 2026-08-22: the chart is SECTION 2 of the admission step now, not a
+  // step of its own — listing both showed it twice.
+  steps: ['admission', ...CORE] },
   // A follow-up opens on the PRIOR visit's follow-up plan — "what were they
   // told to come back for" — carried over from the originating wizard's last
   // step. Progress/compliance capture (reviewHistory) follows it; the two
