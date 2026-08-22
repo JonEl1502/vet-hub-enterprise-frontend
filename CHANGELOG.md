@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: one card per moment on the daily sheet  —  2026-08-22
+🟢 **Record impact: none** (presentation only — nothing is re-linked in the database).
+- Vitals, the entry and the items given with it were three separate strips — a *"1 vitals entry
+  (table above)"* line pointing somewhere else, the entry, then the item (user, 2026-08-22:
+  *"an entry is all together, not vitals separate from the entry … entry in one card"*).
+- They now render as **one card**: the entry's fields, its vitals inline, and the items given with
+  it. **Every row carries its own time and its own delete**, including vitals, which previously had
+  neither on this sheet.
+- ⚠️ **How the grouping works, and its limit.** Nothing in the database links a vitals reading or a
+  dispensed item to the log entry it was saved with — they are three tables that share only a
+  timestamp. So grouping is **by time**: a vital or an item joins the nearest entry recorded within
+  **two minutes**. Entries are **never merged with each other** (two entries a minute apart are two
+  entries), and anything that matches nothing keeps its own card, so nothing is hidden by failing to
+  match. A real foreign key would need a schema change.
+
+### change: Admission step is tabbed  —  2026-08-22
+🟢 **Record impact: none.**
+- **Admission gate · Daily sheet & chart · Stay & plan** are now tabs (user, 2026-08-22: *"okay make
+  them tabs"*). Stacked, reaching day four's vitals meant scrolling past a finished admission form
+  every time; the gate is a ten-second form filled once, the sheet is what you return to daily.
+- `InpatientChartPage` gained a `pane` prop (`'chart' | 'plan'`) so the wizard can show its main
+  column and its side rail as separate tabs. Omitted — as on the standalone page — it renders both
+  side by side exactly as before, and the sticky-rail behaviour is dropped in tab mode since a
+  full-width panel has nothing to stick beside.
+
 ### fix: the day's items were listed twice  —  2026-08-22
 🟢 **Record impact: none.**
 - The inpatient day editor printed the day's consumables itself AND the item picker inside it

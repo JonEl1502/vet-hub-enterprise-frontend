@@ -403,48 +403,66 @@ export const BoardingStayStep: React.FC<StepProps> = ({ visit, refreshVisit, emi
  * The chart is now its own step (see InpatientChartStep), so admission is what
  * step 1 says it is.
  */
-export const AdmissionEntryStep: React.FC<StepProps> = ({ pet, data, setData, visit, refreshVisit, emit }) => (
-  <div className="space-y-5">
-    {/* ── SECTION 1 — the gate you fill at the door ─────────────────── */}
-    <section className="space-y-3">
-      <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
-        <span className="w-4 h-4 rounded-md bg-seafoam/15 text-seafoam flex items-center justify-center text-[9px]">1</span>
-        Admission gate
-      </p>
-      <GateCheckForm formKey="admission" data={data} setData={setData} petId={pet?.id} pet={pet} />
-    </section>
+export const AdmissionEntryStep: React.FC<StepProps> = ({ pet, data, setData, visit, refreshVisit, emit }) => {
+  /**
+   * TABS, not three stacked sections (user, 2026-08-22: "okay make them tabs").
+   *
+   * The gate is a ten-second form you fill once at the door; the daily sheet is
+   * what you come back to every day for a week; the stay rail is discharge date,
+   * treatment plan and complexity. Stacked, reaching day four's vitals meant
+   * scrolling past a finished admission form every time. Tabs let each be the
+   * whole screen when it is the one you want.
+   */
+  const [tab, setTab] = React.useState<'gate' | 'chart' | 'plan'>('gate');
+  const hospId = visit?.hospitalizationId ? String(visit.hospitalizationId) : null;
 
-    {/* ── SECTION 2 — the chart you come back to every day ───────────
-        On the same page as the gate (user, 2026-08-22: "same to be here
-        but as sec 2, sec 1 is admission gate"). A clinical workflow has no
-        separate chart step, so without this the daily sheet was reachable
-        only from the standalone in-patient page. */}
-    {visit?.hospitalizationId ? (
-      <section className="space-y-3">
-        <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
-          <span className="w-4 h-4 rounded-md bg-seafoam/15 text-seafoam flex items-center justify-center text-[9px]">2</span>
-          Daily sheet &amp; chart
-        </p>
+  const TABS: Array<{ id: typeof tab; label: string }> = [
+    { id: 'gate', label: 'Admission gate' },
+    { id: 'chart', label: 'Daily sheet & chart' },
+    { id: 'plan', label: 'Stay & plan' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-1.5 border-b border-slate-200 dark:border-zinc-800 pb-2">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+              tab === t.id
+                ? 'bg-seafoam text-white border-seafoam shadow-sm'
+                : 'bg-white dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:text-seafoam'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'gate' && (
+        <GateCheckForm formKey="admission" data={data} setData={setData} petId={pet?.id} pet={pet} />
+      )}
+
+      {/* Both chart tabs need a stay. Say so plainly rather than rendering an
+          empty chart that looks broken. */}
+      {tab !== 'gate' && (hospId ? (
         <InpatientChartPage
-          hospId={String(visit.hospitalizationId)}
+          hospId={hospId}
           embedded
+          pane={tab === 'chart' ? 'chart' : 'plan'}
           onBack={() => {}}
           onChanged={() => { emit?.('Inpatient chart updated', 'action', true); refreshVisit?.(); }}
         />
-      </section>
-    ) : (
-      <section className="space-y-3">
-        <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
-          <span className="w-4 h-4 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-400 flex items-center justify-center text-[9px]">2</span>
-          Daily sheet &amp; chart
-        </p>
+      ) : (
         <p className="px-3 py-2.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
           Not hospitalized yet — use Hospitalize / In-Patient on the visit header, and the daily sheet (MAR, fluids, notes) opens here.
         </p>
-      </section>
-    )}
-  </div>
-);
+      ))}
+    </div>
+  );
+};
 
 /**
  * Step 2 — the in-patient chart: MAR, fluids, feeding, nursing and progress

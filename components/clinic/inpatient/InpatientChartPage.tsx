@@ -24,6 +24,14 @@ interface Props {
   /** Rendered inside the visit wizard's Admission step — hides the page-level
    * back link (the wizard provides its own navigation). */
   embedded?: boolean;
+  /**
+   * Render ONE column instead of the two-column page (2026-08-22).
+   *
+   * The visit wizard shows this chart as tabs — Daily sheet, then Stay & plan —
+   * so it needs the main column and the side rail separately. Omitted, the page
+   * renders both side by side exactly as before.
+   */
+  pane?: 'chart' | 'plan';
 }
 
 const OUTCOMES: DischargeOutcome[] = ['RECOVERED', 'IMPROVED', 'UNCHANGED', 'DEFERRED', 'DECEASED'];
@@ -70,7 +78,7 @@ const logSummary = (kind: LogKind, d: Record<string, any>): string => {
   }
 };
 
-const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpenAppointment, embedded }) => {
+const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpenAppointment, embedded, pane }) => {
   const [h, setH] = useState<Hospitalization | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -496,9 +504,9 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
       {loading && !h ? (
         <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
       ) : h ? (
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+        <div className={pane ? 'space-y-4' : 'grid grid-cols-1 lg:grid-cols-3 gap-4 items-start'}>
           {/* MAIN — vitals + daily sheet */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className={`${pane ? (pane === 'chart' ? '' : 'hidden') : 'lg:col-span-2'} space-y-4`}>
             {/* Vitals */}
             <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
               <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5 mb-2"><Thermometer size={13} /> Monitoring (TPR)</p>
@@ -537,7 +545,14 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                 const logsByDay = new Map<string, any[]>();
                 (h.logs || []).forEach(l => { const k = dayKey(l.loggedAt); logsByDay.set(k, [...(logsByDay.get(k) || []), l]); });
                 const vitalsByDay = new Map<string, number>();
-                (h.vitals || []).forEach(v => { const k = dayKey(v.recordedAt); vitalsByDay.set(k, (vitalsByDay.get(k) || 0) + 1); });
+                // The ROWS too, not just how many: a vitals reading belongs to
+                // the entry it was taken with, so it has to be groupable.
+                const vitalRowsByDay = new Map<string, any[]>();
+                (h.vitals || []).forEach(v => {
+                  const k = dayKey(v.recordedAt);
+                  vitalsByDay.set(k, (vitalsByDay.get(k) || 0) + 1);
+                  vitalRowsByDay.set(k, [...(vitalRowsByDay.get(k) || []), v]);
+                });
                 const BLANK_FIELDS = ['Vitals', 'Medication (MAR)', 'Feeding', 'Fluids', 'Nursing note'];
                 const consByDay = new Map<string, any[]>();
                 consumables.forEach(c => { const ck = dayKey(c.createdAt); consByDay.set(ck, [...(consByDay.get(ck) || []), c]); });
@@ -591,6 +606,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                       if (k !== selKey) return null;
                       const logs = logsByDay.get(k) || [];
                       const vitalsCount = vitalsByDay.get(k) || 0;
+                      const dayVitals = vitalRowsByDay.get(k) || [];
                       const dayCons = consByDay.get(k) || [];
                       const itemsCost = dayCons.reduce((sum, c) => sum + (c.billable ? Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0)) : 0), 0);
                       // Stay charges are NIGHTS-based (calendarDaysBetween, min 1): the
@@ -742,104 +758,184 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                             </div>
                           ) : (
                             <div className="space-y-1.5">
-                              {vitalsCount > 0 && (
-                                <div className="flex items-center gap-2 bg-slate-50 dark:bg-zinc-800/50 rounded-lg px-3 py-1.5 border border-slate-100 dark:border-zinc-800">
-                                  <Thermometer size={12} className="text-seafoam shrink-0" />
-                                  <span className="text-[10px] text-pine dark:text-zinc-200">{vitalsCount} vitals entr{vitalsCount === 1 ? 'y' : 'ies'} (table above)</span>
-                                </div>
-                              )}
-                              {/* ── A SAVED ENTRY, read back field by field ──────
-                                  Same shape as the form that wrote it — labelled
-                                  values, not one squashed sentence — but flat and
-                                  not editable, so it reads as a record rather than
-                                  an input still waiting for you (user, 2026-08-22).
-                                  The pencil reopens the very same panel, prefilled. */}
-                              {logs.map(l => {
-                                const fields = logFieldsFor(l.kind)
-                                  .map(([key, label, suffix]) => [label, l.data?.[key], suffix] as const)
-                                  .filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '');
-                                const isEditing = editingLogId === l.id;
-                                return (
-                                <div key={l.id} className={`rounded-lg px-3 py-2 border ${isEditing
-                                  ? 'bg-seafoam/10 border-seafoam/40'
-                                  : 'bg-slate-50 dark:bg-zinc-800/50 border-slate-100 dark:border-zinc-800'}`}>
-                                  <div className="flex items-center gap-2">
-                                    {isTask(l.kind) ? (
-                                      <button onClick={() => toggleTask(l.id, l.status)} title={l.status === 'done' ? 'Done — click to reopen' : 'Due — click to mark done'} className="shrink-0">{l.status === 'done' ? <CheckCircle2 size={15} className="text-emerald-500" /> : <Circle size={15} className="text-amber-500" />}</button>
-                                    ) : <Activity size={13} className="text-seafoam shrink-0" />}
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{LOG_KINDS.find(kk => kk.value === l.kind)?.label}</span>
-                                    {l.status === 'done' && (
-                                      <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600">Done</span>
-                                    )}
-                                    <span className="ml-auto text-[9px] text-slate-400 shrink-0">{formatTime(l.loggedAt)}</span>
-                                    {active && (
-                                      <>
-                                        <button type="button" title="Edit this entry"
-                                          onClick={() => (isEditing ? cancelEditor() : startEditLog(k, { id: l.id, kind: l.kind, data: l.data || {} }))}
-                                          className="shrink-0 p-1 rounded-md text-slate-300 hover:text-seafoam hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">
-                                          <Pencil size={11} />
-                                        </button>
-                                        <button type="button" title="Delete this entry" disabled={removing === `l-${l.id}`}
-                                          onClick={() => removeLog({ id: l.id, kind: l.kind })}
-                                          className="shrink-0 p-1 rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40">
-                                          {removing === `l-${l.id}` ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-                                        </button>
-                                      </>
-                                    )}
-                                  </div>
-                                  {fields.length > 0 ? (
-                                    <div className="mt-1.5 grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1 pl-[22px]">
-                                      {fields.map(([label, value, suffix]) => (
-                                        <div key={label} className="min-w-0">
-                                          <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">{label}</span>
-                                          <span className="block text-[11px] font-bold text-pine dark:text-zinc-200 break-words">
-                                            {String(value)}{suffix ? ` ${suffix}` : ''}
+                              {(() => {
+                                /**
+                                 * ONE CARD PER MOMENT (user, 2026-08-22: "an entry
+                                 * is all together, not vitals separate from the
+                                 * entry … entry in one card").
+                                 *
+                                 * ⚠️ HOW THINGS ARE GROUPED — and its limit.
+                                 * Nothing in the database links a vitals reading or
+                                 * a dispensed item to the log entry it was saved
+                                 * with; they are three tables that only share a
+                                 * timestamp. So grouping is BY TIME: a vital or an
+                                 * item joins the nearest entry recorded within two
+                                 * minutes of it.
+                                 *
+                                 * Entries themselves are NEVER merged with each
+                                 * other — two entries a minute apart are two
+                                 * entries, and folding them together would invent a
+                                 * record nobody wrote. Anything with no entry
+                                 * nearby keeps its own card, so nothing is hidden
+                                 * by failing to match.
+                                 */
+                                const WINDOW = 2 * 60 * 1000;
+                                const ms = (t: any) => { const d = new Date(t); return isNaN(d.getTime()) ? 0 : d.getTime(); };
+
+                                type Group = { at: number; log?: any; vitals: any[]; items: any[] };
+                                const groups: Group[] = logs
+                                  .map(l => ({ at: ms(l.loggedAt), log: l, vitals: [] as any[], items: [] as any[] }))
+                                  .sort((x, y) => x.at - y.at);
+
+                                const nearest = (t: number) => {
+                                  let best: Group | null = null;
+                                  let bestGap = Infinity;
+                                  for (const g of groups) {
+                                    const gap = Math.abs(g.at - t);
+                                    if (gap <= WINDOW && gap < bestGap) { best = g; bestGap = gap; }
+                                  }
+                                  return best;
+                                };
+
+                                const orphanVitals: any[] = [];
+                                for (const v of dayVitals) {
+                                  const g = nearest(ms(v.recordedAt));
+                                  if (g) g.vitals.push(v); else orphanVitals.push(v);
+                                }
+                                const orphanItems: any[] = [];
+                                for (const c of dayCons) {
+                                  const g = nearest(ms((c as any).createdAt ?? (c as any).recordedAt));
+                                  if (g) g.items.push(c); else orphanItems.push(c);
+                                }
+                                for (const v of orphanVitals) groups.push({ at: ms(v.recordedAt), vitals: [v], items: [] });
+                                for (const c of orphanItems) groups.push({ at: ms((c as any).createdAt ?? (c as any).recordedAt), vitals: [], items: [c] });
+                                groups.sort((x, y) => x.at - y.at);
+
+                                const VITAL_COLS: Array<[string, string]> = [
+                                  ['Temp', 'temperature'], ['Pulse', 'pulse'], ['Resp', 'respiration'],
+                                  ['Wt', 'weight'], ['MM', 'mucousMembrane'], ['CRT', 'crt'],
+                                ];
+
+                                return groups.map((g, gi) => {
+                                  const l = g.log;
+                                  const fields = l
+                                    ? logFieldsFor(l.kind)
+                                        .map(([key, label, suffix]) => [label, l.data?.[key], suffix] as const)
+                                        .filter(([, v]) => v !== undefined && v !== null && String(v).trim() !== '')
+                                    : [];
+                                  const isEditing = !!l && editingLogId === l.id;
+                                  return (
+                                    <div key={l ? `l-${l.id}` : `g-${gi}`}
+                                      className={`rounded-lg border overflow-hidden ${isEditing
+                                        ? 'bg-seafoam/10 border-seafoam/40'
+                                        : 'bg-slate-50 dark:bg-zinc-800/50 border-slate-100 dark:border-zinc-800'}`}>
+                                      {/* Header — time on EVERY card, whatever it holds. */}
+                                      <div className="flex items-center gap-2 px-3 py-2">
+                                        {l && isTask(l.kind) ? (
+                                          <button onClick={() => toggleTask(l.id, l.status)} title={l.status === 'done' ? 'Done — click to reopen' : 'Due — click to mark done'} className="shrink-0">{l.status === 'done' ? <CheckCircle2 size={15} className="text-emerald-500" /> : <Circle size={15} className="text-amber-500" />}</button>
+                                        ) : <Activity size={13} className="text-seafoam shrink-0" />}
+                                        <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">
+                                          {l ? (LOG_KINDS.find(kk => kk.value === l.kind)?.label) : (g.vitals.length ? 'Vitals' : 'Items')}
+                                        </span>
+                                        {l?.status === 'done' && (
+                                          <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600">Done</span>
+                                        )}
+                                        <span className="ml-auto text-[9px] text-slate-400 shrink-0">
+                                          {formatTime(l ? l.loggedAt : (g.vitals[0]?.recordedAt ?? (g.items[0] as any)?.createdAt))}
+                                        </span>
+                                        {active && l && (
+                                          <>
+                                            <button type="button" title="Edit this entry"
+                                              onClick={() => (isEditing ? cancelEditor() : startEditLog(k, { id: l.id, kind: l.kind, data: l.data || {} }))}
+                                              className="shrink-0 p-1 rounded-md text-slate-300 hover:text-seafoam hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors">
+                                              <Pencil size={11} />
+                                            </button>
+                                            <button type="button" title="Delete this entry" disabled={removing === `l-${l.id}`}
+                                              onClick={() => removeLog({ id: l.id, kind: l.kind })}
+                                              className="shrink-0 p-1 rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40">
+                                              {removing === `l-${l.id}` ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                                            </button>
+                                          </>
+                                        )}
+                                      </div>
+
+                                      {l && (fields.length > 0 ? (
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-1 px-3 pb-2 pl-[34px]">
+                                          {fields.map(([label, value, suffix]) => (
+                                            <div key={label} className="min-w-0">
+                                              <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+                                              <span className="block text-[11px] font-bold text-pine dark:text-zinc-200 break-words">
+                                                {String(value)}{suffix ? ` ${suffix}` : ''}
+                                              </span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <p className="px-3 pb-2 pl-[34px] text-[10px] text-slate-400 italic">Nothing recorded on this entry.</p>
+                                      ))}
+
+                                      {/* Vitals taken with it — inside the card, not
+                                          a separate strip pointing at a table. */}
+                                      {g.vitals.map(v => (
+                                        <div key={`v-${v.id}`} className="flex items-center gap-2 px-3 py-1.5 border-t border-slate-100 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/40">
+                                          <Thermometer size={11} className="text-seafoam shrink-0" />
+                                          <span className="min-w-0 flex-1 flex flex-wrap gap-x-2.5 gap-y-0.5">
+                                            {VITAL_COLS.filter(([, key]) => v[key] != null && String(v[key]).trim() !== '').map(([label, key]) => (
+                                              <span key={key} className="text-[10px] text-pine dark:text-zinc-200">
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{label} </span>
+                                                <strong>{String(v[key])}</strong>
+                                              </span>
+                                            ))}
                                           </span>
+                                          <span className="text-[9px] text-slate-400 shrink-0">{formatTime(v.recordedAt)}</span>
+                                          {active && (
+                                            <button type="button" title="Delete this vitals reading" disabled={removing === `v-${v.id}`}
+                                              onClick={() => removeVital(v.id)}
+                                              className="shrink-0 p-1 rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40">
+                                              {removing === `v-${v.id}` ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                                            </button>
+                                          )}
                                         </div>
                                       ))}
+
+                                      {/* Items given with it. */}
+                                      {g.items.map(c => {
+                                        const fees = Object.entries(((c.inventoryItem as any)?.fees) || {})
+                                          .filter(([, v]) => v != null && Number(v) > 0);
+                                        return (
+                                          <div key={`c-${c.id}`} className="flex items-center gap-2 px-3 py-1.5 border-t border-emerald-100 dark:border-emerald-900/40 bg-emerald-50/60 dark:bg-emerald-950/20">
+                                            <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 shrink-0">Item</span>
+                                            <span className="min-w-0 flex-1">
+                                              <span className="block text-[10px] text-pine dark:text-zinc-200 truncate">
+                                                {c.inventoryItem?.name} × {Number(c.quantity)} {c.inventoryItem?.unit || ''}
+                                              </span>
+                                              {c.billable && (
+                                                <span className="block text-[9px] font-bold text-slate-500 dark:text-zinc-400">
+                                                  {fmtK(Number(c.unitPrice) || 0)} × {Number(c.quantity)} {c.inventoryItem?.unit || ''}
+                                                </span>
+                                              )}
+                                              {fees.length > 0 && c.billable && (
+                                                <span className="block text-[9px] font-bold text-violet-600 dark:text-violet-400">
+                                                  Carries {fees.map(([k2, v]) => `${k2} ${fmtK(Number(v))}`).join(' · ')} — own bill line
+                                                </span>
+                                              )}
+                                            </span>
+                                            <span className="text-[9px] text-slate-400 shrink-0">{formatTime((c as any).createdAt)}</span>
+                                            <span className="text-[9px] font-black text-emerald-600 shrink-0">{c.billable ? fmtK(Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0))) : 'no charge'}</span>
+                                            {active && (
+                                              <button type="button" title={`Remove ${c.inventoryItem?.name ?? 'this item'} — returns the stock and drops the charge`}
+                                                disabled={removing === `c-${c.id}`} onClick={() => removeConsumable(String(c.id), c.inventoryItem?.name)}
+                                                className="shrink-0 p-1 rounded-md text-emerald-600/60 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40">
+                                                {removing === `c-${c.id}` ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                                              </button>
+                                            )}
+                                          </div>
+                                        );
+                                      })}
                                     </div>
-                                  ) : (
-                                    <p className="mt-1 pl-[22px] text-[10px] text-slate-400 italic">Nothing recorded on this entry.</p>
-                                  )}
-                                </div>
-                                );
-                              })}
-                              {dayCons.map(c => {
-                                const fees = Object.entries(((c.inventoryItem as any)?.fees) || {})
-                                  .filter(([, v]) => v != null && Number(v) > 0);
-                                return (
-                                <div key={`c-${c.id}`} className="flex items-center gap-2 bg-emerald-50/50 dark:bg-emerald-950/20 rounded-lg px-3 py-1.5 border border-emerald-100 dark:border-emerald-900/40">
-                                  <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600 shrink-0">Item</span>
-                                  <span className="min-w-0 flex-1">
-                                    <span className="block text-[10px] text-pine dark:text-zinc-200 truncate">
-                                      {c.inventoryItem?.name} × {Number(c.quantity)} {c.inventoryItem?.unit || ''}
-                                    </span>
-                                    {/* The sum, not just the total — the picker
-                                        used to show this and no longer lists
-                                        these rows, so it moves here rather than
-                                        being lost. */}
-                                    {c.billable && (
-                                      <span className="block text-[9px] font-bold text-slate-500 dark:text-zinc-400">
-                                        {fmtK(Number(c.unitPrice) || 0)} × {Number(c.quantity)} {c.inventoryItem?.unit || ''}
-                                      </span>
-                                    )}
-                                    {fees.length > 0 && c.billable && (
-                                      <span className="block text-[9px] font-bold text-violet-600 dark:text-violet-400">
-                                        Carries {fees.map(([k2, v]) => `${k2} ${fmtK(Number(v))}`).join(' · ')} — own bill line
-                                      </span>
-                                    )}
-                                  </span>
-                                  <span className="text-[9px] font-black text-emerald-600 shrink-0">{c.billable ? fmtK(Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0))) : 'no charge'}</span>
-                                  {active && (
-                                    <button type="button" title={`Remove ${c.inventoryItem?.name ?? 'this item'} — returns the stock and drops the charge`}
-                                      disabled={removing === `c-${c.id}`} onClick={() => removeConsumable(String(c.id), c.inventoryItem?.name)}
-                                      className="shrink-0 p-1 rounded-md text-emerald-600/60 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40">
-                                      {removing === `c-${c.id}` ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
-                                    </button>
-                                  )}
-                                </div>
-                                );
-                              })}
+                                  );
+                                });
+                              })()}
                             </div>
                           )}
                         </div>
@@ -907,7 +1003,9 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
               a long treatment plan would otherwise push the bottom of the rail
               (and Complexity) past the viewport with no way to reach it.
               lg only: on one column a sticky rail would cover the sheet. */}
-          <div className={`space-y-4 ${STICKY_RAIL}`}>
+          {/* As a TAB it is a full-width panel, so the sticky rail behaviour —
+              which exists to keep it beside a long sheet — is dropped. */}
+          <div className={pane ? (pane === 'plan' ? 'space-y-4' : 'hidden') : `space-y-4 ${STICKY_RAIL}`}>
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm space-y-3">
               {h.admissionNotes && <div className="bg-slate-50 dark:bg-zinc-800/50 rounded-xl p-3 text-xs text-slate-600 dark:text-zinc-300"><span className="font-black uppercase text-[9px] tracking-widest text-slate-400 mr-1.5">Admission</span>{h.admissionNotes}</div>}
 
