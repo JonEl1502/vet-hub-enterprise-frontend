@@ -59,6 +59,16 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: supplier billing showed only ONE plan — the rest were hidden for minutes  —  2026-08-23
+🟢 **Record impact: none.**
+- `PlanCard` staggers its entrance with framer-motion, whose `delay` is in **seconds**. The clinic
+  page passes `i * 0.05`; the supplier page passed **`i * 60`** — a millisecond stagger fed to a
+  seconds API. So plan 2 appeared after **1 minute**, plan 3 after 2, plan 4 after 3, and the page
+  looked like it offered nothing but Starter.
+- The API had been returning all five packages the whole time; nothing was filtering them.
+- Hardened: `PlanCard` now **clamps** the delay to 1s, so a wrong unit degrades to a slightly late
+  card instead of an apparently missing plan.
+
 ### fix: "Clinic ID is required" on supplier pages, and "on the a higher plan"  —  2026-08-23
 🟢 **Record impact: none.**
 - 🐛 **The emergency triage bar rendered for every audience.** It polls `triage-records?scope=board`

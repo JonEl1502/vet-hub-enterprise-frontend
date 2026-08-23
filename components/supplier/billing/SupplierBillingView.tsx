@@ -320,7 +320,11 @@ const SupplierBillingView: React.FC = () => {
               }
               currentSubTier={subscription?.package?.tier ?? null}
               getPlanIcon={getPlanIcon}
-              delay={i * 60}
+              /* SECONDS — framer-motion's unit. This was `i * 60`, i.e. a
+                 millisecond stagger fed to a seconds API, so plans 2, 3 and 4
+                 stayed invisible for 1, 2 and 3 MINUTES and the page looked
+                 like it only offered Starter (user, 2026-08-23). */
+              delay={i * 0.05}
               inheritsFrom={
                 [...basePackages]
                   .filter((o) => o.tier < pkg.tier)

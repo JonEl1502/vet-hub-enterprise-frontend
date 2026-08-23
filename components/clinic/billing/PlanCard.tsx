@@ -120,7 +120,11 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, delay }}
+      /* ⚠️ SECONDS. A caller once passed a millisecond stagger (`i * 60`) and
+         framer-motion dutifully waited a minute per card, hiding three of four
+         plans on the supplier billing page. Clamped so a wrong unit degrades
+         to a slightly-late card instead of an apparently-missing plan. */
+      transition={{ duration: 0.35, delay: Math.min(Math.max(delay, 0), 1) }}
       className={`relative rounded-2xl border p-5 flex flex-col gap-4 transition-all ${
         isTierDowngrade
           ? 'border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-900/60 opacity-60'
