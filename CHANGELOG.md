@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: "Clinic ID is required" on supplier pages, and "on the a higher plan"  —  2026-08-23
+🟢 **Record impact: none.**
+- 🐛 **The emergency triage bar rendered for every audience.** It polls `triage-records?scope=board`
+  — a clinic-scoped endpoint — every 45 seconds, so on a SUPPLIER account, which has no clinic
+  context, every poll 400'd and dropped a **"Clinic ID is required"** toast onto whatever supplier
+  page was open (user: *"i am in supplier and shows clinic id err"*). A triage board is meaningless
+  to a supplier or a portal client; the bar now mounts only for clinic audiences.
+- 🐛 **"branches is on the a higher plan."** `featureCopy().plan` is sometimes a determiner-led
+  phrase ("a higher") and sometimes a plan NAME ("Enterprise"). `UpgradeGate` fixed that locally in
+  August; the **API interceptor built the same sentence with its own hardcoded "the"** and kept
+  shipping the broken copy — which is the modal in the report. Both now share one `upgradeSentence`
+  builder, so a fix in one place cannot miss the other.
+
 ### fix: "Settled" appeared on visits nobody had billed  —  2026-08-23
 🟢 **Record impact: none.** Labelling only — but it was labelling money.
 - **Due on this visit** printed a green **Settled** whenever `due <= 0`, without asking whether

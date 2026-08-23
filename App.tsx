@@ -3380,10 +3380,20 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               emergency triage, and removes itself once the last one is
               stabilised. Inside <main> so it doesn't cover the nav, sticky so
               it stays put as the page scrolls. */}
-          <EmergencyAlertBar
-            onOpen={() => navigateTo('emergency')}
-            onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id), openTriage: true })}
-          />
+          {/* ⚠️ CLINIC AUDIENCES ONLY (2026-08-23).
+              It used to render for everyone, and it polls `triage-records?
+              scope=board` — a clinic-scoped endpoint — every 45s. On a SUPPLIER
+              account there is no clinic context, so every poll 400'd with
+              "Clinic ID is required" and the toast landed on whatever supplier
+              page they were on (user, 2026-08-23: *"i am in supplier and shows
+              clinic id err"*). A triage board is meaningless to a supplier
+              anyway; the bar simply does not belong on those pages. */}
+          {user?.role !== UserRole.SUPPLIER && user?.role !== UserRole.CLIENT && (
+            <EmergencyAlertBar
+              onOpen={() => navigateTo('emergency')}
+              onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id), openTriage: true })}
+            />
+          )}
           {/* Loading overlay for API operations — scoped to the content area
               so it never covers the sidebar or top nav. */}
           {(isProcessingPayment || isUpdatingTask || isDeletingTask || isCreatingAppointment || isUpdatingAppointment) && (

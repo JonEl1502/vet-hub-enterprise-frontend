@@ -374,6 +374,23 @@ export function allowsView(access: PlanAccess | null, view: string): boolean {
 }
 
 /** Copy for a locked key, with a sane fallback for keys with no entry. */
+/**
+ * "…is on **a higher** plan" vs "…is on **the Enterprise** plan".
+ *
+ * `featureCopy().plan` is sometimes a determiner-led phrase ("a higher") and
+ * sometimes a bare plan NAME ("Enterprise"), so prefixing a hardcoded "the"
+ * produces **"is on the a higher plan"**. UpgradeGate fixed that locally on
+ * 2026-08-05; the API interceptor built the same sentence with its own
+ * hardcoded "the" and kept shipping the broken copy — which is what the
+ * supplier upgrade modal showed on 2026-08-23. One builder, both callers.
+ */
+export const planPhrase = (plan: string): string =>
+  /^(a|an|the)\s/i.test(plan) ? plan : `the ${plan}`;
+
+/** Full sentence used by both the inline gate and the 403 upgrade modal. */
+export const upgradeSentence = (copy: { label: string; plan: string }): string =>
+  `${copy.label} is on ${planPhrase(copy.plan)} plan.`;
+
 export function featureCopy(featureKey: string): { label: string; plan: string; blurb?: string } {
   return (
     FEATURE_COPY[featureKey] ?? {

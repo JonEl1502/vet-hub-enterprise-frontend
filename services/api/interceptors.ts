@@ -7,7 +7,7 @@ import { convertBigIntToString } from '../utils/transformers';
 import { handleApiError, isAuthError } from '../utils/errorHandler';
 import { toast } from '../utils/toast';
 import { dialog } from '../utils/dialog';
-import { featureCopy } from '../entitlements';
+import { featureCopy, upgradeSentence } from '../entitlements';
 import { RequestOptions } from './types';
 
 /**
@@ -335,7 +335,7 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
             dialog
               .confirm({
                 title: 'Upgrade needed',
-                message: `${copy.label} is on the ${copy.plan} plan.${copy.blurb ? ` ${copy.blurb}` : ''}`,
+                message: `${upgradeSentence(copy)}${copy.blurb ? ` ${copy.blurb}` : ''}`,
                 variant: 'warning',
                 confirmLabel: 'See plans',
                 cancelLabel: 'Not now',

@@ -18,6 +18,7 @@ import React from 'react';
 import { Lock, ArrowUpRight } from 'lucide-react';
 import { usePlanAccess } from '../../../contexts/PlanAccessContext';
 import { featureCopy } from '../../../services/entitlements';
+import { upgradeSentence } from '../../../services/entitlements';
 
 interface UpgradeGateProps {
   /** Feature key required to render the children, e.g. 'capability:attachments'. */
@@ -58,11 +59,8 @@ const UpgradeGate: React.FC<UpgradeGateProps> = ({
   if (hideWhenLocked) return null;
 
   const copy = featureCopy(feature);
-  // `copy.plan` is sometimes a determiner-led phrase ("a higher") and sometimes
-  // a plan NAME ("Enterprise"), so a hardcoded "the" produced "…is on the a
-  // higher plan" (seen on the supplier upgrade modal, 2026-08-05).
-  const planPhrase = /^(a|an|the)\s/i.test(copy.plan) ? copy.plan : `the ${copy.plan}`;
-  const heading = title ?? `${copy.label} is on ${planPhrase} plan`;
+  // Shared with the 403 upgrade modal — see `planPhrase` in entitlements.
+  const heading = title ?? upgradeSentence(copy).replace(/\.$/, '');
   const blurb = description ?? copy.blurb;
 
   if (variant === 'inline') {
