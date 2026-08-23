@@ -86,6 +86,10 @@ accepted `startDate`/`endDate`.
   billed but not collected; where invoices fall away from bills is work billed but never invoiced.
   Neither gap is visible on a revenue chart, which by definition only plots money that arrived.
 - Fed by `GET /transactions/document-flow` (new).
+- 🐛 **Fixed same day:** the chart read `docFlow.days` while the service returns **`series`**, so it
+  showed *"No documents in this range"* over a window holding 220 bills, 67 invoices and 62
+  receipts (user, 2026-08-23: *"chart no correct. it should find some payments"*). A silent shape
+  mismatch between a new endpoint and its only caller.
 
 ### feat: reconcile a carried-over balance against its invoices  —  2026-08-23
 🟢 **Record impact: none until you press Actualise.** Needs backend migration 221.

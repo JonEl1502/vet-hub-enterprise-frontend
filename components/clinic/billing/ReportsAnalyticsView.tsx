@@ -182,7 +182,9 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
   }, [from, to]);
 
   const docData = useMemo(() => {
-    const days: any[] = docFlow?.days || docFlow?.data?.days || [];
+    // The service returns `series` — reading `days` here is what made the chart
+    // say "No documents in this range" while 220 bills sat in the window.
+    const days: any[] = docFlow?.series || docFlow?.data?.series || [];
     return days.map(d => ({
       label: String(d.date || '').slice(5),
       bills: docMode === 'value' ? Number(d.billsValue || 0) : Number(d.bills || 0),
