@@ -280,7 +280,12 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
     try {
       const res = await consumablesAPI.remove(c.id);
       if (res.success) { toast.success('Removed · stock restored'); await load(); onChanged?.(); }
-    } catch (e: any) { toast.error(e?.message || 'Failed to remove'); }
+    } catch (e: any) {
+      // Already gone (a second click on a stale row) — that is the outcome
+      // that was wanted, so reconcile the list instead of erroring.
+      if (e?.status === 404 || /not found/i.test(e?.message || '')) { await load(); onChanged?.(); }
+      else toast.error(e?.message || 'Failed to remove');
+    }
     finally { setBusyLineId(null); }
   };
 

@@ -145,6 +145,19 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   // Per-day charges for the reconciliation sheet (user, 2026-08-02): the
   // stay's daily rate + billable consumables logged that day. Shown even at 0.
   const [consumables, setConsumables] = useState<any[]>([]);
+  /**
+   * Bumped whenever a consumable is added, edited or removed.
+   *
+   * ⚠️ THE BUG THIS FIXES (user, 2026-08-23: 404 "Consumable record not
+   * found"). The fetch below keyed on `[appointmentId, h.logs.length]`.
+   * Deleting an ITEM changes neither — same visit, same number of log entries —
+   * so `load()` refreshed the hospitalization while `consumables` kept the row
+   * that had just been deleted server-side. It stayed on screen, looking like
+   * the delete had failed, and clicking it again asked the API to delete a row
+   * that was already gone: 404. Adding an item had the mirror problem — it
+   * would not appear until something unrelated changed.
+   */
+  const [consRefresh, setConsRefresh] = useState(0);
   // Back-fill (user, 2026-08-02): when set, the Add-to-daily-sheet form and the
   // consumables picker record entries AS this datetime — a paper day sheet can
   // be keyed in after the fact. Null = normal "now" logging.
@@ -183,7 +196,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
       .then(r => { if (alive && r.success && Array.isArray(r.data)) setConsumables(r.data); })
       .catch(() => {});
     return () => { alive = false; };
-  }, [h?.billing?.appointmentId, h?.logs?.length]);
+  }, [h?.billing?.appointmentId, h?.logs?.length, consRefresh]);
 
   /** Any TPR field carrying a value. An all-blank row is not an observation. */
   const vitalHasValue = Object.values(vital).some(v => String(v ?? '').trim() !== '');
@@ -264,8 +277,22 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
     try {
       await consumablesAPI.remove(consId as any);
       toast.success(`${name || 'Item'} removed — stock returned`);
+      setConsRefresh(n => n + 1);
       await load(); onChanged?.();
-    } catch (e: any) { toast.error(e?.message || 'Could not remove the item'); }
+    } catch (e: any) {
+      /**
+       * A 404 here means the row is ALREADY GONE — almost always a second
+       * click on a row the UI failed to drop. Deleting something that no
+       * longer exists is the outcome the user asked for, so refresh and move
+       * on rather than showing an error for a job already done.
+       */
+      if (e?.status === 404 || /not found/i.test(e?.message || '')) {
+        setConsRefresh(n => n + 1);
+        await load(); onChanged?.();
+      } else {
+        toast.error(e?.message || 'Could not remove the item');
+      }
+    }
     finally { setRemoving(null); }
   };
 
@@ -305,6 +332,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
             recordedAt: backfillAt ? new Date(backfillAt).toISOString() : undefined,
           });
           updateInventoryOptimistically(String(drugItem.id), (it: any) => ({ ...it, quantity: Number(it.quantity) - drugQty }));
+          setConsRefresh(n => n + 1);
           toast.success(`${drugItem.name} · ${drugQty} ${drugItem.unit} deducted${drugBillable ? ` · KES ${(Number(drugItem.price) * drugQty).toLocaleString()}` : ''}`);
         } catch (e: any) { toast.error(e?.message || 'Logged, but stock deduction failed'); }
       }
@@ -743,7 +771,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                     <ConsumablePicker flat hideLoggedList appointmentId={h.billing.appointmentId}
                                       dayKey={k}
                                       recordedAt={backfillAt ? new Date(backfillAt).toISOString() : null}
-                                      onChanged={() => { load(); onChanged?.(); }}
+                                      onChanged={() => { setConsRefresh(n => n + 1); load(); onChanged?.(); }}
                                       title="Given / administered with this entry" />
                                   </div>
                                 )}

@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: deleting an inpatient item left the row on screen, then 404'd  —  2026-08-23
+🟢 **Record impact: none — no data was lost.** The deletes were working; the screen was not.
+- The chart's consumables fetch keyed on `[appointmentId, h.logs.length]`. **Removing an item
+  changes neither** — same visit, same number of log entries — so `load()` refreshed the
+  hospitalization while `consumables` kept the row that had just been deleted server-side. It stayed
+  on screen looking like the delete had failed, and clicking it again asked the API to delete a row
+  that was already gone: `404 Consumable record not found` (user, 2026-08-23).
+- Verified on prod: the id in that failed request no longer exists — the first delete had succeeded.
+- The fetch now also keys on a counter bumped by every consumable **add, edit and remove**. Adding
+  had the mirror bug: a new item would not appear until something unrelated changed.
+- A 404 on delete is now treated as **success**, in both the chart and `ConsumablePicker`. It means
+  the row is already gone, which is the outcome the click asked for — so the list reconciles instead
+  of showing an error for a job already done.
+
 ### feat: Visits tab on the patient profile  —  2026-08-22
 🟢 **Record impact: none.**
 - A **Visits** tab beside Timeline, using the same columns and visual language as the Visits page —
