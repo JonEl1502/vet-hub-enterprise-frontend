@@ -83,6 +83,33 @@ const BillBalanceCard: React.FC<Props> = ({
   // client-outstanding total is built from.
   const taskTotal = Number(visit.totalCost || 0);
 
+  /**
+   * ONE derivation, both rows (2026-08-23).
+   *
+   * "Due on this visit" printed a green **Settled** whenever `due <= 0`, with no
+   * regard for whether anything had ever been billed — so a visit with a KES 0
+   * draft bill claimed to be settled directly above a row reading "Nothing
+   * billed yet" (user: *"why is payment status sttled n visit still in bill
+   * stage"*). Two rows describing the same fact from two independent
+   * expressions is how they came to contradict each other; they now share this.
+   *
+   * ⚠️ `Settled` is a claim that MONEY WAS COLLECTED. It must never appear
+   * merely because a bill totals zero — a reassuring green on a visit nobody
+   * has billed is worse than no label, because staff read it and move on.
+   */
+  /* Bill statuses that are NOT yet a receivable. Taken from the BillStatus
+     enum: DRAFT (charges accumulating) and PENDING_REVIEW (vet reviewing).
+     Checking only for 'DRAFT' would have called a bill still under review
+     "Unpaid". VOID gets its own state — a cancelled bill owes nothing. */
+  const billStatus = String(bill?.status || '').toUpperCase();
+  const payState: 'unbilled' | 'void' | 'draft' | 'unpaid' | 'part' | 'paid' =
+    billStatus === 'VOID' ? 'void'
+      : thisVisit <= 0 ? 'unbilled'
+        : (!bill || billStatus === 'DRAFT' || billStatus === 'PENDING_REVIEW') ? 'draft'
+          : paid <= 0 ? 'unpaid'
+            : due > 0 ? 'part'
+              : 'paid';
+
   return (
     <InfoCard
       icon={Receipt}
@@ -103,22 +130,31 @@ const BillBalanceCard: React.FC<Props> = ({
         <InfoRow label="Paid" value={`${currency} ${paid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`} />
         <InfoRow
           label="Due on this visit"
-          value={due > 0
-            ? <span className="text-amber-600 dark:text-amber-400 font-black">{currency} {due.toLocaleString()}</span>
-            : <span className="text-emerald-600 dark:text-emerald-400 font-black">Settled</span>}
+          value={payState === 'unbilled' || payState === 'void'
+            ? <span className="text-slate-400 font-black">Nothing due yet</span>
+            : due > 0
+              ? <span className="text-amber-600 dark:text-amber-400 font-black">{currency} {due.toLocaleString()}</span>
+              : <span className="text-emerald-600 dark:text-emerald-400 font-black">Settled</span>}
         />
         {/* Name the state outright rather than making it something you work out
             by comparing three numbers. */}
         <InfoRow
           label="Payment status"
           value={
-            thisVisit <= 0
+            payState === 'void'
+              ? <span className="text-slate-400 font-black">Bill voided</span>
+              : payState === 'unbilled'
               ? <span className="text-slate-400 font-black">Nothing billed yet</span>
-              : paid <= 0
-                ? <span className="text-rose-600 dark:text-rose-400 font-black">Unpaid</span>
-                : due > 0
-                  ? <span className="text-amber-600 dark:text-amber-400 font-black">Part paid — {currency} {due.toLocaleString()} still due</span>
-                  : <span className="text-emerald-600 dark:text-emerald-400 font-black">Paid in full</span>
+              /* A draft bill is not a receivable — nobody owes it until it is
+                 approved. Calling it "Unpaid" made a bill still being edited
+                 look like a debt the client was ignoring. */
+              : payState === 'draft'
+                ? <span className="text-slate-400 font-black">Draft bill — {currency} {thisVisit.toLocaleString()}, not yet approved</span>
+                : payState === 'unpaid'
+                  ? <span className="text-rose-600 dark:text-rose-400 font-black">Unpaid</span>
+                  : payState === 'part'
+                    ? <span className="text-amber-600 dark:text-amber-400 font-black">Part paid — {currency} {due.toLocaleString()} still due</span>
+                    : <span className="text-emerald-600 dark:text-emerald-400 font-black">Paid in full</span>
           }
         />
 

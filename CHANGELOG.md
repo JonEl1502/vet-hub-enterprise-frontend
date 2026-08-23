@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: "Settled" appeared on visits nobody had billed  —  2026-08-23
+🟢 **Record impact: none.** Labelling only — but it was labelling money.
+- **Due on this visit** printed a green **Settled** whenever `due <= 0`, without asking whether
+  anything had ever been billed. A visit with a KES 0 draft bill therefore claimed to be settled
+  directly above a row reading *"Nothing billed yet"* (user: *"why is payment status sttled n visit
+  still in bill stage"*).
+- ⚠️ **`Settled` is a claim that money was collected.** It must never appear merely because a bill
+  totals zero — a reassuring green on an unbilled visit is worse than no label at all, because staff
+  read it and move on. Unbilled now reads **"Nothing due yet"** in neutral grey.
+- Both rows now derive from **one** `payState`. They were two independent expressions of the same
+  fact, which is exactly how they came to contradict each other.
+- New states while we were in here: a **draft** bill says *"Draft bill — KES X, not yet approved"*
+  instead of "Unpaid" (a bill still being edited is not a debt the client is ignoring), and a
+  **voided** bill says "Bill voided". ⚠️ The pre-approval check covers `DRAFT` **and**
+  `PENDING_REVIEW` — testing only for DRAFT would have called a bill under review "Unpaid".
+
 ### fix: Recalculate did nothing, and the header disagreed with the card  —  2026-08-23
 🔵 **Record impact: low** — Recalculate now pins the rate it displays onto the record.
 - 🐛 **Recalculate was inert on any stay without its own rate.** The server charges
