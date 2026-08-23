@@ -59,14 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
-### fix: the visit's consumables list went stale after adding an item  —  2026-08-23
-🟢 **Record impact: none** — found by auditing for more of yesterday's bug shape, not by a report.
-- `VisitDetailView`'s `medConsumables` — the list its own comment calls *authoritative*, and which
-  feeds **invoice freshness** — was keyed on `[appointment.id, activeBottomTab]`. Adding or removing
-  a consumable changes neither. `ConsumablePicker`'s `onChanged` refreshed a *different* loader, so
-  this one kept showing the pre-change basket until the user happened to switch bottom tabs.
-- Now keyed on a counter the picker bumps. Identical fix to the inpatient chart; the boarding day
-  sheet already had this guard.
+### correction: the visit's consumables list was NOT stale  —  2026-08-23
+🟢 **Record impact: none. This reverses a change made earlier the same day.**
+- Auditing for more of the inpatient staleness bug, `VisitDetailView`'s `medConsumables` looked like
+  another instance — keyed on `[appointment.id, activeBottomTab]`, neither of which changes when a
+  consumable is added — and it was "fixed" with a refresh counter bumped from `ConsumablePicker`.
+- **Driving it on staging showed the fix was inert, and the bug was not real.** The only
+  `<ConsumablePicker>` in that file sits inside `SHOW_RETIRED_SERVICES_TAB && workflowTab ===
+  'services'`, and that flag is hard-`false` — dead code, so the counter could never be bumped.
+  The list is reachable only through Records → Meds & consumables, and arriving there changes
+  `activeBottomTab`, which refetches. No stale state is reachable.
+- The counter is reverted and the effect carries a comment explaining why its deps are sufficient,
+  and what would have to change if the retired services tab is ever revived.
+- ⚠️ The lesson, recorded because it nearly shipped as a real fix: the original finding was reasoned
+  from the code's own comment ("authoritative", "invoice freshness") without checking whether the
+  code path could execute. **Reachability first, then the dependency array.**
 
 ### change: the TPR trend table shows the date  —  2026-08-23
 🟢 **Record impact: none.**

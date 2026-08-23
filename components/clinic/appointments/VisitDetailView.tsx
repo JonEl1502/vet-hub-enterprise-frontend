@@ -1574,21 +1574,24 @@ const VisitDetailInner: React.FC<Props> = ({
   // Authoritative meds/consumables list for the tab + invoice freshness.
   const [medConsumables, setMedConsumables] = useState<AppointmentConsumable[]>([]);
   /**
-   * Bumped whenever a consumable is logged or removed on this visit.
+   * Keyed on `activeBottomTab` deliberately — and that IS sufficient here.
    *
-   * ⚠️ Same shape as the inpatient-chart bug (2026-08-23): this list was keyed
-   * on `[appointment.id, activeBottomTab]`, and **adding or removing an item
-   * changes neither**. `ConsumablePicker`'s `onChanged` refreshed a different
-   * loader, so this one — the list the comment above calls authoritative, and
-   * which feeds invoice freshness — kept showing the pre-change basket until
-   * the user happened to switch bottom tabs.
+   * This looked like the inpatient-chart staleness bug (2026-08-23) and was
+   * "fixed" with a refresh counter. Driving it on staging showed the fix was
+   * inert: the only `<ConsumablePicker>` in this file sits inside
+   * `SHOW_RETIRED_SERVICES_TAB && workflowTab === 'services'`, and that flag is
+   * hard-`false`, so the counter could never be bumped. The list is reachable
+   * only via Records → Meds & consumables, and arriving there changes
+   * `activeBottomTab`, which refetches. No stale state is reachable.
+   *
+   * If the retired services tab is ever revived, its picker must bump a counter
+   * added to these deps — that is when this becomes a real problem.
    */
-  const [medConsRefresh, setMedConsRefresh] = useState(0);
   useEffect(() => {
     let live = true;
     consumablesAPI.list(appointment.id).then(r => { if (live && r.success && r.data) setMedConsumables(r.data); }).catch(() => {});
     return () => { live = false; };
-  }, [appointment.id, activeBottomTab, medConsRefresh]);
+  }, [appointment.id, activeBottomTab]);
 
   const medsTabItems = useMemo(() => {
     if (medConsumables.length) {
@@ -5538,7 +5541,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                          appointmentId={appointment.id}
                                          serviceTag={`task:${task.id}`}
                                          title={`Consumables · ${task.name}`}
-                                         onChanged={() => { loadTaskConsumables(); setMedConsRefresh(n => n + 1); onRefreshDashboard?.(); }}
+                                         onChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); }}
                                        />
                                      )}
                                      {/* Combined list — medications + consumables used on this service */}
