@@ -216,6 +216,21 @@ export const clientsAPI = {
   actualiseLegacyBalance: async (clientId: string | number, body?: { dueDate?: string }): Promise<ApiResponse<any>> =>
     post(`/clients/${clientId}/actualise-legacy-balance`, body ?? {}),
 
+  /**
+   * 221 — the invoices BEHIND a carried-over balance. Read-only: listing them
+   * does not make them receivable.
+   */
+  legacyInvoices: async (clientId: string | number, options?: RequestOptions): Promise<ApiResponse<any>> =>
+    get(`/clients/${clientId}/legacy-invoices`, { cache: false, ...options }),
+
+  /** Raise ONE real invoice covering a SELECTION of those legacy invoices. */
+  actualiseLegacyInvoices: async (
+    clientId: string | number,
+    legacyInvoiceIds: Array<string | number>,
+    body?: { dueDate?: string },
+  ): Promise<ApiResponse<any>> =>
+    post(`/clients/${clientId}/actualise-legacy-invoices`, { legacyInvoiceIds, ...(body ?? {}) }),
+
   /** Invoices + payments + receipts for the client's Payments tab. */
   getBilling: async (clientId: string | number, options?: RequestOptions): Promise<ApiResponse<ClientBilling>> =>
     get(`/clients/${clientId}/billing`, { cache: false, ...options }),

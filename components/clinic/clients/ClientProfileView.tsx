@@ -1,5 +1,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
+import LegacyReconcilePanel from './LegacyReconcilePanel';
 import { Client, Pet, Visit, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole, ClientType, ClientDiscount } from '../../../types';
 import { CLIENT_TYPES, COUNTRIES } from '../../../constants';
 
@@ -237,6 +238,9 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   // Arrived from the clients list via Actualise — open the confirm once the
   // profile is on screen, so the decision is made with the client's real
   // balance and history visible rather than over a grid of cards.
+  /** 221 — the reconcile drawer: the invoices behind the carried-over figure. */
+  const [reconcileOpen, setReconcileOpen] = useState(false);
+
   const autoAsked = React.useRef(false);
   useEffect(() => {
     if (!autoActualiseLegacy || autoAsked.current) return;
@@ -1186,12 +1190,16 @@ const renderOverview = () => (
                         raises a real LEGACY invoice, after which the amount moves
                         into Outstanding Balance and this cell disappears. */}
                     {legacyBalance > 0 && (
-                      <button type="button" onClick={handleActualise} disabled={actualising}
-                        title={`Raise an invoice for the ${legacySource || 'previous system'} balance so it can be collected here`}
+                      /* Opens the reconcile panel rather than raising the whole
+                         balance in one press (221). A balance is usually older
+                         than any imported history — all-or-nothing forced staff
+                         to invoice money they could not yet explain. */
+                      <button type="button" onClick={() => setReconcileOpen(true)}
+                        title={`See the invoices behind the ${legacySource || 'previous system'} balance and raise the ones you want`}
                         className="px-4 py-3 text-center transition-all hover:bg-amber-50/60 dark:hover:bg-amber-950/20 active:scale-[0.98] disabled:opacity-50">
                         <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Carried Over</p>
                         <p className="text-sm font-black font-mono text-amber-600 dark:text-amber-400 whitespace-nowrap">{money2(legacyBalance)}</p>
-                        <p className="text-[7px] font-black uppercase tracking-widest text-amber-500 mt-0.5">{actualising ? 'Raising…' : 'Actualise'}</p>
+                        <p className="text-[7px] font-black uppercase tracking-widest text-amber-500 mt-0.5">Reconcile</p>
                       </button>
                     )}
                     <button type="button" onClick={() => setTopUpOpen(true)}
@@ -2106,6 +2114,34 @@ const renderOverview = () => (
                 <p className="text-[9px] text-slate-400 uppercase tracking-widest">Staff: {docModal.appt.assignedStaff?.name || 'Unassigned'}</p>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* 221 — reconcile the carried-over balance against the documents behind
+          it. A modal rather than a tab: it is a deliberate, occasional act on
+          migrated clients, not part of the everyday account view. */}
+      {reconcileOpen && (
+        <div className="fixed inset-0 z-[820] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-sm" onClick={() => setReconcileOpen(false)} />
+          <div className="relative w-full max-w-3xl max-h-[88vh] overflow-y-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-5 animate-in zoom-in-95 fade-in duration-150">
+            <div className="flex items-start justify-between gap-3 mb-4">
+              <div>
+                <h2 className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Reconcile carried-over balance</h2>
+                <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                  {client.name} · pick the invoices to raise in VetHub. Listing them changes nothing until you actualise.
+                </p>
+              </div>
+              <button onClick={() => setReconcileOpen(false)} title="Close"
+                className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800"><X size={16} /></button>
+            </div>
+            <LegacyReconcilePanel
+              clientId={client.id}
+              clientName={client.name}
+              currency={client.currency || 'KES'}
+              onActualised={() => { loadBilling(); setLegacyCleared(false); }}
+              onOpenVisit={(vid) => { setReconcileOpen(false); onViewAppointment?.(Number(vid)); }}
+            />
           </div>
         </div>
       )}

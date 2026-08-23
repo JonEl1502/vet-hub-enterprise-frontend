@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: reconcile a carried-over balance against its invoices  —  2026-08-23
+🟢 **Record impact: none until you press Actualise.** Needs backend migration 221.
+- The **Carried Over** tile on a client now opens a reconcile panel instead of raising the whole
+  balance in one press. It shows the invoices the balance is made of — number, date, status, paid
+  and outstanding — and lets the owner pick which to raise (user, 2026-08-23: *"they can actualise
+  to visits n select them"*).
+- **Both numbers are shown**: the carried-over figure AND what the documents say is outstanding,
+  with the difference called out when they disagree. On Westlands 90% match to the shilling; the
+  10% that don't are usually a payment taken after the balance was captured. Averaging that away
+  would hide it.
+- Invoices that already exist as an imported visit carry a **Visit** link — the bridge between the
+  money and the clinical record. 655 of them do.
+- ⚠️ **The list renders a 200-row window.** The heaviest real client carries **1,680** legacy
+  documents; painting them all makes the panel crawl and is unscannable anyway. **Select N acts on
+  every filter match, not just the painted rows**, and the footer says so — so bulk selection still
+  reaches below the cut.
+- Rows with no usable source date show *"no date on file"* rather than a fabricated one.
+
 ### feat: Storage tab in Clinic Management  —  2026-08-22
 🟢 **Record impact: none** — read-only.
 - New **Storage** tab: total used against the plan's allowance with a usage bar, file count, a
