@@ -78,6 +78,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
    * revenue chart by definition.
    */
   const [docFlow, setDocFlow] = useState<any>(null);
+  const [docFlowPrev, setDocFlowPrev] = useState<any>(null);
   const [docMode, setDocMode] = useState<'value' | 'count'>('value');
   const [rangeKey] = useState<RangeKey>('this-month');
   // An explicit pick from the shared DateRangePicker wins over the default
@@ -174,28 +175,87 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
   };
   useEffect(() => {
     let alive = true;
-    const iso = (d: Date) => d.toISOString().slice(0, 10);
-    receivablesAPI.documentFlow(iso(from), iso(to))
-      .then(r => { if (alive && r.success) setDocFlow((r as any).data ?? r); })
+    const isoD = (d: Date) => d.toISOString().slice(0, 10);
+    Promise.all([
+      receivablesAPI.documentFlow(isoD(from), isoD(to)),
+      compareOn ? receivablesAPI.documentFlow(isoD(prevFrom), isoD(prevTo)).catch(() => null) : Promise.resolve(null),
+    ])
+      .then(([cur, prev]: any[]) => {
+        if (!alive) return;
+        if (cur?.success) setDocFlow(cur.data ?? cur);
+        setDocFlowPrev(prev?.success ? (prev.data ?? prev) : null);
+      })
       .catch(() => {});
     return () => { alive = false; };
-  }, [from, to]);
+  }, [from, to, prevFrom, prevTo, compareOn]);
+
+  /**
+   * Human labels for the two windows. Every comparison number on the page is
+   * meaningless without them — "from KES 19,050" begs the question "over
+   * what?" (user, 2026-08-23: *"shouldnt compare show 2 values totals for 1st
+   * date rng n 2nd one"*).
+   */
+  const fmtWindow = useCallback((a: Date, b: Date) => {
+    const opt: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' };
+    const sameDayAsToday = b.toDateString() === new Date().toDateString();
+    return `${a.toLocaleDateString(undefined, opt)} – ${sameDayAsToday ? 'Today' : b.toLocaleDateString(undefined, opt)}`;
+  }, []);
+  const curLabel = useMemo(() => fmtWindow(from, to), [fmtWindow, from, to]);
+  const cmpLabel = useMemo(() => fmtWindow(prevFrom, prevTo), [fmtWindow, prevFrom, prevTo]);
 
   const docData = useMemo(() => {
     // The service returns `series` — reading `days` here is what made the chart
     // say "No documents in this range" while 220 bills sat in the window.
     const days: any[] = docFlow?.series || docFlow?.data?.series || [];
-    return days.map(d => ({
+    const prevDays: any[] = compareOn ? (docFlowPrev?.series || docFlowPrev?.data?.series || []) : [];
+    const pick = (d: any, k: 'bills' | 'invoices' | 'receipts') =>
+      d == null ? null : docMode === 'value' ? Number(d[`${k}Value`] || 0) : Number(d[k] || 0);
+    return days.map((d, i) => ({
       label: String(d.date || '').slice(5),
-      bills: docMode === 'value' ? Number(d.billsValue || 0) : Number(d.bills || 0),
-      invoices: docMode === 'value' ? Number(d.invoicesValue || 0) : Number(d.invoices || 0),
-      receipts: docMode === 'value' ? Number(d.receiptsValue || 0) : Number(d.receipts || 0),
+      bills: pick(d, 'bills'),
+      invoices: pick(d, 'invoices'),
+      receipts: pick(d, 'receipts'),
+      cmpBills: pick(prevDays[i], 'bills'),
+      cmpInvoices: pick(prevDays[i], 'invoices'),
+      cmpReceipts: pick(prevDays[i], 'receipts'),
+      cmpDay: prevDays[i] ? String(prevDays[i].date || '').slice(5) : null,
     }));
-  }, [docFlow, docMode]);
+  }, [docFlow, docFlowPrev, docMode, compareOn]);
 
-  const perfData = useMemo(() => bucket(summary?.series ?? [], granularity === 'Weekly'), [summary, granularity]);
-  const cashData = useMemo(() => bucket(summary?.series ?? [], cfGranularity === 'Weekly')
-    .map(p => ({ ...p, out: -p.expenses })), [summary, cfGranularity]);
+  // Totals for both windows, printed under each chart so the comparison is a
+  // number too — a dashed line alone does not tell you how far apart they are.
+  const docTotals = useMemo(() => ({
+    cur: docFlow?.totals ?? docFlow?.data?.totals ?? null,
+    prev: docFlowPrev?.totals ?? docFlowPrev?.data?.totals ?? null,
+  }), [docFlow, docFlowPrev]);
+
+  /**
+   * Comparison series are aligned **by position, not by date** — the two
+   * windows are equal-length but sit at different points on the calendar, so
+   * day 1 lines up with day 1. The X axis stays the CURRENT window's dates and
+   * the comparison day is carried in `cmpLabel*` for the tooltip, otherwise a
+   * reader has no way to tell which date a dashed point belongs to.
+   */
+  const withCompare = (cur: any[], prev: any[]) =>
+    cur.map((p, i) => ({
+      ...p,
+      cmpRevenue: prev[i]?.revenue ?? null,
+      cmpExpenses: prev[i]?.expenses ?? null,
+      cmpNetProfit: prev[i]?.netProfit ?? null,
+      cmpDay: prev[i]?.label ?? null,
+    }));
+
+  const perfData = useMemo(() => {
+    const cur = bucket(summary?.series ?? [], granularity === 'Weekly');
+    if (!compareOn || !compare?.series?.length) return cur;
+    return withCompare(cur, bucket(compare.series, granularity === 'Weekly'));
+  }, [summary, compare, compareOn, granularity]);
+
+  const cashData = useMemo(() => {
+    const cur = bucket(summary?.series ?? [], cfGranularity === 'Weekly').map(p => ({ ...p, out: -p.expenses }));
+    if (!compareOn || !compare?.series?.length) return cur;
+    return withCompare(cur, bucket(compare.series, cfGranularity === 'Weekly'));
+  }, [summary, compare, compareOn, cfGranularity]);
 
   // ── Business health score — derived, explainable, current period ────────
   const health = useMemo(() => {
@@ -270,13 +330,13 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
 
   // ── KPI cards ────────────────────────────────────────────────────────────
   const kpis = [
-    { label: 'Total Revenue', value: money(revenue), icon: Landmark, chip: 'bg-emerald-500/10 text-emerald-500', delta: compareOn ? pctDelta(revenue, prevTotals?.revenue ?? 0) : null, prev: compareOn ? prevTotals?.revenue : undefined },
-    { label: 'Total Expenses', value: money(expenses), icon: Receipt, chip: 'bg-rose-500/10 text-rose-500', delta: compareOn ? pctDelta(expenses, prevTotals?.expenses ?? 0) : null, prev: compareOn ? prevTotals?.expenses : undefined, badDeltaUp: true },
-    { label: 'Net Profit', value: money(netProfit), icon: CircleDollarSign, chip: 'bg-purple-500/10 text-purple-500', delta: compareOn ? pctDelta(netProfit, prevTotals?.netProfit ?? 0) : null, prev: compareOn ? prevTotals?.netProfit : undefined },
-    { label: 'Cash Balance', value: money(cashBalance), icon: Wallet, chip: 'bg-sky-500/10 text-sky-500', delta: null, prev: undefined },
-    { label: 'Outstanding (AR)', value: money(arTotal), icon: FileText, chip: 'bg-amber-500/10 text-amber-600', delta: null, prev: undefined, badDeltaUp: true },
-    { label: 'Payables (AP)', value: money(apTotal), icon: CreditCard, chip: 'bg-indigo-500/10 text-indigo-500', delta: null, prev: undefined, badDeltaUp: true },
-    { label: 'Gross Profit Margin', value: `${margin.toFixed(1)}%`, icon: Percent, chip: 'bg-teal-500/10 text-teal-600', delta: compareOn && prevMargin != null ? Math.round((margin - prevMargin) * 10) / 10 : null, prev: undefined, isPoints: true },
+    { label: 'Total Revenue', value: money(revenue), icon: Landmark, chip: 'bg-emerald-500/10 text-emerald-500', delta: compareOn ? pctDelta(revenue, prevTotals?.revenue ?? 0) : null, prev: compareOn ? prevTotals?.revenue : undefined, cmpValue: money(prevTotals?.revenue ?? 0) },
+    { label: 'Total Expenses', value: money(expenses), icon: Receipt, chip: 'bg-rose-500/10 text-rose-500', delta: compareOn ? pctDelta(expenses, prevTotals?.expenses ?? 0) : null, prev: compareOn ? prevTotals?.expenses : undefined, cmpValue: money(prevTotals?.expenses ?? 0), badDeltaUp: true },
+    { label: 'Net Profit', value: money(netProfit), icon: CircleDollarSign, chip: 'bg-purple-500/10 text-purple-500', delta: compareOn ? pctDelta(netProfit, prevTotals?.netProfit ?? 0) : null, prev: compareOn ? prevTotals?.netProfit : undefined, cmpValue: money(prevTotals?.netProfit ?? (((prevTotals?.revenue ?? 0) - (prevTotals?.expenses ?? 0)))) },
+    { label: 'Cash Balance', value: money(cashBalance), icon: Wallet, chip: 'bg-sky-500/10 text-sky-500', delta: null, prev: undefined, cmpValue: null, pointInTime: true },
+    { label: 'Outstanding (AR)', value: money(arTotal), icon: FileText, chip: 'bg-amber-500/10 text-amber-600', delta: null, prev: undefined, cmpValue: null, pointInTime: true, badDeltaUp: true },
+    { label: 'Payables (AP)', value: money(apTotal), icon: CreditCard, chip: 'bg-indigo-500/10 text-indigo-500', delta: null, prev: undefined, cmpValue: null, pointInTime: true, badDeltaUp: true },
+    { label: 'Gross Profit Margin', value: `${margin.toFixed(1)}%`, icon: Percent, chip: 'bg-teal-500/10 text-teal-600', delta: compareOn && prevMargin != null ? Math.round((margin - prevMargin) * 10) / 10 : null, prev: undefined, cmpValue: prevMargin != null ? `${prevMargin.toFixed(1)}%` : null, isPoints: true },
   ];
 
   // Payables list — invoices with due dates first, fallback to A/P summary rows.
@@ -418,12 +478,37 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-tight">{k.label}</p>
                   </div>
                   <p className="text-base font-black font-mono text-pine dark:text-zinc-100 leading-tight truncate" title={k.value}>{k.value}</p>
-                  {k.delta != null ? (
-                    <p className={`mt-1 text-[9px] font-black flex items-center gap-1 ${good ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
-                      {up ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
-                      {Math.abs(k.delta)}{(k as any).isPoints ? ' pts' : '%'}
-                      {k.prev != null && <span className="text-slate-400 font-bold truncate"> from {money(k.prev)}</span>}
-                    </p>
+                  {/* When comparing, BOTH totals are shown with the window each
+                      belongs to. A lone "70.3% from KES 19,050" made the reader
+                      guess which dates the second figure covered — and never
+                      showed the second figure at all for the point-in-time
+                      tiles (user, 2026-08-23). */}
+                  {compareOn ? (
+                    <>
+                      <p className="text-[8px] font-bold text-slate-400 truncate mt-0.5" title={curLabel}>{curLabel}</p>
+                      <div className="mt-1.5 pt-1.5 border-t border-dashed border-slate-200 dark:border-zinc-800">
+                        {(k as any).pointInTime ? (
+                          <p className="text-[9px] font-bold text-slate-400 leading-tight">
+                            Current position — a balance, not a period total, so it has no comparison.
+                          </p>
+                        ) : (
+                          <>
+                            <div className="flex items-baseline justify-between gap-1.5">
+                              <p className="text-[11px] font-black font-mono text-slate-500 dark:text-zinc-400 truncate" title={(k as any).cmpValue ?? ''}>
+                                {(k as any).cmpValue ?? '—'}
+                              </p>
+                              {k.delta != null && (
+                                <span className={`shrink-0 text-[9px] font-black flex items-center gap-0.5 ${good ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500'}`}>
+                                  {up ? <TrendingUp size={10} /> : <TrendingDown size={10} />}
+                                  {Math.abs(k.delta)}{(k as any).isPoints ? ' pts' : '%'}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[8px] font-bold text-slate-400 truncate" title={cmpLabel}>{cmpLabel}</p>
+                          </>
+                        )}
+                      </div>
+                    </>
                   ) : (
                     <p className="mt-1 text-[9px] font-bold text-slate-400">Current position</p>
                   )}
@@ -450,12 +535,17 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                   <option>Daily</option><option>Weekly</option>
                 </select>
               </div>
-              <div className="flex items-center gap-4 mb-1">
+              <div className="flex items-center gap-4 mb-1 flex-wrap">
                 {[['Revenue', C.green], ['Expenses', C.red], ['Profit', C.purple]].map(([l, c]) => (
                   <span key={l} className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500">
                     <span className="w-2 h-2 rounded-full" style={{ background: c }} /> {l}
                   </span>
                 ))}
+                {compareOn && (
+                  <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                    <span className="w-4 border-t-2 border-dashed border-slate-400" /> {cmpLabel}
+                  </span>
+                )}
               </div>
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
@@ -467,6 +557,15 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                     <Line type="monotone" dataKey="revenue" name="Revenue" stroke={C.green} strokeWidth={2} dot={{ r: 2 }} />
                     <Line type="monotone" dataKey="expenses" name="Expenses" stroke={C.red} strokeWidth={2} dot={{ r: 2 }} />
                     <Line type="monotone" dataKey="netProfit" name="Profit" stroke={C.purple} strokeWidth={2} dot={{ r: 2 }} />
+                    {/* Comparison window, dashed and thinner so the current
+                        period stays the subject of the chart. */}
+                    {compareOn && (
+                      <>
+                        <Line type="monotone" dataKey="cmpRevenue" name={`Revenue · ${cmpLabel}`} stroke={C.green} strokeWidth={1.5} strokeDasharray="4 3" dot={false} strokeOpacity={0.55} connectNulls />
+                        <Line type="monotone" dataKey="cmpExpenses" name={`Expenses · ${cmpLabel}`} stroke={C.red} strokeWidth={1.5} strokeDasharray="4 3" dot={false} strokeOpacity={0.55} connectNulls />
+                        <Line type="monotone" dataKey="cmpNetProfit" name={`Profit · ${cmpLabel}`} stroke={C.purple} strokeWidth={1.5} strokeDasharray="4 3" dot={false} strokeOpacity={0.55} connectNulls />
+                      </>
+                    )}
                     {/* Zoom + scroll (user, 2026-08-22). Drag the handles to
                         narrow the window, drag the middle to slide it. Only
                         worth showing once there are enough points that a month
@@ -505,7 +604,37 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                     <span className="w-2 h-2 rounded-full" style={{ background: c }} /> {l}
                   </span>
                 ))}
+                {compareOn && (
+                  <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                    <span className="w-4 border-t-2 border-dashed border-slate-400" /> {cmpLabel}
+                  </span>
+                )}
               </div>
+              {/* Both windows as NUMBERS. A dashed line shows the shape of the
+                  difference; only the totals say how big it is. */}
+              {docTotals.cur && (
+                <div className="mb-1.5 grid grid-cols-3 gap-2 text-[9px]">
+                  {([['bills', 'Bills'], ['invoices', 'Invoices'], ['receipts', 'Receipts']] as const).map(([key, lbl]) => {
+                    const vk = `${key}Value` as const;
+                    const cur = docMode === 'value' ? Number(docTotals.cur[vk] || 0) : Number(docTotals.cur[key] || 0);
+                    const prev = docTotals.prev
+                      ? (docMode === 'value' ? Number(docTotals.prev[vk] || 0) : Number(docTotals.prev[key] || 0))
+                      : null;
+                    const fmt = (n: number) => (docMode === 'value' ? money(n) : String(n));
+                    return (
+                      <div key={key} className="min-w-0">
+                        <p className="font-black text-slate-400 uppercase tracking-widest truncate">{lbl}</p>
+                        <p className="font-black font-mono text-pine dark:text-zinc-100 truncate" title={fmt(cur)}>{fmt(cur)}</p>
+                        {compareOn && (
+                          <p className="font-bold font-mono text-slate-400 truncate" title={prev == null ? '' : fmt(prev)}>
+                            {prev == null ? '—' : fmt(prev)}
+                          </p>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <div className="h-64">
                 {docData.length === 0 ? (
                   <div className="h-full flex items-center justify-center text-[11px] font-bold text-slate-400">
@@ -521,6 +650,13 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                     <Line type="monotone" dataKey="bills" name="Bills" stroke={C.amber} strokeWidth={2} dot={{ r: 2 }} />
                     <Line type="monotone" dataKey="invoices" name="Invoices" stroke={C.sky} strokeWidth={2} dot={{ r: 2 }} />
                     <Line type="monotone" dataKey="receipts" name="Receipts" stroke={C.green} strokeWidth={2} dot={{ r: 2 }} />
+                    {compareOn && (
+                      <>
+                        <Line type="monotone" dataKey="cmpBills" name={`Bills · ${cmpLabel}`} stroke={C.amber} strokeWidth={1.5} strokeDasharray="4 3" dot={false} strokeOpacity={0.55} connectNulls />
+                        <Line type="monotone" dataKey="cmpInvoices" name={`Invoices · ${cmpLabel}`} stroke={C.sky} strokeWidth={1.5} strokeDasharray="4 3" dot={false} strokeOpacity={0.55} connectNulls />
+                        <Line type="monotone" dataKey="cmpReceipts" name={`Receipts · ${cmpLabel}`} stroke={C.green} strokeWidth={1.5} strokeDasharray="4 3" dot={false} strokeOpacity={0.55} connectNulls />
+                      </>
+                    )}
                     {docData.length > 12 && (
                       <Brush dataKey="label" height={22} travellerWidth={8} stroke={C.green}
                         fill="transparent" tickFormatter={() => ''} />
@@ -559,6 +695,12 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                     <Bar dataKey="revenue" name="Money In" fill={C.green} radius={[2, 2, 0, 0]} maxBarSize={8} />
                     <Bar dataKey="out" name="Money Out" fill={C.red} radius={[2, 2, 0, 0]} maxBarSize={8} />
                     <Line type="monotone" dataKey="netProfit" name="Net Cash Flow" stroke={C.purple} strokeWidth={2} dot={false} />
+                    {/* Bars are already two series; a third and fourth bar set
+                        would be unreadable, so the comparison rides as a single
+                        dashed net line. */}
+                    {compareOn && (
+                      <Line type="monotone" dataKey="cmpNetProfit" name={`Net Cash Flow · ${cmpLabel}`} stroke={C.purple} strokeWidth={1.5} strokeDasharray="4 3" dot={false} strokeOpacity={0.55} connectNulls />
+                    )}
                     {cashData.length > 12 && (
                       <Brush dataKey="label" height={22} travellerWidth={8} stroke={C.green}
                         fill="transparent" tickFormatter={() => ''} />

@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Compare now shows BOTH totals, and both windows on every chart  —  2026-08-23
+🟢 **Record impact: none.** Read path only. **Data dependency: none.**
+- Ticking **Compare** used to leave a single number and a bare delta — *"70.3% from KES 19,050.00"*
+  — which never said what window the second figure covered, and showed no second figure at all on
+  the point-in-time tiles (user: *"shouldnt compare show 2 values totals for 1st date rng n 2nd
+  one"*). Each KPI tile now prints **both totals, each under its own date window**, with the delta
+  beside the comparison figure.
+- **Cash Balance, Outstanding (AR) and Payables (AP) say why they have no second number**: they are
+  balances as of now, not period totals. Inventing a "previous" for them would be a fabricated
+  figure, so the tile states the reason instead.
+- **Charts carry the comparison window** as dashed, thinner, semi-transparent lines: Financial
+  Performance (revenue/expenses/profit), Cash Flow (net only — a third and fourth bar set would be
+  unreadable), and Bills → Invoices → Receipts. The legend gains a dashed key naming the window.
+- ⚠️ **The two windows align by POSITION, not by date** — they are equal-length but sit at different
+  points on the calendar, so day 1 lines up with day 1. The X axis stays the current window's
+  dates; the comparison day rides along in the data as `cmpDay`.
+- Bills → Invoices → Receipts also prints **both windows' totals** under the legend. A dashed line
+  shows the shape of a difference; only the totals say how big it is.
+
 ### feat: date picker reworked — day→year presets, month jump, per-field picking  —  2026-08-23
 🟢 **Record impact: none.** UI only. Shared component, so all **20** call sites get it.
 - **Presets now run today → a year**: Today, Yesterday, Last 7/30 days, This month, Last month,
