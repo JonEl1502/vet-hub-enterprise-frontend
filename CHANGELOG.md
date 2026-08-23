@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a sidebar group now opens its first page, not just its arrow  —  2026-08-23
+🟢 **Record impact: none.**
+- Clicking **Management** in the supplier sidebar only revealed two children; reaching Account —
+  the thing the group mostly exists for — always took two clicks (user: *"not opening first menu in
+  sidebar menu"*). Opening a group now navigates to its first item as well as expanding it.
+- ⚠️ **Only on the way OPEN, and only when you are not already inside the group.** Collapsing a
+  group you are working in must not fire a navigation, or closing the tray would yank you off the
+  page you were reading.
+
 ### fix: plan editor — "Offered to" moved out of pricing, livestock keys named  —  2026-08-23
 🟢 **Record impact: none.** Admin UI + labels.
 - **"Offered to" now sits above the tabs**, not inside *Limits & Pricing*. An audience is neither a

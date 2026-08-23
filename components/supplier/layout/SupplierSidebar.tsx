@@ -180,9 +180,25 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
               <button
                 onClick={() => {
                   if (isCollapsed && !isMobileOpen) {
-                    setView('supplier-management');
-                  } else {
-                    setManagementOpen(o => !o);
+                    setView(managementSubItems[0].id);
+                    return;
+                  }
+                  /**
+                   * Opening a group NAVIGATES to its first item as well as
+                   * expanding it (user, 2026-08-23: *"not opening first menu in
+                   * sidebar menu"*). Clicking "Management" used to do nothing
+                   * but reveal two children, so reaching Account — the thing
+                   * the group is mostly for — always took two clicks.
+                   *
+                   * ⚠️ Only on the way OPEN. Collapsing a group you are already
+                   * inside must not fire a navigation, or closing the tray
+                   * would yank you off the page you are reading.
+                   */
+                  const opening = !managementOpen;
+                  setManagementOpen(opening);
+                  if (opening && !isManagementActive) {
+                    setView(managementSubItems[0].id);
+                    setIsMobileOpen(false);
                   }
                 }}
                 className={`w-full flex items-center gap-3 p-3 rounded-xl text-[9px] font-black transition-all group/btn ${
