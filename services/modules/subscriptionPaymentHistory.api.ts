@@ -47,4 +47,26 @@ export const subscriptionPaymentHistoryAPI = {
       cache: false,
     });
   },
+
+  /**
+   * The same statement for a SUPPLIER (225).
+   *
+   * A separate call rather than an audience flag on `list`, because the header
+   * is the whole difference and mixing them invites sending both — which the
+   * server resolves supplier-first, but silently, and a caller reading this
+   * code could not tell which one it would get.
+   */
+  listForSupplier: (
+    supplierId: string,
+    opts: { limit?: number; offset?: number } = {},
+  ): Promise<ApiResponse<{ rows: PaymentHistoryRow[]; total: number }>> => {
+    const params = new URLSearchParams();
+    if (opts.limit != null) params.set('limit', String(opts.limit));
+    if (opts.offset != null) params.set('offset', String(opts.offset));
+    const qs = params.toString();
+    return get(`/subscriptions/payment-history${qs ? `?${qs}` : ''}`, {
+      headers: { 'x-supplier-id': supplierId },
+      cache: false,
+    });
+  },
 };

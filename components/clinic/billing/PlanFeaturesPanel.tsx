@@ -20,6 +20,15 @@ import { formatDate } from '../../../services/utils/dateFormatter';
 interface Props {
   /** Jump back to the Current Billing tab, where upgrading actually happens. */
   onGoToPlans: () => void;
+  /**
+   * Which key vocabulary to show. Defaults to the CLINIC one so every existing
+   * caller is unchanged; the supplier billing page passes `SUPPLIER_GROUPS`.
+   *
+   * ⚠️ An audience only ever sees its OWN keys. A supplier plan has no
+   * `view:laboratory`, and listing it under "Not in your plan" would advertise
+   * an upgrade that does not exist for them.
+   */
+  groups?: { title: string; prefix: string }[];
 }
 
 /** Clinic-audience catalog groups, in display order. */
@@ -29,19 +38,26 @@ const GROUPS: { title: string; prefix: string }[] = [
   { title: 'Services', prefix: 'service:' },
 ];
 
+/** Supplier-audience catalog. One prefix — supplier keys are all `supplier:`. */
+export const SUPPLIER_GROUPS: { title: string; prefix: string }[] = [
+  { title: 'Supplier tools', prefix: 'supplier:' },
+  { title: 'Capabilities', prefix: 'capability:' },
+  { title: 'Community', prefix: 'community:' },
+];
+
 const STATE_CHIP: Record<string, string> = {
   TRIAL: 'bg-cyan/10 text-cyan border-cyan/20',
   ACTIVE: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20',
   LOCKED: 'bg-rose-500/10 text-rose-500 border-rose-500/20',
 };
 
-const PlanFeaturesPanel: React.FC<Props> = ({ onGoToPlans }) => {
+const PlanFeaturesPanel: React.FC<Props> = ({ onGoToPlans, groups = GROUPS }) => {
   const { access, loading } = usePlanAccess();
 
   // The clinic-audience catalog — supplier/client/livestock keys are other
   // audiences' vocabularies and never appear on a clinic plan card.
   const catalogKeys = Object.keys(KEY_LABEL).filter(k =>
-    GROUPS.some(g => k.startsWith(g.prefix)) && !BASELINE_KEYS.has(k),
+    groups.some(g => k.startsWith(g.prefix)) && !BASELINE_KEYS.has(k),
   );
 
   const everything = !access || access.state === 'TRIAL' || access.featureKeys.includes('*');
@@ -105,7 +121,7 @@ const PlanFeaturesPanel: React.FC<Props> = ({ onGoToPlans }) => {
             <p className="py-8 text-center text-[10px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600">Nothing granted on this plan</p>
           ) : (
             <div className="space-y-4">
-              {GROUPS.map(g => {
+              {groups.map(g => {
                 const keys = included.filter(k => k.startsWith(g.prefix));
                 if (!keys.length) return null;
                 return (

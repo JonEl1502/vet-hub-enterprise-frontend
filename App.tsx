@@ -30,6 +30,7 @@ import SupplierBranchesView from './components/supplier/branches/SupplierBranche
 import SupplierEmployeeListView from './components/supplier/employees/SupplierEmployeeListView';
 import SupplierEmployeeProfileView from './components/supplier/employees/SupplierEmployeeProfileView';
 import SupplierManagementView from './components/supplier/management/SupplierManagementView';
+import SupplierBillingPage from './components/supplier/billing/SupplierBillingPage';
 import SupplierBranchModal from './components/supplier/branches/SupplierBranchModal';
 import { SupplierBranchProvider } from './contexts/SupplierBranchContext';
 import Navbar from './components/shared/layout/Navbar';
@@ -2354,7 +2355,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         case 'supplier-employees': return <SupplierManagementView setView={navigateTo} initialTab="personnel" />;
         case 'supplier-employee-profile': return <SupplierEmployeeProfileView employeeId={String(currentNav.params?.employeeId)} onBack={goBack} />;
         case 'supplier-settings': return <SupplierManagementView setView={navigateTo} initialTab="identity" />;
-        case 'supplier-billing': return <SupplierManagementView setView={navigateTo} initialTab="subscription" />;
+        /* A PAGE, not a tab inside Management (user, 2026-08-23: *"as page
+           first not just tab"*). It renders the clinic billing chrome —
+           header, tabs, statements, tickets — from supplier data. */
+        case 'supplier-billing': return <SupplierBillingPage />;
         default: return <SupplierDashboard setView={navigateTo} />;
       }
     }

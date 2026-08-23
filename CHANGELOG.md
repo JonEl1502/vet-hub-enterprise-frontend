@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: supplier billing is now the clinic billing PAGE, sourced from supplier data  —  2026-08-24
+🟢 **Record impact: none.** **Requires backend migration 225** (supplier-owned tickets).
+- Supplier billing was a **tab inside Supplier Management**, so it had none of the clinic page's
+  chrome. It is now a page at `supplier-billing` with the same header, the same four tabs —
+  **Current Billing · Plan Features · Invoices & Receipts · Tickets** — and the same Report-an-issue
+  flow (user: *"as page first not just tab"*, *"they must match exactly only thing different src of
+  data"*).
+- ⚠️ **Built by REUSE, not by copying.** `PlanFeaturesPanel`, `SupportTicketsPanel` and the new
+  `BillingDocumentsPanel` are the very modules the clinic page renders. A clone would have matched
+  on the day it was written and drifted by the next change — which is precisely what "must match
+  exactly" rules out. Everything audience-specific is confined to props: the rows, the feature-key
+  vocabulary, and one noun in one sentence.
+- **`BillingDocumentsPanel` extracted** from ~118 lines that were inline in `BillingView`. The clinic
+  page now renders the extracted component too, so there is exactly one statements table in the app.
+- **`PlanFeaturesPanel` takes a `groups` prop**, defaulting to the clinic vocabulary so every
+  existing caller is untouched. The supplier page passes `SUPPLIER_GROUPS` — a supplier plan has no
+  `view:laboratory`, and listing clinic keys under "Not in your plan" would advertise an upgrade
+  that does not exist for them.
+- An **invoice** is every charge raised; a **receipt** is only the ones that settled. Both are
+  derived from one list, so a receipt can never exist without its invoice.
+
 ### fix: a sidebar group now opens its first page, not just its arrow  —  2026-08-23
 🟢 **Record impact: none.**
 - Clicking **Management** in the supplier sidebar only revealed two children; reaching Account —
