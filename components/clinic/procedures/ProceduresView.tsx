@@ -2,6 +2,8 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { ClipboardList, Plus, Loader2, Trash2, Pencil, Search, Zap, FlaskConical, Pill, Package, Stethoscope, Wand2, Globe, Eye } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { procedureTemplatesAPI, ProcedureTemplate, dialog } from '../../../services';
+import ListFilterBar, { inRange } from '../shared/ListFilterBar';
+import { DateRange } from '../../shared/common/DateRangePicker';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import BrandMark from '../../shared/common/BrandMark';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -41,6 +43,10 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [search, setSearch] = useState('');
+  // Date filter is on createdAt — when the template was BUILT. Procedures have
+  // no other date that means anything at list level.
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  const [status, setStatus] = useState('ALL');
 
   // Escape closes the chooser — it is a decision point, not a commitment.
   useEffect(() => {
@@ -62,9 +68,14 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return templates;
-    return templates.filter(t => `${t.name} ${t.code ?? ''} ${t.categoryName ?? ''} ${t.species.join(' ')}`.toLowerCase().includes(q));
-  }, [templates, search]);
+    return templates.filter(t => {
+      if (q && !`${t.name} ${t.code ?? ''} ${t.categoryName ?? ''} ${t.species.join(' ')}`.toLowerCase().includes(q)) return false;
+      if (!inRange(t.createdAt, dateRange)) return false;
+      if (status === 'ACTIVE' && !t.isActive) return false;
+      if (status === 'INACTIVE' && t.isActive) return false;
+      return true;
+    });
+  }, [templates, search, dateRange, status]);
 
   const toggleActive = async (t: ProcedureTemplate) => {
     setBusyId(t.id);
@@ -114,10 +125,20 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
         )}
       </div>
 
-      <div className="relative max-w-sm">
-        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search procedures…" className="field-input field-icon-left" />
-      </div>
+      <ListFilterBar
+        search={search}
+        onSearch={setSearch}
+        dateRange={dateRange}
+        onDateRange={setDateRange}
+        searchPlaceholder="Search procedures…"
+        status={status}
+        onStatus={setStatus}
+        statuses={[
+          { value: 'ALL', label: 'All' },
+          { value: 'ACTIVE', label: 'Active' },
+          { value: 'INACTIVE', label: 'Inactive' },
+        ]}
+      />
 
       {loading ? (
         <LoadingSpinner message="Loading procedures..." />

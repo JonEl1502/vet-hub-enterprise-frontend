@@ -4,6 +4,8 @@ import { BellRing, Loader2, CalendarPlus, Check, X, Search, AlertCircle, CheckCi
 import toast from 'react-hot-toast';
 import { remindersAPI, appointmentsAPI, Reminder, ReminderScope, ReminderServiceType, REMINDER_SERVICE_META, dialog } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import { DateRangePicker, DateRange } from '../../shared/common/DateRangePicker';
+import { inRange } from '../shared/ListFilterBar';
 import { useData } from '../../../contexts/DataContext';
 import ReasonModal from '../shared/ReasonModal';
 import AppointmentCreateModal from '../appointments/AppointmentCreateModal';
@@ -51,6 +53,15 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [service, setService] = useState<ReminderServiceType | 'all'>('all');
   const [search, setSearch] = useState('');
+  /**
+   * Filters on `dueAt` — WHEN THE REMINDER IS DUE, which is the only date a
+   * reminder list is ever asked about ("what's due next week?").
+   *
+   * This view keeps its own filter row rather than adopting ListFilterBar: the
+   * shared bar has no slot for the scope pills or the service dropdown, so
+   * swapping it in would have removed two working filters to gain one.
+   */
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [dismissFor, setDismissFor] = useState<Reminder | null>(null);
   const [detail, setDetail] = useState<Reminder | null>(null);
@@ -98,14 +109,16 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const base = q
-      ? reminders.filter(r => `${r.pet?.name ?? ''} ${r.client?.name ?? ''} ${r.title ?? ''}`.toLowerCase().includes(q))
-      : reminders;
+    const base = reminders.filter(r => {
+      if (q && !`${r.pet?.name ?? ''} ${r.client?.name ?? ''} ${r.title ?? ''}`.toLowerCase().includes(q)) return false;
+      if (!inRange(r.dueAt, dateRange)) return false;
+      return true;
+    });
     // Uncompleted always on top, nearest due date first (today up top);
     // handled ones follow in the same date order.
     const rank = (r: Reminder) => (r.status === 'PENDING' ? 0 : 1);
     return [...base].sort((a, b) => rank(a) - rank(b) || +new Date(a.dueAt) - +new Date(b.dueAt));
-  }, [reminders, search]);
+  }, [reminders, search, dateRange]);
 
   /**
    * A follow-up PLAN is many reminders sharing one `groupId` (backend 134) —
@@ -294,6 +307,7 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
           className="px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-xs font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam">
           {SERVICE_FILTER.map(s => <option key={s} value={s}>{s === 'all' ? 'All services' : REMINDER_SERVICE_META[s].label}</option>)}
         </select>
+        <DateRangePicker value={dateRange} onChange={setDateRange} buttonClassName="py-2" />
         <div className="relative flex-1 min-w-[180px]">
           <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search pet, client or title"

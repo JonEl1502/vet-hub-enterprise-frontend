@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Pill, Search, Plus, Minus, Trash2, Loader2, CheckCircle2, UserPlus, X, Wallet, AlertTriangle, CalendarClock, PackageSearch, ClipboardList, TrendingDown } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ListFilterBar, { inRange } from '../shared/ListFilterBar';
+import { DateRange } from '../../shared/common/DateRangePicker';
 import { useData } from '../../../contexts/DataContext';
 import { petshopAPI, walletAPI, stockMovementsAPI } from '../../../services';
 import type { Wallet as WalletData } from '../../../services';
@@ -48,6 +50,10 @@ const PharmacyView: React.FC<Props> = ({ activeClinic }) => {
 
   // ── Stock + dispense cart ──────────────────────────────────────────────
   const [search, setSearch] = useState('');
+  // Date filter is on EXPIRY — the date that matters for a drug shelf. Filtering
+  // medicines by when the row was created would answer nobody's question.
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  const [status, setStatus] = useState('ALL');
   const [cart, setCart] = useState<DispenseLine[]>([]);
   const [discountType, setDiscountType] = useState<'NONE' | 'PERCENTAGE' | 'FIXED'>('NONE');
   const [discountValue, setDiscountValue] = useState('');
@@ -93,11 +99,25 @@ const PharmacyView: React.FC<Props> = ({ activeClinic }) => {
     return medsOnly ? all.filter(isMedication) : all.filter(i => i.billable !== false);
   }, [inventory, medsOnly]);
 
-  const filtered = useMemo(() => {
+  const CATALOGUE_CAP = 80;
+  const matching = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const list = q ? meds.filter(i => i.name.toLowerCase().includes(q) || (i.sku || '').toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q)) : meds;
-    return list.slice(0, 80);
-  }, [meds, search]);
+    return meds.filter(i => {
+      if (q && !(i.name.toLowerCase().includes(q) || (i.sku || '').toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q))) return false;
+      if (!inRange(i.expiryDate, dateRange)) return false;
+      const out = i.quantity <= 0;
+      const low = !out && i.quantity <= i.minThreshold;
+      const days = i.expiryDate ? Math.ceil((new Date(i.expiryDate).getTime() - Date.now()) / 86_400_000) : null;
+      if (status === 'LOW' && !low) return false;
+      if (status === 'OUT' && !out) return false;
+      if (status === 'EXPIRING' && !(days !== null && days <= 30)) return false;
+      return true;
+    });
+  }, [meds, search, dateRange, status]);
+  const filtered = useMemo(() => matching.slice(0, CATALOGUE_CAP), [matching]);
+  // The cap was always here; it was just never said out loud, so a list showing
+  // 80 of 300 read as the whole catalogue.
+  const hiddenByCap = Math.max(0, matching.length - filtered.length);
 
   // ── Stock summary tiles ────────────────────────────────────────────────
   const stats = useMemo(() => {
@@ -258,10 +278,29 @@ const PharmacyView: React.FC<Props> = ({ activeClinic }) => {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             {/* Catalogue */}
             <div className="lg:col-span-2 space-y-3">
-              <div className="relative">
-                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                <input className={`${fieldCls} pl-9`} placeholder="Search medication by name, SKU, category…" value={search} onChange={e => setSearch(e.target.value)} />
-              </div>
+              <ListFilterBar
+                search={search}
+                onSearch={setSearch}
+                dateRange={dateRange}
+                onDateRange={setDateRange}
+                searchPlaceholder="Search medication by name, SKU, category…"
+                status={status}
+                onStatus={setStatus}
+                statuses={[
+                  { value: 'ALL', label: 'All' },
+                  { value: 'LOW', label: 'Low' },
+                  { value: 'OUT', label: 'Out' },
+                  { value: 'EXPIRING', label: 'Expiring' },
+                ]}
+              />
+              {dateRange?.start && (
+                <p className="text-[10px] font-bold text-slate-400">Date range filters by <span className="text-pine dark:text-zinc-200">expiry date</span>.</p>
+              )}
+              {hiddenByCap > 0 && (
+                <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                  Showing {filtered.length} of {matching.length} matches — refine the search to see the rest.
+                </p>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 {filtered.map(item => {
                   const out = item.quantity <= 0;

@@ -26,7 +26,7 @@ const ENCOUNTER_COLORS: Record<string, string> = {
 };
 
 const ClinicStatsTab: React.FC = () => {
-  const { clients, pets, appointments } = useData() as any;
+  const { clients, pets, appointments, fetchVisitsRange } = useData() as any;
   const { staff } = useStaff() as any;
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [stays, setStays] = useState<any[]>([]);
@@ -37,6 +37,27 @@ const ClinicStatsTab: React.FC = () => {
     inpatientAPI.list('all').then(r => { if (r.success && r.data?.hospitalizations) setHospitalizations(r.data.hospitalizations); }).catch(() => {});
   }, []);
 
+  /**
+   * When a range is picked, visits come from the SERVER (2026-08-23).
+   *
+   * These tiles filtered the DataContext cache, which holds only the newest 500
+   * visits. On a clinic carrying imported history that reaches back weeks, not
+   * years — so "visits in range" for anything older silently read 0 and the
+   * tile presented it as fact. Clients/pets/stays still come from their own
+   * caches; only the visit count had a window this narrow.
+   */
+  const [rangeVisits, setRangeVisits] = useState<any[] | null>(null);
+  const [visitsTruncated, setVisitsTruncated] = useState(0);
+  useEffect(() => {
+    if (!dateRange?.start || !dateRange?.end) { setRangeVisits(null); setVisitsTruncated(0); return; }
+    let alive = true;
+    const end = new Date(dateRange.end); end.setHours(23, 59, 59, 999);
+    fetchVisitsRange(dateRange.start, end)
+      .then(({ rows, truncated }: any) => { if (alive) { setRangeVisits(rows); setVisitsTruncated(truncated); } })
+      .catch(() => { if (alive) { setRangeVisits(null); setVisitsTruncated(0); } });
+    return () => { alive = false; };
+  }, [dateRange?.start, dateRange?.end, fetchVisitsRange]);
+
   const inRange = (iso: string | Date | null | undefined) => {
     if (!iso) return false;
     const d = new Date(iso);
@@ -46,7 +67,11 @@ const ClinicStatsTab: React.FC = () => {
   };
 
   const stats = useMemo(() => {
-    const visitsInRange = (appointments || []).filter((a: any) => a.status !== 'CANCELLED' && (dateRange ? inRange(a.date) : true));
+    // With a range picked, `rangeVisits` is the server's answer and needs no
+    // date filter — asking for the range IS the filter.
+    const visitsInRange = dateRange && rangeVisits
+      ? rangeVisits.filter((a: any) => a.status !== 'CANCELLED')
+      : (appointments || []).filter((a: any) => a.status !== 'CANCELLED' && (dateRange ? inRange(a.date) : true));
     const newClients = (clients || []).filter((c: any) => inRange(c.createdAt || c.registeredAt)).length;
     const ACTIVE_STAY = new Set(['ACTIVE', 'CHECKED_IN']);
     const ACTIVE_HOSP = new Set(['ADMITTED', 'ACTIVE', 'IN_TREATMENT']);
@@ -61,9 +86,38 @@ const ClinicStatsTab: React.FC = () => {
       inpatientNow: hospitalizations.filter((h: any) => ACTIVE_HOSP.has(String(h.status || '').toUpperCase())).length,
       inpatientInRange: dateRange ? hospitalizations.filter((h: any) => inRange(h.admittedAt || h.createdAt)).length : hospitalizations.length,
     };
-  }, [clients, pets, staff, appointments, stays, hospitalizations, dateRange]);
+  }, [clients, pets, staff, appointments, rangeVisits, stays, hospitalizations, dateRange]);
 
   // Area: visits per month, last 6 months (date filter ignored — it's a trend).
+  /**
+   * The rows every range-respecting chart below reads. With a range picked this
+   * is the server's answer (already scoped, so no client-side date test); with
+   * no range it is the context cache, which is correct because "no range" means
+   * "whatever is loaded".
+   */
+  const scopedVisits = useMemo(
+    () => (dateRange && rangeVisits ? rangeVisits : (appointments || [])),
+    [dateRange, rangeVisits, appointments],
+  );
+  const needsDateTest = !(dateRange && rangeVisits);
+
+  /**
+   * The 6-month bar chart needs six months of visits — the cache holds weeks on
+   * a migrated clinic, so the older bars silently read 0 and looked like months
+   * with no business. It fetches its own window, independent of the date filter
+   * (this chart deliberately always shows the last six months).
+   */
+  const [monthRows, setMonthRows] = useState<any[] | null>(null);
+  useEffect(() => {
+    let alive = true;
+    const now = new Date();
+    const from = new Date(now.getFullYear(), now.getMonth() - 5, 1);
+    fetchVisitsRange(from, now)
+      .then(({ rows }: any) => { if (alive) setMonthRows(rows); })
+      .catch(() => { if (alive) setMonthRows(null); });
+    return () => { alive = false; };
+  }, [fetchVisitsRange]);
+
   const visitsByMonth = useMemo(() => {
     const months: { month: string; visits: number }[] = [];
     const now = new Date();
@@ -72,7 +126,7 @@ const ClinicStatsTab: React.FC = () => {
       months.push({ month: d.toLocaleDateString(undefined, { month: 'short' }), visits: 0 });
     }
     const startWindow = new Date(now.getFullYear(), now.getMonth() - 5, 1);
-    for (const a of appointments || []) {
+    for (const a of (monthRows ?? appointments ?? [])) {
       if (a.status === 'CANCELLED') continue;
       const d = new Date(a.date);
       if (d < startWindow || d > now) continue;
@@ -80,26 +134,26 @@ const ClinicStatsTab: React.FC = () => {
       if (months[idx]) months[idx].visits += 1;
     }
     return months;
-  }, [appointments]);
+  }, [monthRows, appointments]);
 
   // Pie: visits by encounter type (respects the date filter).
   const visitsByEncounter = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const a of appointments || []) {
-      if (a.status === 'CANCELLED' || (dateRange && !inRange(a.date))) continue;
+    for (const a of scopedVisits) {
+      if (a.status === 'CANCELLED' || (needsDateTest && dateRange && !inRange(a.date))) continue;
       const key = a.visitType === 'EMERGENCY' ? 'EMERGENCY'
         : a.visitType === 'VACCINATION' ? 'VACCINATION'
         : String(a.encounterType || 'VET_VISIT').replace('_', ' ');
       counts[key] = (counts[key] ?? 0) + 1;
     }
     return Object.entries(counts).map(([name, value]) => ({ name, value, color: ENCOUNTER_COLORS[name] ?? ENCOUNTER_COLORS.OTHER }));
-  }, [appointments, dateRange]);
+  }, [scopedVisits, needsDateTest, dateRange]);
 
   // Horizontal bar: top service categories by line count (respects date filter).
   const topCategories = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const a of appointments || []) {
-      if (a.status === 'CANCELLED' || (dateRange && !inRange(a.date))) continue;
+    for (const a of scopedVisits) {
+      if (a.status === 'CANCELLED' || (needsDateTest && dateRange && !inRange(a.date))) continue;
       for (const t of a.tasks || []) {
         const cat = t.category || 'Other';
         counts[cat] = (counts[cat] ?? 0) + 1;
@@ -109,7 +163,7 @@ const ClinicStatsTab: React.FC = () => {
       .sort((x, y) => y[1] - x[1])
       .slice(0, 6)
       .map(([name, count]) => ({ name: name.length > 18 ? `${name.slice(0, 17)}…` : name, count }));
-  }, [appointments, dateRange]);
+  }, [scopedVisits, needsDateTest, dateRange]);
 
   const tiles: Array<{ icon: React.ElementType; label: string; value: number; sub?: string | null; tone: string }> = [
     { icon: Users, label: 'Clients', value: stats.clients, sub: stats.newClients != null ? `+${stats.newClients} new in range` : null, tone: 'text-seafoam' },
@@ -128,6 +182,13 @@ const ClinicStatsTab: React.FC = () => {
       </div>
 
       {/* Headline tiles */}
+      {/* A stat short of the truth still reads as the truth. Say when it is. */}
+      {visitsTruncated > 0 && (
+        <div className="px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+          Counting the most recent 6,000 visits in this range — {visitsTruncated.toLocaleString()} older ones are excluded. Narrow the dates for exact figures.
+        </div>
+      )}
+
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         {tiles.map(t => (
           <div key={t.label} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">

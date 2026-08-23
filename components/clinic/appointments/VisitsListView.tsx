@@ -4,7 +4,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Visit, ApptStatus, Pet, User, Clinic } from '../../../types';
 import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope, X, Users } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
-import { useData, mapVisitRow } from '../../../contexts/DataContext';
+import { useData } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { userCan } from '../../../constants/permissions';
 import { visitsAPI } from '../../../services';
@@ -70,7 +70,7 @@ const VisitsListView: React.FC<Props> = ({
   const canCreateVisit = userCan(user, 'create_appointments');
   const canEditVisit = userCan(user, 'edit_appointments');
   const canDeleteVisit = userCan(user, 'delete_appointments');
-  const { appointments, isLoadingAppointments, refreshAppointments, updateAppointmentOptimistically, ensureAppointments } = useData();
+  const { appointments, isLoadingAppointments, refreshAppointments, updateAppointmentOptimistically, ensureAppointments, fetchVisitsRange } = useData();
   useEffect(() => { ensureAppointments(); }, [ensureAppointments]);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
@@ -185,47 +185,18 @@ const VisitsListView: React.FC<Props> = ({
     if (openOnly || !startISO || !endISO) { setRangeRows(null); setRangeTruncated(0); return; }
     let alive = true;
     setRangeLoading(true);
-
-    /**
-     * The server caps `limit` at 1000 (parsePaginationParams), and a wide range
-     * on a clinic with imported history exceeds that easily — Jan–May on
-     * Westlands is 1,379 visits. One page would have truncated silently, which
-     * is a quieter version of the bug this whole change exists to fix. So page
-     * through, and stop at MAX_PAGES rather than pulling a decade into memory.
-     */
-    const PAGE = 1000;
-    const MAX_PAGES = 6;
-    const fetchPage = (page: number) =>
-      visitsAPI.getAll(
-        { page, limit: PAGE, sortBy: 'scheduledAt', sortOrder: 'desc', startDate: startISO, endDate: endISO } as any,
-        { cache: false },
-      ) as Promise<any>;
-
-    (async () => {
-      try {
-        const first = await fetchPage(1);
-        if (!alive || !first?.success || !first.data?.appointments) return;
-        const total = Number(first.data?.pagination?.totalItems) || first.data.appointments.length;
-        const pages = Math.min(MAX_PAGES, Math.ceil(total / PAGE));
-        const rest = pages > 1
-          ? await Promise.all(Array.from({ length: pages - 1 }, (_, i) => fetchPage(i + 2)))
-          : [];
+    // Paging + the 1000-row cap live in DataContext.fetchVisitsRange so every
+    // range-reading view shares one rule.
+    fetchVisitsRange(startISO, endISO)
+      .then(({ rows, truncated }) => {
         if (!alive) return;
-        const rows = [first, ...rest]
-          .filter((r: any) => r?.success && r.data?.appointments)
-          .flatMap((r: any) => r.data.appointments)
-          .map(mapVisitRow);
         setRangeRows(rows);
-        setRangeTruncated(total > rows.length ? total - rows.length : 0);
-      } catch {
-        if (alive) { setRangeRows(null); setRangeTruncated(0); }
-      } finally {
-        if (alive) setRangeLoading(false);
-      }
-    })();
-
+        setRangeTruncated(truncated);
+      })
+      .catch(() => { if (alive) { setRangeRows(null); setRangeTruncated(0); } })
+      .finally(() => { if (alive) setRangeLoading(false); });
     return () => { alive = false; };
-  }, [startISO, endISO, openOnly, refreshKey]);
+  }, [startISO, endISO, openOnly, refreshKey, fetchVisitsRange]);
 
   // Rows the list works from: the server's answer for the picked range, else cache.
   const sourceRows = rangeRows ?? appointments;

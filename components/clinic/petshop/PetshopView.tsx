@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { ShoppingCart, Search, Plus, Minus, Trash2, Loader2, CheckCircle2, UserPlus, X, Package, Wallet } from 'lucide-react';
 import toast from 'react-hot-toast';
+import ListFilterBar, { inRange } from '../shared/ListFilterBar';
+import { DateRange } from '../../shared/common/DateRangePicker';
 import { useData } from '../../../contexts/DataContext';
 import { petshopAPI, walletAPI } from '../../../services';
 import type { Wallet as WalletData } from '../../../services';
@@ -28,6 +30,10 @@ const PetshopView: React.FC<Props> = ({ activeClinic }) => {
   const currency = activeClinic?.currency || 'KES';
 
   const [search, setSearch] = useState('');
+  // Petshop stock is retail goods: expiry is the date that matters here too
+  // (pet food and treats expire), and it is the only date on the item.
+  const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  const [status, setStatus] = useState('ALL');
   const [cart, setCart] = useState<CartLine[]>([]);
   const [discountType, setDiscountType] = useState<'NONE' | 'PERCENTAGE' | 'FIXED'>('NONE');
   const [discountValue, setDiscountValue] = useState('');
@@ -70,11 +76,23 @@ const PetshopView: React.FC<Props> = ({ activeClinic }) => {
   }, [selectedWalletId, wallets]);
 
   const sellable = useMemo(() => (inventory || []).filter((i: InventoryItem) => i.billable !== false), [inventory]);
-  const filtered = useMemo(() => {
+  const CATALOGUE_CAP = 60;
+  const matching = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const list = q ? sellable.filter((i: InventoryItem) => i.name.toLowerCase().includes(q) || (i.sku || '').toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q)) : sellable;
-    return list.slice(0, 60);
-  }, [sellable, search]);
+    return sellable.filter((i: InventoryItem) => {
+      if (q && !(i.name.toLowerCase().includes(q) || (i.sku || '').toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q))) return false;
+      if (!inRange(i.expiryDate, dateRange)) return false;
+      const out = i.quantity <= 0;
+      const low = !out && i.quantity <= i.minThreshold;
+      if (status === 'IN' && out) return false;
+      if (status === 'LOW' && !low) return false;
+      if (status === 'OUT' && !out) return false;
+      return true;
+    });
+  }, [sellable, search, dateRange, status]);
+  const filtered = useMemo(() => matching.slice(0, CATALOGUE_CAP), [matching]);
+  // Say when the cap is hiding matches — it always did, silently.
+  const hiddenByCap = Math.max(0, matching.length - filtered.length);
 
   const clientMatches = useMemo(() => {
     const q = clientQuery.trim().toLowerCase();
@@ -153,10 +171,29 @@ const PetshopView: React.FC<Props> = ({ activeClinic }) => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Catalogue */}
         <div className="lg:col-span-2 space-y-3">
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input className={`${fieldCls} pl-9`} placeholder="Search products by name, SKU, category…" value={search} onChange={e => setSearch(e.target.value)} />
-          </div>
+          <ListFilterBar
+            search={search}
+            onSearch={setSearch}
+            dateRange={dateRange}
+            onDateRange={setDateRange}
+            searchPlaceholder="Search products by name, SKU, category…"
+            status={status}
+            onStatus={setStatus}
+            statuses={[
+              { value: 'ALL', label: 'All' },
+              { value: 'IN', label: 'In stock' },
+              { value: 'LOW', label: 'Low' },
+              { value: 'OUT', label: 'Out' },
+            ]}
+          />
+          {dateRange?.start && (
+            <p className="text-[10px] font-bold text-slate-400">Date range filters by <span className="text-pine dark:text-zinc-200">expiry date</span>.</p>
+          )}
+          {hiddenByCap > 0 && (
+            <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
+              Showing {filtered.length} of {matching.length} matches — refine the search to see the rest.
+            </p>
+          )}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             {filtered.map((item: InventoryItem) => {
               const out = item.quantity <= 0;

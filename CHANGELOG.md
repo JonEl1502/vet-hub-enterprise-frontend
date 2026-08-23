@@ -59,6 +59,44 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: boarding day window settings card (222)  —  2026-08-23
+🟢 **Record impact: none.** **Requires backend migration 222.**
+- Clinic Management → a new **Boarding Day** card: when a billable day starts ('HH:MM') and how days
+  are counted (day windows crossed, or 24-hour blocks from drop-off). Applies to boarding and
+  in-patient alike.
+- A worked example prices the same three stays under the current setting. ⚠️ Its examples are the
+  ones the setting actually **changes** — an example that reads the same under every option teaches
+  nothing — and its preview mirrors the server's `computeNights` exactly.
+- ⚠️ The preview builds its dates with `Date.UTC`, i.e. clinic wall-clock ms, so the server's
+  timezone offset cancels and the number is right in any viewer's timezone. The obvious
+  `new Date(y, m, d, h)` silently shifts every example by the browser's own offset.
+- Saving warns that open stays will be re-priced at checkout; stays already billed keep their charge.
+
+### fix: dashboard stats read the server for a picked range, not the 500-row cache  —  2026-08-23
+🟢 **Record impact: none.** Read path only.
+- The stat tiles, the encounter pie and the top-categories bar all filtered the DataContext cache by
+  date — the same defect fixed in Visits. On a clinic with imported history the cache spans weeks, so
+  older ranges silently counted **0** and the tile presented it as fact.
+- The **6-month bar chart** fetches its own six-month window: it never respected the picked range by
+  design, so it was reading a cache far shorter than the chart it drew.
+- Paging now lives once in **`DataContext.fetchVisitsRange`** (server-backed, honours the API's
+  1000-row cap, reports what it could not fetch). Visits and the dashboard both use it — the logic
+  is no longer duplicated in a view.
+- Truncation is stated in an amber banner. A stat short of the truth still reads as the truth.
+
+### feat: filters on Procedures, Pharmacy, Petshop and Reminders  —  2026-08-23
+🟢 **Record impact: none.**
+- The four views that still had a bare search box now carry the shared `ListFilterBar` — search, date
+  range, and status pills (Active/Inactive · Low/Out/Expiring · In stock).
+- Date ranges filter the field that **means** something per view: procedure `createdAt`, medicine and
+  product **expiry**, reminder **due date**. The pharmacy and petshop lists say which, since "date
+  range" over a stock list is otherwise ambiguous.
+- ⚠️ **Reminders keeps its own filter row on purpose** — the shared bar has no slot for its scope
+  pills or service dropdown, so adopting it wholesale would have removed two working filters to gain
+  one. It gets the date picker only.
+- 🐛 Pharmacy and Petshop capped their catalogues at 80 and 60 rows **silently**. The cap stays (both
+  are pick-lists, not registers) but now says "Showing 60 of 214 matches".
+
 ### fix: comparison lines were unreadable when the two windows differed in length  —  2026-08-23
 🟢 **Record impact: none.** Read path only.
 - Position-alignment assumed the two windows were the **same length** — true of the default compare

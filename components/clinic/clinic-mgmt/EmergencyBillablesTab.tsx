@@ -10,6 +10,7 @@ import { VISIT_FEE_DEFS, loadVisitFees, saveVisitFees, VisitFeesConfig, loadVisi
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import DefaultRateEditor from '../shared/DefaultRateEditor';
 import LateFeePolicyCard from './LateFeePolicyCard';
+import BoardingDayPolicyCard from './BoardingDayPolicyCard';
 import { SERVICE_CHARGE_DEFS, chargesFromClinic, legacyLocalCharges, clearLegacyLocalCharges, CLINIC_FEE_FIELD, ServiceChargesConfig, ServiceChargeDef } from '../shared/serviceCharges';
 import { useClinic } from '../../../contexts/ClinicContext';
 import WorkingHoursEditor from '../shared/WorkingHoursEditor';
@@ -184,9 +185,11 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
       </div>
     </div>
 
-    {/* ── Late-collection policy (190) — sits with the daily rates because it is
-           the same conversation: what a stay costs, and what running over it
-           costs. Enforced server-side by computeLateFee at checkout. ── */}
+    {/* ── What a stay costs, and what running over it costs — one conversation,
+           so the three cards sit together. Both policies are enforced
+           server-side: computeNights (222) for the day count, computeLateFee
+           (190) for the overtime charge. ── */}
+    <BoardingDayPolicyCard />
     <LateFeePolicyCard />
 
     {/* ── Default service charges — the per-dispense fees a NEW product opens

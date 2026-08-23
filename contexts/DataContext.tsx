@@ -70,6 +70,8 @@ interface DataContextType {
   /** Fetch ONE pet by id and merge it into `pets` if the page-limited list missed it. */
   ensurePetById: (id: number) => Promise<boolean>;
   ensureAppointments: () => Promise<void>;
+  /** Server-backed, paged visits for a date range. See the implementation for why. */
+  fetchVisitsRange: (start: Date | string, end: Date | string, maxPages?: number) => Promise<{ rows: Visit[]; total: number; truncated: number }>;
   ensureTransactions: () => Promise<void>;
   ensureInventory: () => Promise<void>;
   // Force-refresh (bypasses stale check)
@@ -529,6 +531,48 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     await fetchPets();
   }, [isAuthenticated, clinicIdsKey, fetchPets]);
 
+  /**
+   * Visits in a date range, straight from the SERVER (2026-08-23).
+   *
+   * The context cache holds only the newest 500 visits — fine for a clinic
+   * booking a few a day, blind for one carrying imported history. Westlands has
+   * 2,649 visits and the newest 500 reach back only to 29 Jun, so any view that
+   * filtered the cache by date reported "none" for windows holding hundreds of
+   * real visits. Every such view must ask the server instead, and they all go
+   * through here so the paging rule lives in ONE place.
+   *
+   * ⚠️ The API caps `limit` at 1000 (parsePaginationParams). A wide range on a
+   * migrated clinic exceeds that easily, so this pages — and returns how many
+   * it could NOT fetch, because a short count presented as complete is the very
+   * bug this exists to fix. Callers must surface `truncated`.
+   */
+  const fetchVisitsRange = useCallback(async (
+    start: Date | string,
+    end: Date | string,
+    maxPages = 6,
+  ): Promise<{ rows: Visit[]; total: number; truncated: number }> => {
+    const PAGE = 1000;
+    const startDate = new Date(start).toISOString();
+    const endDate = new Date(end).toISOString();
+    const page = (n: number) => visitsAPI.getAll(
+      { page: n, limit: PAGE, sortBy: 'scheduledAt', sortOrder: 'desc', startDate, endDate } as any,
+      { cache: false },
+    ) as Promise<any>;
+
+    const first = await page(1);
+    if (!first?.success || !first.data?.appointments) return { rows: [], total: 0, truncated: 0 };
+    const total = Number(first.data?.pagination?.totalItems) || first.data.appointments.length;
+    const pages = Math.min(maxPages, Math.ceil(total / PAGE));
+    const rest = pages > 1
+      ? await Promise.all(Array.from({ length: pages - 1 }, (_, i) => page(i + 2).catch(() => null)))
+      : [];
+    const rows = [first, ...rest]
+      .filter((r: any) => r?.success && r.data?.appointments)
+      .flatMap((r: any) => r.data.appointments)
+      .map(mapVisitRow);
+    return { rows, total, truncated: Math.max(0, total - rows.length) };
+  }, []);
+
   const ensureAppointments = useCallback(async () => {
     if (!isAuthenticated || clinicIdsKey === '') return;
     if (Date.now() - (appointmentsAt.current[clinicIdsKey] ?? 0) < STALE_MS) return;
@@ -695,6 +739,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     clientStatus, setClientStatus,
     petStatus, setPetStatus,
     ensureClients, ensurePets, ensureAppointments, ensureTransactions, ensureInventory,
+    fetchVisitsRange,
     refreshClients, refreshPets, refreshAppointments, refreshTransactions, refreshInventory,
     updateAppointmentLocally,
     getClientById, getPetById, getClientPets, ensurePetById,
