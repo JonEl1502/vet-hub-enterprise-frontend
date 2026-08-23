@@ -175,24 +175,55 @@ const VisitsListView: React.FC<Props> = ({
   const [rangeRows, setRangeRows] = useState<Visit[] | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [rangeLoading, setRangeLoading] = useState(false);
+  // Set when the range holds more visits than we are willing to pull at once,
+  // so the count under the table can say so instead of quietly under-reporting.
+  const [rangeTruncated, setRangeTruncated] = useState(0);
   const startISO = dateRange.start ? new Date(dateRange.start).toISOString() : null;
   const endISO = dateRange.end ? new Date(dateRange.end).toISOString() : null;
 
   useEffect(() => {
-    if (openOnly || !startISO || !endISO) { setRangeRows(null); return; }
+    if (openOnly || !startISO || !endISO) { setRangeRows(null); setRangeTruncated(0); return; }
     let alive = true;
     setRangeLoading(true);
-    visitsAPI
-      .getAll(
-        { page: 1, limit: 1000, sortBy: 'scheduledAt', sortOrder: 'desc', startDate: startISO, endDate: endISO } as any,
+
+    /**
+     * The server caps `limit` at 1000 (parsePaginationParams), and a wide range
+     * on a clinic with imported history exceeds that easily — Jan–May on
+     * Westlands is 1,379 visits. One page would have truncated silently, which
+     * is a quieter version of the bug this whole change exists to fix. So page
+     * through, and stop at MAX_PAGES rather than pulling a decade into memory.
+     */
+    const PAGE = 1000;
+    const MAX_PAGES = 6;
+    const fetchPage = (page: number) =>
+      visitsAPI.getAll(
+        { page, limit: PAGE, sortBy: 'scheduledAt', sortOrder: 'desc', startDate: startISO, endDate: endISO } as any,
         { cache: false },
-      )
-      .then((res: any) => {
+      ) as Promise<any>;
+
+    (async () => {
+      try {
+        const first = await fetchPage(1);
+        if (!alive || !first?.success || !first.data?.appointments) return;
+        const total = Number(first.data?.pagination?.totalItems) || first.data.appointments.length;
+        const pages = Math.min(MAX_PAGES, Math.ceil(total / PAGE));
+        const rest = pages > 1
+          ? await Promise.all(Array.from({ length: pages - 1 }, (_, i) => fetchPage(i + 2)))
+          : [];
         if (!alive) return;
-        if (res?.success && res.data?.appointments) setRangeRows(res.data.appointments.map(mapVisitRow));
-      })
-      .catch(() => { if (alive) setRangeRows(null); })
-      .finally(() => { if (alive) setRangeLoading(false); });
+        const rows = [first, ...rest]
+          .filter((r: any) => r?.success && r.data?.appointments)
+          .flatMap((r: any) => r.data.appointments)
+          .map(mapVisitRow);
+        setRangeRows(rows);
+        setRangeTruncated(total > rows.length ? total - rows.length : 0);
+      } catch {
+        if (alive) { setRangeRows(null); setRangeTruncated(0); }
+      } finally {
+        if (alive) setRangeLoading(false);
+      }
+    })();
+
     return () => { alive = false; };
   }, [startISO, endISO, openOnly, refreshKey]);
 
@@ -529,6 +560,15 @@ const VisitsListView: React.FC<Props> = ({
           {/* Top pagination (quick access) when list is long */}
           {viewMode === 'list' && paginationMeta.totalItems > 12 && paginationMeta.totalPages > 1 && (
             <Pagination meta={paginationMeta} onPageChange={handlePageChange} compact />
+          )}
+
+          {/* Say it out loud when the range holds more than we pulled. A count
+              that is quietly short reads as fact, and that is the exact bug
+              this change was made to kill. */}
+          {rangeTruncated > 0 && (
+            <div className="mb-3 px-3 py-2 rounded-xl bg-amber-500/10 border border-amber-500/20 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+              Showing the most recent 6,000 visits in this range — {rangeTruncated.toLocaleString()} older ones are not listed. Narrow the dates to see them.
+            </div>
           )}
 
           {/* List - Desktop Table (hidden on mobile + tablet) */}

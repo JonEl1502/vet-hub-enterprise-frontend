@@ -73,6 +73,9 @@ accepted `startDate`/`endDate`.
 - The row→`Visit` mapper moved to module scope as **`mapVisitRow`**, exported from `DataContext`.
   A second fetch path with its own copy is exactly how `attendance` and `transactionId` went
   missing before — one mapper, both callers.
+- The range read **pages through** — the API caps `limit` at 1000 and Jan–May alone is 1,379
+  visits, so one page would have truncated silently. Up to 6 pages; beyond that the list says so
+  in an amber banner rather than showing a short count as if it were the whole truth.
 - ⚠️ The 500-row cap is still there for every OTHER consumer (dashboard tiles, calendar). Any view
   that must see old history has to range-fetch too; it will grow as more LeagPro years land.
 
