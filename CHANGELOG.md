@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a pay button that could only ever fail, and a double error toast  —  2026-08-23
+🟢 **Record impact: none.**
+- A plan priced in a currency Paystack cannot settle (anything but **KES** or **USD**) still showed
+  a live **"Card or Mobile — NGN 20"** button. Clicking it round-tripped to the server just to be
+  refused. The button is now **disabled** with the reason on the card — *"This plan is priced in NGN.
+  Payments settle in KES or USD"*. The server still refuses; this stops the user reaching it.
+- 🐛 **Two toasts for one failure.** The API interceptor already surfaces the server's message, and
+  the pay handler *also* toasted `e.message` — so axios's **"Request failed with status code 400"**
+  stacked on top of the sentence that actually explained the problem, and the useful one was the
+  one people ignored. The handler now speaks only when nothing else did.
+
 ### fix: supplier billing showed only ONE plan — the rest were hidden for minutes  —  2026-08-23
 🟢 **Record impact: none.**
 - `PlanCard` staggers its entrance with framer-motion, whose `delay` is in **seconds**. The clinic

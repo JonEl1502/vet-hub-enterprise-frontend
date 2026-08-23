@@ -154,7 +154,14 @@ const SupplierBillingView: React.FC = () => {
       }
       toast.error('Could not start the payment. Please try again.');
     } catch (e: any) {
-      toast.error(e?.message || 'Could not start the payment.');
+      /**
+       * The API interceptor has ALREADY toasted the server's message — it does
+       * that for every non-silent error. Re-toasting `e.message` here stacked
+       * axios's "Request failed with status code 400" underneath the sentence
+       * that actually explained the problem (user, 2026-08-23), so the useful
+       * message was the one people ignored. Only speak up if nothing did.
+       */
+      if (!e?.response && !e?.status) toast.error('Could not start the payment.');
     } finally {
       setPaystackPkgId(null);
     }

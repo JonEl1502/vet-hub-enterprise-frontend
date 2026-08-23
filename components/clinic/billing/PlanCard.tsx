@@ -107,6 +107,20 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
   const onCurrentCycle = isCurrent && selectedCycle === currentSubBillingCycle;
   const [showCycleMenu, setShowCycleMenu] = useState(false);
   const selectedOption = cycleOptions.find((o) => o.cycle === selectedCycle) ?? cycleOptions[0];
+
+  /**
+   * Paystack KE settles in KES, and the platform holds a single USD→KES rate —
+   * so those are the only two currencies a plan can actually be charged in.
+   *
+   * Offering a button that can only ever fail is worse than showing none: a
+   * supplier on the NGN-priced Starter plan clicked "Card or Mobile — NGN 20"
+   * and got a 400 back (user, 2026-08-23). The server still refuses, which is
+   * the real guard; this stops the user reaching it.
+   */
+  const CHARGEABLE = ['KES', 'USD'];
+  const payCurrency = String((selectedOption?.currency ?? pkg.currency) || 'KES').toUpperCase();
+  const currencyUnsupported = !CHARGEABLE.includes(payCurrency);
+
   // The next LONGER cycle within THIS package (a cycle upgrade, e.g. 6mo→Yearly).
   // On the current plan we offer this before any cross-tier upsell.
   const nextCycleUp = (isCurrent && currentCycleDays > 0)
@@ -401,9 +415,15 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
         <div className="mt-auto w-full space-y-2">
           <button
             onClick={() => onPayWithPaystack(selectedOption.id || null, selectedCycle)}
-            disabled={paystackLoading || !(Number(selectedOption.price) > 0)}
+            disabled={paystackLoading || currencyUnsupported || !(Number(selectedOption.price) > 0)}
             className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-sky-600 hover:bg-sky-700"
-            title={!(Number(selectedOption.price) > 0) ? 'No price set for this cycle' : 'Pay by card or mobile money via Paystack'}
+            title={
+              currencyUnsupported
+                ? `Priced in ${payCurrency} — payments settle in KES or USD only`
+                : !(Number(selectedOption.price) > 0)
+                  ? 'No price set for this cycle'
+                  : 'Pay by card or mobile money via Paystack'
+            }
           >
             {paystackLoading ? (
               <><RefreshCw size={14} className="animate-spin" /> Redirecting…</>
@@ -411,6 +431,11 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
               <>💳 Card or Mobile — {formatPrice(selectedOption.price, selectedOption.currency)}</>
             )}
           </button>
+          {currencyUnsupported && (
+            <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 leading-tight text-center">
+              This plan is priced in {payCurrency}. Payments settle in KES or USD — ask support to re-price it.
+            </p>
+          )}
         </div>
       )}
 
