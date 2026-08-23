@@ -556,7 +556,14 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                   boarding"). Recording is per-day; this stays the read-across. */}
               {h.vitals && h.vitals.length > 0 ? (
                 <div className="overflow-x-auto"><table className="w-full text-[10px]"><thead><tr className="text-slate-400 text-left"><th className="py-1">Time</th><th>T</th><th>P</th><th>R</th><th>Wt</th><th>MM</th><th>CRT</th><th /></tr></thead>
-                  <tbody>{h.vitals.slice(-8).reverse().map(v => <tr key={v.id} className="border-t border-slate-100 dark:border-zinc-800 text-pine dark:text-zinc-200"><td className="py-1">{formatTime(v.recordedAt)}</td><td>{v.temperature ?? '—'}</td><td>{v.pulse ?? '—'}</td><td>{v.respiration ?? '—'}</td><td>{v.weight ?? '—'}</td><td>{v.mucousMembrane ?? '—'}</td><td>{v.crt ?? '—'}</td><td className="text-right">{!h.dischargedAt && (
+                  <tbody>{h.vitals.slice(-8).reverse().map(v => <tr key={v.id} className="border-t border-slate-100 dark:border-zinc-800 text-pine dark:text-zinc-200"><td className="py-1 whitespace-nowrap">
+                    {/* DATE as well as time (user, 2026-08-23). This table spans
+                        the WHOLE stay, so "08:50 pm" alone cannot say which day
+                        it belongs to — on a five-day admission that is the only
+                        thing that makes the trend readable. */}
+                    <span className="font-bold text-pine dark:text-zinc-200">{formatDate(v.recordedAt)}</span>
+                    <span className="text-slate-400"> {formatTime(v.recordedAt)}</span>
+                  </td><td>{v.temperature ?? '—'}</td><td>{v.pulse ?? '—'}</td><td>{v.respiration ?? '—'}</td><td>{v.weight ?? '—'}</td><td>{v.mucousMembrane ?? '—'}</td><td>{v.crt ?? '—'}</td><td className="text-right">{!h.dischargedAt && (
                     <button type="button" title="Delete this vitals entry" disabled={removing === `v-${v.id}`} onClick={() => removeVital(v.id)}
                       className="p-1 rounded-md text-slate-300 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-950/30 transition-colors disabled:opacity-40">
                       {removing === `v-${v.id}` ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}

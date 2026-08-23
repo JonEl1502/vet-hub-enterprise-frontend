@@ -276,6 +276,24 @@ const VisitDetailInner: React.FC<Props> = ({
   // gets its own report tab — shown even when the data is still sparse.
   const hasGroomingWork = appointment.encounterType === 'GROOMING' || appointment.tasks.some(t => (t.category || '').toLowerCase().includes('groom'));
   const hasBoardingWork = appointment.encounterType === 'BOARDING' || !!appointment.boardingStayId || appointment.tasks.some(t => (t.category || '').toLowerCase().includes('board'));
+
+  /**
+   * The gate gets its own TAB (user, 2026-08-22).
+   *
+   * Admission is the first thing that happens to an in-patient and boarding
+   * intake to a boarder, yet both sat as step 1 INSIDE Clinical Workflow —
+   * reachable only after landing on a different tab first. On a migrated visit
+   * the gate is also empty, so the one screen someone needs to fill was the one
+   * hardest to reach.
+   *
+   * The dot on the label is deliberate: it marks "there is something to do
+   * here" without shouting, and disappears the moment the gate has content.
+   */
+  // encounterType has no INPATIENT member — in-patient is a VET_VISIT with
+  // visitType INPATIENT, or any visit carrying a hospitalisation.
+  const hasInpatientGate = (appointment as any).visitType === 'INPATIENT'
+    || !!(appointment as any).hospitalizationId;
+  const hasBoardingGate = hasBoardingWork;
   // Per-encounter reports (user, 2026-08-03): a grooming/boarding visit LEADS
   // with its own report — the default report tab follows the primary
   // encounter. Only until the user picks a tab themselves.
@@ -611,7 +629,7 @@ const VisitDetailInner: React.FC<Props> = ({
   // Clinical Workflow · Categories & Services · Records & Billing.
   // Non-finalized visits land on the clinical wizard (entry-point-driven) —
   // emergencies land on Triage; finalized ones on Services.
-  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'followup' | 'services' | 'records' | 'shares' | 'billing' | 'triage' | 'partnerbill' | 'transfer' | 'settle'>(
+  const [workflowTab, setWorkflowTab] = useState<'clinical' | 'followup' | 'services' | 'records' | 'shares' | 'billing' | 'triage' | 'partnerbill' | 'transfer' | 'settle' | 'admission' | 'boardingGate'>(
     // A finalized visit lands on the BILL — it is the record of what was done
     // (user, 2026-07-29). It used to land on Categories & Services, which no
     // longer exists as a tab.
@@ -634,6 +652,10 @@ const VisitDetailInner: React.FC<Props> = ({
   const [taskMenuPos, setTaskMenuPos] = useState<{ top: number; right: number } | null>(null);
   // Dynamic visit wizard + Patient Journey (UI-only phase: localStorage-backed).
   const wiz = useVisitWizard(appointment, pet?.species);
+  // "Is there anything in the gate yet?" — drives the dot on the tab label.
+  const gateStepData: any = (wiz as any)?.state?.data?.admission ?? {};
+  const gateNeedsFilling = hasInpatientGate
+    && !['reason', 'ward', 'code'].some(k => String(gateStepData?.[k] ?? '').trim() !== '');
   // Clinical work started (step completed / stepper moved with data) →
   // a SCHEDULED visit flips to IN_PROGRESS automatically, once.
   const autoStartFired = useRef(false);
@@ -1551,11 +1573,22 @@ const VisitDetailInner: React.FC<Props> = ({
 
   // Authoritative meds/consumables list for the tab + invoice freshness.
   const [medConsumables, setMedConsumables] = useState<AppointmentConsumable[]>([]);
+  /**
+   * Bumped whenever a consumable is logged or removed on this visit.
+   *
+   * ⚠️ Same shape as the inpatient-chart bug (2026-08-23): this list was keyed
+   * on `[appointment.id, activeBottomTab]`, and **adding or removing an item
+   * changes neither**. `ConsumablePicker`'s `onChanged` refreshed a different
+   * loader, so this one — the list the comment above calls authoritative, and
+   * which feeds invoice freshness — kept showing the pre-change basket until
+   * the user happened to switch bottom tabs.
+   */
+  const [medConsRefresh, setMedConsRefresh] = useState(0);
   useEffect(() => {
     let live = true;
     consumablesAPI.list(appointment.id).then(r => { if (live && r.success && r.data) setMedConsumables(r.data); }).catch(() => {});
     return () => { live = false; };
-  }, [appointment.id, activeBottomTab]);
+  }, [appointment.id, activeBottomTab, medConsRefresh]);
 
   const medsTabItems = useMemo(() => {
     if (medConsumables.length) {
@@ -4824,7 +4857,14 @@ const VisitDetailInner: React.FC<Props> = ({
           {/* On an emergency visit, Triage leads — it IS the workflow's front
               door. Diagnostics-only visits (auto-created from New lab/imaging)
               skip the clinical wizard entirely. */}
-          {[...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), ...(isTransferVisit ? [{ id: 'transfer', label: '🔁 Clinical Transfer' }] : []), { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [] : [{ id: 'shares', label: '🤝 Shares & Partners' }]), ...(isTransferVisit ? [] /* follow-up is the requester clinic's job — hidden on transfers (user, 2026-08-02) */ : [{ id: 'followup', label: '🔔 Follow-Up & Reminders' }]),...(isTransferVisit ? [{ id: 'partnerbill', label: '🧾 Partner Bill & Receipt' }] : [{ id: 'billing', label: 'Bill & Invoice' }]),
+          {[
+            /* ADMISSION / BOARDING LEAD (user, 2026-08-22). The gate is the first
+               thing that happens to an in-patient or a boarder, and it was buried
+               as step 1 inside Clinical Workflow — reachable only after landing on
+               another tab first. A visit whose gate is unfilled should open ON it. */
+            ...(hasInpatientGate ? [{ id: 'admission', label: `🏥 Admission${gateNeedsFilling ? ' ·' : ''}` }] : []),
+            ...(hasBoardingGate ? [{ id: 'boardingGate', label: '🛏️ Boarding' }] : []),
+            ...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), ...(isTransferVisit ? [{ id: 'transfer', label: '🔁 Clinical Transfer' }] : []), { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [] : [{ id: 'shares', label: '🤝 Shares & Partners' }]), ...(isTransferVisit ? [] /* follow-up is the requester clinic's job — hidden on transfers (user, 2026-08-02) */ : [{ id: 'followup', label: '🔔 Follow-Up & Reminders' }]),...(isTransferVisit ? [{ id: 'partnerbill', label: '🧾 Partner Bill & Receipt' }] : [{ id: 'billing', label: 'Bill & Invoice' }]),
             /* SETTLE IS A TOP-LEVEL TAB (user, 2026-08-21: "Settle tab to be
                upto not next to invoice n bill"). Beside Bill and Invoice it read
                as one more document to browse; up here it reads as the act it is.
@@ -5498,7 +5538,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                          appointmentId={appointment.id}
                                          serviceTag={`task:${task.id}`}
                                          title={`Consumables · ${task.name}`}
-                                         onChanged={() => { loadTaskConsumables(); onRefreshDashboard?.(); }}
+                                         onChanged={() => { loadTaskConsumables(); setMedConsRefresh(n => n + 1); onRefreshDashboard?.(); }}
                                        />
                                      )}
                                      {/* Combined list — medications + consumables used on this service */}

@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the visit's consumables list went stale after adding an item  —  2026-08-23
+🟢 **Record impact: none** — found by auditing for more of yesterday's bug shape, not by a report.
+- `VisitDetailView`'s `medConsumables` — the list its own comment calls *authoritative*, and which
+  feeds **invoice freshness** — was keyed on `[appointment.id, activeBottomTab]`. Adding or removing
+  a consumable changes neither. `ConsumablePicker`'s `onChanged` refreshed a *different* loader, so
+  this one kept showing the pre-change basket until the user happened to switch bottom tabs.
+- Now keyed on a counter the picker bumps. Identical fix to the inpatient chart; the boarding day
+  sheet already had this guard.
+
+### change: the TPR trend table shows the date  —  2026-08-23
+🟢 **Record impact: none.**
+- The table spans the whole stay, so "08:50 pm" alone could not say which day it belonged to (user,
+  2026-08-23). On a five-day admission the date is the only thing that makes the trend readable.
+
 ### fix: deleting an inpatient item left the row on screen, then 404'd  —  2026-08-23
 🟢 **Record impact: none — no data was lost.** The deletes were working; the screen was not.
 - The chart's consumables fetch keyed on `[appointmentId, h.logs.length]`. **Removing an item
