@@ -99,6 +99,10 @@ export const inpatientAPI = {
   bill: async (id: string | number, reminder?: { serviceType?: string; title?: string; notes?: string; dueAt: string } | null, options?: RequestOptions): Promise<ApiResponse<{ appointmentId: string | null }>> =>
     post(ENDPOINTS.INPATIENT.BILL(id), reminder ? { reminder } : {}, { showError: true, ...options }),
 
+  // Undo a discharge so the admission can be corrected. 400s once paid.
+  reopen: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<any>> =>
+    post(ENDPOINTS.INPATIENT.REOPEN(id), {}, { showError: true, ...options }),
+
   addVital: async (id: string | number, data: Partial<Omit<VitalReading, 'id'>>, options?: RequestOptions): Promise<ApiResponse<{ vital: VitalReading }>> =>
     post(ENDPOINTS.INPATIENT.VITALS(id), data, { showError: true, ...options }),
 

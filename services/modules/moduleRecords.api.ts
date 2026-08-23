@@ -52,6 +52,10 @@ export const groomingAPI = {
   // Close the grooming record + finalize its linked appointment → settle.
   bill: async (id: string | number, reminder?: ReminderDraft | null, options?: RequestOptions): Promise<ApiResponse<ModuleBillResult<GroomingRecord>>> =>
     post(`${ENDPOINTS.GROOMING_RECORDS.BY_ID(id)}/bill`, { reminder }, { showError: true, ...options }),
+  // Reopen a finished session so it (and its visit) can be corrected. 400s if
+  // the visit is already paid — void the payment first.
+  reopen: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ record: GroomingRecord }>> =>
+    post(`${ENDPOINTS.GROOMING_RECORDS.BY_ID(id)}/reopen`, {}, { showError: true, ...options }),
 };
 
 export const surgeryAPI = {

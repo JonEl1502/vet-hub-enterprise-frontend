@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { ArrowLeft, Scissors, Dog, ExternalLink , Receipt} from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { ArrowLeft, Scissors, Dog, ExternalLink , Receipt, RotateCcw} from 'lucide-react';
 import { Visit } from '../../../types';
-import { groomingAPI } from '../../../services';
+import { groomingAPI, toast } from '../../../services';
+import { dialog } from '../../../services/utils/dialog';
 import { useData } from '../../../contexts/DataContext';
 import GroomingPanel from '../appointments/GroomingPanel';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
@@ -80,6 +81,26 @@ const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChang
   const pet = pets.find(p => p.id === appointment.petId);
   const owner = clients.find(c => c.id === appointment.clientId);
   const locked = !!appointment.isPaid || (appointment.status as string) === 'COMPLETED';
+
+  /**
+   * Reopen a locked grooming session (2026-08-23).
+   *
+   * Grooming has no discharge of its own — what locks it is the VISIT being
+   * completed, which makes every edit 400 with "record locked". Offered only
+   * when the lock is the visit's status, not payment: once money is in, the way
+   * back is voiding it, which the server enforces regardless of this button.
+   */
+  const reopenSession = useCallback(async () => {
+    if (!gRec) return;
+    const ok = await dialog.confirm({
+      title: 'Reopen this grooming session?',
+      message: 'The session and its visit reopen so the record and its charges can be corrected.',
+      confirmLabel: 'Reopen',
+    });
+    if (!ok) return;
+    const r = await groomingAPI.reopen(gRec.id);
+    if (r.success) { toast.success('Session reopened'); onChanged(); }
+  }, [gRec, onChanged]);
 
   /**
    * The rail's service lines. A grooming RECORD carries the service name and
@@ -237,6 +258,11 @@ const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChang
           />
         ) : undefined}
         actions={[
+          // Reopen leads when the record is locked BY STATUS — at that point it
+          // is the only action that does anything, since every edit is refused.
+          ...(locked && !appointment.isPaid && gRec ? [{
+            key: 'reopen', label: 'Reopen session', icon: RotateCcw, onClick: reopenSession, primary: true,
+          }] : []),
           // Panel-owned terminal actions first — Save report / Checkout are what
           // you reach for; `primary` keeps Checkout inline when the rest overflow.
           ...panelActions.map(a => ({

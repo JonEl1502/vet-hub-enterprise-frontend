@@ -108,6 +108,10 @@ export const boardingAPI = {
   bill: async (id: string | number, reminder?: { serviceType?: string; title?: string; notes?: string; dueAt: string } | null, options?: RequestOptions): Promise<ApiResponse<{ appointmentId: string | null }>> =>
     post(ENDPOINTS.BOARDING.BILL(id), reminder ? { reminder } : {}, { showError: true, ...options }),
 
+  // Undo a checkout so the stay can be corrected. 400s once the visit is paid.
+  reopen: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<any>> =>
+    post(ENDPOINTS.BOARDING.REOPEN(id), {}, { showError: true, ...options }),
+
   addLog: async (
     id: string | number,
     data: Partial<Omit<BoardingDailyLog, 'id' | 'boardingStayId' | 'createdAt'>>,

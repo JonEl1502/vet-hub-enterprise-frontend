@@ -59,6 +59,33 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the stay charge shows its working, and can be recalculated or reopened  —  2026-08-23
+🔵 **Record impact: low** (Recalculate rewrites the stay line on the visit's bill).
+**Requires the backend reopen endpoints.**
+- Boarding and in-patient pages now carry a **Stay charge** card: days from the dates × the rate in
+  force = the total, plus food and items. It replaces a read-only "Accruing: N × rate" line that
+  rendered **only while the stay was active AND a rate was set** — so the two cases you need it in
+  most, a closed stay and one with no rate, showed nothing at all.
+- **Recalculate** re-runs the server's days × rate onto the bill. **Edit** changes the rate.
+- ⚠️ **The RATE is editable, not the total.** The total is derived, so a hand-typed one would be
+  silently re-derived away on the next recalculation — a number the clinic set, quietly overwritten.
+  Change an input and the total follows.
+- ⚠️ Food is per-day but is **not** folded into the editable rate: the edit saves that number as
+  `dailyRate`, so including food would write rate+food back as the room rate and double-charge food
+  on the next recalculation.
+- **Reopen** on closed records (boarding, in-patient, grooming), each with its own action bar —
+  a checked-out stay previously had no bar at all, so one closed at the wrong figure had no route
+  back. Grooming offers it only when the lock is the visit's STATUS, not payment.
+
+### fix: a discharged admission billed KES 0 and kept accruing nights  —  2026-08-23
+🟢 **Record impact: none** (display), but it was quoting wrong figures at the desk.
+- Two bugs in one line of `InpatientChartPage`:
+  1. `calendarDaysBetween(h.admittedAt)` **defaults its end to now**, so a discharged admission kept
+     accruing nights forever — a stay closed last week quoted this week's total.
+  2. No fallback to the clinic's `inpatientDayRate`, so an admission where nobody typed a rate showed
+     **"stay KES 0"** and looked free. Boarding already fell back; in-patient did not, which is why
+     only this page showed zero.
+
 ### feat: boarding day window settings card (222)  —  2026-08-23
 🟢 **Record impact: none.** **Requires backend migration 222.**
 - Clinic Management → a new **Boarding Day** card: when a billable day starts ('HH:MM') and how days

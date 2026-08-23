@@ -1,17 +1,19 @@
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import { dialog } from '../../../services/utils/dialog';
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2, Trash2, Receipt, Pencil, X} from 'lucide-react';
+import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2, Trash2, Receipt, Pencil, X, RotateCcw} from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import TreatmentPlanPanel from './TreatmentPlanPanel';
 import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import { formatDate, formatTime, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
+import StayChargeCard from '../shared/StayChargeCard';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
 import StandardRecordControls from '../shared/StandardRecordControls';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
 import { useData } from '../../../contexts/DataContext';
+import { useClinic } from '../../../contexts/ClinicContext';
 
 // Full-page inpatient chart — converted from the old right-side drawer so the
 // chart is a real navigable page (deep-linkable via nav param hospId).
@@ -79,6 +81,9 @@ const logSummary = (kind: LogKind, d: Record<string, any>): string => {
 };
 
 const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpenAppointment, embedded, pane }) => {
+  const { selectedClinics } = useClinic();
+  // Clinic default, used when nobody typed a rate on the admission itself.
+  const clinicDayRate = (selectedClinics[0] as any)?.inpatientDayRate ?? null;
   const [h, setH] = useState<Hospitalization | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -455,6 +460,39 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   };
 
   const active = h?.status === 'ADMITTED';
+
+  /**
+   * Reopen a discharged admission so it can be corrected (2026-08-23).
+   *
+   * A stay discharged with no rate bills KES 0 and there was no way back: the
+   * visit was COMPLETED, so every charge path refused. The server refuses once
+   * the visit is PAID — that is the `BILLED ⇒ RECORD LOCKED` rule, and the way
+   * past it is voiding the payment, deliberately not this button.
+   */
+  const reopenAdmission = useCallback(async () => {
+    const ok = await dialog.confirm({
+      title: 'Reopen this admission?',
+      message: 'It goes back to ADMITTED and its visit reopens so charges can be corrected. Discharge again when you are done.',
+      confirmLabel: 'Reopen',
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const r = await inpatientAPI.reopen(hospId);
+      if (r.success) { toast.success('Admission reopened'); await load(); onChanged?.(); }
+    } finally { setBusy(false); }
+  }, [hospId, load, onChanged]);
+
+  /** Re-run the server's days × rate calculation onto the visit's bill. */
+  const recalcCharge = useCallback(async () => {
+    const r = await inpatientAPI.bill(hospId, null);
+    if (r.success) { toast.success('Charge recalculated'); await load(); onChanged?.(); }
+  }, [hospId, load, onChanged]);
+
+  const saveDailyRate = useCallback(async (rate: number) => {
+    const r = await inpatientAPI.update(hospId, { dailyRate: rate } as any);
+    if (r.success) { toast.success('Daily rate updated'); await load(); onChanged?.(); }
+  }, [hospId, load, onChanged]);
   const billOutstanding = !!h?.billing && !h.billing.isPaid && (h.billing.totalCost ?? 0) > 0;
 
   return (
@@ -499,8 +537,20 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
           {h && (() => {
             // Nights, not calendar days — the same rule the day rows and the
             // bill use, so this total can never disagree with them.
-            const nights = Math.max(1, calendarDaysBetween(h.admittedAt));
-            const stayTotal = nights * Number(h.dailyRate ?? 0);
+            /**
+             * ⚠️ Two bugs lived in this one line (2026-08-23).
+             *
+             * 1. `calendarDaysBetween(h.admittedAt)` defaults its end to NOW, so
+             *    a DISCHARGED admission kept accruing nights forever — a stay
+             *    closed last week quoted this week's total.
+             * 2. No fallback to the clinic's `inpatientDayRate`, so an admission
+             *    where nobody typed a rate showed "stay KES 0" and looked free
+             *    (user, 2026-08-23). Boarding already falls back; inpatient did
+             *    not, which is why only this page showed zero.
+             */
+            const nights = Math.max(1, calendarDaysBetween(h.admittedAt, h.dischargedAt ?? undefined));
+            const rate = Number(h.dailyRate ?? clinicDayRate ?? 0) || 0;
+            const stayTotal = nights * rate;
             const itemsTotal = (consumables || []).reduce((sum: number, c: any) => sum + (c.billable
               ? Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0))
               : 0), 0);
@@ -1143,14 +1193,33 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
 
               {/* Calendar dates crossed since admission — same maths as the
                   backend's computeNights. */}
-              {active && h.dailyRate ? (() => {
-                const days = Math.max(1, calendarDaysBetween(h.admittedAt));
-                return (
-                  <p className="text-[10px] text-slate-500 dark:text-zinc-400">
-                    Accruing: {days} day{days === 1 ? '' : 's'} × KES {h.dailyRate.toLocaleString()} = <b className="text-pine dark:text-zinc-100">KES {(days * h.dailyRate).toLocaleString()}</b> <span className="text-slate-400">(added at discharge)</span>
-                  </p>
-                );
-              })() : null}
+              {/* Was a read-only "Accruing: N × rate" line that appeared ONLY
+                  while active AND a rate was set — so the two cases you most
+                  need it in, a discharged stay and one with no rate, showed
+                  nothing at all. Now it always shows the working, and carries
+                  the two actions to fix it. */}
+              <div className="pt-3 mt-3 border-t border-slate-100 dark:border-zinc-800">
+                {(() => {
+                  const days = Math.max(1, calendarDaysBetween(h.admittedAt, h.dischargedAt ?? undefined));
+                  const ownRate = Number(h.dailyRate ?? 0) || 0;
+                  const fallback = Number(clinicDayRate ?? 0) || 0;
+                  const rate = ownRate || fallback;
+                  const extras = (consumables || []).reduce((sum: number, c: any) => sum + (c.billable
+                    ? Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0)) : 0), 0);
+                  return (
+                    <StayChargeCard
+                      days={days}
+                      rate={rate}
+                      rateSource={ownRate ? 'record' : fallback ? 'clinic' : 'none'}
+                      extras={extras}
+                      locked={!active}
+                      lockedReason="This admission is discharged. Reopen it to change the charge."
+                      onSaveRate={saveDailyRate}
+                      onRecalculate={recalcCharge}
+                    />
+                  );
+                })()}
+              </div>
               {/* ONE rail card (user, 2026-08-03: simpler) — complexity and
                   discharge fold in here instead of floating as their own cards. */}
               <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
@@ -1240,6 +1309,24 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
               { key: 'discharge', label: 'Discharge', icon: LogOut, onClick: () => setShowDischarge(true), primary: true },
               // See the boarding page — billing is the destination staff leave
               // for, and `settle: true` opens the visit ON the bill.
+              ...((h.billing?.appointmentId || h.appointmentId) && onOpenAppointment ? [{
+                key: 'billing', label: 'Go to billing', icon: Receipt, tone: 'seafoam' as const,
+                onClick: () => onOpenAppointment(String(h.billing?.appointmentId || h.appointmentId), true),
+              }] : []),
+            ]}
+          />
+        </>
+      )}
+
+      {/* A closed admission needs its own bar — there was none, so a stay
+          discharged at the wrong figure had no route back (user, 2026-08-23). */}
+      {h && !active && h.status !== 'CANCELLED' && (
+        <>
+          <RecordActionBarSpacer />
+          <RecordActionBar
+            hint="Reopening restores the admission and its visit so charges can be corrected."
+            actions={[
+              { key: 'reopen', label: 'Reopen admission', icon: RotateCcw, onClick: reopenAdmission, primary: true, disabled: busy },
               ...((h.billing?.appointmentId || h.appointmentId) && onOpenAppointment ? [{
                 key: 'billing', label: 'Go to billing', icon: Receipt, tone: 'seafoam' as const,
                 onClick: () => onOpenAppointment(String(h.billing?.appointmentId || h.appointmentId), true),

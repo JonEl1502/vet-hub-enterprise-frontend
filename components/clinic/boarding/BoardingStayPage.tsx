@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { dialog } from '../../../services/utils/dialog';
-import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2, Receipt, ChevronDown } from 'lucide-react';
+import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2, Receipt, ChevronDown, RotateCcw } from 'lucide-react';
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import { sellUnitOf } from '../shared/QtyUnitControl';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
+import StayChargeCard from '../shared/StayChargeCard';
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import { formatDate, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
@@ -362,6 +363,35 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   );
 
   const active = stay?.status === 'ADMITTED';
+
+  /**
+   * Undo a checkout so the stay can be corrected (2026-08-23). Server refuses
+   * once the visit is PAID — void the payment first, deliberately not here.
+   */
+  const reopenStay = useCallback(async () => {
+    const ok = await dialog.confirm({
+      title: 'Reopen this stay?',
+      message: 'It goes back to ADMITTED and its visit reopens so charges can be corrected. Check out again when you are done.',
+      confirmLabel: 'Reopen',
+    });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      const r = await boardingAPI.reopen(stayId);
+      if (r.success) { toast.success('Stay reopened'); await load(); onChanged?.(); }
+    } finally { setBusy(false); }
+  }, [stayId, load, onChanged]);
+
+  /** Re-run the server's days × rate calculation onto the visit's bill. */
+  const recalcCharge = useCallback(async () => {
+    const r = await boardingAPI.bill(stayId, null);
+    if (r.success) { toast.success('Charge recalculated'); await load(); onChanged?.(); }
+  }, [stayId, load, onChanged]);
+
+  const saveDailyRate = useCallback(async (rate: number) => {
+    const r = await boardingAPI.update(stayId, { dailyRate: rate } as any);
+    if (r.success) { toast.success('Daily rate updated'); await load(); onChanged?.(); }
+  }, [stayId, load, onChanged]);
 
   return (
     <div className={`space-y-5 animate-in fade-in duration-300 ${embedded ? '' : 'pb-20'}`}>
@@ -984,17 +1014,33 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 const foodPerDay = fp.providedByClient === false ? (Number(fp.ratePerMeal) || 0) * (Number(fp.mealsPerDay) || 0) : 0;
                 return (
                   <div className="space-y-1">
-                    {active && (stay.dailyRate ?? clinicDayRate) ? (() => {
-                      const r = Number(stay.dailyRate ?? clinicDayRate);
+                    {/* Shows the WORKING and the two actions that fix it. The
+                        old line rendered only while active AND a rate existed,
+                        so a checked-out stay or one with no rate — the two
+                        cases you need it most — showed nothing. */}
+                    {(() => {
+                      const ownRate = Number(stay.dailyRate ?? 0) || 0;
+                      const fallback = Number(clinicDayRate ?? 0) || 0;
+                      const rate = ownRate || fallback;
+                      const itemsTotal = (consumables || []).reduce((sum: number, c: any) => sum + (c.billable
+                        ? Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0)) : 0), 0);
                       return (
-                        <p className="text-[10px] text-slate-500 dark:text-zinc-400">
-                          Accruing: {days} day{days === 1 ? '' : 's'} × KES {r.toLocaleString()} = <b className="text-pine dark:text-zinc-100">KES {(days * r).toLocaleString()}</b> <span className="text-slate-400">(added at checkout)</span>
-                          {stay.dailyRate == null && (
-                            <span className="text-amber-500 font-bold"> · clinic default — save the price to pin it to this stay</span>
-                          )}
-                        </p>
+                        <StayChargeCard
+                          days={days}
+                          rate={rate}
+                          rateSource={ownRate ? 'record' : fallback ? 'clinic' : 'none'}
+                          /* Food is per-day but NOT part of the rate: the edit
+                             saves this number as `dailyRate`, so folding food
+                             into it would write rate+food back as the room
+                             rate and double-charge food on the next recalc. */
+                          extras={itemsTotal + days * foodPerDay}
+                          locked={!active}
+                          lockedReason="This stay is checked out. Reopen it to change the charge."
+                          onSaveRate={saveDailyRate}
+                          onRecalculate={recalcCharge}
+                        />
                       );
-                    })() : null}
+                    })()}
                     {/* The FOOD accrual — visible so a meals/rate typo can't hide. */}
                     {foodPerDay > 0 && (
                       <p className="text-[10px] text-slate-500 dark:text-zinc-400">
@@ -1127,6 +1173,24 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
         </div>
       ) : (
         <div className="p-10 text-center text-sm text-slate-400">Stay not found.</div>
+      )}
+
+      {/* A checked-out stay had no bar at all, so one closed at the wrong
+          figure had no route back (user, 2026-08-23). */}
+      {stay && !active && stay.status !== 'CANCELLED' && (
+        <>
+          <RecordActionBarSpacer />
+          <RecordActionBar
+            hint="Reopening restores the stay and its visit so charges can be corrected."
+            actions={[
+              { key: 'reopen', label: 'Reopen stay', icon: RotateCcw, onClick: reopenStay, primary: true, disabled: busy },
+              ...(linkedApptId && onOpenAppointment ? [{
+                key: 'billing', label: 'Go to billing', icon: Receipt, tone: 'seafoam' as const,
+                onClick: () => onOpenAppointment(String(linkedApptId), true),
+              }] : []),
+            ]}
+          />
+        </>
       )}
 
       {/* Check-out requires a follow-up reminder (hard gate). */}
