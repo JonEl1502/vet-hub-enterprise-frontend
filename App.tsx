@@ -3388,7 +3388,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               page they were on (user, 2026-08-23: *"i am in supplier and shows
               clinic id err"*). A triage board is meaningless to a supplier
               anyway; the bar simply does not belong on those pages. */}
-          {user?.role !== UserRole.SUPPLIER && user?.role !== UserRole.CLIENT && (
+          {selectedClinicIds.length === 1
+            && user?.role !== UserRole.SUPPLIER
+            && user?.role !== UserRole.CLIENT && (
             <EmergencyAlertBar
               onOpen={() => navigateTo('emergency')}
               onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id), openTriage: true })}

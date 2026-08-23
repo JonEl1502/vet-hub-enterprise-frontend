@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the triage bar still polled a clinic endpoint in ADMIN  —  2026-08-23
+🟢 **Record impact: none.**
+- Yesterday's fix excluded SUPPLIER and CLIENT roles, but that was the wrong axis. An **admin scoped
+  to "All clinics (8)"** sends `X-Clinic-Ids` (plural) and no `X-Clinic-Id`, so the same 400 came
+  back on the platform dashboard (user: *"triage call in admin"*).
+- ⚠️ The real requirement is a **single clinic in scope** — which is also the only state where
+  *"who is in emergency right now"* has one answer. Gated on that instead of on role.
+
 ### fix: a pay button that could only ever fail, and a double error toast  —  2026-08-23
 🟢 **Record impact: none.**
 - A plan priced in a currency Paystack cannot settle (anything but **KES** or **USD**) still showed
