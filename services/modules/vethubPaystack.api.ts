@@ -65,6 +65,31 @@ export const vethubPaystackAPI = {
   ): Promise<ApiResponse<PaystackInitiateResult>> =>
     post('/subscriptions/paystack/initiate', args, { headers: { 'x-clinic-id': clinicId } }),
 
+  /**
+   * 220 — the SUPPLIER rail. Same endpoint, addressed with `x-supplier-id`
+   * instead of `x-clinic-id`; the server picks the owner from the header.
+   */
+  initiateSupplier: (
+    supplierId: string,
+    args: {
+      packageId: string | number;
+      billingOptionId?: string | number;
+      cycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL';
+      email: string;
+      phone?: string;
+    }
+  ): Promise<ApiResponse<PaystackInitiateResult>> =>
+    post('/subscriptions/paystack/initiate', args, { headers: { 'x-supplier-id': supplierId } }),
+
+  getSupplierStatus: (
+    supplierId: string,
+    reference: string
+  ): Promise<ApiResponse<PaystackStatus>> =>
+    get(`/subscriptions/paystack/status/${encodeURIComponent(reference)}`, {
+      headers: { 'x-supplier-id': supplierId },
+      cache: false,
+    }),
+
   getStatus: (
     clinicId: string,
     reference: string

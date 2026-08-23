@@ -31,6 +31,12 @@ export interface CommunityPost {
   startsAt: string | null;
   endsAt: string | null;
   location: string | null;
+  /** 216 — the structured venue behind `location`. Null on pre-216 posts. */
+  venueMode: 'IN_PERSON' | 'ONLINE' | null;
+  venueCountry: string | null;
+  venueCity: string | null;
+  venueAddress: string | null;
+  venueLink: string | null;
   viewCount: number;
   /** Products on a DEAL — clickable straight into a pre-filled purchase order. */
   items: CommunityPostItem[];
@@ -72,6 +78,11 @@ export interface CreateCommunityPost {
   startsAt?: string;
   endsAt?: string;
   location?: string;
+  venueMode?: 'IN_PERSON' | 'ONLINE';
+  venueCountry?: string;
+  venueCity?: string;
+  venueAddress?: string;
+  venueLink?: string;
   publish?: boolean;
   audienceRegions?: string[];
   audienceCountries?: string[];

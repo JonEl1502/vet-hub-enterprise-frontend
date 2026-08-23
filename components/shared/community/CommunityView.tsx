@@ -49,6 +49,9 @@ const CommunityView: React.FC = () => {
   const [form, setForm] = useState({
     kind: (isPractitioner ? 'MEET' : 'ARTICLE') as CommunityKind,
     title: '', body: '', location: '', startsAt: '', endsAt: '',
+    // 216 — a meet-up is somewhere or online, and the two want different fields.
+    venueMode: 'IN_PERSON' as 'IN_PERSON' | 'ONLINE',
+    venueCountry: '', venueCity: '', venueAddress: '', venueLink: '',
     price: '', compareAtPrice: '', tags: '',
     audienceCities: '', audienceCountries: '', audienceRegions: '',
   });
@@ -77,6 +80,15 @@ const CommunityView: React.FC = () => {
         title: form.title.trim(),
         body: form.body.trim() || undefined,
         location: form.location.trim() || undefined,
+        // Only sent for a meet-up — a deal or a notice has no venue, and
+        // posting empty strings would write blank columns on every one of them.
+        ...(form.kind === 'MEET' ? {
+          venueMode: form.venueMode,
+          venueCountry: form.venueMode === 'IN_PERSON' ? (form.venueCountry.trim() || undefined) : undefined,
+          venueCity: form.venueMode === 'IN_PERSON' ? (form.venueCity.trim() || undefined) : undefined,
+          venueAddress: form.venueMode === 'IN_PERSON' ? (form.venueAddress.trim() || undefined) : undefined,
+          venueLink: form.venueMode === 'ONLINE' ? (form.venueLink.trim() || undefined) : undefined,
+        } : {}),
         startsAt: form.startsAt || undefined,
         endsAt: form.endsAt || undefined,
         price: form.price ? Number(form.price) : undefined,
@@ -88,7 +100,7 @@ const CommunityView: React.FC = () => {
       });
       toast.success('Posted to Community');
       setComposerOpen(false);
-      setForm({ ...form, title: '', body: '', location: '', startsAt: '', endsAt: '', price: '', compareAtPrice: '', tags: '', audienceCities: '', audienceCountries: '', audienceRegions: '' });
+      setForm({ ...form, title: '', body: '', location: '', startsAt: '', endsAt: '', price: '', compareAtPrice: '', tags: '', audienceCities: '', audienceCountries: '', audienceRegions: '', venueMode: 'IN_PERSON', venueCountry: '', venueCity: '', venueAddress: '', venueLink: '' });
       await load();
     } catch {
       /* the API layer surfaces the 403 with the upgrade wording */
@@ -283,7 +295,17 @@ const CommunityView: React.FC = () => {
               {p.kind === 'MEET' && (
                 <div className="flex flex-wrap items-center gap-3 text-[10px] font-bold text-slate-500">
                   {p.startsAt && <span className="inline-flex items-center gap-1"><Calendar size={11} /> {formatDate(p.startsAt)}</span>}
-                  {p.location && <span className="inline-flex items-center gap-1"><MapPin size={11} /> {p.location}</span>}
+                  {/* An ONLINE meet-up's "where" is a link you click, not a
+                      place you travel to — render it as one (216). */}
+                  {p.venueMode === 'ONLINE' && p.venueLink ? (
+                    <a href={p.venueLink} target="_blank" rel="noopener noreferrer"
+                      onClick={e => e.stopPropagation()}
+                      className="inline-flex items-center gap-1 text-seafoam hover:underline">
+                      <MapPin size={11} /> Join online
+                    </a>
+                  ) : p.location ? (
+                    <span className="inline-flex items-center gap-1"><MapPin size={11} /> {p.location}</span>
+                  ) : null}
                 </div>
               )}
 
@@ -352,7 +374,52 @@ const CommunityView: React.FC = () => {
                 <div className="grid grid-cols-1 gap-2">
                   <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">When — required</label>
                   <input className="field-input" type="datetime-local" value={form.startsAt} onChange={e => setForm(f => ({ ...f, startsAt: e.target.value }))} />
-                  <input className="field-input" placeholder="Where" value={form.location} onChange={e => setForm(f => ({ ...f, location: e.target.value }))} />
+
+                  {/* 216 — "Where" was one free-text line doing four jobs:
+                      country, city, street, and sometimes a Zoom link. You could
+                      not map it, filter by it, or tell an attendee whether to
+                      travel or click (user, 2026-08-22: "country city physical
+                      address, if online link address"). */}
+                  <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Where</label>
+                  <div className="flex gap-1.5">
+                    {(['IN_PERSON', 'ONLINE'] as const).map(m => (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setForm(f => ({ ...f, venueMode: m }))}
+                        className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                          form.venueMode === m
+                            ? 'bg-seafoam text-white border-seafoam'
+                            : 'bg-white dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam'
+                        }`}
+                      >
+                        {m === 'IN_PERSON' ? 'In person' : 'Online'}
+                      </button>
+                    ))}
+                  </div>
+
+                  {form.venueMode === 'IN_PERSON' ? (
+                    <>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input className="field-input" placeholder="Country (e.g. KE)" maxLength={2}
+                          value={form.venueCountry}
+                          onChange={e => setForm(f => ({ ...f, venueCountry: e.target.value.toUpperCase() }))} />
+                        <input className="field-input" placeholder="City (e.g. Nairobi)"
+                          value={form.venueCity}
+                          onChange={e => setForm(f => ({ ...f, venueCity: e.target.value }))} />
+                      </div>
+                      <input className="field-input" placeholder="Physical address — building, street, landmark"
+                        value={form.venueAddress}
+                        onChange={e => setForm(f => ({ ...f, venueAddress: e.target.value }))} />
+                    </>
+                  ) : (
+                    <input className="field-input" type="url" placeholder="Joining link (Zoom, Meet, Teams…)"
+                      value={form.venueLink}
+                      onChange={e => setForm(f => ({ ...f, venueLink: e.target.value }))} />
+                  )}
+                  <p className="text-[9px] font-bold text-slate-400 px-1">
+                    Shown on the post as one line; kept as separate fields so meet-ups can be filtered by place.
+                  </p>
                 </div>
               )}
 

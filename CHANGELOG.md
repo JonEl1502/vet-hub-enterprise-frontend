@@ -59,6 +59,37 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Boarding step is tabbed  —  2026-08-23
+🟢 **Record impact: none.**
+- **Daily sheet & care log · Stay & plan** are now tabs, mirroring the Admission step (user,
+  2026-08-23: *"boarding has its own too"*). `BoardingStayPage` gained the same `pane` prop as the
+  inpatient chart; omitted, it renders both columns as before.
+- ⚠️ **No gate tab here, deliberately.** Boarding's gate is already its own step
+  (`boardingAssessment`), separated from the stay by the mandatory vet check (077). Rendering it
+  here too would write to the **wrong place**: the wizard scopes a step's form to
+  `state.data[currentStep]`, so a gate shown on the `boardingStay` step would save into the stay's
+  bucket, not the assessment's — two identical-looking forms silently storing to different keys.
+  Admission can carry its gate as a tab precisely because the gate *is* that step.
+
+### feat: meet-up venue composer  —  2026-08-23
+🟢 **Record impact: none.**
+- "Where" was one free-text line doing four jobs — country, city, street, and sometimes a Zoom link
+  (user, 2026-08-22: *"country city physical address, if online link address"*). The composer now
+  asks **In person** or **Online**, then country / city / address, or a joining link.
+- An online meet-up's "where" renders as a **link you click**, not a place you travel to.
+- The one-line summary is still shown on the card and still stored — see the backend note; these
+  fields exist so meet-ups can be filtered by place.
+
+### feat: suppliers can pay with Paystack  —  2026-08-23
+🟢 **Record impact: none** (frontend). Needs backend migration 220.
+- The supplier billing page's plan cards now offer **Card or Mobile** and redirect to Paystack's
+  hosted checkout, addressed with `x-supplier-id`. Suppliers previously activated a plan without
+  ever paying.
+- The clinic header the endpoint used to demand is **never sent** — the page still touches no clinic
+  id anywhere.
+- Missing account email is caught **before** calling Paystack, which rejects a transaction without
+  one, so the user gets a sentence they can act on instead of a gateway error.
+
 ### correction: the visit's consumables list was NOT stale  —  2026-08-23
 🟢 **Record impact: none. This reverses a change made earlier the same day.**
 - Auditing for more of the inpatient staleness bug, `VisitDetailView`'s `medConsumables` looked like

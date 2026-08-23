@@ -7,6 +7,7 @@ import {
 import { useAuth } from '../../../contexts/AuthContext';
 import { supplierSubscriptionAPI, SupplierSubscription, SubscriptionPackage, UpgradePreview } from '../../../services/modules/supplierSubscription.api';
 import { toast } from '../../../services/utils/toast';
+import { vethubPaystackAPI } from '../../../services/modules/vethubPaystack.api';
 import { cache } from '../../../services/utils/cache';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { PlanCard } from '../../clinic/billing/PlanCard';
@@ -113,6 +114,52 @@ const SupplierBillingView: React.FC = () => {
 
   // Add-ons layer OVER a base plan; listing one here would let a supplier
   // "subscribe" to it and replace their real plan. Mirrors the clinic page.
+  /**
+   * 220 — Paystack for suppliers.
+   *
+   * Until now a supplier "subscribed" without paying: the only rail was the
+   * clinic one, and `/subscriptions/paystack/initiate` demanded an
+   * `x-clinic-id` a supplier does not have. Same endpoint now accepts
+   * `x-supplier-id`.
+   */
+  const [paystackPkgId, setPaystackPkgId] = useState<string | null>(null);
+
+  const handlePaystackPay = async (
+    pkg: SubscriptionPackage,
+    optionId: string | null,
+    cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL',
+  ) => {
+    if (!supplierId) return;
+    // Paystack REQUIRES an email and rejects the transaction without one, so
+    // stop here with a sentence the user can act on rather than a gateway error.
+    const email = (user?.email || '').trim();
+    if (!email) {
+      toast.error('Add an email address to your account before paying — Paystack requires one.');
+      return;
+    }
+    setPaystackPkgId(pkg.id);
+    try {
+      const res = await vethubPaystackAPI.initiateSupplier(supplierId, {
+        packageId: pkg.id,
+        billingOptionId: optionId ?? undefined,
+        cycle,
+        email,
+      });
+      const url = (res as any)?.data?.authorizationUrl;
+      if (res.success && url) {
+        // Paystack hosts the checkout, so this leaves the app. On return the
+        // page refetches and the new plan is already active.
+        window.location.href = url;
+        return;
+      }
+      toast.error('Could not start the payment. Please try again.');
+    } catch (e: any) {
+      toast.error(e?.message || 'Could not start the payment.');
+    } finally {
+      setPaystackPkgId(null);
+    }
+  };
+
   const basePackages = React.useMemo(
     () => packages.filter((p) => !p.isAddon).sort((a, b) => a.tier - b.tier),
     [packages],
@@ -250,11 +297,10 @@ const SupplierBillingView: React.FC = () => {
             downgrade gate all behave identically. The catalog is the ONE
             catalog filtered to audiences=['SUPPLIER'] — 113.
 
-            ⚠️ NO CLINIC ID ANYWHERE. Every clinic-only rail is deliberately
-            left unwired: `onPayWithPaystack` would POST /subscriptions/
-            paystack/initiate, which requires an x-clinic-id header and 400s
-            "clinicId is required" for a supplier. Suppliers activate through
-            the supplier-scoped subscribe endpoint via onSelect instead. */}
+            ⚠️ STILL NO CLINIC ID. Paystack is wired as of 220, but through the
+            SUPPLIER rail (`x-supplier-id`) — the clinic header this endpoint
+            used to demand is never sent. `onSelect` remains the free
+            activation path for plans with no price. */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {basePackages.map((pkg, i) => (
             <PlanCard
@@ -264,7 +310,8 @@ const SupplierBillingView: React.FC = () => {
               isLoading={actionLoading === pkg.id}
               onSelect={() => handleSubscribe(pkg)}
               onPayWithMpesa={undefined}
-              onPayWithPaystack={undefined}
+              onPayWithPaystack={(optionId, cycle) => handlePaystackPay(pkg, optionId, cycle)}
+              paystackLoading={paystackPkgId === pkg.id}
               /* supplier_subscriptions stores no purchased-cycle column (unlike
                  clinic_subscriptions), so the plan's own cycle is the best
                  signal available for dimming cycle downgrades. */

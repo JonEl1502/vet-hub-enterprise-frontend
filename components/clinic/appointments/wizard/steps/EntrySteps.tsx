@@ -376,20 +376,64 @@ export const BoardingEntryStep: React.FC<StepProps> = ({ pet, data, setData }) =
 // consumables and day sheets are worked here against the same record the
 // Boarding page reads. The stay is created by Onboard-to-boarding; this step
 // manages it once it exists.
-export const BoardingStayStep: React.FC<StepProps> = ({ visit, refreshVisit, emit }) => (
-  visit.boardingStayId ? (
-    <BoardingStayPage
-      stayId={String(visit.boardingStayId)}
-      embedded
-      onBack={() => {}}
-      onChanged={() => { emit('Boarding stay updated', 'action', true); refreshVisit?.(); }}
-    />
-  ) : (
-    <p className="px-3 py-2.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
-      No boarding stay linked yet — Onboard to boarding from the visit header, then the full stay (care logs, feeding, consumables) manages right here.
-    </p>
-  )
-);
+export const BoardingStayStep: React.FC<StepProps> = ({ visit, refreshVisit, emit }) => {
+  /**
+   * Tabbed, like the Admission step (user, 2026-08-23) — "boarding has its own
+   * too, and admission-gated as well". The day sheet is what you come back to
+   * every morning; the stay rail is the checkout date and the accruing charge.
+   *
+   * ⚠️ NO GATE TAB HERE, deliberately — and this is not an oversight.
+   * Boarding's gate is already its OWN step (`boardingAssessment`), separated
+   * from the stay by the mandatory vet check (077). Rendering it here too would
+   * write to the wrong place: the wizard scopes a step's form to
+   * `state.data[currentStep]`, so a gate shown on the `boardingStay` step would
+   * save into the stay's bucket, not the assessment's — two identical-looking
+   * forms silently storing to different keys. Admission can carry its gate as a
+   * tab precisely because the gate IS that step.
+   */
+  const [tab, setTab] = React.useState<'chart' | 'plan'>('chart');
+  const stayId = visit?.boardingStayId ? String(visit.boardingStayId) : null;
+
+  const TABS: Array<{ id: typeof tab; label: string }> = [
+    { id: 'chart', label: 'Daily sheet & care log' },
+    { id: 'plan', label: 'Stay & plan' },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap gap-1.5 border-b border-slate-200 dark:border-zinc-800 pb-2">
+        {TABS.map(t => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setTab(t.id)}
+            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+              tab === t.id
+                ? 'bg-seafoam text-white border-seafoam shadow-sm'
+                : 'bg-white dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:text-seafoam'
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {stayId ? (
+        <BoardingStayPage
+          stayId={stayId}
+          embedded
+          pane={tab === 'chart' ? 'chart' : 'plan'}
+          onBack={() => {}}
+          onChanged={() => { emit?.('Boarding stay updated', 'action', true); refreshVisit?.(); }}
+        />
+      ) : (
+        <p className="px-3 py-2.5 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+          No boarding stay linked yet — Onboard to boarding from the visit header, and the day sheet (care logs, feeding, consumables) opens here.
+        </p>
+      )}
+    </div>
+  );
+};
 
 /**
  * Step 1 — the admission GATE only (user, 2026-08-22).

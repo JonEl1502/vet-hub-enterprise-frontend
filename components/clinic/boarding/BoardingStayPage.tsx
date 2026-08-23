@@ -26,6 +26,14 @@ interface Props {
   /** Rendered inside the visit wizard's Boarding step — hides the page-level
    * back link (the wizard provides its own navigation). */
   embedded?: boolean;
+  /**
+   * Render ONE column instead of the two-column page (2026-08-23).
+   *
+   * Mirrors `InpatientChartPage.pane`: the visit wizard shows boarding as tabs
+   * — Daily sheet, then Stay & plan — so it needs the main column and the side
+   * rail separately. Omitted, the page renders both side by side as before.
+   */
+  pane?: 'chart' | 'plan';
 }
 
 const STOOL = ['normal', 'abnormal', 'none'];
@@ -84,7 +92,7 @@ const Disclosure: React.FC<{
   );
 };
 
-const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAppointment, onOpenGrooming, embedded }) => {
+const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAppointment, onOpenGrooming, embedded, pane }) => {
   const [stay, setStay] = useState<BoardingStay | null>(null);
   const [loading, setLoading] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -471,9 +479,9 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
               follows you down the care sheet instead of being a dead strip you
               scroll past — so the column earns its width. The care sheet keeps
               2/3, same split as inpatient. */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">
+          <div className={pane ? 'space-y-4' : 'grid grid-cols-1 lg:grid-cols-3 gap-4 items-start'}>
           {/* MAIN — daily care logging + care log history */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className={`${pane ? (pane === 'chart' ? '' : 'hidden') : 'lg:col-span-2'} space-y-4`}>
             {/* ONE care card (§0f #2): log form ÷ consumables ÷ care-log history,
                 divided — not three cards a scroll-length apart. */}
             <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
@@ -841,7 +849,9 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
               load-bearing bits (self-start, own overflow) — see
               RecordPageHeader.tsx. The FACTS grid that used to open this card
               sits at the top of the page instead (user, 2026-08-04). */}
-          <div className={`space-y-4 ${STICKY_RAIL}`}>
+          {/* As a TAB it is a full-width panel, so the sticky rail — which
+              exists to keep it beside a long sheet — is dropped. */}
+          <div className={pane ? (pane === 'plan' ? 'space-y-4' : 'hidden') : `space-y-4 ${STICKY_RAIL}`}>
             {/* Collapsed by default (user, 2026-08-20: "this section to go to
                 bottom collapsible"). On mobile the rail stacks under a week of
                 care log, and every one of these — open visit, grooming, pricing,
