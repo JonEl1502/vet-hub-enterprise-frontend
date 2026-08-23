@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Storage tab in Clinic Management  —  2026-08-22
+🟢 **Record impact: none** — read-only.
+- New **Storage** tab: total used against the plan's allowance with a usage bar, file count, a
+  per-source breakdown (lab, imaging, client files, visit attachments, portal photos, avatars) and the
+  **largest files** with a size each (user, 2026-08-22).
+- **Object storage vs "inside the database" are shown separately.** Base64 images written into JSONB
+  are not in a bucket — they sit in table rows, slow every query that reads the record and are copied
+  into every backup. The card says that where it is true rather than folding it into one number.
+- ⚠️ **The headline is labelled as a floor.** Files saved without a recorded size are counted but add
+  nothing, and the card states how many — presenting the sum as exact would have been the more
+  comfortable lie.
+- Files: `clinic/clinic-mgmt/StorageUsageTab.tsx` (new), `clinic/clinic-mgmt/ClinicManagementView.tsx`,
+  `services/modules/clinicSubscription.api.ts`.
+- **Data dependency:** backend `GET /clinic-subscriptions/:clinicId/storage` (same-day backend entry).
+
+
 ### change: calling a client opens OUR dialog, not the browser's  —  2026-08-23
 🟢 **Record impact: none.**
 - A bare `tel:` link made the OS ask *"app.vethubcore.com wants to open this application"* — a prompt

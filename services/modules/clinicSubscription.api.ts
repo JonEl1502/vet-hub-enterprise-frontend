@@ -76,10 +76,46 @@ export interface PlanAccess {
   addOns?: Array<{ name: string | null; expiresAt: string }>;
 }
 
+export interface StorageFileRow {
+  source: string;
+  recordId: string;
+  label: string | null;
+  kind: string | null;
+  contentType: string | null;
+  bytes: number;
+  /** Base64 held inside Postgres rather than object storage. */
+  inline: boolean;
+  createdAt: string | null;
+}
+
+export interface StorageUsage {
+  totalBytes: number;
+  totalFiles: number;
+  objectBytes: number;
+  objectFiles: number;
+  inlineBytes: number;
+  inlineFiles: number;
+  /** Counted as files but contributing 0 bytes — nothing recorded their size. */
+  unknownSizeFiles: number;
+  bySource: { source: string; files: number; bytes: number }[];
+  largest: StorageFileRow[];
+  limitGb: number | null;
+  limitBytes: number | null;
+}
+
 export const clinicSubscriptionAPI = {
   /** Plan limits + current usage (staff / clients / patients) for a clinic */
   getUsage: async (clinicId: string): Promise<ApiResponse<ClinicUsage>> =>
     get(`/clinic-subscriptions/${clinicId}/usage`, { headers: { 'x-clinic-id': clinicId } }),
+
+  /**
+   * Measured storage — files, bytes, and where they live.
+   *
+   * Distinct from `getUsage`, which reports the plan's *stated* `storageGb`
+   * limit. This is what the clinic has actually put there.
+   */
+  getStorage: async (clinicId: string, limit = 25): Promise<ApiResponse<StorageUsage>> =>
+    get(`/clinic-subscriptions/${clinicId}/storage?limit=${limit}`, { headers: { 'x-clinic-id': clinicId } }),
 
   /** Plan access state + entitled feature keys — drives module gating. */
   getAccess: async (clinicId: string): Promise<ApiResponse<PlanAccess>> =>
