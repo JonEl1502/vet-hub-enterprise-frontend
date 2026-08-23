@@ -483,11 +483,22 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
     } finally { setBusy(false); }
   }, [hospId, load, onChanged]);
 
-  /** Re-run the server's days × rate calculation onto the visit's bill. */
-  const recalcCharge = useCallback(async () => {
+  /**
+   * Re-run days × rate onto the visit's bill.
+   *
+   * ⚠️ PINS THE RATE FIRST when the admission has none of its own. The server
+   * charges `if (hosp.dailyRate)` — it does NOT know about the clinic default —
+   * so recalculating an admission showing the clinic rate wrote nothing and the
+   * total stayed at 0 while the card promised 1,200.
+   */
+  const recalcCharge = useCallback(async (effectiveRate: number) => {
+    if (effectiveRate > 0 && Number(h?.dailyRate ?? 0) !== effectiveRate) {
+      const p = await inpatientAPI.update(hospId, { dailyRate: effectiveRate } as any);
+      if (!p.success) return;
+    }
     const r = await inpatientAPI.bill(hospId, null);
     if (r.success) { toast.success('Charge recalculated'); await load(); onChanged?.(); }
-  }, [hospId, load, onChanged]);
+  }, [hospId, h?.dailyRate, load, onChanged]);
 
   const saveDailyRate = useCallback(async (rate: number) => {
     const r = await inpatientAPI.update(hospId, { dailyRate: rate } as any);
@@ -549,7 +560,10 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
              *    not, which is why only this page showed zero.
              */
             const nights = Math.max(1, calendarDaysBetween(h.admittedAt, h.dischargedAt ?? undefined));
-            const rate = Number(h.dailyRate ?? clinicDayRate ?? 0) || 0;
+            // `||` not `??`: a stored rate of 0 must fall back to the clinic
+            // default the same way the Stay charge card does, or the banner
+            // reads KES 0 beside a card reading KES 1,200.
+            const rate = (Number(h.dailyRate ?? 0) || 0) || (Number(clinicDayRate ?? 0) || 0);
             const stayTotal = nights * rate;
             const itemsTotal = (consumables || []).reduce((sum: number, c: any) => sum + (c.billable
               ? Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0))
@@ -654,7 +668,10 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                 const BLANK_FIELDS = ['Vitals', 'Medication (MAR)', 'Feeding', 'Fluids', 'Nursing note'];
                 const consByDay = new Map<string, any[]>();
                 consumables.forEach(c => { const ck = dayKey(c.createdAt); consByDay.set(ck, [...(consByDay.get(ck) || []), c]); });
-                const rate = Number(h.dailyRate ?? 0);
+                // Same fallback as the banner and the Stay charge card — the
+                // day rows read KES 0 while the card read KES 600 because only
+                // they lacked it.
+                const rate = (Number(h.dailyRate ?? 0) || 0) || (Number(clinicDayRate ?? 0) || 0);
                 const fmtK = (n: number) => `KES ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
                 // Auto-generated day tabs — same as the boarding care log. A long
                 // admission was a wall of stacked day cards to scroll past.

@@ -7,6 +7,7 @@ import {
 import { platformMetricsAPI, PlatformMetrics } from '../../../services';
 import { useClinic } from '../../../contexts/ClinicContext';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import AdminPageHeader from '../shared/AdminPageHeader';
 
 const PlatformDashboard: React.FC = () => {
   const [metrics, setMetrics] = useState<PlatformMetrics | null>(null);
@@ -68,25 +69,25 @@ const PlatformDashboard: React.FC = () => {
       transition={{ duration: 0.4 }}
       className="space-y-6"
     >
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">
-            Platform Super View
-          </h2>
-          <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest mt-1">
-            VetHubCore-level revenue & entity counts
-          </p>
-        </div>
-        <button
-          onClick={() => load(true)}
-          disabled={refreshing}
-          className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:border-seafoam rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-seafoam transition-all disabled:opacity-50"
-        >
-          <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
-          Refresh
-        </button>
-      </div>
+      {/* Shared admin chrome (2026-08-23). This page shipped its own 2xl title
+          and, more importantly, NO back control — it is reached from the sidebar
+          and from dashboard tiles alike, and every one of those was a dead end.
+          AdminPageHeader carries the back affordance by default. */}
+      <AdminPageHeader
+        title="Platform Super View"
+        subtitle="VetHubCore-level revenue & entity counts"
+        icon={Layers}
+        actions={(
+          <button
+            onClick={() => load(true)}
+            disabled={refreshing}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 hover:border-seafoam rounded-xl text-[9px] font-black uppercase tracking-widest text-slate-500 hover:text-seafoam transition-all disabled:opacity-50"
+          >
+            <RefreshCw size={12} className={refreshing ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        )}
+      />
 
       {/* Top KPI cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

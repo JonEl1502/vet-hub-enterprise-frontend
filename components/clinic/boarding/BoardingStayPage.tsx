@@ -382,11 +382,21 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
     } finally { setBusy(false); }
   }, [stayId, load, onChanged]);
 
-  /** Re-run the server's days × rate calculation onto the visit's bill. */
-  const recalcCharge = useCallback(async () => {
+  /**
+   * Re-run days × rate onto the visit's bill.
+   *
+   * ⚠️ PINS THE RATE FIRST when the stay has none of its own — `chargeStay`
+   * prices off `stay.dailyRate` alone and knows nothing about the clinic
+   * default, so recalculating a stay showing the default charged nothing.
+   */
+  const recalcCharge = useCallback(async (effectiveRate: number) => {
+    if (effectiveRate > 0 && Number(stay?.dailyRate ?? 0) !== effectiveRate) {
+      const p = await boardingAPI.update(stayId, { dailyRate: effectiveRate } as any);
+      if (!p.success) return;
+    }
     const r = await boardingAPI.bill(stayId, null);
     if (r.success) { toast.success('Charge recalculated'); await load(); onChanged?.(); }
-  }, [stayId, load, onChanged]);
+  }, [stayId, stay?.dailyRate, load, onChanged]);
 
   const saveDailyRate = useCallback(async (rate: number) => {
     const r = await boardingAPI.update(stayId, { dailyRate: rate } as any);
@@ -481,7 +491,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                   the accrual line below prints. */}
               {(() => {
                 const days = Math.max(1, calendarDaysBetween(stay.dropOffAt, stay.actualPickupAt ?? undefined));
-                const r = Number(stay.dailyRate ?? clinicDayRate ?? 0) || 0;
+                const r = (Number(stay.dailyRate ?? 0) || 0) || (Number(clinicDayRate ?? 0) || 0);
                 const fp: any = (stay as any).foodProgram || {};
                 const foodPerDay = fp.providedByClient === false
                   ? (Number(fp.ratePerMeal) || 0) * (Number(fp.mealsPerDay) || 0) : 0;
@@ -541,7 +551,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                 // Falls back to the clinic default so a stay admitted before
                 // the rate existed still reconciles — the server uses the same
                 // number when the stay's own rate is null.
-                const rate = Number(stay.dailyRate ?? clinicDayRate ?? 0);
+                const rate = (Number(stay.dailyRate ?? 0) || 0) || (Number(clinicDayRate ?? 0) || 0);
                 const fmtK = (n: number) => `KES ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
                 const dayEditor = (dateKey: string) => editDay === dateKey && (
                   <div className="mt-2 pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-2">
@@ -892,7 +902,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
               title="Actions & charges"
               summary={(() => {
                 const days = Math.max(1, calendarDaysBetween(stay.dropOffAt, stay.actualPickupAt ?? undefined));
-                const r = Number(stay.dailyRate ?? clinicDayRate ?? 0) || 0;
+                const r = (Number(stay.dailyRate ?? 0) || 0) || (Number(clinicDayRate ?? 0) || 0);
                 const fp: any = (stay as any).foodProgram || {};
                 const foodPerDay = fp.providedByClient === false
                   ? (Number(fp.ratePerMeal) || 0) * (Number(fp.mealsPerDay) || 0) : 0;

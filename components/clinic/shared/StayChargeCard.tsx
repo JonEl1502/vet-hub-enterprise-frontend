@@ -39,8 +39,16 @@ interface Props {
   locked: boolean;
   lockedReason?: string;
   onSaveRate: (rate: number) => Promise<void>;
-  /** Re-run the server's auto-calculation onto the bill. */
-  onRecalculate: () => Promise<void>;
+  /**
+   * Re-run the server's auto-calculation onto the bill.
+   *
+   * Receives the rate the card is DISPLAYING. That matters when the rate shown
+   * is the clinic default: the server only charges what is stored on the
+   * record, so recalculating without pinning this number first wrote nothing
+   * and the button looked broken (user, 2026-08-23: *"recalc doesnt update the
+   * top figure"*). The handler pins it, so what you see is what is billed.
+   */
+  onRecalculate: (effectiveRate: number) => Promise<void>;
 }
 
 const StayChargeCard: React.FC<Props> = ({
@@ -67,7 +75,7 @@ const StayChargeCard: React.FC<Props> = ({
 
   const recalc = async () => {
     setBusy('calc');
-    try { await onRecalculate(); } finally { setBusy(null); }
+    try { await onRecalculate(rate); } finally { setBusy(null); }
   };
 
   return (

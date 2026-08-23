@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: Recalculate did nothing, and the header disagreed with the card  —  2026-08-23
+🔵 **Record impact: low** — Recalculate now pins the rate it displays onto the record.
+- 🐛 **Recalculate was inert on any stay without its own rate.** The server charges
+  `if (record.dailyRate)` and knows nothing about the clinic default, so an admission showing
+  *"CLINIC DEFAULT RATE · 2 days × KES 600 = KES 1,200"* recalculated to **nothing** and the header
+  stayed at KES 0 (user: *"recalc doesnt update the top figure"*). Recalculate now **pins the rate
+  it is showing** onto the record first, so what the card displays is what gets billed.
+- 🐛 **`??` vs `||`.** The header and the day rows fell back to the clinic rate with `??`, which
+  keeps a stored **0** — while the Stay charge card used `||`, which does not. So one panel read
+  KES 0 and the panel beside it read KES 1,200 off the same record. Every site now shares one rule.
+- The header, the per-day rows and the Stay charge card are now guaranteed to agree; they were three
+  independent expressions of the same arithmetic, which is why they could drift at all.
+
 ### feat: the stay charge shows its working, and can be recalculated or reopened  —  2026-08-23
 🔵 **Record impact: low** (Recalculate rewrites the stay line on the visit's bill).
 **Requires the backend reopen endpoints.**
