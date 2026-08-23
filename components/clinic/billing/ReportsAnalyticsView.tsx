@@ -68,6 +68,17 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
    * (user, 2026-08-23). See ContactDialog for why.
    */
   const [contact, setContact] = useState<{ name: string; phone: string; subtitle?: string } | null>(null);
+  /**
+   * Bills → invoices → receipts (user, 2026-08-23).
+   *
+   * A separate chart from Financial Performance on purpose: that one plots
+   * money that ARRIVED. This plots documents RAISED, so a clinic billing work
+   * that never becomes an invoice — or invoicing work that never becomes a
+   * receipt — can see the gap. Money that never arrives is invisible on a
+   * revenue chart by definition.
+   */
+  const [docFlow, setDocFlow] = useState<any>(null);
+  const [docMode, setDocMode] = useState<'value' | 'count'>('value');
   const [rangeKey] = useState<RangeKey>('this-month');
   // An explicit pick from the shared DateRangePicker wins over the default
   // window; clearing it (null) falls back to `rangeKey`.
@@ -161,6 +172,25 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
     }
     return out;
   };
+  useEffect(() => {
+    let alive = true;
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
+    receivablesAPI.documentFlow(iso(from), iso(to))
+      .then(r => { if (alive && r.success) setDocFlow((r as any).data ?? r); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [from, to]);
+
+  const docData = useMemo(() => {
+    const days: any[] = docFlow?.days || docFlow?.data?.days || [];
+    return days.map(d => ({
+      label: String(d.date || '').slice(5),
+      bills: docMode === 'value' ? Number(d.billsValue || 0) : Number(d.bills || 0),
+      invoices: docMode === 'value' ? Number(d.invoicesValue || 0) : Number(d.invoices || 0),
+      receipts: docMode === 'value' ? Number(d.receiptsValue || 0) : Number(d.receipts || 0),
+    }));
+  }, [docFlow, docMode]);
+
   const perfData = useMemo(() => bucket(summary?.series ?? [], granularity === 'Weekly'), [summary, granularity]);
   const cashData = useMemo(() => bucket(summary?.series ?? [], cfGranularity === 'Weekly')
     .map(p => ({ ...p, out: -p.expenses })), [summary, cfGranularity]);
@@ -446,6 +476,56 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                     )}
                   </LineChart>
                 </ResponsiveContainer>
+              </div>
+            </div>
+
+            {/* Bills → Invoices → Receipts (user, 2026-08-23).
+                Three lines that SHOULD track each other. Where receipts fall
+                away from invoices, that gap is the money not collected; where
+                invoices fall away from bills, work was billed but never
+                invoiced. Toggle value/count because the two answer different
+                questions: value shows the shillings at stake, count shows
+                whether the paperwork itself is keeping up. */}
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+              <div className="flex items-start justify-between gap-2 mb-2">
+                <div>
+                  <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Bills → Invoices → Receipts</h3>
+                  <p className="text-[10px] font-bold text-slate-400">Documents raised over time</p>
+                </div>
+                <select value={docMode} onChange={e => setDocMode(e.target.value as any)}
+                  className="px-2 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-[9px] font-black uppercase tracking-widest text-slate-500 outline-none">
+                  <option value="value">Value</option><option value="count">Count</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-4 mb-1">
+                {[['Bills', C.amber], ['Invoices', C.sky], ['Receipts', C.green]].map(([l, c]) => (
+                  <span key={l} className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-500">
+                    <span className="w-2 h-2 rounded-full" style={{ background: c }} /> {l}
+                  </span>
+                ))}
+              </div>
+              <div className="h-64">
+                {docData.length === 0 ? (
+                  <div className="h-full flex items-center justify-center text-[11px] font-bold text-slate-400">
+                    No documents in this range
+                  </div>
+                ) : (
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={docData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.5} vertical={false} />
+                    <XAxis dataKey="label" {...axisProps} minTickGap={24} />
+                    <YAxis {...axisProps} tickFormatter={docMode === 'value' ? moneyShort : undefined} width={44} allowDecimals={false} />
+                    <Tooltip {...tooltipStyle} />
+                    <Line type="monotone" dataKey="bills" name="Bills" stroke={C.amber} strokeWidth={2} dot={{ r: 2 }} />
+                    <Line type="monotone" dataKey="invoices" name="Invoices" stroke={C.sky} strokeWidth={2} dot={{ r: 2 }} />
+                    <Line type="monotone" dataKey="receipts" name="Receipts" stroke={C.green} strokeWidth={2} dot={{ r: 2 }} />
+                    {docData.length > 12 && (
+                      <Brush dataKey="label" height={22} travellerWidth={8} stroke={C.green}
+                        fill="transparent" tickFormatter={() => ''} />
+                    )}
+                  </LineChart>
+                </ResponsiveContainer>
+                )}
               </div>
             </div>
 

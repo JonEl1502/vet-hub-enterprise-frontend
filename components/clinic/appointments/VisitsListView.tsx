@@ -4,7 +4,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Visit, ApptStatus, Pet, User, Clinic } from '../../../types';
 import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope, X, Users } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
-import { useData } from '../../../contexts/DataContext';
+import { useData, mapVisitRow } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { userCan } from '../../../constants/permissions';
 import { visitsAPI } from '../../../services';
@@ -156,11 +156,54 @@ const VisitsListView: React.FC<Props> = ({
     [appointments],
   );
 
+  /**
+   * Range-scoped server fetch (2026-08-23).
+   *
+   * DataContext holds only the newest 500 visits — plenty for a clinic that
+   * books a few a day, useless for one carrying imported history. Westlands
+   * has 2,649 visits; the newest 500 reach back only to 29 Jun, so picking
+   * "Jan 8 – May 8" filtered a window that simply did not contain those 1,379
+   * visits and the list read "No visits" (user: "did u add data for jan to
+   * july or is filter wrong"). The filter was right; the rows were never
+   * loaded.
+   *
+   * So the date range is answered by the SERVER, which already supports
+   * startDate/endDate. The context cache stays as the instant-paint default;
+   * this takes over the moment a range is in play. `openOnly` is exempt — that
+   * mode ignores dates by design and reads the full cache.
+   */
+  const [rangeRows, setRangeRows] = useState<Visit[] | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [rangeLoading, setRangeLoading] = useState(false);
+  const startISO = dateRange.start ? new Date(dateRange.start).toISOString() : null;
+  const endISO = dateRange.end ? new Date(dateRange.end).toISOString() : null;
+
+  useEffect(() => {
+    if (openOnly || !startISO || !endISO) { setRangeRows(null); return; }
+    let alive = true;
+    setRangeLoading(true);
+    visitsAPI
+      .getAll(
+        { page: 1, limit: 1000, sortBy: 'scheduledAt', sortOrder: 'desc', startDate: startISO, endDate: endISO } as any,
+        { cache: false },
+      )
+      .then((res: any) => {
+        if (!alive) return;
+        if (res?.success && res.data?.appointments) setRangeRows(res.data.appointments.map(mapVisitRow));
+      })
+      .catch(() => { if (alive) setRangeRows(null); })
+      .finally(() => { if (alive) setRangeLoading(false); });
+    return () => { alive = false; };
+  }, [startISO, endISO, openOnly, refreshKey]);
+
+  // Rows the list works from: the server's answer for the picked range, else cache.
+  const sourceRows = rangeRows ?? appointments;
+
   // Client-side filtering
   const filtered = useMemo(() => {
     const startStr = dateRange.start ? toClinicDateStr(new Date(dateRange.start)) : null;
     const endStr = dateRange.end ? toClinicDateStr(new Date(dateRange.end)) : null;
-    return appointments
+    return sourceRows
       .filter(appt => {
         const s = toClinicDateStr(new Date(appt.date));
         if (openOnly) {
@@ -190,7 +233,7 @@ const VisitsListView: React.FC<Props> = ({
         // Within same group: descending by date (future/latest first)
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
-  }, [appointments, dateRange, activeTab, searchQuery, openOnly]);
+  }, [sourceRows, dateRange, activeTab, searchQuery, openOnly]);
 
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [searchQuery, activeTab, dateRange, openOnly]);
@@ -399,13 +442,13 @@ const VisitsListView: React.FC<Props> = ({
               </button>
             )}
             <button
-              onClick={() => refreshAppointments()}
-              disabled={isLoadingAppointments}
+              onClick={() => { refreshAppointments(); setRefreshKey(k => k + 1); }}
+              disabled={isLoadingAppointments || rangeLoading}
               className="shrink-0 ml-auto sm:ml-0 p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-seafoam disabled:opacity-50"
             >
               <RefreshCw
                 size={16}
-                className={isLoadingAppointments ? 'animate-spin' : ''}
+                className={isLoadingAppointments || rangeLoading ? 'animate-spin' : ''}
               />
             </button>
           </div>
@@ -457,7 +500,7 @@ const VisitsListView: React.FC<Props> = ({
       />
 
       {/* Loading State */}
-      {isLoadingAppointments ? (
+      {(isLoadingAppointments && !rangeRows) || rangeLoading ? (
         <div className="py-32">
           <LoadingSpinner size="lg" message="Loading appointments..." />
         </div>

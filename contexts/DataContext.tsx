@@ -96,6 +96,70 @@ interface DataContextType {
   removeInventoryOptimistically: (id: string) => void;
 }
 
+/**
+ * Row → Visit mapper, module-level so EVERY fetch path shares it.
+ *
+ * It used to live inline in fetchAppointments. The moment a second fetch
+ * path appeared (range-scoped list loads) a copy would have drifted, which
+ * is exactly how attendance/transactionId went missing before. One mapper.
+ */
+export const mapVisitRow = (a: any): Visit => ({
+  id: parseInt(a.id),
+  clinicId: parseInt(a.clinicId),
+  clientId: parseInt(a.clientId),
+  petId: parseInt(a.petId),
+  date: a.scheduledAt,
+  status: a.status,
+  encounterType: a.encounterType ?? 'VET_VISIT',
+  visitType: a.visitType ?? null,
+  groomingDetail: a.groomingDetail ?? {},
+  boardingStayId: a.boardingStayId ?? null,
+  hospitalizationId: a.hospitalizationId ?? null,
+  // Carry the STATUS too — an id proves an admission existed, not that
+  // it is still running. Without these the dashboard counted discharged
+  // patients as inpatients.
+  boardingStayStatus: a.boardingStayStatus ?? null,
+  hospitalizationStatus: a.hospitalizationStatus ?? null,
+  totalCost: a.totalCost,
+  isPaid: a.isPaid,
+  prepaid: a.prepaid ?? false,
+  paymentMethod: a.paymentMethod,
+  isHouseCall: a.isHouseCall,
+  isWalkIn: a.isWalkIn ?? false,
+  groupVisitId: a.groupVisitId ?? null,
+  parentAppointmentId: a.parentAppointmentId ? parseInt(a.parentAppointmentId) : undefined,
+  originReferralId: a.originReferralId ? parseInt(a.originReferralId) : undefined,
+  leadStaffId: a.leadStaffId ? parseInt(a.leadStaffId) : undefined,
+  leadStaff: a.leadStaff ? { id: parseInt(a.leadStaff.id), name: a.leadStaff.name, role: a.leadStaff.role } : undefined,
+  client: a.client ? { id: parseInt(a.client.id), name: a.client.name, phone: a.client.phone, email: a.client.email } : undefined,
+  pet: a.pet ? { id: parseInt(a.pet.id), name: a.pet.name, species: a.pet.species, breed: a.pet.breed, avatarUrl: a.pet.avatarUrl ?? null } : undefined,
+  tasks: (a.tasks || []).map((t: any) => ({
+    id: parseInt(t.id),
+    name: t.name,
+    category: t.category,
+    status: t.status,
+    assignedStaffId: t.assignedStaffId ? parseInt(t.assignedStaffId) : undefined,
+    assignedStaff: t.assignedStaff ? { id: parseInt(t.assignedStaff.id), name: t.assignedStaff.name } : undefined,
+    price: t.price,
+    notes: t.notes,
+    sentiment: t.sentiment,
+    selectedPhrases: t.selectedPhrases || [],
+    referralId: t.referralId ? parseInt(t.referralId) : undefined,
+    completedAt: t.completedAt,
+    medications: t.medications || [],
+    // Multi-staff attendance (106). The server sends it on every task;
+    // dropping it here made AttendingStaffEditor look like it never
+    // saved — the PUT succeeded, then this refresh handed the panel an
+    // empty list back (project_datacontext_field_mapper_footgun).
+    attendance: t.attendance || [],
+  })),
+  medications: a.medications || [],
+  // Settled-transaction link — drives the receipt tab. Was previously
+  // dropped here, so the "Transaction ID missing" banner always showed.
+  transactionId: a.transactionId ?? null,
+  receiptNumber: a.receiptNumber ?? null,
+});
+
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
 export const useData = () => {
@@ -377,62 +441,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         { cache: false },
       );
       if (response.success && response.data.appointments) {
-        const mapped: Visit[] = response.data.appointments.map((a: any) => ({
-          id: parseInt(a.id),
-          clinicId: parseInt(a.clinicId),
-          clientId: parseInt(a.clientId),
-          petId: parseInt(a.petId),
-          date: a.scheduledAt,
-          status: a.status,
-          encounterType: a.encounterType ?? 'VET_VISIT',
-          visitType: a.visitType ?? null,
-          groomingDetail: a.groomingDetail ?? {},
-          boardingStayId: a.boardingStayId ?? null,
-          hospitalizationId: a.hospitalizationId ?? null,
-          // Carry the STATUS too — an id proves an admission existed, not that
-          // it is still running. Without these the dashboard counted discharged
-          // patients as inpatients.
-          boardingStayStatus: a.boardingStayStatus ?? null,
-          hospitalizationStatus: a.hospitalizationStatus ?? null,
-          totalCost: a.totalCost,
-          isPaid: a.isPaid,
-          prepaid: a.prepaid ?? false,
-          paymentMethod: a.paymentMethod,
-          isHouseCall: a.isHouseCall,
-          isWalkIn: a.isWalkIn ?? false,
-          groupVisitId: a.groupVisitId ?? null,
-          parentAppointmentId: a.parentAppointmentId ? parseInt(a.parentAppointmentId) : undefined,
-          originReferralId: a.originReferralId ? parseInt(a.originReferralId) : undefined,
-          leadStaffId: a.leadStaffId ? parseInt(a.leadStaffId) : undefined,
-          leadStaff: a.leadStaff ? { id: parseInt(a.leadStaff.id), name: a.leadStaff.name, role: a.leadStaff.role } : undefined,
-          client: a.client ? { id: parseInt(a.client.id), name: a.client.name, phone: a.client.phone, email: a.client.email } : undefined,
-          pet: a.pet ? { id: parseInt(a.pet.id), name: a.pet.name, species: a.pet.species, breed: a.pet.breed, avatarUrl: a.pet.avatarUrl ?? null } : undefined,
-          tasks: (a.tasks || []).map((t: any) => ({
-            id: parseInt(t.id),
-            name: t.name,
-            category: t.category,
-            status: t.status,
-            assignedStaffId: t.assignedStaffId ? parseInt(t.assignedStaffId) : undefined,
-            assignedStaff: t.assignedStaff ? { id: parseInt(t.assignedStaff.id), name: t.assignedStaff.name } : undefined,
-            price: t.price,
-            notes: t.notes,
-            sentiment: t.sentiment,
-            selectedPhrases: t.selectedPhrases || [],
-            referralId: t.referralId ? parseInt(t.referralId) : undefined,
-            completedAt: t.completedAt,
-            medications: t.medications || [],
-            // Multi-staff attendance (106). The server sends it on every task;
-            // dropping it here made AttendingStaffEditor look like it never
-            // saved — the PUT succeeded, then this refresh handed the panel an
-            // empty list back (project_datacontext_field_mapper_footgun).
-            attendance: t.attendance || [],
-          })),
-          medications: a.medications || [],
-          // Settled-transaction link — drives the receipt tab. Was previously
-          // dropped here, so the "Transaction ID missing" banner always showed.
-          transactionId: a.transactionId ?? null,
-          receiptNumber: a.receiptNumber ?? null,
-        }));
+        const mapped: Visit[] = response.data.appointments.map(mapVisitRow);
         setAppointments(mapped);
         const totalFromServer = Number(response.data?.pagination?.totalItems);
         setTotals(prev => ({ ...prev, appointments: Number.isFinite(totalFromServer) ? totalFromServer : mapped.length }));

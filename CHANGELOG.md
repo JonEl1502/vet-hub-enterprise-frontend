@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the Visits date filter now asks the SERVER, not a 500-row cache  —  2026-08-23
+🟢 **Record impact: none.** Read path only. **Data dependency: none** — the API already
+accepted `startDate`/`endDate`.
+- Picking **Jan 8 – May 8** on Westlands Paws showed **"No visits"** while 1,379 real visits sat
+  in that window (user: *"did u add data for jan to july or is filter wrong"*). The filter was
+  right; the rows were never loaded. `DataContext` fetches the newest **500** visits, which for a
+  clinic carrying 2,649 imported visits reaches back only to **29 Jun** — everything older was
+  invisible to a client-side filter.
+- `VisitsListView` now fetches the picked range from the server and filters that, falling back to
+  the context cache when no range is in play. `openOnly` is exempt: that mode ignores dates by
+  design and reads the cache.
+- The row→`Visit` mapper moved to module scope as **`mapVisitRow`**, exported from `DataContext`.
+  A second fetch path with its own copy is exactly how `attendance` and `transactionId` went
+  missing before — one mapper, both callers.
+- ⚠️ The 500-row cap is still there for every OTHER consumer (dashboard tiles, calendar). Any view
+  that must see old history has to range-fetch too; it will grow as more LeagPro years land.
+
+### feat: Bills → Invoices → Receipts chart  —  2026-08-23
+🟢 **Record impact: none.** **Data dependency: none.**
+- New line chart in Reports & Analytics plotting the three documents against each other over the
+  selected range, with a **Value / Count** toggle. Where receipts fall away from invoices is money
+  billed but not collected; where invoices fall away from bills is work billed but never invoiced.
+  Neither gap is visible on a revenue chart, which by definition only plots money that arrived.
+- Fed by `GET /transactions/document-flow` (new).
+
 ### feat: reconcile a carried-over balance against its invoices  —  2026-08-23
 🟢 **Record impact: none until you press Actualise.** Needs backend migration 221.
 - The **Carried Over** tile on a client now opens a reconcile panel instead of raising the whole

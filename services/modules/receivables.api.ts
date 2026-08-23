@@ -42,6 +42,14 @@ export interface SupplierApRow {
 
 export const receivablesAPI = {
   /** Who owes the clinic, and for how long. Aged from the VISIT date. */
+  /**
+   * Bills / invoices / receipts per day — how far work gets through the revenue
+   * cycle. Distinct from the revenue series, which cannot show work that never
+   * became money.
+   */
+  documentFlow: (from?: string, to?: string): Promise<ApiResponse<any>> =>
+    get(`/transactions/document-flow${from && to ? `?from=${from}&to=${to}` : ''}`, { cache: false }),
+
   arAgeing: (): Promise<ApiResponse<ArAgeing>> =>
     get('/transactions/ar-ageing', { cache: false }),
 
