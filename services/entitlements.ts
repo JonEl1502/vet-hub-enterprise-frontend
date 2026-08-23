@@ -234,9 +234,9 @@ export const KEY_LABEL: Record<string, string> = {
   'client:discount-tier': 'Member discount on services',
   // ── Livestock ────────────────────────────────────────────────────────────
   'livestock:dashboard': 'Farm dashboard',
-  'livestock:farms': 'Farm records',
+  'livestock:farms': 'Animal farm',
   'livestock:animal-groups': 'Herds & flocks',
-  'livestock:crops': 'Crop plots',
+  'livestock:crops': 'Crop farm',
   'livestock:feeding': 'Feeding plans & logs',
   'livestock:produce': 'Produce scheduling',
   'livestock:vet-link': 'Link a clinic or vet officer',
@@ -346,6 +346,27 @@ export const FEATURE_COPY: Record<string, { label: string; plan: string; blurb?:
 
   // Multi-clinic
   'service:multi-clinic': { label: 'Multi-clinic', plan: 'Enterprise', blurb: 'Run branches under one account.' },
+
+  /**
+   * ── Livestock ──────────────────────────────────────────────────────────
+   * These were missing from FEATURE_COPY entirely, so `featureCopy()` fell
+   * through to its last resort — the raw key suffix — and the admin plan editor
+   * listed them as **"farms"**, **"crops"**, **"produce"** (user, 2026-08-23).
+   * A separate label map further up DID name them; nothing read it here.
+   *
+   * ⚠️ "Farm records" was ambiguous once crops entered the picture — a farm has
+   * both. The two halves are now named for what they hold: **Animal farm** and
+   * **Crop farm** (user: *"put animal farm crop farm"*).
+   */
+  'livestock:dashboard': { label: 'Farm dashboard', plan: 'a higher' },
+  'livestock:farms': { label: 'Animal farm', plan: 'a higher', blurb: 'Farm records for the animal side of the business.' },
+  'livestock:crops': { label: 'Crop farm', plan: 'a higher', blurb: 'Crop plots, planting and harvest records.' },
+  'livestock:animal-groups': { label: 'Herds & flocks', plan: 'a higher' },
+  'livestock:feeding': { label: 'Feeding plans & logs', plan: 'a higher' },
+  'livestock:produce': { label: 'Produce scheduling', plan: 'a higher' },
+  'livestock:vet-link': { label: 'Link a clinic or vet officer', plan: 'a higher' },
+  'livestock:agronomy-advice': { label: 'Agronomy advice', plan: 'Estate' },
+  'livestock:herd-health-plan': { label: 'Herd health plan', plan: 'Estate' },
 };
 
 /**

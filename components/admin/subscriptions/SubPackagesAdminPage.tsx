@@ -548,6 +548,56 @@ const SubPackagesAdminPage: React.FC = () => {
                 </button>
               </div>
 
+              {/* WHO the plan is for — above the tabs, not inside one.
+                  It lived under "Limits & Pricing", where it read as a pricing
+                  setting; an audience is neither a limit nor a price, it is what
+                  the package IS (user, 2026-08-23: *"offered to is not in
+                  correct place"*). Up here it stays visible and editable
+                  whichever tab you are working in. */}
+                {!isSupplier && (
+                <div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Offered to</p>
+                  <div className="flex flex-wrap gap-2">
+                    {/* §0f #5: audiences ARE the source of truth — every
+                        non-supplier audience is offerable (CLIENT and FARM
+                        were missing, so a plan could sit on a tab no buyer
+                        ever saw). Tabs are filters over this field. */}
+                    {([
+                      ['CLINIC', 'Clinic'],
+                      ['FREELANCER', 'Freelancer'],
+                      ['CLIENT', 'Client (pet owner)'],
+                      ['LIVESTOCK', 'Farm (livestock)'],
+                    ] as [PackageAudience, string][]).map(([aud, audLabel]) => {
+                      const list = (selected.audiences && selected.audiences.length > 0) ? selected.audiences : ['CLINIC'] as PackageAudience[];
+                      const isOn = list.includes(aud);
+                      return (
+                        <button
+                          key={aud}
+                          type="button"
+                          onClick={() => {
+                            const next = isOn ? list.filter((a) => a !== aud) : [...list, aud];
+                            // Always keep at least one — block toggling off
+                            // the last remaining audience.
+                            if (next.length === 0) return;
+                            updateSelectedField('audiences', next as any);
+                          }}
+                          className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors ${
+                            isOn
+                              ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine border-pine dark:border-zinc-100'
+                              : 'bg-white dark:bg-zinc-900 text-slate-500 border-slate-200 dark:border-zinc-700 hover:border-pine dark:hover:border-seafoam'
+                          }`}
+                        >
+                          {audLabel}
+                        </button>
+                      );
+                    })}
+                  </div>
+                  <p className="mt-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                    Only the chosen audiences see this package on their billing screen — and the tabs above filter by this same field, so admin placement and buyer visibility can never disagree.
+                  </p>
+                </div>
+                )}
+
               {/* Tabs */}
               <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 self-start inline-flex">
                 {[
@@ -606,49 +656,6 @@ const SubPackagesAdminPage: React.FC = () => {
                       the tab already decided, or set WRONG (cross-listing a supplier
                       plan onto clinic billing screens). `createPackage` stamps the
                       audience from the tab, so nothing is lost by not showing it. */}
-                  {!isSupplier && (
-                  <div>
-                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Offered to</p>
-                    <div className="flex flex-wrap gap-2">
-                      {/* §0f #5: audiences ARE the source of truth — every
-                          non-supplier audience is offerable (CLIENT and FARM
-                          were missing, so a plan could sit on a tab no buyer
-                          ever saw). Tabs are filters over this field. */}
-                      {([
-                        ['CLINIC', 'Clinic'],
-                        ['FREELANCER', 'Freelancer'],
-                        ['CLIENT', 'Client (pet owner)'],
-                        ['LIVESTOCK', 'Farm (livestock)'],
-                      ] as [PackageAudience, string][]).map(([aud, audLabel]) => {
-                        const list = (selected.audiences && selected.audiences.length > 0) ? selected.audiences : ['CLINIC'] as PackageAudience[];
-                        const isOn = list.includes(aud);
-                        return (
-                          <button
-                            key={aud}
-                            type="button"
-                            onClick={() => {
-                              const next = isOn ? list.filter((a) => a !== aud) : [...list, aud];
-                              // Always keep at least one — block toggling off
-                              // the last remaining audience.
-                              if (next.length === 0) return;
-                              updateSelectedField('audiences', next as any);
-                            }}
-                            className={`px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-colors ${
-                              isOn
-                                ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine border-pine dark:border-zinc-100'
-                                : 'bg-white dark:bg-zinc-900 text-slate-500 border-slate-200 dark:border-zinc-700 hover:border-pine dark:hover:border-seafoam'
-                            }`}
-                          >
-                            {audLabel}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    <p className="mt-1.5 text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                      Only the chosen audiences see this package on their billing screen — and the tabs above filter by this same field, so admin placement and buyer visibility can never disagree.
-                    </p>
-                  </div>
-                  )}
 
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
                     <Field label="Name">

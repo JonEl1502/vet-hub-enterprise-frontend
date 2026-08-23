@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: plan editor — "Offered to" moved out of pricing, livestock keys named  —  2026-08-23
+🟢 **Record impact: none.** Admin UI + labels.
+- **"Offered to" now sits above the tabs**, not inside *Limits & Pricing*. An audience is neither a
+  limit nor a price — it is what the package **is** (user: *"offered to is not in correct place"*).
+  It stays visible and editable whichever tab you are working in.
+- 🐛 **Livestock feature keys had no copy at all.** `featureCopy()` reads `FEATURE_COPY`, and none
+  of the `livestock:*` keys were in it — so it fell through to its last resort, the raw key suffix,
+  and the plan editor listed them as **"farms"**, **"crops"**, **"produce"**. A *separate* label map
+  higher in the same file did name them; nothing read it here. Two maps, one of them dead.
+- ⚠️ **"Farm records" was ambiguous once crops existed** — a farm has both. The two halves are now
+  named for what they hold: **Animal farm** (`livestock:farms`) and **Crop farm** (`livestock:crops`)
+  (user: *"put animal farm crop farm"*). Both maps updated together so they cannot drift apart.
+
 ### fix: the triage bar still polled a clinic endpoint in ADMIN  —  2026-08-23
 🟢 **Record impact: none.**
 - Yesterday's fix excluded SUPPLIER and CLIENT roles, but that was the wrong axis. An **admin scoped
