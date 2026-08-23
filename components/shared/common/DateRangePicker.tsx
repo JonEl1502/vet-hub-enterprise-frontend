@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useMemo } from 'react';
-import { Calendar, ChevronLeft, ChevronRight, ChevronDown, ChevronsUpDown } from 'lucide-react';
+import { Calendar, ChevronLeft, ChevronRight, ChevronDown, ChevronsUpDown, X } from 'lucide-react';
 import {
   startOfToday,
   startOfDay,
@@ -10,8 +10,9 @@ import {
   addMonths,
   subMonths,
   subDays,
-  subHours,
-  subMinutes,
+  subYears,
+  startOfYear,
+  endOfMonth,
   isSameDay,
   isSameMonth,
   isWithinInterval,
@@ -33,17 +34,29 @@ export interface DateRangePickerProps {
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-// Quick ranges mirror the reference design (Grafana-style). Each returns a
-// fresh range relative to "now" at click time.
+/**
+ * Quick ranges run **today → a year** (user, 2026-08-23: *"start pressets with
+ * today up to a year"*).
+ *
+ * They used to be Grafana's minute/hour ladder — Last 30 minutes, Last 1 hour,
+ * Last 6 hours. Nobody filters a vet clinic's visits by the last 30 minutes;
+ * the question is always "today", "this month", "this year". A preset list
+ * whose top half is unusable pushes the useful entries out of sight.
+ */
 const PRESETS: { label: string; range: () => DateRange }[] = [
-  { label: 'Last 30 minutes', range: () => ({ start: subMinutes(new Date(), 30), end: new Date() }) },
-  { label: 'Last 1 hour', range: () => ({ start: subHours(new Date(), 1), end: new Date() }) },
-  { label: 'Last 6 hours', range: () => ({ start: subHours(new Date(), 6), end: new Date() }) },
-  { label: 'Last 12 hours', range: () => ({ start: subHours(new Date(), 12), end: new Date() }) },
-  { label: 'Last 24 hours', range: () => ({ start: subHours(new Date(), 24), end: new Date() }) },
+  { label: 'Today', range: () => ({ start: startOfToday(), end: endOfDay(new Date()) }) },
+  { label: 'Yesterday', range: () => ({ start: startOfDay(subDays(new Date(), 1)), end: endOfDay(subDays(new Date(), 1)) }) },
   { label: 'Last 7 days', range: () => ({ start: startOfDay(subDays(new Date(), 6)), end: endOfDay(new Date()) }) },
   { label: 'Last 30 days', range: () => ({ start: startOfDay(subDays(new Date(), 29)), end: endOfDay(new Date()) }) },
+  { label: 'This month', range: () => ({ start: startOfMonth(new Date()), end: endOfDay(new Date()) }) },
+  { label: 'Last month', range: () => ({ start: startOfMonth(subMonths(new Date(), 1)), end: endOfDay(endOfMonth(subMonths(new Date(), 1))) }) },
+  { label: 'Last 3 months', range: () => ({ start: startOfDay(subMonths(new Date(), 3)), end: endOfDay(new Date()) }) },
+  { label: 'Last 6 months', range: () => ({ start: startOfDay(subMonths(new Date(), 6)), end: endOfDay(new Date()) }) },
+  { label: 'This year', range: () => ({ start: startOfYear(new Date()), end: endOfDay(new Date()) }) },
+  { label: 'Last 1 year', range: () => ({ start: startOfDay(subYears(new Date(), 1)), end: endOfDay(new Date()) }) },
 ];
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
 const fmtInput = (d: Date | null) => (d ? format(d, 'yyyy-MM-dd HH:mm') : '');
 
@@ -74,6 +87,21 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
   const [draft, setDraft] = useState<DateRange>({ start: value?.start ?? null, end: value?.end ?? null });
   const [startText, setStartText] = useState('');
   const [endText, setEndText] = useState('');
+  /**
+   * 'days' is the normal grid; 'months' is the year + month list you get by
+   * clicking the "August 2026" header (user: *"i can click August 2026 to see n
+   * years n month list"*). Picking there moves the PANEL only — it never fires
+   * onChange, so the API is untouched until Apply.
+   */
+  const [mode, setMode] = useState<'days' | 'months'>('days');
+  const [yearCursor, setYearCursor] = useState(() => (value?.start ?? new Date()).getFullYear());
+  /**
+   * Which field the next day-click fills. Set by clicking Start or End, which
+   * turns the grid into a single date picker for that one field (user: *"on
+   * click Start ... show the single date pkr on select date in applies to
+   * panel"*). Null = the normal drag-a-range behaviour.
+   */
+  const [focusField, setFocusField] = useState<'start' | 'end' | null>(null);
 
   const wrapRef = useRef<HTMLDivElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -86,6 +114,9 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
     if (!isOpen) return;
     setDraft({ start: value?.start ?? null, end: value?.end ?? null });
     setViewMonth(startOfMonth(value?.start ?? new Date()));
+    setMode('days');
+    setFocusField(null);
+    setYearCursor((value?.start ?? new Date()).getFullYear());
     const rect = triggerRef.current?.getBoundingClientRect();
     if (rect) setAlign(rect.left > window.innerWidth / 2 ? 'right' : 'left');
   }, [isOpen, value]);
@@ -109,6 +140,12 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
   const days = useMemo(() => Array.from({ length: 42 }, (_, i) => addDays(gridStart, i)), [gridStart]);
 
   const onDayClick = (day: Date) => {
+    // Single-field mode: fill just that endpoint and hand the grid back.
+    if (focusField) {
+      setDraft((d) => ({ ...d, [focusField]: focusField === 'start' ? startOfDay(day) : endOfDay(day) }));
+      setFocusField(null);
+      return;
+    }
     setDraft((prev) => {
       // No anchor yet, or a full range already chosen → start a new range.
       if (!prev.start || (prev.start && prev.end)) return { start: startOfDay(day), end: null };
@@ -131,20 +168,40 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
   };
 
   const applyPreset = (range: DateRange) => {
+    setDraft(range);
     onChange(range);
     setIsOpen(false);
   };
 
+  /**
+   * Apply is the ONLY thing that talks to the caller. Everything else in the
+   * panel — month jumps, single-field picks, Clear — moves the draft and
+   * nothing more, so browsing to March 2025 to look at it never re-queries.
+   */
   const applyDraft = () => {
-    if (!draft.start) return;
+    // An empty draft is a real answer: "no date filter". Callers already treat
+    // a null range that way, so Clear → Apply removes the filter.
+    if (!draft.start) { onChange({ start: null, end: null }); setIsOpen(false); return; }
     const range: DateRange = { start: draft.start, end: draft.end ?? endOfDay(draft.start) };
     onChange(range);
     setIsOpen(false);
   };
 
+  // Picking a month moves the calendar, nothing else — deliberately NOT an
+  // onChange. Selecting "March 2025" to go look at it must not re-query.
+  const pickMonth = (monthIndex: number) => {
+    setViewMonth(new Date(yearCursor, monthIndex, 1));
+    setMode('days');
+  };
+
+  const closePanel = () => setIsOpen(false);
+
+  // Clears the PANEL and stays open — with an Apply button beside it, a Clear
+  // that silently committed and closed would be a second, hidden apply.
   const clearAll = () => {
-    onChange({ start: null, end: null });
-    setIsOpen(false);
+    setDraft({ start: null, end: null });
+    setFocusField(null);
+    setMode('days');
   };
 
   // Trigger label — "Jun 22 – Today" style.
@@ -189,10 +246,16 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
               {/* Calendar */}
               <div className="flex-1 p-3 sm:border-r border-slate-200 dark:border-zinc-800">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-[13px] font-black text-pine dark:text-zinc-100 tracking-tight">
+                  <button
+                    type="button"
+                    onClick={() => { setYearCursor(viewMonth.getFullYear()); setMode((m) => (m === 'days' ? 'months' : 'days')); }}
+                    className="flex items-center gap-1 text-[13px] font-black text-pine dark:text-zinc-100 tracking-tight hover:text-seafoam transition-colors"
+                    title="Jump to a month"
+                  >
                     {format(viewMonth, 'MMMM yyyy')}
-                  </h3>
-                  <div className="flex items-center gap-1.5">
+                    <ChevronDown size={14} className={`transition-transform ${mode === 'months' ? 'rotate-180' : ''}`} />
+                  </button>
+                  <div className={`flex items-center gap-1.5 ${mode === 'months' ? 'invisible' : ''}`}>
                     <button
                       type="button"
                       onClick={() => setViewMonth((m) => subMonths(m, 1))}
@@ -212,6 +275,50 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                   </div>
                 </div>
 
+                {mode === 'months' ? (
+                  /* Year list + month grid. Applies to the PANEL only. */
+                  <div className="flex gap-2 h-[236px]">
+                    <div className="w-16 shrink-0 overflow-y-auto custom-scrollbar border-r border-slate-200 dark:border-zinc-800 pr-1">
+                      {Array.from({ length: 16 }, (_, i) => today.getFullYear() + 1 - i).map((y) => (
+                        <button
+                          key={y}
+                          type="button"
+                          onClick={() => setYearCursor(y)}
+                          className={`w-full px-2 py-1.5 rounded-lg text-[12px] font-bold transition-colors ${
+                            y === yearCursor
+                              ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+                              : 'text-pine dark:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800'
+                          }`}
+                        >
+                          {y}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex-1 grid grid-cols-3 gap-1.5 content-start">
+                      {MONTHS_SHORT.map((m, i) => {
+                        const current = viewMonth.getFullYear() === yearCursor && viewMonth.getMonth() === i;
+                        const future = new Date(yearCursor, i, 1) > today;
+                        return (
+                          <button
+                            key={m}
+                            type="button"
+                            onClick={() => pickMonth(i)}
+                            className={`py-2 rounded-lg text-[12px] font-bold transition-colors ${
+                              current
+                                ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
+                                : future
+                                  ? 'text-slate-300 dark:text-zinc-600 hover:bg-slate-100 dark:hover:bg-zinc-800'
+                                  : 'text-pine dark:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800'
+                            }`}
+                          >
+                            {m}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                <>
                 {/* Weekday header */}
                 <div className="grid grid-cols-7">
                   {WEEKDAYS.map((w) => (
@@ -259,6 +366,8 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                     );
                   })}
                 </div>
+                </>
+                )}
               </div>
 
               {/* Quick ranges */}
@@ -279,9 +388,18 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
             {/* Start / End inputs */}
             <div className="grid grid-cols-2 gap-3 px-3 py-3 border-t border-slate-200 dark:border-zinc-800">
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">Start</label>
-                <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-pine/20 dark:focus-within:ring-seafoam/30">
-                  <Calendar size={15} className="text-slate-400 shrink-0" />
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">
+                  Start {focusField === 'start' && <span className="text-seafoam normal-case tracking-normal">· pick a day</span>}
+                </label>
+                <div
+                  onClick={() => { setFocusField('start'); setMode('days'); if (draft.start) setViewMonth(startOfMonth(draft.start)); }}
+                  className={`flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-zinc-900 border rounded-lg cursor-pointer transition-colors ${
+                    focusField === 'start'
+                      ? 'border-seafoam ring-2 ring-seafoam/30'
+                      : 'border-slate-200 dark:border-zinc-700 focus-within:ring-2 focus-within:ring-pine/20 dark:focus-within:ring-seafoam/30'
+                  }`}
+                >
+                  <Calendar size={15} className={focusField === 'start' ? 'text-seafoam shrink-0' : 'text-slate-400 shrink-0'} />
                   <input
                     value={startText}
                     onChange={(e) => setStartText(e.target.value)}
@@ -293,9 +411,18 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                 </div>
               </div>
               <div>
-                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">End</label>
-                <div className="flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg focus-within:ring-2 focus-within:ring-pine/20 dark:focus-within:ring-seafoam/30">
-                  <Calendar size={15} className="text-slate-400 shrink-0" />
+                <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mb-1">
+                  End {focusField === 'end' && <span className="text-seafoam normal-case tracking-normal">· pick a day</span>}
+                </label>
+                <div
+                  onClick={() => { setFocusField('end'); setMode('days'); if (draft.end) setViewMonth(startOfMonth(draft.end)); }}
+                  className={`flex items-center gap-2 px-2.5 py-1.5 bg-white dark:bg-zinc-900 border rounded-lg cursor-pointer transition-colors ${
+                    focusField === 'end'
+                      ? 'border-seafoam ring-2 ring-seafoam/30'
+                      : 'border-slate-200 dark:border-zinc-700 focus-within:ring-2 focus-within:ring-pine/20 dark:focus-within:ring-seafoam/30'
+                  }`}
+                >
+                  <Calendar size={15} className={focusField === 'end' ? 'text-seafoam shrink-0' : 'text-slate-400 shrink-0'} />
                   <input
                     value={endText}
                     onChange={(e) => setEndText(e.target.value)}
@@ -317,6 +444,15 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
               <div className="flex items-center gap-2">
                 <button
                   type="button"
+                  onClick={closePanel}
+                  className="w-7 h-7 flex items-center justify-center rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-400 hover:text-pine dark:hover:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
+                  aria-label="Close"
+                  title="Close without applying"
+                >
+                  <X size={14} />
+                </button>
+                <button
+                  type="button"
                   onClick={clearAll}
                   className="px-2.5 py-1.5 text-[11px] font-bold text-slate-400 hover:text-pine dark:hover:text-zinc-100 transition-colors"
                 >
@@ -325,8 +461,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                 <button
                   type="button"
                   onClick={applyDraft}
-                  disabled={!draft.start}
-                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[12px] font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="px-4 py-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-[12px] font-semibold transition-colors"
                 >
                   Apply
                 </button>

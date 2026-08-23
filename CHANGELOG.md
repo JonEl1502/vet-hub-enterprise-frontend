@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: date picker reworked — day→year presets, month jump, per-field picking  —  2026-08-23
+🟢 **Record impact: none.** UI only. Shared component, so all **20** call sites get it.
+- **Presets now run today → a year**: Today, Yesterday, Last 7/30 days, This month, Last month,
+  Last 3/6 months, This year, Last 1 year. They were Grafana's minute/hour ladder — *Last 30
+  minutes*, *Last 6 hours* — which nobody uses to filter a clinic's visits, and which pushed the
+  useful entries out of view (user, 2026-08-23: *"start pressets with today up to a year"*).
+- **The month header is now a button.** Clicking "August 2026" opens a year list beside a month
+  grid; picking one moves the calendar and **nothing else** — no `onChange`, so browsing back to
+  March 2025 to look at it never re-queries the API (*"on accept it applies to datepkr panel not
+  api"*).
+- **Start and End are each their own date picker.** Clicking a field arms it — the label says
+  *"pick a day"* — and the next day-click fills just that endpoint instead of restarting the range
+  (*"on click Start ... show the single date pkr on select date in applies to panel"*).
+- **Panel is now a form: Close (X) · Clear · Apply.** ⚠️ **Behaviour change:** Clear used to commit
+  an empty range and close. It now clears the *panel* and stays open; **Apply** is the only thing
+  that reaches the caller. Applying an empty draft still clears the filter, so removing a date
+  filter is Clear → Apply. Apply is no longer disabled.
+
 ### fix: the Visits date filter now asks the SERVER, not a 500-row cache  —  2026-08-23
 🟢 **Record impact: none.** Read path only. **Data dependency: none** — the API already
 accepted `startDate`/`endDate`.
