@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### change: calling a client opens OUR dialog, not the browser's  —  2026-08-23
+🟢 **Record impact: none.**
+- A bare `tel:` link made the OS ask *"app.vethubcore.com wants to open this application"* — a prompt
+  nobody expects, that names no one, and that on a desktop usually opens something useless (user,
+  2026-08-23). New `ContactDialog` shows **who** you are contacting, the number, and what they owe,
+  with **WhatsApp · Copy number · Call**.
+- **Call is last and needs an explicit press** — it is the one action that hands off to the OS, so it
+  should never be the accident.
+- Portalled to `<body>`, for the same reason as the calculator: several hosts sit inside
+  `backdrop-blur` headers, and `backdrop-filter` makes an ancestor a containing block for
+  `position: fixed`.
+- Wired on Reports & Analytics (Top 5 outstanding) and Receivables.
+
+### feat: filters on Receivables  —  2026-08-23
+🟢 **Record impact: none.**
+- The debtor list printed *"Showing the 12 worst of 34"* and stopped there — the other 22 were
+  **unreachable from the page whose whole job is chasing them**, and there was no way to ask "who is
+  past 90 days?" without reading every row (user, 2026-08-23).
+- Adds search (name or phone) and ageing pills — **All · Current · 31–60 · 61–90 · 90+** — with a
+  running count and total for the filtered set, and a **show all** for the unfiltered list.
+- ⚠️ Filtering deliberately **bypasses the 12-row cap**: truncating a filtered list would hide the
+  very rows the filter was for.
+
 ### feat: Boarding step is tabbed  —  2026-08-23
 🟢 **Record impact: none.**
 - **Daily sheet & care log · Stay & plan** are now tabs, mirroring the Admission step (user,

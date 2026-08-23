@@ -9,6 +9,7 @@
  * A report aged from invoicing flatters itself.
  */
 import React, { useEffect, useState } from 'react';
+import ContactDialog from '../../shared/common/ContactDialog';
 import { TrendingUp, TrendingDown, Loader2, Phone, AlertTriangle } from 'lucide-react';
 import { receivablesAPI, type ArAgeing, type SupplierApRow } from '../../../services/modules/receivables.api';
 
@@ -33,6 +34,17 @@ const ReceivablesPanel: React.FC<Props> = ({ currency = 'KES' }) => {
   const [ageing, setAgeing] = useState<ArAgeing | null>(null);
   const [ap, setAp] = useState<{ total: number; suppliers: SupplierApRow[] } | null>(null);
   const [loading, setLoading] = useState(true);
+  /**
+   * Filters (user, 2026-08-23). The list showed "the 12 worst of 34" and
+   * nothing else — so the other 22 debtors were unreachable from the page whose
+   * whole job is chasing them, and there was no way to ask "who is past 90
+   * days?" without reading every row.
+   */
+  const [q, setQ] = useState('');
+  const [bucket, setBucket] = useState<'ALL' | 'CURRENT' | 'D31' | 'D61' | 'D90'>('ALL');
+  const [showAll, setShowAll] = useState(false);
+  /** Contacting a debtor opens OUR dialog, not the browser's protocol prompt. */
+  const [contact, setContact] = useState<{ name: string; phone: string; subtitle?: string } | null>(null);
 
   useEffect(() => {
     Promise.all([
@@ -112,8 +124,54 @@ const ReceivablesPanel: React.FC<Props> = ({ currency = 'KES' }) => {
       )}
 
       {/* Who owes — worst first, which is the order anyone chasing money works in */}
-      {ageing && ageing.clients.length > 0 && (
+      {ageing && ageing.clients.length > 0 && (() => {
+        const needle = q.trim().toLowerCase();
+        const inBucket = (d: number) =>
+          bucket === 'ALL' ? true
+          : bucket === 'CURRENT' ? d <= 30
+          : bucket === 'D31' ? d > 30 && d <= 60
+          : bucket === 'D61' ? d > 60 && d <= 90
+          : d > 90;
+        const rows = ageing.clients
+          .filter(c => !needle || `${c.name ?? ''} ${c.phone ?? ''}`.toLowerCase().includes(needle))
+          .filter(c => inBucket(Number(c.oldestDays) || 0));
+        // Filtering is an explicit request to see a subset — truncating THAT
+        // would hide the very rows the filter was for.
+        const filtering = !!needle || bucket !== 'ALL';
+        const visible = (filtering || showAll) ? rows : rows.slice(0, 12);
+        const filteredTotal = rows.reduce((sum, c) => sum + Number(c.total || 0), 0);
+
+        return (
         <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 overflow-hidden">
+          <div className="flex flex-wrap items-center gap-2 p-3 border-b border-slate-100 dark:border-zinc-800">
+            <input
+              value={q}
+              onChange={e => setQ(e.target.value)}
+              placeholder="Search client or phone…"
+              className="flex-1 min-w-[160px] px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
+            />
+            <div className="flex flex-wrap gap-1.5">
+              {([
+                ['ALL', 'All'], ['CURRENT', 'Current'], ['D31', '31–60'], ['D61', '61–90'], ['D90', '90+'],
+              ] as const).map(([v, label]) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setBucket(v)}
+                  className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                    bucket === v ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {filtering && (
+              <span className="ml-auto text-[10px] font-black text-slate-500 dark:text-zinc-400">
+                {rows.length} client{rows.length === 1 ? '' : 's'} · {money(filteredTotal)}
+              </span>
+            )}
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm min-w-[520px]">
               <thead className="bg-slate-50 dark:bg-zinc-800/60 text-[10px] uppercase tracking-wider text-slate-500">
@@ -124,7 +182,7 @@ const ReceivablesPanel: React.FC<Props> = ({ currency = 'KES' }) => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-zinc-800">
-                {ageing.clients.slice(0, 12).map((c) => (
+                {visible.map((c) => (
                   <tr
                     key={c.clientId}
                     onClick={() => openDebtor(c.clientId)}
@@ -133,9 +191,18 @@ const ReceivablesPanel: React.FC<Props> = ({ currency = 'KES' }) => {
                     <td className="px-3 py-2">
                       <p className="text-xs font-bold text-slate-800 dark:text-white truncate">{c.name}</p>
                       {c.phone && (
-                        <p className="text-[10px] text-slate-400 flex items-center gap-1">
+                        <button
+                          type="button"
+                          title={`Contact ${c.name}`}
+                          onClick={e => {
+                            // The row opens the debtor; the phone opens contact.
+                            e.stopPropagation();
+                            setContact({ name: c.name, phone: String(c.phone), subtitle: `${money(c.total)} owed · oldest ${c.oldestDays}d` });
+                          }}
+                          className="text-[10px] text-slate-400 hover:text-seafoam flex items-center gap-1"
+                        >
                           <Phone size={9} /> {c.phone}
-                        </p>
+                        </button>
                       )}
                     </td>
                     <td className="px-3 py-2 text-right">
@@ -155,13 +222,29 @@ const ReceivablesPanel: React.FC<Props> = ({ currency = 'KES' }) => {
               </tbody>
             </table>
           </div>
-          {ageing.clients.length > 12 && (
-            <p className="px-3 py-2 text-[10px] text-slate-400 border-t border-slate-100 dark:border-zinc-800">
-              Showing the 12 worst of {ageing.clients.length}.
-            </p>
+          {rows.length === 0 && (
+            <p className="px-3 py-6 text-[11px] text-slate-400 text-center">No debtors match these filters.</p>
+          )}
+          {!filtering && !showAll && rows.length > 12 && (
+            <button
+              type="button"
+              onClick={() => setShowAll(true)}
+              className="w-full px-3 py-2 text-[10px] font-black uppercase tracking-widest text-seafoam hover:bg-seafoam/5 border-t border-slate-100 dark:border-zinc-800"
+            >
+              Showing the 12 worst of {rows.length} — show all
+            </button>
           )}
         </div>
-      )}
+        );
+      })()}
+
+      <ContactDialog
+        open={!!contact}
+        onClose={() => setContact(null)}
+        name={contact?.name ?? ''}
+        phone={contact?.phone ?? ''}
+        subtitle={contact?.subtitle}
+      />
 
       {ageing && ageing.total === 0 && (
         <div className="rounded-2xl border border-dashed border-slate-200 dark:border-zinc-800 py-8 text-center text-xs text-slate-400">

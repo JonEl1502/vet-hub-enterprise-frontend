@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import ContactDialog from '../../shared/common/ContactDialog';
 import toast from 'react-hot-toast';
 import {
   ResponsiveContainer, LineChart, Line, CartesianGrid, XAxis, YAxis, Tooltip, Brush,
@@ -62,6 +63,11 @@ const Stars: React.FC<{ n: number }> = ({ n }) => (
 );
 
 const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
+  /**
+   * Contacting a debtor opens OUR dialog, not the browser's protocol prompt
+   * (user, 2026-08-23). See ContactDialog for why.
+   */
+  const [contact, setContact] = useState<{ name: string; phone: string; subtitle?: string } | null>(null);
   const [rangeKey] = useState<RangeKey>('this-month');
   // An explicit pick from the shared DateRangePicker wins over the default
   // window; clearing it (null) falls back to `rangeKey`.
@@ -660,10 +666,13 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                       <span className={`text-[10px] font-black text-right ${c.oldestDays > 30 ? 'text-rose-500' : 'text-slate-500'}`}>{c.oldestDays}</span>
                       <span className="text-[10px] font-black font-mono text-pine dark:text-zinc-100 text-right">{currency} {moneyShort(c.total)}</span>
                       {c.phone ? (
-                        <a href={`tel:${c.phone}`} title={`Call ${c.name}`}
+                        <button
+                          type="button"
+                          title={`Contact ${c.name}`}
+                          onClick={() => setContact({ name: c.name, phone: String(c.phone), subtitle: `${currency} ${moneyShort(c.total)} owed · oldest ${c.oldestDays}d` })}
                           className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-600 hover:bg-emerald-500 hover:text-white transition-all justify-self-end">
                           <Phone size={11} />
-                        </a>
+                        </button>
                       ) : <span />}
                     </div>
                   ))}
@@ -779,6 +788,13 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
           </p>
         </>
       )}
+      <ContactDialog
+        open={!!contact}
+        onClose={() => setContact(null)}
+        name={contact?.name ?? ''}
+        phone={contact?.phone ?? ''}
+        subtitle={contact?.subtitle}
+      />
     </div>
   );
 };
