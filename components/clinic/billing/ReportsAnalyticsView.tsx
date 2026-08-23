@@ -202,12 +202,39 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
   }, []);
   const curLabel = useMemo(() => fmtWindow(from, to), [fmtWindow, from, to]);
   const cmpLabel = useMemo(() => fmtWindow(prevFrom, prevTo), [fmtWindow, prevFrom, prevTo]);
+  const dayCount = (a: Date, b: Date) => Math.max(1, Math.round((b.getTime() - a.getTime()) / 86_400_000) + 1);
+  const curDays = useMemo(() => dayCount(from, to), [from, to]);
+  const cmpDays = useMemo(() => dayCount(prevFrom, prevTo), [prevFrom, prevTo]);
+  // A comparison of unequal length is stretched to fit. That must be SAID —
+  // a dashed line spanning the chart implies day-for-day otherwise.
+  const cmpStretched = compareOn && curDays !== cmpDays;
+
+  /** Legend chip naming the comparison window, plus its length when stretched. */
+  const CmpKey = () => (
+    <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400">
+      <span className="w-4 border-t-2 border-dashed border-slate-400" />
+      {cmpLabel}
+      {cmpStretched && (
+        <span
+          className="normal-case tracking-normal font-bold text-amber-600 dark:text-amber-400"
+          title={`The comparison window is ${cmpDays} day${cmpDays === 1 ? '' : 's'} and this one is ${curDays}. The dashed line is stretched to fit, so points do not line up day-for-day.`}
+        >
+          · {cmpDays}d stretched to {curDays}d
+        </span>
+      )}
+    </span>
+  );
 
   const docData = useMemo(() => {
     // The service returns `series` — reading `days` here is what made the chart
     // say "No documents in this range" while 220 bills sat in the window.
     const days: any[] = docFlow?.series || docFlow?.data?.series || [];
-    const prevDays: any[] = compareOn ? (docFlowPrev?.series || docFlowPrev?.data?.series || []) : [];
+    const prevRaw: any[] = compareOn ? (docFlowPrev?.series || docFlowPrev?.data?.series || []) : [];
+    // Same stretch as the other charts — see `resample`.
+    const prevDays = prevRaw.length && days.length && prevRaw.length !== days.length
+      ? Array.from({ length: days.length }, (_, i) =>
+          prevRaw[days.length === 1 ? 0 : Math.round((i * (prevRaw.length - 1)) / (days.length - 1))])
+      : prevRaw;
     const pick = (d: any, k: 'bills' | 'invoices' | 'receipts') =>
       d == null ? null : docMode === 'value' ? Number(d[`${k}Value`] || 0) : Number(d[k] || 0);
     return days.map((d, i) => ({
@@ -236,14 +263,35 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
    * the comparison day is carried in `cmpLabel*` for the tooltip, otherwise a
    * reader has no way to tell which date a dashed point belongs to.
    */
-  const withCompare = (cur: any[], prev: any[]) =>
-    cur.map((p, i) => ({
+  /**
+   * Stretch the comparison window across the current one.
+   *
+   * Aligning by raw index assumed the two windows were the same length — true
+   * of the DEFAULT compare (an equal span ending just before `from`), false the
+   * moment someone picks their own. Comparing a 24-day window against a single
+   * day drew the dashed series over index 0 alone: a 2px stub at the left edge
+   * that reads as a rendering fault, not as data (user, 2026-08-23: *"graphs
+   * seem confused"*). Resampling maps position→position so the shapes can
+   * actually be compared, and the legend states both lengths so a stretched
+   * line is never mistaken for a day-for-day one.
+   */
+  const resample = (prev: any[], n: number) => {
+    if (!prev.length || n <= 0) return [];
+    if (prev.length === n) return prev;
+    return Array.from({ length: n }, (_, i) =>
+      prev[n === 1 ? 0 : Math.round((i * (prev.length - 1)) / (n - 1))]);
+  };
+
+  const withCompare = (cur: any[], prevRaw: any[]) => {
+    const prev = resample(prevRaw, cur.length);
+    return cur.map((p, i) => ({
       ...p,
       cmpRevenue: prev[i]?.revenue ?? null,
       cmpExpenses: prev[i]?.expenses ?? null,
       cmpNetProfit: prev[i]?.netProfit ?? null,
       cmpDay: prev[i]?.label ?? null,
     }));
+  };
 
   const perfData = useMemo(() => {
     const cur = bucket(summary?.series ?? [], granularity === 'Weekly');
@@ -369,6 +417,17 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
   const growth = bi?.clientGrowth;
 
   const axisProps = { tick: { fontSize: 10, fill: C.slate }, axisLine: false as const, tickLine: false as const };
+  /**
+   * Recharts labels the X point with the CURRENT window's date. A dashed point
+   * belongs to a different day entirely, so without this the reader has no way
+   * to tell which date it is.
+   */
+  const cmpTooltipLabel = (_: any, payload: any[]) => {
+    const d = payload?.[0]?.payload;
+    const base = d?.label ?? '';
+    return compareOn && d?.cmpDay ? `${base}  ·  compared with ${d.cmpDay}` : base;
+  };
+
   const tooltipStyle = {
     contentStyle: { borderRadius: 12, border: '1px solid #e2e8f0', fontSize: 11, fontWeight: 700 },
     formatter: (v: any, n: any) => [money(Math.abs(Number(v))), n],
@@ -541,19 +600,24 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                     <span className="w-2 h-2 rounded-full" style={{ background: c }} /> {l}
                   </span>
                 ))}
-                {compareOn && (
-                  <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400">
-                    <span className="w-4 border-t-2 border-dashed border-slate-400" /> {cmpLabel}
-                  </span>
-                )}
+                {compareOn && <CmpKey />}
               </div>
+              {/* Three lines, one visible. Without saying why, a chart showing a
+                  single purple curve looks broken — it is not: with no expenses
+                  recorded, Profit EQUALS Revenue and the green line sits exactly
+                  underneath. */}
+              {expenses === 0 && revenue > 0 && (
+                <p className="mb-1 text-[9px] font-bold text-slate-400 leading-tight">
+                  No expenses recorded in this period, so Profit equals Revenue — the green line is hidden directly beneath the purple one.
+                </p>
+              )}
               <div className="h-64">
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={perfData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.5} vertical={false} />
                     <XAxis dataKey="label" {...axisProps} minTickGap={24} />
                     <YAxis {...axisProps} tickFormatter={moneyShort} width={44} />
-                    <Tooltip {...tooltipStyle} />
+                    <Tooltip {...tooltipStyle} labelFormatter={cmpTooltipLabel} />
                     <Line type="monotone" dataKey="revenue" name="Revenue" stroke={C.green} strokeWidth={2} dot={{ r: 2 }} />
                     <Line type="monotone" dataKey="expenses" name="Expenses" stroke={C.red} strokeWidth={2} dot={{ r: 2 }} />
                     <Line type="monotone" dataKey="netProfit" name="Profit" stroke={C.purple} strokeWidth={2} dot={{ r: 2 }} />
@@ -604,11 +668,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                     <span className="w-2 h-2 rounded-full" style={{ background: c }} /> {l}
                   </span>
                 ))}
-                {compareOn && (
-                  <span className="inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400">
-                    <span className="w-4 border-t-2 border-dashed border-slate-400" /> {cmpLabel}
-                  </span>
-                )}
+                {compareOn && <CmpKey />}
               </div>
               {/* Both windows as NUMBERS. A dashed line shows the shape of the
                   difference; only the totals say how big it is. */}
@@ -646,7 +706,12 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.5} vertical={false} />
                     <XAxis dataKey="label" {...axisProps} minTickGap={24} />
                     <YAxis {...axisProps} tickFormatter={docMode === 'value' ? moneyShort : undefined} width={44} allowDecimals={false} />
-                    <Tooltip {...tooltipStyle} />
+                    {/* Count mode must not render "5 bills" as "KES 5.00". */}
+                    <Tooltip
+                      {...tooltipStyle}
+                      formatter={docMode === 'value' ? tooltipStyle.formatter : ((v: any, n: any) => [String(Math.round(Number(v))), n]) as any}
+                      labelFormatter={cmpTooltipLabel}
+                    />
                     <Line type="monotone" dataKey="bills" name="Bills" stroke={C.amber} strokeWidth={2} dot={{ r: 2 }} />
                     <Line type="monotone" dataKey="invoices" name="Invoices" stroke={C.sky} strokeWidth={2} dot={{ r: 2 }} />
                     <Line type="monotone" dataKey="receipts" name="Receipts" stroke={C.green} strokeWidth={2} dot={{ r: 2 }} />
@@ -691,7 +756,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                     <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" strokeOpacity={0.5} vertical={false} />
                     <XAxis dataKey="label" {...axisProps} minTickGap={24} />
                     <YAxis {...axisProps} tickFormatter={moneyShort} width={44} />
-                    <Tooltip {...tooltipStyle} />
+                    <Tooltip {...tooltipStyle} labelFormatter={cmpTooltipLabel} />
                     <Bar dataKey="revenue" name="Money In" fill={C.green} radius={[2, 2, 0, 0]} maxBarSize={8} />
                     <Bar dataKey="out" name="Money Out" fill={C.red} radius={[2, 2, 0, 0]} maxBarSize={8} />
                     <Line type="monotone" dataKey="netProfit" name="Net Cash Flow" stroke={C.purple} strokeWidth={2} dot={false} />

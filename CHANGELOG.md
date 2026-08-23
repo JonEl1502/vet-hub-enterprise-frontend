@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: comparison lines were unreadable when the two windows differed in length  —  2026-08-23
+🟢 **Record impact: none.** Read path only.
+- Position-alignment assumed the two windows were the **same length** — true of the default compare
+  (an equal span ending just before the current one), false the moment someone picks their own.
+  Comparing 31 Jul – 23 Aug against a single day (1 Jul) drew the dashed series over index 0 alone:
+  a 2px stub at the left edge that reads as a rendering fault rather than data (user: *"graphs seem
+  confused"*). The comparison series is now **resampled** across the current window.
+- ⚠️ **A stretched comparison is disclosed, not hidden.** The legend says `· 1d stretched to 24d`
+  when the lengths differ, because a dashed line spanning the whole chart otherwise implies a
+  day-for-day match that isn't there.
+- **Tooltips name the comparison date.** Recharts labels the point with the *current* window's day;
+  a dashed point belongs to a different day entirely, so the header now reads
+  `08-14 · compared with 07-01`.
+- **Financial Performance explains its single visible line.** With no expenses recorded, Profit
+  equals Revenue exactly and the green line hides beneath the purple one — the chart now says so
+  instead of looking like two missing series.
+- Bills → Invoices → Receipts no longer formats **counts** as currency in the tooltip ("KES 5.00"
+  for 5 bills); the money formatter now applies only in Value mode.
+
 ### feat: Compare now shows BOTH totals, and both windows on every chart  —  2026-08-23
 🟢 **Record impact: none.** Read path only. **Data dependency: none.**
 - Ticking **Compare** used to leave a single number and a bare delta — *"70.3% from KES 19,050.00"*
