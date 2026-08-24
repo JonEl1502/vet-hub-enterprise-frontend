@@ -70,7 +70,12 @@ export const JourneyTimeline: React.FC<{ events: JourneyEvent[]; compact?: boole
                     {SOURCE_LABEL[e.source]}
                   </span>
                 )}
-                {!e.auto && (
+                {/* Only a genuine note earns the badge. `POST /events` stamps
+                    auto=false on everything, so the conversions the UI posts
+                    (encounter added/removed, workflow switched, escalations)
+                    came out labelled as if a person had typed them. Their own
+                    violet TRANSFER dot already says what they are. */}
+                {!e.auto && e.kind !== 'transfer' && (
                   <span className="text-[7px] font-black uppercase bg-seafoam/10 text-seafoam px-1 py-0.5 rounded tracking-widest">staff note</span>
                 )}
               </div>
