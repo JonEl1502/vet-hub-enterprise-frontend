@@ -1,17 +1,27 @@
 import { Visit, Pet, Client } from '../../../../types';
 
 // ── Patient Journey ────────────────────────────────────────────────
-// Every meaningful action during a visit lands here as a timestamped
-// event. UI-ONLY phase: events live in localStorage per visit; the
-// backend `visit_events` table replaces the store when APIs are wired.
-export type JourneyKind = 'milestone' | 'action' | 'alert' | 'billing' | 'info';
+// SERVER-DERIVED. The backend rebuilds the timeline from the visit's own
+// records on every read — services, products, module records, bill /
+// invoice / payment timestamps, the workflow's `completed` map — and merges
+// the `visit_events` rows that cover staff notes and the transitions no row
+// records (status changes, reopens, removals). See backend
+// `visitJourney.service.ts`. Nothing in the client invents an event.
+export type JourneyKind = 'milestone' | 'action' | 'alert' | 'billing' | 'info' | 'transfer';
 
 export interface JourneyEvent {
   id: string;
   at: string; // ISO
   label: string;
   kind: JourneyKind;
-  auto?: boolean; // emitted by the system rather than typed by staff
+  auto?: boolean; // derived/system rather than typed by staff
+  /** Which record produced it — 'service' | 'product' | 'bill' | 'lab' | … */
+  source?: string;
+  refId?: string | null;
+  /** Where it happened: 'tab:billing' | 'step:treatment' | 'page:lab'. */
+  anchor?: string | null;
+  amount?: number | null;
+  actor?: string | null;
 }
 
 // ── Wizard steps ───────────────────────────────────────────────────

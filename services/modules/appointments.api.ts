@@ -432,13 +432,29 @@ export const visitsAPI = {
   },
 
   /**
-   * Patient Journey events — incl. 'transfer' events tracking conversions
-   * between workflows (vet visit → grooming/boarding).
+   * Patient Journey — REBUILT SERVER-SIDE from the visit's own records on every
+   * read (services, products, module records, bill/invoice/payment timestamps,
+   * the workflow's `completed` map), merged with the stored `visit_events` rows
+   * that cover staff notes and the transitions no row records (status changes,
+   * reopens, removals).
+   *
+   * So this is the ONLY source of the timeline. Do not rebuild it in the
+   * client: an event the UI invents is one no other surface can see, and it
+   * lands in click order rather than in the order things actually happened.
    */
   getEvents: async (
     appointmentId: number | string,
     options?: RequestOptions
-  ): Promise<ApiResponse<{ events: Array<{ id: string; visitId: string; at: string; label: string; kind: string; auto: boolean }> }>> => {
+  ): Promise<ApiResponse<{ events: Array<{
+    id: string; visitId: string; at: string; label: string; kind: string; auto: boolean;
+    /** Which record produced it — 'service' | 'product' | 'bill' | 'lab' | … */
+    source?: string;
+    refId?: string | null;
+    /** Where it happened, so the drawer can jump there: 'tab:billing', 'step:treatment', 'page:lab'. */
+    anchor?: string | null;
+    amount?: number | null;
+    actor?: string | null;
+  }> }>> => {
     return get(`/appointments/${appointmentId}/events`, { cache: false, silent: true, ...options });
   },
 

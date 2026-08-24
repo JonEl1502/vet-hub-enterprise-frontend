@@ -316,7 +316,11 @@ const ReconciliationDocument: React.FC<Props> = ({
             {data.payments.map((pm, i) => (
               <div key={pm.transactionId} className="flex justify-between items-center gap-3">
                 <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400 truncate">
-                  {new Date(pm.paidAt).toLocaleDateString()} · {String(pm.method).replace('_', ' ')}
+                  {new Date(pm.paidAt).toLocaleDateString()} ·{' '}
+                  {/* A credit draw is the client's OWN money, already banked —
+                      naming its funding method reads as a second payment by
+                      that method today. Say what it is. */}
+                  {pm.fromCredit ? 'CLIENT CREDIT' : String(pm.method).replace('_', ' ')}
                   {/* The document THIS payment produced — the pairing the user
                       asked to see ("the first payment n receipt ... and the
                       remaing one too"). Server-provided since 193; falls back

@@ -1,12 +1,17 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { X, Milestone, Zap, AlertTriangle, Coins, Info } from 'lucide-react';
+import { X, Milestone, Zap, AlertTriangle, Coins, Info, ArrowLeftRight, RefreshCw } from 'lucide-react';
 import { JourneyEvent, JourneyKind } from './types';
 import { formatDate, formatTime } from '../../../../services/utils/dateFormatter';
 
 // The Patient Journey — a per-visit, timestamped roadmap of everything that
 // happened. Reused in three surfaces: the wizard's live sidebar, the Journey
 // drawer on the visit detail page, and (later) read-only visit views.
+//
+// The list is whatever the SERVER derived; this file only draws it. Ordering
+// is the server's too — it sorts on each record's own timestamp, which is why
+// a bill raised at 08:34 now sits after the service added at 08:31 whatever
+// order the two requests happened to be fired in.
 
 const KIND_STYLE: Record<JourneyKind, { dot: string; icon: React.ElementType }> = {
   milestone: { dot: 'bg-seafoam', icon: Milestone },
@@ -14,6 +19,19 @@ const KIND_STYLE: Record<JourneyKind, { dot: string; icon: React.ElementType }> 
   alert:     { dot: 'bg-red-500', icon: AlertTriangle },
   billing:   { dot: 'bg-amber-500', icon: Coins },
   info:      { dot: 'bg-cyan-500', icon: Info },
+  transfer:  { dot: 'bg-violet-500', icon: ArrowLeftRight },
+};
+
+// The record behind the line, in the words staff use for it. Only shown when
+// it adds something the label doesn't already say.
+const SOURCE_LABEL: Record<string, string> = {
+  service: 'Service', product: 'Stock', procedure: 'Procedure', bill: 'Bill',
+  invoice: 'Invoice', payment: 'Payment', receipt: 'Receipt', lab: 'Lab',
+  imaging: 'Imaging', surgery: 'Surgery', grooming: 'Grooming',
+  boarding: 'Boarding', inpatient: 'In-patient', vaccination: 'Vaccination',
+  deworming: 'Deworming', triage: 'Triage', workflow: 'Workflow',
+  encounter: 'Encounter', reminder: 'Follow-up', record: 'Records',
+  visit: 'Visit', job: 'Partner', state: 'Status', note: 'Note',
 };
 
 export const JourneyTimeline: React.FC<{ events: JourneyEvent[]; compact?: boolean; onNavigate?: (e: JourneyEvent) => void }> = ({ events, compact, onNavigate }) => {
@@ -45,7 +63,18 @@ export const JourneyTimeline: React.FC<{ events: JourneyEvent[]; compact?: boole
                 <span className={`text-[11px] font-bold leading-snug ${e.kind === 'alert' ? 'text-red-600 dark:text-red-400' : 'text-pine dark:text-zinc-200'}`}>{e.label}</span>
               )}
             </div>
-            {e.auto && !compact && <span className="ml-12 text-[7px] font-black uppercase bg-slate-100 dark:bg-zinc-800 text-slate-400 px-1 py-0.5 rounded">auto</span>}
+            {!compact && (
+              <div className="ml-12 flex items-center gap-1">
+                {e.source && SOURCE_LABEL[e.source] && (
+                  <span className="text-[7px] font-black uppercase bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 px-1 py-0.5 rounded tracking-widest">
+                    {SOURCE_LABEL[e.source]}
+                  </span>
+                )}
+                {!e.auto && (
+                  <span className="text-[7px] font-black uppercase bg-seafoam/10 text-seafoam px-1 py-0.5 rounded tracking-widest">staff note</span>
+                )}
+              </div>
+            )}
           </li>
         );
       })}
@@ -62,7 +91,10 @@ export const JourneyDrawer: React.FC<{
   petName?: string;
   // Clicking an event jumps to where it happened (wizard step / tab).
   onNavigate?: (e: JourneyEvent) => void;
-}> = ({ open, onClose, events, petName, onNavigate }) => {
+  /** Re-read the server-derived timeline (it is rebuilt from the records). */
+  onRefresh?: () => Promise<void> | void;
+}> = ({ open, onClose, events, petName, onNavigate, onRefresh }) => {
+  const [refreshing, setRefreshing] = React.useState(false);
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-[90]">
@@ -73,13 +105,25 @@ export const JourneyDrawer: React.FC<{
             <p className="text-[8px] font-black uppercase tracking-widest text-white/60">Patient Journey</p>
             <h3 className="text-sm font-black uppercase tracking-tight">{petName ? `${petName} — this visit` : 'This visit'}</h3>
           </div>
-          <button onClick={onClose} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-all"><X size={14} /></button>
+          <div className="flex items-center gap-1.5">
+            {onRefresh && (
+              <button
+                onClick={async () => { setRefreshing(true); try { await onRefresh(); } finally { setRefreshing(false); } }}
+                title="Rebuild from the records"
+                className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-all disabled:opacity-50"
+                disabled={refreshing}
+              >
+                <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+              </button>
+            )}
+            <button onClick={onClose} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-all"><X size={14} /></button>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
           <JourneyTimeline events={events} onNavigate={onNavigate} />
         </div>
         <div className="px-4 py-2 border-t border-slate-200 dark:border-zinc-800">
-          <p className="text-[8px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">{events.length} event{events.length === 1 ? '' : 's'} · timestamped roadmap of this visit</p>
+          <p className="text-[8px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">{events.length} event{events.length === 1 ? '' : 's'} · rebuilt from this visit&apos;s records</p>
         </div>
       </aside>
     </div>,

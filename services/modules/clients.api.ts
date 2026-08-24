@@ -186,7 +186,12 @@ export interface VisitReconciliation {
   settled: boolean;
   /** `amount` = what this receipt covered, which need not equal paidSoFar. */
   receipt: { id: string; receiptNumber: string; issuedAt: string; amount?: number } | null;
-  payments: { transactionId: string; amount: number; method: string; paidAt: string; receiptNumber?: string | null }[];
+  payments: {
+    transactionId: string; amount: number; method: string; paidAt: string;
+    receiptNumber?: string | null;
+    /** The client's EXISTING credit paid this line — no money arrived today. */
+    fromCredit?: boolean;
+  }[];
   /** Every live receipt on this receivable, newest first (193). */
   receipts?: { id: string; receiptNumber: string; issuedAt: string; amount: number }[];
   generatedAt: string;

@@ -29,13 +29,26 @@ interface Props {
   allAppointments: Visit[];
   /** The live bill from BillPanel. Null until it loads — we fall back then. */
   bill: Bill | null;
+  /**
+   * What has ACTUALLY been collected against this visit, from the settlement
+   * rows (the reconciliation endpoint's `paidSoFar`).
+   *
+   * ⚠️ Not the same thing as `bill.amountPaid`, which this card used to read.
+   * That column is written only by the PAY-FIRST reconcile step, so it is NULL
+   * on every ordinary bill — and the card then printed "Paid KES 0.00 ·
+   * Unpaid" over a visit whose header said SETTLED · CASH (prod visit 161,
+   * user 2026-08-24). Money that arrives as a credit draw or inside a payment
+   * collected on another visit never touches this visit's own transaction
+   * either, so the settlements are the only figure that is always right.
+   */
+  settledAmount?: number | null;
   onNavigateToVisit?: (visitId: number) => void;
   /** Jump to the invoice sub-tab. */
   onOpenInvoice?: () => void;
 }
 
 const BillBalanceCard: React.FC<Props> = ({
-  visit, currency, allAppointments, bill, onNavigateToVisit, onOpenInvoice,
+  visit, currency, allAppointments, bill, settledAmount, onNavigateToVisit, onOpenInvoice,
 }) => {
   const [snapshotBalance, setSnapshotBalance] = React.useState<number | null>(null);
   /**
@@ -76,7 +89,14 @@ const BillBalanceCard: React.FC<Props> = ({
   // The bill is the authority on what this visit costs — `visit.totalCost` is
   // the pre-bill task sum and lags every line edit.
   const thisVisit = bill ? Number(bill.total || 0) : Number(visit.totalCost || 0);
-  const paid = bill ? Number(bill.amountPaid || 0) : (visit.isPaid ? Number(visit.totalCost || 0) : 0);
+  // Settlements first (see `settledAmount`), then the pay-first column, then
+  // the visit's own flag. Each fallback is strictly worse than the one before,
+  // and is only reached when the better figure has not loaded.
+  const paid = settledAmount != null
+    ? Number(settledAmount)
+    : bill?.amountPaid != null
+      ? Number(bill.amountPaid)
+      : (visit.isPaid ? Number(bill?.total ?? visit.totalCost ?? 0) : 0);
   const due = Math.max(0, thisVisit - paid);
   // What the VISIT's tasks add up to — the other half of the comparison above.
   // `visit.totalCost` is the pre-bill task sum, which is exactly the figure the

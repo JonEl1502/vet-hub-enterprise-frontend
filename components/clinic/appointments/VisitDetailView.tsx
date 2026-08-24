@@ -404,18 +404,18 @@ const VisitDetailInner: React.FC<Props> = ({
    * The timeline recorded the clinical work in detail and then simply stopped —
    * every event on prod visit 165 was a workflow or encounter change, and the
    * bill, the invoice and a cheque for 22,917.5 left no trace at all (user,
-   * 2026-08-21: "timeline to show evething till when settled"). A visit's story
-   * does not end when the vet puts the pen down.
+   * 2026-08-21: "timeline to show evething till when settled").
    *
-   * Written BOTH ways on purpose: `wiz.emit` puts it on the local journey
-   * immediately, `visitsAPI.addEvent` persists it to `visit_events` so it is
-   * still there tomorrow, on another device, for someone who was not in the room.
-   * Best-effort on the server leg — a failed audit write must never take a
-   * payment down with it.
+   * ⚠️ It NO LONGER WRITES ANYTHING. It used to post the label it was handed to
+   * `visit_events`, composed from whatever the client had in hand at the time —
+   * which on prod visit 166 wrote "Bill SETTLED — KES 0 by BANK_TRANSFER" over a
+   * visit paid in full from the client's credit. The bill, invoice, payment and
+   * receipt rows all carry their own timestamps and amounts, so the server
+   * derives these lines from the money itself. All that is left to do is
+   * re-read once the write lands.
    */
-  const emitMoneyEvent = (label: string) => {
-    wiz.emit(label, 'billing', true);
-    visitsAPI.addEvent(appointment.id, { label, kind: 'billing' }).catch(() => {});
+  const emitMoneyEvent = (_label: string) => {
+    wiz.refreshJourney();
   };
 
   const generateInvoiceFromFooter = async () => {
@@ -527,7 +527,9 @@ const VisitDetailInner: React.FC<Props> = ({
       status: TaskStatus.COMPLETED,
       price: -amount,
     } as any);
-    wiz.emit(`Discount applied to the bill: -${amount.toLocaleString()}`, 'billing', true);
+    // The discount lands as a negative bill line; the server derives the line
+    // from it (and from `bills.discount`) with the figure that was actually saved.
+    wiz.refreshJourney();
     // If a pre-created discount was picked, redeem it against this visit
     // (best-effort — the invoice line is already applied either way).
     if (addDiscountPickedId && client) {
@@ -673,13 +675,25 @@ const VisitDetailInner: React.FC<Props> = ({
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointment.id, appointment.tasks.length, workflowTab]);
-  // Journey navigation: clicking an event jumps to where it happened —
-  // a wizard step (milestones like "Examination completed"), the triage tab,
-  // Records & Billing for money events, or Categories & Services for
-  // service/encounter changes. Best-effort label matching; defaults to the
-  // clinical workflow.
-  const journeyNavigate = (e: { label: string; kind: string }) => {
+  // Journey navigation: clicking an event jumps to where it happened.
+  //
+  // The server now tags every derived event with an `anchor` ('tab:billing',
+  // 'step:treatment', 'page:lab'), so the destination is READ rather than
+  // guessed. Label matching stays underneath it for staff notes and legacy
+  // rows, which carry no anchor.
+  const journeyNavigate = (e: { label: string; kind: string; anchor?: string | null }) => {
     setShowJourney(false);
+    const anchor = e.anchor || '';
+    if (anchor.startsWith('step:')) {
+      const step = anchor.slice(5) as any;
+      if (wiz.steps.includes(step)) { wiz.goTo(step); setWorkflowTab('clinical'); return; }
+    }
+    if (anchor === 'tab:billing') { setWorkflowTab('billing'); setActiveBottomTab('bill'); return; }
+    if (anchor === 'tab:records') { setWorkflowTab('records'); setActiveBottomTab('report'); return; }
+    if (anchor === 'tab:triage' && (isEmergency || closedTriageExists)) { setWorkflowTab('triage'); return; }
+    if (anchor === 'tab:followup') { setWorkflowTab('followup'); return; }
+    if (anchor === 'tab:shares') { setWorkflowTab('shares'); return; }
+    if (anchor === 'tab:workflow' || anchor.startsWith('page:')) { setWorkflowTab('clinical'); return; }
     const label = (e.label || '').toLowerCase();
     // A MONEY event opens the money tab. This sent you to `records` — which is
     // Records & Reports, not Bill & Invoice — so clicking "Payment received" in
@@ -832,7 +846,9 @@ const VisitDetailInner: React.FC<Props> = ({
         try { await visitsAPI.removeEncounter(appointment.id, row.id); await wiz.reloadEncounters(); }
         catch { /* tasks are gone; the chip clears on next reload */ }
       }
-      wiz.emit(`${enc.label} encounter removed from the visit`, 'alert');
+      // The removal is recorded server-side (the deleted row can't be derived),
+      // so this only re-reads the journey.
+      wiz.refreshJourney();
       onRefreshDashboard?.();
 
       // ⚠️ NO ROW MEANS THE CHIP IS DERIVED FROM THE BILL, not stored — so
@@ -4894,7 +4910,7 @@ const VisitDetailInner: React.FC<Props> = ({
             </span>
           )}
           {/* Patient Journey — reachable from every tab, not only the wizard. */}
-          <button onClick={() => setShowJourney(true)} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-seafoam/30 bg-seafoam/5 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+          <button onClick={() => { setShowJourney(true); void wiz.reloadEvents(); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-seafoam/30 bg-seafoam/5 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
             🧭 Journey · {wiz.events.length}
           </button>
         </div>
@@ -5023,7 +5039,9 @@ const VisitDetailInner: React.FC<Props> = ({
             // sit on the adjacent bottom tabs.
             setWorkflowTab('records');
             setActiveBottomTab('report');
-            wiz.emit('Medical report opened', 'info', true);
+            // Opening a tab is a CLICK, not a state change — it has no place on
+            // the journey. The medical record's own row is what gets derived.
+            wiz.refreshJourney();
           }}
           sideRail={patientRail}
         />
@@ -6815,6 +6833,7 @@ const VisitDetailInner: React.FC<Props> = ({
                          currency={activeClinic.currency}
                          allAppointments={allAppointments}
                          bill={liveBill}
+                         settledAmount={reconciliationState?.paidSoFar ?? null}
                          onNavigateToVisit={onNavigateToVisit}
                          onOpenInvoice={() => setActiveBottomTab('invoice')}
                        />
@@ -8483,13 +8502,25 @@ const VisitDetailInner: React.FC<Props> = ({
           onClick={() => setSettleResult(null)}>
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200"
             onClick={e => e.stopPropagation()}>
+            {/* HEADLINE = WHAT FILLED THE RECEIVABLE, not what hit the till.
+                A visit settled entirely out of the client's existing credit
+                collects no cash, so `amount` is 0 — and the dialog read
+                "PAYMENT POSTED · KES 0" above a line saying KES 800 of credit
+                had been applied (user, 2026-08-24: "this msg is weird"). When
+                nothing was tendered, the credit IS the payment: say so, and
+                show that number. */}
             <div className={`px-6 py-5 text-center ${settleResult.outstandingAfter > 0.005 ? 'bg-amber-500' : 'bg-emerald-600'}`}>
               <CheckCircle2 size={28} className="mx-auto text-white mb-1.5" />
               <p className="text-[9px] font-black text-white/70 uppercase tracking-[0.2em]">
-                {settleResult.outstandingAfter > 0.005 ? 'Part payment received' : 'Payment posted'}
+                {settleResult.outstandingAfter > 0.005
+                  ? (settleResult.amount <= 0.005 && (settleResult.creditUsed ?? 0) > 0.005 ? 'Part payment from credit' : 'Part payment received')
+                  : (settleResult.amount <= 0.005 && (settleResult.creditUsed ?? 0) > 0.005 ? 'Settled from credit' : 'Payment posted')}
               </p>
               <p className="text-2xl font-black text-white font-mono leading-tight">
-                {activeClinic.currency} {settleResult.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                {activeClinic.currency}{' '}
+                {(settleResult.amount <= 0.005 && (settleResult.creditUsed ?? 0) > 0.005
+                  ? settleResult.creditUsed!
+                  : settleResult.amount).toLocaleString(undefined, { maximumFractionDigits: 2 })}
               </p>
             </div>
 
@@ -8552,10 +8583,25 @@ const VisitDetailInner: React.FC<Props> = ({
               {/* Credit SPENT reads as money the clinic never received today —
                   say it, or the drawer and the receipt look like they disagree. */}
               {(settleResult.creditUsed ?? 0) > 0.005 && (
-                <p className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 leading-relaxed">
-                  {activeClinic.currency} {settleResult.creditUsed!.toLocaleString(undefined, { maximumFractionDigits: 2 })} of
-                  existing credit was applied, so that much was not collected today.
-                </p>
+                <div className="rounded-xl border border-indigo-200 dark:border-indigo-900/60 bg-indigo-50 dark:bg-indigo-950/30 px-3 py-2.5 space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-indigo-500">Paid from credit</span>
+                    <span className="text-[13px] font-black font-mono text-indigo-600 dark:text-indigo-400">
+                      {activeClinic.currency} {settleResult.creditUsed!.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Collected today</span>
+                    <span className="text-[11px] font-black font-mono text-slate-500 dark:text-zinc-400">
+                      {activeClinic.currency} {settleResult.amount.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                    </span>
+                  </div>
+                  <p className="text-[10px] font-bold text-indigo-500/90 dark:text-indigo-400/90 leading-relaxed">
+                    {settleResult.amount <= 0.005
+                      ? `${client?.name || 'The client'} already had this on account — the receivable is filled, and no money changed hands today.`
+                      : 'Credit on the account covered part of the bill, so only the balance was collected today.'}
+                  </p>
+                </div>
               )}
 
               {/* PAY FIRST, RECORD LATER (user, 2026-08-06/07).
@@ -8820,7 +8866,8 @@ const VisitDetailInner: React.FC<Props> = ({
 
       {/* Patient Journey drawer — the visit's timestamped roadmap, reachable
           from any tab via the Journey button. */}
-      <JourneyDrawer open={showJourney} onClose={() => setShowJourney(false)} events={wiz.events} petName={pet.name} onNavigate={journeyNavigate} />
+      <JourneyDrawer open={showJourney} onClose={() => setShowJourney(false)} events={wiz.events} petName={pet.name}
+        onNavigate={journeyNavigate} onRefresh={wiz.reloadEvents} />
 
       {/* Bill action bar — pinned to the viewport bottom while on Records &
           Billing so Finalize / Settle is always in reach. Hidden once paid. */}

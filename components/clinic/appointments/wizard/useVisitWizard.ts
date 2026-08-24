@@ -10,8 +10,24 @@ import { isVisitFeeTask, isSupplyTask } from '../../shared/visitFees';
 // GET/PUT /visits/:id/workflow) so the clinical record follows the visit
 // across machines. localStorage stays as the instant-load offline cache;
 // a debounced PUT mirrors every change, and on open the fresher of the two
-// (server updatedAt vs local savedAt) wins. Journey events ride inside the
-// blob (data.__events) so the timeline travels too.
+// (server updatedAt vs local savedAt) wins.
+//
+// ⚠️ THE PATIENT JOURNEY NO LONGER LIVES HERE.
+//
+// It used to: events were appended to `state.events`, cached in localStorage
+// and shipped inside the workflow blob as `data.__events`. That made the
+// timeline a log of what THIS COMPONENT happened to notice — so a bill
+// generated from the billing tab, a drug dispensed in Pharmacy, a lab resulted
+// on the Lab page, a payment taken, a visit reopened were all invisible, and
+// what did land arrived in click order rather than in the order things
+// happened (user, 2026-08-24).
+//
+// The server now REBUILDS the journey from the visit's records on every read
+// (see backend `visitJourney.service.ts`). `events` below is simply that list.
+// `emit()` is kept — 15 call sites use it — but a system event (`auto`) no
+// longer invents a line: it just refreshes, because the write that triggered it
+// has already changed the state the server derives from. Only a staff NOTE
+// (auto = false) posts anything.
 
 const storageKey = (visitId: number | string) => `vethub.visitWizard.v1.${visitId}`;
 
@@ -19,16 +35,16 @@ const newId = () =>
   (typeof crypto !== 'undefined' && 'randomUUID' in crypto) ? crypto.randomUUID() : `${Date.now()}-${Math.random()}`;
 
 function freshState(visit: Visit, entry: EntryPointDef): WizardPersist {
-  const events: JourneyEvent[] = [
-    { id: newId(), at: visit.date, label: `${entry.label} visit created`, kind: 'milestone', auto: true },
-  ];
+  // No seeded "visit created" event — the server derives that one from
+  // `appointments.created_at`, and seeding it here produced a SECOND copy
+  // stamped with whatever the local clock said.
   return {
     entryKey: entry.key,
     startedAt: new Date().toISOString(),
     currentStep: entry.steps[0],
     completed: {},
     data: {},
-    events,
+    events: [],
   };
 }
 
@@ -52,6 +68,14 @@ export interface VisitWizardApi {
   isComplete: (step: WizardStepId) => boolean;
   emit: (label: string, kind?: JourneyKind, auto?: boolean) => void;
   events: JourneyEvent[];
+  /** Re-read the server-derived journey now (e.g. when opening the drawer). */
+  reloadEvents: () => Promise<void> | void;
+  /**
+   * Something changed server-side — pick the new journey line up shortly.
+   * Prefer this over `emit(..., auto)` when there is no label to give: the
+   * server writes the wording, this just re-reads.
+   */
+  refreshJourney: () => void;
   progress: number; // % of steps completed
   resetWizard: () => void;
   // Multi-encounter visits: every workflow this visit can run, and the manual
@@ -155,7 +179,9 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
       } catch { /* no local */ }
       if (serverAt <= localAt) return; // this device has the newer draft
       const d: any = w.data || {};
-      const { __events, __entryKeyOverride, ...stepData } = d;
+      // __events is legacy — the journey comes from GET /visits/:id/events now.
+      // Still destructured so old blobs don't leak it back into step data.
+      const { __events: _legacyEvents, __entryKeyOverride, ...stepData } = d;
       setState(s => ({
         entryKey: w.entryKey,
         entryKeyOverride: __entryKeyOverride,
@@ -163,7 +189,7 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
         currentStep: (w.currentStep as WizardStepId) || s.currentStep,
         completed: (w.completed as any) || {},
         data: stepData,
-        events: Array.isArray(__events) && __events.length ? __events : s.events,
+        events: [],
       }));
     }).catch(() => { /* offline — the local draft stands */ });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -306,7 +332,6 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     setState(s => ({
       ...s,
       data: { ...s.data, [to]: { ...(s.data[to] || {}), ...patch } },
-      events: [...s.events, { id: newId(), at: new Date().toISOString(), label: `${STEP_DEFS[to].label} pre-filled from ${STEP_DEFS[from].label}`, kind: 'info', auto: true }],
     }));
   }, [state.data, availableEntries]);
 
@@ -319,16 +344,25 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     // resolution follows the encounter identity, not a derived override.
     const row = encounters.find(enc => entryForEncounter(enc, visit).key === key);
     if (row) setSelectedEncounterId(row.id);
+    let switched = false;
     setState(s => {
       if (s.entryKey === target.key && s.entryKeyOverride === key) return s;
+      switched = true;
       return {
         ...s,
         entryKeyOverride: key,
         entryKey: target.key,
         currentStep: target.steps.find(st => !s.completed[st]) ?? target.steps[0],
-        events: [...s.events, { id: newId(), at: new Date().toISOString(), label: `Workflow switched to ${target.label}`, kind: 'milestone', auto: true }],
       };
     });
+    // Which workflow a visit is being run under is a state change with no row
+    // and no timestamp of its own, so it is one of the few things the server
+    // cannot derive — post it.
+    if (switched) {
+      visitsAPI.addEvent(visit.id, { label: `Workflow switched to ${target.label}`, kind: 'milestone' })
+        .then(() => reloadEventsRef.current?.())
+        .catch(() => { /* the switch itself stands */ });
+    }
   }, [encounters, visit]);
 
   // Persist on every change: localStorage instantly (with a freshness
@@ -344,15 +378,61 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
         startedAt: state.startedAt,
         currentStep: state.currentStep,
         completed: state.completed,
-        data: { ...state.data, __events: state.events, __entryKeyOverride: state.entryKeyOverride },
+        data: { ...state.data, __entryKeyOverride: state.entryKeyOverride },
       }).catch(() => { /* offline — localStorage holds it; next change retries */ });
     }, 900);
     return () => { if (saveTimer.current) clearTimeout(saveTimer.current); };
   }, [state, visit.id]);
 
+  // ── Patient Journey (server-derived) ─────────────────────────────────────
+  // One source: GET /visits/:id/events. Everything the visit did — from any
+  // page, by any user, on any device — is rebuilt there from the records.
+  const [serverEvents, setServerEvents] = useState<JourneyEvent[]>([]);
+  const reloadEvents = useCallback(() => {
+    return visitsAPI.getEvents(visit.id)
+      .then(r => {
+        if (r.success && Array.isArray(r.data?.events)) setServerEvents(r.data!.events as JourneyEvent[]);
+      })
+      .catch(() => { /* offline — the list we have stands */ });
+  }, [visit.id]);
+
+  // A system `emit` fires the instant the request that changed something
+  // RESOLVES, but the row it wrote (and, for workflow steps, the debounced
+  // consultation save) may not be readable yet. Wait past the 900ms save
+  // debounce, and collapse a burst of emits into one fetch.
+  const eventsReloadTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleEventsReload = useCallback((delay = 1400) => {
+    if (eventsReloadTimer.current) clearTimeout(eventsReloadTimer.current);
+    eventsReloadTimer.current = setTimeout(() => { void reloadEvents(); }, delay);
+  }, [reloadEvents]);
+
+  // Refs so callbacks defined ABOVE this block (switchEntry, completeStep) can
+  // reach them without reordering the hook.
+  const reloadEventsRef = useRef<typeof reloadEvents | null>(null);
+  const scheduleEventsReloadRef = useRef<typeof scheduleEventsReload | null>(null);
+  reloadEventsRef.current = reloadEvents;
+  scheduleEventsReloadRef.current = scheduleEventsReload;
+
+  useEffect(() => {
+    setServerEvents([]);
+    void reloadEvents();
+    return () => { if (eventsReloadTimer.current) clearTimeout(eventsReloadTimer.current); };
+  }, [visit.id, reloadEvents]);
+
+  /**
+   * `auto` (a system event): the caller has ALREADY changed server state — a
+   * service added, a bill generated, a drug dispensed. The server derives the
+   * line from that record, with the record's own timestamp, so all we do is
+   * re-read. Inventing a local line here is what put the timeline out of order.
+   *
+   * `auto = false` (a staff note): nothing else records it, so it is posted.
+   */
   const emit = useCallback((label: string, kind: JourneyKind = 'action', auto = false) => {
-    setState(s => ({ ...s, events: [...s.events, { id: newId(), at: new Date().toISOString(), label, kind, auto }] }));
-  }, []);
+    if (auto) { scheduleEventsReload(); return; }
+    visitsAPI.addEvent(visit.id, { label, kind: kind as any })
+      .then(() => reloadEvents())
+      .catch(() => { /* silent — a note is not worth a toast */ });
+  }, [visit.id, reloadEvents, scheduleEventsReload]);
 
   // ── Clinic-built workflow (backend 136) ────────────────────────────────
   // Resolved from the visit's shape. A miss (or any error) leaves `template`
@@ -445,11 +525,13 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     if (state.entryKey === entry.key) return;
     // A template owns the sequence; only its own `steps` may re-point us.
     if (templateStepIds.length) { setState(s => ({ ...s, entryKey: entry.key })); return; }
+    // No journey line here: the entry point only re-resolves because something
+    // ELSE changed — an escalation to triage, an admission, an encounter added
+    // — and each of those leaves a record the server already derives from.
     setState(s => ({
       ...s,
       entryKey: entry.key,
       currentStep: entry.steps.includes(s.currentStep) ? s.currentStep : entry.steps[0],
-      events: [...s.events, { id: newId(), at: new Date().toISOString(), label: `Workflow changed to ${entry.label}`, kind: 'alert', auto: true }],
     }));
   }, [entry.key, entry.label, entry.steps, state.entryKey, templateStepIds.length]);
 
@@ -498,14 +580,15 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     STEP_DEFS[step]?.label ?? stageLabels.current[step] ?? String(step);
 
   const completeStep = useCallback((step: WizardStepId) => {
+    let changed = false;
     setState(s => {
       if (s.completed[step]) return s; // already logged
-      return {
-        ...s,
-        completed: { ...s.completed, [step]: new Date().toISOString() },
-        events: [...s.events, { id: newId(), at: new Date().toISOString(), label: `${stepLabel(step)} completed`, kind: 'milestone', auto: true }],
-      };
+      changed = true;
+      return { ...s, completed: { ...s.completed, [step]: new Date().toISOString() } };
     });
+    // The stamp in `completed` IS the journey entry — the server reads that map
+    // back out of consultation_records. Refresh once the debounced save lands.
+    if (changed) scheduleEventsReloadRef.current?.();
   }, []);
 
   const isComplete = useCallback((step: WizardStepId) => !!state.completed[step], [state.completed]);
@@ -517,8 +600,8 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
   }, [visit, resolved]);
 
   const events = useMemo(
-    () => [...state.events].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()),
-    [state.events]
+    () => [...serverEvents].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()),
+    [serverEvents]
   );
 
   const progress = Math.round((steps.filter(s => state.completed[s]).length / steps.length) * 100);
@@ -538,5 +621,5 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     }).catch(() => { /* offline — the local pin still applies */ });
   }, [visit.id, state.entryKey, state.startedAt, state.currentStep, state.completed, state.data]);
 
-  return { entry, steps, template, setVisitTemplate, templateStages, templateFields, state, currentStep: steps[idx] ?? steps[0], goTo, next, prev, setStepData, completeStep, isComplete, emit, events, progress, resetWizard, availableEntries, switchEntry, encounters, selectedEncounterId: selectedEncounter?.id ?? null, reloadEncounters };
+  return { entry, steps, template, setVisitTemplate, templateStages, templateFields, state, currentStep: steps[idx] ?? steps[0], goTo, next, prev, setStepData, completeStep, isComplete, emit, events, reloadEvents, refreshJourney: scheduleEventsReload, progress, resetWizard, availableEntries, switchEntry, encounters, selectedEncounterId: selectedEncounter?.id ?? null, reloadEncounters };
 }
