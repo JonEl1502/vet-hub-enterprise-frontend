@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { Stethoscope, Plus, BedDouble, Loader2, Pill, ClipboardCheck } from 'lucide-react';
+import { Stethoscope, Plus, BedDouble, Loader2, Pill, ClipboardCheck, Search, X, ChevronRight } from 'lucide-react';
 import { inpatientAPI, Hospitalization } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
 import { useClinic } from '../../../contexts/ClinicContext';
@@ -44,6 +44,18 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
   // Filters
   const [status, setStatus] = useState('ADMITTED');
   const [search, setSearch] = useState('');
+  /**
+   * WHICH ward card is drilled into, if any (user, 2026-08-24: "can i click
+   * here and show me a hover list i can search and on click it takes me to that
+   * visit").
+   *
+   * The counts answered "how much work is waiting" and stopped there — the
+   * animal it is waiting on was a scroll and a guess away. Opening a card lists
+   * exactly the patients behind that number.
+   */
+  const [drill, setDrill] = useState<'tasks' | 'meds' | null>(null);
+  const [drillSearch, setDrillSearch] = useState('');
+  const drillRef = useRef<HTMLDivElement>(null);
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
 
   const load = useCallback(async () => {
@@ -61,6 +73,21 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
   }, []);
 
   useEffect(() => { load(); }, [load]);
+
+  // The panel floats over the list, so it must close the way every other
+  // floating thing in the app does — Escape, or a click outside it.
+  useEffect(() => {
+    if (!drill) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDrill(null); };
+    const onDown = (e: MouseEvent) => {
+      if (drillRef.current && !drillRef.current.contains(e.target as Node)) setDrill(null);
+    };
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onDown);
+    return () => { window.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onDown); };
+  }, [drill]);
+
+  useEffect(() => { setDrillSearch(''); }, [drill]);
 
   // Deep-link from a visit's In-patient chip / SERVICES header. Once rows are
   // loaded: open the matching hospitalization if one exists, otherwise (an
@@ -140,19 +167,101 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
           filter fact — it says nothing about how many animals are actually in
           the ward right now, or how much work is waiting on them. After the
           migration that gap was stark: 124 shown, all of them historical. */}
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 max-w-2xl">
+      <div ref={drillRef} className="relative grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 max-w-2xl">
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 sm:p-4 shadow-sm">
           <div className="flex items-center gap-2 text-slate-400"><Stethoscope size={15} /><span className="text-[9px] font-black uppercase tracking-widest">In the ward</span></div>
           <p className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 mt-1">{wardCounts.admitted}</p>
         </div>
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 sm:p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-slate-400"><ClipboardCheck size={15} /><span className="text-[9px] font-black uppercase tracking-widest">Tasks due</span></div>
-          <p className={`text-2xl sm:text-3xl font-black mt-1 ${wardCounts.tasksDue > 0 ? 'text-amber-600 dark:text-amber-400' : 'text-pine dark:text-zinc-100'}`}>{wardCounts.tasksDue}</p>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 sm:p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-slate-400"><Pill size={15} /><span className="text-[9px] font-black uppercase tracking-widest">Meds due</span></div>
-          <p className={`text-2xl sm:text-3xl font-black mt-1 ${wardCounts.medsDue > 0 ? 'text-rose-600 dark:text-rose-400' : 'text-pine dark:text-zinc-100'}`}>{wardCounts.medsDue}</p>
-        </div>
+        {([
+          { key: 'tasks' as const, label: 'Tasks due', icon: ClipboardCheck, total: wardCounts.tasksDue, tone: 'text-amber-600 dark:text-amber-400', ring: 'border-amber-400' },
+          { key: 'meds' as const, label: 'Meds due', icon: Pill, total: wardCounts.medsDue, tone: 'text-rose-600 dark:text-rose-400', ring: 'border-rose-400' },
+        ]).map(card => {
+          const open = drill === card.key;
+          // ⚠️ Only a card with work behind it opens. A drill-down onto an
+          // empty list teaches people the control is broken.
+          const clickable = card.total > 0;
+          return (
+            <button
+              key={card.key}
+              type="button"
+              disabled={!clickable}
+              onClick={() => setDrill(open ? null : card.key)}
+              title={clickable ? `Show the ${card.total} patient${card.total === 1 ? '' : 's'} behind this number` : 'Nothing due'}
+              className={`text-left bg-white dark:bg-zinc-900 border rounded-2xl p-3 sm:p-4 shadow-sm transition-all ${
+                open ? card.ring : 'border-slate-200 dark:border-zinc-800'
+              } ${clickable ? 'hover:border-seafoam cursor-pointer active:scale-[0.98]' : 'cursor-default'}`}
+            >
+              <div className="flex items-center gap-2 text-slate-400">
+                <card.icon size={15} />
+                <span className="text-[9px] font-black uppercase tracking-widest flex-1">{card.label}</span>
+                {clickable && <ChevronRight size={13} className={`transition-transform ${open ? 'rotate-90' : ''}`} />}
+              </div>
+              <p className={`text-2xl sm:text-3xl font-black mt-1 ${card.total > 0 ? card.tone : 'text-pine dark:text-zinc-100'}`}>{card.total}</p>
+            </button>
+          );
+        })}
+
+        {drill && (() => {
+          /**
+           * The patients behind the number. Built from the SAME `due` map the
+           * counts are summed from, so the list can never disagree with the
+           * figure that opened it.
+           */
+          const q = drillSearch.trim().toLowerCase();
+          const items = rows
+            .filter(h => h.status === 'ADMITTED')
+            .map(h => ({ h, n: (drill === 'tasks' ? due[h.id]?.tasksDue : due[h.id]?.medsDue) ?? 0 }))
+            .filter(x => x.n > 0)
+            .filter(x => !q || `${x.h.pet?.name ?? ''} ${x.h.client?.name ?? ''}`.toLowerCase().includes(q))
+            .sort((a, b) => b.n - a.n);
+          return (
+            <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-zinc-800">
+                <Search size={14} className="text-slate-400 shrink-0" />
+                <input
+                  autoFocus
+                  value={drillSearch}
+                  onChange={(e) => setDrillSearch(e.target.value)}
+                  placeholder={drill === 'tasks' ? 'Search patients with tasks due…' : 'Search patients with meds due…'}
+                  className="flex-1 min-w-0 bg-transparent text-sm font-bold text-pine dark:text-zinc-100 outline-none placeholder:text-slate-400 placeholder:font-bold"
+                />
+                <button type="button" onClick={() => setDrill(null)} className="shrink-0 p-1 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100" aria-label="Close">
+                  <X size={14} />
+                </button>
+              </div>
+              <div className="max-h-72 overflow-y-auto p-1.5">
+                {items.length === 0 ? (
+                  <p className="px-3 py-6 text-center text-xs font-bold text-slate-400">
+                    {q ? `Nothing matches “${drillSearch.trim()}”.` : 'Nothing due.'}
+                  </p>
+                ) : items.map(({ h, n }) => (
+                  <button
+                    key={h.id}
+                    type="button"
+                    onClick={() => { setDrill(null); onOpenChart?.(String(h.id)); }}
+                    className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-zinc-800/60 transition-colors group"
+                  >
+                    <span className={`grid place-items-center w-8 h-8 rounded-xl shrink-0 text-[11px] font-black ${
+                      drill === 'tasks'
+                        ? 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400'
+                        : 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400'
+                    }`}>{n}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-sm font-black text-pine dark:text-zinc-100 truncate">{h.pet?.name || 'Patient'}</span>
+                      <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 truncate">
+                        {h.client?.name || 'Owner unknown'} · {n} {drill === 'tasks' ? 'task' : 'med'}{n === 1 ? '' : 's'} due
+                      </span>
+                    </span>
+                    <ChevronRight size={14} className="shrink-0 text-slate-300 dark:text-zinc-600 group-hover:text-seafoam transition-colors" />
+                  </button>
+                ))}
+              </div>
+              <p className="px-3 py-2 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/40 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
+                Opens the patient's chart · Esc to close
+              </p>
+            </div>
+          );
+        })()}
       </div>
 
       <ListFilterBar search={search} onSearch={setSearch} dateRange={dateRange} onDateRange={setDateRange} statuses={STATUSES} status={status} onStatus={setStatus} />

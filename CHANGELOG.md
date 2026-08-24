@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the ward's Tasks due / Meds due cards open the patients behind the number  —  2026-08-24
+🟢 **Record impact: none.** A read-only drill-down over data the page already holds.
+- The two counters said how much work was waiting and stopped there — *which animal* was a scroll
+  and a guess away (user, 2026-08-24: "can i click here and show me a hover list i can search and on
+  click it takes me to that visit").
+- Clicking either card opens a **searchable list of the admitted patients behind that number**,
+  each row showing the patient, the owner and its own count, biggest first. Clicking a row opens
+  that patient's chart.
+- ⚠️ Built from the **same `due` map the totals are summed from**, so the list can never disagree
+  with the figure that opened it.
+- ⚠️ A card with nothing due does not open. A drill-down onto an empty list teaches people the
+  control is broken.
+- Closes on Escape or an outside click, like every other floating panel in the app.
+- ⚠️ **It opens the chart, not a section of it.** The chart has no separate tasks/meds areas to land
+  on — the daily sheet interleaves both by day — so "to the action clicked" is honoured by *which*
+  list you opened, not by a scroll target that does not exist.
+
 ### feat: the Visits advanced filters actually filter — and are reachable  —  2026-08-24
 🟢 **Record impact: none.** Client-side filtering of a list that is already loaded.
 - 🔴 **Three built pieces, none of them connected.** `AdvancedFilters` (staff · categories ·
