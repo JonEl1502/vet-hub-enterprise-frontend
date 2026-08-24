@@ -18,7 +18,17 @@ const Pagination: React.FC<PaginationProps> = ({
   onPageChange,
   onLimitChange,
   showLimitSelector = true,
-  limitOptions = [10, 20, 50, 100],
+  /**
+   * 100 WAS THE CEILING AND THE SERVER'S IS 1,000 (user, 2026-08-24: the
+   * dropdown "limits to 100" on clients, patients and visits).
+   * `parsePaginationParams` caps `limit` at 1000, so everything up to there is
+   * a request the API will honour — the dropdown was simply not offering it.
+   *
+   * ⚠️ 1000 is the real maximum, not a round number: ask for more and the
+   * server silently clamps, so the pager would promise a page size it never
+   * returns.
+   */
+  limitOptions = [10, 20, 50, 100, 250, 500, 1000],
   compact = false,
 }) => {
   const { currentPage, totalPages, totalItems, itemsPerPage, hasNextPage, hasPreviousPage } = meta;

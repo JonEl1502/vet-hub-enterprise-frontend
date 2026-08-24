@@ -135,11 +135,21 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   const localFiltered = useMemo(() => {
     if (searchQuery.length < 3) return pets;
     const q = searchQuery.toLowerCase();
-    return pets.filter(p =>
-      p.name.toLowerCase().includes(q) ||
-      p.species.toLowerCase().includes(q) ||
-      (p.breed || '').toLowerCase().includes(q)
-    );
+    return pets.filter(p => {
+      // The OWNER counts as a match too (user, 2026-08-24). Staff often know the
+      // person, not the animal — and the owner is printed on the card, so a name
+      // plainly on screen was one this filter could not find. The API-fallback
+      // search below matches on the same fields.
+      const o: any = (p as any).owner;
+      return (
+        p.name.toLowerCase().includes(q) ||
+        p.species.toLowerCase().includes(q) ||
+        (p.breed || '').toLowerCase().includes(q) ||
+        (o?.name || '').toLowerCase().includes(q) ||
+        (o?.phone || '').toLowerCase().includes(q) ||
+        (o?.email || '').toLowerCase().includes(q)
+      );
+    });
   }, [pets, searchQuery]);
 
   // API fallback when local search returns nothing
@@ -245,10 +255,58 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
 
   useEffect(() => { setCurrentPage(1); }, [searchQuery, dateRange, petFilter, pastCountMin, letterFilter]);
 
+  /**
+   * PAGES BEYOND WHAT IS CACHED ARE FETCHED FROM THE SERVER.
+   *
+   * DataContext loads the first 1,000 patients, but the page count below comes
+   * from the server's TRUE total — so Westlands Paws, with 4,171 patients,
+   * offered 418 pages at 10/pg and rendered NOTHING from page 101 on:
+   * `filtered.slice(1000, 1010)` of a 1,000-row array is empty. The count was
+   * honest and the server was fine; the list was slicing an array that stopped
+   * short. Exactly the fault ClientsView fixed on 2026-08-17 — this is that fix,
+   * ported. It also makes the larger page sizes real: 1000/pg page 2 is a
+   * server fetch, not an empty slice.
+   *
+   * Only for the UNFILTERED list. Every filter here runs client-side over the
+   * cached rows, so once one is active the server's ordering and total no
+   * longer describe what is on screen and paging must stay local.
+   */
+  const [remotePage, setRemotePage] = useState<{ page: number; rows: Pet[] } | null>(null);
+  const [loadingRemotePage, setLoadingRemotePage] = useState(false);
+  const sliceStart = (currentPage - 1) * itemsPerPage;
+  const isUnfilteredForPaging = searchQuery.length < 3 && !dateRange && petFilter === 'all' && !letterFilter;
+  const beyondCache = isUnfilteredForPaging && sliceStart >= filtered.length && filtered.length > 0;
+
+  useEffect(() => {
+    if (!beyondCache) { setRemotePage(null); return; }
+    let cancelled = false;
+    setLoadingRemotePage(true);
+    petsAPI
+      .getAll({ page: currentPage, limit: itemsPerPage, status: petStatus } as any, { cache: false } as any)
+      .then((res: any) => {
+        if (cancelled) return;
+        const raw = res?.data?.pets || res?.data?.data || [];
+        // Same normalisation DataContext applies, so a server row renders
+        // identically to a cached one (ids are strings over the wire).
+        const rows: Pet[] = raw.map((p: any) => ({
+          ...p,
+          id: parseInt(p.id),
+          clinicId: p.clinicId != null ? parseInt(p.clinicId) : undefined,
+          ownerId: p.ownerId != null ? parseInt(p.ownerId) : undefined,
+        }));
+        setRemotePage({ page: currentPage, rows });
+      })
+      .catch(() => { if (!cancelled) setRemotePage(null); })
+      .finally(() => { if (!cancelled) setLoadingRemotePage(false); });
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [beyondCache, currentPage, itemsPerPage, petStatus]);
+
   const paginatedPets = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
+    if (beyondCache) return remotePage?.page === currentPage ? remotePage.rows : [];
     return filtered.slice(start, start + itemsPerPage);
-  }, [filtered, currentPage, itemsPerPage]);
+  }, [filtered, currentPage, itemsPerPage, beyondCache, remotePage]);
 
   // When the user isn't narrowing the list, trust the server total (so the
   // pagination footer shows e.g. "1-100/200" honestly) AND let totalPages
@@ -300,7 +358,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
             <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-seafoam transition-colors" />
             <input
               type="text"
-              placeholder="Search patients (min 3 chars)..."
+              placeholder="Search by patient, owner, phone… (min 3 chars)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl pl-10 pr-9 py-2 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all font-bold shadow-xs"
@@ -525,7 +583,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
         )}
       </div>
 
-      {isLoadingPets || isLoadingClients ? (
+      {isLoadingPets || isLoadingClients || loadingRemotePage ? (
         <div className="py-32">
           <LoadingSpinner size="lg" message="Loading patients..." />
         </div>

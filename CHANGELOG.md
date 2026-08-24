@@ -59,6 +59,34 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the per-page dropdown stopped at 100 when the server allows 1,000  —  2026-08-24
+🟢 **Record impact: none.**
+- `limitOptions` defaulted to `[10, 20, 50, 100]` on every list — clients, patients, visits,
+  inventory and staff — so 100 was the ceiling (user, 2026-08-24). `parsePaginationParams` caps
+  `limit` at **1,000**, so everything up to there is a request the API already honours; the dropdown
+  simply never offered it. Now `[10, 20, 50, 100, 250, 500, 1000]`.
+- ⚠️ 1,000 is the real maximum, not a round number: ask for more and the server silently clamps, so
+  the pager would promise a page size it never returns.
+
+### fix: 🔴 patients past page 100 rendered NOTHING  —  2026-08-24
+🟢 **Record impact: none.** Found while raising the page-size ceiling above.
+- DataContext caches the first **1,000** patients but `totalPages` came from the server's true total,
+  so Westlands Paws — **4,171 patients** — offered 418 pages at 10/pg and rendered an empty grid from
+  page 101 on. `filtered.slice(1000, 1010)` of a 1,000-row array is empty. The count was honest and
+  the server was fine; the list was slicing an array that stopped short.
+- This is **exactly the fault ClientsView fixed on 2026-08-17**, ported: when the requested slice
+  starts past the cache and no local filter is active, the page is fetched from the server. It is
+  also what makes the new page sizes real — 1000/pg page 2 is a server fetch, not an empty slice.
+- ⚠️ Unfiltered only. Every filter on this page runs client-side over cached rows, so once one is
+  active the server's ordering and total no longer describe what is on screen and paging must stay
+  local. VisitsListView needs none of this — it derives `totalPages` from its own row count, so it
+  cannot promise a page it does not hold.
+
+### feat: search patients by owner name, phone or email  —  2026-08-24
+🟢 **Record impact: none.**
+- Both halves of the search now match the owner: the local filter over cached rows, and the API
+  fallback behind it. Placeholder says so — *"Search by patient, owner, phone…"*.
+
 ### feat: owner name, phone and email on every patient card  —  2026-08-24
 🟢 **Record impact: none.** One dropped field restored, one shared component, five card surfaces.
 - 🔴 **Root cause: the pets API has ALWAYS returned `owner {id, name, phone, email}`, and DataContext
