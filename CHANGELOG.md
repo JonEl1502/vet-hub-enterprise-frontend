@@ -59,6 +59,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: a hovered list card no longer rises over the sticky pager  —  2026-08-24
+🟢 **Record impact: none.** One z-index.
+- A patient card lifts to `hover:z-[50]` so its ⋮ menu clears its neighbours; the sticky pager was
+  `z-40`, so hovering any card near the bottom of the screen pushed it straight over the bar
+  (user, 2026-08-24).
+- The bar is now **`z-[52]`** — a slot, not a round number: **60** navbar · **55** the list pages'
+  filter card and the dropdowns that open downward onto it · **52** this bar · **50** a hovered card,
+  which also bounds that card's own menu, since a child cannot escape its parent's stacking context.
+- Consequence, stated on purpose: a ⋮ menu opened on the last visible row now passes **under** the
+  pinned bar. That is what a pinned toolbar is for, and it beats the bar being covered by a card.
+
 ### fix: the sticky pager stays away on short lists  —  2026-08-24
 🟢 **Record impact: none.**
 - On an empty or short list the floating copy sat directly under the real one — two identical bars

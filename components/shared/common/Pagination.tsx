@@ -313,7 +313,18 @@ const Pagination: React.FC<PaginationProps> = ({
         ⚠️ The wrapper is `pointer-events-none` so the transparent gutter
         beside the bar does not eat clicks on the row underneath it.
       */}
-      <div ref={stickyRef} className="sticky bottom-2 z-40 mt-2 px-1 pointer-events-none">
+      {/*
+        ⚠️ z-[52] is a SLOT, not a round number. The ladder it has to sit in:
+          60  navbar
+          55  the list pages' filter card and its dropdowns
+        → 52  this bar
+          50  a hovered list card (`hover:z-[50]`), which also bounds the card's
+              own ⋮ menu — a child cannot escape its parent's stacking context
+          40  was here, and a hovered card rose straight over the pager
+        Above the cards it is pinned in front of, below the filters that open
+        downward onto it (user, 2026-08-24).
+      */}
+      <div ref={stickyRef} className="sticky bottom-2 z-[52] mt-2 px-1 pointer-events-none">
         <div className="pointer-events-auto">{bar(true)}</div>
       </div>
     </>
