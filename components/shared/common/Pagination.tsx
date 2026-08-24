@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpToLine, AlignCenterVertical } from 'lucide-react';
 import { PaginationMeta } from '../../../services/types/pagination';
 import { calculatePageRange } from '../../../services/types/pagination';
 
@@ -11,6 +11,16 @@ interface PaginationProps {
   limitOptions?: number[];
   /** Compact variant: only prev/next + scrollable page numbers, no counter or per-page selector. For top-of-list placement. */
   compact?: boolean;
+  /**
+   * Render a SECOND copy of the full bar, stuck to the bottom of the viewport
+   * (user, 2026-08-24). On a 4,000-row list the pager is a scroll away at all
+   * times; this keeps it under the thumb without moving the one at the end of
+   * the list, which is where people look for it after reading the last row.
+   *
+   * The sticky copy — and only the sticky copy — carries the two scroll
+   * buttons in the space its middle would otherwise waste.
+   */
+  alsoStickyBottom?: boolean;
 }
 
 const Pagination: React.FC<PaginationProps> = ({
@@ -30,7 +40,33 @@ const Pagination: React.FC<PaginationProps> = ({
    */
   limitOptions = [10, 20, 50, 100, 250, 500, 1000],
   compact = false,
+  alsoStickyBottom = false,
 }) => {
+  const stickyRef = React.useRef<HTMLDivElement>(null);
+
+  /**
+   * The app does not scroll the window — `<main>` does — and a view may put
+   * its own scroller in between. So find the real scrollport by climbing from
+   * the bar itself rather than assuming one, and fall back to the document.
+   */
+  const scrollPort = (): { el: HTMLElement | null; max: number } => {
+    let node: HTMLElement | null = stickyRef.current?.parentElement ?? null;
+    while (node) {
+      const oy = getComputedStyle(node).overflowY;
+      if ((oy === 'auto' || oy === 'scroll') && node.scrollHeight > node.clientHeight + 1) {
+        return { el: node, max: node.scrollHeight - node.clientHeight };
+      }
+      node = node.parentElement;
+    }
+    const doc = (document.scrollingElement || document.documentElement) as HTMLElement;
+    return { el: doc, max: doc.scrollHeight - doc.clientHeight };
+  };
+
+  const scrollTo = (where: 'top' | 'center') => {
+    const { el, max } = scrollPort();
+    if (!el) return;
+    el.scrollTo({ top: where === 'top' ? 0 : Math.round(max / 2), behavior: 'smooth' });
+  };
   const { currentPage, totalPages, totalItems, itemsPerPage, hasNextPage, hasPreviousPage } = meta;
 
   const pageRange = calculatePageRange(currentPage, totalPages);
@@ -106,8 +142,10 @@ const Pagination: React.FC<PaginationProps> = ({
   const from = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
   const to = Math.min(currentPage * itemsPerPage, totalItems);
 
-  return (
-    <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 rounded-b-xl">
+  const bar = (isSticky: boolean) => (
+    <div className={`flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 ${
+      isSticky ? 'rounded-xl border shadow-lg shadow-slate-900/10 dark:shadow-black/40' : 'rounded-b-xl'
+    }`}>
       {/* Items info — compact X-Y/Z form */}
       <div className="flex items-center gap-2">
         <p className="text-[10px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-wider whitespace-nowrap">
@@ -140,6 +178,31 @@ const Pagination: React.FC<PaginationProps> = ({
           );
         })()}
       </div>
+
+      {/* Scroll controls — the STICKY copy only (user, 2026-08-24). The bar at
+          the end of the list is already at the bottom, so "back to top" there
+          would be a button you reach by doing the thing it offers to do. Here
+          the middle of the bar is dead space and the list above it is long. */}
+      {isSticky && (
+        <div className="flex items-center gap-1.5 order-3 sm:order-none">
+          <button
+            onClick={() => scrollTo('center')}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-700 hover:text-seafoam transition-colors text-[9px] font-black uppercase tracking-wider"
+            title="Scroll to the middle of the list"
+          >
+            <AlignCenterVertical size={13} />
+            <span className="hidden sm:inline">Middle</span>
+          </button>
+          <button
+            onClick={() => scrollTo('top')}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-700 hover:text-seafoam transition-colors text-[9px] font-black uppercase tracking-wider"
+            title="Scroll back to the top"
+          >
+            <ArrowUpToLine size={13} />
+            <span className="hidden sm:inline">Top</span>
+          </button>
+        </div>
+      )}
 
       {/* Pagination controls */}
       {totalPages > 1 && (
@@ -203,6 +266,28 @@ const Pagination: React.FC<PaginationProps> = ({
         </div>
       )}
     </div>
+  );
+
+  if (!alsoStickyBottom) return bar(false);
+
+  return (
+    <>
+      {bar(false)}
+      {/*
+        A COPY, not a move: the bar at the end of the list stays where people
+        look for it after the last row. This one rides the bottom of the
+        scrollport so paging never costs a scroll.
+
+        ⚠️ `sticky`, not `fixed` — fixed would sit over the page at every
+        width and cover the last row; sticky pins only while there IS more
+        list below, and settles above its twin at the end.
+        ⚠️ The wrapper is `pointer-events-none` so the transparent gutter
+        beside the bar does not eat clicks on the row underneath it.
+      */}
+      <div ref={stickyRef} className="sticky bottom-2 z-40 mt-2 px-1 pointer-events-none">
+        <div className="pointer-events-auto">{bar(true)}</div>
+      </div>
+    </>
   );
 };
 

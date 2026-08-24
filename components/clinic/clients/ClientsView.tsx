@@ -1270,6 +1270,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
             onPageChange={handlePageChange}
             onLimitChange={handleLimitChange}
             showLimitSelector={true}
+            alsoStickyBottom
           />
         </div>
       )}

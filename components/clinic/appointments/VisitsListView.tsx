@@ -1029,6 +1029,7 @@ const VisitsListView: React.FC<Props> = ({
               onPageChange={handlePageChange}
               onLimitChange={handleLimitChange}
               showLimitSelector={true}
+              alsoStickyBottom
             />
           )}
         </>

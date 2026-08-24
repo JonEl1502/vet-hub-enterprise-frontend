@@ -766,24 +766,52 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                         </button>
                       )}
 
-                      {/* Actions icon + inline menu */}
+                      {/* Quick actions, then the ⋮ menu — one row.
+                          The three things reception actually DOES to a patient
+                          (open a visit now, book an appointment, set a reminder)
+                          were two interactions deep — hover the ⋮, then aim at a
+                          menu row — while the top of the card sat empty
+                          (user, 2026-08-24). They are buttons on the card now,
+                          in that space; the menu keeps everything else.
+                          ⚠️ All four are `p-2` on purpose: a row of icon buttons
+                          at two different sizes reads as a mistake. */}
+                      <div className="flex items-center gap-1 flex-wrap justify-end">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; onNewAppointment(pet.ownerId, pet.id); }}
+                          disabled={pet.isAlive === false}
+                          title={pet.isAlive === false ? 'Patient deceased — no new visits' : 'Open a visit for this patient now'}
+                          aria-label="Start new visit"
+                          className="relative z-10 p-2 bg-seafoam/10 text-seafoam border border-seafoam/20 rounded-lg hover:bg-seafoam hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-seafoam/10 disabled:hover:text-seafoam"
+                        >
+                          <Stethoscope size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setApptModalPet(pet); }}
+                          disabled={pet.isAlive === false}
+                          title={pet.isAlive === false ? 'Patient deceased — no new appointments' : 'Create an appointment (a visit is spawned from it)'}
+                          aria-label="Create appointment"
+                          className="relative z-10 p-2 bg-cyan/10 text-cyan border border-cyan/20 rounded-lg hover:bg-cyan hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-cyan/10 disabled:hover:text-cyan"
+                        >
+                          <CalendarPlus size={14} />
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setReminderModalPet(pet); }}
+                          disabled={pet.isAlive === false}
+                          title={pet.isAlive === false ? 'Patient deceased — no new reminders' : 'Set a reminder for this patient'}
+                          aria-label="New reminder"
+                          className="relative z-10 p-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 rounded-lg hover:bg-amber-500 hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-amber-50 dark:disabled:hover:bg-amber-500/10 disabled:hover:text-amber-600"
+                        >
+                          <BellPlus size={14} />
+                        </button>
                       <div className="relative group/actions flex items-center">
                         {/* Menu opens to the LEFT, pr-2 bridge keeps hover alive */}
                         <div className="absolute right-full top-1/2 -translate-y-1/2 pr-2 z-50 opacity-0 pointer-events-none group-hover/actions:opacity-100 group-hover/actions:pointer-events-auto transition-opacity duration-150 delay-500 group-hover/actions:delay-0">
                           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1.5 shadow-xl w-44">
-                            {/* FIRST action: the walk-in case. "Create
-                                Appointment" below books for later — this opens
-                                the visit now, which is what reception reaches
-                                for most often. */}
-                            <button
-                              onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; onNewAppointment(pet.ownerId, pet.id); }}
-                              disabled={pet.isAlive === false}
-                              title={pet.isAlive === false ? 'Patient deceased — no new visits' : 'Open a visit for this patient now'}
-                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-seafoam/10 dark:hover:bg-seafoam/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                            >
-                              <Stethoscope size={12} className="text-seafoam shrink-0" />
-                              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">Start New Visit</span>
-                            </button>
+                            {/* Start New Visit · Create Appointment · New
+                                Reminder moved ONTO the card (user, 2026-08-24)
+                                — see the quick-action row above. Deliberately
+                                not left here as well: one action with two homes
+                                is how a menu grows stale. */}
                             <button
                               onClick={(e) => { e.stopPropagation(); onViewPet(pet.id); }}
                               className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg transition-colors"
@@ -792,31 +820,11 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                               <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">View Patient</span>
                             </button>
                             <button
-                              onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setApptModalPet(pet); }}
-                              disabled={pet.isAlive === false}
-                              title={pet.isAlive === false ? 'Patient deceased — no new appointments' : 'Create an appointment (a visit is spawned from it)'}
-                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-cyan/10 dark:hover:bg-cyan/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                            >
-                              <CalendarPlus size={12} className="text-cyan dark:text-cyan shrink-0" />
-                              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">
-                                {pet.isAlive === false ? 'Create Appointment (Deceased)' : 'Create Appointment'}
-                              </span>
-                            </button>
-                            <button
                               onClick={(e) => { e.stopPropagation(); onViewPet(pet.id, 'appointments'); }}
                               className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-lg transition-colors"
                             >
                               <Calendar size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
                               <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">View Visits</span>
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setReminderModalPet(pet); }}
-                              disabled={pet.isAlive === false}
-                              title={pet.isAlive === false ? 'Patient deceased — no new reminders' : undefined}
-                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-seafoam/10 dark:hover:bg-seafoam/10 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
-                            >
-                              <BellPlus size={12} className="text-seafoam shrink-0" />
-                              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">New Reminder</span>
                             </button>
                             {onEditPet && (
                               <button
@@ -847,9 +855,10 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                             )}
                           </div>
                         </div>
-                        <button onClick={(e) => e.stopPropagation()} className="relative z-10 p-2.5 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:text-white hover:bg-seafoam rounded-lg transition-all shadow-sm">
+                        <button onClick={(e) => e.stopPropagation()} aria-label="More actions" className="relative z-10 p-2 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:text-white hover:bg-seafoam rounded-lg transition-all shadow-sm">
                           <MoreVertical size={14} />
                         </button>
+                      </div>
                       </div>
                     </div>
                   </div>
@@ -925,6 +934,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
             onPageChange={handlePageChange}
             onLimitChange={handleLimitChange}
             showLimitSelector={true}
+            alsoStickyBottom
           />
         </div>
       )}

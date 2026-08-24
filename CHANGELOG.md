@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: patient card carries its three actions; the pager sticks to the bottom  —  2026-08-24
+🟢 **Record impact: none.** Placement and navigation only — the same handlers, reached sooner.
+- **Patient card quick actions.** *Start New Visit*, *Create Appointment* and *New Reminder* moved
+  out of the ⋮ hover menu and onto the card, into the empty space beside the name (user,
+  2026-08-24). They were two interactions deep — hover the ⋮, then aim at a menu row — for the
+  three things reception does most. **Removed from the menu, not duplicated:** one action with two
+  homes is how a menu goes stale. The menu keeps View Patient, View Visits, Edit, Transfer, Delete.
+  All four icon buttons are `p-2`; a row of icon buttons at two sizes reads as a mistake.
+  Deceased patients still disable all three, with the same reasons in the tooltips.
+- **Sticky pager copy** on **Clients**, **Patients** and **Visits** (`alsoStickyBottom`). The bar at
+  the end of the list stays exactly where it was — this is a **copy** that rides the bottom of the
+  scrollport, so paging a 4,000-row list never costs a scroll. ⚠️ `sticky`, not `fixed`: fixed would
+  cover the last row at every height; sticky pins only while there is more list below and settles
+  above its twin at the end.
+- The sticky copy — and **only** the sticky copy — carries **Middle** and **Top** scroll buttons in
+  the dead space at its centre. On the bar at the end of the list, "back to top" would be a button
+  you reach by doing the thing it offers to do.
+- ⚠️ The scroll buttons find the real scrollport by climbing from the bar, because the app scrolls
+  `<main>` rather than the window and a view may put its own scroller in between. Falls back to the
+  document.
+
+### fix: the reload button stops looking squeezed next to the toolbar pills  —  2026-08-24
 ### fix: the reload button stops looking squeezed next to the toolbar pills  —  2026-08-24
 🟢 **Record impact: none.** Two utility classes on three buttons.
 - The icon-only **reload** button on **Patients**, **Clients** and **Inventory** was sized off its
