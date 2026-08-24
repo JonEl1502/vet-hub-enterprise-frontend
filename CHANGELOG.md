@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the reload button stops looking squeezed next to the toolbar pills  —  2026-08-24
+🟢 **Record impact: none.** Two utility classes on three buttons.
+- The icon-only **reload** button on **Patients**, **Clients** and **Inventory** was sized off its
+  OWN padding (`compact-button`'s `px-4 py-2`, overridden to `p-2.5`, around a 14px icon) while the
+  Register / Orphans / Duplicates pills beside it were sized off `py-2.5` around 12px text. It came
+  out shorter and tighter than everything on the row, at every width (user, 2026-08-24).
+- It now takes `self-stretch` (the row's height) + `aspect-square` (that height as its width), so it
+  is a true square that tracks the pills however they are sized, instead of a second guess at the
+  same number. `px-0 py-0` neutralise the component class — without them its padding sets the
+  min-width and the square goes oblong again.
+- ⚠️ Fixed in all **three** places rather than the one that was reported: it is the same button with
+  the same class string, and leaving two of them short would make the difference look intentional.
+
 ### feat: clients, patients and visits open at 100 per page  —  2026-08-24
 🟢 **Record impact: none.**
 - Default page size was **10** on clients and patients and **20** on visits — chosen when a clinic

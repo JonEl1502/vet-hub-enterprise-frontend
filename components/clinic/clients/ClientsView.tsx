@@ -725,7 +725,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               <button
                 onClick={() => refreshClients()}
                 disabled={isLoadingClients || isLoadingPets}
-                className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5 ml-auto sm:ml-0"
+                className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center justify-center active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed self-stretch aspect-square px-0 py-0 ml-auto sm:ml-0"
                 title="Refresh client data"
               >
                 <RefreshCw size={14} className={isLoadingClients || isLoadingPets ? 'animate-spin' : ''} />

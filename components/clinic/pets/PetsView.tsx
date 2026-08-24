@@ -546,10 +546,19 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                   <AlertTriangle size={14} /> Orphans
                 </button>
               )}
+              {/* Icon-only, so it is sized off the ROW rather than off its own
+                  padding: `compact-button`'s px-4/py-2 plus a 14px icon left it
+                  shorter and tighter than the Register/Orphans pills beside it,
+                  which reads as squeezed at every width (user, 2026-08-24).
+                  `self-stretch` takes the row's height and `aspect-square`
+                  turns that into the width, so it stays a true square however
+                  the pills are sized. px-0/py-0 neutralise the component
+                  class's padding — without them the min-width wins and the
+                  square goes oblong again. */}
               <button
                 onClick={() => refreshPets()}
                 disabled={isLoadingPets || isLoadingClients}
-                className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center gap-1.5 active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed p-2.5 ml-auto sm:ml-0"
+                className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center justify-center active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed self-stretch aspect-square px-0 py-0 ml-auto sm:ml-0"
                 title="Refresh pet data"
               >
                 <RefreshCw size={14} className={isLoadingPets || isLoadingClients ? 'animate-spin' : ''} />
