@@ -84,7 +84,7 @@ import PetFetchGate from './components/clinic/pets/PetFetchGate';
 import useScrollMemory from './hooks/useScrollMemory';
 import BillingTiersView from './components/clinic/billing/BillingTiersView';
 import VisitDetailView from './components/clinic/appointments/VisitDetailView';
-import VaccinationRecordPage from './components/clinic/appointments/VaccinationRecordPage';
+// import VaccinationRecordPage from './components/clinic/appointments/VaccinationRecordPage'; // ⏸ access closed 2026-08-24 — see case 'vaccinations'
 import VisitsListView from './components/clinic/appointments/VisitsListView';
 import VisitReadOnlyView from './components/clinic/appointments/VisitReadOnlyView';
 import InventoryView from './components/clinic/inventory/InventoryView';
@@ -2877,12 +2877,29 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       }
       case 'grooming': return <GroomingView onOpenAppointment={(id, settle) => navigateTo('appointment-detail', { appointmentId: Number(id), openSettle: !!settle })} onNew={() => navigateTo('new-appointment', { initialEncounterType: 'GROOMING' })} openForAppointmentId={currentNav.params?.openForAppointmentId} onOpenBoarding={(stayId) => navigateTo('boarding-stay', { stayId })} onOpenInpatient={(hospId) => navigateTo('inpatient-chart', { hospId })} />;
       case 'vaccinations': {
-        // Per-visit vaccination records + certificate full page (opened from
-        // the visit workflow's module chips — not a sidebar item).
+        // ⏸ ACCESS CLOSED (user, 2026-08-24): "all vaccination to happen in
+        // visit workflow itself". Vaccination is recorded inline by the
+        // wizard's Treatment step (`VaccinationPanel`, unlocked for any visit
+        // carrying a vaccination task) — this standalone page was the same
+        // records behind a second door, and two homes for one record can
+        // disagree.
+        //
+        // COMMENTED, NOT DELETED — temporary. `VaccinationRecordPage` and this
+        // route both still exist; restoring is ONE line: swap the notice below
+        // back for the commented render. The in-app doors are closed separately
+        // via `HIDDEN_MODULE_PAGES` in VisitDetailView, so nothing navigates
+        // here any more; this case only catches an old deep link, and lands it
+        // on the visit rather than a blank screen.
         const vApptId = currentNav.params?.openForAppointmentId;
         const vAppt = appointments.find(a => String(a.id) === String(vApptId));
         if (!vAppt) return <div className="p-8 text-center text-sm font-bold text-slate-400">Visit not found. <button onClick={goBack} className="text-seafoam underline">Go back</button></div>;
-        return <VaccinationRecordPage appointment={vAppt} staffMembers={allStaff} activeClinic={firstActiveClinic} onBack={goBack} onChanged={refreshAppointments} onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
+        // return <VaccinationRecordPage appointment={vAppt} staffMembers={allStaff} activeClinic={firstActiveClinic} onBack={goBack} onChanged={refreshAppointments} onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} />;
+        return (
+          <div className="p-8 text-center space-y-3">
+            <p className="text-sm font-bold text-slate-500 dark:text-zinc-400">Vaccinations are recorded in the visit workflow now.</p>
+            <button onClick={() => navigateTo('appointment-detail', { appointmentId: Number(vAppt.id) })} className="px-5 py-2.5 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-widest">Open the visit</button>
+          </div>
+        );
       }
       case 'reminders': return <RemindersView onOpenAppointment={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenBookings={(bookingId?: string) => navigateTo('appointment-bookings', bookingId ? { focusId: String(bookingId) } : {})} focusId={currentNav.params?.focusId} />;
       case 'appointment-bookings': return <AppointmentsBookingView onOpenVisit={(id) => navigateTo('appointment-detail', { appointmentId: Number(id) })} onOpenReminder={(id) => navigateTo('reminders', id ? { focusId: String(id) } : {})} focusId={currentNav.params?.focusId} onStartVisit={async (a) => {

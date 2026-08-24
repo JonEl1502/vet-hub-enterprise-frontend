@@ -163,6 +163,22 @@ const SHOW_RETIRED_SERVICES_TAB = false;
  */
 const HIDDEN_MODULE_PAGES = new Set(['vaccinations']);
 
+/**
+ * Service CATEGORY → the module page it opens, or `undefined` when there is no
+ * page or that page is closed to visits.
+ *
+ * ⚠️ EVERY "open the module page" control must resolve through this. Four
+ * controls each re-derived the id from `CATEGORY_TO_MENU_ID` inline and only
+ * two of them checked `HIDDEN_MODULE_PAGES`, so closing the Vaccinations door
+ * left the category header and the task upload link still opening it. The
+ * guard belongs with the lookup, not beside each caller.
+ */
+const modulePageFor = (category?: string | null): string | undefined => {
+  const lc = (category || '').toLowerCase();
+  const id = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
+  return id && !HIDDEN_MODULE_PAGES.has(id) ? id : undefined;
+};
+
 // Hook-safety guard — the inner view declares dozens of hooks. Returning
 // early from INSIDE it when visit/pet data is briefly missing (e.g. a
 // DataContext refresh swapping lists mid-render) makes React see fewer
@@ -4838,9 +4854,8 @@ const VisitDetailInner: React.FC<Props> = ({
             const seen = new Set<string>();
             const links: { category: string; moduleId: string }[] = [];
             for (const t of appointment.tasks || []) {
-              const lc = (t.category || '').toLowerCase();
-              const moduleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
-              if (!moduleId || seen.has(moduleId) || HIDDEN_MODULE_PAGES.has(moduleId)) continue;
+              const moduleId = modulePageFor(t.category);
+              if (!moduleId || seen.has(moduleId)) continue;
               seen.add(moduleId);
               links.push({ category: t.category, moduleId });
             }
@@ -4969,9 +4984,8 @@ const VisitDetailInner: React.FC<Props> = ({
           goBilling={() => { setWorkflowTab('billing'); setActiveBottomTab('bill'); }}
           onAddService={!isFinalized ? () => setShowInjectModal(true) : undefined}
           onOpenModule={onOpenModule ? (category: string) => {
-            const lc = (category || '').toLowerCase();
-            const moduleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
-            if (moduleId && !HIDDEN_MODULE_PAGES.has(moduleId)) onOpenModule(moduleId, String(appointment.id));
+            const moduleId = modulePageFor(category);
+            if (moduleId) onOpenModule(moduleId, String(appointment.id));
           } : undefined}
           moduleLinks={(() => {
             // Distinct module pages this visit touches — quick-nav at the
@@ -4979,9 +4993,8 @@ const VisitDetailInner: React.FC<Props> = ({
             const seen = new Set<string>();
             const links: { category: string; label: string }[] = [];
             for (const t of appointment.tasks || []) {
-              const lc = (t.category || '').toLowerCase();
-              const moduleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
-              if (!moduleId || seen.has(moduleId) || HIDDEN_MODULE_PAGES.has(moduleId)) continue;
+              const moduleId = modulePageFor(t.category);
+              if (!moduleId || seen.has(moduleId)) continue;
               seen.add(moduleId);
               links.push({ category: t.category, label: t.category });
             }
@@ -5281,7 +5294,7 @@ const VisitDetailInner: React.FC<Props> = ({
                       // a keyword match so "Inpatient Stay" / "Boarding Stay" / "Lab
                       // Work" still link to their page.
                       const lc = (category || '').toLowerCase();
-                      const moduleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
+                      const moduleId = modulePageFor(category);
                       // Emergency services live in the Triage tab, not a module
                       // page — its header jumps there instead.
                       const triageNav = lc.includes('emergenc') && (isEmergency || closedTriageExists);
@@ -5735,8 +5748,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                    on the module full pages (Imaging, Lab…). */}
                                {expandedSections[task.id] === 'images' && (() => {
                                  const attachments = taskAttachments[task.id] || [];
-                                 const lc = (task.category || '').toLowerCase();
-                                 const taskModuleId = CATEGORY_TO_MENU_ID[lc] || Object.entries(CATEGORY_TO_MENU_ID).find(([k]) => lc.includes(k))?.[1];
+                                 const taskModuleId = modulePageFor(task.category);
                                  return (
                                    <div className="space-y-3 p-3 bg-rose-50/50 dark:bg-rose-950/10 border border-rose-200 dark:border-rose-800 rounded-xl animate-in slide-in-from-top-2 duration-200">
                                      {attachments.length > 0 ? (

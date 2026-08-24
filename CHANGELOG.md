@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the standalone Vaccinations page is closed — vaccination happens in the visit workflow  —  2026-08-24
+🟢 **Record impact: none.** Navigation only. No record is read, written or deleted differently.
+- User, 2026-08-24: *"all vaccination to happen in visit workflow itself"*, and the standalone
+  per-visit **Vaccinations** page commented out until later. It held the same records the wizard's
+  Treatment step already owns, behind a second door — two homes for one record that can disagree.
+- The doors were closed in stages and **two were missed** on 2026-08-21, because four separate
+  controls each re-derived the module page from `CATEGORY_TO_MENU_ID` inline and only two of them
+  consulted `HIDDEN_MODULE_PAGES`. Still open until now: the **service-category header** ("Open
+  page") and the **task images upload link**, both of which opened Vaccinations for any task in a
+  vaccination category.
+- All six now resolve through one `modulePageFor()` helper in `VisitDetailView` that applies the
+  guard **with the lookup**, so a page closed to visits cannot be reached by adding a new control.
+- The `vaccinations` route itself is commented out. An old deep link now lands on **the visit**
+  rather than the page — or a blank screen, which is what `default: return null` would have given.
+- ⏸ **Commented, not deleted.** `VaccinationRecordPage`, its route case and its import all still
+  exist; restoring is one line in `App.tsx` plus removing `'vaccinations'` from `HIDDEN_MODULE_PAGES`.
+- ⚠️ Untouched on purpose: the **patient profile's Vaccinations tab** (Immunization Timeline +
+  Verified Passport) and the client portal's. Those are a read-out of history, not a place work is
+  recorded, so the "one home" argument does not apply to them.
+- Recording is unaffected: `TreatmentStep` unlocks `VaccinationPanel` for any visit whose type is
+  VACCINATION **or** that carries a task in a vaccination/immunisation category — so a consultation
+  that happens to give a vaccine still has somewhere to record it.
+
 ### feat: client money is a permission now, not a role (216)  —  2026-08-24
 🟢 **Record impact: none.** UI gating + one nullable API field.
 - The **Financials tab on a client** is gated on the new **`finance:view`**, and every money ACTION
