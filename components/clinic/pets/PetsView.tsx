@@ -775,35 +775,39 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                           menu row — while the top of the card sat empty
                           (user, 2026-08-24). They are buttons on the card now,
                           in that space; the menu keeps everything else.
-                          ⚠️ All four are `p-2` on purpose: a row of icon buttons
-                          at two different sizes reads as a mistake. */}
+                          They carry their NAMES from `sm:` up (user, 2026-08-24:
+                          "there is space") — an icon alone is a guess until you
+                          hover it, and a first-time user does not hover.
+                          ⚠️ Heights still match: the 14px icon sets the height in
+                          every one of them, including the icon-only ⋮, so the
+                          9px label widens the pills without making them taller. */}
                       <div className="flex items-center gap-1 flex-wrap justify-end">
                         <button
                           onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; onNewAppointment(pet.ownerId, pet.id); }}
                           disabled={pet.isAlive === false}
                           title={pet.isAlive === false ? 'Patient deceased — no new visits' : 'Open a visit for this patient now'}
                           aria-label="Start new visit"
-                          className="relative z-10 p-2 bg-seafoam/10 text-seafoam border border-seafoam/20 rounded-lg hover:bg-seafoam hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-seafoam/10 disabled:hover:text-seafoam"
+                          className="relative z-10 flex items-center gap-1.5 px-2 sm:px-2.5 py-2 bg-seafoam/10 text-seafoam border border-seafoam/20 rounded-lg hover:bg-seafoam hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-seafoam/10 disabled:hover:text-seafoam"
                         >
-                          <Stethoscope size={14} />
+                          <Stethoscope size={14} className="shrink-0" /><span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest">Visit</span>
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setApptModalPet(pet); }}
                           disabled={pet.isAlive === false}
                           title={pet.isAlive === false ? 'Patient deceased — no new appointments' : 'Create an appointment (a visit is spawned from it)'}
                           aria-label="Create appointment"
-                          className="relative z-10 p-2 bg-cyan/10 text-cyan border border-cyan/20 rounded-lg hover:bg-cyan hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-cyan/10 disabled:hover:text-cyan"
+                          className="relative z-10 flex items-center gap-1.5 px-2 sm:px-2.5 py-2 bg-cyan/10 text-cyan border border-cyan/20 rounded-lg hover:bg-cyan hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-cyan/10 disabled:hover:text-cyan"
                         >
-                          <CalendarPlus size={14} />
+                          <CalendarPlus size={14} className="shrink-0" /><span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest">Appt</span>
                         </button>
                         <button
                           onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setReminderModalPet(pet); }}
                           disabled={pet.isAlive === false}
                           title={pet.isAlive === false ? 'Patient deceased — no new reminders' : 'Set a reminder for this patient'}
                           aria-label="New reminder"
-                          className="relative z-10 p-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 rounded-lg hover:bg-amber-500 hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-amber-50 dark:disabled:hover:bg-amber-500/10 disabled:hover:text-amber-600"
+                          className="relative z-10 flex items-center gap-1.5 px-2 sm:px-2.5 py-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 rounded-lg hover:bg-amber-500 hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-amber-50 dark:disabled:hover:bg-amber-500/10 disabled:hover:text-amber-600"
                         >
-                          <BellPlus size={14} />
+                          <BellPlus size={14} className="shrink-0" /><span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest">Reminder</span>
                         </button>
                       <div className="relative group/actions flex items-center">
                         {/* Menu opens to the LEFT, pr-2 bridge keeps hover alive */}

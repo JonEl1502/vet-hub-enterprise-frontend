@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the patient-card actions say what they do  —  2026-08-24
+🟢 **Record impact: none.** Labels only.
+- **Visit · Appt · Reminder** now read as words beside their icons from `sm:` up (user, 2026-08-24:
+  "there is space"). An icon alone is a guess until you hover it, and a first-time user does not
+  hover; below `sm:` they stay icon-only, where the room genuinely is not there.
+- ⚠️ Heights still match across the row — the 14px icon sets the height in all four buttons,
+  including the icon-only ⋮, so the 9px label widens the pills without making them taller.
+
 ### feat: the client plan screen, and farm mode becomes a paid rung  —  2026-08-24 (backend 231/232)
 🟢 **Record impact: none** — UI and API calls only.
 **Data dependency:** backend migrations **231** (`client_subscriptions`, `max_farms`,
