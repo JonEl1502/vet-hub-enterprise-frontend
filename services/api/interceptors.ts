@@ -341,7 +341,16 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
                 cancelLabel: 'Not now',
               })
               .then((ok) => {
-                if (ok) window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'billing' } }));
+                if (!ok) return;
+                // 231 — the portal is a different app tree with its own plan
+                // screen. The `vethub:navigate` event is a clinic-shell
+                // listener and does nothing here, so a pet owner who pressed
+                // "See plans" would have got silence.
+                if (window.location.pathname.startsWith('/client')) {
+                  window.location.href = '/client/plan';
+                  return;
+                }
+                window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'billing' } }));
               });
           } else if (errBody?.code === 'MODULE_VIEW_DENIED') {
             /**

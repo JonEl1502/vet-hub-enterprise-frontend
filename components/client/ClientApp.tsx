@@ -18,6 +18,7 @@ import ClientVisitDetail from './views/ClientVisitDetail';
 import ClientMessages from './views/ClientMessages';
 import ClientInvoices from './views/ClientInvoices';
 import ClientSettings from './views/ClientSettings';
+import ClientPlan from './views/ClientPlan';
 
 // The pet-owner portal — a self-contained app tree mounted at /client/*.
 // Shares AuthContext with the staff app but renders an entirely separate,
@@ -78,6 +79,7 @@ const ClientApp: React.FC = () => {
           <Route path="messages" element={<ClientMessages />} />
           <Route path="invoices" element={<ClientInvoices />} />
           <Route path="settings" element={<ClientSettings />} />
+          <Route path="plan" element={<ClientPlan />} />
           <Route path="*" element={<Navigate to="/client" replace />} />
         </Route>
       </Routes>

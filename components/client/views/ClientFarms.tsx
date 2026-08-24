@@ -6,11 +6,13 @@
  * most accounts have one farm, and making them tap into it first would put a
  * navigation step in front of the only thing they came to do.
  *
- * Farms themselves are created by the clinic, not here: this is the owner's
- * view of records their vet maintains, plus the daily entries only they can
- * make.
+ * Farms are created either by the clinic (which pays for that through the Farms
+ * add-on, 230) or by the owner themselves on the Farmer rung and up (231). What
+ * the vet maintains — herds, plans, schedules — stays read-only here; the daily
+ * entries only the owner can make are the point of the screen.
  */
 import React, { useCallback, useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Sprout, Milk, Wheat, Check, Loader2, CalendarClock, AlertTriangle, Plus, MapPin, Siren, Pencil } from 'lucide-react';
 import {
   clientPortalAPI,
@@ -46,17 +48,43 @@ const ClientFarms: React.FC = () => {
   const [headVal, setHeadVal] = useState('');
   const [qty, setQty] = useState('');
   const [saving, setSaving] = useState(false);
+  // 231 — farm mode is the Farmer rung. A lapsed farmer keeps their data and
+  // sees an upgrade prompt, never an error page.
+  const [locked, setLocked] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [newFarmName, setNewFarmName] = useState('');
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    clientPortalAPI.getMyFarms()
+  const loadFarms = useCallback(() => {
+    setLoading(true);
+    return clientPortalAPI.getMyFarms({ showError: false })
       .then((r) => {
         if (r.success && r.data?.farms) {
+          setLocked(false);
           setFarms(r.data.farms);
-          if (r.data.farms.length) setActiveId(r.data.farms[0].id);
+          if (r.data.farms.length) setActiveId((id) => id || r.data!.farms[0].id);
+        } else if (r.status === 403) {
+          // The plan gate, not a failure. Show the upgrade path.
+          setLocked(true);
         }
       })
       .finally(() => setLoading(false));
   }, []);
+
+  useEffect(() => { loadFarms(); }, [loadFarms]);
+
+  const addFarm = async () => {
+    const name = newFarmName.trim();
+    if (!name) return;
+    setSaving(true);
+    const r = await clientPortalAPI.createMyFarm({ name });
+    setSaving(false);
+    if (r.success) {
+      setAddOpen(false);
+      setNewFarmName('');
+      await loadFarms();
+    }
+  };
 
   const loadFarm = useCallback(async (farmId: string) => {
     if (!farmId) return;
@@ -140,16 +168,59 @@ const ClientFarms: React.FC = () => {
     return <div className="cp-card text-center py-12 text-sm text-slate-400">Loading your farm…</div>;
   }
 
-  if (farms.length === 0) {
+  // Has farms (or wants them) but not the plan. Deliberately NOT phrased as an
+  // error: nothing has been taken away, the records are still there, and the
+  // one thing they need is named plainly.
+  if (locked) {
     return (
       <div className="cp-card text-center py-14">
-        <Sprout size={26} className="mx-auto text-slate-300" />
-        <p className="mt-3 text-sm font-bold text-slate-700">No farm on your account yet</p>
+        <Sprout size={26} className="mx-auto cp-accent-text" />
+        <p className="mt-3 text-sm font-bold text-slate-700">Farm mode is on the Farmer plan</p>
         <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
-          Your clinic registers your farm. Once it's set up, your herds, feeding plans and
-          produce records appear here.
+          Herds and flocks, feeding plans and produce records live here. Your pets, visits
+          and invoices are unaffected — they stay on your current plan.
         </p>
+        <button className="cp-btn mt-4" onClick={() => navigate('/client/plan')}>See plans</button>
       </div>
+    );
+  }
+
+  if (farms.length === 0) {
+    return (
+      <>
+        <div className="cp-card text-center py-14">
+          <Sprout size={26} className="mx-auto text-slate-300" />
+          <p className="mt-3 text-sm font-bold text-slate-700">No farm on your account yet</p>
+          <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
+            Add your own, or let your clinic register it for you. Either way your herds,
+            feeding plans and produce records appear here.
+          </p>
+          <button className="cp-btn mt-4 inline-flex items-center gap-1.5" onClick={() => setAddOpen(true)}>
+            <Plus size={14} /> Add my farm
+          </button>
+        </div>
+
+        {addOpen && (
+        <CpModal onClose={() => setAddOpen(false)} title="Add your farm">
+          <div className="space-y-3">
+            <input
+              className="cp-input w-full"
+              placeholder="Farm name"
+              value={newFarmName}
+              onChange={(e) => setNewFarmName(e.target.value)}
+              autoFocus
+            />
+            <p className="text-xs text-slate-500">
+              You can link a clinic or a county vet officer later — a farm does not need
+              either to exist.
+            </p>
+            <button className="cp-btn w-full" onClick={addFarm} disabled={saving || !newFarmName.trim()}>
+              {saving ? 'Adding…' : 'Add farm'}
+            </button>
+          </div>
+        </CpModal>
+        )}
+      </>
     );
   }
 

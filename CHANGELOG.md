@@ -59,6 +59,39 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the client plan screen, and farm mode becomes a paid rung  —  2026-08-24 (backend 231/232)
+🟢 **Record impact: none** — UI and API calls only.
+**Data dependency:** backend migrations **231** (`client_subscriptions`, `max_farms`,
+`client_id` on the Paystack attempt) and **232** (the five-rung CLIENT ladder), plus
+`GET/POST /portal/me/plan*` and `POST /portal/me/farms`. Deploy the backend first — without
+231 the plan screen has nothing to read and every rung reads as Free.
+
+- **`/client/plan`** — the portal's own billing screen. Shows the whole ladder including
+  **Free**, because Free is a real rung (a tier-0 package row) and it is where cancelling
+  returns you. The cancel button says so out loud — *"Cancel — back to Free"* — since on every
+  other product "cancel" means losing access, and on this one it does not. Checkout is the same
+  Paystack hosted flow the clinics and suppliers use; the return leg **polls the reference**
+  rather than trusting the redirect, because the webhook is what actually provisions the plan and
+  it can land before or after the browser does.
+- **Farm mode is now the Farmer rung (tier 2+), not just a holding.** `usePortalMode` had derived
+  the mode purely from `holdings`; it now also requires `canUseFarmMode`, and `canSwitch` goes
+  quiet without it. ⚠️ A farmer whose plan lapsed **keeps their farm data** and lands in PETS with
+  an upgrade card — never on a wall of 403s, and never on a switcher that fails when pressed.
+- **A farmer can add their own farm** (`ClientFarms` empty state). Previously farms were
+  clinic-created only, which would have made the ladder's farm counts — 1 / 3 / unlimited — a
+  number nobody could ever reach.
+- ⚠️ **The plan-gate dialog did nothing in the portal.** Pressing "See plans" dispatched
+  `vethub:navigate → billing`, a listener that only exists in the clinic shell, so a pet owner got
+  silence. It now routes to `/client/plan` when the path is under `/client`.
+- ⚠️ **Admin → Plans filed every tier-0 row under Add-ons.** With a real tier-0 BASE rung (Free)
+  that would have hidden the one screen where its entitlements are editable. The either-marker
+  rule is kept for everything else on purpose — a row whose `tier` and `isAddon` disagree is
+  broken, and hiding it would put it out of reach of the only screen that can repair it. A free
+  base plan (tier 0, not an add-on, price 0) is the one shape that is legitimately both.
+- **Max Farms** field added to the admin plan form. ⚠️ **0 = unlimited**, the Max Branches
+  convention; it only bites on a plan that also carries `livestock:farms`.
+
+
 ### feat: a Certificates tab on the patient profile  —  2026-08-24
 🟢 **Record impact: none.** Every certificate is a DOCUMENT compiled from the record — nothing here
 writes to the patient.

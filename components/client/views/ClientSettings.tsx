@@ -140,6 +140,21 @@ const ClientSettings: React.FC = () => {
         </p>
       </div>
 
+      {/* Your plan (231). Above Advanced, not inside it: an upgrade is
+          something an owner may go looking for, not a power-user tool. */}
+      <button
+        className="cp-card p-5 w-full flex items-center justify-between text-left"
+        onClick={() => navigate('/client/plan')}
+      >
+        <span>
+          <span className="block font-bold text-sm" style={{ color: 'var(--cp-ink)' }}>Your plan</span>
+          <span className="block text-xs cp-muted mt-0.5">
+            Free covers your pets, visits and invoices. Farm mode and more live higher up.
+          </span>
+        </span>
+        <ChevronRight className="w-4 h-4 cp-muted shrink-0" />
+      </button>
+
       {/* Advanced (deliberately hidden) */}
       <div className="cp-card p-5">
         <button className="w-full flex items-center justify-between" onClick={() => setAdvancedOpen((v) => !v)}>

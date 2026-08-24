@@ -178,7 +178,43 @@ export interface PortalHoldings {
   farmCount: number;
   hasPets: boolean;
   hasFarms: boolean;
+  /**
+   * 231 — farm mode is the Farmer rung (tier 2+), so holding a farm is no
+   * longer enough to enter it. `hasFarms` without this is an upgrade prompt;
+   * this without `hasFarms` is an invitation to add one. Neither is an error.
+   */
+  canUseFarmMode: boolean;
+  /** Farms this plan covers. 0 = unlimited. */
+  farmLimit: number;
+  planName: string | null;
+  planTier: number | null;
   suggestedMode: 'PETS' | 'FARM';
+}
+
+/** 231 — a rung on the client ladder. Free (tier 0) is real but not buyable. */
+export interface PortalPlan {
+  id: string;
+  name: string;
+  tier: number;
+  price: number;
+  currency: string;
+  billingCycle: string;
+  features: string[];
+  featureKeys: string[];
+  maxFarms: number;
+  purchasable: boolean;
+  billingOptions: Array<{ id: string; cycle: string; price: number; discountPct: number }>;
+}
+
+/** What the account is on right now. Never null — no plan means Free. */
+export interface PortalPlanState {
+  state: 'FREE' | 'ACTIVE';
+  featureKeys: string[];
+  packageName: string | null;
+  tier: number | null;
+  expiresAt: string | null;
+  maxFarms: number;
+  clientId: string | null;
 }
 
 export interface PortalFarm {
@@ -405,6 +441,26 @@ export const clientPortalAPI = {
 
   recordProduce: (farmId: string, data: { produceScheduleId?: string; quantity: number; unit?: string; recordedOn?: string; notes?: string }, options?: RequestOptions): Promise<ApiResponse<{ record: PortalProduceRecord }>> =>
     post(`/portal/me/farms/${farmId}/produce`, data, { showError: true, ...options }),
+
+  /** A farmer adds their own farm — what makes the ladder's farm counts real. */
+  createMyFarm: (data: { name: string; farmType?: string; county?: string; location?: string; sizeAcres?: number; notes?: string }, options?: RequestOptions): Promise<ApiResponse<{ farm: PortalFarm }>> =>
+    post('/portal/me/farms', data, { showError: true, ...options }),
+
+  // ── the client's own plan (231) ──────────────────────────────────────────
+  getMyPlan: (options?: RequestOptions): Promise<ApiResponse<PortalPlanState>> =>
+    get('/portal/me/plan', { cache: false, ...options }),
+
+  listPlans: (options?: RequestOptions): Promise<ApiResponse<{ plans: PortalPlan[] }>> =>
+    get('/portal/me/plans', { cache: false, ...options }),
+
+  initiatePlanPayment: (data: { packageId: string; billingOptionId?: string; cycle?: string; phone?: string }, options?: RequestOptions): Promise<ApiResponse<{ attemptId: string; reference: string; authorizationUrl: string }>> =>
+    post('/portal/me/plan/initiate', data, { showError: true, ...options }),
+
+  planPaymentStatus: (reference: string, options?: RequestOptions): Promise<ApiResponse<{ status: string; reference: string; resultDesc: string | null }>> =>
+    get(`/portal/me/plan/status/${reference}`, { cache: false, silent: true, ...options }),
+
+  cancelMyPlan: (options?: RequestOptions): Promise<ApiResponse<PortalPlanState>> =>
+    post('/portal/me/plan/cancel', {}, { showError: true, ...options }),
 };
 
 export default clientPortalAPI;

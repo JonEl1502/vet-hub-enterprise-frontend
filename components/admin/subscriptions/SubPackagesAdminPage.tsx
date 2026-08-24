@@ -105,8 +105,19 @@ const SubPackagesAdminPage: React.FC = () => {
       // Match on EITHER marker. A row where the two disagree is broken, and
       // hiding it from this tab would put it out of reach of the only screen
       // that can repair it.
-      if (audience === 'addon') return Number(p.tier) === 0 || !!p.isAddon;
-      if (Number(p.tier) === 0 || p.isAddon) return false;
+      // 231 — tier 0 alone no longer means "add-on". The client ladder has a
+      // real tier-0 BASE rung: `Free`, priced 0, which every client is on and
+      // nobody can buy. Filing it under Add-ons would hide the one screen where
+      // its entitlements are editable.
+      //
+      // ⚠️ The either-marker rule below is kept for everything else on purpose:
+      // a row whose tier and isAddon DISAGREE is broken, and hiding it from
+      // this tab would put it out of reach of the only screen that can repair
+      // it. A free base plan is the one shape that is legitimately tier 0
+      // without being an add-on.
+      const isFreeBaseRung = Number(p.tier) === 0 && !p.isAddon && Number(p.price) === 0;
+      if (audience === 'addon') return !isFreeBaseRung && (Number(p.tier) === 0 || !!p.isAddon);
+      if (!isFreeBaseRung && (Number(p.tier) === 0 || p.isAddon)) return false;
       const tags = (p.audiences && p.audiences.length > 0) ? p.audiences : (['CLINIC'] as PackageAudience[]);
       return tags.includes(audienceTag);
     });
@@ -192,6 +203,7 @@ const SubPackagesAdminPage: React.FC = () => {
       maxClients: selected.maxClients,
       maxStaff: selected.maxStaff,
       maxBranches: selected.maxBranches ?? 0,
+      maxFarms: selected.maxFarms ?? 0,
       isAddon: selected.isAddon ?? false,
       storageGb: selected.storageGb,
       price: selected.price,
@@ -691,6 +703,14 @@ const SubPackagesAdminPage: React.FC = () => {
                     </Field>
                     <Field label="Max Branches">
                       <input type="number" value={selected.maxBranches ?? 0} onChange={e => updateSelectedField('maxBranches', Number(e.target.value))} className={inputCls}/>
+                    </Field>
+                    {/* 231 — 0 = UNLIMITED, the same convention as branches.
+                        It only bites on a plan that also carries
+                        `livestock:farms`; without that key the plan holds no
+                        farms at all, which is what lets 0 keep meaning
+                        "no limit" instead of "none". */}
+                    <Field label="Max Farms (0 = unlimited)">
+                      <input type="number" value={selected.maxFarms ?? 0} onChange={e => updateSelectedField('maxFarms', Number(e.target.value))} className={inputCls}/>
                     </Field>
                     <Field label="Storage (GB)">
                       <input type="number" value={selected.storageGb} onChange={e => updateSelectedField('storageGb', Number(e.target.value))} className={inputCls}/>
