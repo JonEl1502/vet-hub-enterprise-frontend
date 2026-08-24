@@ -159,7 +159,14 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const [advMinSpentInput, setAdvMinSpentInput] = useState('');
   const advMinSpent = Number(advMinSpentInput) || 0;
   const [advClientType, setAdvClientType] = useState<string | null>(null);
-  const advActive = advOutstanding || advMinSpent > 0 || !!advClientType;
+  /**
+   * ⚠️ This drives the "· on" marker on the collapsed panel's toggle, so it has
+   * to cover EVERY filter that now lives inside it — including the A–Z letter
+   * and the date range, which moved there (user, 2026-08-24). A filter that is
+   * both hidden and silently active is how a list comes to look empty for no
+   * visible reason.
+   */
+  const advActive = advOutstanding || advMinSpent > 0 || !!advClientType || !!letterFilter || !!dateRange;
 
   const localFiltered = useMemo(() => {
     if (searchQuery.length < 3) return clients;
@@ -504,57 +511,6 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
             )}
           </div>
 
-          {/* Row 1b — A–Z alphabet filter */}
-          <div className="flex flex-wrap items-center gap-1">
-            {['ALL', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), '#'].map(L => {
-              const active = L === 'ALL' ? !letterFilter : letterFilter === L;
-              return (
-                <button
-                  key={L}
-                  onClick={() => setLetterFilter(L === 'ALL' ? null : L)}
-                  className={`min-w-[26px] px-1.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${active ? 'bg-seafoam text-white shadow-sm' : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-seafoam hover:border-seafoam/40'}`}
-                >
-                  {L}
-                </button>
-              );
-            })}
-
-            {/* Which name the letter reads. Only shown once a letter is picked —
-                before that it controls nothing and is just noise. */}
-            {letterFilter && (
-              <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-200 dark:border-zinc-700">
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">on</span>
-                {([
-                  { key: 'both', label: 'Both' },
-                  { key: 'first', label: 'First name' },
-                  { key: 'surname', label: 'Surname' },
-                ] as const).map(opt => (
-                  <button
-                    key={opt.key}
-                    onClick={() => setLetterField(opt.key)}
-                    className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${
-                      letterField === opt.key
-                        ? 'bg-pine text-white dark:bg-seafoam'
-                        : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-seafoam hover:border-seafoam/40'
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Row 2 — Date picker (full width) */}
-          <div className="flex items-center gap-2 w-full">
-            <DateRangePicker
-              value={dateRange}
-              onChange={setDateRange}
-              className="w-full"
-              buttonClassName="w-full justify-between"
-            />
-          </div>
-
           {/* Row 3 — Filter + Register + Reload.
               On mobile the filter pill needs its own line so it's not
               squeezed to the icon by Register / Duplicates / Refresh; from
@@ -713,19 +669,10 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               >
                 <User size={14} className="inline ml-1" /> Register
               </button>
-              {hasFullAccess && (
-                <button
-                  onClick={() => setShowDuplicates(true)}
-                  className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-amber-300 text-amber-600 dark:text-amber-400 shadow-sm transition-all active:scale-95 px-3 sm:px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-1.5"
-                  title="Find and clean up duplicate clients"
-                >
-                  <AlertTriangle size={14} /> Duplicates
-                </button>
-              )}
               <button
                 onClick={() => refreshClients()}
                 disabled={isLoadingClients || isLoadingPets}
-                className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center justify-center active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed self-stretch aspect-square px-0 py-0 ml-auto sm:ml-0"
+                className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center justify-center active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed w-9 h-9 p-0 ml-auto sm:ml-0"
                 title="Refresh client data"
               >
                 <RefreshCw size={14} className={isLoadingClients || isLoadingPets ? 'animate-spin' : ''} />
@@ -741,13 +688,75 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               advActive ? 'bg-amber-500 text-white' : 'text-slate-400 hover:text-pine dark:hover:text-zinc-200'
             }`}
           >
-            🛡 Risk & credit filters {advActive ? '· on' : ''} {advOpen ? '▲' : '▼'}
+            🔎 More filters — A–Z · dates · risk &amp; credit {advActive ? '· on' : ''} {advOpen ? '▲' : '▼'}
           </button>
         </div>
 
         {/* Stacked panel — slides out from UNDER the primary card. */}
         {advOpen && (
-          <div className="stacked-filter-panel bg-slate-100/80 dark:bg-zinc-950/60 border border-slate-200/60 dark:border-zinc-800/60 rounded-2xl px-4 pb-2.5 space-y-2">
+          <div className="stacked-filter-panel bg-slate-100/80 dark:bg-zinc-950/60 border border-slate-200/60 dark:border-zinc-800/60 rounded-2xl px-4 pb-2.5 space-y-3">
+            {/* Moved in from the always-visible bar (user, 2026-08-24: put what
+                is not used often behind the collapsible). The A–Z strip cost a
+                whole row for something the search box does faster, the date
+                range is rarely how anyone finds a CLIENT, and Duplicates is a
+                cleanup job, not a daily one. All three still work exactly as
+                they did — `advActive` above now counts them so the toggle says
+                "· on" when one of them is filtering the list. */}
+            <div className="space-y-2">
+              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Jump to a letter</p>
+          <div className="flex flex-wrap items-center gap-1">
+            {['ALL', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), '#'].map(L => {
+              const active = L === 'ALL' ? !letterFilter : letterFilter === L;
+              return (
+                <button
+                  key={L}
+                  onClick={() => setLetterFilter(L === 'ALL' ? null : L)}
+                  className={`min-w-[26px] px-1.5 py-1 rounded-md text-[10px] font-black uppercase tracking-wider transition-all ${active ? 'bg-seafoam text-white shadow-sm' : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-seafoam hover:border-seafoam/40'}`}
+                >
+                  {L}
+                </button>
+              );
+            })}
+
+            {/* Which name the letter reads. Only shown once a letter is picked —
+                before that it controls nothing and is just noise. */}
+            {letterFilter && (
+              <div className="flex items-center gap-1 ml-2 pl-2 border-l border-slate-200 dark:border-zinc-700">
+                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">on</span>
+                {([
+                  { key: 'both', label: 'Both' },
+                  { key: 'first', label: 'First name' },
+                  { key: 'surname', label: 'Surname' },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.key}
+                    onClick={() => setLetterField(opt.key)}
+                    className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest transition-all ${
+                      letterField === opt.key
+                        ? 'bg-pine text-white dark:bg-seafoam'
+                        : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-seafoam hover:border-seafoam/40'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Registered between</p>
+          <div className="flex items-center gap-2 w-full">
+            <DateRangePicker
+              value={dateRange}
+              onChange={setDateRange}
+              className="w-full"
+              buttonClassName="w-full justify-between"
+            />
+          </div>
+            </div>
+
             <div className="flex flex-wrap items-end gap-3">
               <button
                 type="button"
@@ -784,9 +793,18 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                   </button>
                 ))}
               </div>
+              {hasFullAccess && (
+                <button
+                  onClick={() => setShowDuplicates(true)}
+                  className="px-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all flex items-center gap-1.5 whitespace-nowrap"
+                  title="Find and clean up duplicate clients"
+                >
+                  <AlertTriangle size={13} /> Duplicates
+                </button>
+              )}
               {advActive && (
                 <button type="button"
-                  onClick={() => { setAdvOutstanding(false); setAdvMinSpentInput(''); setAdvClientType(null); }}
+                  onClick={() => { setAdvOutstanding(false); setAdvMinSpentInput(''); setAdvClientType(null); setLetterFilter(null); setDateRange(null); }}
                   className="ml-auto text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500"
                 >
                   Clear

@@ -1103,7 +1103,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 }
               }}
               disabled={isRefreshing}
-              className="shrink-0 ml-auto sm:ml-0 compact-button bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-100 transition-all flex items-center justify-center active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed self-stretch aspect-square px-0 py-0"
+              className="shrink-0 ml-auto sm:ml-0 compact-button bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-100 transition-all flex items-center justify-center active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed w-9 h-9 p-0"
               title="Refresh inventory"
             >
               <RefreshCw size={14} className={isRefreshing ? 'animate-spin' : ''} />

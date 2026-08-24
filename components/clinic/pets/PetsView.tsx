@@ -546,19 +546,21 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                   <AlertTriangle size={14} /> Orphans
                 </button>
               )}
-              {/* Icon-only, so it is sized off the ROW rather than off its own
-                  padding: `compact-button`'s px-4/py-2 plus a 14px icon left it
-                  shorter and tighter than the Register/Orphans pills beside it,
-                  which reads as squeezed at every width (user, 2026-08-24).
-                  `self-stretch` takes the row's height and `aspect-square`
-                  turns that into the width, so it stays a true square however
-                  the pills are sized. px-0/py-0 neutralise the component
-                  class's padding — without them the min-width wins and the
-                  square goes oblong again. */}
+              {/* Icon-only: an explicit 36×36 square, which is the house
+                  control height. `compact-button`'s px-4/py-2 around a 14px
+                  icon left it shorter and tighter than the Register/Orphans
+                  pills beside it, which reads as squeezed at every width
+                  (user, 2026-08-24).
+                  ⚠️ `self-stretch aspect-square` was tried first and is WRONG
+                  here — measured 16px wide on staging. A flex item resolves its
+                  MAIN size (width, in a row) from content before the cross-axis
+                  stretch happens, so `aspect-ratio` has no height to derive a
+                  width from and the button collapses to its icon. A fixed
+                  square cannot collapse. */}
               <button
                 onClick={() => refreshPets()}
                 disabled={isLoadingPets || isLoadingClients}
-                className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center justify-center active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed self-stretch aspect-square px-0 py-0 ml-auto sm:ml-0"
+                className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-100 shadow-sm transition-all flex items-center justify-center active:scale-95 hover:border-seafoam disabled:opacity-50 disabled:cursor-not-allowed w-9 h-9 p-0 ml-auto sm:ml-0"
                 title="Refresh pet data"
               >
                 <RefreshCw size={14} className={isLoadingPets || isLoadingClients ? 'animate-spin' : ''} />

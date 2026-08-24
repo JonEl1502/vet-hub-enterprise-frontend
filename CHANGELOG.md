@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the Clients toolbar keeps the daily controls and collapses the rest  —  2026-08-24
+🟢 **Record impact: none.** Placement only — every filter behaves exactly as before.
+- Four rows of controls sat permanently above the list; the user asked for whatever is not used
+  often to go behind the collapsible (2026-08-24). Moved in: the **A–Z strip** (a whole row for
+  something the search box does faster), the **date range** (rarely how anyone finds a *client*),
+  and **Duplicates** (a cleanup job, not a daily one).
+- Left in the always-visible bar: search, the client filter, Active/Deactivated/All, Walk-in,
+  Register and reload.
+- ⚠️ **The toggle now counts the moved filters as "on".** `advActive` gained `letterFilter` and
+  `dateRange`, and **Clear** resets them too. A filter that is both hidden and silently active is
+  how a list comes to look empty for no visible reason — that had to move with the controls.
+- Toggle renamed to say what is actually inside it now, rather than "Risk & credit filters".
+
+### fix: the reload button is a fixed 36×36 square  —  2026-08-24
+🟢 **Record impact: none.** Supersedes the `self-stretch aspect-square` attempt earlier today.
+- ⚠️ **That attempt was wrong and measured wrong on staging: 16px wide on Patients and Clients,
+  20×20 on Inventory — narrower than the button it was fixing.** A flex item resolves its MAIN size
+  (width, in a row) from content *before* the cross-axis stretch happens, so `aspect-ratio` had no
+  height to derive a width from and the button collapsed to its icon.
+- Now `w-9 h-9 p-0` — the house control height, on all three pages, and it cannot collapse.
+- **Lesson: a CSS fix reasoned from the class names is a guess.** This one type-checked, linted,
+  built and shipped to staging looking plausible; only measuring the rendered rect caught it.
+
 ### feat: Emergency quick add — search a patient, land in triage  —  2026-08-24
 🔵 **Record impact: low.** Creates one visit + one task per use, exactly as Register Visit does.
 **Data dependency:** none new — `POST /appointments` with `encounterType: VET_VISIT`,
