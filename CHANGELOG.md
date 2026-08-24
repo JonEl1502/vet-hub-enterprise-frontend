@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: a Certificates tab on the patient profile  —  2026-08-24
+🟢 **Record impact: none.** Every certificate is a DOCUMENT compiled from the record — nothing here
+writes to the patient.
+- The clinic-issued documents for a patient were scattered: birth and death behind two buttons in
+  the overview hero, the vaccine passport behind a third control elsewhere, and the per-visit
+  vaccination certificate on a page that was closed earlier today. They are the same kind of thing —
+  something compiled from this patient's record to hand to an owner — so they get one tab
+  (user, 2026-08-24).
+- **Birth certificate · Death certificate · Vaccine passport**, each as a card saying what the
+  document is for.
+- ⚠️ **A document that cannot be issued yet shows the reason instead of disappearing.** Death is
+  "available once the patient is recorded as deceased"; the passport is "no vaccination visits on
+  file yet". A hidden card leaves behind the question "why can't I print this for this animal".
+- The hero's birth/death shortcuts stay — they are one visible tap, not a stale menu entry.
+
+### fix: the date picker sits beside the letter strip, not under it  —  2026-08-24
+🟢 **Record impact: none.** Layout only.
+- The A–Z strip stops well short of the panel's right edge, so the date range now occupies that
+  space rather than claiming a whole row beneath it (user, 2026-08-24).
+- `lg:` only — below that the strip already wraps, and side-by-side would squeeze both.
+
 ### fix: the Clients toolbar keeps the daily controls and collapses the rest  —  2026-08-24
 🟢 **Record impact: none.** Placement only — every filter behaves exactly as before.
 - Four rows of controls sat permanently above the list; the user asked for whatever is not used

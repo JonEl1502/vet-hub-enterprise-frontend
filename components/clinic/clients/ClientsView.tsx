@@ -702,7 +702,12 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                 cleanup job, not a daily one. All three still work exactly as
                 they did — `advActive` above now counts them so the toggle says
                 "· on" when one of them is filtering the list. */}
-            <div className="space-y-2">
+            {/* The letter strip stops well short of the panel's right edge, so
+                the date picker sits in that space rather than claiming a whole
+                row under it (user, 2026-08-24). `lg:` only — below that the
+                strip already wraps and a side-by-side would squeeze both. */}
+            <div className="flex flex-col lg:flex-row lg:items-start gap-3">
+            <div className="space-y-2 lg:flex-1 lg:min-w-0">
               <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Jump to a letter</p>
           <div className="flex flex-wrap items-center gap-1">
             {['ALL', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), '#'].map(L => {
@@ -745,16 +750,17 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
           </div>
             </div>
 
-            <div className="space-y-2">
+            <div className="space-y-2 w-full lg:w-80 lg:shrink-0">
               <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Registered between</p>
-          <div className="flex items-center gap-2 w-full">
-            <DateRangePicker
-              value={dateRange}
-              onChange={setDateRange}
-              className="w-full"
-              buttonClassName="w-full justify-between"
-            />
-          </div>
+              <div className="flex items-center gap-2 w-full">
+                <DateRangePicker
+                  value={dateRange}
+                  onChange={setDateRange}
+                  className="w-full"
+                  buttonClassName="w-full justify-between"
+                />
+              </div>
+            </div>
             </div>
 
             <div className="flex flex-wrap items-end gap-3">

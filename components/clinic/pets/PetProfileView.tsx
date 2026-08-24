@@ -17,7 +17,7 @@ import { clientsAPI } from '../../../services';
 import { toast } from '../../../services/utils/toast';
 import { remindersAPI, appointmentsAPI } from '../../../services';
 import type { Reminder, Appointment } from '../../../services';
-import { Heart, Activity, Calendar, CalendarPlus, Syringe, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical, Smile, Camera, Loader2, User, Phone, UserPlus } from 'lucide-react';
+import { Heart, Activity, Calendar, CalendarPlus, Syringe, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical, Smile, Camera, Loader2, User, Phone, UserPlus, Award } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -1569,6 +1569,14 @@ const PetProfileView: React.FC<Props> = ({
               // ONE money tab, same as the client page: the account hub scoped
               // to this patient's bills.
               ...(hasFullAccess ? [{ id: 'financials', label: 'Financials', icon: CreditCard }] : []),
+              // CERTIFICATES (user, 2026-08-24). The clinic-issued documents
+              // for a patient were scattered — birth/death behind two buttons
+              // in the overview hero, the vaccine passport behind a third
+              // elsewhere, and the per-visit vaccination certificate on a page
+              // that is now closed. They are all the same KIND of thing: a
+              // document compiled from this patient's record, to be handed to
+              // an owner. One tab is where someone looks for that.
+              { id: 'certificates', label: 'Certificates', icon: Award },
               { id: 'schedule', label: 'Reminders & Appts', icon: BellPlus },
               { id: 'outreach', label: 'Outreach Log', icon: MessageCircle },
             ].map(tab => (
@@ -1871,6 +1879,71 @@ const PetProfileView: React.FC<Props> = ({
           </div>
         )}
         {/* Reminders & appointment bookings for this patient — today & future first. */}
+        {activeTab === 'certificates' && (() => {
+          /**
+           * Each card is a DOCUMENT, not a record: nothing here writes to the
+           * patient. A document that cannot be issued yet is shown with the
+           * reason rather than hidden — "why can't I print the passport for
+           * this animal" is the question a hidden card leaves behind.
+           */
+          const vaccineVisits = vaccinationAppointments.length;
+          const docs = [
+            {
+              key: 'birth',
+              icon: '📜',
+              title: 'Birth certificate',
+              body: 'Civil-registry style record of birth — dam, sire, place of birth. Registry fields the clinic cannot derive are filled in before printing.',
+              action: 'Open certificate',
+              onClick: () => setCertKind('BIRTH' as const),
+              blocked: null as string | null,
+            },
+            {
+              key: 'death',
+              icon: '🕊️',
+              title: 'Death certificate',
+              body: 'Issued for a deceased patient — cause of death, informant and registering officer, under the clinic seal.',
+              action: 'Open certificate',
+              onClick: () => setCertKind('DEATH' as const),
+              blocked: pet.isAlive === false ? null : 'Available once the patient is recorded as deceased.',
+            },
+            {
+              key: 'passport',
+              icon: '💉',
+              title: 'Vaccine passport',
+              body: 'Every vaccination on file for this patient, as one official proof of immunisation — the document an owner is asked for by boarding, travel or a groomer.',
+              action: 'Open passport',
+              onClick: () => setShowPassport(true),
+              blocked: vaccineVisits > 0 ? null : 'No vaccination visits on file yet.',
+            },
+          ];
+          return (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-2">
+              {docs.map(d => (
+                <div key={d.key} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm flex flex-col gap-3">
+                  <div className="flex items-start gap-3">
+                    <span className="grid place-items-center w-11 h-11 rounded-xl bg-slate-50 dark:bg-zinc-800 text-xl shrink-0">{d.icon}</span>
+                    <div className="min-w-0 flex-1">
+                      <h4 className="card-subtitle">{d.title}</h4>
+                      <p className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 leading-snug mt-1">{d.body}</p>
+                    </div>
+                  </div>
+                  {d.blocked ? (
+                    <p className="mt-auto px-3 py-2 rounded-xl bg-slate-50 dark:bg-zinc-800/60 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
+                      {d.blocked}
+                    </p>
+                  ) : (
+                    <button
+                      onClick={d.onClick}
+                      className="mt-auto w-full px-4 py-2.5 rounded-xl bg-gradient-to-r from-pine to-seafoam text-white text-[10px] font-black uppercase tracking-widest shadow-sm hover:shadow-md transition-all active:scale-95 flex items-center justify-center gap-1.5"
+                    >
+                      <Printer size={13} /> {d.action}
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
         {activeTab === 'schedule' && <RemindersApptsTab petId={pet.id} />}
         {/* Grooming / Boarding record tabs + Medical "All Visits" share the
             visit-card list — only the source list differs. */}
