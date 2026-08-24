@@ -59,6 +59,46 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Emergency quick add — search a patient, land in triage  —  2026-08-24
+🔵 **Record impact: low.** Creates one visit + one task per use, exactly as Register Visit does.
+**Data dependency:** none new — `POST /appointments` with `encounterType: VET_VISIT`,
+`visitType: EMERGENCY`.
+- An emergency arrives with an animal, not a form. Opening one meant six decisions — Register
+  Visit → client → pet → encounter → visit type → save → *then find the Triage tab* — when the only
+  real decision is **which animal** (user, 2026-08-24).
+- **Quick add** on the Emergency board opens a branded search modal over patients **and** owners.
+  Pick a patient and the visit is created as VET_VISIT / EMERGENCY and opened **on its Triage tab**
+  (the board's existing `onOpenVisit` already passes `openTriage`).
+- Pick an **owner** instead and their patients are listed — a visit needs a patient, so the modal
+  will not let that step be skipped.
+- ⚠️ **Search is server-side, deliberately.** `useData()`'s `pets`/`clients` hold only the page a
+  list view happened to load, so on a clinic with thousands of patients a local filter would report
+  "not found" for an animal that exists — the same trap as
+  `reference_context_cache_hides_history`.
+- ⚠️ **The seeded line is priced from the clinic's configured emergency entry fee, or zero** — never
+  a catalog fallback. "First service in the Consultation category" is what once billed prod a
+  KES 2,500 Behavioural Consultation nobody chose. The backend requires ≥1 task, so the line is not
+  optional; its price is.
+- Deceased patients are not listed, and a patient with no owner on file is shown but refused with
+  the reason rather than failing at save.
+- The list is refreshed before navigating: the detail view resolves a visit out of the cached list,
+  so skipping that opens the page on "visit not found".
+
+### feat: the calculator gets the VHC mark, opens under its button, and multiplies implicitly  —  2026-08-24
+🟢 **Record impact: none.**
+- **Brand.** Gradient pine→seafoam header with the VetHubCore mark in a chip, and the mark again as
+  a watermark behind the readout. ⚠️ Both take `currentColor`: pine and seafoam are runtime CSS
+  variables so clinics rebrand, and a hardcoded hex would survive the rebrand and clash.
+- **Opens under the button that summons it** (user, 2026-08-24), right edges aligned, clamped to the
+  viewport. ⚠️ The dragged position is **no longer persisted** — that is what made this impossible:
+  a position stored from a previous session always beat the anchor. Dragging still works for the
+  session.
+- **`8(9-3)` is 48, not `Err`.** Every calculator treats juxtaposition as multiplication; JS reads
+  `8(...)` as calling `8` as a function and throws. Only the three unambiguous joins are inserted —
+  value then `(`, `)` then value, and `)(` — none of which can change an expression that already
+  parsed. Verified: `8(9-3)`=48 · `(9-3)8`=48 · `(2)(3)`=6 · `(1+2)(3+4)`=21 · `2%(50)`=1 ·
+  `200*15%`=30 · `((2))`=2.
+
 ### feat: patient card carries its three actions; the pager sticks to the bottom  —  2026-08-24
 🟢 **Record impact: none.** Placement and navigation only — the same handlers, reached sooner.
 - **Patient card quick actions.** *Start New Visit*, *Create Appointment* and *New Reminder* moved

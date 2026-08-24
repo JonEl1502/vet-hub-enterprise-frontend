@@ -90,6 +90,7 @@ const Navbar: React.FC<NavbarProps> = ({
   const [showUserDropdown, setShowUserDropdown]     = useState(false);
   const [showNotifications, setShowNotifications]   = useState(false);
   const [showCalc, setShowCalc]                     = useState(false);
+  const calcBtnRef                                  = useRef<HTMLButtonElement>(null);
   const [notifTab, setNotifTab]                     = useState<'all' | 'reminders' | 'appointments' | 'messaging' | 'orders' | 'b2b'>('all');
   const [dueReminders, setDueReminders]             = useState<Reminder[]>([]);
   const [todayAppts, setTodayAppts]                 = useState<Visit[]>([]);
@@ -335,6 +336,7 @@ const Navbar: React.FC<NavbarProps> = ({
             the numbers being copied are on the page underneath (user,
             2026-08-22). Mounted here so it is reachable from every screen. */}
         <button
+          ref={calcBtnRef}
           onClick={() => setShowCalc(v => !v)}
           className={`p-2 transition-all rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 ${showCalc ? 'text-seafoam' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-100'}`}
           title="Calculator"
@@ -342,7 +344,9 @@ const Navbar: React.FC<NavbarProps> = ({
         >
           <Calculator size={18} />
         </button>
-        <PopCalculator open={showCalc} onClose={() => setShowCalc(false)} />
+        {/* The panel opens UNDER this button (user, 2026-08-24) — it is
+            portalled to <body>, so it needs the trigger's rect handed to it. */}
+        <PopCalculator open={showCalc} onClose={() => setShowCalc(false)} anchorRef={calcBtnRef} />
 
         {/* ── Notifications ── */}
         <div className="relative" ref={notifRef}>

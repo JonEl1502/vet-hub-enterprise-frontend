@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Delete, Equal, Minus } from 'lucide-react';
+import BrandMark from './BrandMark';
 
 /**
  * A small calculator that floats over whatever page you are on and can be
@@ -15,11 +16,16 @@ import { X, Delete, Equal, Minus } from 'lucide-react';
  * copying from. It is a floating panel with no backdrop, so the form stays
  * readable and clickable underneath.
  *
- * Position and the last result survive a reload via localStorage, wrapped in
- * try/catch because private windows throw on access rather than returning null.
+ * It opens UNDER the navbar button that summons it (user, 2026-08-24) and can
+ * then be dragged anywhere for the rest of the session.
+ *
+ * ⚠️ The dragged position is deliberately NOT persisted any more. It used to
+ * be, and that is what made "open below the button" impossible: a position
+ * stored from a previous session always won the race with the anchor. Opening
+ * where you clicked beats opening where you last left it — you are looking at
+ * the button at that moment, not at wherever the panel used to be.
  */
 
-const POS_KEY = 'vethub.calc.pos.v1';
 const PANEL_W = 232;
 const PANEL_H = 328;
 
@@ -36,29 +42,36 @@ function clampToViewport(p: Pos): Pos {
   };
 }
 
-function loadPos(): Pos {
-  try {
-    const raw = localStorage.getItem(POS_KEY);
-    if (raw) return clampToViewport(JSON.parse(raw) as Pos);
-  } catch { /* private window, or blocked site data */ }
-  return clampToViewport({ x: window.innerWidth - PANEL_W - 24, y: 96 });
+/**
+ * Where to open: under the trigger, right edges aligned, so the panel reads as
+ * belonging to the button that produced it. `clampToViewport` then keeps it on
+ * screen — on a narrow window the button can sit closer to the right edge than
+ * the panel is wide.
+ */
+function anchoredPos(anchor: HTMLElement | null): Pos {
+  if (!anchor) return clampToViewport({ x: window.innerWidth - PANEL_W - 24, y: 96 });
+  const r = anchor.getBoundingClientRect();
+  return clampToViewport({ x: r.right - PANEL_W, y: r.bottom + 8 });
 }
 
 interface Props {
   open: boolean;
   onClose: () => void;
+  /** The control that opens the panel — it opens directly beneath it. */
+  anchorRef?: React.RefObject<HTMLElement | null>;
 }
 
-const PopCalculator: React.FC<Props> = ({ open, onClose }) => {
+const PopCalculator: React.FC<Props> = ({ open, onClose, anchorRef }) => {
   const [pos, setPos] = useState<Pos>({ x: 24, y: 96 });
   const [expr, setExpr] = useState('');
   const [result, setResult] = useState<string | null>(null);
   const [minimised, setMinimised] = useState(false);
   const dragRef = useRef<{ dx: number; dy: number } | null>(null);
 
-  // Read the stored position only once the panel is actually opened — reading
-  // window dimensions at module scope would break SSR and any pre-mount render.
-  useEffect(() => { if (open) setPos(loadPos()); }, [open]);
+  // Position on OPEN, not at module scope — reading window dimensions there
+  // would break SSR and any pre-mount render, and the trigger has no rect
+  // until it is laid out.
+  useEffect(() => { if (open) setPos(anchoredPos(anchorRef?.current ?? null)); }, [open, anchorRef]);
 
   useEffect(() => {
     if (!open) return;
@@ -86,7 +99,6 @@ const PopCalculator: React.FC<Props> = ({ open, onClose }) => {
     const up = () => {
       if (!dragRef.current) return;
       dragRef.current = null;
-      setPos(p => { try { localStorage.setItem(POS_KEY, JSON.stringify(p)); } catch { /* ignore */ } return p; });
     };
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
@@ -104,8 +116,22 @@ const PopCalculator: React.FC<Props> = ({ open, onClose }) => {
     if (!src) return null;
     if (!/^[0-9+\-*/().%\s]+$/.test(src)) return 'Err';
     try {
+      /**
+       * Implicit multiplication: `8(9-3)` is 48, not a syntax error (user,
+       * 2026-08-24). Every calculator a person has used treats juxtaposition
+       * as multiplication; JS's parser reads `8(...)` as calling 8 as a
+       * function and throws, which is where the `Err` came from.
+       *
+       * Only the three unambiguous joins are inserted — value then `(`,
+       * `)` then value, and `)(`. Nothing here can change the meaning of an
+       * expression that already parsed, because JS has no other reading of
+       * those sequences.
+       */
+      const joined = src
+        .replace(/([\d).%])\s*\(/g, '$1*(')
+        .replace(/\)\s*([\d.])/g, ')*$1');
       // Percent as a plain divide-by-100 — "15%" is 0.15, so "200*15%" is 30.
-      const js = src.replace(/(\d+(?:\.\d+)?)\s*%/g, '($1/100)');
+      const js = joined.replace(/(\d+(?:\.\d+)?)\s*%/g, '($1/100)');
       // eslint-disable-next-line no-new-func
       const v = Function(`"use strict"; return (${js});`)() as unknown;
       if (typeof v !== 'number' || !isFinite(v)) return 'Err';
@@ -176,8 +202,15 @@ const PopCalculator: React.FC<Props> = ({ open, onClose }) => {
             instead of moving the panel on a touch drag. */}
         <div
           onPointerDown={onPointerDown}
-          className="flex items-center gap-2 px-3 py-2 bg-pine text-white cursor-grab active:cursor-grabbing touch-none"
+          className="flex items-center gap-2 px-3 py-2 bg-gradient-to-r from-pine to-seafoam text-white cursor-grab active:cursor-grabbing touch-none"
         >
+          {/* The mark, not just a word. `currentColor` is required, not a
+              shortcut: pine and seafoam are runtime CSS variables so a clinic
+              can rebrand, and a hardcoded hex here would survive the rebrand
+              and clash with the header it sits on. */}
+          <span className="grid place-items-center w-5 h-5 rounded-md bg-white/15 ring-1 ring-white/25 shrink-0">
+            <BrandMark className="w-3.5 h-3.5" color="currentColor" />
+          </span>
           <span className="text-[9px] font-black uppercase tracking-widest flex-1">Calculator</span>
           <button type="button" onClick={() => setMinimised(m => !m)} title={minimised ? 'Expand' : 'Minimise'}
             className="p-0.5 rounded hover:bg-white/15"><Minus size={13} /></button>
@@ -187,13 +220,20 @@ const PopCalculator: React.FC<Props> = ({ open, onClose }) => {
 
         {!minimised && (
           <>
-            <div className="px-3 py-2 bg-slate-50 dark:bg-zinc-950/50 border-b border-slate-100 dark:border-zinc-800">
-              <p className="text-right text-[11px] font-bold text-slate-400 h-4 truncate">{expr || ' '}</p>
+            <div className="relative overflow-hidden px-3 py-2 bg-slate-50 dark:bg-zinc-950/50 border-b border-slate-100 dark:border-zinc-800">
+              {/* Watermark: the mark is the backdrop, the number is the content.
+                  `pointer-events-none` so it never steals the tap that
+                  continues from the last answer. */}
+              <BrandMark
+                className="pointer-events-none absolute -left-3 -bottom-4 w-20 h-20 text-seafoam opacity-[0.07] dark:opacity-[0.12]"
+                color="currentColor"
+              />
+              <p className="relative text-right text-[11px] font-bold text-slate-400 h-4 truncate">{expr || ' '}</p>
               <button
                 type="button"
                 onClick={useResult}
                 title={result && result !== 'Err' ? 'Continue from this answer' : undefined}
-                className="w-full text-right text-2xl font-black text-pine dark:text-zinc-100 tabular-nums truncate"
+                className="relative w-full text-right text-2xl font-black text-pine dark:text-zinc-100 tabular-nums truncate"
               >
                 {result ?? (evaluate(expr) && evaluate(expr) !== 'Err' ? evaluate(expr) : '0')}
               </button>

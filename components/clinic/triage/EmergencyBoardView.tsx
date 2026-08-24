@@ -1,11 +1,12 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Siren, AlertTriangle, Loader2, RefreshCw, HeartPulse, ChevronRight, Clock } from 'lucide-react';
+import { Siren, AlertTriangle, Loader2, RefreshCw, HeartPulse, ChevronRight, Clock, Zap } from 'lucide-react';
 import { triageAPI, EmergencyTriageRecord, TriageCategory } from '../../../services';
 import { formatTime } from '../../../services/utils/dateFormatter';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import ListFilterBar from '../shared/ListFilterBar';
 import type { DateRange } from '../../shared/common/DateRangePicker';
 import OwnerContact from '../shared/OwnerContact';
+import EmergencyQuickAddModal from './EmergencyQuickAddModal';
 
 interface Props {
   onOpenVisit?: (appointmentId: number) => void;
@@ -40,6 +41,7 @@ const EmergencyBoardView: React.FC<Props> = ({ onOpenVisit, onStartVisit }) => {
   const [search, setSearch] = useState('');
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [category, setCategory] = useState<string>('ALL');
+  const [quickAdd, setQuickAdd] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -90,9 +92,30 @@ const EmergencyBoardView: React.FC<Props> = ({ onOpenVisit, onStartVisit }) => {
               <button key={f.value} onClick={() => setFilter(f.value)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filter === f.value ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{f.label}</button>
             ))}
           </div>
+          {/* The board is a list of cases that already exist; the one thing it
+              could not do was START one. An emergency at the door is exactly
+              when nobody should be walking the six-step Register Visit form
+              (user, 2026-08-24). */}
+          {onOpenVisit && (
+            <button
+              onClick={() => setQuickAdd(true)}
+              className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-[10px] font-black uppercase tracking-widest shadow-sm shadow-red-600/30 transition-all active:scale-95 whitespace-nowrap"
+              title="Search a patient and open an emergency visit straight into triage"
+            >
+              <Zap size={14} /> Quick add
+            </button>
+          )}
           <button onClick={load} className="p-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-slate-400 hover:text-seafoam transition-all"><RefreshCw size={15} /></button>
         </div>
       </header>
+
+      {onOpenVisit && (
+        <EmergencyQuickAddModal
+          open={quickAdd}
+          onClose={() => setQuickAdd(false)}
+          onCreated={(visitId) => { onOpenVisit(visitId); load(); }}
+        />
+      )}
 
       <ListFilterBar
         search={search}
