@@ -1187,21 +1187,42 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
 
       {/* A checked-out stay had no bar at all, so one closed at the wrong
           figure had no route back (user, 2026-08-23). */}
-      {stay && !active && stay.status !== 'CANCELLED' && (
-        <>
-          <RecordActionBarSpacer />
-          <RecordActionBar
-            hint="Reopening restores the stay and its visit so charges can be corrected."
-            actions={[
-              { key: 'reopen', label: 'Reopen stay', icon: RotateCcw, onClick: reopenStay, primary: true, disabled: busy },
-              ...(linkedApptId && onOpenAppointment ? [{
-                key: 'billing', label: 'Go to billing', icon: Receipt, tone: 'seafoam' as const,
-                onClick: () => onOpenAppointment(String(linkedApptId), true),
-              }] : []),
-            ]}
-          />
-        </>
-      )}
+      {stay && !active && stay.status !== 'CANCELLED' && (() => {
+        /**
+         * DON'T OFFER A REOPEN THE SERVER WILL REFUSE (user, 2026-08-24:
+         * "if paid not reopen button till visit is unlocked to allow boarding
+         * to reopen").
+         *
+         * `reopenVisitForRecord` throws once the visit is PAID — money is in,
+         * and reopening would let the lines move underneath a receipt the
+         * client is holding. Reopening the stay therefore CANNOT work until the
+         * visit itself is unlocked, so the button was a dead end: press it, get
+         * a modal, no route forward. Send them to the place that can actually
+         * undo it instead.
+         */
+        const paid = !!stay.billing?.isPaid;
+        return (
+          <>
+            <RecordActionBarSpacer />
+            <RecordActionBar
+              hint={paid
+                ? 'This stay’s bill is settled. Unlock the visit first — void or refund the payment there — then the stay can be reopened.'
+                : 'Reopening restores the stay and its visit so charges can be corrected.'}
+              actions={[
+                ...(paid ? [] : [{ key: 'reopen', label: 'Reopen stay', icon: RotateCcw, onClick: reopenStay, primary: true, disabled: busy }]),
+                ...(linkedApptId && onOpenAppointment ? [{
+                  key: 'billing',
+                  label: paid ? 'Unlock on the visit' : 'Go to billing',
+                  icon: Receipt,
+                  tone: 'seafoam' as const,
+                  primary: paid,
+                  onClick: () => onOpenAppointment(String(linkedApptId), true),
+                }] : []),
+              ]}
+            />
+          </>
+        );
+      })()}
 
       {/* Check-out requires a follow-up reminder (hard gate). */}
       {/* PINNED checkout — the stay's one terminal action, always reachable. */}

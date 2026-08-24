@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Loader2, RefreshCw, Tags, Layers, Plus, Package, Search, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import servicesAPI, { CatalogService, ServiceProduct } from '../../../services/modules/services.api';
@@ -34,8 +35,9 @@ const ClinicCatalogTab: React.FC = () => {
   const scope = ((clinic as any)?.catalogScope ?? 'ALL') as 'ALL' | 'GENERAL' | 'CUSTOM';
   const currency = (clinic as any)?.currency || 'KES';
 
-  // Which service row has its attach-product search open, + the query.
-  const [attachFor, setAttachFor] = useState<string | null>(null);
+  // Which service the detail panel is open on (user, 2026-08-24: cards that
+  // "open to view details"), + the attach-product query.
+  const [detailFor, setDetailFor] = useState<string | null>(null);
   const [q, setQ] = useState('');
 
   const [services, setServices] = useState<CatalogService[]>([]);
@@ -153,6 +155,21 @@ const ClinicCatalogTab: React.FC = () => {
 
   const productsOf = (id: string): ServiceProduct[] => services.find((s) => s.id === id)?.products ?? [];
 
+  /** Read live off `services` so a save re-renders the open panel. */
+  const detailService = useMemo(
+    () => (detailFor ? services.find((s) => s.id === detailFor) ?? null : null),
+    [detailFor, services],
+  );
+
+  // Esc closes the detail panel — a slide-over that only closes by mouse is a
+  // trap for anyone working the catalog from the keyboard.
+  useEffect(() => {
+    if (!detailFor) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') { setDetailFor(null); setQ(''); } };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [detailFor]);
+
   // ── Workflow-scope helpers ───────────────────────────────────────────────
   // Which workflow areas (category names) a service shows in. [] = general.
   const scopeOf = (id: string): string[] => services.find((s) => s.id === id)?.workflowScope ?? [];
@@ -165,12 +182,12 @@ const ClinicCatalogTab: React.FC = () => {
 
   const addProduct = (id: string, item: any) => {
     const list = productsOf(id);
-    if (list.some((p) => p.inventoryItemId === String(item.id))) { setAttachFor(null); setQ(''); return; }
+    if (list.some((p) => p.inventoryItemId === String(item.id))) { setQ(''); return; }
     // unit label = SELL unit — qty and price are denominated in it (§0f #8).
     const next = [...list, { inventoryItemId: String(item.id), name: item.name, qty: 1, unit: sellUnitOf(item) }];
     setLocal(id, { products: next });
     save(id, { products: next });
-    setAttachFor(null); setQ('');
+    setQ('');
   };
 
   const removeProduct = (id: string, invId: string) => {
@@ -290,177 +307,95 @@ const ClinicCatalogTab: React.FC = () => {
         {loading && services.length === 0 ? (
           <div className="py-16"><LoadingSpinner message="Loading catalog…" /></div>
         ) : (
-          <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+          /* CARDS, NOT ROWS (user, 2026-08-24: "can we use cards n open to view
+             details").
+
+             The row packed six controls into a 12-column grid — name, default
+             price, override input, attach button, toggle, save state — so the
+             two things an owner scans for (is it on, what does it bill at) sat
+             beside two things they edit rarely, and the attached products
+             expanded INSIDE the list and pushed everything below them down.
+
+             The card carries the scannable half and the ON switch, because
+             switching a service on is the one action you want without opening
+             anything. Everything you EDIT lives in the detail panel. */
+          <div className="p-4 sm:p-5 space-y-5">
             {grouped.map(([cat, items]) => (
-              <div key={cat}>
-                <div className="px-4 py-2 bg-slate-50 dark:bg-zinc-800/50">
-                  <p className="field-label !mb-0">{cat} · {items.length}</p>
-                </div>
-                <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+              <div key={cat} className="space-y-2">
+                <p className="field-label !mb-0">{cat} · {items.length}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-2.5">
                   {items.map((s) => {
                     const overridden = s.priceOverride !== null && s.priceOverride !== undefined;
                     const justSaved = savedAt[s.id] && Date.now() - savedAt[s.id] < 1500;
                     const products = s.products ?? [];
-                    const scope = s.workflowScope ?? [];
-                    const isAttachOpen = attachFor === s.id;
+                    const svcScope = s.workflowScope ?? [];
                     const math = productMath(products);
                     const basePrice = Number(s.priceEffective ?? s.defaultPrice ?? 0);
                     const billsAt = basePrice + math.sub;
                     return (
-                      <div key={s.id} className={products.length > 0 || isAttachOpen ? 'bg-slate-50/40 dark:bg-zinc-800/20' : ''}>
-                        <div className="grid grid-cols-12 gap-2 items-center px-4 py-2.5">
-                          <div className="col-span-12 sm:col-span-5 min-w-0">
-                            <p className={`text-sm font-bold truncate ${s.enabled ? 'text-pine dark:text-zinc-100' : 'text-slate-400 dark:text-zinc-600 line-through'}`}>
+                      <div
+                        key={s.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setDetailFor(s.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailFor(s.id); } }}
+                        title="Open to set the price, attach products and choose where it shows"
+                        className={`group text-left rounded-xl border p-3 cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-seafoam/40 ${
+                          s.enabled
+                            ? 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:shadow-md'
+                            : 'bg-slate-50/60 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800 hover:border-slate-300'
+                        }`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <div className="min-w-0 flex-1">
+                            <p className={`text-sm font-bold leading-snug ${s.enabled ? 'text-pine dark:text-zinc-100' : 'text-slate-400 dark:text-zinc-600 line-through'}`}>
                               {s.name}
                             </p>
                             {s.description && (
-                              <p className="text-[11px] text-slate-400 truncate">{s.description}</p>
+                              <p className="text-[11px] text-slate-400 truncate mt-0.5">{s.description}</p>
                             )}
                           </div>
-                          <div className="col-span-4 sm:col-span-2 text-right text-[11px] font-mono text-slate-400">
-                            {currency} {s.defaultPrice != null ? Number(s.defaultPrice).toLocaleString() : '—'}
-                            <span className="block text-[8px] uppercase tracking-widest">default</span>
-                          </div>
-                          <div className="col-span-5 sm:col-span-3">
+                          {/* The switch stays ON the card and does not open it. */}
+                          <label className="inline-flex items-center cursor-pointer select-none shrink-0" onClick={(e) => e.stopPropagation()}>
                             <input
-                              type="number"
-                              min="0"
-                              step="any"
-                              value={s.priceOverride ?? ''}
-                              placeholder={s.defaultPrice != null ? `${s.defaultPrice}` : 'price'}
-                              onChange={(e) => onPriceChange(s.id, e.target.value)}
-                              className={`field-input text-right ${overridden ? 'border-cyan-400' : ''}`}
-                              disabled={!s.enabled}
+                              type="checkbox"
+                              checked={s.enabled}
+                              onChange={(e) => onToggle(s.id, e.target.checked)}
+                              className="sr-only peer"
                             />
-                          </div>
-                          <div className="col-span-3 sm:col-span-2 flex items-center justify-end gap-1.5">
-                            {/* Attach medicine/consumables (box button) */}
-                            <button
-                              type="button"
-                              onClick={() => { setAttachFor(isAttachOpen ? null : s.id); setQ(''); }}
-                              title="Attach medicine / consumables — auto-billed & stock-deducted when this service is added to a visit"
-                              className={`relative p-1.5 rounded-lg border transition-all ${(products.length > 0 || isAttachOpen) ? 'bg-seafoam text-white border-seafoam' : 'border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-seafoam hover:text-seafoam'}`}
-                            >
-                              <Package size={13} />
-                              {products.length > 0 && (
-                                <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-[14px] px-0.5 rounded-full bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[8px] font-black flex items-center justify-center">{products.length}</span>
-                              )}
-                            </button>
-                            <label className="inline-flex items-center cursor-pointer select-none">
-                              <input
-                                type="checkbox"
-                                checked={s.enabled}
-                                onChange={(e) => onToggle(s.id, e.target.checked)}
-                                className="sr-only peer"
-                              />
-                              <span className="w-9 h-5 bg-slate-300 dark:bg-zinc-700 rounded-full relative transition-colors peer-checked:bg-seafoam after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform peer-checked:after:translate-x-4" />
-                            </label>
-                            {savingId === s.id && <Loader2 size={12} className="animate-spin text-seafoam shrink-0" />}
-                            {justSaved && savingId !== s.id && <span className="text-[9px] font-black text-emerald-500 uppercase shrink-0">saved</span>}
-                          </div>
+                            <span className="w-9 h-5 bg-slate-300 dark:bg-zinc-700 rounded-full relative transition-colors peer-checked:bg-seafoam after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform peer-checked:after:translate-x-4" />
+                          </label>
                         </div>
 
-                        {/* Attached products panel — chips + search + bills-at/margin */}
-                        {(products.length > 0 || isAttachOpen) && (
-                          <div className="px-4 pb-3 -mt-0.5 space-y-2">
-                            {products.length > 0 && (
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                {products.map((p) => {
-                                  const it = invById.get(p.inventoryItemId);
-                                  const stock = it ? `${Number(it.quantity)} ${it.unit || ''} in stock` : 'not in this clinic';
-                                  return (
-                                    <span key={p.inventoryItemId} className="inline-flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-full bg-seafoam/10 border border-seafoam/30 text-seafoam text-[10px] font-bold" title={stock}>
-                                      <Package size={10} className="shrink-0" />
-                                      <span className="truncate max-w-[180px]">{p.name}</span>
-                                      {it ? (
-                                        <QtyUnitControl compact item={it} value={Number(p.qty) || 1}
-                                          onChange={(sellQty) => setProductQty(s.id, p.inventoryItemId, sellQty)} />
-                                      ) : (
-                                        <>
-                                          <input
-                                            type="number" min={0} step="any" value={p.qty}
-                                            onChange={(e) => setProductQty(s.id, p.inventoryItemId, Number(e.target.value))}
-                                            className="w-11 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 py-0.5 text-center text-pine dark:text-zinc-100 outline-none"
-                                            title="Quantity logged when this service is added"
-                                          />
-                                          {p.unit || ''}
-                                        </>
-                                      )}
-                                      <button type="button" onClick={() => removeProduct(s.id, p.inventoryItemId)} className="hover:text-red-500 p-0.5"><X size={11} /></button>
-                                    </span>
-                                  );
-                                })}
-                              </div>
-                            )}
-
-                            {/* Bills-at + owner margin — "price updates with the quantity added" */}
-                            {products.length > 0 && (
-                              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[10px] font-bold">
-                                <span className="text-slate-400 dark:text-zinc-500">Service {currency} {basePrice.toLocaleString()} + products {currency} {math.sub.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                                <span className="text-pine dark:text-zinc-100 font-black">Bills at {currency} {billsAt.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
-                                <span className={`${math.margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'} font-black`}>
-                                  Product margin {math.margin >= 0 ? '+' : ''}{currency} {math.margin.toLocaleString(undefined, { maximumFractionDigits: 2 })}
-                                </span>
-                              </div>
-                            )}
-
-                            {/* Inline inventory search */}
-                            {isAttachOpen && (
-                              <div className="space-y-1 max-w-md">
-                                <div className="relative">
-                                  <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
-                                  <input
-                                    autoFocus
-                                    value={q}
-                                    onChange={(e) => setQ(e.target.value)}
-                                    placeholder="Search inventory (2+ chars)…"
-                                    className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg pl-8 pr-2 py-1.5 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
-                                  />
-                                </div>
-                                {invMatches.map((it: any) => (
-                                  <button
-                                    key={it.id}
-                                    type="button"
-                                    onClick={() => addProduct(s.id, it)}
-                                    className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-100 dark:border-zinc-800 hover:border-seafoam text-left transition-colors"
-                                  >
-                                    <Package size={11} className="text-seafoam shrink-0" />
-                                    <span className="flex-1 text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{it.name}</span>
-                                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 shrink-0">{Number(it.quantity)} {it.unit} in stock</span>
-                                  </button>
-                                ))}
-                                {q.trim().length >= 2 && invMatches.length === 0 && (
-                                  <p className="text-[11px] text-slate-400 px-1 py-1">No inventory match. Add it under Products first.</p>
-                                )}
-                              </div>
-                            )}
-
-                            {/* Workflow scope — which workflow areas this service shows in.
-                                None selected = general (shows everywhere it's offered). */}
-                            {isAttachOpen && (
-                              <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-1.5">
-                                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
-                                  Shows in workflows {scope.length === 0 && <span className="text-seafoam">· General (everywhere)</span>}
-                                </p>
-                                <div className="flex flex-wrap gap-1.5">
-                                  {(categories.filter((c) => c.enabled).length ? categories.filter((c) => c.enabled) : categories).map((c) => {
-                                    const on = scope.includes(c.name);
-                                    return (
-                                      <button
-                                        key={c.id}
-                                        type="button"
-                                        onClick={() => toggleScope(s.id, c.name)}
-                                        className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${on ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'}`}
-                                      >
-                                        {on ? '✓ ' : ''}{c.name}
-                                      </button>
-                                    );
-                                  })}
-                                </div>
-                              </div>
+                        <div className="mt-2.5 flex items-end justify-between gap-2">
+                          <div className="min-w-0">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Bills at</p>
+                            <p className="text-base font-black font-mono text-pine dark:text-zinc-100 tabular-nums leading-tight">
+                              {currency} {billsAt.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                            </p>
+                            {/* Only say what the card's headline figure hides. */}
+                            {(overridden || math.sub > 0) && (
+                              <p className="text-[9px] font-bold text-slate-400 truncate">
+                                {overridden ? `overridden · default ${currency} ${Number(s.defaultPrice ?? 0).toLocaleString()}` : `service ${currency} ${basePrice.toLocaleString()}`}
+                                {math.sub > 0 ? ` + products ${currency} ${math.sub.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ''}
+                              </p>
                             )}
                           </div>
-                        )}
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {savingId === s.id && <Loader2 size={12} className="animate-spin text-seafoam" />}
+                            {justSaved && savingId !== s.id && <span className="text-[9px] font-black text-emerald-500 uppercase">saved</span>}
+                            {products.length > 0 && (
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-seafoam/10 border border-seafoam/30 text-seafoam text-[9px] font-black" title={`${products.length} product${products.length === 1 ? '' : 's'} auto-billed with this service`}>
+                                <Package size={10} />{products.length}
+                              </span>
+                            )}
+                            {svcScope.length > 0 && (
+                              <span className="px-1.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-600 dark:text-violet-400 text-[9px] font-black" title={`Shows only in: ${svcScope.join(', ')}`}>
+                                {svcScope.length} area{svcScope.length === 1 ? '' : 's'}
+                              </span>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     );
                   })}
@@ -490,6 +425,167 @@ const ClinicCatalogTab: React.FC = () => {
         </div>
         <ServiceBundlesView />
       </div>
+
+      {/* ── Service detail (216 UI) ─────────────────────────────────────────
+          Everything you EDIT about a service, in one place, instead of six
+          controls squeezed into a list row. Opened from a card; a slide-over
+          rather than a page so you keep your place in the catalog. */}
+      {detailService && createPortal(
+        <div className="fixed inset-0 z-[90]" role="dialog" aria-modal="true" aria-label={`${detailService.name} settings`}>
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={() => { setDetailFor(null); setQ(''); }} />
+          <aside className="absolute right-0 top-0 h-full w-full max-w-md bg-white dark:bg-zinc-900 border-l border-slate-200 dark:border-zinc-800 shadow-2xl flex flex-col animate-in slide-in-from-right duration-200">
+            {(() => {
+              const d = detailService;
+              const products = d.products ?? [];
+              const svcScope = d.workflowScope ?? [];
+              const math = productMath(products);
+              const overridden = d.priceOverride !== null && d.priceOverride !== undefined;
+              const basePrice = Number(d.priceEffective ?? d.defaultPrice ?? 0);
+              const billsAt = basePrice + math.sub;
+              return (
+                <>
+                  <header className="px-4 py-3 border-b border-slate-200 dark:border-zinc-800 flex items-start justify-between gap-3 bg-gradient-to-br from-pine to-pine/90 text-white">
+                    <div className="min-w-0">
+                      <p className="text-[8px] font-black uppercase tracking-widest text-white/60">{d.categoryName || 'Uncategorised'}</p>
+                      <h3 className="text-sm font-black uppercase tracking-tight leading-snug">{d.name}</h3>
+                      {d.description && <p className="text-[11px] text-white/70 mt-0.5">{d.description}</p>}
+                    </div>
+                    <button onClick={() => { setDetailFor(null); setQ(''); }} className="p-1.5 rounded-lg bg-white/10 hover:bg-white/20 transition-all shrink-0"><X size={14} /></button>
+                  </header>
+
+                  <div className="flex-1 overflow-y-auto custom-scrollbar p-4 space-y-5">
+                    {/* Offered here, or not */}
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Offered at this clinic</p>
+                        <p className="text-[11px] font-bold text-slate-500 dark:text-zinc-400">{d.enabled ? 'Staff can add it to a visit.' : 'Hidden from every picker.'}</p>
+                      </div>
+                      <label className="inline-flex items-center cursor-pointer select-none shrink-0">
+                        <input type="checkbox" checked={d.enabled} onChange={(e) => onToggle(d.id, e.target.checked)} className="sr-only peer" />
+                        <span className="w-9 h-5 bg-slate-300 dark:bg-zinc-700 rounded-full relative transition-colors peer-checked:bg-seafoam after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform peer-checked:after:translate-x-4" />
+                      </label>
+                    </div>
+
+                    {/* Price */}
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Price</p>
+                      <div className="flex items-center gap-3">
+                        <div className="shrink-0">
+                          <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Default</p>
+                          <p className="text-sm font-mono font-bold text-slate-400 tabular-nums">
+                            {currency} {d.defaultPrice != null ? Number(d.defaultPrice).toLocaleString() : '—'}
+                          </p>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <label className="field-label" htmlFor="svc-price-override">This clinic charges</label>
+                          <input
+                            id="svc-price-override"
+                            type="number" min="0" step="any"
+                            value={d.priceOverride ?? ''}
+                            placeholder={d.defaultPrice != null ? `${d.defaultPrice}` : 'price'}
+                            onChange={(e) => onPriceChange(d.id, e.target.value)}
+                            className={`field-input text-right ${overridden ? 'border-cyan-400' : ''}`}
+                            disabled={!d.enabled}
+                          />
+                        </div>
+                      </div>
+                      <p className="text-[10px] font-bold text-slate-400">Leave it empty to charge the default.</p>
+                    </div>
+
+                    {/* Attached products */}
+                    <div className="space-y-2">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                        Medicine &amp; consumables
+                        <span className="ml-1.5 font-bold normal-case tracking-normal text-slate-400">— auto-billed and stock-deducted when this service is added</span>
+                      </p>
+                      {products.length > 0 && (
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {products.map((pr) => {
+                            const it = invById.get(pr.inventoryItemId);
+                            const stock = it ? `${Number(it.quantity)} ${it.unit || ''} in stock` : 'not in this clinic';
+                            return (
+                              <span key={pr.inventoryItemId} className="inline-flex items-center gap-1.5 pl-2 pr-1 py-0.5 rounded-full bg-seafoam/10 border border-seafoam/30 text-seafoam text-[10px] font-bold" title={stock}>
+                                <Package size={10} className="shrink-0" />
+                                <span className="truncate max-w-[150px]">{pr.name}</span>
+                                {it ? (
+                                  <QtyUnitControl compact item={it} value={Number(pr.qty) || 1}
+                                    onChange={(sellQty) => setProductQty(d.id, pr.inventoryItemId, sellQty)} />
+                                ) : (
+                                  <>
+                                    <input type="number" min={0} step="any" value={pr.qty}
+                                      onChange={(e) => setProductQty(d.id, pr.inventoryItemId, Number(e.target.value))}
+                                      className="w-11 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 py-0.5 text-center text-pine dark:text-zinc-100 outline-none" />
+                                    {pr.unit || ''}
+                                  </>
+                                )}
+                                <button type="button" onClick={() => removeProduct(d.id, pr.inventoryItemId)} className="hover:text-red-500 p-0.5"><X size={11} /></button>
+                              </span>
+                            );
+                          })}
+                        </div>
+                      )}
+                      <div className="relative">
+                        <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search inventory (2+ chars)…"
+                          className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg pl-8 pr-2 py-1.5 text-sm text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20" />
+                      </div>
+                      {invMatches.map((it: any) => (
+                        <button key={it.id} type="button" onClick={() => addProduct(d.id, it)}
+                          className="w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-slate-100 dark:border-zinc-800 hover:border-seafoam text-left transition-colors">
+                          <Package size={11} className="text-seafoam shrink-0" />
+                          <span className="flex-1 text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{it.name}</span>
+                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 shrink-0">{Number(it.quantity)} {it.unit} in stock</span>
+                        </button>
+                      ))}
+                      {q.trim().length >= 2 && invMatches.length === 0 && (
+                        <p className="text-[11px] text-slate-400 px-1 py-1">No inventory match. Add it under Products first.</p>
+                      )}
+                    </div>
+
+                    {/* Where it shows */}
+                    <div className="space-y-1.5">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                        Shows in workflows {svcScope.length === 0 && <span className="text-seafoam">· General (everywhere)</span>}
+                      </p>
+                      <div className="flex flex-wrap gap-1.5">
+                        {(categories.filter((c) => c.enabled).length ? categories.filter((c) => c.enabled) : categories).map((c) => {
+                          const on = svcScope.includes(c.name);
+                          return (
+                            <button key={c.id} type="button" onClick={() => toggleScope(d.id, c.name)}
+                              className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition-all ${on ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'}`}>
+                              {on ? '✓ ' : ''}{c.name}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* What it actually bills — the answer the whole panel adds up to. */}
+                  <footer className="px-4 py-3 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/40 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Bills at</span>
+                      <span className="text-lg font-black font-mono text-pine dark:text-zinc-100 tabular-nums">
+                        {currency} {billsAt.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                      </span>
+                    </div>
+                    {math.sub > 0 && (
+                      <div className="flex items-center justify-between text-[10px] font-bold">
+                        <span className="text-slate-400">Service {currency} {basePrice.toLocaleString()} + products {currency} {math.sub.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+                        <span className={math.margin >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-500'}>
+                          Product margin {math.margin >= 0 ? '+' : ''}{currency} {math.margin.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
+                    {savingId === d.id && <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> Saving</p>}
+                  </footer>
+                </>
+              );
+            })()}
+          </aside>
+        </div>,
+        document.body
+      )}
 
       {showAddService && (
         <AddServiceModal

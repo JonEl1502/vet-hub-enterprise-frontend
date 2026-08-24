@@ -156,9 +156,23 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenSt
                     <span className="block text-[10px] text-slate-400 truncate">{s.client?.name}</span>
                   </span>
                 </span>
-                {s.status === 'ADMITTED'
-                  ? <span className="shrink-0 px-2 py-0.5 rounded-full bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest">Day {daysIn(s.dropOffAt)}</span>
-                  : <span className="shrink-0 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-400 text-[9px] font-black uppercase tracking-widest">{s.status === 'CHECKED_OUT' ? 'Out' : s.status}</span>}
+                {/* AN ADMITTED STAY CAN ALREADY BE SETTLED, and the list has to
+                    say so (user, 2026-08-24: "shows in care but [bill settled —
+                    locked]"). An interim settle mid-stay is legitimate — the
+                    animal is still here and the money is already in — but the
+                    list showed a plain "Day 11" and the stay page then opened
+                    on a locked record, so the two screens read as contradicting
+                    each other over the same stay. */}
+                <span className="flex items-center gap-1 shrink-0">
+                  {s.status === 'ADMITTED' && s.billing?.isPaid && (
+                    <span className="px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest" title="This stay's bill is settled — the record is locked until the visit is reopened">
+                      🔒 Settled
+                    </span>
+                  )}
+                  {s.status === 'ADMITTED'
+                    ? <span className="px-2 py-0.5 rounded-full bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest">Day {daysIn(s.dropOffAt)}</span>
+                    : <span className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-400 text-[9px] font-black uppercase tracking-widest">{s.status === 'CHECKED_OUT' ? 'Out' : s.status}</span>}
+                </span>
               </div>
               {/* Wraps rather than overflowing: on a phone these two lines do
                   not fit side by side, and justify-between with no wrap pushed

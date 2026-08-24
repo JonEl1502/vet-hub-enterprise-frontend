@@ -59,6 +59,37 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the service catalog is cards that open, not rows that expand  —  2026-08-24
+🟢 **Record impact: none.** Presentation only — every handler and save path is unchanged.
+- The row packed six controls into a 12-column grid — name, default price, override input, attach
+  button, toggle, save state — so the two things an owner **scans** for (is it on, what does it bill
+  at) sat beside the things they **edit** rarely. Attached products expanded *inside* the list and
+  pushed everything below them down (user, 2026-08-24: *"can we use cards n open to view details"*).
+- **Card**: name, "Bills at", a product-count chip, an area chip when the service is scoped to
+  particular workflows, and the on/off switch — because switching a service on is the one action you
+  want without opening anything. It does not open the card.
+- **Detail panel** (slide-over, so you keep your place): offered-here toggle, default vs this
+  clinic's price, attached medicine/consumables with quantities, where it shows in workflows, and a
+  footer that adds up to what it actually bills including product margin. Esc closes it.
+
+### feat: "Bill anyway" — approving names the records still open (216)  —  2026-08-24
+🟢 **Record impact: none.**
+- Approve now surfaces the server's `INCOMPLETE_RECORDS` refusal as a list of exactly what is open
+  (*"Lab: Complete Blood Count (CBC) — Ordered"*) with **Bill anyway** / **Go finish them**. Blocking
+  by default; never a dead end, because pay-first bills before the notes on purpose.
+
+### fix: boarding says when an admitted stay is already settled  —  2026-08-24
+🟢 **Record impact: none.**
+- A stay can be **ADMITTED and settled at once** — an interim settle mid-stay is legitimate — but the
+  list showed a plain "Day 11" and the stay page then opened on **BILL SETTLED — LOCKED**, so the two
+  screens read as contradicting each other (user, 2026-08-24: *"shows in care but…"*). The list card
+  now carries a 🔒 **Settled** chip.
+- **The reopen button is gone once the visit is paid**, on both the boarding stay and the inpatient
+  chart. `reopenVisitForRecord` refuses there — money is in, and reopening would let the lines move
+  under a receipt the client is holding — so the button was a dead end: press it, get a modal, no
+  route forward. It is replaced by **Unlock on the visit**, which goes where the payment can actually
+  be voided (user: *"if paid not reopen button till visit is unlocked to allow boarding to reopen"*).
+
 ### fix: the standalone Vaccinations page is closed — vaccination happens in the visit workflow  —  2026-08-24
 🟢 **Record impact: none.** Navigation only. No record is read, written or deleted differently.
 - User, 2026-08-24: *"all vaccination to happen in visit workflow itself"*, and the standalone

@@ -1337,21 +1337,35 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
 
       {/* A closed admission needs its own bar — there was none, so a stay
           discharged at the wrong figure had no route back (user, 2026-08-23). */}
-      {h && !active && h.status !== 'CANCELLED' && (
-        <>
-          <RecordActionBarSpacer />
-          <RecordActionBar
-            hint="Reopening restores the admission and its visit so charges can be corrected."
-            actions={[
-              { key: 'reopen', label: 'Reopen admission', icon: RotateCcw, onClick: reopenAdmission, primary: true, disabled: busy },
-              ...((h.billing?.appointmentId || h.appointmentId) && onOpenAppointment ? [{
-                key: 'billing', label: 'Go to billing', icon: Receipt, tone: 'seafoam' as const,
-                onClick: () => onOpenAppointment(String(h.billing?.appointmentId || h.appointmentId), true),
-              }] : []),
-            ]}
-          />
-        </>
-      )}
+      {h && !active && h.status !== 'CANCELLED' && (() => {
+        // Same rule as the boarding stay (2026-08-24): `reopenVisitForRecord`
+        // refuses once the visit is PAID, so offering a reopen there is a dead
+        // end — press it, get a modal, no route forward. Point at the visit,
+        // which is where the payment can actually be voided.
+        const apptId = h.billing?.appointmentId || h.appointmentId;
+        const paid = !!h.billing?.isPaid;
+        return (
+          <>
+            <RecordActionBarSpacer />
+            <RecordActionBar
+              hint={paid
+                ? 'This admission’s bill is settled. Unlock the visit first — void or refund the payment there — then the admission can be reopened.'
+                : 'Reopening restores the admission and its visit so charges can be corrected.'}
+              actions={[
+                ...(paid ? [] : [{ key: 'reopen', label: 'Reopen admission', icon: RotateCcw, onClick: reopenAdmission, primary: true, disabled: busy }]),
+                ...(apptId && onOpenAppointment ? [{
+                  key: 'billing',
+                  label: paid ? 'Unlock on the visit' : 'Go to billing',
+                  icon: Receipt,
+                  tone: 'seafoam' as const,
+                  primary: paid,
+                  onClick: () => onOpenAppointment(String(apptId), true),
+                }] : []),
+              ]}
+            />
+          </>
+        );
+      })()}
 
       <FinalizeReminderGate
         open={showDischargeGate}

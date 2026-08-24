@@ -178,8 +178,26 @@ export const billsAPI = {
   recordClientApproval: (visitId: number | string, channels: BillClientApprovalChannel[], note?: string | null, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
     post(`/visits/${visitId}/bill/client-approval${encQ(encounterId)}`, { channels, note }, { showError: true, ...options }),
 
-  approve: (visitId: number | string, encounterId?: string | number | null, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>
-    post(`/visits/${visitId}/bill/approve${encQ(encounterId)}`, {}, { showError: true, ...options }),
+  /**
+   * Sign the bill off — the lock point.
+   *
+   * Refuses with `INCOMPLETE_RECORDS` when a lab / imaging / surgery / grooming
+   * record on the visit is still open, and names them (216): approval locks the
+   * record, so whatever is unfinished then stays unfinished. Pass
+   * `acknowledgeIncomplete` to bill it anyway — the pay-first case, where
+   * billing before the notes is the point.
+   */
+  approve: (
+    visitId: number | string,
+    encounterId?: string | number | null,
+    opts?: { acknowledgeIncomplete?: boolean },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ bill: Bill }>> =>
+    post(
+      `/visits/${visitId}/bill/approve${encQ(encounterId)}`,
+      { acknowledgeIncomplete: opts?.acknowledgeIncomplete === true },
+      { showError: true, ...options },
+    ),
 
   /** Explicit, auditable unlock back to DRAFT. */
   reopen: (visitId: number | string, options?: RequestOptions): Promise<ApiResponse<{ bill: Bill }>> =>

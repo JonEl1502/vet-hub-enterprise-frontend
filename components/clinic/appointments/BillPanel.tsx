@@ -338,6 +338,53 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
     }
   };
 
+  /**
+   * APPROVE, WITH THE OPEN RECORDS IN FRONT OF YOU (216).
+   *
+   * Approval locks the clinical record, so a lab still reading ORDERED at this
+   * moment is a lab nobody will ever type a result into — the client pays for a
+   * blood count that stays empty (user, 2026-08-24, on Simba's CBC showing
+   * "Ordered" and "Billed — awaiting payment" together).
+   *
+   * The server refuses and NAMES them. This puts that list in front of the user
+   * and only bills anyway if they say so — a refusal you can't get past would
+   * break pay-first, where billing before the notes is the whole point.
+   */
+  const approveBill = async () => {
+    setBusy(true);
+    try {
+      apply(await billsAPI.approve(visit.id, encounterId, undefined, { silent: true } as any));
+      toast.success('Bill approved');
+      onChanged?.();
+      return;
+    } catch (e: any) {
+      const body = e?.details?.errors;
+      const open: { kind: string; name: string; status: string }[] = body?.records ?? [];
+      if (body?.code !== 'INCOMPLETE_RECORDS') {
+        toast.error(e?.message || 'Something went wrong');
+        return;
+      }
+      const list = open.map(r => `• ${r.kind}: ${r.name} — ${r.status}`).join('\n');
+      const ok = await dialog.confirm({
+        title: open.length === 1 ? '1 record is still open' : `${open.length} records are still open`,
+        message: `${list}\n\nApproving locks the clinical record, so anything unfinished now stays unfinished. Finish them first — or bill anyway if the client is paying up front.`,
+        confirmLabel: 'Bill anyway',
+        cancelLabel: 'Go finish them',
+        variant: 'danger',
+      });
+      if (!ok) return;
+      try {
+        apply(await billsAPI.approve(visit.id, encounterId, { acknowledgeIncomplete: true }));
+        toast.success('Bill approved');
+        onChanged?.();
+      } catch (e2: any) {
+        toast.error(e2?.message || 'Something went wrong');
+      }
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const saveLine = (l: BillLine, patch: { quantity?: number; unitPrice?: number }) =>
     run(() => billsAPI.updateLine(visit.id, l.id, patch, encounterId));
 
@@ -906,7 +953,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
                     variant: billBehindBy > 1 ? 'danger' : 'info',
                   });
                   if (!ok) return;
-                  await run(() => billsAPI.approve(visit.id, encounterId), 'Bill approved');
+                  await approveBill();
                 }} disabled={busy}
                 title="Sign the bill off — this locks the clinical record"
                 className={`ml-auto inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-seafoam text-white hover:bg-seafoam/90 disabled:opacity-40${pulseCls}`}>
