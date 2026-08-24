@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpToLine, AlignCenterVertical } from 'lucide-react';
+import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ArrowUpToLine, ArrowDownToLine, AlignCenterVertical } from 'lucide-react';
 import { PaginationMeta } from '../../../services/types/pagination';
 import { calculatePageRange } from '../../../services/types/pagination';
 
@@ -62,10 +62,11 @@ const Pagination: React.FC<PaginationProps> = ({
     return { el: doc, max: doc.scrollHeight - doc.clientHeight };
   };
 
-  const scrollTo = (where: 'top' | 'center') => {
+  const scrollTo = (where: 'top' | 'center' | 'bottom') => {
     const { el, max } = scrollPort();
     if (!el) return;
-    el.scrollTo({ top: where === 'top' ? 0 : Math.round(max / 2), behavior: 'smooth' });
+    const top = where === 'top' ? 0 : where === 'bottom' ? max : Math.round(max / 2);
+    el.scrollTo({ top, behavior: 'smooth' });
   };
   const { currentPage, totalPages, totalItems, itemsPerPage, hasNextPage, hasPreviousPage } = meta;
 
@@ -186,6 +187,14 @@ const Pagination: React.FC<PaginationProps> = ({
       {isSticky && (
         <div className="flex items-center gap-1.5 order-3 sm:order-none">
           <button
+            onClick={() => scrollTo('top')}
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-700 hover:text-seafoam transition-colors text-[9px] font-black uppercase tracking-wider"
+            title="Scroll back to the top"
+          >
+            <ArrowUpToLine size={13} />
+            <span className="hidden sm:inline">Top</span>
+          </button>
+          <button
             onClick={() => scrollTo('center')}
             className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-700 hover:text-seafoam transition-colors text-[9px] font-black uppercase tracking-wider"
             title="Scroll to the middle of the list"
@@ -194,12 +203,12 @@ const Pagination: React.FC<PaginationProps> = ({
             <span className="hidden sm:inline">Middle</span>
           </button>
           <button
-            onClick={() => scrollTo('top')}
+            onClick={() => scrollTo('bottom')}
             className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-700 hover:text-seafoam transition-colors text-[9px] font-black uppercase tracking-wider"
-            title="Scroll back to the top"
+            title="Scroll to the end of the list"
           >
-            <ArrowUpToLine size={13} />
-            <span className="hidden sm:inline">Top</span>
+            <ArrowDownToLine size={13} />
+            <span className="hidden sm:inline">Bottom</span>
           </button>
         </div>
       )}

@@ -211,6 +211,7 @@ const VisitsListView: React.FC<Props> = ({
 
   // Client-side filtering
   const filtered = useMemo(() => {
+    const adv = advancedFilters;
     const startStr = dateRange.start ? toClinicDateStr(new Date(dateRange.start)) : null;
     const endStr = dateRange.end ? toClinicDateStr(new Date(dateRange.end)) : null;
     return sourceRows
@@ -230,6 +231,35 @@ const VisitsListView: React.FC<Props> = ({
           const matchClient = (appt as any).client?.name?.toLowerCase().includes(q);
           if (!matchPet && !matchClient) return false;
         }
+        /**
+         * ADVANCED FILTERS — now actually applied (user, 2026-08-24).
+         *
+         * ⚠️ `advancedFilters` was fed to the panel and to the chips and read by
+         * NOTHING that filters the list, while the panel itself had no control
+         * that could open it. Three built pieces, none of them connected: a
+         * filter you can set and that changes nothing is worse than a filter
+         * you cannot reach, so this had to be wired before the toggle was added.
+         *
+         * All four are AND-ed with each other and OR-ed within themselves, which
+         * is what a chip row implies: two staff chips mean "either of these".
+         */
+        if (adv.statuses.length && !adv.statuses.includes(appt.status as ApptStatus)) return false;
+        if (adv.petIds.length && !adv.petIds.some(id => String(id) === String((appt as any).petId ?? (appt as any).pet?.id))) return false;
+        if (adv.staffIds.length) {
+          const onVisit = new Set<string>();
+          for (const t of (appt.tasks || []) as any[]) {
+            for (const m of (t.staffMembers || [])) onVisit.add(String(m?.id ?? m));
+            if (t.assignedTo) onVisit.add(String(t.assignedTo));
+          }
+          if ((appt as any).vetId) onVisit.add(String((appt as any).vetId));
+          if (!adv.staffIds.some(id => onVisit.has(String(id)))) return false;
+        }
+        if (adv.categoryIds.length) {
+          const cats = new Set(((appt.tasks || []) as any[]).map(t => String(t.category)));
+          if (!adv.categoryIds.some(c => cats.has(String(c)))) return false;
+        }
+        if (adv.dateRange.start && s < toClinicDateStr(new Date(adv.dateRange.start))) return false;
+        if (adv.dateRange.end && s > toClinicDateStr(new Date(adv.dateRange.end))) return false;
         return true;
       })
       .sort((a, b) => {
@@ -243,10 +273,10 @@ const VisitsListView: React.FC<Props> = ({
         // Within same group: descending by date (future/latest first)
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
-  }, [sourceRows, dateRange, activeTab, searchQuery, openOnly]);
+  }, [sourceRows, dateRange, activeTab, searchQuery, openOnly, advancedFilters]);
 
   // Reset page when filters change
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, activeTab, dateRange, openOnly]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, activeTab, dateRange, openOnly, advancedFilters]);
 
   // Client-side pagination (list view only; calendar gets all filtered)
   const paginatedAppointments = useMemo(() => {
@@ -418,6 +448,35 @@ const VisitsListView: React.FC<Props> = ({
             ))}
           </select>
 
+          {/* MORE FILTERS — the toggle this panel never had.
+              ⚠️ `AdvancedFilters` (staff · categories · patients · statuses ·
+              its own date range) has been mounted here all along with
+              `setShowAdvancedFilters(true)` called from NOWHERE, so the whole
+              panel was unreachable — the "a built feature is not a shipped
+              feature" case again. The gap between the status select and the
+              view actions is where it belongs (user, 2026-08-24: "these spaces
+              can be used well"), and it matches the collapsible on Clients and
+              Patients. */}
+          {(() => {
+            const advCount = advancedFilters.staffIds.length + advancedFilters.categoryIds.length
+              + advancedFilters.petIds.length + advancedFilters.statuses.length
+              + (advancedFilters.dateRange.start || advancedFilters.dateRange.end ? 1 : 0);
+            return (
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFilters(v => !v)}
+                className={`w-full sm:w-auto px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-colors whitespace-nowrap ${
+                  advCount > 0
+                    ? 'bg-seafoam text-white border-seafoam'
+                    : 'bg-white dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam hover:text-seafoam'
+                }`}
+                title="Filter by staff, category, patient or status"
+              >
+                🔎 More filters{advCount > 0 ? ` · ${advCount}` : ''} {showAdvancedFilters ? '▲' : '▼'}
+              </button>
+            );
+          })()}
+
           {/* Action buttons — grouped so on mobile they share one row. */}
           <div className="flex items-center gap-2 w-full sm:w-auto sm:ml-auto">
             <div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl border border-slate-200 dark:border-zinc-700">
@@ -470,8 +529,19 @@ const VisitsListView: React.FC<Props> = ({
       {/* Advanced Filters */}
       {showAdvancedFilters && (
         <AdvancedFilters
-          filters={advancedFilters}
-          onFiltersChange={setAdvancedFilters}
+          /* ⚠️ The panel's own field is `serviceCategories`; this view's state
+             calls it `categoryIds`. They were never translated, so a category
+             picked in the panel wrote a key nothing read. Mapped in both
+             directions here rather than renaming either side — `FilterOptions`
+             is shared with other callers. */
+          filters={{ ...advancedFilters, serviceCategories: advancedFilters.categoryIds }}
+          onFiltersChange={(f) => setAdvancedFilters({
+            dateRange: { start: f.dateRange?.start ?? null, end: f.dateRange?.end ?? null },
+            staffIds: f.staffIds ?? [],
+            categoryIds: f.serviceCategories ?? [],
+            petIds: f.petIds ?? [],
+            statuses: (f.statuses ?? []) as ApptStatus[],
+          })}
           availablePets={pets}
           availableStaff={allStaff}
           availableStatuses={Object.values(ApptStatus)}
@@ -482,13 +552,15 @@ const VisitsListView: React.FC<Props> = ({
 
       {/* Filter Chips */}
       <FilterChips
-        filters={advancedFilters}
+        filters={{ ...advancedFilters, serviceCategories: advancedFilters.categoryIds }}
         onRemoveFilter={(filterType, value) => {
           if (filterType === 'dateRange') {
             setAdvancedFilters({ ...advancedFilters, dateRange: { start: null, end: null } });
           } else if (filterType === 'staffIds') {
             setAdvancedFilters({ ...advancedFilters, staffIds: advancedFilters.staffIds.filter(id => id !== value) });
-          } else if (filterType === 'categoryIds') {
+          } else if (filterType === 'serviceCategories') {
+            // The chip row speaks `serviceCategories`; this view stores the same
+            // list as `categoryIds`. Removing a chip must clear the stored one.
             setAdvancedFilters({ ...advancedFilters, categoryIds: advancedFilters.categoryIds.filter(id => id !== value) });
           } else if (filterType === 'petIds') {
             setAdvancedFilters({ ...advancedFilters, petIds: advancedFilters.petIds.filter(id => id !== value) });

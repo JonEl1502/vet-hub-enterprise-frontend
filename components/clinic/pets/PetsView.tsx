@@ -56,6 +56,13 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   useEffect(() => { ensurePets(); ensureClients(); ensureAppointments(); }, [ensurePets, ensureClients, ensureAppointments]);
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
+  /**
+   * ⚠️ Drives the "· on" marker on the collapsed toggle, so it must cover EVERY
+   * filter that lives inside the panel — the letter AND the date range, which
+   * moved there (user, 2026-08-24). A filter that is both hidden and silently
+   * active is how a list comes to look empty for no visible reason.
+   */
+  const advActive = !!letterFilter || !!dateRange;
   const [currentPage, setCurrentPage] = useState(1);
   /**
    * 100 PER PAGE BY DEFAULT (user, 2026-08-24: "i want it to start here at 100").
@@ -380,16 +387,6 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
           </div>
 
 
-          {/* Row 2 — Date picker (full width) */}
-          <div className="flex items-center gap-2 w-full">
-            <DateRangePicker
-              value={dateRange}
-              onChange={setDateRange}
-              className="w-full"
-              buttonClassName="w-full justify-between"
-            />
-          </div>
-
           {/* Row 3 — Filter + Register + Reload.
               Mobile: filter pill on its own row so it isn't squeezed by the
               action buttons; sm+: single row as before. */}
@@ -537,15 +534,6 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
               >
                 <Plus size={14} className="inline ml-1" /> Register
               </button>
-              {hasFullAccess && (
-                <button
-                  onClick={() => setShowOrphans(true)}
-                  className="shrink-0 compact-button bg-white dark:bg-zinc-900 border border-amber-300 text-amber-600 dark:text-amber-400 shadow-sm transition-all active:scale-95 px-3 sm:px-4 py-2.5 font-black uppercase tracking-wider text-xs whitespace-nowrap hover:bg-amber-50 dark:hover:bg-amber-900/20 flex items-center gap-1.5"
-                  title="Find pets whose owner was deleted and reassign them"
-                >
-                  <AlertTriangle size={14} /> Orphans
-                </button>
-              )}
               {/* Icon-only: an explicit 36×36 square, which is the house
                   control height. `compact-button`'s px-4/py-2 around a 14px
                   icon left it shorter and tighter than the Register/Orphans
@@ -573,16 +561,25 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
             type="button"
             onClick={() => setAdvOpen(v => !v)}
             className={`self-start flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-              letterFilter ? 'bg-seafoam text-white' : 'text-slate-400 hover:text-pine dark:hover:text-zinc-200'
+              advActive ? 'bg-seafoam text-white' : 'text-slate-400 hover:text-pine dark:hover:text-zinc-200'
             }`}
           >
-            🔎 More filters {letterFilter ? '· on' : ''} {advOpen ? '▲' : '▼'}
+            🔎 More filters — A–Z &middot; dates {advActive ? '· on' : ''} {advOpen ? '▲' : '▼'}
           </button>
         </div>
 
         {/* Stacked panel — slides out from UNDER the primary card. */}
         {advOpen && (
-          <div className="stacked-filter-panel bg-slate-100/80 dark:bg-zinc-950/60 border border-slate-200/60 dark:border-zinc-800/60 rounded-2xl px-4 pb-2.5 space-y-2">
+          <div className="stacked-filter-panel bg-slate-100/80 dark:bg-zinc-950/60 border border-slate-200/60 dark:border-zinc-800/60 rounded-2xl px-4 pb-2.5 space-y-3">
+            {/* The date range moved in from the primary card and sits BESIDE
+                the letter strip rather than under it (user, 2026-08-24): the
+                strip stops well short of the panel's right edge, and the picker
+                was taking a whole row of the toolbar for something nobody
+                filters patients by daily. `lg:` only — below that the strip
+                already wraps and side-by-side would squeeze both. */}
+            <div className="flex flex-col lg:flex-row lg:items-start gap-3">
+            <div className="space-y-2 lg:flex-1 lg:min-w-0">
+              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Jump to a letter</p>
             {/* A–Z alphabet filter (by patient name) */}
             <div className="flex flex-wrap items-center gap-1">
               {['ALL', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split(''), '#'].map(L => {
@@ -597,6 +594,41 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                   </button>
                 );
               })}
+            </div>
+            </div>
+
+            <div className="space-y-2 w-full lg:w-80 lg:shrink-0">
+              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">Registered between</p>
+              <div className="flex items-center gap-2 w-full">
+                <DateRangePicker
+                  value={dateRange}
+                  onChange={setDateRange}
+                  className="w-full"
+                  buttonClassName="w-full justify-between"
+                />
+              </div>
+            </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3">
+              {hasFullAccess && (
+                <button
+                  onClick={() => setShowOrphans(true)}
+                  className="px-3 py-2 rounded-lg bg-white dark:bg-zinc-900 border border-amber-300 dark:border-amber-700 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all flex items-center gap-1.5 whitespace-nowrap"
+                  title="Find pets whose owner was deleted and reassign them"
+                >
+                  <AlertTriangle size={13} /> Orphans
+                </button>
+              )}
+              {advActive && (
+                <button
+                  type="button"
+                  onClick={() => { setLetterFilter(null); setDateRange(null); }}
+                  className="ml-auto text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500"
+                >
+                  Clear
+                </button>
+              )}
             </div>
           </div>
         )}

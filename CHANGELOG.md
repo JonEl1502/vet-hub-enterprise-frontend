@@ -59,6 +59,37 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the Visits advanced filters actually filter — and are reachable  —  2026-08-24
+🟢 **Record impact: none.** Client-side filtering of a list that is already loaded.
+- 🔴 **Three built pieces, none of them connected.** `AdvancedFilters` (staff · categories ·
+  patients · statuses · its own date range) was mounted on the Visits page with
+  `setShowAdvancedFilters(true)` called from **nowhere**, so nothing could open it; `FilterChips`
+  rendered from the same state; and `advancedFilters` was read by **nothing that filters the list**.
+  Setting a filter there would have changed the list not at all.
+- ⚠️ So the toggle could not be added first. **A filter you can set that changes nothing is worse
+  than a filter you cannot reach** — the wiring had to come with it.
+- Now applied in the `filtered` memo: statuses, patients, staff (matching a task's assignee or
+  `staffMembers`, or the visit's vet) and service categories, AND-ed across kinds and OR-ed within
+  a kind — which is what a chip row implies: two staff chips mean "either of these".
+- ⚠️ **A silent key mismatch was doing the same damage.** The panel writes `serviceCategories`;
+  this view stores `categoryIds`. Nothing translated them, so a category picked in the panel wrote
+  a key nobody read. Mapped in both directions at the boundary rather than renaming either side —
+  `FilterOptions` is shared with other callers. Removing a category chip clears the stored list too.
+- The **More filters** toggle now lives in the dead space between the status select and the view
+  buttons (user, 2026-08-24: "these spaces can be used well"), and shows a count when filters are on.
+- Fixed two long-standing type errors in this file as a result (repo total 98 → 96).
+
+### fix: Patients toolbar sheds the date row; the pager gains Bottom  —  2026-08-24
+🟢 **Record impact: none.** Layout only.
+- **Patients** now matches Clients: the date range moves into the collapsible and sits **beside**
+  the A–Z strip rather than taking a whole row of the toolbar, and **Orphans** moves in with it —
+  a cleanup job, not a daily one.
+- ⚠️ The toggle's "· on" marker now covers the date range as well as the letter, and a **Clear**
+  resets both. A filter that is hidden *and* silently active is how a list looks empty for no
+  visible reason.
+- The sticky pager's scroll controls read **Top · Middle · Bottom** (user, 2026-08-24), in the order
+  the page runs.
+
 ### fix: the patient-card actions say what they do  —  2026-08-24
 🟢 **Record impact: none.** Labels only.
 - **Visit · Appt · Reminder** now read as words beside their icons from `sm:` up (user, 2026-08-24:
