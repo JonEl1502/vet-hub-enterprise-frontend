@@ -57,7 +57,15 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  /**
+   * 100 PER PAGE BY DEFAULT (user, 2026-08-24: "i want it to start here at 100").
+   *
+   * 10 was chosen when a clinic had tens of records. Westlands Paws has 4,171
+   * patients — 418 pages of ten — so the default made the list unusable for
+   * exactly the clinics with enough data to need it. Not persisted, so this
+   * moves everyone at once rather than only new sessions.
+   */
+  const [itemsPerPage, setItemsPerPage] = useState(100);
   const [showOrphans, setShowOrphans] = useState(false);
   const [transferTarget, setTransferTarget] = useState<Pet | null>(null);
   // Pet whose "New appointment" / "New reminder" modal is open (null = closed).

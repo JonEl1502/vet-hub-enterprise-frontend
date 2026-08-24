@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: clients, patients and visits open at 100 per page  —  2026-08-24
+🟢 **Record impact: none.**
+- Default page size was **10** on clients and patients and **20** on visits — chosen when a clinic
+  had tens of records. Westlands Paws has **4,171 patients**: 418 pages of ten, so the default was
+  worst for exactly the clinics with enough data to need it (user, 2026-08-24: *"i want it to start
+  here at 100"*). All three now open at **100**.
+- The page size is **not persisted**, so this moves every existing user at once rather than only new
+  sessions. The dropdown still offers 10 → 1,000 and sits below the list as before.
+
 ### fix: the per-page dropdown stopped at 100 when the server allows 1,000  —  2026-08-24
 🟢 **Record impact: none.**
 - `limitOptions` defaulted to `[10, 20, 50, 100]` on every list — clients, patients, visits,

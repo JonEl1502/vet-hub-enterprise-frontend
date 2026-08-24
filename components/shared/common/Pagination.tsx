@@ -48,6 +48,8 @@ const Pagination: React.FC<PaginationProps> = ({
   };
 
   if (compact) {
+    // No limit selector in the compact variant — it is a top-of-list summary,
+    // so one page means nothing to show.
     if (totalPages <= 1) return null;
     const cFrom = totalItems === 0 ? 0 : (currentPage - 1) * itemsPerPage + 1;
     const cTo = Math.min(currentPage * itemsPerPage, totalItems);

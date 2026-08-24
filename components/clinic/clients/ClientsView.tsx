@@ -59,7 +59,15 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const [currentPage, setCurrentPage] = useRememberedState('clients:page', 1);
   const [showDuplicates, setShowDuplicates] = useState(false);
   const [showWalkIn, setShowWalkIn] = useState(false);
-  const [itemsPerPage, setItemsPerPage] = useState(10);
+  /**
+   * 100 PER PAGE BY DEFAULT (user, 2026-08-24: "i want it to start here at 100").
+   *
+   * 10 was chosen when a clinic had tens of records. Westlands Paws has 4,171
+   * patients — 418 pages of ten — so the default made the list unusable for
+   * exactly the clinics with enough data to need it. Not persisted, so this
+   * moves everyone at once rather than only new sessions.
+   */
+  const [itemsPerPage, setItemsPerPage] = useState(100);
   const [transferTarget, setTransferTarget] = useState<Client | null>(null);
   // id of the client whose brought-forward balance is mid-flight (212)
   const [actualising, setActualising] = useState<string | null>(null);
