@@ -64,7 +64,15 @@ const ClinicalSnapshotPanel: React.FC<Props> = ({ snapshot, loading, onOpenVisit
   const vacc = VACCINE_STYLES[vaccines.status];
   const weightLabel = pet.weight.value != null ? `${pet.weight.value} ${pet.weight.unit ?? ''}`.trim() : '—';
   const descriptor = [pet.gender, pet.breed, pet.age].filter(Boolean).join(' · ');
-  const balanceLabel = `${finance.currency} ${finance.outstandingBalance.toLocaleString()}`;
+  /**
+   * The server WITHHOLDS `finance` from anyone without `finance:view` (216) —
+   * it used to draw this chip for every clinic user, so a driver opening a
+   * patient saw what the owner owed. Null here means "not yours to see", and
+   * the rest of the snapshot (which is clinical) renders exactly as before.
+   */
+  const balanceLabel = finance
+    ? `${finance.currency} ${finance.outstandingBalance.toLocaleString()}`
+    : null;
 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden">
@@ -125,15 +133,17 @@ const ClinicalSnapshotPanel: React.FC<Props> = ({ snapshot, loading, onOpenVisit
           <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${vacc.cls}`}>
             <ShieldCheck size={12} /> {vacc.label}
           </span>
-          <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${
-            finance.overCreditLimit
-              ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400'
-              : finance.outstandingBalance > 0
-                ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
-                : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
-          }`}>
-            <CreditCard size={12} /> Balance: {balanceLabel}{finance.overCreditLimit ? ' · over limit' : ''}
-          </span>
+          {finance && (
+            <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold ${
+              finance.overCreditLimit
+                ? 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-400'
+                : finance.outstandingBalance > 0
+                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400'
+                  : 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400'
+            }`}>
+              <CreditCard size={12} /> Balance: {balanceLabel}{finance.overCreditLimit ? ' · over limit' : ''}
+            </span>
+          )}
         </div>
 
         {currentMedications.length > 0 && (

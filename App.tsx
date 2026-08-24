@@ -155,7 +155,7 @@ import ClinicTodayView from './components/clinic/dashboard/ClinicTodayView';
 import OwnerDashboard from './components/clinic/dashboard/roles/OwnerDashboard';
 // Grouped module permissions — "access page + create/edit/delete", named the
 // way the sidebar names the page (user, 2026-08-04).
-import { VIEW_TO_MODULE, canOpenView } from './constants/modulePermissions';
+import { VIEW_TO_MODULE, canOpenView, can } from './constants/modulePermissions';
 import LoadingSpinner from './components/shared/common/LoadingSpinner';
 import TourOverlay from './components/shared/common/tours/TourOverlay';
 import TourMenu from './components/shared/common/tours/TourMenu';
@@ -2272,9 +2272,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     if (['purchase-orders', 'purchase-order-detail', 'purchase-order-form'].includes(view))
       return true;
 
-    // Finance group
+    // Finance group — now owned by the `finance` module (216) and decided by
+    // the `VIEW_TO_MODULE` branch at the top of this function, which runs first.
+    // Unreachable, and kept only as the record of what used to gate these: the
+    // legacy `VIEW_FINANCE` token, which `LEGACY_GRANT_MAP` maps onto
+    // `finance:view` so nobody holding it lost a page.
     if (['finance', 'financial-overview', 'reports-analytics', 'receivables', 'expenses', 'b2b-stats', 'transactions', 'financial-core'].includes(view))
-      return hasPerm(Permission.VIEW_FINANCE);
+      return hasPerm(Permission.VIEW_FINANCE) || can(user, 'finance:view');
 
     // Referrals / partners (detail + create pages inherit the same gate)
     if (['referrals', 'handshake-detail', 'create-partnership'].includes(view))

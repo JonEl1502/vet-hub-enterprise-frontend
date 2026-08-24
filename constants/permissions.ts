@@ -2,14 +2,46 @@
 // permissions editor (StaffProfileView) and runtime action gating (userCan).
 import { UserRole, FULL_ACCESS_ROLES } from '../types';
 
-export interface PermissionDef { id: string; label: string; category: string }
+export interface PermissionDef {
+  id: string;
+  label: string;
+  category: string;
+  /**
+   * Does ticking this actually DO anything? (216)
+   *
+   * 19 of the 33 tokens below are read by nothing — they are stored on the user
+   * and consulted by no gate on either side, while looking every bit as
+   * authoritative in the editor as the ones that work. An owner ticking "View
+   * Medical Records" was changing a string, and had no way to know.
+   *
+   * `live` marks the ones a gate actually reads — either directly
+   * (`requireAccess` on the API, `userCan` in the visits list) or through
+   * `LEGACY_GRANT_MAP`, which bridges an old token onto the module grants that
+   * replaced it. The editor labels the rest rather than deleting them: the ids
+   * are stored on real users, and dropping them silently would revoke access
+   * the bridge is currently honouring.
+   */
+  live?: boolean;
+}
+
+/** Tokens a gate reads today — everything else in the catalog is inert. */
+export const LIVE_PERMISSION_IDS = new Set([
+  // Read by the frontend (VisitsListView)
+  'create_appointments', 'edit_appointments', 'delete_appointments',
+  // Read by the API (`requireAccess`)
+  'view_staff', 'manage_staff',
+  // Bridged onto module grants by LEGACY_GRANT_MAP
+  'view_inventory', 'create_inventory', 'edit_inventory', 'delete_inventory',
+  'manage_purchase_orders', 'manage_categories',
+  'view_payments', 'view_receipts', 'process_payments',
+]);
 
 export const ALL_PERMISSIONS: PermissionDef[] = [
   // Visits
   { id: 'view_appointments', label: 'View Visits', category: 'Visits' },
-  { id: 'create_appointments', label: 'Create Visits', category: 'Visits' },
-  { id: 'edit_appointments', label: 'Edit Visits', category: 'Visits' },
-  { id: 'delete_appointments', label: 'Delete Visits', category: 'Visits' },
+  { id: 'create_appointments', label: 'Create Visits', category: 'Visits', live: true },
+  { id: 'edit_appointments', label: 'Edit Visits', category: 'Visits', live: true },
+  { id: 'delete_appointments', label: 'Delete Visits', category: 'Visits', live: true },
   { id: 'finalize_appointments', label: 'Finalize Visits', category: 'Visits' },
 
   // Clients & Pets
@@ -29,24 +61,24 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
   { id: 'manage_vaccinations', label: 'Manage Vaccinations', category: 'Medical' },
 
   // Inventory
-  { id: 'view_inventory', label: 'View Inventory', category: 'Inventory' },
-  { id: 'create_inventory', label: 'Create Inventory Items', category: 'Inventory' },
-  { id: 'edit_inventory', label: 'Edit Inventory', category: 'Inventory' },
-  { id: 'delete_inventory', label: 'Delete Inventory', category: 'Inventory' },
-  { id: 'manage_purchase_orders', label: 'Manage Purchase Orders', category: 'Inventory' },
+  { id: 'view_inventory', label: 'View Inventory', category: 'Inventory', live: true },
+  { id: 'create_inventory', label: 'Create Inventory Items', category: 'Inventory', live: true },
+  { id: 'edit_inventory', label: 'Edit Inventory', category: 'Inventory', live: true },
+  { id: 'delete_inventory', label: 'Delete Inventory', category: 'Inventory', live: true },
+  { id: 'manage_purchase_orders', label: 'Manage Purchase Orders', category: 'Inventory', live: true },
 
   // Payments & Billing
-  { id: 'view_payments', label: 'View Payments', category: 'Payments' },
-  { id: 'process_payments', label: 'Process Payments', category: 'Payments' },
-  { id: 'view_receipts', label: 'View Receipts', category: 'Payments' },
+  { id: 'view_payments', label: 'View Payments', category: 'Payments', live: true },
+  { id: 'process_payments', label: 'Process Payments', category: 'Payments', live: true },
+  { id: 'view_receipts', label: 'View Receipts', category: 'Payments', live: true },
   { id: 'apply_discounts', label: 'Apply Discounts', category: 'Payments' },
 
   // Staff & Settings
-  { id: 'view_staff', label: 'View Staff', category: 'Staff & Settings' },
-  { id: 'manage_staff', label: 'Manage Staff', category: 'Staff & Settings' },
+  { id: 'view_staff', label: 'View Staff', category: 'Staff & Settings', live: true },
+  { id: 'manage_staff', label: 'Manage Staff', category: 'Staff & Settings', live: true },
   { id: 'manage_roles', label: 'Manage Roles & Permissions', category: 'Staff & Settings' },
   { id: 'manage_clinic_settings', label: 'Manage Clinic Settings', category: 'Staff & Settings' },
-  { id: 'manage_categories', label: 'Manage Categories & Services', category: 'Staff & Settings' },
+  { id: 'manage_categories', label: 'Manage Categories & Services', category: 'Staff & Settings', live: true },
 
   // Reports & Analytics
   { id: 'view_reports', label: 'View Reports', category: 'Reports' },

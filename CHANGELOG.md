@@ -59,6 +59,41 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: client money is a permission now, not a role (216)  —  2026-08-24
+🟢 **Record impact: none.** UI gating + one nullable API field.
+- The **Financials tab on a client** is gated on the new **`finance:view`**, and every money ACTION
+  (collect, record advance, add/remove a discount, the per-visit money button) on **`finance:collect`**.
+  Both were one hardcoded `FULL_ACCESS_ROLES.includes(role)` — which is why *"what permission shows
+  client financials?"* had no answer (user, 2026-08-24). Owner and manager still short-circuit
+  `can()`, so nothing they had moves.
+- `hasFullAccess` survives in that file for exactly one thing — **the client's files**, which are part
+  of the client record, not their account.
+- The **balance chip on a patient profile** renders only when the server sends the block. It now
+  withholds it from anyone without `finance:view`, so a driver no longer sees what a client owes.
+- New group in the Page Permissions editor: **Client money**, with hints that say plainly what each
+  grant opens.
+
+### fix: the staff page stops presenting two permission systems as one (216)  —  2026-08-24
+🟢 **Record impact: none.** Labels only — no stored grant is changed or dropped.
+- **Page Permissions** and **Other permissions** are different models with different rules, and the
+  page said so nowhere. Page Permissions can grant AND deny, and both app and API read it; the older
+  flat list can only **ADD** — unticking one takes nothing away. That is now stated under the second
+  heading, which is why `view_payments` looked missing while sitting right there.
+- **19 of the 33 legacy tokens are read by nothing** — ticking "View Medical Records" or "Export Data"
+  stored a string no gate consults, while looking every bit as authoritative as the ones that work.
+  Those chips now carry an **n/a** marker and a tooltip saying so. `LIVE_PERMISSION_IDS` records the
+  14 that a gate actually reads, directly or through `LEGACY_GRANT_MAP`.
+- ⚠️ **Marked, not deleted.** The ids are stored on real users and the legacy bridge is currently
+  honouring several of them; dropping them silently would revoke access.
+
+### fix: a denied page read no longer takes the screen down (216)  —  2026-08-24
+🟢 **Record impact: none.**
+- The API interceptor raised the *"Permission needed"* modal on **every** 403, so gating a read meant
+  a dead page with a dialog on top — the reason page access was cosmetic on the API at all.
+- A 403 carrying `code: 'MODULE_VIEW_DENIED'` now passes as a **toast**. A denied READ is a page they
+  were never meant to open; a denied ACTION is still a modal, because they pressed a button and are
+  owed an answer.
+
 ### feat: supplier billing is now the clinic billing PAGE, sourced from supplier data  —  2026-08-24
 🟢 **Record impact: none.** **Requires backend migration 225** (supplier-owned tickets).
 - Supplier billing was a **tab inside Supplier Management**, so it had none of the clinic page's

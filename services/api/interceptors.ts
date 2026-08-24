@@ -343,6 +343,18 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
               .then((ok) => {
                 if (ok) window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'billing' } }));
               });
+          } else if (errBody?.code === 'MODULE_VIEW_DENIED') {
+            /**
+             * A page they may not open, not a button they pressed (216).
+             *
+             * Read-gating was unshippable while every 403 raised this modal:
+             * one list request per page turned a denial into a dead screen with
+             * a dialog on top (`reference_gate_writes_not_reads`). The server
+             * marks a denied READ with its own code so it can pass quietly —
+             * the sidebar and `canOpenView` already keep these users off the
+             * page, so this only fires on a stale tab or a direct API call.
+             */
+            toast.error(apiError.message || 'You do not have access to that.');
           } else {
             dialog.alert({
               title: 'Permission needed',

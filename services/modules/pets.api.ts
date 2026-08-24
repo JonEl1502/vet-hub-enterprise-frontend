@@ -83,7 +83,12 @@ export interface PetSnapshot {
     dueSoon: SnapshotVaccine[];
     overdue: SnapshotVaccine[];
   };
-  finance: { currency: string; outstandingBalance: number; maxDebt: number | null; overCreditLimit: boolean };
+  /**
+   * NULL when the caller lacks `finance:view` (216) — the server withholds the
+   * money rather than refusing the whole snapshot, so the clinical half of a
+   * patient profile keeps working for staff who may not see an owner's debt.
+   */
+  finance: { currency: string; outstandingBalance: number; maxDebt: number | null; overCreditLimit: boolean } | null;
   hospitalized: boolean;
   counts: { visits: number; medicalRecords: number; vaccinations: number };
 }

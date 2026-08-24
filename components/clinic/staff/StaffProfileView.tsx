@@ -229,10 +229,13 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
           )}
         </div>
 
-        {/* Grouped page permissions — access the page + create/edit/delete,
-            named the way the sidebar names it (user, 2026-08-04). Covers the
-            Inventory & Billables group; everything else still uses the flat
-            catalog below until it is migrated. */}
+        {/* TWO CATALOGS, ONE PAGE — and they are not the same thing (216).
+            Page Permissions below is the live model: it can GRANT and DENY, and
+            both the app and the API read it. "Other permissions" under it is the
+            older flat list, which can only ADD — and most of its tokens are read
+            by nothing at all. That was invisible, so `view_payments` looked
+            missing while sitting right there (user, 2026-08-24). Each section
+            now says which it is. */}
         <ModulePermissionsEditor
           role={selectedRole}
           value={customPermissions}
@@ -243,11 +246,17 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
         {/* Permissions Grid */}
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-3 mb-4">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <BadgeCheck className="text-seafoam shrink-0" size={18}/>
-              <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Other permissions</h3>
+              <div className="min-w-0">
+                <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Other permissions</h3>
+                <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 leading-snug mt-0.5">
+                  The older list. These can only ADD access — unticking one never takes anything
+                  away, because the role decides first. Use Page Permissions above to remove access.
+                </p>
+              </div>
             </div>
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest shrink-0">
               {effectivePermissions.length} / {ALL_PERMISSIONS.length}
             </p>
           </div>
@@ -274,7 +283,11 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
                               : 'bg-indigo-500/10 border-indigo-500/40 text-indigo-600 dark:text-indigo-400'
                             : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-400 hover:border-slate-300'
                         }`}
-                        title={isRoleDefault ? 'Role default' : isCustom ? 'Custom grant' : undefined}
+                        title={
+                          !perm.live
+                            ? 'Nothing reads this yet — ticking it changes no access anywhere in the app'
+                            : isRoleDefault ? 'Role default' : isCustom ? 'Custom grant' : undefined
+                        }
                       >
                         <span className={`w-3 h-3 rounded flex items-center justify-center shrink-0 border ${
                           isEnabled ? 'bg-current border-current' : 'border-slate-300 dark:border-zinc-600'
@@ -282,6 +295,16 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
                           {isEnabled && <CheckCircle2 size={9} className="text-white dark:text-zinc-900" />}
                         </span>
                         <span className="text-[9px] font-black uppercase tracking-wide truncate flex-1">{perm.label}</span>
+                        {/* SAY WHEN A SWITCH IS NOT WIRED TO ANYTHING (216).
+                            19 of these tokens are read by no gate on either
+                            side. Presenting them identically to the ones that
+                            work is how an owner comes to believe they have
+                            restricted something they have not. */}
+                        {!perm.live && (
+                          <span className="text-[7px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600 shrink-0">
+                            n/a
+                          </span>
+                        )}
                       </button>
                     );
                   })}

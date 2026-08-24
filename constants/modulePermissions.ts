@@ -32,7 +32,7 @@
 
 import { UserRole, FULL_ACCESS_ROLES } from '../types';
 
-export type ModuleActionId = 'view' | 'create' | 'edit' | 'delete' | 'stock' | 'transfer' | 'raise' | 'approve';
+export type ModuleActionId = 'view' | 'create' | 'edit' | 'delete' | 'stock' | 'transfer' | 'raise' | 'approve' | 'collect';
 
 export interface ModuleActionDef {
   id: ModuleActionId;
@@ -65,6 +65,7 @@ const CRUD: ModuleActionDef[] = [
 export const INVENTORY_BILLABLES_GROUP = 'Inventory & Billables';
 export const CLINICAL_GROUP = 'Clinical';
 export const BILLING_GROUP = 'Billing';
+export const FINANCE_GROUP = 'Client money';
 
 const INVENTORY_MODULES: ModuleDef[] = [
   {
@@ -270,7 +271,48 @@ const BILLING_MODULES: ModuleDef[] = [
   },
 ];
 
-export const PERMISSION_MODULES: ModuleDef[] = [...INVENTORY_MODULES, ...CLINICAL_MODULES, ...BILLING_MODULES];
+/**
+ * CLIENT ACCOUNT MONEY (216) — the module the catalog never had.
+ *
+ * "What are the permissions to view client financials?" had no answer: the
+ * Financials tab, the collect buttons and the balance chip all read
+ * `FULL_ACCESS_ROLES` straight off the role inside the components, so the only
+ * way to give a cashier the thing a cashier does was to make them a manager
+ * (user, 2026-08-24).
+ *
+ * ⚠️ THE ONE MODULE THAT IS NOT IN `VIEW_ALL`.
+ *
+ * Every other module grants `:view` to every role by default, because those
+ * pages were open to everyone before this catalog existed and a preset that
+ * removed access would take something away. Money is the opposite: it is being
+ * gated for the FIRST time here, so defaulting it on for every driver and
+ * groomer would leave the grant meaning nothing. Roles that already reached
+ * these screens keep them (front desk, cashier, accountant, viewer, unlabelled
+ * staff); the rest must now be granted it.
+ */
+const FINANCE_MODULES: ModuleDef[] = [
+  {
+    id: 'finance',
+    label: 'Client money',
+    group: FINANCE_GROUP,
+    hint: "A client's account across every visit — what they owe, what they paid, and taking payment",
+    views: ['finance', 'financial-overview', 'reports-analytics', 'receivables', 'expenses', 'b2b-stats', 'transactions', 'financial-core'],
+    actions: [
+      {
+        id: 'view',
+        label: 'See client money',
+        hint: 'The Financials tab on a client, statements, credit, the balance chip on a patient, and the Finance pages. Without it the clinical record still opens in full.',
+      },
+      {
+        id: 'collect',
+        label: 'Take payment',
+        hint: 'Collect against a client account, record an advance, and issue the receipt. ⚠️ Money changing hands — heavier than seeing it.',
+      },
+    ],
+  },
+];
+
+export const PERMISSION_MODULES: ModuleDef[] = [...INVENTORY_MODULES, ...CLINICAL_MODULES, ...BILLING_MODULES, ...FINANCE_MODULES];
 
 export const MODULE_BY_ID: Record<string, ModuleDef> =
   Object.fromEntries(PERMISSION_MODULES.map(m => [m.id, m]));
@@ -305,6 +347,12 @@ export const LEGACY_GRANT_MAP: Record<string, string[]> = {
   ],
   // Coarse page token from `constants/roles.ts`.
   VIEW_INVENTORY: ['products:view'],
+  // The token that opened the Finance group before `finance` existed (216).
+  // Anyone holding it keeps exactly what it bought — the read, not the till.
+  VIEW_FINANCE: ['finance:view'],
+  view_payments: ['finance:view'],
+  view_receipts: ['finance:view'],
+  process_payments: ['finance:view', 'finance:collect'],
 };
 
 // ── Role presets ─────────────────────────────────────────────────────────────
@@ -319,7 +367,10 @@ export const LEGACY_GRANT_MAP: Record<string, string[]> = {
 // Full-access roles (owner / manager / platform admin) short-circuit in `can()`
 // and are not listed here.
 
-const VIEW_ALL: string[] = PERMISSION_MODULES.map(m => `${m.id}:view`);
+// Excludes `finance` on purpose — see FINANCE_MODULES above.
+const VIEW_ALL: string[] = PERMISSION_MODULES.filter(m => m.id !== 'finance').map(m => `${m.id}:view`);
+/** Sees the money and takes it — the desk/cashier stance. */
+const MONEY_FULL: string[] = ['finance:view', 'finance:collect'];
 const CLINICAL_IDS = CLINICAL_MODULES.map(m => m.id);
 /** Full write on every clinical module — what a clinician actually needs. */
 const CLINICAL_WRITE: string[] = CLINICAL_IDS.flatMap(id => [`${id}:create`, `${id}:edit`]);
@@ -346,6 +397,8 @@ export const MODULE_ROLE_PRESETS: Partial<Record<UserRole, string[]>> = {
     ...writes('procedures', 'create', 'edit', 'delete'),
     ...writes('workflows', 'create', 'edit'),
     ...writes('packages', 'create', 'edit'),
+    // The vet sees what their client owes; running the till is not their job.
+    'finance:view',
   ],
   // A nurse works patients up and records what they did — everything except
   // deleting a visit.
@@ -372,10 +425,12 @@ export const MODULE_ROLE_PRESETS: Partial<Record<UserRole, string[]>> = {
   // day — but the clinical record is read-only. Booking visits and working
   // reminders stay full write; billing lives in the legacy catalog for now and
   // is untouched, so invoicing keeps working exactly as it does today.
-  [UserRole.FRONT_OFFICE]: [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...DESK_WRITE, ...writes('bills', 'raise')],
-  [UserRole.RECEPTIONIST]: [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...DESK_WRITE, ...writes('bills', 'raise')],
-  [UserRole.CASHIER]:      [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...writes('bills', 'raise')],
-  [UserRole.ACCOUNTANT]:   [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...writes('bills', 'raise')],
+  [UserRole.FRONT_OFFICE]: [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...DESK_WRITE, ...writes('bills', 'raise'), ...MONEY_FULL],
+  [UserRole.RECEPTIONIST]: [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...DESK_WRITE, ...writes('bills', 'raise'), ...MONEY_FULL],
+  // The till IS the job for these two — they carried the legacy VIEW_FINANCE
+  // token for exactly this reason.
+  [UserRole.CASHIER]:      [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...writes('bills', 'raise'), ...MONEY_FULL],
+  [UserRole.ACCOUNTANT]:   [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...writes('bills', 'raise'), ...MONEY_FULL],
   // Their own room is theirs to run; the rest of the record is not.
   [UserRole.GROOMER]: [
     ...VIEW_ALL, ...CLINICAL_READ_ONLY,
@@ -387,7 +442,8 @@ export const MODULE_ROLE_PRESETS: Partial<Record<UserRole, string[]>> = {
     ...writes('products', 'stock'),
   ],
   [UserRole.DRIVER]:        [...VIEW_ALL, ...CLINICAL_READ_ONLY],
-  [UserRole.CLINIC_VIEWER]: [...VIEW_ALL, ...CLINICAL_READ_ONLY],
+  // Carried the legacy VIEW_FINANCE token, so the read comes across with it.
+  [UserRole.CLINIC_VIEWER]: [...VIEW_ALL, ...CLINICAL_READ_ONLY, 'finance:view'],
   // An external vet works clinically, on the visits they are given.
   [UserRole.FREELANCER]:    [...VIEW_ALL, ...CLINICAL_WRITE, ...writes('clinical', 'edit')],
   // General staff keep the stock work they do today; catalog writes become a
@@ -401,6 +457,8 @@ export const MODULE_ROLE_PRESETS: Partial<Record<UserRole, string[]>> = {
     ...VIEW_ALL, ...CLINICAL_WRITE, ...writes('clinical', 'edit'),
     ...writes('products', 'create', 'edit', 'stock'),
     ...writes('bills', 'raise'),
+    // Reached the money screens before this module existed — keeps them.
+    ...MONEY_FULL,
   ],
 };
 
@@ -497,4 +555,6 @@ export const modulePerms = (user: GateUser | null | undefined, moduleId: string)
   // all three buttons — so there is no separate `raiseAndApprove` here.
   raise:   can(user, `${moduleId}:raise`),
   approve: can(user, `${moduleId}:approve`),
+  /** Client money (216): seeing an account is `view`, taking money is this. */
+  collect: can(user, `${moduleId}:collect`),
 });

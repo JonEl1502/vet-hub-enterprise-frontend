@@ -26,6 +26,7 @@ import { Transaction } from '../../../services/modules/transactions.api';
 import ReconciliationDocument from '../receipts/ReconciliationDocument';
 import { printElementAsPdf } from '../shared/printPdf';
 import { useClinic } from '../../../contexts/ClinicContext';
+import { can } from '../../../constants/modulePermissions';
 import { clientDiscountsAPI, clientsAPI, messagingAPI, toast, PlatformMessage } from '../../../services';
 import { dialog } from '../../../services/utils/dialog';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
@@ -172,7 +173,21 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const [discountSaving, setDiscountSaving] = useState(false);
 
   const { user } = useAuth();
+  /**
+   * WHO MAY SEE THE MONEY, AND WHO MAY TAKE IT (216).
+   *
+   * Both used to be one hardcoded `FULL_ACCESS_ROLES.includes(role)` — which is
+   * why "what permission shows client financials?" had no answer. There was
+   * none: a cashier could only reach the screen by being made a clinic manager
+   * (user, 2026-08-24). They are grants now, so the job title can carry the job.
+   * Owner and manager still short-circuit `can()`, so nothing they had moves.
+   *
+   * `hasFullAccess` survives for what is genuinely a ROLE question — the client's
+   * files are part of the client record, not their account.
+   */
   const hasFullAccess = FULL_ACCESS_ROLES.includes(user?.role as UserRole);
+  const canSeeMoney = can(user, 'finance:view');
+  const canTakeMoney = can(user, 'finance:collect');
 
   // Account money for the header strip + the Payments hub: one fetch feeds
   // both (the collect flow in ClientPaymentsTab keeps its own copy and calls
@@ -181,7 +196,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const [creditBalance, setCreditBalance] = useState(0);
   const [billingLoading, setBillingLoading] = useState(true);
   const loadBilling = useCallback(async () => {
-    if (!hasFullAccess) { setBillingLoading(false); return; }
+    if (!canSeeMoney) { setBillingLoading(false); return; }
     try {
       const [b, c] = await Promise.all([
         clientsAPI.getBilling(client.id, { silent: true } as any),
@@ -191,7 +206,7 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
       if (c?.success && c.data) setCreditBalance(Number(c.data.balance) || 0);
     } catch { /* header falls back to the client aggregate */ }
     finally { setBillingLoading(false); }
-  }, [client.id, hasFullAccess]);
+  }, [client.id, canSeeMoney]);
   useEffect(() => { loadBilling(); }, [loadBilling]);
 
   /**
@@ -429,7 +444,7 @@ const renderOverview = () => (
           </div>
 
           {/* SPEND — or last visit for staff who cannot see money */}
-          {hasFullAccess ? (
+          {canSeeMoney ? (
             <div className="flex-[3] min-w-0 p-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <div className="p-1 bg-seafoam/10 rounded-md"><CreditCard size={11} className="text-seafoam" /></div>
@@ -1162,7 +1177,7 @@ const renderOverview = () => (
             {/* Financial strip — lifetime spend, what's owed, what's banked,
                 and whether the account is live. Money is owner/manager-only. */}
             <div className="shrink-0 w-full xl:w-auto flex flex-col justify-between gap-3">
-              {hasFullAccess ? (
+              {canSeeMoney ? (
                 <>
                   <div className={`grid grid-cols-2 ${legacyBalance > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} rounded-xl border border-slate-100 dark:border-zinc-800 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-zinc-800 overflow-hidden`}>
                     <div className="px-4 py-3 text-center">
@@ -1243,7 +1258,7 @@ const renderOverview = () => (
                // Receipts / Statements / Discounts sat alongside each other AND
                // were repeated as filters inside Payments — five top-level tabs
                // for one subject. They are sub-tabs of Financials now.
-               ...(hasFullAccess ? [{ id: 'transactions', label: 'Financials', icon: CreditCard }] : []),
+               ...(canSeeMoney ? [{ id: 'transactions', label: 'Financials', icon: CreditCard }] : []),
                { id: 'outreach', label: 'Communication', icon: MessageCircle },
                { id: 'files', label: 'Files', icon: FolderOpen },
                { id: 'schedule', label: 'Reminders & Appts', icon: Bell },
@@ -1408,7 +1423,7 @@ const renderOverview = () => (
                             )}
                             {/* ONE money action, and it is the next act in the
                                 chain for THIS visit — not every action at once. */}
-                            {hasFullAccess && (() => {
+                            {canTakeMoney && (() => {
                               const row = billRowFor(appt.id);
                               const settled = row ? isSettled(row as any) : !!appt.isPaid;
                               const invoiced = (row?.invoices?.length ?? 0) > 0;
@@ -1468,7 +1483,7 @@ const renderOverview = () => (
 
                    {/* Body */}
                    <div className="space-y-2">
-                      {hasFullAccess && (
+                      {canSeeMoney && (
                         <div className="flex items-center justify-between">
                           <p className="text-base font-black font-mono text-pine dark:text-zinc-200">{client.currency} {appt.totalCost.toLocaleString()}</p>
                           <span className={`text-[8px] font-black uppercase px-2 py-1 rounded-lg border ${
@@ -1653,7 +1668,7 @@ const renderOverview = () => (
             credit={creditBalance}
             loading={billingLoading}
             currency={client.currency || 'KES'}
-            canCollect={hasFullAccess}
+            canCollect={canTakeMoney}
             onRefresh={loadBilling}
             onViewVisit={onOpenVisitBill ?? onViewAppointment}
             onGoTab={goTab}
@@ -1665,7 +1680,7 @@ const renderOverview = () => (
           <ClientPaymentsTab
             clientId={client.id}
             currency={client.currency || 'KES'}
-            canCollect={hasFullAccess}
+            canCollect={canTakeMoney}
             onViewVisit={onOpenVisitBill ?? onViewAppointment}
             onChanged={loadBilling}
             clientName={client.name}
@@ -1681,7 +1696,7 @@ const renderOverview = () => (
           <ClientBillsTab
             clientId={client.id}
             currency={client.currency || 'KES'}
-            canManage={hasFullAccess}
+            canManage={canTakeMoney}
             onViewVisit={onOpenVisitBill ?? onViewAppointment}
             onGoToVisitBill={onOpenVisitBill}
             onChanged={loadBilling}
@@ -1693,7 +1708,7 @@ const renderOverview = () => (
           <ClientPaymentsTab
             clientId={client.id}
             currency={client.currency || 'KES'}
-            canCollect={hasFullAccess}
+            canCollect={canTakeMoney}
             onViewVisit={onOpenVisitBill ?? onViewAppointment}
             onChanged={loadBilling}
             clientName={client.name}
@@ -1707,7 +1722,7 @@ const renderOverview = () => (
           <ClientPaymentsTab
             clientId={client.id}
             currency={client.currency || 'KES'}
-            canCollect={hasFullAccess}
+            canCollect={canTakeMoney}
             onViewVisit={onOpenVisitBill ?? onViewAppointment}
             onChanged={loadBilling}
             clientName={client.name}
@@ -1724,7 +1739,7 @@ const renderOverview = () => (
         {activeTab === 'discounts' && (
           <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
             {/* Add Discount Button */}
-            {hasFullAccess && !showAddDiscount && (
+            {canTakeMoney && !showAddDiscount && (
               <button
                 onClick={() => setShowAddDiscount(true)}
                 className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all shadow-lg"
@@ -1874,7 +1889,7 @@ const renderOverview = () => (
                       </div>
                       {/* Remove sits with the meta, not in a footer band of its
                           own — the card was mostly empty space below the note. */}
-                      {isActive && hasFullAccess && (
+                      {isActive && canTakeMoney && (
                         <div className="mt-1.5 flex justify-end">
                           <button
                             onClick={() => handleDeleteDiscount(d.id)}
@@ -1892,7 +1907,7 @@ const renderOverview = () => (
               <div className="py-24 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
                 <Tag size={32} className="mx-auto text-slate-200 dark:text-zinc-700 mb-3" />
                 <p className="uppercase font-black text-[10px] tracking-[0.2em] text-slate-300 dark:text-zinc-600">No discounts yet</p>
-                {hasFullAccess && (
+                {canTakeMoney && (
                   <button
                     onClick={() => setShowAddDiscount(true)}
                     className="mt-4 flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all shadow-lg mx-auto"
