@@ -2575,7 +2575,20 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         }
         return <PetProfileView
           pet={pet}
-          owner={getClientById(pet.ownerId)}
+          /**
+           * ⚠️ THE PET CARRIES ITS OWNER — fall back to it (216 did the same on
+           * the patient LIST). `getClientById` reads the DataContext cache,
+           * which holds only the page of clients that happened to be loaded, so
+           * on a clinic with thousands of owners this returned `undefined` for
+           * an owner who plainly exists — and the profile then rendered
+           * "NO OWNER · LINK" over a patient whose card, one screen earlier,
+           * named them. That is not cosmetic: LINK invites staff to attach a
+           * SECOND owner to a pet that already has one (user, 2026-08-24, on
+           * Veer and Musa).
+           */
+          owner={getClientById(pet.ownerId) ?? ((pet as any).owner
+            ? ({ ...(pet as any).owner, id: Number((pet as any).owner.id) } as any)
+            : undefined)}
           activeClinic={firstActiveClinic}
           clinics={store.clinics}
           appointments={appointments.filter(a => a.petId === pId)}

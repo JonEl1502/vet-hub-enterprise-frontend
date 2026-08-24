@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the patient profile stopped losing the owner and most of the visit history  —  2026-08-24
+🔵 **Record impact: low** — no writes, but it removes a prompt that invited a wrong one.
+- 🔴 **"NO OWNER · LINK" on patients who plainly have one** (user, 2026-08-24: Veer → Bina Shah,
+  Musa → Jane Kanyotu — both named on the card one screen earlier). `getClientById` reads the
+  DataContext cache, which holds only the page of clients that happened to load, so on a clinic with
+  thousands of owners it returned `undefined` for an owner who exists. **The pet payload carries its
+  own owner** — 216 already trusts that on the patient LIST — so the profile now falls back to it.
+  ⚠️ Not cosmetic: **LINK invites staff to attach a second owner to a pet that already has one.**
+- 🔴 **16 visits shown as 1.** The Visits tab read the same DataContext cache, which holds only the
+  newest slice of the clinic's visits — the card's count comes from the server and was right all
+  along. See `reference_context_cache_hides_history`: this is that trap, on a third surface.
+- The per-pet **server** timeline (`GET /pets/:id/timeline`, limit 50) was already being fetched for
+  the Timeline tab, so the missing visits were in hand. The two are now unioned by id, cache first
+  because those rows carry tasks; a timeline-only row renders **"Not itemised"**, which is what a
+  visit with no services already shows.
+- ⚠️ **Still cache-bound, and stated rather than hidden:** the overview's own visit counters and the
+  money fallbacks read `appointments` directly. They are correct whenever the server snapshot
+  answers (it usually does) and short otherwise. Fixing those means changing displayed money, which
+  wants its own verification pass — not a side effect of a display fix.
+
 ### fix: a hovered list card no longer rises over the sticky pager  —  2026-08-24
 🟢 **Record impact: none.** One z-index.
 - A patient card lifts to `hover:z-[50]` so its ⋮ menu clears its neighbours; the sticky pager was

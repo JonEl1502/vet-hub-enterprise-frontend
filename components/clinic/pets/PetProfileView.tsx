@@ -1615,7 +1615,32 @@ const PetProfileView: React.FC<Props> = ({
            * page's pagination, filters, bulk actions and row handlers. Lifting
            * it out is a refactor of its own; copying the seven columns is not.
            */
-          const rows = [...appointments].sort(
+          /**
+           * ⚠️ `appointments` is the DataContext cache, which holds only the
+           * NEWEST slice of the clinic's visits — so a patient with 16 visits
+           * showed 1, while its own card (server count) said 16 (user,
+           * 2026-08-24, Veer). See `reference_context_cache_hides_history`.
+           *
+           * The server-side per-pet timeline is already loaded for the Timeline
+           * tab, so the missing visits are in hand: union the two, keyed on id,
+           * cache first because those rows carry tasks. A timeline-only row has
+           * no task list and renders "Not itemised", which is what a visit with
+           * no services already shows.
+           */
+          const cachedIds = new Set(appointments.map(a => String(a.id)));
+          const fromTimeline = timeline
+            .filter(e => e.type === 'visit' && !cachedIds.has(String(e.id)))
+            .map(e => ({
+              id: e.id,
+              date: e.date,
+              status: e.status,
+              encounterType: e.encounterType,
+              visitType: e.visitType,
+              totalCost: e.cost ?? 0,
+              isPaid: !!e.isPaid,
+              tasks: [],
+            } as any));
+          const rows = [...appointments, ...fromTimeline].sort(
             (a, b) => new Date(b.date as any).getTime() - new Date(a.date as any).getTime(),
           );
           const statusTone: Record<string, string> = {
