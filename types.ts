@@ -371,6 +371,13 @@ export interface Pet {
   clinicId: number;
   clinicName?: string | null;
   ownerId: number;
+  /**
+   * The owner, as the API sends it WITH the pet. Prefer this over looking the
+   * client up by `ownerId` — the clients slice in DataContext is a page, not
+   * the whole book, so on a large clinic that lookup silently misses and the
+   * card falls through to "External" (216).
+   */
+  owner?: { id: string; name: string; phone?: string | null; email?: string | null } | null;
   name: string;
   species: string;
   breed: string;

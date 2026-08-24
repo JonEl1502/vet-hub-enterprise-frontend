@@ -29,7 +29,8 @@ export interface Hospitalization {
   homeInstructions: string | null; finalWeight: number | null; weightChange: number | null; outcome: DischargeOutcome | null;
   clinician: { id: string; name: string; role: string } | null;
   pet: { id: string; name: string; species: string; breed: string; avatarUrl: string | null } | null;
-  client: { id: string; name: string; phone: string } | null;
+  /** email alongside phone (216 UI) — the ward/kennel cards show both. */
+  client: { id: string; name: string; phone: string | null; email?: string | null } | null;
   billing: { appointmentId: string; totalCost: number; isPaid: boolean; status: string; hasReminder?: boolean; reminder?: { id: string; serviceType?: string; title?: string; notes?: string; dueAt: string } | null } | null;
   allowedClinicIds?: string[];
   createdAt: string; updatedAt: string;

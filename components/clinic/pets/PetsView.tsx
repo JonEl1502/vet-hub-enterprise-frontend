@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Clinic, Pet } from '../../../types';
-import { Search, Calendar, Plus, ShieldCheck, Building2, Users, CalendarPlus, CalendarClock, BellPlus, Edit, Trash2, MoreVertical, RefreshCw, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Stethoscope } from 'lucide-react';
+import { Search, Calendar, Plus, ShieldCheck, Users, Phone, Mail, CalendarPlus, CalendarClock, BellPlus, Edit, Trash2, MoreVertical, RefreshCw, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Stethoscope } from 'lucide-react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import OrphanedPetsModal from './OrphanedPetsModal';
 import TransferClinicModal from '../clinic-mgmt/TransferClinicModal';
@@ -544,7 +544,21 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4 overflow-visible">
             {paginatedPets.map((pet, index) => {
-              const owner = clients.find(c => c.id === pet.ownerId);
+              /**
+               * THE PET CARRIES ITS OWNER — trust that first (216).
+               *
+               * This was `clients.find(c => c.id === pet.ownerId)` alone, and
+               * `clients` is only the page DataContext has loaded. On a clinic
+               * with 4,171 patients most owners are not in it, so a card for a
+               * client who is right there in the pet payload rendered
+               * "External" with a blank phone (user, 2026-08-24). The lookup
+               * stays as the fallback — it carries fields the embedded owner
+               * does not.
+               */
+              const cachedOwner = clients.find(c => c.id === pet.ownerId);
+              const owner = (pet as any).owner
+                ? { ...(cachedOwner || {}), ...(pet as any).owner }
+                : cachedOwner;
               const upcomingVisits = getUpcomingVisits(pet.id);
               const upcomingVisit = upcomingVisits[0];
               const extraVisits = upcomingVisits.length - 1;
@@ -605,15 +619,37 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                         </div>
                       </div>
 
+                      {/* Owner: name, phone, email. A patient card that names an
+                          animal and not the person to ring is half a card — the
+                          phone was already here but rendered blank whenever the
+                          lookup missed, and the email was never shown at all. */}
                       <div className="space-y-1 mb-2">
                         <div className="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400 text-[9px] font-bold">
                           <Users size={10} className="text-mist dark:text-zinc-700 shrink-0" />
                           <span className="truncate">{owner?.name || 'External'}</span>
                         </div>
-                        <div className="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400 text-[9px] font-bold">
-                          <Building2 size={10} className="text-mist dark:text-zinc-700 shrink-0" />
-                          <span className="truncate">{owner?.phone}</span>
-                        </div>
+                        {owner?.phone && (
+                          <a
+                            href={`tel:${owner.phone}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400 text-[9px] font-bold hover:text-seafoam transition-colors"
+                            title={`Call ${owner.phone}`}
+                          >
+                            <Phone size={10} className="text-mist dark:text-zinc-700 shrink-0" />
+                            <span className="truncate">{owner.phone}</span>
+                          </a>
+                        )}
+                        {owner?.email && (
+                          <a
+                            href={`mailto:${owner.email}`}
+                            onClick={(e) => e.stopPropagation()}
+                            className="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400 text-[9px] font-bold hover:text-seafoam transition-colors"
+                            title={`Email ${owner.email}`}
+                          >
+                            <Mail size={10} className="text-mist dark:text-zinc-700 shrink-0" />
+                            <span className="truncate">{owner.email}</span>
+                          </a>
+                        )}
                       </div>
 
                     </div>

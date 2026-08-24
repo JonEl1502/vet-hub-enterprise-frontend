@@ -9,6 +9,7 @@ import ListFilterBar, { inRange } from '../shared/ListFilterBar';
 import DefaultRateEditor from '../shared/DefaultRateEditor';
 import AdmitInpatientModal from './AdmitInpatientModal';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import OwnerContact from '../shared/OwnerContact';
 
 const daysIn = (admittedAt: string) => Math.max(0, calendarDaysBetween(admittedAt)) + 1;
 
@@ -177,6 +178,9 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
                     <span className="min-w-0">
                       <span className="block text-sm font-black text-pine dark:text-zinc-100 truncate">{h.pet?.name}</span>
                       <span className="block text-[10px] text-slate-400 truncate">{h.diagnosis || 'No diagnosis'}</span>
+                      {/* The ward list is worked by people who need to reach the
+                          owner; it named the animal and nobody else. */}
+                      <OwnerContact owner={h.client} className="mt-1" />
                     </span>
                   </span>
                   {isActive

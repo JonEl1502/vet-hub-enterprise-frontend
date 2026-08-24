@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: owner name, phone and email on every patient card  —  2026-08-24
+🟢 **Record impact: none.** One dropped field restored, one shared component, five card surfaces.
+- 🔴 **Root cause: the pets API has ALWAYS returned `owner {id, name, phone, email}`, and DataContext
+  threw it away.** That mapper whitelists fields, so every card had to re-find the client by id in
+  the `clients` slice the context happens to hold — and on a clinic with **4,171 patients** most
+  owners are not in that slice. The card then fell through to **"External" with a blank phone** for a
+  client sitting right there in the payload (user, 2026-08-24). Same class as
+  [[project_datacontext_field_mapper_footgun]]: check the include, the cache AND the mapper.
+- New `OwnerContact` renders the block once for every list. ⚠️ **Spans, not links** — these cards are
+  real `<button>` elements and an `<a>` inside a `<button>` is invalid HTML: the parser hoists it out
+  and the card's markup breaks. The patients grid is a `div`, so it alone gets `tel:` / `mailto:`.
+- Now showing the owner: **Patients** (name + phone were coded but rendered empty; email is new and
+  both are now tappable), **Inpatient** and **Emergency board** (had no owner at all), **Boarding**
+  and **Grooming** (name only).
+- Grooming and Patients read the owner off the record first and keep the `clients.find()` lookup as
+  the fallback, rather than depending on it.
+
 ### feat: the service catalog is cards that open, not rows that expand  —  2026-08-24
 🟢 **Record impact: none.** Presentation only — every handler and save path is unchanged.
 - The row packed six controls into a 12-column grid — name, default price, override input, attach

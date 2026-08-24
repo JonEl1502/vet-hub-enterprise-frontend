@@ -5,6 +5,7 @@ import { formatTime } from '../../../services/utils/dateFormatter';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import ListFilterBar from '../shared/ListFilterBar';
 import type { DateRange } from '../../shared/common/DateRangePicker';
+import OwnerContact from '../shared/OwnerContact';
 
 interface Props {
   onOpenVisit?: (appointmentId: number) => void;
@@ -143,6 +144,9 @@ const EmergencyBoardView: React.FC<Props> = ({ onOpenVisit, onStartVisit }) => {
                     <div className="min-w-0">
                       <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase truncate">{r.pet?.name || 'Patient'}</p>
                       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">{r.pet?.breed || r.pet?.species || ''}</p>
+                      {/* The one board where somebody may need phoning urgently
+                          named the animal and nobody else (216 UI). */}
+                      <OwnerContact owner={(r as any).client} className="mt-1" />
                     </div>
                   </div>
                   <ChevronRight size={16} className="text-slate-300 group-hover:text-seafoam shrink-0 mt-1" />

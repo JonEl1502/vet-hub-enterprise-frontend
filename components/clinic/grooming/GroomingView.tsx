@@ -8,6 +8,7 @@ import ListFilterBar, { inRange } from '../shared/ListFilterBar';
 import GroomingRecordPage from './GroomingRecordPage';
 import GroomingAdmitModal from './GroomingAdmitModal';
 import { deriveVisitStatus, STATUS_LABEL, STATUS_STYLE as MODULE_STATUS_STYLE } from '../shared/visitStatus';
+import OwnerContact from '../shared/OwnerContact';
 
 interface Props {
   onOpenAppointment?: (appointmentId: string, settle?: boolean) => void;
@@ -130,7 +131,14 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
                   <span className="text-xl shrink-0">✂️</span>
                   <span className="min-w-0">
                     <span className="block text-sm font-black text-pine dark:text-zinc-100 truncate">{petName(a.petId)}</span>
-                    <span className="block text-[10px] text-slate-400 truncate">{ownerName(a.clientId)}</span>
+                    {/* The visit CARRIES its client (name, phone, email). The
+                        `clients.find()` fallback below it is a page of the
+                        book, not the book — on a large clinic it misses and the
+                        owner line renders empty (216 UI). */}
+                    <OwnerContact
+                      owner={a.client ?? { name: ownerName(a.clientId) }}
+                      className="mt-0.5"
+                    />
                   </span>
                 </span>
                 {(() => { const ds = deriveVisitStatus(a, ['groom']); return (

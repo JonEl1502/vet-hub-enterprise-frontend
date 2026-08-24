@@ -9,6 +9,7 @@ import ListFilterBar, { inRange } from '../shared/ListFilterBar';
 import DefaultRateEditor from '../shared/DefaultRateEditor';
 import AdmitBoardingModal from './AdmitBoardingModal';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import OwnerContact from '../shared/OwnerContact';
 
 const daysIn = (dropOffAt: string) => Math.max(0, calendarDaysBetween(dropOffAt)) + 1;
 const vaccinesOk = (vc: Record<string, boolean>) => Object.keys(vc || {}).length > 0 && Object.values(vc).every(Boolean);
@@ -153,7 +154,9 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenSt
                   <span className="text-xl shrink-0">{s.pet?.species === 'Cat' ? '🐱' : '🐶'}</span>
                   <span className="min-w-0">
                     <span className="block text-sm font-black text-pine dark:text-zinc-100 truncate">{s.pet?.name}</span>
-                    <span className="block text-[10px] text-slate-400 truncate">{s.client?.name}</span>
+                    {/* Was the owner's NAME alone — the number and address to
+                        reach them lived a click away on the client record. */}
+                    <OwnerContact owner={s.client} className="mt-0.5" />
                   </span>
                 </span>
                 {/* AN ADMITTED STAY CAN ALREADY BE SETTLED, and the list has to

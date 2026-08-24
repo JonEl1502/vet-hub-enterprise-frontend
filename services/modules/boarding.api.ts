@@ -54,7 +54,8 @@ export interface BoardingStay {
   createdAt: string;
   updatedAt: string;
   pet: { id: string; name: string; species: string; breed: string; avatarUrl: string | null } | null;
-  client: { id: string; name: string; phone: string } | null;
+  /** email alongside phone (216 UI) — the ward/kennel cards show both. */
+  client: { id: string; name: string; phone: string | null; email?: string | null } | null;
   billing: { appointmentId: string; totalCost: number; isPaid: boolean; status: string; hasReminder?: boolean } | null;
   allowedClinicIds?: string[];
   dailyLogs?: BoardingDailyLog[];

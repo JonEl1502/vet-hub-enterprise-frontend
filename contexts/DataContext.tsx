@@ -391,6 +391,19 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
           clinicId: parseInt(p.clinicId),
           clinicName: p.clinicName ?? null,
           ownerId: parseInt(p.ownerId),
+          /**
+           * THE OWNER RIDES ON THE PET (216 UI).
+           *
+           * This mapper whitelists fields, so `owner` — which the pets API has
+           * always returned as `{id, name, phone, email}` — was dropped on the
+           * floor, and every card had to re-find the client by id in the
+           * `clients` slice this context happens to hold. On a clinic with 4,171
+           * patients most owners are not in that slice, so the card fell through
+           * to "External" with a blank phone for a client who is right there in
+           * the payload (user, 2026-08-24). Same class as
+           * `project_datacontext_field_mapper_footgun`.
+           */
+          owner: p.owner ?? null,
           name: String(p.name || ''),
           species: String(p.species || ''),
           breed: String(p.breed || ''),
