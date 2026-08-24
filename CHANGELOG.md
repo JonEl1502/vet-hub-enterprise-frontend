@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the sticky pager stays away on short lists  —  2026-08-24
+🟢 **Record impact: none.**
+- On an empty or short list the floating copy sat directly under the real one — two identical bars
+  reading **"0-0/0"** (user, 2026-08-24: "if records below 10 or 20 hide the bottom pager"). It now
+  renders only when there are **20+ rows on screen**; the bar at the end of the list is unchanged.
+- ⚠️ Measured in **rows actually rendered**, not `totalItems`: 4,171 results at 5/pg is five rows on
+  screen and needs no floating pager, while 40 results at 100/pg is forty rows and does.
+
 ### feat: the ward's Tasks due / Meds due cards open the patients behind the number  —  2026-08-24
 🟢 **Record impact: none.** A read-only drill-down over data the page already holds.
 - The two counters said how much work was waiting and stopped there — *which animal* was a scroll

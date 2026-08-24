@@ -17,11 +17,20 @@ interface PaginationProps {
    * times; this keeps it under the thumb without moving the one at the end of
    * the list, which is where people look for it after reading the last row.
    *
-   * The sticky copy — and only the sticky copy — carries the two scroll
-   * buttons in the space its middle would otherwise waste.
+   * The sticky copy — and only the sticky copy — carries the scroll buttons in
+   * the space its middle would otherwise waste.
+   *
+   * ⚠️ Ignored on a short list: fewer than `STICKY_MIN_ROWS` rows on screen and
+   * no second bar is rendered.
    */
   alsoStickyBottom?: boolean;
 }
+
+/**
+ * Below this many rows on screen there is nothing to scroll past, so the sticky
+ * copy of the pager is not rendered at all.
+ */
+const STICKY_MIN_ROWS = 20;
 
 const Pagination: React.FC<PaginationProps> = ({
   meta,
@@ -277,7 +286,18 @@ const Pagination: React.FC<PaginationProps> = ({
     </div>
   );
 
-  if (!alsoStickyBottom) return bar(false);
+  /**
+   * The sticky copy only earns its place on a list long enough that the bar at
+   * the END of it is off-screen (user, 2026-08-24: "if records below 10 or 20
+   * hide the bottom pager"). On a short list — or an empty one — it was two
+   * identical bars stacked on top of each other saying "0-0/0".
+   *
+   * ⚠️ Measured in ROWS ACTUALLY RENDERED, not `totalItems`: 4,171 results at
+   * 5/pg is five rows on screen and needs no floating pager, while 40 results
+   * at 100/pg is forty rows and does.
+   */
+  const rowsOnPage = Math.min(itemsPerPage, totalItems);
+  if (!alsoStickyBottom || rowsOnPage < STICKY_MIN_ROWS) return bar(false);
 
   return (
     <>
