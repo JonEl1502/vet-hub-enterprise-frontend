@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the plan editor stops asking for the audience the tab already chose  —  2026-08-24
+🟢 **Record impact: none.** The field is untouched — only the control that edits it is hidden.
+- **"Offered to" is commented out** on the subscription plan editor (user, 2026-08-24: "since up
+  here it is selected"). The Clinic / Supplier / Client / Farm tab above already states which
+  audience you are working in; asking again on the plan is the same decision twice.
+- Safe to hide because **nothing depended on the control to write the field**: create already tags a
+  new plan from the tab it was made on (`audiences: [audienceTag]`), and save passes
+  `selected.audiences` through untouched, so an existing plan keeps what it has.
+- ⚠️ **Consequence, stated rather than discovered later:** a plan can no longer be offered to several
+  audiences at once, or moved between them, from this screen — the tab it was created on is now the
+  whole story. Uncommenting the block is the way back; nothing else has to change.
+- ⚠️ The **add-on cards keep their own audience toggles**. The Add-ons tab implies no single
+  audience — an add-on is sold to clinics *or* to suppliers — so that control is still doing work.
+
 ### fix: the patient profile stopped losing the owner and most of the visit history  —  2026-08-24
 🔵 **Record impact: low** — no writes, but it removes a prompt that invited a wrong one.
 - 🔴 **"NO OWNER · LINK" on patients who plainly have one** (user, 2026-08-24: Veer → Bina Shah,

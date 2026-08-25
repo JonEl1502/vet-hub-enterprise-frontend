@@ -566,14 +566,35 @@ const SubPackagesAdminPage: React.FC = () => {
                   the package IS (user, 2026-08-23: *"offered to is not in
                   correct place"*). Up here it stays visible and editable
                   whichever tab you are working in. */}
-                {!isSupplier && (
+                {/*
+                  ⏸ "OFFERED TO" HIDDEN (user, 2026-08-24) — "since up here it
+                  is selected", i.e. the audience TAB above already says which
+                  audience you are working in, so picking it again on the plan
+                  itself is the same decision asked twice.
+
+                  COMMENTED, NOT DELETED — restore by uncommenting this block;
+                  nothing else has to change. Safe to hide because nothing
+                  depends on the control to WRITE the field:
+                    · CREATE already tags the new plan from the tab it was made
+                      on (`audiences: [audienceTag]`), so a plan still lands on
+                      exactly one audience.
+                    · SAVE passes `selected.audiences` through untouched, so an
+                      existing plan keeps whatever it already had.
+                  ⚠️ The consequence, stated: a plan can no longer be offered to
+                  SEVERAL audiences at once, or moved between them, from this
+                  screen — the tab it was created on is now the whole story. If
+                  a plan ever needs two audiences, this block is the way back.
+                  ⚠️ The add-on cards keep THEIR audience toggles (the Add-ons
+                  tab implies no single audience — an add-on is sold to clinics
+                  or to suppliers).
+                                {!isSupplier && (
                 <div>
                   <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2">Offered to</p>
                   <div className="flex flex-wrap gap-2">
                     {/* §0f #5: audiences ARE the source of truth — every
                         non-supplier audience is offerable (CLIENT and FARM
                         were missing, so a plan could sit on a tab no buyer
-                        ever saw). Tabs are filters over this field. */}
+                        ever saw). Tabs are filters over this field. *\/}
                     {([
                       ['CLINIC', 'Clinic'],
                       ['FREELANCER', 'Freelancer'],
@@ -609,6 +630,7 @@ const SubPackagesAdminPage: React.FC = () => {
                   </p>
                 </div>
                 )}
+                */}
 
               {/* Tabs */}
               <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 self-start inline-flex">
