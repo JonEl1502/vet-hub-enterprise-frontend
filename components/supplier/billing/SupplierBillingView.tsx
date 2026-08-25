@@ -5,6 +5,7 @@ import {
   ShieldCheck, Users, HardDrive, Clock, Star, TrendingUp,
 } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { useSupplier } from '../../../contexts/SupplierContext';
 import { supplierSubscriptionAPI, SupplierSubscription, SubscriptionPackage, UpgradePreview } from '../../../services/modules/supplierSubscription.api';
 import { toast } from '../../../services/utils/toast';
 import { vethubPaystackAPI } from '../../../services/modules/vethubPaystack.api';
@@ -14,7 +15,29 @@ import { PlanCard } from '../../clinic/billing/PlanCard';
 
 const SupplierBillingView: React.FC = () => {
   const { user } = useAuth();
-  const supplierId = user?.supplier?.id ? String(user.supplier.id) : null;
+  const { mySupplier, selectedSupplierIds } = useSupplier();
+
+  /**
+   * Whose billing are we looking at?
+   *
+   * ⚠️ This used to be `user.supplier.id` alone, which is null for a PLATFORM
+   * ADMIN using "View as → Supplier": an admin is not themselves a supplier.
+   * `fetchAll` then bailed on its first line without ever clearing `loading`,
+   * so the page sat on "Loading billing info…" forever — no request, no error,
+   * nothing in the console to explain it (user, 2026-08-25).
+   *
+   * Resolution order mirrors the theme effect in SupplierContext, which had
+   * already solved exactly this question: the supplier user's own account
+   * first, then the one selected in the switcher.
+   */
+  const supplierId = React.useMemo(() => {
+    const own = mySupplier?.id ?? (user as any)?.supplier?.id;
+    if (own) return String(own);
+    // Admin viewing one supplier. With several selected there is no single
+    // subscription to show, so we say so rather than pick one arbitrarily.
+    if (selectedSupplierIds.length === 1) return selectedSupplierIds[0];
+    return null;
+  }, [mySupplier, user, selectedSupplierIds]);
 
   const [subscription, setSubscription] = useState<SupplierSubscription | null>(null);
   const [packages, setPackages]         = useState<SubscriptionPackage[]>([]);
@@ -27,7 +50,18 @@ const SupplierBillingView: React.FC = () => {
   const PKG_CACHE_KEY  = `/supplier-packages/${supplierId}`;
 
   const fetchAll = useCallback(async (silent = false) => {
-    if (!supplierId) return;
+    // ⚠️ Must clear `loading`. Returning early with it still true is what
+    // produced the permanent spinner — a page that cannot load is a page that
+    // has to SAY so.
+    if (!supplierId) {
+      setLoading(false);
+      setError(
+        selectedSupplierIds.length > 1
+          ? 'Several suppliers are selected. Pick a single supplier to see its billing.'
+          : 'No supplier is selected, so there is no billing account to show. Choose one from the supplier switcher.',
+      );
+      return;
+    }
     if (!silent) {
       const cachedSub = cache.get<SupplierSubscription>(SUB_CACHE_KEY);
       const cachedPkg = cache.get<SubscriptionPackage[]>(PKG_CACHE_KEY);
@@ -58,7 +92,7 @@ const SupplierBillingView: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  }, [supplierId]);
+  }, [supplierId, selectedSupplierIds.length]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 
@@ -178,6 +212,17 @@ const SupplierBillingView: React.FC = () => {
     );
   }
 
+  // Nothing resolved: show the reason on its own. Rendering the plan chrome
+  // with every field blank reads as a broken page rather than an explained one.
+  if (!supplierId) {
+    return (
+      <div className="flex items-start gap-3 p-4 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/40 rounded-2xl text-amber-700 dark:text-amber-400">
+        <AlertTriangle size={18} className="shrink-0 mt-0.5" />
+        <p className="text-sm font-semibold">{error || 'No supplier selected.'}</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8">
       {/* Error banner */}
@@ -185,7 +230,7 @@ const SupplierBillingView: React.FC = () => {
         <div className="flex items-center gap-3 p-4 bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-800 rounded-2xl text-red-600 dark:text-red-400">
           <AlertTriangle size={18} className="shrink-0" />
           <p className="text-sm font-semibold flex-1">{error}</p>
-          <button onClick={fetchAll} className="text-xs font-bold underline">Retry</button>
+          <button onClick={() => fetchAll(true)} className="text-xs font-bold underline">Retry</button>
         </div>
       )}
 
@@ -197,7 +242,7 @@ const SupplierBillingView: React.FC = () => {
             <h2 className="font-black text-sm uppercase tracking-wider text-pine dark:text-zinc-100">Current Plan</h2>
           </div>
           <button
-            onClick={fetchAll}
+            onClick={() => fetchAll(true)}
             className="p-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
             title="Refresh"
           >

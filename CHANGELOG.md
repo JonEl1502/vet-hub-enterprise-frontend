@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: supplier billing hung on "Loading billing info…" forever  —  2026-08-25
+- **What changed:** `SupplierBillingView` resolves which supplier it is showing, and can no
+  longer hang when it cannot (user, 2026-08-25: *"billing not loading"*).
+- **The bug:** `supplierId` came from `user.supplier.id` alone, which is **null for a platform
+  admin using "View as → Supplier"** — an admin is not themselves a supplier. `fetchAll` then hit
+  `if (!supplierId) return;` on its first line and returned **without clearing `loading`**, which
+  starts `true`. Result: a permanent spinner with **no request, no error and nothing in the
+  console** — the network tab showed 18 requests and not one of them was the subscription call.
+  Undiagnosable from the UI, because a page that cannot load never said so.
+- **The fix, in two parts:**
+  1. `supplierId` now falls back to the supplier selected in the switcher, mirroring the
+     resolution order the theme effect in `SupplierContext` already used for this same question.
+  2. The guard clears `loading` and sets an explanatory message. **A page that cannot load has to
+     say so** — the early return is the bug, not the missing id.
+- **Also:** `onClick={fetchAll}` passed the click event into the `silent` parameter, so refresh
+  bypassed the cache only by accident (a truthy MouseEvent). Now `onClick={() => fetchAll(true)}`,
+  which is the same behaviour stated on purpose — and removes two long-standing type errors.
+- **Also:** the same shape existed in `clinic/billing/BillingView` (`if (!clinicId) return;` with
+  `loading` starting `true`) and is guarded the same way. It needs no clinic-less admin to be a
+  bug, only an unselected clinic.
+- **Record impact:** 🟢 None. Read path only.
+- **Migration / rollout:** code-only.
+- **Rollback:** revert the commit.
+- ⚠️ **Watch out:** this is a CLASS of bug, not one page — any `loading` that starts `true` plus a
+  guard clause that returns early is a permanent spinner. Worth checking before adding another.
+
 ### fix: Back from a lead returns to the queue you left  —  2026-08-25
 - **What changed:** the leads queue's tab (Demo requests / Potential clients) and status filter
   now ride on the nav entry, so returning from a lead detail page lands where you were.

@@ -140,7 +140,15 @@ const BillingView: React.FC = () => {
    *   re-check must not blank a page the user is already reading.
    */
   const fetchInfo = useCallback(async (silent = false) => {
-    if (!clinicId) return;
+    // ⚠️ Must clear `loading` — `loading` starts true, so returning with it
+    // still set leaves a permanent "Loading billing..." spinner with no
+    // request, no error and nothing in the console. That is exactly how the
+    // supplier billing page hung (2026-08-25); same shape, same fix.
+    if (!clinicId) {
+      setLoading(false);
+      setError('No clinic is selected, so there is no billing account to show.');
+      return;
+    }
     if (!silent) setLoading(true);
     setError(null);
     try {
