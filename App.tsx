@@ -3197,7 +3197,17 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'support-tickets':
         return <SupportTicketsAdminPage />;
       case 'demo-requests':
-        return <DemoRequestsAdminPage onOpenLead={(leadId) => navigateTo('lead-detail', { leadId })} />;
+        // The queue's tab + status filter ride on the nav entry, so returning
+        // from a lead lands on the queue you actually left — not back on the
+        // inbound tab. `rememberNavParams` no-ops when nothing changed.
+        return (
+          <DemoRequestsAdminPage
+            onOpenLead={(leadId) => navigateTo('lead-detail', { leadId })}
+            initialKind={currentNav.params?.leadKind || 'INBOUND'}
+            initialStatus={currentNav.params?.leadStatus || 'NEW'}
+            onFilterChange={(patch) => rememberNavParams(patch)}
+          />
+        );
       // One lead in full. A routed view, not an expanded row, so Back returns
       // to the queue with its filter and scroll intact and the browser back
       // button works.

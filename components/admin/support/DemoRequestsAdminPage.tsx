@@ -59,16 +59,30 @@ const host = (url?: string | null) => {
 interface Props {
   /** Routed navigation to the lead detail view — keeps it on the nav stack. */
   onOpenLead?: (leadId: string) => void;
+  /**
+   * Which queue and status filter to open on, replayed from the nav entry.
+   *
+   * ⚠️ Without this, opening a lead from "Potential clients" and pressing Back
+   * dropped you on "Demo requests": the VIEW is on the nav stack but a tab
+   * chosen inside the view is component state, which unmounts with it. Same
+   * problem, and same fix, as the client profile's open tab.
+   */
+  initialKind?: LeadKind;
+  initialStatus?: DemoRequestStatus | 'ALL';
+  /** Writes the current filter into the nav entry so Back can replay it. */
+  onFilterChange?: (patch: { leadKind?: LeadKind; leadStatus?: string }) => void;
 }
 
-const DemoRequestsAdminPage: React.FC<Props> = ({ onOpenLead }) => {
+const DemoRequestsAdminPage: React.FC<Props> = ({
+  onOpenLead, initialKind = 'INBOUND', initialStatus = 'NEW', onFilterChange,
+}) => {
   const [rows, setRows] = React.useState<DemoRequest[]>([]);
   const [counts, setCounts] = React.useState<Record<string, number>>({});
   const [kindCounts, setKindCounts] = React.useState<Record<string, number>>({});
   // Which queue. Inbound first: someone who asked for a demo an hour ago is
   // colder every hour they wait, and outreach keeps.
-  const [kind, setKind] = React.useState<LeadKind>('INBOUND');
-  const [tab, setTab] = React.useState<DemoRequestStatus | 'ALL'>('NEW');
+  const [kind, setKind] = React.useState<LeadKind>(initialKind);
+  const [tab, setTab] = React.useState<DemoRequestStatus | 'ALL'>(initialStatus);
   const [q, setQ] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const [busyId, setBusyId] = React.useState<string | null>(null);
@@ -148,7 +162,10 @@ const DemoRequestsAdminPage: React.FC<Props> = ({ onOpenLead }) => {
           return (
             <button
               key={k.id}
-              onClick={() => { setKind(k.id); setTab('NEW'); }}
+              onClick={() => {
+                setKind(k.id); setTab('NEW');
+                onFilterChange?.({ leadKind: k.id, leadStatus: 'NEW' });
+              }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all ${
                 active
                   ? 'bg-pine dark:bg-zinc-100 text-white dark:text-zinc-900 border-pine dark:border-zinc-100'
@@ -172,7 +189,7 @@ const DemoRequestsAdminPage: React.FC<Props> = ({ onOpenLead }) => {
         {STATUSES.map(s => (
           <button
             key={s.id}
-            onClick={() => setTab(s.id)}
+            onClick={() => { setTab(s.id); onFilterChange?.({ leadStatus: s.id }); }}
             className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
               tab === s.id
                 ? 'bg-pine text-white dark:bg-zinc-100 dark:text-zinc-900'

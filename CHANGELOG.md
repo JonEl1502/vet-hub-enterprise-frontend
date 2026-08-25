@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: Back from a lead returns to the queue you left  —  2026-08-25
+- **What changed:** the leads queue's tab (Demo requests / Potential clients) and status filter
+  now ride on the nav entry, so returning from a lead detail page lands where you were.
+- **The bug:** found while walking the flow on prod. Opening a lead from **Potential clients** and
+  pressing Back dropped you on **Demo requests** with the filter reset. The VIEW is on the nav
+  stack, but a tab chosen *inside* a view is component state and unmounts with it — so the stack
+  restored the page and lost the only thing that said which of its two queues you were reading.
+- **The fix:** `rememberNavParams({ leadKind, leadStatus })`, the same mechanism the client
+  profile already uses for its open tab, replayed via `initialKind` / `initialStatus`.
+- **Record impact:** 🟢 None. Client-side routing only.
+- **Migration / rollout:** code-only.
+- **Rollback:** revert the commit.
+- ⚠️ **Watch out:** this applies to any routed view with internal tabs. The nav stack restores the
+  view, never the state inside it — that has to be written onto the nav entry deliberately.
+
 ### fix: the clinic switcher's tabs and Open Clinic button were off-screen  —  2026-08-25
 - **What changed:** `ClinicSwitcherModal` scrolls correctly, and its header/tabs and its
   **Open Clinic** button now stay on screen (user, 2026-08-25).
