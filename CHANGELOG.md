@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Sign-in Activity — Admin ▸ Trust & Safety  —  2026-08-25
+- **What changed:** new `LoginEventsPage` showing every login attempt with the address, country,
+  device and outcome. Two panels, in the order a human needs them:
+  1. **Repeat failures, grouped by address** — "this address failed 60 times against 12 accounts"
+     is the finding; four thousand rows is not. So the grouping leads and the feed follows.
+  2. **The feed**, with a failures-only toggle and a debounced email filter.
+- User agents are rendered as "Chrome on macOS" rather than the raw string — nobody reads a UA.
+- **Record impact:** 🟢 None — reads only.
+- **Data dependency:** backend **250** (`login_events`, `/admin/login-events`). Without it the page
+  renders its empty state rather than erroring.
+- **Rollback:** revert the commit; the sidebar entry goes with it.
+- ⚠️ **Watch out:** the page deliberately does NOT show the pre-250 LOGIN rows from `activity_logs`.
+  Those hold Cloudflare's address rather than the visitor's, and mixing them in would present the
+  same kind of fact while being the wrong one. The empty state says so.
+- ⚠️ **Watch out:** `outcome` distinguishes "no such account" from "wrong password" — the very
+  thing the login response hides so it cannot be used to enumerate accounts. This page is
+  SUPER_ADMIN only for that reason; do not reuse the type on any unauthenticated surface.
+
 ### fix: the reminder modal's action buttons were squeezed  —  2026-08-25
 - **What changed:** the action row in `RemindersApptsTab`'s reminder modal wraps instead of
   crushing its buttons (user, 2026-08-25: *"button are squeezed"*).

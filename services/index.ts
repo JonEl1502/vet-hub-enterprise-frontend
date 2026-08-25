@@ -35,6 +35,8 @@ export type { OrphanedPet } from './modules/pets.api';
 export { platformSettingsAPI } from './modules/platformSettings.api';
 export type { PlatformSettings, PlatformSettingsUpdate, ClientFarmPlansMode } from './modules/platformSettings.api';
 export { adminFarmAccessAPI } from './modules/adminFarmAccess.api';
+export { loginEventsAPI } from './modules/loginEvents.api';
+export type { LoginEvent, LoginOutcome, SuspiciousOrigin } from './modules/loginEvents.api';
 export type { FarmAccessClient } from './modules/adminFarmAccess.api';
 export { platformMetricsAPI } from './modules/platformMetrics.api';
 export type { PlatformMetrics } from './modules/platformMetrics.api';

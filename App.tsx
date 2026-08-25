@@ -125,6 +125,7 @@ import AdminClinicDetailPage from './components/admin/clinics/AdminClinicDetailP
 import AdminFreelancersPage from './components/admin/freelancers/AdminFreelancersPage';
 import AdminUsersPage from './components/admin/users/AdminUsersPage';
 import VerificationQueuePage from './components/admin/verification/VerificationQueuePage';
+import LoginEventsPage from './components/admin/security/LoginEventsPage';
 import AdminClinicTransfersView from './components/admin/transfers/AdminClinicTransfersView';
 import FreelancerCategoriesPage from './components/admin/freelancers/FreelancerCategoriesPage';
 import BillingView from './components/clinic/billing/BillingView';
@@ -3063,6 +3064,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <AdminUsersPage onNavigate={navigateTo} />;
       case 'admin-verifications':
         return <VerificationQueuePage />;
+      case 'admin-login-events':
+        return <LoginEventsPage />;
       case 'admin-clinic-transfers':
         return <AdminClinicTransfersView />;
       case 'freelancer-categories':

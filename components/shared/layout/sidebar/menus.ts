@@ -107,6 +107,8 @@ const ADMIN_ITEMS: MenuItem[] = [
     id: 'admin_trust_menu', label: 'Trust & Safety', icon: BadgeCheck,
     subItems: [
       { id: 'admin-verifications', label: 'Verification',   icon: BadgeCheck },
+      // 250 — every sign-in attempt, with the address and country it came from.
+      { id: 'admin-login-events',  label: 'Sign-in Activity', icon: ShieldCheck },
       { id: 'admin-clinic-transfers', label: 'Clinic Transfers', icon: ArrowRightLeft },
       { id: 'partner-types',       label: 'Partner Tiers',  icon: Award },
       { id: 'all-protection',      label: 'All Protection', icon: ShieldCheck },
