@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: Sign-in Activity is SUPER_ADMIN only, in the nav AND on the route  —  2026-08-25
+- **What changed:** the Admin sidebar is shared by SUPER_ADMIN and MERCHANT_ADMIN, but
+  `/admin/login-events` is `requireRole(['SUPER_ADMIN'])`. A MERCHANT_ADMIN therefore saw a menu
+  entry that answered **401** — nav promising what the API refuses. Gated in two places:
+  - `MenuSubItem` gains an optional **`roles?: string[]`** hard role gate (new, general — the
+    existing `requiredPerm` sits on the parent item and is a permission, not a role), and the
+    sidebar filter applies it. Sign-in Activity carries `roles: ['SUPER_ADMIN']`.
+  - `canAccess('admin-login-events')` in App.tsx returns `role === 'SUPER_ADMIN'`, so a deep link
+    lands on Access Restricted. **Hiding a menu entry is not access control** — the view id is
+    reachable by URL and MERCHANT_ADMIN sees the rest of the Admin section.
+- **Record impact:** 🟢 None — visibility only. The server was already correct; this stops the
+  client offering a door the server keeps shut.
+- **Data dependency:** None.
+- **Rollback:** revert the commit.
+- ⚠️ **Watch out:** `roles` is now available to every sub-item. Use it only where the SERVER is
+  narrower than the audience — it is a mirror of a real gate, never a substitute for one.
+
 ### feat: Sign-in Activity — Admin ▸ Trust & Safety  —  2026-08-25
 - **What changed:** new `LoginEventsPage` showing every login attempt with the address, country,
   device and outcome. Two panels, in the order a human needs them:

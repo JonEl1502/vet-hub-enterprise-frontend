@@ -352,7 +352,12 @@ const SectionBlock: React.FC<SectionBlockProps> = ({
   const visible = sectionItems
     .filter(i => hasPerm(i.requiredPerm))
     .filter(i => inScope(i.id))
-    .map(i => (i.subItems?.length ? { ...i, subItems: i.subItems.filter(s => planOk(s.id) && moduleOk(s.id)) } : i))
+    // `roles` on a sub-item is a HARD role gate, not a permission one: it exists
+    // for pages whose server route is narrower than the audience that can see
+    // the nav (Admin is shared by SUPER_ADMIN and MERCHANT_ADMIN).
+    .map(i => (i.subItems?.length
+      ? { ...i, subItems: i.subItems.filter(s => planOk(s.id) && moduleOk(s.id) && (!s.roles || s.roles.includes(role))) }
+      : i))
     .filter(i => (i.subItems ? i.subItems.length > 0 : planOk(i.id) && moduleOk(i.id)));
   if (visible.length === 0) return null;
 

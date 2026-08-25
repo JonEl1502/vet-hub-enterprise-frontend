@@ -2289,6 +2289,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     // Emergency is full access — reachable by every clinic user, always.
     if (view === 'emergency') return true;
 
+    // 250 — the sign-in trail is SUPER_ADMIN only, matching requireRole on
+    // /admin/login-events. Checked here as well as in the nav because hiding a
+    // menu entry is not access control: the view id is reachable by deep link,
+    // and MERCHANT_ADMIN sees the rest of the Admin section.
+    if (view === 'admin-login-events') return role === 'SUPER_ADMIN';
+
     // Grouped module permissions decide FIRST for the views they own (user,
     // 2026-08-04). `<module>:view` is the page grant. This has to run ahead of
     // `openViews` and the category-scope check below, because both return true

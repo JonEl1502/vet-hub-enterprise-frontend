@@ -59,6 +59,16 @@ export interface MenuSubItem {
   id: string;
   label: string;
   icon: LucideIcon;
+  /**
+   * Restrict this entry to specific roles. Absent = visible to everyone who can
+   * see the audience at all, which is the normal case.
+   *
+   * Needed because the Admin nav is SHARED by SUPER_ADMIN and MERCHANT_ADMIN
+   * (see the section comment below), while a few pages behind it are
+   * SUPER_ADMIN-only on the server. Without this the junior role sees an entry
+   * that answers 401 — nav promising something the API refuses.
+   */
+  roles?: string[];
 }
 
 export interface MenuItem {
@@ -108,7 +118,11 @@ const ADMIN_ITEMS: MenuItem[] = [
     subItems: [
       { id: 'admin-verifications', label: 'Verification',   icon: BadgeCheck },
       // 250 — every sign-in attempt, with the address and country it came from.
-      { id: 'admin-login-events',  label: 'Sign-in Activity', icon: ShieldCheck },
+      // SUPER_ADMIN only, matching requireRole on /admin/login-events. The
+      // `outcome` column distinguishes "no such account" from "wrong password"
+      // — precisely what the login response hides so it cannot be used to
+      // enumerate accounts — so this is the tightest gate in the Admin nav.
+      { id: 'admin-login-events',  label: 'Sign-in Activity', icon: ShieldCheck, roles: ['SUPER_ADMIN'] },
       { id: 'admin-clinic-transfers', label: 'Clinic Transfers', icon: ArrowRightLeft },
       { id: 'partner-types',       label: 'Partner Tiers',  icon: Award },
       { id: 'all-protection',      label: 'All Protection', icon: ShieldCheck },
