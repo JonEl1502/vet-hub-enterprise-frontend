@@ -59,6 +59,13 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: Patients gets its own row on the client card  —  2026-08-25
+🟢 **Record impact: none.** Layout only.
+- The pet avatars sat between Balance and Next appt, so three things competed for one row: the
+  avatars squeezed the money column, and a client with four pets wrapped that row unevenly against
+  the card beside it. **Patients is now its own full-width row, directly under the contact details**
+  (user, 2026-08-25), leaving Balance and Next appt to share the row below it.
+
 ### fix: client card actions sit at the bottom of the card  —  2026-08-25
 🟢 **Record impact: none.** Two layout classes.
 - **Call · WhatsApp · Payments** now pin to the bottom of the card (user, 2026-08-25). The grid

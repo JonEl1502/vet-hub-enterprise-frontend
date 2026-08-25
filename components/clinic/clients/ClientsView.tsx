@@ -1174,12 +1174,44 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                     </div>
                   </div>
 
+                    {/* Pets — the reason the client exists, so they are faces,
+                      not a comma-separated string in a tile. */}
+                  <div className="min-w-0 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                      {petTotal} Patient{petTotal === 1 ? '' : 's'}
+                    </p>
+                    {clientPets.length > 0 ? (
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {clientPets.slice(0, 4).map(p => (
+                          <button
+                            key={p.id}
+                            title={`${p.name} · ${p.species}${p.breed ? ` · ${p.breed}` : ''}`}
+                            onClick={(e) => { e.stopPropagation(); onViewPet?.(p.id); }}
+                            className="hover:scale-110 transition-transform"
+                          >
+                            <PetAvatar pet={p} size={22} rounded="rounded-lg" />
+                          </button>
+                        ))}
+                        {clientPets.length > 4 && (
+                          <span className="text-[10px] font-black text-slate-400">+{clientPets.length - 4}</span>
+                        )}
+                      </div>
+                    ) : petTotal > 0 ? (
+                      // We KNOW they have patients (server count) but this page
+                      // has not loaded those pet rows, so there are no faces to
+                      // draw. Say that, rather than "None" — which is a lie.
+                      <p className="text-[11px] font-bold text-slate-400">Open profile to view</p>
+                    ) : (
+                      <p className="text-[11px] font-bold text-slate-400">None</p>
+                    )}
+                  </div>
+
                   {/* Money leads. Six equal tiles gave the joined-on date the
                       same weight as an unpaid balance (user, 2026-08-03: "weak
                       hierarchy", "too many boxes"). The balance is now the
                       headline; everything else is a caption beside it, and the
                       dates that nobody acts on moved into the meta line. */}
-                  <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                  <div className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 pt-3 mt-3 border-t border-slate-100 dark:border-zinc-800">
                     <div className="min-w-0">
                       <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-0.5">
                         {outstanding > 0 ? 'Outstanding' : 'Balance'}
@@ -1202,38 +1234,6 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                           <span className="mx-1.5 text-slate-300 dark:text-zinc-700">·</span>
                           {visitCount} visit{visitCount === 1 ? '' : 's'}
                         </p>
-                      )}
-                    </div>
-
-                    {/* Pets — the reason the client exists, so they are faces,
-                        not a comma-separated string in a tile. */}
-                    <div className="min-w-0">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
-                        {petTotal} Patient{petTotal === 1 ? '' : 's'}
-                      </p>
-                      {clientPets.length > 0 ? (
-                        <div className="flex items-center gap-1.5 flex-wrap">
-                          {clientPets.slice(0, 4).map(p => (
-                            <button
-                              key={p.id}
-                              title={`${p.name} · ${p.species}${p.breed ? ` · ${p.breed}` : ''}`}
-                              onClick={(e) => { e.stopPropagation(); onViewPet?.(p.id); }}
-                              className="hover:scale-110 transition-transform"
-                            >
-                              <PetAvatar pet={p} size={22} rounded="rounded-lg" />
-                            </button>
-                          ))}
-                          {clientPets.length > 4 && (
-                            <span className="text-[10px] font-black text-slate-400">+{clientPets.length - 4}</span>
-                          )}
-                        </div>
-                      ) : petTotal > 0 ? (
-                        // We KNOW they have patients (server count) but this page
-                        // has not loaded those pet rows, so there are no faces to
-                        // draw. Say that, rather than "None" — which is a lie.
-                        <p className="text-[11px] font-bold text-slate-400">Open profile to view</p>
-                      ) : (
-                        <p className="text-[11px] font-bold text-slate-400">None</p>
                       )}
                     </div>
 
