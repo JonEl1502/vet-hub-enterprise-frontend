@@ -297,24 +297,41 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     return PERSIST_VIEWS.has(v) ? v : null;
   };
 
+  /**
+   * Did AuthContext just complete an explicit login/signup?
+   *
+   * ⚠️ PEEKS ONLY. This used to clear the flag where it was read, and the read
+   * happened inside the `useState` initialiser below — which is NOT lazy, so it
+   * ran on EVERY render. The first render after `user` arrived therefore ate
+   * the flag and threw the answer away (the state was long since initialised),
+   * and the effect that actually sets the landing view saw no flag, fell
+   * through to the saved view, and dropped you on whatever page the previous
+   * session ended on. Exactly one place clears it now: the landing effect.
+   */
+  const justLoggedIn = () => {
+    try { return typeof window !== 'undefined' && sessionStorage.getItem('vethub_just_logged_in') === '1'; }
+    catch { return false; }
+  };
+
+  /** Where an explicit login lands — the dashboard, unless the role cannot see one. */
+  const loginLandingView = (u: typeof user) => {
+    if (!u) return 'dashboard';
+    if (u.role === UserRole.SUPPLIER) return 'supplier-dashboard';
+    const perms = u.customPermissions ?? [];
+    const hasFullAccess = FULL_ACCESS_ROLES.includes(u.role as UserRole);
+    const canViewDashboard = hasFullAccess || perms.includes(Permission.VIEW_DASHBOARD)
+      || ROLE_DASHBOARD_ROLES.has(String(u.role));
+    return canViewDashboard ? 'dashboard' : 'appointments';
+  };
+
   // Set initial view based on user role and permissions, restoring last view on refresh
   const getInitialView = () => {
     // No user yet — auth screen is shown anyway, placeholder doesn't matter
     if (!user) return 'dashboard';
 
-    // One-shot signal set by AuthContext on explicit login/signup: always land
-    // on the dashboard, ignoring URL and saved-view from the previous session.
-    const justLoggedIn = typeof window !== 'undefined'
-      && sessionStorage.getItem('vethub_just_logged_in') === '1';
-    if (justLoggedIn) {
-      try { sessionStorage.removeItem('vethub_just_logged_in'); } catch {}
-      if (user.role === UserRole.SUPPLIER) return 'supplier-dashboard';
-      const perms = user.customPermissions ?? [];
-      const hasFullAccess = FULL_ACCESS_ROLES.includes(user.role as UserRole);
-      const canViewDashboard = hasFullAccess || perms.includes(Permission.VIEW_DASHBOARD)
-        || ROLE_DASHBOARD_ROLES.has(String(user.role));
-      return canViewDashboard ? 'dashboard' : 'appointments';
-    }
+    // Fresh login: the dashboard, ignoring URL and the previous session's
+    // saved view. The flag is cleared by the landing effect, not here.
+    if (justLoggedIn()) return loginLandingView(user);
 
     // URL takes precedence — lets the back button and shareable links work
     const urlView = typeof window !== 'undefined' ? pathToView(window.location.pathname) : null;
@@ -341,7 +358,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     return 'dashboard';
   };
 
-  const [navStack, setNavStack] = useState<NavState[]>([{ view: getInitialView() }]);
+  const [navStack, setNavStack] = useState<NavState[]>(() => [{ view: getInitialView() }]);
   const currentNav = navStack[navStack.length - 1];
   const activeView = currentNav.view;
 
@@ -477,22 +494,49 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       .finally(() => setFetchingApptId(null));
   }, [activeView, currentNav.params?.appointmentId, appointments.length, fetchingApptId]);
 
-  // Update view when user role changes (e.g., after login)
+  // Where an authenticated session lands, and what the back stack looks like there.
   useEffect(() => {
-    if (isAuthenticated && user) {
-      const initialView = getInitialView();
-      if (navStack.length === 1 && navStack[0].view !== initialView) {
-        setNavStack([{ view: initialView }]);
+    if (!isAuthenticated || !user) return;
+
+    // ── Explicit login / signup ──────────────────────────────────────────────
+    // Always the dashboard, on a FRESH single-entry stack (user, 2026-08-25).
+    //
+    // ⚠️ The stack is REPLACED, not appended to, and unconditionally — the old
+    // code only rebuilt it `if (navStack.length === 1)`, so anything left over
+    // from before sat underneath the dashboard and Back walked into the
+    // previous session's pages. Depth 1 is also what hides the back control
+    // (`__vethubCanGoBack`), which is the correct affordance on a landing page:
+    // there is nowhere to go back TO.
+    if (justLoggedIn()) {
+      try { sessionStorage.removeItem('vethub_just_logged_in'); } catch {}
+      const landing = loginLandingView(user);
+      setNavStack([{ view: landing }]);
+      // Persist it too, so a refresh right after login stays put instead of
+      // restoring the view this login deliberately skipped.
+      if (PERSIST_VIEWS.has(landing)) {
+        try { localStorage.setItem(VIEW_STORAGE_KEY, landing); } catch {}
       }
-      // Reflect the active view in the URL so back-button/refresh/share work.
-      // replaceState (not pushState) so we don't add a phantom /login entry to history.
-      try {
-        if (window.location.pathname !== viewToPath(initialView)) {
-          window.history.replaceState({ view: initialView }, '', viewToPath(initialView));
-        }
-      } catch {}
+      // replaceState, not push — no phantom /login entry in browser history.
+      try { window.history.replaceState({ view: landing }, '', viewToPath(landing)); } catch {}
+      return;
     }
-  }, [user?.role, isAuthenticated]);
+
+    // ── Not a fresh login ────────────────────────────────────────────────────
+    // A role change, or a tab restored into an existing session: keep the URL
+    // and saved-view behaviour, and only correct a stack still at its root.
+    const initialView = getInitialView();
+    if (navStack.length === 1 && navStack[0].view !== initialView) {
+      setNavStack([{ view: initialView }]);
+    }
+    // Reflect the active view in the URL so back-button/refresh/share work.
+    try {
+      if (window.location.pathname !== viewToPath(initialView)) {
+        window.history.replaceState({ view: initialView }, '', viewToPath(initialView));
+      }
+    } catch {}
+    // user.id is in the deps because signing in as a DIFFERENT user with the
+    // same role would otherwise not re-run this at all.
+  }, [user?.role, user?.id, isAuthenticated]);
   const [showClinicSelector, setShowClinicSelector] = useState(false);
   const [showSupplierBranchModal, setShowSupplierBranchModal] = useState(false);
   // Staff add / edit are routed pages now ('staff-new' / 'staff-edit'),

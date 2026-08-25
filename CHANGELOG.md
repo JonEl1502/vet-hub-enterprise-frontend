@@ -59,6 +59,33 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: logging in lands on the dashboard again, on a fresh back stack  —  2026-08-25
+- **What changed:** an explicit login/signup now always lands on the dashboard with a
+  single-entry nav stack (user: *"after login always start with dashboard n new back nav
+  stacking that we using"*).
+- **The bug:** `getInitialView()` read AND cleared the one-shot `vethub_just_logged_in` flag, and
+  it was called from a **non-lazy** `useState` initialiser — so it ran on every render. The first
+  render after `user` arrived consumed the flag and threw the answer away (state was already
+  initialised). The effect that actually sets the landing view then called it again, saw no flag,
+  fell through to `localStorage` — and dropped you on whatever page the *previous session* ended
+  on. The dashboard redirect had been dead for anyone with a saved view.
+  - `justLoggedIn()` now only PEEKS. Exactly one place clears it: the landing effect.
+  - The `useState` initialiser is lazy.
+  - `loginLandingView()` is the old branch extracted verbatim — role/permission behaviour is
+    unchanged (SUPPLIER → supplier-dashboard, no dashboard permission → appointments).
+- **Back stack:** login now REPLACES the stack unconditionally. It previously only rebuilt it
+  `if (navStack.length === 1)`, so leftover entries sat underneath the dashboard and Back walked
+  into the previous session's pages. Depth 1 also hides the back control via
+  `__vethubCanGoBack`, which is the right affordance on a landing page — there is nowhere back to.
+- **Record impact:** 🟢 None. Client-side routing only.
+- **Migration / rollout:** code-only. Frontend redeploy.
+- **Rollback:** revert the commit.
+- ⚠️ **Watch out:** `user.id` joined the effect deps. Without it, signing in as a DIFFERENT user
+  with the SAME role never re-ran the landing logic at all.
+- ⚠️ **Watch out:** a REFRESH still restores the saved view — deliberately. Only an explicit
+  login/signup forces the dashboard. The role-switch path in `AuthContext.login` does a hard
+  reload, and the flag survives it in `sessionStorage`, so that path still lands correctly.
+
 ### feat: "Potential clients" — a second tab on the demo-request inbox  —  2026-08-25
 - **What changed:** `DemoRequestsAdminPage` now has two queues. **Demo requests** is the inbound
   form, unchanged. **Potential clients** is the researched list we go after — 62 Kenyan and
