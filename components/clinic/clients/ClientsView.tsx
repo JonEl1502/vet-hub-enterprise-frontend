@@ -919,7 +919,13 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.04 }}
                   whileHover={{ y: -2 }}
-                  className={`group/card relative border transition-all duration-300 rounded-2xl p-3 hover:z-[50] ${
+                  /* `flex flex-col h-full` so the action row below can take
+                     `mt-auto`. The grid already stretches cards to equal height;
+                     without this the card's content decides where the buttons
+                     land, so two cards side by side put Call/WhatsApp/Payments
+                     at different heights and one left a dead band under them
+                     (user, 2026-08-25). */
+                  className={`group/card relative flex flex-col h-full border transition-all duration-300 rounded-2xl p-3 hover:z-[50] ${
                     isDeactivated
                       ? 'bg-orange-50/70 dark:bg-orange-950/20 border-orange-300 dark:border-orange-800/60 shadow-[0_0_0_2px_rgba(249,115,22,0.18),0_4px_20px_rgba(249,115,22,0.12)] hover:shadow-[0_0_0_2px_rgba(249,115,22,0.35),0_8px_28px_rgba(249,115,22,0.22)] hover:border-orange-400'
                       : `bg-white dark:bg-zinc-900 ${
@@ -1250,8 +1256,11 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                     </div>
                   </div>
 
-                  {/* Quick actions — Call · WhatsApp · Collect payment */}
-                  <div className="flex flex-wrap items-center justify-end gap-2 pt-3 mt-3 border-t border-slate-100 dark:border-zinc-800">
+                  {/* Quick actions — Call · WhatsApp · Collect payment.
+                      ⚠️ `mt-auto` is the whole point: it pins the row to the
+                      BOTTOM of the card, so every card in a row lines its
+                      actions up whatever their content height. */}
+                  <div className="flex flex-wrap items-center justify-end gap-2 pt-3 mt-auto border-t border-slate-100 dark:border-zinc-800">
                     {client.phone && (
                       <a href={`tel:${client.phone}`} onClick={e => e.stopPropagation()} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 text-[10px] font-black uppercase tracking-widest hover:text-pine dark:hover:text-white hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
                         <Phone size={12} /> Call

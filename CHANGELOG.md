@@ -59,6 +59,15 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: client card actions sit at the bottom of the card  —  2026-08-25
+🟢 **Record impact: none.** Two layout classes.
+- **Call · WhatsApp · Payments** now pin to the bottom of the card (user, 2026-08-25). The grid
+  already stretches cards to equal height, but the row sat wherever the CONTENT ended — so two cards
+  side by side put the same three buttons at different heights, and the shorter one left a dead band
+  under them.
+- Card is `flex flex-col h-full`, the action row takes `mt-auto`. ⚠️ Both halves are needed: without
+  the flex column on the card there is nothing for `mt-auto` to push against.
+
 ### feat: the clinic can write a certificate, not only print a derived one  —  2026-08-25
 🟢 **Record impact: none.** Composed and printed; nothing is written back to the patient.
 - Birth, death and the vaccine passport are **derived** — the clinic picks nothing, the record fills
