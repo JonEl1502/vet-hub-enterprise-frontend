@@ -59,6 +59,33 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: "Potential clients" — a second tab on the demo-request inbox  —  2026-08-25
+- **What changed:** `DemoRequestsAdminPage` now has two queues. **Demo requests** is the inbound
+  form, unchanged. **Potential clients** is the researched list we go after — 62 Kenyan and
+  Ugandan practices imported from a spreadsheet (user: *"add as tab in demo request as Potential
+  clients"*).
+  - It renders as a **table sorted by lead score**, not the inbound cards: this list is scanned
+    for the next call, not read one lead at a time. The row opens for the message, the internal
+    note and the email field.
+  - `LeadImportModal` takes the list two ways, because people have it in two states — the file as
+    exported, and a selection copied out of the sheet they are already looking at (user: *"allow
+    upload n paste too"*). Both reuse `utils/import/parse.ts` and `utils/import/paste.ts`.
+  - `leadSheetMapping.ts` matches columns by HEADING, never position — the workbook's clinic tab
+    and farm tab use different names for the same field ("Business / Facility" vs "Practice /
+    Practitioner", "Town / Area" vs "Base Town"), and the next list will differ again.
+  - `parse.ts` gained `listSheetNames()` and an optional `sheetName` on `parseXlsx`/`parseFile`.
+    Existing callers are unchanged — they still get the first sheet.
+- **Record impact:** 🟢 None on the client. Backend migration 234 is the data change.
+- **Migration / rollout:** needs backend 234 deployed first.
+- **Rollback:** revert the commit; the tab disappears, imported leads stay in the table.
+- ⚠️ **Watch out:** `DemoRequest.email` is now `string | null`. Every render site must guard it —
+  32 of 53 researched clinics have none, and the mailto link is now conditional.
+- ⚠️ **Watch out:** the workbook holds **two** lead sheets. "All Clinics" (53) is auto-selected
+  because it is the first that looks like leads; **"Farm Mobile Vets" (9) must be imported
+  separately** via the sheet dropdown.
+- ⚠️ **Watch out:** a lead with no email cannot become an account — the owner's email IS the
+  login. The convert dialog now asks for one and saves it back onto the lead.
+
 ### fix: two small ones — a stale emergency alert, and a 73-year free trial  —  2026-08-25
 - **Emergency alert bar held a deleted visit for up to 45s.** The triage row cascades with the
   visit (`onDelete: Cascade`), but the bar only polls every 45 seconds, so its "Open visit" link

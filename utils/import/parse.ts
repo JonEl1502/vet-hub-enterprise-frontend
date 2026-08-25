@@ -54,10 +54,29 @@ export async function parseCsv(file: File): Promise<ParsedFile> {
   });
 }
 
-export async function parseXlsx(file: File): Promise<ParsedFile> {
+/**
+ * Sheet names, without reading the data.
+ *
+ * A working spreadsheet is rarely one table: the lead database opens on a
+ * "Summary" tab of headline figures, and the rows you actually want are three
+ * tabs along. Callers that can offer a choice ask for this first; callers that
+ * cannot keep getting the first sheet, as before.
+ */
+export async function listSheetNames(file: File): Promise<string[]> {
+  const name = file.name.toLowerCase();
+  if (!name.endsWith('.xlsx') && !name.endsWith('.xls')) return [];
+  const buf = await file.arrayBuffer();
+  // bookSheets skips cell parsing — this is just the tab bar.
+  return XLSX.read(buf, { type: 'array', bookSheets: true }).SheetNames ?? [];
+}
+
+export async function parseXlsx(file: File, sheetName?: string): Promise<ParsedFile> {
   const buf = await file.arrayBuffer();
   const wb = XLSX.read(buf, { type: 'array', cellDates: true });
-  const firstSheetName = wb.SheetNames[0];
+  // Falling back to the first sheet keeps every existing caller unchanged.
+  const firstSheetName = (sheetName && wb.SheetNames.includes(sheetName))
+    ? sheetName
+    : wb.SheetNames[0];
   if (!firstSheetName) {
     return { headers: [], rows: [], warnings: ['Workbook has no sheets'] };
   }
@@ -83,15 +102,15 @@ export async function parseXlsx(file: File): Promise<ParsedFile> {
 
   const warnings: string[] = [];
   if (wb.SheetNames.length > 1) {
-    warnings.push(`Only the first sheet ("${firstSheetName}") was imported; ${wb.SheetNames.length - 1} other sheet(s) skipped.`);
+    warnings.push(`Read the "${firstSheetName}" sheet; ${wb.SheetNames.length - 1} other sheet(s) in this workbook were not imported.`);
   }
   return { headers, rows, warnings };
 }
 
-export async function parseFile(file: File): Promise<ParsedFile> {
+export async function parseFile(file: File, sheetName?: string): Promise<ParsedFile> {
   const name = file.name.toLowerCase();
   if (name.endsWith('.csv')) return parseCsv(file);
-  if (name.endsWith('.xlsx') || name.endsWith('.xls')) return parseXlsx(file);
+  if (name.endsWith('.xlsx') || name.endsWith('.xls')) return parseXlsx(file, sheetName);
   throw new Error(`Unsupported file type: ${file.name}. Use .csv, .xlsx, or .xls.`);
 }
 
