@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the reminder modal's action buttons were squeezed  —  2026-08-25
+- **What changed:** the action row in `RemindersApptsTab`'s reminder modal wraps instead of
+  crushing its buttons (user, 2026-08-25: *"button are squeezed"*).
+- **The bug:** the row was `flex gap-2` with every button `flex-1`. It holds FOUR actions and
+  sometimes five — "Mark done" appears once the due date arrives — so each got a quarter (or a
+  fifth) of the width, and "Confirm & book" and "Edit / reschedule" broke across two lines. The
+  modal had vertical space to spare, which is what made it read as broken rather than tight.
+- **The fix:** `flex-wrap` on the row, plus `min-w-[9.5rem]` and `whitespace-nowrap` on each
+  button. The LABEL never breaks now — the ROW does, onto a second line, and only when the
+  buttons genuinely cannot fit. `flex-1` still fills whatever row they land on.
+- **Record impact:** 🟢 None. Layout only.
+- **Migration / rollout:** code-only.
+- **Rollback:** revert the commit.
+- ⚠️ **Watch out:** the count of buttons here is conditional (status, due date, already-booked,
+  already-confirmed), so this row is between two and five wide depending on the reminder. Any new
+  action must assume it can be the one that forces the wrap.
+
 ### fix: supplier billing hung on "Loading billing info…" forever  —  2026-08-25
 - **What changed:** `SupplierBillingView` resolves which supplier it is showing, and can no
   longer hang when it cannot (user, 2026-08-25: *"billing not loading"*).

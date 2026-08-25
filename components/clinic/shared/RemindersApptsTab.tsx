@@ -332,12 +332,21 @@ const RemindersApptsTab: React.FC<Props> = ({ petId, clientId, petNames, readOnl
               </div>
             )}
             {!readOnly && !editRow && (
-              <div className="flex gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+              /* ⚠️ flex-WRAP, and every button carries a min width and
+                 `whitespace-nowrap`. This row holds four actions and sometimes
+                 five ("Mark done" appears once the due date arrives); as a
+                 single non-wrapping row of `flex-1` children they each got a
+                 quarter of the width, so "Confirm & book" and "Edit /
+                 reschedule" broke across two lines and read as squeezed while
+                 the modal had space to spare (user, 2026-08-25). Now the LABEL
+                 never breaks — the ROW does, onto a second line, when the
+                 buttons genuinely cannot fit. */
+              <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
                 {/* Mark done only appears once the due date has arrived; until
                     then the actions are Edit (reschedule) + Delete. */}
                 {viewRow.kind === 'reminder' && viewRow.raw.status === 'PENDING' && dueReached(viewRow) && (
                   <button onClick={() => markDone(viewRow)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-600 text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all">
+                    className="flex-1 min-w-[9.5rem] whitespace-nowrap flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-600 text-[9px] font-black uppercase tracking-widest hover:bg-emerald-500 hover:text-white transition-all">
                     <CheckCircle2 size={12} /> Mark done
                   </button>
                 )}
@@ -349,25 +358,25 @@ const RemindersApptsTab: React.FC<Props> = ({ petId, clientId, petNames, readOnl
                 {viewRow.kind === 'reminder' && viewRow.raw.status === 'PENDING' && !viewRow.raw.bookedAppointmentId && (
                   <button onClick={() => confirmAndBook(viewRow)} disabled={confirming}
                     title="Record that the client confirmed, and put them on the schedule"
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-pine text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine/90 disabled:opacity-40 transition-all">
+                    className="flex-1 min-w-[9.5rem] whitespace-nowrap flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-pine text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine/90 disabled:opacity-40 transition-all">
                     <CalendarPlus size={12} /> Confirm & book
                   </button>
                 )}
                 {viewRow.kind === 'reminder' && viewRow.raw.status === 'PENDING' && !isConfirmed(viewRow.raw) && (
                   <button onClick={() => justConfirm(viewRow)} disabled={confirming}
                     title="Record that the client confirmed — no appointment yet"
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white disabled:opacity-40 transition-all">
+                    className="flex-1 min-w-[9.5rem] whitespace-nowrap flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white disabled:opacity-40 transition-all">
                     <CheckCircle2 size={12} /> Just confirm
                   </button>
                 )}
                 {viewRow.kind === 'reminder' && viewRow.raw.status === 'PENDING' && (
                   <button onClick={() => startEdit(viewRow)}
-                    className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+                    className="flex-1 min-w-[9.5rem] whitespace-nowrap flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
                     ✏️ Edit / reschedule
                   </button>
                 )}
                 <button onClick={() => remove(viewRow)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 text-red-600 text-[9px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">
+                  className="flex-1 min-w-[9.5rem] whitespace-nowrap flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-red-500/10 text-red-600 text-[9px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all">
                   <X size={12} /> Delete
                 </button>
               </div>
