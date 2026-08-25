@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import CollapsibleFilters from '../../shared/common/CollapsibleFilters';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import {
   Search, Plus, Building2, Mail, Phone, MapPin, Globe,
-  Edit, Trash2, X, Eye, EyeOff, DollarSign, Users, CheckCircle, XCircle
+  Edit, Trash2, X, Eye, EyeOff, DollarSign, Users, CheckCircle, XCircle, ChevronRight
 } from 'lucide-react';
 import { clinicsAPI, Clinic, platformMetricsAPI, type PlatformMetrics } from '../../../services';
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
@@ -27,6 +28,14 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
   const [searchQuery, setSearchQuery] = useState('');
   // Attribution filter: 'all' | 'self' (self-registered) | a sales-rep id.
   const [sourceFilter, setSourceFilter] = useState<string>('all');
+  /**
+   * Which KPI tile is drilled into (user, 2026-08-24: "here too"), mirroring
+   * the ward's Tasks-due / Meds-due panel. A count with no way to see what it
+   * is made of is a dead end — "7 active" tells you nothing about WHICH seven.
+   */
+  const [tileDrill, setTileDrill] = useState<'total' | 'active' | 'inactive' | null>(null);
+  const [tileSearch, setTileSearch] = useState('');
+  const tileRef = useRef<HTMLDivElement>(null);
   const [clinics, setClinics] = useState<Clinic[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -198,6 +207,19 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
     setShowCreateModal(true);
   };
 
+  useEffect(() => {
+    if (!tileDrill) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setTileDrill(null); };
+    const onDown = (e: MouseEvent) => {
+      if (tileRef.current && !tileRef.current.contains(e.target as Node)) setTileDrill(null);
+    };
+    window.addEventListener('keydown', onKey);
+    document.addEventListener('mousedown', onDown);
+    return () => { window.removeEventListener('keydown', onKey); document.removeEventListener('mousedown', onDown); };
+  }, [tileDrill]);
+
+  useEffect(() => { setTileSearch(''); }, [tileDrill]);
+
   const handleOpenEditModal = (clinic: Clinic) => {
     if (onNavigate) {
       onNavigate('admin-clinic-edit', { clinicId: String(clinic.id) });
@@ -311,31 +333,123 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
         {/* KPI tiles */}
         {(() => {
           const fmt = (n: number | null | undefined) => (n == null ? '—' : n.toLocaleString());
+          /**
+           * ⚠️ Only three tiles can open a list, and that is a DATA fact, not a
+           * design choice:
+           *  · Total / Active / Inactive are answerable from `clinics`, which
+           *    this page already holds — `isActive` is on every row.
+           *  · Verified / Pending come from the server AGGREGATE only; no
+           *    per-clinic verification field is loaded here, so a list built
+           *    locally would be a guess. They NAVIGATE to the verification
+           *    queue instead, which is the screen that owns that state.
+           *  · Clients / Pets / MRR are sums across the platform. There is no
+           *    list of clinics "behind" a revenue figure, so they stay plain
+           *    rather than inventing one.
+           */
           const tiles = [
-            { label: 'Total', value: fmt(metrics?.clinics.total ?? stats.total), icon: Building2, tone: 'text-blue-500 bg-blue-500/10' },
-            { label: 'Active', value: fmt(metrics?.clinics.active ?? stats.active), icon: CheckCircle, tone: 'text-green-500 bg-green-500/10' },
-            { label: 'Inactive', value: fmt(metrics?.clinics.inactive ?? stats.inactive), icon: XCircle, tone: 'text-red-500 bg-red-500/10' },
-            { label: 'Verified', value: fmt(metrics?.clinics.verified), icon: ShieldCheck, tone: 'text-emerald-500 bg-emerald-500/10' },
-            { label: 'Pending', value: fmt(metrics?.clinics.pending), icon: Clock, tone: 'text-amber-500 bg-amber-500/10' },
-            { label: 'Clients', value: fmt(metrics?.totals?.clients), icon: Users, tone: 'text-cyan-500 bg-cyan-500/10' },
-            { label: 'Pets', value: fmt(metrics?.totals?.pets), icon: PawPrint, tone: 'text-fuchsia-500 bg-fuchsia-500/10' },
-            { label: 'MRR', value: fmt(metrics?.subscriptions.mrr), icon: CircleDollarSign, tone: 'text-pine bg-pine/10 dark:text-zinc-200 dark:bg-zinc-100/10' },
+            { key: 'total' as const, label: 'Total', value: fmt(metrics?.clinics.total ?? stats.total), icon: Building2, tone: 'text-blue-500 bg-blue-500/10' },
+            { key: 'active' as const, label: 'Active', value: fmt(metrics?.clinics.active ?? stats.active), icon: CheckCircle, tone: 'text-green-500 bg-green-500/10' },
+            { key: 'inactive' as const, label: 'Inactive', value: fmt(metrics?.clinics.inactive ?? stats.inactive), icon: XCircle, tone: 'text-red-500 bg-red-500/10' },
+            { key: 'verifications' as const, label: 'Verified', value: fmt(metrics?.clinics.verified), icon: ShieldCheck, tone: 'text-emerald-500 bg-emerald-500/10' },
+            { key: 'verifications' as const, label: 'Pending', value: fmt(metrics?.clinics.pending), icon: Clock, tone: 'text-amber-500 bg-amber-500/10' },
+            { key: null, label: 'Clients', value: fmt(metrics?.totals?.clients), icon: Users, tone: 'text-cyan-500 bg-cyan-500/10' },
+            { key: null, label: 'Pets', value: fmt(metrics?.totals?.pets), icon: PawPrint, tone: 'text-fuchsia-500 bg-fuchsia-500/10' },
+            { key: null, label: 'MRR', value: fmt(metrics?.subscriptions.mrr), icon: CircleDollarSign, tone: 'text-pine bg-pine/10 dark:text-zinc-200 dark:bg-zinc-100/10' },
           ];
+          const drillList = tileDrill
+            ? clinics
+                .filter(c => tileDrill === 'total' ? true : tileDrill === 'active' ? c.isActive : !c.isActive)
+                .filter(c => {
+                  const q = tileSearch.trim().toLowerCase();
+                  if (!q) return true;
+                  return `${c.name ?? ''} ${c.email ?? ''} ${c.subdomain ?? ''}`.toLowerCase().includes(q);
+                })
+            : [];
           return (
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
-              {tiles.map((t) => (
-                <div key={t.label} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+            <div ref={tileRef} className="relative grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 mb-6">
+              {tiles.map((t) => {
+                const isList = t.key === 'total' || t.key === 'active' || t.key === 'inactive';
+                const isNav = t.key === 'verifications';
+                const open = isList && tileDrill === t.key;
+                const inner = (
                   <div className="flex items-center gap-3">
                     <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${t.tone}`}>
                       <t.icon size={20} />
                     </div>
-                    <div className="min-w-0">
+                    <div className="min-w-0 text-left">
                       <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 truncate">{t.label}</p>
                       <p className="text-xl font-black text-pine dark:text-zinc-100">{t.value}</p>
                     </div>
+                    {(isList || isNav) && <ChevronRight size={14} className={`ml-auto shrink-0 text-slate-300 dark:text-zinc-600 transition-transform ${open ? 'rotate-90' : ''}`} />}
                   </div>
+                );
+                if (!isList && !isNav) {
+                  return (
+                    <div key={t.label} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">{inner}</div>
+                  );
+                }
+                return (
+                  <button
+                    key={t.label}
+                    type="button"
+                    onClick={() => isNav ? onNavigate?.('admin-verifications') : setTileDrill(open ? null : (t.key as 'total' | 'active' | 'inactive'))}
+                    title={isNav ? 'Open the verification queue' : `Show the clinics behind ${t.label.toLowerCase()}`}
+                    className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 transition-all hover:border-seafoam active:scale-[0.98] ${open ? 'border-seafoam' : 'border-slate-200 dark:border-zinc-800'}`}
+                  >
+                    {inner}
+                  </button>
+                );
+              })}
+
+              {tileDrill && (
+                <div className="absolute top-full left-0 right-0 mt-2 z-50 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden">
+                  <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-zinc-800">
+                    <Search size={14} className="text-slate-400 shrink-0" />
+                    <input
+                      autoFocus
+                      value={tileSearch}
+                      onChange={(e) => setTileSearch(e.target.value)}
+                      placeholder="Search these clinics by name, email or subdomain…"
+                      className="flex-1 min-w-0 bg-transparent text-sm font-bold text-pine dark:text-zinc-100 outline-none placeholder:text-slate-400 placeholder:font-bold"
+                    />
+                    <button type="button" onClick={() => setTileDrill(null)} className="shrink-0 p-1 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100" aria-label="Close">
+                      <XCircle size={14} />
+                    </button>
+                  </div>
+                  <div className="max-h-80 overflow-y-auto p-1.5">
+                    {drillList.length === 0 ? (
+                      <p className="px-3 py-6 text-center text-xs font-bold text-slate-400">
+                        {tileSearch.trim() ? `Nothing matches “${tileSearch.trim()}”.` : 'No clinics here.'}
+                      </p>
+                    ) : drillList.map(c => (
+                      <button
+                        key={String(c.id)}
+                        type="button"
+                        onClick={() => { setTileDrill(null); onNavigate?.('admin-clinic-detail', { clinicId: String(c.id) }); }}
+                        className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-slate-50 dark:hover:bg-zinc-800/60 transition-colors group"
+                      >
+                        <span className={`grid place-items-center w-8 h-8 rounded-xl shrink-0 ${c.isActive ? 'bg-green-500/10 text-green-600' : 'bg-red-500/10 text-red-500'}`}>
+                          <Building2 size={14} />
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-black text-pine dark:text-zinc-100 truncate">{c.name}</span>
+                          <span className="block text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 truncate">
+                            {c.email || c.subdomain || 'No contact on file'} · {c.isActive ? 'Active' : 'Inactive'}
+                          </span>
+                        </span>
+                        <ChevronRight size={14} className="shrink-0 text-slate-300 dark:text-zinc-600 group-hover:text-seafoam transition-colors" />
+                      </button>
+                    ))}
+                  </div>
+                  <p className="px-3 py-2 border-t border-slate-100 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/40 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
+                    {/* ⚠️ Says what it is counting: this list is the clinics THIS
+                        PAGE has loaded, while the tile above it may be a server
+                        aggregate. If they ever disagree, the note explains why
+                        rather than leaving two numbers arguing. */}
+                    {drillList.length} listed · opens the clinic · Esc to close
+                  </p>
                 </div>
-              ))}
+              )}
             </div>
           );
         })()}
@@ -409,19 +523,35 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
 
       {adminTab === 'directory' && (
       <div className="space-y-5">
-        {/* Search + attribution filter + Cards/Table view toggle */}
-        <div className="flex flex-col sm:flex-row gap-3">
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
-            <input
-              type="text"
-              placeholder="Search clinics by name, email, or subdomain..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-6 py-3 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all"
-            />
-          </div>
-          {sourceOptions.show && (
+        {/* Search + view toggle stay out; the attribution filter folds away
+            (user, 2026-08-24). ⚠️ It is the only foldable control here — the
+            search and the cards/table toggle are what the tab is FOR — so the
+            panel earns its place only by keeping the source filter from
+            competing with them for the row. */}
+        <CollapsibleFilters
+          hint="brought in by"
+          activeCount={sourceFilter !== 'all' ? 1 : 0}
+          onClear={() => setSourceFilter('all')}
+          primary={(
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={20} />
+                <input
+                  type="text"
+                  placeholder="Search clinics by name, email, or subdomain..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl pl-12 pr-6 py-3 text-sm text-pine dark:text-zinc-100 focus:ring-2 focus:ring-seafoam/20 outline-none transition-all"
+                />
+              </div>
+              <div className="flex bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-1 shrink-0">
+                {([['cards', LayoutGrid], ['table', TableIcon]] as const).map(([v, Icon]) => (
+                  <button key={v} onClick={() => setDirectoryView(v)} title={v === 'cards' ? 'Card view' : 'Table view'} className={`px-3 py-2 rounded-xl transition-all ${directoryView === v ? 'bg-seafoam text-white' : 'text-slate-400 hover:text-pine'}`}><Icon size={16} /></button>
+                ))}
+              </div>
+            </div>
+          )}
+          more={sourceOptions.show ? (
             <div className="relative sm:w-64">
               <UserCheck className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={18} />
               <select
@@ -439,13 +569,12 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
                 </optgroup>}
               </select>
             </div>
+          ) : (
+            <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">
+              No attribution filter yet — it appears once a clinic is brought in by a sales rep.
+            </p>
           )}
-          <div className="flex bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-1 shrink-0">
-            {([['cards', LayoutGrid], ['table', TableIcon]] as const).map(([v, Icon]) => (
-              <button key={v} onClick={() => setDirectoryView(v)} title={v === 'cards' ? 'Card view' : 'Table view'} className={`px-3 py-2 rounded-xl transition-all ${directoryView === v ? 'bg-seafoam text-white' : 'text-slate-400 hover:text-pine'}`}><Icon size={16} /></button>
-            ))}
-          </div>
-        </div>
+        />
 
       {directoryView === 'table' ? (
         <ClinicsTable clinics={filteredClinics} onOpen={(id) => onNavigate ? onNavigate('admin-clinic-detail', { clinicId: id }) : setViewingClinic(filteredClinics.find(c => String(c.id) === id) || null)} />

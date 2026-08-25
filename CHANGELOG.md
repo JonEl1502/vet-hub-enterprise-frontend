@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: All Clinics — KPI tiles open the clinics behind them; directory filter folds away  —  2026-08-24
+🟢 **Record impact: none.** Read-only drill-down plus placement.
+- **Total / Active / Inactive** open a searchable list of the clinics that make up the number;
+  clicking a row opens that clinic. "7 active" said nothing about *which* seven.
+- ⚠️ **Only three tiles can open a list, and that is a data fact, not a design choice:**
+  · Total/Active/Inactive are answerable from the clinic rows this page already holds (`isActive`).
+  · **Verified/Pending come from the server aggregate only** — no per-clinic verification field is
+    loaded here, so a locally-built list would be a guess. They **navigate to the verification
+    queue** instead, the screen that owns that state.
+  · **Clients/Pets/MRR are platform sums** — there is no list of clinics "behind" a revenue figure,
+    so they stay plain rather than inventing one.
+- The panel's footer says how many it listed, because the tile above it may be a **server
+  aggregate** while the list is what this page loaded. If the two ever disagree, the note explains
+  why instead of leaving two numbers arguing.
+- **Directory tab** now uses the shared `CollapsibleFilters`: search and the cards/table toggle stay
+  out, the sales-rep attribution filter folds away. When no rep has ever brought in a clinic the
+  panel says so, rather than opening onto nothing.
+
 ### feat: the Clients filter pattern is a shared component, now on admin and supplier  —  2026-08-24
 🟢 **Record impact: none.** Placement only — every filter behaves as before.
 - Clients and Patients had each grown this by hand, and admin/supplier were about to grow a third
