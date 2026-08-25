@@ -5,6 +5,7 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Pet, Visit, ApptStatus, Client, Clinic, Message, FULL_ACCESS_ROLES, UserRole } from '../../../types';
 import VaccinePassportModal from './VaccinePassportModal';
 import PetCertificateModal from './PetCertificates';
+import CustomCertificateModal from './CustomCertificateModal';
 import ClinicalSnapshotPanel from './ClinicalSnapshotPanel';
 import PatientTimeline from './PatientTimeline';
 import AppointmentCreateModal from '../appointments/AppointmentCreateModal';
@@ -197,6 +198,8 @@ const PetProfileView: React.FC<Props> = ({
   // Clinic-issued certificates (user, 2026-08-01): birth always available,
   // death only once the patient is marked deceased.
   const [certKind, setCertKind] = useState<'BIRTH' | 'DEATH' | null>(null);
+  // A certificate the clinic writes, rather than one the record derives.
+  const [customCertOpen, setCustomCertOpen] = useState(false);
   // Reminder being edited from the timeline (null = not editing).
   const [editingReminder, setEditingReminder] = useState<Reminder | null>(null);
   const [linkOwnerOpen, setLinkOwnerOpen] = useState(false);
@@ -2020,6 +2023,15 @@ const PetProfileView: React.FC<Props> = ({
               blocked: pet.isAlive === false ? null : 'Available once the patient is recorded as deceased.',
             },
             {
+              key: 'custom',
+              icon: '✍️',
+              title: 'Write a certificate',
+              body: 'Health, fitness to travel, sterilisation, microchip, ownership — anything a vet is asked to sign. The patient and owner details fill themselves in; you write the statement.',
+              action: 'New certificate',
+              onClick: () => setCustomCertOpen(true),
+              blocked: null as string | null,
+            },
+            {
               key: 'passport',
               icon: '💉',
               title: 'Vaccine passport',
@@ -2482,6 +2494,17 @@ const PetProfileView: React.FC<Props> = ({
           owner={owner}
           clinic={activeClinic ?? clinics.find(c => Number(c.id) === Number(pet.clinicId))}
           onClose={() => setCertKind(null)}
+        />
+      )}
+
+      {/* A certificate the clinic writes — see the note in the component: it is
+          printed, never filed, exactly like the derived ones. */}
+      {customCertOpen && (
+        <CustomCertificateModal
+          pet={pet}
+          owner={owner}
+          clinic={activeClinic ?? clinics.find(c => Number(c.id) === Number(pet.clinicId))}
+          onClose={() => setCustomCertOpen(false)}
         />
       )}
 

@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the clinic can write a certificate, not only print a derived one  —  2026-08-25
+🟢 **Record impact: none.** Composed and printed; nothing is written back to the patient.
+- Birth, death and the vaccine passport are **derived** — the clinic picks nothing, the record fills
+  them in. Everything else a vet is asked to sign (fitness to travel, health for export,
+  sterilisation, microchip, soundness) is a sentence a human writes over the same patient facts,
+  and it had nowhere to live — so those were being written outside the system entirely
+  (user, 2026-08-25: "allow user to create cert too … for vaccine they get generated").
+- **Write a certificate** joins the Certificates tab: a title (six presets, or type your own) and a
+  free statement, over the **same derived patient/owner grid** every other certificate here carries —
+  so a hand-written one cannot quietly contradict a generated one. Same seal, serial and signature
+  block.
+- Print is **disabled until there is a title and a statement**: a blank certificate under a clinic
+  seal is worse than no certificate.
+- ⚠️ **Not stored, and it says so on the modal.** Like every certificate here it is a document
+  compiled from the record, not a record itself. A clinic that believes this was filed will not keep
+  its own copy, so the footer tells them to print or export before closing. **Persisting these would
+  need a table and a migration** — worth doing if the user wants an issued-certificates history.
+
 ### feat: Certificates open from inside a visit  —  2026-08-25
 🟢 **Record impact: none.** One navigation door.
 - A **Certificates** card joins the visit's patient rail, beside Patient & Owner, Behaviour and
