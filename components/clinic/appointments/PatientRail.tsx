@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ChevronRight, User as UserIcon, Stethoscope, Smile, Calendar, Bell, Loader2, X } from 'lucide-react';
+import { ChevronRight, User as UserIcon, Stethoscope, Smile, Calendar, Bell, Loader2, X , Award} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { Visit, Pet, Client, Clinic } from '../../../types';
 import { petsAPI, remindersAPI, appointmentsAPI } from '../../../services';
@@ -69,7 +69,7 @@ interface Props {
   allAppointments: Visit[];
   visitReminder?: any | null;
   onNavigateToVisit?: (visitId: number) => void;
-  onNavigateToPet?: (petId: number) => void;
+  onNavigateToPet?: (petId: number, tab?: string) => void;
   onNavigateToClient?: (clientId: number) => void;
   onBookFollowUp?: () => void;
   // The doctor's staged Follow-up plan (wizard follow-up step data) —
@@ -501,6 +501,32 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
         </div>
         )}
       </InfoCard>
+
+      {/* CERTIFICATES (user, 2026-08-25: "we can have Certificates to open
+          from here in visit"). The documents themselves live on the patient's
+          Certificates tab — they are compiled from the whole RECORD, not from
+          one visit — so this is the door to them from inside a visit, which is
+          where someone is standing when an owner asks for one.
+          ⚠️ Deliberately NOT a copy of the documents: one renderer, one home.
+          The per-visit vaccination certificate is still a separate open
+          question — this covers birth, death and the vaccine passport. */}
+      {onNavigateToPet && (
+        <InfoCard icon={Award} title="Certificates"
+          summary="Birth · Death · Vaccine passport">
+          <div className="space-y-1.5">
+            <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 leading-snug">
+              Clinic-issued documents for {pet.name}, compiled from the patient record.
+            </p>
+            <button
+              type="button"
+              onClick={() => onNavigateToPet(pet.id, 'certificates')}
+              className="w-full px-2 py-1.5 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all"
+            >
+              Open certificates
+            </button>
+          </div>
+        </InfoCard>
+      )}
 
       <InfoCard icon={Stethoscope} title="Clinical Snapshot"
         summary={`${past.length} past visit${past.length === 1 ? '' : 's'} · ${vaccinesGiven} vaccine${vaccinesGiven === 1 ? '' : 's'} given`}>

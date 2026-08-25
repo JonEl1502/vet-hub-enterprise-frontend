@@ -102,7 +102,7 @@ interface Props {
   // two views point at each other instead of only one way round.
   onOpenDetails?: () => void;
   onNavigateToClient?: (clientId: number, tab?: string, highlightInvoiceId?: string | number) => void;
-  onNavigateToPet?: (petId: number) => void;
+  onNavigateToPet?: (petId: number, tab?: string) => void;
   onNavigateToStaff?: (staffId: number) => void;
   onNavigateToReminder?: (reminderId: number | string) => void;
   allAppointments: Visit[];

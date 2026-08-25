@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: Certificates open from inside a visit  —  2026-08-25
+🟢 **Record impact: none.** One navigation door.
+- A **Certificates** card joins the visit's patient rail, beside Patient & Owner, Behaviour and
+  Clinical Snapshot (user, 2026-08-25). Someone standing in a visit is exactly who gets asked for a
+  document, and the only route there was to leave the visit and find the patient.
+- It **opens the patient's Certificates tab** rather than copying the documents into the visit.
+  ⚠️ Those documents are compiled from the whole patient RECORD, not from one visit — two renderers
+  for one document is how they start disagreeing.
+- `onNavigateToPet` now carries an optional tab (rail → `VisitDetailView` → `App`), so any rail card
+  can land on a specific tab instead of always Overview.
+- ⚠️ Still open: the **per-visit vaccination certificate**, which went with the standalone
+  Vaccinations page. This card covers birth, death and the vaccine passport.
+
 ### fix: seven mobile corrections across patients, visits and inventory  —  2026-08-25
 🟢 **Record impact: none.** Layout and one navigation behaviour.
 1. **Patient card stacks below `sm`.** Side by side on a phone the four action buttons took ~150px
