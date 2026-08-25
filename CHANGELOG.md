@@ -59,6 +59,19 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: patient card — actions at the bottom, owner on one line, sex as M/F  —  2026-08-25
+🟢 **Record impact: none.** Layout and one label.
+- **Actions moved out of the header to the bottom of the card** (user, 2026-08-25: "button below
+  all"). Beside the name they took ~150px, which forced the breed onto four lines on a two-column
+  grid. Under `mt-auto` they now also line up across cards of unequal height, the way the client
+  card's actions do — the card is `flex flex-col h-full` so there is something for `mt-auto` to push
+  against.
+- **Owner name · phone · email on one wrapping row** instead of three stacked lines. They answer a
+  single question — who to ring — and stacked they cost three lines of a card whose job is to be
+  scannable. They wrap rather than truncate on a narrow card.
+- **Sex reads M / F**, not Male / Female. It was the widest value in a four-cell strip and truncated
+  to "Fem…", which reads as broken rather than as short. Neutered still appends `·N`.
+
 ### fix: Patients gets its own row on the client card  —  2026-08-25
 🟢 **Record impact: none.** Layout only.
 - The pet avatars sat between Balance and Next appt, so three things competed for one row: the

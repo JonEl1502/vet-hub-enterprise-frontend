@@ -687,7 +687,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                   whileHover={{ scale: 1.02 }}
                   onClick={() => onViewPet(pet.id)}
                   role="button"
-                  className={`compact-card overflow-visible hover:z-[50] cursor-pointer ${
+                  className={`compact-card flex flex-col h-full overflow-visible hover:z-[50] cursor-pointer ${
                     isDeceased
                       ? '!bg-red-50/60 dark:!bg-red-950/20 border-red-300 dark:border-red-800/60 shadow-[0_0_0_2px_rgba(239,68,68,0.18),0_4px_20px_rgba(239,68,68,0.12)] hover:shadow-[0_0_0_2px_rgba(239,68,68,0.35),0_8px_28px_rgba(239,68,68,0.22)] hover:!border-red-400'
                       : upcomingVisit
@@ -739,8 +739,13 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                           animal and not the person to ring is half a card — the
                           phone was already here but rendered blank whenever the
                           lookup missed, and the email was never shown at all. */}
-                      <div className="space-y-1 mb-2">
-                        <div className="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400 text-[9px] font-bold">
+                      {/* ⚠️ ONE WRAPPING ROW, not three stacked lines (user,
+                          2026-08-25). Name, phone and email answer a single
+                          question — who to ring — and stacked they cost three
+                          lines of a card whose job is to be scannable. They
+                          still WRAP rather than truncate on a narrow card. */}
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mb-2">
+                        <div className="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400 text-[9px] font-bold min-w-0">
                           <Users size={10} className="text-mist dark:text-zinc-700 shrink-0" />
                           <span className="truncate">{owner?.name || 'External'}</span>
                         </div>
@@ -748,7 +753,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                           <a
                             href={`tel:${owner.phone}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400 text-[9px] font-bold hover:text-seafoam transition-colors"
+                            className="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400 text-[9px] font-bold hover:text-seafoam transition-colors min-w-0"
                             title={`Call ${owner.phone}`}
                           >
                             <Phone size={10} className="text-mist dark:text-zinc-700 shrink-0" />
@@ -759,7 +764,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                           <a
                             href={`mailto:${owner.email}`}
                             onClick={(e) => e.stopPropagation()}
-                            className="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400 text-[9px] font-bold hover:text-seafoam transition-colors"
+                            className="flex items-center gap-1.5 text-slate-500 dark:text-zinc-400 text-[9px] font-bold hover:text-seafoam transition-colors min-w-0"
                             title={`Email ${owner.email}`}
                           >
                             <Mail size={10} className="text-mist dark:text-zinc-700 shrink-0" />
@@ -809,104 +814,6 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                         </button>
                       )}
 
-                      {/* Quick actions, then the ⋮ menu — one row.
-                          The three things reception actually DOES to a patient
-                          (open a visit now, book an appointment, set a reminder)
-                          were two interactions deep — hover the ⋮, then aim at a
-                          menu row — while the top of the card sat empty
-                          (user, 2026-08-24). They are buttons on the card now,
-                          in that space; the menu keeps everything else.
-                          They carry their NAMES from `sm:` up (user, 2026-08-24:
-                          "there is space") — an icon alone is a guess until you
-                          hover it, and a first-time user does not hover.
-                          ⚠️ Heights still match: the 14px icon sets the height in
-                          every one of them, including the icon-only ⋮, so the
-                          9px label widens the pills without making them taller. */}
-                      <div className="flex items-center gap-1 flex-wrap justify-start sm:justify-end w-full sm:w-auto">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; onNewAppointment(pet.ownerId, pet.id); }}
-                          disabled={pet.isAlive === false}
-                          title={pet.isAlive === false ? 'Patient deceased — no new visits' : 'Open a visit for this patient now'}
-                          aria-label="Start new visit"
-                          className="relative z-10 flex items-center gap-1.5 px-2 sm:px-2.5 py-2 bg-seafoam/10 text-seafoam border border-seafoam/20 rounded-lg hover:bg-seafoam hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-seafoam/10 disabled:hover:text-seafoam"
-                        >
-                          <Stethoscope size={14} className="shrink-0" /><span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest">Visit</span>
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setApptModalPet(pet); }}
-                          disabled={pet.isAlive === false}
-                          title={pet.isAlive === false ? 'Patient deceased — no new appointments' : 'Create an appointment (a visit is spawned from it)'}
-                          aria-label="Create appointment"
-                          className="relative z-10 flex items-center gap-1.5 px-2 sm:px-2.5 py-2 bg-cyan/10 text-cyan border border-cyan/20 rounded-lg hover:bg-cyan hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-cyan/10 disabled:hover:text-cyan"
-                        >
-                          <CalendarPlus size={14} className="shrink-0" /><span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest">Appt</span>
-                        </button>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setReminderModalPet(pet); }}
-                          disabled={pet.isAlive === false}
-                          title={pet.isAlive === false ? 'Patient deceased — no new reminders' : 'Set a reminder for this patient'}
-                          aria-label="New reminder"
-                          className="relative z-10 flex items-center gap-1.5 px-2 sm:px-2.5 py-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 rounded-lg hover:bg-amber-500 hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-amber-50 dark:disabled:hover:bg-amber-500/10 disabled:hover:text-amber-600"
-                        >
-                          <BellPlus size={14} className="shrink-0" /><span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest">Reminder</span>
-                        </button>
-                      <div className="relative group/actions flex items-center">
-                        {/* Menu opens to the LEFT, pr-2 bridge keeps hover alive */}
-                        <div className="absolute right-full top-1/2 -translate-y-1/2 pr-2 z-50 opacity-0 pointer-events-none group-hover/actions:opacity-100 group-hover/actions:pointer-events-auto transition-opacity duration-150 delay-500 group-hover/actions:delay-0">
-                          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1.5 shadow-xl w-44">
-                            {/* Start New Visit · Create Appointment · New
-                                Reminder moved ONTO the card (user, 2026-08-24)
-                                — see the quick-action row above. Deliberately
-                                not left here as well: one action with two homes
-                                is how a menu grows stale. */}
-                            <button
-                              onClick={(e) => { e.stopPropagation(); onViewPet(pet.id); }}
-                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg transition-colors"
-                            >
-                              <Search size={12} className="text-slate-500 dark:text-zinc-400 shrink-0" />
-                              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">View Patient</span>
-                            </button>
-                            <button
-                              onClick={(e) => { e.stopPropagation(); onViewPet(pet.id, 'appointments'); }}
-                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-lg transition-colors"
-                            >
-                              <Calendar size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
-                              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">View Visits</span>
-                            </button>
-                            {onEditPet && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); onEditPet(pet.id); }}
-                                className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors border-t border-slate-100 dark:border-zinc-800 mt-1 pt-2"
-                              >
-                                <Edit size={12} className="text-blue-600 dark:text-blue-400 shrink-0" />
-                                <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">Edit Pet</span>
-                              </button>
-                            )}
-                            {isAdmin && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); setTransferTarget(pet); }}
-                                className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-lg transition-colors"
-                              >
-                                <ArrowRightLeft size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
-                                <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">Transfer to clinic</span>
-                              </button>
-                            )}
-                            {onDeletePet && (
-                              <button
-                                onClick={(e) => { e.stopPropagation(); onDeletePet(pet.id); }}
-                                className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
-                              >
-                                <Trash2 size={12} className="text-red-600 dark:text-red-400 shrink-0" />
-                                <span className="text-red-600 dark:text-red-400 font-bold text-[10px]">Delete Pet</span>
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        <button onClick={(e) => e.stopPropagation()} aria-label="More actions" className="relative z-10 p-2 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:text-white hover:bg-seafoam rounded-lg transition-all shadow-sm">
-                          <MoreVertical size={14} />
-                        </button>
-                      </div>
-                      </div>
                     </div>
                   </div>
 
@@ -930,7 +837,10 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                         { label: 'Weight', value: pet.weight ? String(pet.weight) : '—', tone: 'text-emerald-600 dark:text-emerald-400', muted: !pet.weight },
                         { label: 'Visits', value: String(pet.appointmentCount || 0), tone: 'text-cyan-600 dark:text-cyan-400', muted: !pet.appointmentCount },
                         { label: 'Vaccines', value: String(vaccines), tone: 'text-indigo-600 dark:text-indigo-400', muted: vaccines === 0 },
-                        { label: 'Sex', value: `${pet.gender || '—'}${pet.isNeutered ? ' ·N' : ''}`, tone: 'text-amber-600 dark:text-amber-400', muted: !pet.gender },
+                        // ⚠️ M / F, not Male / Female (user, 2026-08-25). The word is the widest
+                        // value in a four-cell strip and truncated to "Fem…" on a
+                        // narrow card, which reads as broken rather than as short.
+                        { label: 'Sex', value: `${pet.gender ? String(pet.gender).trim().charAt(0).toUpperCase() : '—'}${pet.isNeutered ? '·N' : ''}`, tone: 'text-amber-600 dark:text-amber-400', muted: !pet.gender },
                       ];
                       return cells.map(c => (
                         <div key={c.label} className="px-2.5 first:pl-0 last:pr-0 min-w-0">
@@ -971,6 +881,111 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                       ))}
                     </div>
                   )}
+                  <div className="mt-auto pt-3">
+                    {/* Quick actions, then the ⋮ menu — the LAST row of the card.
+                        The three things reception actually DOES to a patient
+                        (open a visit now, book an appointment, set a reminder)
+                        were two interactions deep — hover the ⋮, then aim at a
+                        menu row — while the top of the card sat empty
+                        (user, 2026-08-24). They are buttons on the card now,
+                        in that space; the menu keeps everything else.
+                      ⚠️ MOVED OUT OF THE HEADER (user, 2026-08-25: "button below
+                      all"). Beside the name they took ~150px, which forced the
+                      breed onto four lines on a two-column grid. At the bottom
+                      under `mt-auto` they also line up across cards of unequal
+                      height, the way the client card's actions do.
+                        They carry their NAMES from `sm:` up (user, 2026-08-24:
+                        "there is space") — an icon alone is a guess until you
+                        hover it, and a first-time user does not hover.
+                        ⚠️ Heights still match: the 14px icon sets the height in
+                        every one of them, including the icon-only ⋮, so the
+                        9px label widens the pills without making them taller. */}
+                    <div className="flex items-center gap-1 flex-wrap justify-start sm:justify-end w-full sm:w-auto">
+                      <button
+                        onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; onNewAppointment(pet.ownerId, pet.id); }}
+                        disabled={pet.isAlive === false}
+                        title={pet.isAlive === false ? 'Patient deceased — no new visits' : 'Open a visit for this patient now'}
+                        aria-label="Start new visit"
+                        className="relative z-10 flex items-center gap-1.5 px-2 sm:px-2.5 py-2 bg-seafoam/10 text-seafoam border border-seafoam/20 rounded-lg hover:bg-seafoam hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-seafoam/10 disabled:hover:text-seafoam"
+                      >
+                        <Stethoscope size={14} className="shrink-0" /><span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest">Visit</span>
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setApptModalPet(pet); }}
+                        disabled={pet.isAlive === false}
+                        title={pet.isAlive === false ? 'Patient deceased — no new appointments' : 'Create an appointment (a visit is spawned from it)'}
+                        aria-label="Create appointment"
+                        className="relative z-10 flex items-center gap-1.5 px-2 sm:px-2.5 py-2 bg-cyan/10 text-cyan border border-cyan/20 rounded-lg hover:bg-cyan hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-cyan/10 disabled:hover:text-cyan"
+                      >
+                        <CalendarPlus size={14} className="shrink-0" /><span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest">Appt</span>
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; setReminderModalPet(pet); }}
+                        disabled={pet.isAlive === false}
+                        title={pet.isAlive === false ? 'Patient deceased — no new reminders' : 'Set a reminder for this patient'}
+                        aria-label="New reminder"
+                        className="relative z-10 flex items-center gap-1.5 px-2 sm:px-2.5 py-2 bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-200 dark:border-amber-500/20 rounded-lg hover:bg-amber-500 hover:text-white transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-amber-50 dark:disabled:hover:bg-amber-500/10 disabled:hover:text-amber-600"
+                      >
+                        <BellPlus size={14} className="shrink-0" /><span className="hidden sm:inline text-[9px] font-black uppercase tracking-widest">Reminder</span>
+                      </button>
+                    <div className="relative group/actions flex items-center">
+                      {/* Menu opens to the LEFT, pr-2 bridge keeps hover alive */}
+                      <div className="absolute right-full top-1/2 -translate-y-1/2 pr-2 z-50 opacity-0 pointer-events-none group-hover/actions:opacity-100 group-hover/actions:pointer-events-auto transition-opacity duration-150 delay-500 group-hover/actions:delay-0">
+                        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-1.5 shadow-xl w-44">
+                          {/* Start New Visit · Create Appointment · New
+                              Reminder moved ONTO the card (user, 2026-08-24)
+                              — see the quick-action row above. Deliberately
+                              not left here as well: one action with two homes
+                              is how a menu grows stale. */}
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onViewPet(pet.id); }}
+                            className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-slate-50 dark:hover:bg-zinc-800 rounded-lg transition-colors"
+                          >
+                            <Search size={12} className="text-slate-500 dark:text-zinc-400 shrink-0" />
+                            <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">View Patient</span>
+                          </button>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onViewPet(pet.id, 'appointments'); }}
+                            className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-lg transition-colors"
+                          >
+                            <Calendar size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                            <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">View Visits</span>
+                          </button>
+                          {onEditPet && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onEditPet(pet.id); }}
+                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-blue-50 dark:hover:bg-blue-500/10 rounded-lg transition-colors border-t border-slate-100 dark:border-zinc-800 mt-1 pt-2"
+                            >
+                              <Edit size={12} className="text-blue-600 dark:text-blue-400 shrink-0" />
+                              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">Edit Pet</span>
+                            </button>
+                          )}
+                          {isAdmin && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setTransferTarget(pet); }}
+                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-amber-50 dark:hover:bg-amber-500/10 rounded-lg transition-colors"
+                            >
+                              <ArrowRightLeft size={12} className="text-amber-600 dark:text-amber-400 shrink-0" />
+                              <span className="text-pine dark:text-zinc-100 font-bold text-[10px]">Transfer to clinic</span>
+                            </button>
+                          )}
+                          {onDeletePet && (
+                            <button
+                              onClick={(e) => { e.stopPropagation(); onDeletePet(pet.id); }}
+                              className="w-full flex items-center gap-2 px-2.5 py-2 text-left hover:bg-red-50 dark:hover:bg-red-500/10 rounded-lg transition-colors"
+                            >
+                              <Trash2 size={12} className="text-red-600 dark:text-red-400 shrink-0" />
+                              <span className="text-red-600 dark:text-red-400 font-bold text-[10px]">Delete Pet</span>
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <button onClick={(e) => e.stopPropagation()} aria-label="More actions" className="relative z-10 p-2 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 text-slate-600 dark:text-zinc-400 hover:text-white hover:bg-seafoam rounded-lg transition-all shadow-sm">
+                        <MoreVertical size={14} />
+                      </button>
+                    </div>
+                    </div>
+                  </div>
                 </motion.div>
               );
             })}
