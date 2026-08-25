@@ -14,9 +14,9 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ShieldCheck, RefreshCw, Loader2, Search, X, AlertTriangle, Globe, Monitor,
+  ShieldCheck, RefreshCw, Loader2, Search, X, AlertTriangle, Globe, Monitor, Plane,
 } from 'lucide-react';
-import { loginEventsAPI, type LoginEvent, type SuspiciousOrigin } from '../../../services';
+import { loginEventsAPI, type LoginEvent, type SuspiciousOrigin, type ImpossibleTravel } from '../../../services';
 import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
 
 const OUTCOME: Record<string, { label: string; cls: string }> = {
@@ -76,18 +76,21 @@ const when = (iso: string) => new Date(iso).toLocaleString();
 const LoginEventsPage: React.FC = () => {
   const [events, setEvents] = useState<LoginEvent[]>([]);
   const [offenders, setOffenders] = useState<SuspiciousOrigin[]>([]);
+  const [travel, setTravel] = useState<ImpossibleTravel[]>([]);
   const [loading, setLoading] = useState(true);
   const [failedOnly, setFailedOnly] = useState(false);
   const [q, setQ] = useState('');
 
   const load = useCallback(async () => {
     setLoading(true);
-    const [f, s] = await Promise.all([
+    const [f, s, t] = await Promise.all([
       loginEventsAPI.adminList({ limit: 200, failedOnly, email: q.trim() || undefined }),
       loginEventsAPI.adminSuspicious(24, 5),
+      loginEventsAPI.adminImpossibleTravel(168),
     ]);
     if (f.success && f.data) setEvents(f.data.events);
     if (s.success && s.data) setOffenders(s.data.offenders);
+    if (t.success && t.data) setTravel(t.data.hits);
     setLoading(false);
   }, [failedOnly, q]);
 
@@ -109,6 +112,39 @@ const LoginEventsPage: React.FC = () => {
           </button>
         }
       />
+
+      {/*
+        0 — impossible travel. Above repeat failures on purpose: a failed attempt
+        is someone trying, this is someone who ALREADY GOT IN and cannot have
+        been in both places. That ordering is the whole editorial judgement of
+        this page.
+
+        ⚠️ Framed as a question, not an accusation. A VPN or a roaming mobile IP
+        produces exactly this pattern legitimately, and the coordinates behind it
+        are city centroids, not people. Nothing in the app acts on it.
+      */}
+      {travel.length > 0 && (
+        <div className="bg-white dark:bg-zinc-900 border border-amber-300 dark:border-amber-900/50 rounded-2xl p-4 shadow-sm space-y-2">
+          <p className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest flex items-center gap-1.5">
+            <Plane size={13} /> Worth a look · signed in from two distant places
+          </p>
+          <p className="text-[10px] text-slate-500 dark:text-zinc-500 leading-relaxed">
+            Both sign-ins succeeded. A VPN or a travelling phone explains most of these — but a
+            shared password looks identical, so it is worth asking the person.
+          </p>
+          {travel.map((t, i) => (
+            <div key={`${t.userId}-${t.at}-${i}`} className="p-2.5 rounded-xl border border-slate-200 dark:border-zinc-800">
+              <p className="text-xs font-black text-pine dark:text-zinc-100 truncate">{t.email}</p>
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                {t.fromPlace} → {t.toPlace}
+              </p>
+              <p className="text-[10px] text-slate-400 dark:text-zinc-600 mt-0.5">
+                {t.km.toLocaleString()} km in {t.minutesApart} min · implies {t.impliedKmh.toLocaleString()} km/h · {when(t.at)}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* 1 — repeat failures, grouped. The finding, not the feed. */}
       {offenders.length > 0 && (

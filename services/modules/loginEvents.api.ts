@@ -26,11 +26,31 @@ export interface LoginEvent {
   ipAddress: string | null;
   countryCode: string | null;
   countryName: string | null;
-  /** Reserved — Cloudflare's free plan sends no city, so this is null today. */
   city: string | null;
+  /**
+   * ⚠️ The CENTROID of the IP's city/region — NOT where the person was. Present
+   * for impossible-travel detection only; do not render it as a location or as
+   * a pin on a map. See backend migration 251.
+   */
+  latitude: number | null;
+  longitude: number | null;
   userAgent: string | null;
   createdAt: string;
   user: { id: string; email: string; name: string | null; role: string } | null;
+}
+
+/** Two sign-ins too far apart, too close in time. A prompt to look, not a verdict. */
+export interface ImpossibleTravel {
+  userId: string;
+  email: string;
+  fromPlace: string;
+  toPlace: string;
+  fromIp: string | null;
+  toIp: string | null;
+  km: number;
+  minutesApart: number;
+  impliedKmh: number;
+  at: string;
 }
 
 export interface SuspiciousOrigin {
@@ -64,6 +84,12 @@ export const loginEventsAPI = {
     options?: RequestOptions,
   ): Promise<ApiResponse<{ offenders: SuspiciousOrigin[] }>> =>
     get(`/admin/login-events/suspicious?hours=${hours}&minFailures=${minFailures}`, { cache: false, ...options }),
+
+  adminImpossibleTravel: (
+    hours = 168,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ hits: ImpossibleTravel[] }>> =>
+    get(`/admin/login-events/impossible-travel?hours=${hours}`, { cache: false, ...options }),
 };
 
 export default loginEventsAPI;
