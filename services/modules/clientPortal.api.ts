@@ -202,8 +202,23 @@ export interface PortalPlan {
   features: string[];
   featureKeys: string[];
   maxFarms: number;
+  /** 233 — a FARMER rung (grants `livestock:farms`), not a pet-owner rung. */
+  farmPlan: boolean;
   purchasable: boolean;
   billingOptions: Array<{ id: string; cycle: string; price: number; discountPct: number }>;
+}
+
+/** 233 — the ladder, plus which half of it this account is being shown. */
+export interface PortalPlanList {
+  plans: PortalPlan[];
+  /** True when the FARMER rungs are included above. */
+  farmAccount: boolean;
+  /**
+   * Whether the client may flip that themselves. False when an admin decided
+   * it, when the platform decided it for everyone, or when they already own
+   * farms — the portal hides its switch rather than showing a dead one.
+   */
+  canChooseFarmPlans: boolean;
 }
 
 /** What the account is on right now. Never null — no plan means Free. */
@@ -450,8 +465,15 @@ export const clientPortalAPI = {
   getMyPlan: (options?: RequestOptions): Promise<ApiResponse<PortalPlanState>> =>
     get('/portal/me/plan', { cache: false, ...options }),
 
-  listPlans: (options?: RequestOptions): Promise<ApiResponse<{ plans: PortalPlan[] }>> =>
+  listPlans: (options?: RequestOptions): Promise<ApiResponse<PortalPlanList>> =>
     get('/portal/me/plans', { cache: false, ...options }),
+
+  /**
+   * 233 — declare that this account keeps livestock, revealing the FARMER
+   * rungs. Free and reversible; the rungs themselves are what is paid for.
+   */
+  setFarmAccount: (isFarmer: boolean, options?: RequestOptions): Promise<ApiResponse<PortalPlanList>> =>
+    post('/portal/me/farm-account', { isFarmer }, { showError: true, ...options }),
 
   initiatePlanPayment: (data: { packageId: string; billingOptionId?: string; cycle?: string; phone?: string }, options?: RequestOptions): Promise<ApiResponse<{ attemptId: string; reference: string; authorizationUrl: string }>> =>
     post('/portal/me/plan/initiate', data, { showError: true, ...options }),

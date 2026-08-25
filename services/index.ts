@@ -33,7 +33,9 @@ export type { SummaryScope, SummaryTotals, SummarySeriesPoint, SummaryResponse, 
 export type { DuplicateGroup, DuplicateGroupClient } from './modules/clients.api';
 export type { OrphanedPet } from './modules/pets.api';
 export { platformSettingsAPI } from './modules/platformSettings.api';
-export type { PlatformSettings, PlatformSettingsUpdate } from './modules/platformSettings.api';
+export type { PlatformSettings, PlatformSettingsUpdate, ClientFarmPlansMode } from './modules/platformSettings.api';
+export { adminFarmAccessAPI } from './modules/adminFarmAccess.api';
+export type { FarmAccessClient } from './modules/adminFarmAccess.api';
 export { platformMetricsAPI } from './modules/platformMetrics.api';
 export type { PlatformMetrics } from './modules/platformMetrics.api';
 export { supplierMetricsAPI } from './modules/supplierMetrics.api';

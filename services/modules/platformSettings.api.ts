@@ -20,6 +20,12 @@ export interface PlatformSettings {
   // Public self-serve signup switch. When false the marketing site routes
   // signup CTAs to the "Contact us for a demo" form instead of the wizard.
   signupsEnabled: boolean;
+  /**
+   * 233 — who is offered the FARMER rungs on the CLIENT plan ladder.
+   * 'FARM_ACCOUNTS' (default) = accounts detected as farms, 'ALL' = every
+   * client, 'MANUAL' = only accounts an admin granted individually.
+   */
+  clientFarmPlansMode: ClientFarmPlansMode;
   hasMpesaConsumerKey: boolean;
   hasMpesaConsumerSecret: boolean;
   hasMpesaPasskey: boolean;
@@ -64,6 +70,7 @@ export interface PlatformSettingsUpdate {
   usdToKesRate?: number;
   displayCurrency?: string;
   signupsEnabled?: boolean;
+  clientFarmPlansMode?: ClientFarmPlansMode;
   aiProvider?: AiProvider;
   anthropicApiKey?: string | null;
   anthropicModel?: string | null;
@@ -74,6 +81,8 @@ export interface PlatformSettingsUpdate {
 }
 
 const BASE = '/admin/platform-settings';
+
+export type ClientFarmPlansMode = 'FARM_ACCOUNTS' | 'ALL' | 'MANUAL';
 
 export interface DisplayConfig {
   displayCurrency: string;

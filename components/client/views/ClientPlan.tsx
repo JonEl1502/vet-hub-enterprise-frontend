@@ -12,6 +12,15 @@ import { clientPortalAPI, PortalPlan, PortalPlanState } from '../../../services'
  * a farmer IS a client, and 230 took CLIENT off the Farms add-on for exactly
  * this reason.
  *
+ * 233 — but one ladder for two customers meant every pet owner was offered
+ * "Farmer Pro+ — KES 5,000", which is livestock software for a labrador. The
+ * server now sends only the rungs this account should see, and `farmAccount`
+ * says which of the two it is.
+ *
+ * ⚠️ The reveal below is FREE. Charging for it would bill the same capability
+ * twice — an unlock fee, then the rung that actually grants the farms — so all
+ * this control does is stop showing a farmer's ladder to someone with a cat.
+ *
  * ⚠️ Free is a real rung, shown alongside the rest, and it is where cancelling
  * returns you. Nothing on this screen can lock a pet owner out of their own
  * pets' records.
@@ -28,17 +37,24 @@ const farmLine = (p: PortalPlan) => {
 const ClientPlan: React.FC = () => {
   const navigate = useNavigate();
   const [plans, setPlans] = useState<PortalPlan[]>([]);
+  const [farmAccount, setFarmAccount] = useState(false);
+  const [canChooseFarm, setCanChooseFarm] = useState(false);
   const [current, setCurrent] = useState<PortalPlanState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [switchingFarm, setSwitchingFarm] = useState(false);
 
   const load = useCallback(async () => {
     const [p, c] = await Promise.all([
       clientPortalAPI.listPlans(),
       clientPortalAPI.getMyPlan(),
     ]);
-    if (p.success && p.data) setPlans(p.data.plans);
+    if (p.success && p.data) {
+      setPlans(p.data.plans);
+      setFarmAccount(p.data.farmAccount);
+      setCanChooseFarm(p.data.canChooseFarmPlans);
+    }
     if (c.success && c.data) setCurrent(c.data);
     setLoading(false);
   }, []);
@@ -79,6 +95,25 @@ const ClientPlan: React.FC = () => {
     const r = await clientPortalAPI.cancelMyPlan();
     setCancelling(false);
     if (r.success && r.data) setCurrent(r.data);
+  };
+
+  /**
+   * Reveal (or hide) the farmer half of the ladder.
+   *
+   * Not a purchase — the server just records that this account keeps
+   * livestock, which is also what the clinics serving them already read. It
+   * refuses to hide the rungs while farms exist on the account, so the plan
+   * someone is paying for can never disappear from the screen they renew it on.
+   */
+  const toggleFarm = async () => {
+    setSwitchingFarm(true);
+    const r = await clientPortalAPI.setFarmAccount(!farmAccount);
+    setSwitchingFarm(false);
+    if (r.success && r.data) {
+      setPlans(r.data.plans);
+      setFarmAccount(r.data.farmAccount);
+      setCanChooseFarm(r.data.canChooseFarmPlans);
+    }
   };
 
   const ordered = useMemo(() => [...plans].sort((a, b) => a.tier - b.tier), [plans]);
@@ -175,6 +210,40 @@ const ClientPlan: React.FC = () => {
           );
         })}
       </div>
+
+      {/*
+        The way IN and the way OUT of the farmer ladder.
+
+        Without this the gate is a dead end: a pet owner who buys a smallholding
+        would see Free and Plus forever, and every route to farm mode — the
+        `is_livestock` flag, owning a farm, holding a farm plan — presupposes
+        already being through it.
+
+        Hidden whenever the switch would not actually move anything: while they
+        hold a farm plan or own a farm ("hide farm plans" beside the Farmer plan
+        they pay for is an offer the server will rightly refuse, and it would
+        read as a cancel button that is not one), and when an admin or the
+        platform mode made the decision instead. A dead control is worse than no
+        control — it makes the client doubt what they are seeing.
+      */}
+      {canChooseFarm && (
+        <div className="cp-card p-4 flex items-start gap-3">
+          <Sprout className="w-4 h-4 mt-0.5 shrink-0 cp-accent-text" />
+          <div className="flex-1">
+            <div className="text-sm font-bold" style={{ color: 'var(--cp-ink)' }}>
+              {farmAccount ? 'Farm plans are on for this account' : 'Do you keep livestock?'}
+            </div>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--cp-ink-soft)' }}>
+              {farmAccount
+                ? 'The Farmer plans above cover farms, herds, feeding and produce. Turn them off to go back to the pet-owner plans.'
+                : 'Turn on farm plans to see Farmer, Farmer Pro and Farmer Pro+ — for farms, herds, feeding and produce. Free to turn on; you only pay if you pick one.'}
+            </p>
+          </div>
+          <button className="cp-btn-ghost shrink-0" onClick={toggleFarm} disabled={switchingFarm}>
+            {switchingFarm ? '…' : farmAccount ? 'Turn off' : 'Show farm plans'}
+          </button>
+        </div>
+      )}
     </div>
   );
 };

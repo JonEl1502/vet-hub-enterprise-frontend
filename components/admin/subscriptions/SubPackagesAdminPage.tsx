@@ -19,6 +19,7 @@ import { featureCopy } from '../../../services/entitlements';
 import { dialog } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
+import FarmPlansAccessPanel from './FarmPlansAccessPanel';
 
 type Tab = 'features' | 'limits';
 
@@ -342,6 +343,13 @@ const SubPackagesAdminPage: React.FC = () => {
           disclaimer read as "this tab is broken". The tab creates and edits
           supplier packages exactly like the others; where they live is an
           implementation detail nobody at this screen needs shouted at them. */}
+
+      {/* 233 — the client ladder carries two customers (pet owner, farmer) on one
+          set of rungs, so it needs a control the other tabs don't: who is
+          OFFERED the Farmer rungs. It sits here rather than in Platform
+          Settings because it is a fact about this ladder, and the person
+          editing Farmer Pro+ is the person deciding who should see it. */}
+      {audience === 'client' && <FarmPlansAccessPanel />}
 
       {(
       <>

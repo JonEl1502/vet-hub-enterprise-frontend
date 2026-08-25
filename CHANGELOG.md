@@ -59,6 +59,55 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the inpatient admit gate was a hand-rolled copy  —  2026-08-25
+- **What changed:** `AdmitInpatientModal` now renders the shared `<AdmissionGate>` like
+  boarding, grooming and the visit wizard already do. It had its own copy of the card —
+  same chips, same weight input, laid out by hand — which is exactly the drift the shared
+  component exists to stop (2026-08-02: *"still not same... make same same"*).
+- **What the copy had silently lost:**
+  - **Vaccine prefill.** The shared gate reads the pet's ADMINISTERED vaccination records
+    and pre-ticks them; the copy only ever prefilled weight. An inpatient admit therefore
+    showed "no vaccination on record" for a patient whose vaccines were on file, and staff
+    re-ticked by hand or recommended vaccines the pet already had.
+  - **The certificate claim** (`claimCertificate`, 2026-08-04) — present on every other
+    gate, absent here, so a client asking for a certificate at an inpatient admit had
+    nowhere to be recorded.
+- **Record impact:** 🟢 None — same fields, same submit payload. `vaccineChecklist` now
+  arrives pre-populated where records exist, which is the point.
+- **Data dependency:** None. Prefill uses `petsAPI`, already called by the other gates.
+- **Rollback:** revert the commit; the hand-rolled card returns, minus nothing that was
+  working.
+- ⚠️ **Watch out:** the gate stays a **hard stop** here (`required`), matching the boarding
+  admit — `submit()` still refuses without a weight and without either a recorded or a
+  recommended vaccine. The wizard's hospital-admission step remains advisory
+  (`required={false}`), which is deliberate: that step is reached mid-visit, after the
+  patient is already in the building.
+
+### feat: pet owners stop being sold Farmer plans  —  2026-08-25
+- **What changed:** `ClientPlan` renders whatever rungs the server sends, which for a pet
+  owner is now Free and Plus only. Below the grid, a **"Do you keep livestock?"** card
+  reveals Farmer / Farmer Pro / Farmer Pro+ — free, reversible, and the only way INTO the
+  farm half of the ladder for someone who bought a smallholding after signing up.
+  - The card is hidden whenever the switch would not move anything: they already own a
+    farm or hold a farm plan, or an admin / the platform mode decided it. The server sends
+    `canChooseFarmPlans` for exactly this. A dead control is worse than no control.
+  - **New `FarmPlansAccessPanel`** on Admin → Plans → **Client Plans**: a platform mode
+    (Everyone / Farm accounts / Only my picks) plus per-account grant, withhold, or hand
+    back to the rules, with a client search. It sits on that tab rather than in Platform
+    Settings because the person editing Farmer Pro+ is the person deciding who sees it.
+  - `PortalPlan` gains `farmPlan`; `listPlans` returns `PortalPlanList`.
+- **Record impact:** 🟢 None in the frontend. The admin panel writes
+  `clients.farm_plans_override` and `platform_settings.client_farm_plans_mode` (🟢 there).
+- **Data dependency:** backend **233** and `/admin/farm-access`. Without them
+  `GET /portal/me/plans` returns no `farmAccount`, the reveal card stays hidden (it renders
+  on `canChooseFarmPlans`, which would be undefined) and the ladder shows as it does today
+  — degrades quietly rather than breaking.
+- **Rollback:** revert the commit and rebuild; every client sees all five rungs again.
+- ⚠️ **Watch out:** the reveal is deliberately **free**. Charging for it would bill the
+  same capability twice — an unlock fee, then the rung that actually grants the farms. The
+  paid Farms add-on stays what it is: a bolt-on for clinics and suppliers, whose core
+  business is something else.
+
 ### feat: the admission gate lives on the chart, and locks after day one  —  2026-08-25
 🔵 **Record impact: low** — no schema change; an amendment writes one visit-journey event.
 **Data dependency:** none new (`admittedAt` already on the hospitalisation; `visitsAPI.addEvent`).
