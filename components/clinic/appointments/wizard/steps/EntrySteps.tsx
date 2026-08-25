@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { AlertTriangle, ClipboardList, Package, X } from 'lucide-react';
+import { AlertTriangle, ClipboardList, Package, X, Lock } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L, Seg, CheckGrid } from '../fields';
 import EmergencyTriagePanel from '../../../triage/EmergencyTriagePanel';
@@ -10,6 +10,7 @@ import { useData } from '../../../../../contexts/DataContext';
 import { petsAPI } from '../../../../../services';
 import { VACCINES } from '../../../../../constants/vaccines';
 import AdmissionGate from '../../../shared/AdmissionGate';
+import { inpatientAPI } from '../../../../../services';
 import BoardingIntakeFields, { emptyBoardingIntake } from '../../../shared/BoardingIntakeFields';
 import GroomingIntakeFields, { emptyGroomingIntake } from '../../../shared/GroomingIntakeFields';
 
@@ -140,8 +141,16 @@ const FORMS: Record<string, EntryFormDef> = {
   },
   admission: {
     title: 'Hospital Admission',
-    intro: 'Admission details — the full admit checklist runs from the visit header (Onboard to in-patient).',
+    /**
+     * ⚠️ THE GATE ITSELF LIVES HERE NOW (user, 2026-08-25: "can we have the
+     * actual gate check there"). This tab used to show a subset of the
+     * admission and a sentence pointing at the visit header for the real
+     * checklist — two doors to one record, and the door you were standing at
+     * was the one that could not finish the job.
+     */
+    intro: 'Admission details and the gate check — weight and vaccination status are verified here.',
     fields: [
+      { kind: 'gate', key: 'gate', label: 'Admission gate', span: 2 },
       { kind: 'input', key: 'reason', label: 'Reason for admission', placeholder: 'e.g. IV fluids + monitoring', span: 2 },
       { kind: 'input', key: 'ward', label: 'Ward / cage' },
       { kind: 'seg', key: 'code', label: 'Resuscitation code', options: ['Full CPR', 'DNR'] },
@@ -212,7 +221,7 @@ const FORMS: Record<string, EntryFormDef> = {
 // (Register Visit renders it above Date & Time for grooming/boarding/admission).
 // When petId is given, "Vaccines verified" auto-ticks from the patient's
 // ADMINISTERED vaccination records, each showing its date administered.
-export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (patch: any) => void; petId?: number | string | null; pet?: any; addService?: () => void; flat?: boolean }> = ({ formKey, data, setData, petId, pet, addService, flat }) => {
+export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (patch: any) => void; petId?: number | string | null; pet?: any; addService?: () => void; flat?: boolean; locked?: boolean }> = ({ formKey, data, setData, petId, pet, addService, flat, locked }) => {
   const form = FORMS[formKey];
   const d = data || {};
   if (!form) return null;
@@ -258,7 +267,12 @@ export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (pat
           </p>
         </div>
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+      {/* ⚠️ Read-only by CONTAINER, not by disabling twelve controls one at a
+          time: every field kind here (input, textarea, seg, checks, food,
+          intake, gate) would need its own disabled path, and the one that got
+          missed would be the editable hole in a locked record. The banner above
+          carries the meaning; this just makes it true. */}
+      <div className={`grid grid-cols-1 md:grid-cols-2 gap-3 ${locked ? 'pointer-events-none select-none opacity-60' : ''}`} aria-disabled={locked || undefined}>
         {form.fields.map(f => {
           const span = f.span === 2 ? 'md:col-span-2' : '';
           switch (f.kind) {
@@ -460,6 +474,52 @@ export const AdmissionEntryStep: React.FC<StepProps> = ({ pet, data, setData, vi
   const [tab, setTab] = React.useState<'gate' | 'chart' | 'plan'>('gate');
   const hospId = visit?.hospitalizationId ? String(visit.hospitalizationId) : null;
 
+  /**
+   * THE ADMISSION GATE LOCKS 24H AFTER ADMISSION — but only once it is actually
+   * complete (user, 2026-08-25).
+   *
+   * ⚠️ The "only once complete" half is the important half. Locking purely on
+   * the clock would freeze exactly the record the yellow banner exists for: an
+   * imported stay arrives with reason / ward / resuscitation code blank because
+   * the old system never held them, and a day later it would lock still blank —
+   * so the person who could finally fill them in would need an amendment reason
+   * to enter facts that were never recorded in the first place. While the gate
+   * is incomplete it stays open; once complete, the clock applies.
+   *
+   * The lock is not security — it is a record-integrity prompt. Anyone may
+   * amend; they just have to say why, and the why is written to the visit
+   * journey so the chart carries its own history.
+   */
+  const [admittedAt, setAmittedAt] = React.useState<string | null>(null);
+  const [amending, setAmending] = React.useState(false);
+  const [amendReason, setAmendReason] = React.useState('');
+
+  React.useEffect(() => {
+    if (!hospId) { setAmittedAt(null); return; }
+    let alive = true;
+    inpatientAPI.getById(hospId)
+      .then((r: any) => { if (alive && r?.success) setAmittedAt(r.data?.hospitalization?.admittedAt ?? null); })
+      .catch(() => { /* no stay data → no lock, which fails OPEN on purpose */ });
+    return () => { alive = false; };
+  }, [hospId]);
+
+  const gateComplete = ['reason', 'ward', 'code'].every(k => {
+    const v = (data || {})[k];
+    return v != null && String(v).trim() !== '';
+  });
+  const dayOnePassed = !!admittedAt && (Date.now() - new Date(admittedAt).getTime()) > 24 * 60 * 60 * 1000;
+  const locked = gateComplete && dayOnePassed && !amending;
+
+  const startAmend = () => {
+    const reason = amendReason.trim();
+    if (!reason) return;
+    // The audit line. Emitted BEFORE the fields open, so the record carries the
+    // reason even if the person changes their mind and edits nothing.
+    emit?.(`Admission details amended — ${reason}`, 'action', true);
+    setAmending(true);
+    setAmendReason('');
+  };
+
   const TABS: Array<{ id: typeof tab; label: string }> = [
     { id: 'gate', label: 'Admission gate' },
     { id: 'chart', label: 'Daily sheet & chart' },
@@ -486,7 +546,42 @@ export const AdmissionEntryStep: React.FC<StepProps> = ({ pet, data, setData, vi
       </div>
 
       {tab === 'gate' && (
-        <GateCheckForm formKey="admission" data={data} setData={setData} petId={pet?.id} pet={pet} />
+        <>
+          {locked && (
+            <div className="px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900 space-y-2">
+              <p className="text-[11px] font-bold text-pine dark:text-zinc-200 flex items-start gap-2">
+                <Lock size={13} className="text-slate-400 mt-0.5 shrink-0" />
+                <span>
+                  Locked — admitted {new Date(admittedAt as string).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}.
+                  The admission record is more than a day old. You can still change it, but the reason is written to the visit journey.
+                </span>
+              </p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  value={amendReason}
+                  onChange={e => setAmendReason(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); startAmend(); } }}
+                  placeholder="Why is this being amended? e.g. ward corrected after transfer"
+                  className="field-input flex-1 min-w-0"
+                />
+                <button
+                  type="button"
+                  onClick={startAmend}
+                  disabled={!amendReason.trim()}
+                  className="w-full sm:w-auto sm:shrink-0 px-4 py-2 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                >
+                  Amend
+                </button>
+              </div>
+            </div>
+          )}
+          {amending && (
+            <p className="px-3 py-2 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50/70 dark:bg-amber-950/20 text-[10px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
+              Amending — the reason is on the visit journey
+            </p>
+          )}
+          <GateCheckForm formKey="admission" data={data} setData={setData} petId={pet?.id} pet={pet} locked={locked} />
+        </>
       )}
 
       {/* Both chart tabs need a stay. Say so plainly rather than rendering an

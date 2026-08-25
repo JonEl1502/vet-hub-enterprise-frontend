@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the admission gate lives on the chart, and locks after day one  —  2026-08-25
+🔵 **Record impact: low** — no schema change; an amendment writes one visit-journey event.
+**Data dependency:** none new (`admittedAt` already on the hospitalisation; `visitsAPI.addEvent`).
+- **The actual gate check is now IN the Admission Gate tab** (user, 2026-08-25). That tab showed a
+  subset of the admission plus a sentence pointing at the visit header for the real checklist —
+  two doors to one record, and the door you were standing at was the one that could not finish the
+  job. The shared `AdmissionGate` (intake weight, vaccination verification, the recommend escape)
+  was already wired into the form renderer; the admission spec simply never listed it.
+- **It locks 24h after admission** — but **only once the gate is actually complete**.
+  ⚠️ That condition is the important half. A pure clock would freeze exactly the record the yellow
+  banner exists for: an imported stay arrives with reason / ward / resuscitation code blank because
+  the old system never held them, and a day later it would lock **still blank** — so the person who
+  could finally fill them in would need an amendment reason to enter facts that were never recorded.
+  While incomplete it stays open; once complete, the clock applies.
+- **Amending asks why, and the why is written to the visit journey** ("Admission details amended —
+  <reason>"), stamped with who and when. The event is emitted **before** the fields reopen, so the
+  record carries the reason even if the person then edits nothing.
+- ⚠️ **The lock is a record-integrity prompt, not security.** Anyone may amend; they just have to say
+  why. Nothing here gates on role.
+- ⚠️ **Read-only is applied by container, not by disabling twelve controls one at a time.** Every
+  field kind (input, textarea, seg, checks, food, intake, gate) would need its own disabled path,
+  and the one that got missed would be the editable hole in a locked record.
+- ⚠️ **Fails OPEN:** if the stay cannot be read, there is no `admittedAt`, so nothing locks. A chart
+  that refuses edits because a fetch failed is worse than one that allows them.
+
 ### fix: patient card — actions at the bottom, owner on one line, sex as M/F  —  2026-08-25
 🟢 **Record impact: none.** Layout and one label.
 - **Actions moved out of the header to the bottom of the card** (user, 2026-08-25: "button below
