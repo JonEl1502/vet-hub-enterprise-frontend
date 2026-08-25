@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
+import CollapsibleFilters from '../../shared/common/CollapsibleFilters';
 import {
   Plus,
   Search,
@@ -421,72 +422,82 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = ({ setView }) 
         <h1 className="page-header">Products</h1>
         <p className="page-subheader mt-1">Your catalogue and stock listings</p>
       </header>
-      {/* Filter card */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
-
-        {/* Row 1: search + date range */}
-        <div className="flex flex-wrap gap-3 items-center">
-          <div className="relative flex-1 min-w-[180px]">
-            <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
-            <input
-              type="text"
-              placeholder="Search by name or SKU…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              className="w-full pl-9 pr-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/40 placeholder-slate-400 dark:placeholder-zinc-600"
-            />
-          </div>
-          <DateRangePicker value={dateRange} onChange={setDateRange} />
-        </div>
-
-        {/* Row 2: selects + actions */}
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={categoryFilter}
-            onChange={e => setCategoryFilter(e.target.value)}
-            className="px-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-          >
-            <option value="ALL">All Categories</option>
-            {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          <select
-            value={availabilityFilter}
-            onChange={e => setAvailabilityFilter(e.target.value as any)}
-            className="px-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
-          >
-            <option value="ALL">All Availability</option>
-            <option value="AVAILABLE">Available</option>
-            <option value="UNAVAILABLE">Unavailable</option>
-            <option value="LOW_STOCK">Low Stock</option>
-          </select>
-          {hasActiveFilters && (
+      {/* Filters — search and the actions stay out; the date range and the two
+          selects fold away (user, 2026-08-24, "like in clients"). Results count
+          and Refresh stay visible: the count is how you read the effect of a
+          filter, so hiding it behind the same toggle would hide the answer. */}
+      <CollapsibleFilters
+        hint="dates · category · availability"
+        activeCount={[
+          dateRange?.start || dateRange?.end ? 1 : 0,
+          categoryFilter !== 'ALL' ? 1 : 0,
+          availabilityFilter !== 'ALL' ? 1 : 0,
+        ].reduce((a: number, b: number) => a + b, 0)}
+        onClear={() => { setDateRange(null); setCategoryFilter('ALL'); setAvailabilityFilter('ALL'); }}
+        primary={(
+          <div className="flex flex-wrap gap-3 items-center">
+            <div className="relative flex-1 min-w-[180px]">
+              <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-zinc-500" />
+              <input
+                type="text"
+                placeholder="Search by name or SKU…"
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                className="w-full pl-9 pr-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/40 placeholder-slate-400 dark:placeholder-zinc-600"
+              />
+            </div>
+            {hasActiveFilters && (
+              <button
+                onClick={() => { setSearch(''); setDateRange(null); setCategoryFilter('ALL'); setAvailabilityFilter('ALL'); }}
+                className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-red-500 dark:hover:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+              >
+                <X size={12} /> Clear
+              </button>
+            )}
+            <span className="text-xs font-semibold text-slate-400 dark:text-zinc-500 ml-auto">
+              {filtered.length} results
+            </span>
             <button
-              onClick={() => { setSearch(''); setDateRange(null); setCategoryFilter('ALL'); setAvailabilityFilter('ALL'); }}
-              className="flex items-center gap-1 px-3 py-2 text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-red-500 dark:hover:text-red-400 rounded-xl hover:bg-red-50 dark:hover:bg-red-500/10 transition-colors"
+              onClick={() => fetchProducts(true)}
+              disabled={refreshing}
+              className="p-2 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
+              title="Refresh"
             >
-              <X size={12} /> Clear
+              <RefreshCw size={13} className={`text-slate-500 dark:text-zinc-400 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
-          )}
-          <span className="text-xs font-semibold text-slate-400 dark:text-zinc-500 ml-auto">
-            {filtered.length} results
-          </span>
-          <button
-            onClick={() => fetchProducts(true)}
-            disabled={refreshing}
-            className="p-2 rounded-xl bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all"
-            title="Refresh"
-          >
-            <RefreshCw size={13} className={`text-slate-500 dark:text-zinc-400 ${refreshing ? 'animate-spin' : ''}`} />
-          </button>
-          <button
-            onClick={openAdd}
-            className="flex items-center gap-1.5 px-3 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-semibold text-xs uppercase tracking-wide hover:opacity-90 transition-all shadow-sm"
-          >
-            <Plus size={13} />
-            Add Product
-          </button>
-        </div>
-      </div>
+            <button
+              onClick={openAdd}
+              className="flex items-center gap-1.5 px-3 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-semibold text-xs uppercase tracking-wide hover:opacity-90 transition-all shadow-sm"
+            >
+              <Plus size={13} />
+              Add Product
+            </button>
+          </div>
+        )}
+        more={(
+          <div className="flex flex-wrap items-center gap-2">
+            <DateRangePicker value={dateRange} onChange={setDateRange} />
+            <select
+              value={categoryFilter}
+              onChange={e => setCategoryFilter(e.target.value)}
+              className="px-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+            >
+              <option value="ALL">All Categories</option>
+              {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            <select
+              value={availabilityFilter}
+              onChange={e => setAvailabilityFilter(e.target.value as any)}
+              className="px-3 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
+            >
+              <option value="ALL">All Availability</option>
+              <option value="AVAILABLE">Available</option>
+              <option value="UNAVAILABLE">Unavailable</option>
+              <option value="LOW_STOCK">Low Stock</option>
+            </select>
+          </div>
+        )}
+      />
 
       {/* Cards */}
       {filtered.length === 0 ? (

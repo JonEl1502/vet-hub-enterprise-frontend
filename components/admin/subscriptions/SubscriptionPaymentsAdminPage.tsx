@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import CollapsibleFilters from '../../shared/common/CollapsibleFilters';
 import {
   RefreshCw, DollarSign, CheckCircle2, AlertTriangle, Hourglass, Filter,
   Search, Building2, Calendar, Download, CreditCard,
@@ -204,48 +205,57 @@ const SubscriptionPaymentsAdminPage: React.FC = () => {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl p-5 space-y-3">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-2">
-          <Filter size={11}/> Filters
-        </p>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-          <Field label="From">
-            <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={inputCls}/>
-          </Field>
-          <Field label="To">
-            <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={inputCls}/>
-          </Field>
-          <Field label="Package">
-            <select value={packageId} onChange={(e) => setPackageId(e.target.value)} className={inputCls}>
-              <option value="">All packages</option>
-              {packages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-            </select>
-          </Field>
-          <Field label="Channel">
-            <select value={channel} onChange={(e) => setChannel(e.target.value as AdminChannel | '')} className={inputCls}>
-              <option value="">All channels</option>
-              {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </Field>
-          <Field label="Status">
-            <select value={status} onChange={(e) => setStatus(e.target.value as AdminStatus | '')} className={inputCls}>
-              <option value="">Any status</option>
-              {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          </Field>
-          <Field label="Clinic search">
-            <input value={clinicSearch} onChange={(e) => setClinicSearch(e.target.value)} placeholder="name contains…" className={inputCls}/>
-          </Field>
-          <Field label="Min successful subs / clinic">
-            <input type="number" value={minSubsPerClinic} onChange={(e) => setMinSubsPerClinic(e.target.value)} placeholder="e.g. 3" className={inputCls}/>
-          </Field>
-          <div className="flex items-end gap-2">
-            <button onClick={apply} className="flex-1 h-10 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest active:scale-95">Apply</button>
-            <button onClick={reset} className="h-10 px-4 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-800">Reset</button>
+      {/* Filters — Status + Clinic search stay out (the two anyone touches on
+          every visit), everything else folds away (user, 2026-08-24). Apply and
+          Reset stay visible too: they are how a filter is committed, so hiding
+          them behind the same toggle would make the panel a dead end. */}
+      <CollapsibleFilters
+        hint="dates · package · channel · min subs"
+        activeCount={[from, to, packageId, channel, minSubsPerClinic].filter(Boolean).length}
+        onClear={() => { setFrom(''); setTo(''); setPackageId(''); setChannel(''); setMinSubsPerClinic(''); }}
+        primary={(
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Field label="Status">
+              <select value={status} onChange={(e) => setStatus(e.target.value as AdminStatus | '')} className={inputCls}>
+                <option value="">Any status</option>
+                {STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </Field>
+            <Field label="Clinic search">
+              <input value={clinicSearch} onChange={(e) => setClinicSearch(e.target.value)} placeholder="name contains…" className={inputCls}/>
+            </Field>
+            <div className="flex items-end gap-2 lg:col-span-2">
+              <button onClick={apply} className="flex-1 h-10 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest active:scale-95">Apply</button>
+              <button onClick={reset} className="h-10 px-4 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-800">Reset</button>
+            </div>
           </div>
-        </div>
-      </div>
+        )}
+        more={(
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+            <Field label="From">
+              <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={inputCls}/>
+            </Field>
+            <Field label="To">
+              <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={inputCls}/>
+            </Field>
+            <Field label="Package">
+              <select value={packageId} onChange={(e) => setPackageId(e.target.value)} className={inputCls}>
+                <option value="">All packages</option>
+                {packages.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+              </select>
+            </Field>
+            <Field label="Channel">
+              <select value={channel} onChange={(e) => setChannel(e.target.value as AdminChannel | '')} className={inputCls}>
+                <option value="">All channels</option>
+                {CHANNELS.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </Field>
+            <Field label="Min successful subs / clinic">
+              <input type="number" value={minSubsPerClinic} onChange={(e) => setMinSubsPerClinic(e.target.value)} placeholder="e.g. 3" className={inputCls}/>
+            </Field>
+          </div>
+        )}
+      />
 
       {/* Table */}
       <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 overflow-hidden">

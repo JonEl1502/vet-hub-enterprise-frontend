@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: the Clients filter pattern is a shared component, now on admin and supplier  —  2026-08-24
+🟢 **Record impact: none.** Placement only — every filter behaves as before.
+- Clients and Patients had each grown this by hand, and admin/supplier were about to grow a third
+  and fourth, so it now lives in **`components/shared/common/CollapsibleFilters.tsx`**: the controls
+  reached for every time stay on the surface, the rest folds behind one toggle
+  (user, 2026-08-24: "like in clients … they look good, so apply to admin n supplier").
+- **Subscription Payments** (8 controls in a permanent grid): **Status**, **Clinic search**, **Apply**
+  and **Reset** stay out; dates, package, channel and min-subs fold away. Apply/Reset deliberately
+  stay visible — they are how a filter is committed, so hiding them behind the same toggle would
+  make the panel a dead end.
+- **Supplier ▸ Products**: search, results count, Refresh, Clear and Add Product stay out; date
+  range, category and availability fold away. The **results count stays visible** because it is how
+  you read the effect of a filter — hiding it behind the same toggle hides the answer.
+- ⚠️ **`activeCount` is not decoration.** The panel shows a count when collapsed filters are set,
+  opens itself on first paint when one already is, and `onClear` resets exactly those. A filter that
+  is both hidden and silently narrowing a list is how a page comes to look empty for no visible
+  reason — the bug that had to be fixed on Clients and Patients when their date range moved in.
+- ⚠️ **Left alone on purpose: Admin ▸ Users.** Three controls (search + two selects) is not a
+  crowded bar; folding one of three away costs a click and saves nothing.
+
 ### fix: the plan editor stops asking for the audience the tab already chose  —  2026-08-24
 🟢 **Record impact: none.** The field is untouched — only the control that edits it is hidden.
 - **"Offered to" is commented out** on the subscription plan editor (user, 2026-08-24: "since up
