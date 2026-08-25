@@ -68,6 +68,7 @@ import ImagingView from './components/clinic/diagnostics/ImagingView';
 import SurgeryView from './components/clinic/surgery/SurgeryView';
 import SurgeryRecordPage from './components/clinic/surgery/SurgeryRecordPage';
 import EmergencyBoardView from './components/clinic/triage/EmergencyBoardView';
+import { notifyTriageChanged } from './components/clinic/triage/triageEvents';
 import EmergencyAlertBar from './components/clinic/triage/EmergencyAlertBar';
 import PetshopView from './components/clinic/petshop/PetshopView';
 import PharmacyView from './components/clinic/pharmacy/PharmacyView';
@@ -1354,6 +1355,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       const response: any = await visitsAPI.delete(id);
       if (response.success) {
         toast.success('Visit deleted successfully');
+        // The triage row cascades with the visit (onDelete: Cascade), but the
+        // Amber Alert bar only polls every 45s — so without this its "Open
+        // visit" link stays live, and dead, for up to three quarters of a
+        // minute. An alert that outlives its emergency is how people learn to
+        // stop trusting the bar.
+        notifyTriageChanged();
         await refreshAppointments();
       } else {
         throw new Error(response.message || 'Failed to delete appointment');

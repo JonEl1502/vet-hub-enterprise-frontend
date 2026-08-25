@@ -284,6 +284,15 @@ export type ClientType = 'HIGH_VALUE' | 'VERY_HIGH_VALUE' | 'VALUED' | 'RISKY' |
 
 export interface Client extends Entity {
   clinicId: number;
+  /**
+   * 204 — the human-facing alphanumeric id (CL-7K2M9Q / PT-4H8N2P), UNIQUE
+   * platform-wide so a code quoted down the phone can only ever mean one
+   * record. Null on rows created before 204: those are deliberately NOT
+   * backfilled, because an id already printed on an invoice must keep
+   * matching, so the UI falls back to deriving CL-/PT- from the primary key.
+   */
+  code?: string | null;
+
   clinicName?: string | null;
   // Pet-owner portal account state (backend-computed; 30-day login window).
   portalStatus?: 'none' | 'active' | 'dormant';
@@ -369,6 +378,15 @@ export interface Supplier {
 export interface Pet {
   id: number;
   clinicId: number;
+  /**
+   * 204 — the human-facing alphanumeric id (CL-7K2M9Q / PT-4H8N2P), UNIQUE
+   * platform-wide so a code quoted down the phone can only ever mean one
+   * record. Null on rows created before 204: those are deliberately NOT
+   * backfilled, because an id already printed on an invoice must keep
+   * matching, so the UI falls back to deriving CL-/PT- from the primary key.
+   */
+  code?: string | null;
+
   clinicName?: string | null;
   ownerId: number;
   /**

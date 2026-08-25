@@ -6,6 +6,7 @@
  * "X days left in trial" or "Trial expired — subscribe to continue".
  */
 import React, { useEffect, useState } from 'react';
+import { isOpenEndedTrial } from '../../../services/entitlements';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { stripeAPI, type BillingInfo } from '../../../services/modules/stripe.api';
 
@@ -43,9 +44,14 @@ const TrialBanner: React.FC<TrialBannerProps> = ({ clinicId, onSubscribe, showWh
       <div className={`flex items-center gap-3 px-4 py-3 rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300 ${className}`}>
         <CheckCircle2 size={16} className="flex-shrink-0" />
         <p className="text-sm font-bold flex-1">
-          Free trial — {trialDays} day{trialDays === 1 ? '' : 's'} left.
+          {isOpenEndedTrial(trialDays)
+            ? 'Complimentary access — no expiry date.'
+            : `Free trial — ${trialDays} day${trialDays === 1 ? '' : 's'} left.`}
         </p>
-        {onSubscribe && (
+        {/* Nothing is running out, so there is nothing to convert. Showing
+            "Choose plan" beside open-ended access invites a clinic to pay for
+            what it already has, indefinitely. */}
+        {onSubscribe && !isOpenEndedTrial(trialDays) && (
           <button onClick={onSubscribe} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-emerald-700">
             Choose plan
           </button>

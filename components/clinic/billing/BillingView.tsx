@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { isOpenEndedTrial } from '../../../services/entitlements';
 import { motion } from 'framer-motion';
 import {
   CreditCard, Calendar, CheckCircle2, Zap, Crown, Building2, Rocket,
@@ -656,8 +657,10 @@ const BillingView: React.FC = () => {
         <div className="flex items-center gap-3 px-5 py-3 rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300">
           <CheckCircle2 size={16} />
           <p className="text-sm font-bold">
-            Free trial — {info.trialDaysLeft ?? 0} day{(info.trialDaysLeft ?? 0) === 1 ? '' : 's'} left.
-            Choose a plan below to keep your access after the trial ends.
+            {isOpenEndedTrial(info.trialDaysLeft)
+              ? 'Complimentary access — no expiry date. Nothing below is required to keep it.'
+              : `Free trial — ${info.trialDaysLeft ?? 0} day${(info.trialDaysLeft ?? 0) === 1 ? '' : 's'} left.
+                 Choose a plan below to keep your access after the trial ends.`}
           </p>
         </div>
       )}

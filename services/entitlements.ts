@@ -420,3 +420,24 @@ export function featureCopy(featureKey: string): { label: string; plan: string; 
     }
   );
 }
+
+/**
+ * Is this "trial" actually open-ended complimentary access?
+ *
+ * Three prod clinics carry `trial_ends_at = 2099-12-31` — a sentinel someone
+ * set deliberately to mean "never expires". The date maths is correct, so the
+ * banner rendered it literally: **"Free trial — 26,791 days left."** Seventy-
+ * three years reads as a bug in the product, and it buries the one number the
+ * banner exists to show for clinics on a real trial.
+ *
+ * ⚠️ Fixed in DISPLAY, deliberately not in data. The sentinel is intentional
+ * (internal and demo clinics), and two of the three are outside the prod-write
+ * rule — rewriting their dates to "fix" a label would end their access.
+ *
+ * Five years is the cut. No trial anyone actually sells runs that long, and the
+ * real ones on prod are 15–67 days, so there is no near-miss to worry about.
+ */
+export const OPEN_ENDED_TRIAL_DAYS = 5 * 365;
+
+export const isOpenEndedTrial = (daysLeft?: number | null): boolean =>
+  (daysLeft ?? 0) > OPEN_ENDED_TRIAL_DAYS;

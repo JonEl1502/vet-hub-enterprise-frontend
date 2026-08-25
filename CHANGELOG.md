@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: two small ones — a stale emergency alert, and a 73-year free trial  —  2026-08-25
+- **Emergency alert bar held a deleted visit for up to 45s.** The triage row cascades with the
+  visit (`onDelete: Cascade`), but the bar only polls every 45 seconds, so its "Open visit" link
+  stayed live — and dead — for that window. `handleDeleteAppointment` now fires the existing
+  `TRIAGE_CHANGED_EVENT`, which the bar already subscribes to. An alert that outlives its
+  emergency is how people learn to stop trusting the bar.
+- **"Free trial — 26,791 days left."** Three prod clinics carry `trial_ends_at = 2099-12-31`, a
+  sentinel meaning "never expires". The date maths was right; the banner rendered it literally.
+  New `isOpenEndedTrial()` in `services/entitlements.ts` (cut: 5 years) makes both render sites
+  say **"Complimentary access — no expiry date."** and drops the "Choose plan" button there —
+  nothing is running out, so there is nothing to convert, and offering one invites a clinic to pay
+  for what it already has.
+  ⚠️ Fixed in DISPLAY, deliberately not in data. The sentinel is intentional, and two of the three
+  clinics are outside the prod-write rule — "fixing" their dates would END their access.
+- **Record impact:** 🟢 None — one event dispatch and two labels.
+- **Data dependency:** None.
+- **Rollback:** revert the commit.
+
 ### fix: the inpatient admit gate was a hand-rolled copy  —  2026-08-25
 - **What changed:** `AdmitInpatientModal` now renders the shared `<AdmissionGate>` like
   boarding, grooming and the visit wizard already do. It had its own copy of the card —
