@@ -1203,10 +1203,18 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
         const fees = meta.fees || {};
         const ccy = clinic?.currency || 'KES';
         const expiry = (() => { const d = it.expiryDate ? new Date(it.expiryDate) : null; return d && !isNaN(d.getTime()) ? d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'; })();
+        /**
+         * A ROW, not a card (user, 2026-08-25: "we don't need each info in a
+         * card"). Thirteen filled, bordered boxes read as boxes-in-a-box inside
+         * an already-bordered page, and on a phone the 2-up grid turned a
+         * thirteen-fact readout into seven screens of scrolling. Label left,
+         * value right, hairline between — the same treatment the patient card's
+         * stat strip already got for the same reason.
+         */
         const Stat = ({ label, value }: { label: string; value: any }) => (
-          <div className="bg-slate-50 dark:bg-zinc-800/60 rounded-xl p-3 border border-slate-100 dark:border-zinc-800">
-            <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{label}</p>
-            <p className="text-sm font-black text-pine dark:text-zinc-100 break-words">{value ?? '—'}</p>
+          <div className="flex items-baseline justify-between gap-3 py-2 border-b border-slate-100 dark:border-zinc-800">
+            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">{label}</p>
+            <p className="text-sm font-black text-pine dark:text-zinc-100 text-right break-words min-w-0">{value ?? '—'}</p>
           </div>
         );
         return (
@@ -1248,7 +1256,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl px-4 py-1 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 sm:gap-x-6">
                 <Stat label="Quantity" value={<>{it.quantity} <span className="text-[9px] text-slate-400 uppercase">{it.unit}</span></>} />
                 <Stat label="Min / Max" value={`${it.minThreshold ?? '—'} / ${it.maxLevel ?? '—'}`} />
                 <Stat label="Expires" value={<span className="text-red-500">{expiry}</span>} />

@@ -244,7 +244,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
             {/* Top: calendar + quick ranges */}
             <div className="flex flex-col sm:flex-row">
               {/* Calendar */}
-              <div className="flex-1 p-3 sm:border-r border-slate-200 dark:border-zinc-800">
+              <div className="flex-1 p-2 sm:p-3 sm:border-r border-slate-200 dark:border-zinc-800">
                 <div className="flex items-center justify-between mb-3">
                   <button
                     type="button"
@@ -322,7 +322,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                 {/* Weekday header */}
                 <div className="grid grid-cols-7">
                   {WEEKDAYS.map((w) => (
-                    <div key={w} className="h-6 flex items-center justify-center text-[10px] font-bold text-slate-400 dark:text-zinc-500">
+                    <div key={w} className="h-5 sm:h-6 flex items-center justify-center text-[9px] sm:text-[10px] font-bold text-slate-400 dark:text-zinc-500">
                       {w}
                     </div>
                   ))}
@@ -344,7 +344,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                     // start (right) / end (left) endpoints — mirrors the design.
                     const barHalf = hasRange && isStart ? 'left-1/2 right-0' : hasRange && isEnd ? 'left-0 right-1/2' : '';
                     return (
-                      <div key={day.toISOString()} className="relative h-8 flex items-center justify-center">
+                      <div key={day.toISOString()} className="relative h-7 sm:h-8 flex items-center justify-center">
                         {isMiddle && <div className="absolute inset-y-0.5 inset-x-0 bg-slate-100 dark:bg-zinc-800" />}
                         {isEndpoint && hasRange && barHalf && (
                           <div className={`absolute inset-y-0.5 ${barHalf} bg-slate-100 dark:bg-zinc-800`} />
@@ -352,7 +352,7 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
                         <button
                           type="button"
                           onClick={() => onDayClick(day)}
-                          className={`relative z-10 w-7 h-7 flex items-center justify-center rounded-lg text-[11px] font-bold transition-colors ${
+                          className={`relative z-10 w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center rounded-lg text-[10px] sm:text-[11px] font-bold transition-colors ${
                             isEndpoint
                               ? 'bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-900'
                               : outside
@@ -371,13 +371,19 @@ export const DateRangePicker = ({ value, onChange, className = '', buttonClassNa
               </div>
 
               {/* Quick ranges */}
-              <div className="w-full sm:w-36 p-1.5 sm:py-3 border-t sm:border-t-0 border-slate-200 dark:border-zinc-800 overflow-y-auto max-h-[280px] custom-scrollbar">
+              {/* ⚠️ Below `sm` the quick ranges are CHIPS THAT WRAP, not a
+                  stacked list: eight full-width rows added ~280px under an
+                  already tall calendar, so the panel ran off a phone screen
+                  and the Apply row went with it (user, 2026-08-25: "reduce
+                  size for the date picker on mobile"). From `sm` up it is the
+                  same 36-wide column as before. */}
+              <div className="flex flex-wrap gap-1 sm:block w-full sm:w-36 p-1.5 sm:py-3 border-t sm:border-t-0 border-slate-200 dark:border-zinc-800 overflow-y-auto max-h-[120px] sm:max-h-[280px] custom-scrollbar">
                 {PRESETS.map((p) => (
                   <button
                     key={p.label}
                     type="button"
                     onClick={() => applyPreset(p.range())}
-                    className="w-full text-left px-3 py-1.5 rounded-lg text-[12px] font-medium text-pine dark:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
+                    className="px-2.5 py-1 rounded-lg border border-slate-200 dark:border-zinc-700 text-[11px] sm:border-0 sm:w-full sm:text-left sm:px-3 sm:py-1.5 sm:text-[12px] font-medium text-pine dark:text-zinc-100 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors whitespace-nowrap"
                   >
                     {p.label}
                   </button>

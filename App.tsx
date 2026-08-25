@@ -2595,6 +2595,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           allPets={pets}
           onBack={goBack}
           initialTab={currentNav.params?.initialTab || 'overview'}
+          onTabChange={(t) => rememberNavParams({ initialTab: t })}
           onNavigatePet={(id) => navigateTo('pet-profile', { petId: id })}
           onOpenMessaging={(c) => navigateTo('messaging', { clientId: c.id })}
           allMessages={store.messages}

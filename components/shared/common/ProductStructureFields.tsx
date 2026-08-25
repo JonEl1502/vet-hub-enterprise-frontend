@@ -109,7 +109,9 @@ const ProductStructureFields: React.FC<Props> = ({ value, onChange, hint, idPref
       <div className="space-y-1.5">
         <label className={labelCls}>
           Subcategories{' '}
-          <span className="text-slate-400 normal-case font-bold">— add as many as you like, drag to reorder</span>
+          {/* Its own line on a phone — trailing after the label it wrapped
+              mid-sentence under the field it describes. */}
+          <span className="block sm:inline text-slate-400 normal-case font-bold">— add as many as you like, drag to reorder</span>
         </label>
         {value.subcategories.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
@@ -138,7 +140,11 @@ const ProductStructureFields: React.FC<Props> = ({ value, onChange, hint, idPref
             ))}
           </div>
         )}
-        <div className="flex gap-2">
+        {/* ⚠️ STACKS BELOW `sm` (user, 2026-08-25: "fitting"). Side by side,
+            the input's minimum width plus a `shrink-0` 170px button ran past
+            the right edge of a 360px screen — the button was half off-screen
+            and the form scrolled sideways. */}
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             list={`${idPrefix}-subcat-presets`}
             value={draft}
@@ -147,7 +153,7 @@ const ProductStructureFields: React.FC<Props> = ({ value, onChange, hint, idPref
             placeholder={value.mainCategory === 'MEDICINE'
               ? 'Choose or type e.g. Antibiotic → Cephalosporin…'
               : 'Choose or type e.g. Surgical Supplies → Sutures…'}
-            className={inputCls}
+            className={`${inputCls} min-w-0 flex-1`}
           />
           <datalist id={`${idPrefix}-subcat-presets`}>
             {SUBCATEGORY_PRESETS[value.mainCategory]
@@ -157,7 +163,7 @@ const ProductStructureFields: React.FC<Props> = ({ value, onChange, hint, idPref
           <button
             type="button"
             onClick={() => addSubcat(draft)}
-            className="shrink-0 px-3 py-2.5 bg-seafoam text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all flex items-center gap-1.5"
+            className="w-full sm:w-auto sm:shrink-0 px-3 py-2.5 bg-seafoam text-white rounded-xl text-[10px] font-black uppercase tracking-wider shadow-sm active:scale-95 transition-all flex items-center justify-center gap-1.5"
           >
             <Plus size={13} /> Add subcategory
           </button>

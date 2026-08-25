@@ -59,6 +59,34 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: seven mobile corrections across patients, visits and inventory  —  2026-08-25
+🟢 **Record impact: none.** Layout and one navigation behaviour.
+1. **Patient card stacks below `sm`.** Side by side on a phone the four action buttons took ~150px
+   of a ~330px card, so the name was crushed to a few characters and the breed broke across three
+   lines — with empty space underneath. Stacked, the name gets full width and the actions get a row.
+2. **Owner + phone get a line each on mobile.** The single-line rule was **measured on a desktop**
+   (251px available); on a phone the same row had ~300px for both, so it degraded to "CHAR… +254 7…"
+   — two values, neither readable. `sm:` up is unchanged.
+3. **The patient's Visits table becomes cards below `md`.** A 720px table on a 360px phone is a
+   sideways scroll over six columns: you read one column at a time and never see a whole visit.
+   · **Tab restore is now back-only, and on patients too.** `onTabChange` writes onto the CURRENT
+     nav entry, which only replays when you come BACK to it — opening a profile fresh from anywhere
+     pushes a new entry with no `initialTab` and still lands on Overview. Nothing is persisted.
+     Clients already did this; patients never reported their tab at all.
+4. **Records sub-tabs are one scrolling row.** Seven of them wrapped into four stacked rows on a
+   phone, pushing the records off-screen — the index took more room than what it indexes. Matches
+   the main tab bar, which already scrolls.
+5. **Date picker shrinks on mobile** — smaller day cells and weekday header, tighter padding, and
+   the quick ranges become **wrapping chips** instead of eight full-width rows that added ~280px
+   below an already tall calendar and pushed Apply off the screen.
+6. **Product details stop being thirteen cards.** Filled bordered boxes inside an already-bordered
+   page read as boxes-in-a-box, and the 2-up grid turned a thirteen-fact readout into seven screens
+   of scrolling. Now label-left / value-right rows with hairlines — the treatment the patient card's
+   stat strip already got, for the same reason.
+7. **Subcategory row stacks below `sm`.** The input's minimum width plus a `shrink-0` ~170px button
+   ran past the right edge of a 360px screen: the button sat half off-screen and the form scrolled
+   sideways.
+
 ### feat: All Clinics — KPI tiles open the clinics behind them; directory filter folds away  —  2026-08-24
 🟢 **Record impact: none.** Read-only drill-down plus placement.
 - **Total / Active / Inactive** open a searchable list of the clinics that make up the number;

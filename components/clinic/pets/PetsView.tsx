@@ -697,7 +697,14 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                         : ''
                   }`}
                 >
-                  <div className="flex gap-2 items-start">
+                  {/* ⚠️ STACKS BELOW `sm` (user, 2026-08-25: "squeezed while
+                      space exists"). Side by side on a phone, the four action
+                      buttons take ~150px of a ~330px card, so the name column
+                      was crushed to a few characters and the breed line broke
+                      across three rows — with empty space sitting underneath.
+                      Stacked, the name gets the full width and the actions get
+                      their own row. */}
+                  <div className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-start">
                     {/* LEFT: pet info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-2">
@@ -763,8 +770,10 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
 
                     </div>
 
-                    {/* RIGHT COLUMN: badge + actions icon with inline menu */}
-                    <div className="flex flex-col items-end gap-1.5 shrink-0 pt-1">
+                    {/* RIGHT COLUMN: badge + actions icon with inline menu.
+                        Full width and left-aligned once stacked, so the action
+                        row reads as a row rather than as a huddle in a corner. */}
+                    <div className="flex flex-col items-start sm:items-end gap-1.5 w-full sm:w-auto sm:shrink-0 pt-1">
                       {/* Always-visible upcoming visit badge */}
                       {upcomingVisit && (
                         <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[8px] font-black select-none whitespace-nowrap ${
@@ -813,7 +822,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                           ⚠️ Heights still match: the 14px icon sets the height in
                           every one of them, including the icon-only ⋮, so the
                           9px label widens the pills without making them taller. */}
-                      <div className="flex items-center gap-1 flex-wrap justify-end">
+                      <div className="flex items-center gap-1 flex-wrap justify-start sm:justify-end w-full sm:w-auto">
                         <button
                           onClick={(e) => { e.stopPropagation(); if (pet.isAlive === false) return; onNewAppointment(pet.ownerId, pet.id); }}
                           disabled={pet.isAlive === false}

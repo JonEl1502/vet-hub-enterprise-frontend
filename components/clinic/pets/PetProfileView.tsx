@@ -45,6 +45,16 @@ interface Props {
   appointments: Visit[];
   allPets: Pet[];
   onBack: () => void;
+  /**
+   * Reports the tab in view so the caller can annotate its nav entry.
+   *
+   * ⚠️ BACK-ONLY BY CONSTRUCTION (user, 2026-08-25: "only on back navigation …
+   * if user opens the record outright from anywhere" it should not restore).
+   * This writes onto the CURRENT stack entry, which only replays when you come
+   * BACK to it. Opening the profile fresh pushes a new entry carrying no
+   * `initialTab`, so it still lands on Overview. Nothing is persisted.
+   */
+  onTabChange?: (tab: string) => void;
   initialTab?: string;
   onNavigatePet: (id: number) => void;
   onOpenMessaging: (client: Client) => void;
@@ -69,7 +79,7 @@ interface Props {
 }
 
 const PetProfileView: React.FC<Props> = ({
-  pet, owner, activeClinic, clinics, appointments, allPets, onBack, initialTab = 'overview',
+  pet, owner, activeClinic, clinics, appointments, allPets, onBack, onTabChange, initialTab = 'overview',
   onNavigatePet, onOpenMessaging, allMessages, aiSummary, loadingAi, onGenerateAiSummary, onScheduleVaccine, onBookAppointment, onUpdatePet, onProcessPayment, onSettleVisit, onViewAppointment, onViewOwner, onOpenInpatient, onOpenVisitBill, initialVisitId
 }) => {
   // Pet photo: local override so the header updates the moment it uploads,
@@ -93,6 +103,10 @@ const PetProfileView: React.FC<Props> = ({
     : initialTab === 'transactions' ? 'financials'
     : initialTab
   );
+
+  // Every route into a tab reports it — the tab bar, and the in-page jumps
+  // ("view records", the money rows) that call setActiveTab directly.
+  useEffect(() => { onTabChange?.(activeTab); }, [activeTab, onTabChange]);
   const [vaccineTab, setVaccineTab] = useState<'timeline' | 'history'>('timeline');
   // Financials sub-views — the same five the client profile has.
   const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'bills' | 'invoices' | 'payments' | 'receipts' | 'credits' | 'refunds' | 'statements' | 'discounts'>('overview');
@@ -1385,7 +1399,13 @@ const PetProfileView: React.FC<Props> = ({
                           over, so the phone wrapped to its own line. Both items
                           now shrink and truncate instead of wrapping, so the
                           row stays ONE line whatever the owner is called. */}
-                      <div className="flex items-center gap-x-3 w-full min-w-0 text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+                      {/* ⚠️ The measurement above is a DESKTOP one. On a phone
+                          the same row has ~300px for both, so "one line, both
+                          truncated" degraded into "CHAR… +254 7…" — two values,
+                          neither readable (user, 2026-08-25). Below `sm` they
+                          get a line each and stop truncating; from `sm` up the
+                          measured single-line behaviour is unchanged. */}
+                      <div className="flex flex-col sm:flex-row sm:items-center gap-y-0.5 gap-x-3 w-full min-w-0 text-[11px] font-bold text-slate-500 dark:text-zinc-400">
                         <button
                           onClick={() => onViewOwner?.(owner.id)}
                           disabled={!onViewOwner}
@@ -1669,7 +1689,69 @@ const PetProfileView: React.FC<Props> = ({
           }
 
           return (
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+            <>
+            {/* MOBILE: one card per visit (user, 2026-08-25: "tables convert to
+                card on mobile"). A 720px-wide table on a 360px phone is a
+                sideways scroll over six columns — you read one column at a
+                time and never see a whole visit. The card carries the same six
+                facts in reading order. */}
+            <div className="md:hidden space-y-2">
+              {rows.map(v => {
+                const services = (v.tasks || []).length;
+                const cats = [...new Set((v.tasks || []).map((t: any) => t.category).filter(Boolean))];
+                return (
+                  <div key={v.id} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5 shadow-sm space-y-2.5 ${rowTint[v.status] || ''}`}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-pine dark:text-zinc-100 truncate">
+                          {String(v.visitType || v.encounterType || 'Visit').replace(/_/g, ' ')}
+                        </p>
+                        <p className="text-[10px] text-slate-400">#{v.id} · {v.date ? `${formatDate(v.date as any)} ${formatTime(v.date as any)}` : '—'}</p>
+                      </div>
+                      <span className={`shrink-0 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${statusTone[v.status] || 'bg-slate-100 text-slate-500'}`}>
+                        {String(v.status).replace(/_/g, ' ')}
+                      </span>
+                    </div>
+                    <div className="flex items-end justify-between gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                      <div className="min-w-0">
+                        {services > 0 ? (
+                          <>
+                            <p className="text-[11px] font-bold text-pine dark:text-zinc-100">{services} service{services === 1 ? '' : 's'}</p>
+                            {cats.length > 0 && <p className="text-[10px] text-slate-400 truncate">{cats.join(' · ')}</p>}
+                          </>
+                        ) : (
+                          <p className="text-[10px] text-slate-400 italic">Not itemised</p>
+                        )}
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-xs font-black text-pine dark:text-zinc-100">{money(v.totalCost)}</p>
+                        <p className={`text-[10px] font-black uppercase tracking-wider ${v.isPaid ? 'text-emerald-600' : 'text-orange-500'}`}>{v.isPaid ? 'Paid' : 'Due'}</p>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => onViewAppointment?.(Number(v.id))}
+                        className="flex-1 px-2.5 py-2 rounded-lg border border-seafoam/40 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all"
+                      >
+                        Open
+                      </button>
+                      {!v.isPaid && onOpenVisitBill && (
+                        <button
+                          type="button"
+                          onClick={() => onOpenVisitBill(Number(v.id))}
+                          className="flex-1 px-2.5 py-2 rounded-lg border border-orange-300 text-orange-600 text-[9px] font-black uppercase tracking-widest hover:bg-orange-500 hover:text-white transition-all"
+                        >
+                          Bill
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="hidden md:block bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-sm min-w-[720px]">
                   <thead>
@@ -1745,11 +1827,17 @@ const PetProfileView: React.FC<Props> = ({
                 </table>
               </div>
             </div>
+            </>
           );
         })()}
 
         {activeTab === 'records' && (
-           <div className="flex flex-wrap gap-1 bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-fit max-w-full mb-6">
+           /* ⚠️ ONE ROW THAT SCROLLS, never a wrapped block (user, 2026-08-25:
+               "menu to horizontally scroll"). Seven sub-tabs wrapped into four
+               stacked rows on a phone, pushing the records themselves off the
+               screen — the index took more room than the thing it indexes. The
+               main tab bar above already scrolls; this now matches it. */
+           <div className="flex gap-1 overflow-x-auto no-scrollbar bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 max-w-full mb-6">
              {([
                { id: 'all', label: 'All Visits', icon: Calendar },
                { id: 'history', label: 'Clinical Records', icon: Clipboard },
@@ -1768,7 +1856,7 @@ const PetProfileView: React.FC<Props> = ({
                <button
                  key={st.id}
                  onClick={() => setVisitSubTab(st.id)}
-                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                 className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap shrink-0 ${
                    visitSubTab === st.id
                      ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow'
                      : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
