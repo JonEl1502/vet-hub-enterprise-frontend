@@ -73,6 +73,12 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
   the old system never held them, and a day later it would lock **still blank** — so the person who
   could finally fill them in would need an amendment reason to enter facts that were never recorded.
   While incomplete it stays open; once complete, the clock applies.
+- ⚠️ **The audit line posts through `visitsAPI.addEvent`, not the wizard's `emit`.** `emit` stages a
+  line into the wizard's own timeline and does not reach the server until the step is completed —
+  a draft that is never finished takes the reason with it. **Caught in a real browser on staging:**
+  amending through `emit` left the visit on 12 events with no amendment recorded, which would have
+  made the lock theatre. Non-fatal on failure: a failed post must not trap someone out of a record
+  they are entitled to edit.
 - **Amending asks why, and the why is written to the visit journey** ("Admission details amended —
   <reason>"), stamped with who and when. The event is emitted **before** the fields reopen, so the
   record carries the reason even if the person then edits nothing.

@@ -10,7 +10,7 @@ import { useData } from '../../../../../contexts/DataContext';
 import { petsAPI } from '../../../../../services';
 import { VACCINES } from '../../../../../constants/vaccines';
 import AdmissionGate from '../../../shared/AdmissionGate';
-import { inpatientAPI } from '../../../../../services';
+import { inpatientAPI, visitsAPI } from '../../../../../services';
 import BoardingIntakeFields, { emptyBoardingIntake } from '../../../shared/BoardingIntakeFields';
 import GroomingIntakeFields, { emptyGroomingIntake } from '../../../shared/GroomingIntakeFields';
 
@@ -513,9 +513,26 @@ export const AdmissionEntryStep: React.FC<StepProps> = ({ pet, data, setData, vi
   const startAmend = () => {
     const reason = amendReason.trim();
     if (!reason) return;
-    // The audit line. Emitted BEFORE the fields open, so the record carries the
-    // reason even if the person changes their mind and edits nothing.
-    emit?.(`Admission details amended — ${reason}`, 'action', true);
+    const label = `Admission details amended — ${reason}`;
+    /**
+     * ⚠️ `visitsAPI.addEvent`, NOT the wizard's `emit`.
+     *
+     * `emit` stages a line into the wizard's own timeline; it does not reach
+     * the server until the step is completed, and a draft that is never
+     * finished takes the reason with it. Verified on staging: amending through
+     * `emit` left the visit on 12 events with no amendment recorded — which
+     * makes the lock theatre, since the whole point is that the reason
+     * outlives the edit. This posts immediately.
+     *
+     * Emitted BEFORE the fields open, so the record carries the reason even if
+     * the person then changes nothing. Non-fatal: a failed post must not trap
+     * someone out of a record they are entitled to edit, so the unlock happens
+     * either way and the failure surfaces in the API layer.
+     */
+    if (visit?.id != null) {
+      visitsAPI.addEvent(visit.id, { label, kind: 'action' }).catch(() => { /* surfaced by the API layer */ });
+    }
+    emit?.(label, 'action', true);
     setAmending(true);
     setAmendReason('');
   };
