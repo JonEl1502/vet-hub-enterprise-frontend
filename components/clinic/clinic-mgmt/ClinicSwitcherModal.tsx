@@ -206,11 +206,23 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
   ];
 
   return (
-    <div className="fixed inset-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-2xl z-[1000] flex flex-col items-center justify-center p-8 overflow-y-auto animate-in fade-in duration-300">
+    /* ⚠️ The scroll container must NOT also centre its child.
+       `justify-center` + `overflow-y-auto` is the classic unreachable-overflow
+       bug: once the content is taller than the viewport, centring pushes its
+       TOP above the scroll origin and no amount of scrolling brings it back —
+       with eight clinics the heading and the tabs were simply gone off the top
+       of the screen (user, 2026-08-25). Centring now happens on an inner
+       wrapper with `min-h-full`, which centres when it fits and scrolls from
+       the top when it does not. */
+    <div className="fixed inset-0 bg-white/70 dark:bg-zinc-950/70 backdrop-blur-2xl z-[1000] overflow-y-auto animate-in fade-in duration-300">
+      <div className="min-h-full flex flex-col items-center justify-center p-4 sm:p-8">
       <div className="max-w-6xl w-full space-y-6">
-        {/* Header */}
-        <div className="text-center space-y-3">
-          <h2 className="text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">
+        {/* Header + tabs stay put while the grid scrolls under them — with
+            eight clinics the tabs used to scroll away, so switching to
+            Suppliers meant scrolling back up to find them. */}
+        <div className="sticky top-0 z-20 -mx-4 sm:-mx-8 px-4 sm:px-8 pt-2 pb-3 space-y-3 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl">
+        <div className="text-center space-y-2">
+          <h2 className="text-3xl sm:text-4xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase">
             Choose Your Clinic
           </h2>
           <p className="text-seafoam text-[10px] font-black uppercase tracking-[0.4em]">
@@ -244,6 +256,7 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
               );
             })}
           </div>
+        </div>
         </div>
 
         {/* Tab Content */}
@@ -441,7 +454,10 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
             triggered API calls; only this commit does. The reload is
             deliberate: it's the simplest guarantee that no stale in-memory
             cache from the previous selection lingers. */}
-        <div className="flex justify-center">
+        {/* Sticky to the bottom edge: with eight clinics this sat below the
+            fold, so the one control that commits the choice was the one thing
+            you had to go hunting for. */}
+        <div className="sticky bottom-0 z-20 flex justify-center -mx-4 sm:-mx-8 px-4 sm:px-8 pt-3 pb-2 bg-gradient-to-t from-white/90 dark:from-zinc-950/90 to-transparent">
           <button
             onClick={() => {
               // No-op guard: if the selection didn't actually change, just
@@ -475,6 +491,7 @@ const ClinicSwitcherModal: React.FC<ClinicSwitcherModalProps> = ({ isOpen, onClo
             Open Clinic
           </button>
         </div>
+      </div>
       </div>
     </div>
   );

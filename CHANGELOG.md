@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: the clinic switcher's tabs and Open Clinic button were off-screen  —  2026-08-25
+- **What changed:** `ClinicSwitcherModal` scrolls correctly, and its header/tabs and its
+  **Open Clinic** button now stay on screen (user, 2026-08-25).
+- **The bug:** the overlay was `fixed inset-0 … flex justify-center … overflow-y-auto`. That is
+  the classic **unreachable-overflow** trap: once content is taller than the viewport, flex
+  centring pushes the content's TOP above the scroll origin and no amount of scrolling brings it
+  back. With eight clinics the "Choose Your Clinic" heading and the CLINICS/SUPPLIERS/FREELANCERS
+  tabs were simply gone off the top edge. Centring moved to an inner `min-h-full` wrapper, which
+  centres when the content fits and scrolls from the top when it does not.
+- **Also:** the header+tabs are `sticky top-0` and the Open Clinic button is `sticky bottom-0`.
+  Previously the tabs scrolled away (switching to Suppliers meant scrolling back up to find them)
+  and the one control that commits the choice sat below the fold.
+- **Record impact:** 🟢 None. Layout only.
+- **Migration / rollout:** code-only.
+- **Rollback:** revert the commit.
+- ⚠️ **Watch out:** this trap exists wherever `justify-center` meets `overflow-y-auto` on the same
+  element. Worth grepping for before adding another full-screen overlay.
+
 ### feat: row actions move into a menu, and a lead opens as a page  —  2026-08-25
 - **What changed:** two things the 53-row list made obvious (user: *"action to be in drpdwn n
   open details in page we can have some notes too"*).
