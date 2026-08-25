@@ -1,13 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { Stethoscope, Loader2, Search, Dog, ShieldCheck, ArrowLeft, CalendarClock, Calculator } from 'lucide-react';
+import { Stethoscope, Loader2, Search, Dog, ArrowLeft, CalendarClock, Calculator } from 'lucide-react';
 import { Pet } from '../../../types';
 import { inpatientAPI, visitsAPI, clientsAPI, toast } from '../../../services';
 import { getMedicationsByAppointment } from '../../../services/modules/appointmentMedications.api';
 import FoodProgramFields, { FoodProgram } from '../shared/FoodProgramFields';
 import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
+import AdmissionGate from '../shared/AdmissionGate';
 import { useData } from '../../../contexts/DataContext';
 import { ownerAbbrev } from '../shared/ownerAbbrev';
-import GateVaccineRecommend from '../shared/GateVaccineRecommend';
 
 interface Props {
   isOpen: boolean;
@@ -45,13 +45,16 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
   const [dailyRate, setDailyRate] = useState('');
   const [expectedDischargeAt, setExpectedDischargeAt] = useState('');
   const [intakeWeight, setIntakeWeight] = useState('');
-  const [weightCopied, setWeightCopied] = useState(false);
   const [foodProgram, setFoodProgram] = useState<FoodProgram>({ providedByClient: true });
   const [admissionNotes, setAdmissionNotes] = useState('');
   const [vaccines, setVaccines] = useState<Record<string, boolean>>({});
-  // Gate escape when nothing is on record — see GateVaccineRecommend.
+  // Gate escape when nothing is on record — rendered by AdmissionGate.
   const [recommended, setRecommended] = useState<Record<string, boolean>>({});
   const [clientAgreed, setClientAgreed] = useState(false);
+  // 2026-08-04 — the client wants a certificate for what was verified at the
+  // gate. Present on every OTHER gate; this modal never had it, because it was
+  // rendering its own copy of the card rather than the shared component.
+  const [claimCertificate, setClaimCertificate] = useState(false);
   const [feedingInstructions, setFeedingInstructions] = useState('');
   const [medicationInstructions, setMedicationInstructions] = useState('');
   const [emergencyContact, setEmergencyContact] = useState('');
@@ -102,17 +105,6 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
   }, [isOpen, initialPetId]);
 
   const selectedPet = useMemo(() => pets.find(p => String(p.id) === String(petId)) ?? null, [pets, petId]);
-
-  // Copy the recorded weight when it's less than 3 months old.
-  useEffect(() => {
-    if (!selectedPet) return;
-    const w = parseFloat(String((selectedPet as any).weight || ''));
-    const ts = (selectedPet as any).updatedAt;
-    const fresh = ts ? (Date.now() - new Date(ts).getTime()) < 90 * 24 * 60 * 60 * 1000 : false;
-    if (w > 0 && fresh) { setIntakeWeight(String(w)); setWeightCopied(true); }
-    else setWeightCopied(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [petId]);
 
   const matches = useMemo(() => {
     const q = petSearch.trim().toLowerCase();
@@ -263,34 +255,40 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
           <div><label className="field-label">Diagnosis</label><input className="field-input" value={diagnosis} onChange={e => setDiagnosis(e.target.value)} placeholder="Parvoviral enteritis" /></div>
         </section>
 
-        {/* Admission gate card — required */}
-        <section className="bg-amber-50/60 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-900/30 rounded-2xl p-4 shadow-sm space-y-3">
-          <p className="text-[11px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400 flex items-center gap-1.5"><ShieldCheck size={13} /> Admission gate — required</p>
-          <div className="max-w-[240px]">
-            <label className="field-label">Intake weight (kg) *</label>
-            <input type="number" min="0" step="0.1" required className="field-input" value={intakeWeight} onChange={e => { setIntakeWeight(e.target.value); setWeightCopied(false); }} placeholder="e.g. 12.4" />
-            {weightCopied && <p className="text-[9px] font-bold text-amber-600 dark:text-amber-400 mt-1">Copied from record (&lt;3 months old) — confirm on the scale.</p>}
-          </div>
-          <div>
-            <label className="field-label">Vaccination check *</label>
-            <div className="flex flex-wrap gap-2">
-              {VACCINES.map(v => (
-                <button key={v.key} type="button" onClick={() => setVaccines(s => ({ ...s, [v.key]: !s[v.key] }))}
-                  className={`px-3 py-1.5 rounded-xl text-[11px] font-bold transition-all border ${vaccines[v.key] ? 'bg-emerald-50 text-emerald-700 border-emerald-300 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800' : 'bg-white dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
-                  {vaccines[v.key] ? '✓ ' : ''}{v.label}
-                </button>
-              ))}
-            </div>
-            {!hasVaccineRecorded(vaccines) && (
-              <GateVaccineRecommend
-                recommended={recommended}
-                onToggle={(k) => setRecommended(s => ({ ...s, [k]: !s[k] }))}
-                clientAgreed={clientAgreed}
-                onAgreed={setClientAgreed}
-              />
-            )}
-          </div>
-        </section>
+        {/*
+          THE shared admission gate (2026-08-25).
+
+          This modal used to render its own copy of the card — the same chips,
+          the same weight input, laid out by hand. That is exactly the drift the
+          shared component exists to stop ("still not same... make same same"),
+          and it had already cost this screen two things every other gate has:
+          **vaccine prefill from the pet's administered records**, and the
+          **certificate claim**. Boarding got them; inpatient silently did not.
+
+          `required` — the gate is a hard stop here, same as the boarding admit:
+          submit() below refuses without a weight and without either a recorded
+          or a recommended vaccine.
+        */}
+        <AdmissionGate
+          petId={petId}
+          petWeight={(selectedPet as any)?.weight ?? null}
+          petWeightAt={(selectedPet as any)?.updatedAt ?? null}
+          required
+          value={{
+            intakeWeight,
+            vaccines,
+            recommended,
+            clientAgreed,
+            claimCertificate,
+          }}
+          onChange={patch => {
+            if (patch.intakeWeight !== undefined) setIntakeWeight(patch.intakeWeight);
+            if (patch.vaccines !== undefined) setVaccines(patch.vaccines);
+            if (patch.recommended !== undefined) setRecommended(patch.recommended);
+            if (patch.clientAgreed !== undefined) setClientAgreed(patch.clientAgreed);
+            if (patch.claimCertificate !== undefined) setClaimCertificate(patch.claimCertificate);
+          }}
+        />
 
         {/* Food program card */}
         <FoodProgramFields value={foodProgram} onChange={setFoodProgram} />
