@@ -27,9 +27,30 @@ const OUTCOME: Record<string, { label: string; cls: string }> = {
   SUSPENDED:    { label: 'Suspended',      cls: 'text-amber-600 dark:text-amber-400' },
 };
 
-/** "Mozilla/5.0 (Macintosh; …) …Chrome/…" → "Chrome on macOS". */
+/**
+ * "Mozilla/5.0 (Macintosh; …) …Chrome/…" → "Chrome on macOS".
+ *
+ * Non-browser agents are named outright rather than guessed at. A sign-in from
+ * `curl` or a script is the single most interesting row on this page, and
+ * rendering it as "Browser on Unknown OS" actively hides that.
+ */
+const NON_BROWSER: Array<[RegExp, string]> = [
+  [/^curl\//i, 'curl (command line)'],
+  [/^wget/i, 'wget (command line)'],
+  [/^PostmanRuntime/i, 'Postman'],
+  [/^insomnia/i, 'Insomnia'],
+  [/^python-requests|^aiohttp|^httpx/i, 'Python script'],
+  [/^axios|^node-fetch|^undici|^got\//i, 'Node script'],
+  [/^Go-http-client/i, 'Go client'],
+  [/^okhttp|^Dart\//i, 'Mobile app client'],
+  [/^Java\/|^Apache-HttpClient/i, 'Java client'],
+  [/bot|crawler|spider/i, 'Bot / crawler'],
+];
+
 const device = (ua: string | null): string => {
   if (!ua) return 'Unknown device';
+  for (const [re, label] of NON_BROWSER) if (re.test(ua)) return label;
+
   const os = /Windows/i.test(ua) ? 'Windows'
     : /Android/i.test(ua) ? 'Android'
     : /(iPhone|iPad|iOS)/i.test(ua) ? 'iOS'
@@ -41,8 +62,14 @@ const device = (ua: string | null): string => {
     : /Firefox\//i.test(ua) ? 'Firefox'
     : /Chrome\//i.test(ua) ? 'Chrome'
     : /Safari\//i.test(ua) ? 'Safari' : 'Browser';
+  // An unrecognised agent is not a browser we failed to name — say so.
+  if (browser === 'Browser' && os === 'Unknown OS') return ua.split(/[\s/]/)[0].slice(0, 28) || 'Unknown device';
   return `${browser} on ${os}`;
 };
+
+/** "Nairobi, Kenya" when the city is known, else just the country. */
+const place = (e: LoginEvent): string =>
+  [e.city, e.countryName].filter(Boolean).join(', ') || 'Unknown';
 
 const when = (iso: string) => new Date(iso).toLocaleString();
 
@@ -173,7 +200,7 @@ const LoginEventsPage: React.FC = () => {
                       <td className={`px-2 py-2 text-[10px] font-black uppercase tracking-wider ${o.cls}`}>{o.label}</td>
                       <td className="px-2 py-2">
                         <p className="text-[11px] font-mono text-slate-600 dark:text-zinc-300">{e.ipAddress ?? '—'}</p>
-                        <p className="text-[10px] text-slate-400 dark:text-zinc-600">{e.countryName ?? 'Unknown'}</p>
+                        <p className="text-[10px] text-slate-400 dark:text-zinc-600">{place(e)}</p>
                       </td>
                       <td className="px-2 py-2 text-[11px] text-slate-500 dark:text-zinc-400 whitespace-nowrap">
                         <Monitor size={11} className="inline mr-1 text-slate-400" />{device(e.userAgent)}
