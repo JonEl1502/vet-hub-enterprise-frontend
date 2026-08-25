@@ -59,6 +59,30 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### feat: row actions move into a menu, and a lead opens as a page  —  2026-08-25
+- **What changed:** two things the 53-row list made obvious (user: *"action to be in drpdwn n
+  open details in page we can have some notes too"*).
+  - **`RowActionsMenu`** replaces the inline buttons. Create/Contacted/chevron cost about a third
+    of the table's width to buttons pressed on one row in ten, and turned the list into a wall of
+    green. Closes on outside click, Escape and scroll, and flips upward near the fold so the last
+    rows don't open a clipped menu. The inbound cards use the same menu — one place to learn
+    where a lead's actions live.
+  - **`LeadDetailPage`** is a routed view (`lead-detail`), not an expanded row, so it sits on the
+    nav stack: Back returns to the queue with its filter intact and the browser back button
+    works. Carries the note timeline, the full researched record, and editable email/phone.
+  - **`LeadConvertDialog`** is the convert flow extracted so the queue and the detail page share
+    one copy. That matters because of its second half: the temporary password is shown ONCE and
+    the server keeps no readable copy, so a second implementation that mishandled it would cost a
+    password reset every time.
+- **Record impact:** 🟢 None on the client. Backend migration 235 is the data change.
+- **Migration / rollout:** needs backend 235 deployed first.
+- **Rollback:** revert the commit.
+- ⚠️ **Watch out:** `lead-detail` is deliberately NOT in `PERSIST_VIEWS`. Its `leadId` lives in
+  nav params, not the URL, so persisting it across a refresh would restore a detail page with no
+  lead to show.
+- ⚠️ **Watch out:** the credentials modal has no click-outside-to-close, deliberately — dismissing
+  it by accident costs the owner a password reset.
+
 ### fix: logging in lands on the dashboard again, on a fresh back stack  —  2026-08-25
 - **What changed:** an explicit login/signup now always lands on the dashboard with a
   single-entry nav stack (user: *"after login always start with dashboard n new back nav

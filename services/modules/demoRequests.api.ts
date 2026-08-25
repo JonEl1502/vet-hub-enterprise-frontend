@@ -1,4 +1,4 @@
-import { get, patch, post } from '../api/client';
+import { get, patch, post, del } from '../api/client';
 import { RequestOptions, ApiResponse } from '../api/types';
 
 /**
@@ -39,6 +39,21 @@ export interface DemoRequest {
   priority?: string | null;
   contactedAt?: string | null;
   contactedBy?: { id: string; email: string } | null;
+  createdAt: string;
+}
+
+/**
+ * One entry on a lead's timeline (backend 235).
+ *
+ * `SYSTEM` is something we recorded — "Account created", a status move. It has
+ * no author (nobody typed it) and cannot be deleted, because it is the audit
+ * trail of what the software did.
+ */
+export interface LeadNote {
+  id: string;
+  body: string;
+  kind: 'NOTE' | 'SYSTEM';
+  author?: { id: string; email: string } | null;
   createdAt: string;
 }
 
@@ -106,6 +121,27 @@ export const demoRequestsAPI = {
     skipped: { row: number; reason: string }[];
   }>> =>
     post('/admin/demo-requests/import', { rows }, { showError: true, timeout: 120000, ...options }),
+
+  /** One lead in full, with its note timeline — powers the detail page. */
+  get: (id: string, options?: RequestOptions): Promise<ApiResponse<{
+    request: DemoRequest;
+    notes: LeadNote[];
+  }>> => get(`/admin/demo-requests/${id}`, { cache: false, ...options }),
+
+  /**
+   * Add one note. Append-only — there is no edit, because a note is a fact
+   * about a moment.
+   *
+   * ⚠️ Side effect worth knowing: writing a note on a NEW lead also moves it to
+   * CONTACTED. Recording a call IS following up, and the queue should stop
+   * showing it as untouched.
+   */
+  addNote: (id: string, body: string, options?: RequestOptions): Promise<ApiResponse<{ note: LeadNote }>> =>
+    post(`/admin/demo-requests/${id}/notes`, { body }, { showError: true, ...options }),
+
+  /** Remove a note typed onto the wrong lead. SYSTEM entries are refused. */
+  deleteNote: (id: string, noteId: string, options?: RequestOptions): Promise<ApiResponse<{ id: string }>> =>
+    del(`/admin/demo-requests/${id}/notes/${noteId}`, { showError: true, ...options }),
 
   /**
    * ONE-CLICK convert: creates the ORG **and its OWNER** and marks the lead

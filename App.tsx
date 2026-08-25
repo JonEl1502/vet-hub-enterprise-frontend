@@ -115,6 +115,7 @@ import SupplierPackagesAdminPage from './components/admin/subscriptions/Supplier
 import SubscriptionPaymentsAdminPage from './components/admin/subscriptions/SubscriptionPaymentsAdminPage';
 import SupportTicketsAdminPage from './components/admin/support/SupportTicketsAdminPage';
 import DemoRequestsAdminPage from './components/admin/support/DemoRequestsAdminPage';
+import LeadDetailPage from './components/admin/support/LeadDetailPage';
 import SalesRepsAdminPage from './components/admin/sales-reps/SalesRepsAdminPage';
 import PlatformSettingsPage from './components/admin/platform/PlatformSettingsPage';
 import PartnerTypesPage from './components/admin/partners/PartnerTypesPage';
@@ -3196,7 +3197,17 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'support-tickets':
         return <SupportTicketsAdminPage />;
       case 'demo-requests':
-        return <DemoRequestsAdminPage />;
+        return <DemoRequestsAdminPage onOpenLead={(leadId) => navigateTo('lead-detail', { leadId })} />;
+      // One lead in full. A routed view, not an expanded row, so Back returns
+      // to the queue with its filter and scroll intact and the browser back
+      // button works.
+      case 'lead-detail':
+        return (
+          <LeadDetailPage
+            leadId={String(currentNav.params?.leadId ?? '')}
+            onBack={goBack}
+          />
+        );
       case 'sales-reps':
         return <SalesRepsAdminPage />;
       case 'platform-settings':

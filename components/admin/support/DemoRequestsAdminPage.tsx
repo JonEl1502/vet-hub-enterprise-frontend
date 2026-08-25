@@ -2,11 +2,13 @@ import React from 'react';
 import toast from 'react-hot-toast';
 import {
   Mail, Phone, Search, Loader2, Building2, MessageSquare, CheckCircle2, X,
-  Globe, MapPin, Upload, Plus, ChevronDown, Inbox, Target, AlertTriangle,
+  Globe, MapPin, Upload, Plus, Inbox, Target, AlertTriangle, ArrowUpRight, Ban,
 } from 'lucide-react';
 import demoRequestsAPI, { DemoRequest, DemoRequestStatus, LeadKind } from '../../../services/modules/demoRequests.api';
 import AdminPageHeader from '../shared/AdminPageHeader';
 import LeadImportModal from './LeadImportModal';
+import LeadConvertDialog from './LeadConvertDialog';
+import RowActionsMenu from './RowActionsMenu';
 
 /**
  * The lead inbox — both directions (backend 146, 234).
@@ -54,7 +56,12 @@ const host = (url?: string | null) => {
   return url.replace(/^https?:\/\//i, '').replace(/^www\./i, '').replace(/\/$/, '');
 };
 
-const DemoRequestsAdminPage: React.FC = () => {
+interface Props {
+  /** Routed navigation to the lead detail view — keeps it on the nav stack. */
+  onOpenLead?: (leadId: string) => void;
+}
+
+const DemoRequestsAdminPage: React.FC<Props> = ({ onOpenLead }) => {
   const [rows, setRows] = React.useState<DemoRequest[]>([]);
   const [counts, setCounts] = React.useState<Record<string, number>>({});
   const [kindCounts, setKindCounts] = React.useState<Record<string, number>>({});
@@ -65,31 +72,11 @@ const DemoRequestsAdminPage: React.FC = () => {
   const [q, setQ] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const [busyId, setBusyId] = React.useState<string | null>(null);
-  const [expanded, setExpanded] = React.useState<string | null>(null);
   const [importing, setImporting] = React.useState(false);
   const [adding, setAdding] = React.useState(false);
-
-  // One-click convert (2026-08-05): the lead being converted, the form, and the
-  // credentials that come back. The password is shown ONCE — the server does not
-  // keep a readable copy — so this state is the only place it ever exists.
+  // The convert flow itself lives in LeadConvertDialog, shared with the detail
+  // page — this is only which lead it is open on.
   const [converting, setConverting] = React.useState<DemoRequest | null>(null);
-  const [convType, setConvType] = React.useState<'CLINIC' | 'FARM'>('CLINIC');
-  const [convName, setConvName] = React.useState('');
-  const [convEmail, setConvEmail] = React.useState('');
-  const [convBusy, setConvBusy] = React.useState(false);
-  const [created, setCreated] = React.useState<{ ownerEmail: string; temporaryPassword: string; orgName: string } | null>(null);
-
-  React.useEffect(() => {
-    if (converting) {
-      setConvName(converting.clinicName || converting.name || '');
-      setConvEmail(converting.email || '');
-      // A mobile/farm practice is a FARM account, and the research says which —
-      // guessing from the segment saves the commonest correction.
-      const seg = `${converting.segment || ''} ${converting.message || ''}`.toLowerCase();
-      setConvType(/farm|livestock|mobile|ambulatory/.test(seg) ? 'FARM' : 'CLINIC');
-    }
-  }, [converting]);
-
   const [noteDraft, setNoteDraft] = React.useState<Record<string, string>>({});
 
   const load = React.useCallback(async () => {
@@ -133,36 +120,9 @@ const DemoRequestsAdminPage: React.FC = () => {
     } finally { setBusyId(null); }
   };
 
-  /** Filling in the address research left blank — this is what makes a lead convertible. */
-  const saveEmail = async (r: DemoRequest, email: string) => {
-    const next = email.trim();
-    if (next === (r.email ?? '')) return;
-    setBusyId(r.id);
-    try {
-      const res = await demoRequestsAPI.update(r.id, { email: next });
-      if (res.success) { toast.success('Email saved'); await load(); }
-    } finally { setBusyId(null); }
-  };
 
-  const doConvert = async () => {
-    if (!converting || !convName.trim()) return;
-    setConvBusy(true);
-    try {
-      const res = await demoRequestsAPI.convert(converting.id, {
-        accountType: convType,
-        orgName: convName.trim(),
-        // Sent always: for an inbound lead it is what they typed, for a
-        // researched one it may be what we just learnt on the call.
-        ownerEmail: convEmail.trim() || undefined,
-      });
-      if (res.success && res.data) {
-        setCreated({ ownerEmail: res.data.ownerEmail, temporaryPassword: res.data.temporaryPassword, orgName: res.data.orgName });
-        setConverting(null);
-        load();
-      }
-    } catch { /* the API layer surfaces its own error (e.g. email already has an account) */ }
-    finally { setConvBusy(false); }
-  };
+  /** Opening a lead is a navigation, so it goes through the router, not state. */
+  const openLead = (r: DemoRequest) => onOpenLead?.(r.id);
 
   const isOutreach = kind === 'OUTREACH';
 
@@ -188,7 +148,7 @@ const DemoRequestsAdminPage: React.FC = () => {
           return (
             <button
               key={k.id}
-              onClick={() => { setKind(k.id); setTab('NEW'); setExpanded(null); }}
+              onClick={() => { setKind(k.id); setTab('NEW'); }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all ${
                 active
                   ? 'bg-pine dark:bg-zinc-100 text-white dark:text-zinc-900 border-pine dark:border-zinc-100'
@@ -279,144 +239,82 @@ const DemoRequestsAdminPage: React.FC = () => {
             <thead className="bg-slate-50 dark:bg-zinc-950">
               <tr>
                 {['Practice', 'Where', 'Contact', 'Score', 'Status', ''].map((h, i) => (
-                  <th key={i} className="text-left px-3 py-2.5 text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">{h}</th>
+                  <th key={i} className={`px-3 py-2.5 text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap ${i === 5 ? 'text-right' : 'text-left'}`}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              {rows.map(r => {
-                const open = expanded === r.id;
-                return (
-                  <React.Fragment key={r.id}>
-                    <tr
-                      onClick={() => setExpanded(open ? null : r.id)}
-                      className="border-t border-slate-100 dark:border-zinc-800 cursor-pointer hover:bg-slate-50/60 dark:hover:bg-zinc-950/40"
-                    >
-                      <td className="px-3 py-2.5 align-top">
-                        <p className="font-black text-pine dark:text-zinc-100">{r.clinicName || r.name}</p>
-                        <div className="flex items-center gap-2 mt-0.5">
-                          {r.segment && <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{r.segment}</span>}
-                          {r.externalRef && <span className="text-[9px] font-mono text-slate-300 dark:text-zinc-600">{r.externalRef}</span>}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5 align-top text-slate-500 dark:text-zinc-400 whitespace-nowrap">
-                        <span className="inline-flex items-center gap-1"><MapPin size={10} /> {r.town || r.region || '—'}</span>
-                        {r.country && <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">{r.country}</p>}
-                      </td>
-                      <td className="px-3 py-2.5 align-top" onClick={e => e.stopPropagation()}>
-                        <div className="flex flex-col gap-0.5">
-                          {r.email ? (
-                            <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1 font-bold text-seafoam hover:underline">
-                              <Mail size={10} /> {r.email}
-                            </a>
-                          ) : (
-                            /* 60% of the researched list publishes no address, and
-                               the address is the login — say so where it is read,
-                               not at the moment convert fails. */
-                            <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-amber-600">
-                              <AlertTriangle size={10} /> No email yet
-                            </span>
-                          )}
-                          {r.phone && (
-                            <a href={`tel:${r.phone}`} className="inline-flex items-center gap-1 font-bold text-slate-500 dark:text-zinc-400 hover:text-seafoam">
-                              <Phone size={10} /> {r.phone}
-                            </a>
-                          )}
-                          {r.website && (
-                            <a href={r.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-seafoam truncate max-w-[180px]">
-                              <Globe size={10} /> {host(r.website)}
-                            </a>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-3 py-2.5 align-top whitespace-nowrap">
-                        {r.leadScore != null && <span className="font-black text-pine dark:text-zinc-100">{r.leadScore}</span>}
-                        {r.priority && (
-                          <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${PRIORITY_STYLE[r.priority.toUpperCase()] || PRIORITY_STYLE.MEDIUM}`}>
-                            {r.priority}
-                          </span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2.5 align-top">
-                        <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${STATUS_STYLE[r.status] || STATUS_STYLE.NEW}`}>
-                          {r.status}
+              {rows.map(r => (
+                <tr
+                  key={r.id}
+                  onClick={() => openLead(r)}
+                  className="border-t border-slate-100 dark:border-zinc-800 cursor-pointer hover:bg-slate-50/60 dark:hover:bg-zinc-950/40"
+                >
+                  <td className="px-3 py-2.5 align-top">
+                    <p className="font-black text-pine dark:text-zinc-100">{r.clinicName || r.name}</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {r.segment && <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{r.segment}</span>}
+                      {r.externalRef && <span className="text-[9px] font-mono text-slate-300 dark:text-zinc-600">{r.externalRef}</span>}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 align-top text-slate-500 dark:text-zinc-400 whitespace-nowrap">
+                    <span className="inline-flex items-center gap-1"><MapPin size={10} /> {r.town || r.region || '—'}</span>
+                    {r.country && <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">{r.country}</p>}
+                  </td>
+                  {/* Contact links stay clickable without opening the lead. */}
+                  <td className="px-3 py-2.5 align-top" onClick={e => e.stopPropagation()}>
+                    <div className="flex flex-col gap-0.5">
+                      {r.email ? (
+                        <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1 font-bold text-seafoam hover:underline">
+                          <Mail size={10} /> {r.email}
+                        </a>
+                      ) : (
+                        /* 60% of the researched list publishes no address, and the
+                           address is the login — say so where it is read, not at
+                           the moment convert fails. */
+                        <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-amber-600">
+                          <AlertTriangle size={10} /> No email yet
                         </span>
-                      </td>
-                      <td className="px-3 py-2.5 align-top whitespace-nowrap" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center gap-1.5">
-                          {r.status !== 'CONVERTED' && (
-                            <button
-                              disabled={busyId === r.id}
-                              onClick={() => setConverting(r)}
-                              className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-700 transition-all disabled:opacity-40"
-                            >
-                              <Building2 size={10} /> Create
-                            </button>
-                          )}
-                          {r.status === 'NEW' && (
-                            <button
-                              disabled={busyId === r.id}
-                              onClick={() => setStatus(r, 'CONTACTED')}
-                              className="px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 transition-all disabled:opacity-40"
-                            >
-                              Contacted
-                            </button>
-                          )}
-                          <ChevronDown size={13} className={`text-slate-300 transition-transform ${open ? 'rotate-180' : ''}`} />
-                        </div>
-                      </td>
-                    </tr>
-
-                    {open && (
-                      <tr className="border-t border-slate-100 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/40">
-                        <td colSpan={6} className="px-3 py-3 space-y-2.5">
-                          {r.message && (
-                            <div className="flex gap-2">
-                              <MessageSquare size={12} className="text-slate-400 shrink-0 mt-0.5" />
-                              <p className="text-[11px] text-slate-600 dark:text-zinc-300 whitespace-pre-wrap">{r.message}</p>
-                            </div>
-                          )}
-                          <div className="flex flex-wrap items-center gap-2">
-                            {/* Editable here rather than only in the convert
-                                dialog: it was learnt on the call, it belongs to
-                                the record, and the next person should see it. */}
-                            <input
-                              defaultValue={r.email ?? ''}
-                              onBlur={e => saveEmail(r, e.target.value)}
-                              placeholder="Email — add it once you have it"
-                              className={`min-w-[200px] px-3 py-1.5 bg-white dark:bg-zinc-900 border rounded-lg text-[11px] font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30 ${
-                                r.email ? 'border-slate-200 dark:border-zinc-800' : 'border-amber-300 dark:border-amber-800/60'
-                              }`}
-                            />
-                            <input
-                              defaultValue={r.notes ?? ''}
-                              onChange={e => setNoteDraft(d => ({ ...d, [r.id]: e.target.value }))}
-                              onBlur={() => saveNote(r)}
-                              placeholder="Internal note — what was said, what next…"
-                              className="flex-1 min-w-[220px] px-3 py-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-[11px] font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30"
-                            />
-                            {r.status !== 'DISMISSED' && r.status !== 'CONVERTED' && (
-                              <button
-                                disabled={busyId === r.id}
-                                onClick={() => setStatus(r, 'DISMISSED')}
-                                className="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-500 hover:bg-slate-200 disabled:opacity-40"
-                              >
-                                Dismiss
-                              </button>
-                            )}
-                          </div>
-                          {r.contactedAt && (
-                            <span className="inline-flex items-center gap-1 text-[9px] font-bold uppercase tracking-widest text-slate-400">
-                              <CheckCircle2 size={11} className="text-emerald-500" />
-                              {fmt(r.contactedAt)}{r.contactedBy ? ` · ${r.contactedBy.email}` : ''}
-                            </span>
-                          )}
-                        </td>
-                      </tr>
+                      )}
+                      {r.phone && (
+                        <a href={`tel:${r.phone}`} className="inline-flex items-center gap-1 font-bold text-slate-500 dark:text-zinc-400 hover:text-seafoam">
+                          <Phone size={10} /> {r.phone}
+                        </a>
+                      )}
+                      {r.website && (
+                        <a href={r.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-[10px] text-slate-400 hover:text-seafoam truncate max-w-[180px]">
+                          <Globe size={10} /> {host(r.website)}
+                        </a>
+                      )}
+                    </div>
+                  </td>
+                  <td className="px-3 py-2.5 align-top whitespace-nowrap">
+                    {r.leadScore != null && <span className="font-black text-pine dark:text-zinc-100">{r.leadScore}</span>}
+                    {r.priority && (
+                      <span className={`ml-1.5 px-1.5 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${PRIORITY_STYLE[r.priority.toUpperCase()] || PRIORITY_STYLE.MEDIUM}`}>
+                        {r.priority}
+                      </span>
                     )}
-                  </React.Fragment>
-                );
-              })}
+                  </td>
+                  <td className="px-3 py-2.5 align-top">
+                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest ${STATUS_STYLE[r.status] || STATUS_STYLE.NEW}`}>
+                      {r.status}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2.5 align-top text-right whitespace-nowrap" onClick={e => e.stopPropagation()}>
+                    <RowActionsMenu
+                      label={`Actions for ${r.clinicName || r.name}`}
+                      actions={[
+                        { label: 'Open details', icon: ArrowUpRight, onClick: () => openLead(r) },
+                        { label: 'Create account', icon: Building2, onClick: () => setConverting(r), hidden: r.status === 'CONVERTED' },
+                        { label: 'Mark contacted', icon: CheckCircle2, onClick: () => setStatus(r, 'CONTACTED'), hidden: r.status !== 'NEW' },
+                        { label: 'Back to new', icon: Inbox, onClick: () => setStatus(r, 'NEW'), hidden: r.status === 'NEW' || r.status === 'CONVERTED' },
+                        { label: 'Dismiss', icon: Ban, danger: true, onClick: () => setStatus(r, 'DISMISSED'), hidden: r.status === 'DISMISSED' || r.status === 'CONVERTED' },
+                      ]}
+                    />
+                  </td>
+                </tr>
+              ))}
             </tbody>
           </table>
         </div>
@@ -424,7 +322,11 @@ const DemoRequestsAdminPage: React.FC = () => {
         /* ── INBOUND — cards. Each is read once, in full, and acted on. */
         <div className="space-y-2">
           {rows.map(r => (
-            <div key={r.id} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
+            <div
+              key={r.id}
+              onClick={() => openLead(r)}
+              className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3 cursor-pointer hover:border-seafoam/40 transition-colors"
+            >
               <div className="flex flex-wrap items-start gap-3">
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">
@@ -440,7 +342,7 @@ const DemoRequestsAdminPage: React.FC = () => {
                   </div>
                   {/* Contact details are the point of the page — make them
                       one-click, not something to copy out by hand. */}
-                  <div className="flex flex-wrap items-center gap-3 mt-1.5">
+                  <div className="flex flex-wrap items-center gap-3 mt-1.5" onClick={e => e.stopPropagation()}>
                     {r.email && (
                       <a href={`mailto:${r.email}`} className="inline-flex items-center gap-1 text-[11px] font-bold text-seafoam hover:underline">
                         <Mail size={12} /> {r.email}
@@ -454,31 +356,20 @@ const DemoRequestsAdminPage: React.FC = () => {
                     <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{fmt(r.createdAt)}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 shrink-0">
-                  {/* "Converted" used to be a STATUS CHANGE only — it recorded
-                      that someone, somewhere, had made an account by hand.
-                      It now CREATES the account (user, 2026-08-05). */}
-                  {r.status !== 'CONVERTED' && (
-                    <button
-                      disabled={busyId === r.id}
-                      onClick={() => setConverting(r)}
-                      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-emerald-600 text-white hover:bg-emerald-700 transition-all disabled:opacity-40"
-                    >
-                      <Building2 size={11} /> Create account
-                    </button>
-                  )}
-                  {(['CONTACTED', 'DISMISSED'] as DemoRequestStatus[])
-                    .filter(s => s !== r.status)
-                    .map(s => (
-                      <button
-                        key={s}
-                        disabled={busyId === r.id}
-                        onClick={() => setStatus(r, s)}
-                        className="px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all disabled:opacity-40"
-                      >
-                        {s === 'CONTACTED' ? 'Mark contacted' : 'Dismiss'}
-                      </button>
-                    ))}
+                {/* Same menu as the outreach table — one place to learn where a
+                    lead's actions live, whichever queue you are in. "Converted"
+                    used to be a status change only; it CREATES the account
+                    (user, 2026-08-05). */}
+                <div className="shrink-0" onClick={e => e.stopPropagation()}>
+                  <RowActionsMenu
+                    label={`Actions for ${r.name}`}
+                    actions={[
+                      { label: 'Open details', icon: ArrowUpRight, onClick: () => openLead(r) },
+                      { label: 'Create account', icon: Building2, onClick: () => setConverting(r), hidden: r.status === 'CONVERTED' },
+                      { label: 'Mark contacted', icon: CheckCircle2, onClick: () => setStatus(r, 'CONTACTED'), hidden: r.status === 'CONTACTED' || r.status === 'CONVERTED' },
+                      { label: 'Dismiss', icon: Ban, danger: true, onClick: () => setStatus(r, 'DISMISSED'), hidden: r.status === 'DISMISSED' || r.status === 'CONVERTED' },
+                    ]}
+                  />
                 </div>
               </div>
 
@@ -489,7 +380,7 @@ const DemoRequestsAdminPage: React.FC = () => {
                 </div>
               )}
 
-              <div className="flex flex-wrap items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2" onClick={e => e.stopPropagation()}>
                 <input
                   defaultValue={r.notes ?? ''}
                   onChange={e => setNoteDraft(d => ({ ...d, [r.id]: e.target.value }))}
@@ -512,83 +403,17 @@ const DemoRequestsAdminPage: React.FC = () => {
       {importing && <LeadImportModal onClose={() => setImporting(false)} onImported={load} />}
       {adding && <AddPotentialClientModal onClose={() => setAdding(false)} onAdded={() => { setAdding(false); load(); }} />}
 
-      {/* CONVERT — asks only what the lead cannot tell us: the org's real name,
-          whether it is a clinic or a farm, and — for a researched lead — the
-          email that becomes the login. */}
+      {/* Convert + the shown-once credentials both live in LeadConvertDialog,
+          shared with the detail page — a second copy that mishandled the
+          one-time password would cost a reset every time it was used. */}
       {converting && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/70" onClick={() => setConverting(null)}>
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-xl space-y-3" onClick={e => e.stopPropagation()}>
-            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Create account</p>
-            <h2 className="font-display text-lg font-black text-pine dark:text-zinc-100">{converting.clinicName || converting.name}</h2>
-            <p className="text-xs text-slate-500 dark:text-zinc-400">
-              Creates the organisation <strong>and its owner</strong>. The owner logs in with the email below —
-              that is why the account is created with theirs, not yours.
-            </p>
-            <div>
-              <label className="field-label">Organisation name</label>
-              <input className="field-input" value={convName} onChange={e => setConvName(e.target.value)} placeholder="e.g. Mombasani Vets Clinic" />
-            </div>
-            <div>
-              <label className="field-label">Owner email {converting.email ? '' : '— not on this lead yet'}</label>
-              <input
-                className="field-input"
-                type="email"
-                value={convEmail}
-                onChange={e => setConvEmail(e.target.value)}
-                placeholder="owner@practice.co.ke"
-              />
-              {!converting.email && (
-                <p className="mt-1 text-[10px] text-amber-600 dark:text-amber-500">
-                  This lead was researched without an email. Whatever you enter is saved back onto the lead too.
-                </p>
-              )}
-            </div>
-            <div>
-              <label className="field-label">Account type</label>
-              <div className="flex gap-2">
-                {(['CLINIC', 'FARM'] as const).map(t => (
-                  <button key={t} onClick={() => setConvType(t)}
-                    className={`flex-1 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest border transition-all ${convType === t ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`}>
-                    {t === 'CLINIC' ? 'Vet clinic' : 'Farm / livestock'}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex gap-2 pt-1">
-              <button onClick={() => setConverting(null)} className="flex-1 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500">Cancel</button>
-              <button onClick={doConvert} disabled={convBusy || !convName.trim() || !convEmail.trim()}
-                className="flex-1 py-2 bg-emerald-600 text-white rounded-lg text-[10px] font-black uppercase tracking-widest disabled:opacity-50 flex items-center justify-center gap-1.5">
-                {convBusy ? <><Loader2 size={12} className="animate-spin" /> Creating…</> : 'Create account'}
-              </button>
-            </div>
-          </div>
-        </div>
+        <LeadConvertDialog
+          lead={converting}
+          onClose={() => setConverting(null)}
+          onConverted={load}
+        />
       )}
 
-      {/* CREDENTIALS — shown ONCE. The server keeps no readable copy, so if this
-          is dismissed without copying, the owner must reset their password. */}
-      {created && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4 bg-slate-900/60 dark:bg-black/70">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 shadow-xl space-y-3">
-            <p className="text-[10px] font-black uppercase tracking-widest text-emerald-600 flex items-center gap-1.5"><CheckCircle2 size={13} /> Account created</p>
-            <h2 className="font-display text-lg font-black text-pine dark:text-zinc-100">{created.orgName}</h2>
-            <div className="rounded-xl border border-amber-200 dark:border-amber-800/40 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-1.5">
-              <p className="text-[10px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500">Copy this now — it is shown once</p>
-              <p className="text-xs font-mono text-pine dark:text-zinc-100 break-all">{created.ownerEmail}</p>
-              <p className="text-sm font-mono font-black text-pine dark:text-zinc-100 break-all">{created.temporaryPassword}</p>
-            </div>
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400">
-              There is no readable copy on the server. If this is lost the owner has to reset their password.
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => { navigator.clipboard?.writeText(`${created.ownerEmail} / ${created.temporaryPassword}`); toast.success('Copied'); }}
-                className="flex-1 py-2 bg-slate-100 dark:bg-zinc-800 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300">Copy</button>
-              <button onClick={() => setCreated(null)} className="flex-1 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg text-[10px] font-black uppercase tracking-widest">Done</button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
