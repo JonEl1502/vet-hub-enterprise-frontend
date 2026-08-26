@@ -59,6 +59,36 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: WhatsApp becomes a real channel, not a deep link  —  2026-08-26
+- **What changed:** WhatsApp in the Messaging Portal now **sends** — server-side, through Meta's
+  Cloud API — when the clinic has a channel and Meta's 24-hour window is open. Inbound client
+  replies land in the same thread on the client profile, with delivery state (Sent / Delivered /
+  Read / Failed) rendered per message. Broadcasts gained a Meta template field.
+- ⚠️ **The WhatsApp button now has three modes, and it says which one it is in.** Staff previously
+  had no way to tell whether pressing it delivered anything:
+  · **Sends** — configured and inside the 24-hour window: VetHub sends it and tracks delivery.
+  · **Opens WhatsApp** — no channel configured: unchanged handoff to the staff member's own app.
+  · **Window closed** — configured, but the client has been quiet 24h+, so Meta accepts only an
+  approved template. Free text would be rejected (131047), so the UI says so up front and keeps
+  the deep link as the honest way through rather than failing after the message is typed.
+- ⚠️ **A broadcast is outside the 24-hour window for almost every recipient.** The WhatsApp chip's
+  note changed from `queued` to `template`, and selecting WhatsApp now surfaces a template name +
+  language field. Without one, only clients who messaged in the last 24 hours receive it. The old
+  copy — *"delivery goes out once the WhatsApp sender is connected"* — described a sender that did
+  not exist; it is gone.
+- ⚠️ **The broadcast toast no longer implies delivery.** It says "N WhatsApp queued", never sent,
+  and adds "N no usable number" for matched clients whose phone does not normalise to E.164.
+  Delivery is asynchronous and reported per message on each client's thread.
+- **Record impact:** 🟢 None from the frontend — display and request shape only.
+- **Data dependency:** **Requires backend migration 253** for `direction`, `status`, `errorCode`
+  and the `/messages/client/:id/whatsapp-status` endpoint. **Graceful fallback:** if the endpoint
+  fails or the server has no credentials, `configured` resolves false and every surface reverts to
+  the wa.me deep-link behaviour it had before. A stack with no WhatsApp set up looks unchanged.
+- **Rollback:** revert the commit and rebuild. No stored value changes.
+- ⚠️ **Watch out:** `PlatformMessage.status` is **NULL on portal and email rows** — they have no
+  delivery concept. Do not render a tick for them; a "Delivered" on a portal message would be an
+  invention. Only WhatsApp rows carry a status.
+
 ### fix: client stats strip re-proportioned to 4 / 5 / 3  —  2026-08-26
 - **What changed:** the Visits / Spend / Message strip on the client profile was `4 : 3 : 3`,
   giving the most room to the cell that needs the least. Now `4 : 5 : 3` — twelfths (user,

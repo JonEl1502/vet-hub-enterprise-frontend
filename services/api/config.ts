@@ -97,6 +97,9 @@ export const ENDPOINTS = {
   MESSAGING: {
     CLIENT_THREAD: (clientId: string | number) => `/messages/client/${clientId}`,
     CLIENT_READ: (clientId: string | number) => `/messages/client/${clientId}/read`,
+    // Is WhatsApp configured for this clinic, and is Meta's 24-hour window
+    // still open for this client? Asked before the staff member starts typing.
+    WHATSAPP_STATUS: (clientId: string | number) => `/messages/client/${clientId}/whatsapp-status`,
     SEND: '/messages',
     UNREAD: '/messages/unread',
     INBOX: '/messages/inbox',

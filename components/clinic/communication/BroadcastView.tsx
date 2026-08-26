@@ -22,7 +22,7 @@ const SPECIES: { v: string; e: string }[] = [
 const CHANNELS: { v: BroadcastChannel; label: string; icon: React.ReactNode; note?: string }[] = [
   { v: 'email', label: 'Email', icon: <Mail size={13} /> },
   { v: 'portal', label: 'Client Portal', icon: <Monitor size={13} /> },
-  { v: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle size={13} />, note: 'queued' },
+  { v: 'whatsapp', label: 'WhatsApp', icon: <MessageCircle size={13} />, note: 'template' },
 ];
 
 const EMPTY: SegmentFilter = { activity: 'all', portal: 'any' };
@@ -107,6 +107,11 @@ const BroadcastView: React.FC = () => {
   const [body, setBody] = useState('');
   const [filter, setFilter] = useState<SegmentFilter>(EMPTY);
   const [channels, setChannels] = useState<BroadcastChannel[]>(['email']);
+  // Meta template for the WhatsApp leg. A broadcast is outside the 24-hour
+  // window for almost every recipient, so this is what makes it deliverable at
+  // all — not an optional refinement.
+  const [waTemplate, setWaTemplate] = useState('');
+  const [waTemplateLang, setWaTemplateLang] = useState('en');
 
   const [breakdown, setBreakdown] = useState<SegmentBreakdown | null>(null);
   const [countLoading, setCountLoading] = useState(false);
@@ -162,12 +167,24 @@ const BroadcastView: React.FC = () => {
 
     setSending(true);
     try {
-      const res = await broadcastsAPI.segmentSend({ subject: subject.trim(), body: body.trim(), filter, channels });
+      const res = await broadcastsAPI.segmentSend({
+        subject: subject.trim(),
+        body: body.trim(),
+        filter,
+        channels,
+        ...(channels.includes('whatsapp') && waTemplate.trim()
+          ? { whatsappTemplate: { name: waTemplate.trim(), language: waTemplateLang } }
+          : {}),
+      });
       const r = res.data?.results;
       const parts: string[] = [];
       if (r?.email) parts.push(`${r.email.sent} emailed${r.email.failed ? `, ${r.email.failed} failed` : ''}`);
       if (r?.portal?.sent) parts.push(`${r.portal.sent} to portal`);
+      // Deliberately says "queued", never "sent". Delivery is asynchronous and
+      // reported per message on each client's thread; claiming a send here is
+      // what this screen used to get wrong.
       if (r?.whatsapp?.queued) parts.push(`${r.whatsapp.queued} WhatsApp queued`);
+      if (r?.whatsapp?.unreachable) parts.push(`${r.whatsapp.unreachable} no usable number`);
       toast.success(parts.length ? parts.join(' · ') : 'Broadcast sent');
       setSubject(''); setBody('');
       loadHistory();
@@ -327,7 +344,30 @@ const BroadcastView: React.FC = () => {
                 })}
               </div>
               {channels.includes('whatsapp') && (
-                <p className="field-help mt-1.5 text-amber-600 dark:text-amber-400">WhatsApp messages are queued — delivery goes out once the WhatsApp sender is connected.</p>
+                <div className="mt-2 space-y-2 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 p-3">
+                  <p className="field-help text-amber-700 dark:text-amber-400 !mt-0">
+                    <strong>WhatsApp needs an approved template for a broadcast.</strong> Meta only accepts a typed
+                    message within 24 hours of the client messaging you, which almost nobody in a broadcast has done.
+                    Without a template, only those few will receive it — everyone else is recorded as not delivered.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    <input
+                      value={waTemplate}
+                      onChange={(e) => setWaTemplate(e.target.value)}
+                      placeholder="clinic_broadcast"
+                      className="flex-1 min-w-[180px] bg-white dark:bg-zinc-900 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-xs font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-400/30"
+                    />
+                    <input
+                      value={waTemplateLang}
+                      onChange={(e) => setWaTemplateLang(e.target.value)}
+                      placeholder="en"
+                      className="w-20 bg-white dark:bg-zinc-900 border border-amber-200 dark:border-amber-900 rounded-lg px-3 py-2 text-xs font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-amber-400/30"
+                    />
+                  </div>
+                  <p className="field-help text-amber-600/80 dark:text-amber-400/70 !mt-0">
+                    Template name and language exactly as approved in WhatsApp Manager.
+                  </p>
+                </div>
               )}
             </div>
 

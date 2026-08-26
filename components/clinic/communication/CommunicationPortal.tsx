@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { Client, Pet, Message, Clinic, Visit } from '../../../types';
-import { ArrowLeft, ExternalLink, Check, MessageCircle, Mail, Phone, Wallet, CalendarClock, MapPin } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Check, MessageCircle, Mail, Phone, Wallet, CalendarClock, MapPin, Clock, Loader2, AlertTriangle } from 'lucide-react';
+import { messagingAPI, type WhatsappStatus } from '../../../services/modules/messaging.api';
 
 interface Props {
   client: Client;
@@ -22,6 +23,34 @@ const CommunicationPortal: React.FC<Props> = ({ client, pet, onBack, onRecordMes
   const [subject, setSubject] = useState(pet ? `Follow-up: ${pet.name}'s Health` : 'General Inquiry');
   const [sentStatus, setSentStatus] = useState<string | null>(null);
   const [activeTemplate, setActiveTemplate] = useState<string | null>(null);
+  // null while we don't know yet — the WhatsApp button must not promise real
+  // delivery before the server has told us it can deliver.
+  const [wa, setWa] = useState<WhatsappStatus | null>(null);
+  const [waSending, setWaSending] = useState(false);
+  const [waError, setWaError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    messagingAPI
+      .whatsappStatus(client.id)
+      .then((r) => { if (!cancelled && r?.data) setWa(r.data as WhatsappStatus); })
+      // Silent: a clinic with no WhatsApp set up is the normal case, not an
+      // error worth interrupting anyone over. We simply fall back to the link.
+      .catch(() => { if (!cancelled) setWa({ configured: false, windowOpen: false, windowExpiresAt: null, tier: null }); });
+    return () => { cancelled = true; };
+  }, [client.id]);
+
+  // Three genuinely different states, and the button has to say which:
+  //   'api'  — configured AND inside Meta's 24-hour window: we send it, and
+  //            delivery is tracked on the thread.
+  //   'link' — no channel configured: hand off to the staff member's own
+  //            WhatsApp, exactly as before.
+  //   'window-closed' — configured, but the client has not messaged in 24h, so
+  //            Meta accepts only an approved template. Free text WILL be
+  //            rejected (131047), so we do not pretend otherwise; the deep link
+  //            stays available as the honest way through.
+  const waMode: 'api' | 'link' | 'window-closed' =
+    !wa?.configured ? 'link' : wa.windowOpen ? 'api' : 'window-closed';
 
   // Quick message templates — pre-fill subject + body from what we know about
   // this client (outstanding balance, next visit, clinic location).
@@ -67,22 +96,51 @@ const CommunicationPortal: React.FC<Props> = ({ client, pet, onBack, onRecordMes
     setActiveTemplate(t.id);
   };
 
-  const handleSend = (channel: 'whatsapp' | 'email' | 'sms') => {
+  /** Hand off to whatever app the staff member has. The original behaviour. */
+  const openExternal = useCallback((channel: 'whatsapp' | 'email' | 'sms') => {
+    const encodedMsg = encodeURIComponent(message);
+    const encodedSub = encodeURIComponent(subject);
+    if (channel === 'whatsapp') {
+      window.open(`https://wa.me/${(client.phone || '').replace(/\s+/g, '')}?text=${encodedMsg}`, '_blank');
+    } else if (channel === 'email') {
+      window.open(`mailto:${client.email}?subject=${encodedSub}&body=${encodedMsg}`, '_blank');
+    } else if (channel === 'sms') {
+      window.open(`sms:${client.phone}?body=${encodedMsg}`, '_blank');
+    }
+  }, [client.email, client.phone, message, subject]);
+
+  const handleSend = useCallback(async (channel: 'whatsapp' | 'email' | 'sms') => {
+    if (!message.trim()) return;
+    setWaError(null);
+
+    // Real send: the server queues it, dispatches to Meta and tracks delivery
+    // on the thread. No handoff, and no locally-recorded row — the message row
+    // IS the server's, so recording another here would duplicate the thread.
+    if (channel === 'whatsapp' && waMode === 'api') {
+      setWaSending(true);
+      try {
+        await messagingAPI.send({ clientId: client.id, petId: pet?.id, subject, body: message, channel: 'whatsapp' });
+        setSentStatus('whatsapp');
+        setMessage('');
+        setTimeout(() => setSentStatus(null), 2500);
+      } catch (err: any) {
+        setWaError(err?.message || 'WhatsApp send failed. Try opening WhatsApp instead.');
+      } finally {
+        setWaSending(false);
+      }
+      return;
+    }
+
+    // Handoff path (email, sms, and WhatsApp when we cannot send it ourselves).
+    // Still recorded locally, because nothing else will record it: the message
+    // leaves from the staff member's own app and the server never sees it.
     onRecordMessage({ clientId: client.id, petId: pet?.id, subject, body: message, channel });
     setSentStatus(channel);
     setTimeout(() => {
       setSentStatus(null);
-      const encodedMsg = encodeURIComponent(message);
-      const encodedSub = encodeURIComponent(subject);
-      if (channel === 'whatsapp') {
-        window.open(`https://wa.me/${client.phone.replace(/\s+/g, '')}?text=${encodedMsg}`, '_blank');
-      } else if (channel === 'email') {
-        window.open(`mailto:${client.email}?subject=${encodedSub}&body=${encodedMsg}`, '_blank');
-      } else if (channel === 'sms') {
-        window.open(`sms:${client.phone}?body=${encodedMsg}`, '_blank');
-      }
+      openExternal(channel);
     }, 1500);
-  };
+  }, [client.id, message, onRecordMessage, openExternal, pet?.id, subject, waMode]);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -107,6 +165,40 @@ const CommunicationPortal: React.FC<Props> = ({ client, pet, onBack, onRecordMes
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-5">
         {/* Compose card */}
         <div className="lg:col-span-8">
+          {/* What WhatsApp will actually DO when pressed. Staff have no other
+              way to know whether this sends or just opens their phone, and the
+              difference decides whether the client hears from the clinic. */}
+          {waMode === 'api' && (
+            <div className="mb-3 flex items-start gap-2 rounded-xl border border-emerald-200 dark:border-emerald-900 bg-emerald-50 dark:bg-emerald-950/30 px-3 py-2.5">
+              <MessageCircle size={14} className="mt-0.5 shrink-0 text-emerald-600 dark:text-emerald-400" />
+              <p className="text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
+                WhatsApp sends directly from {wa?.tier === 'clinic' ? 'this clinic’s number' : 'the VetHub number'} and delivery is tracked.
+                {wa?.windowExpiresAt && (
+                  <span className="font-semibold opacity-80">
+                    {' '}Open until {new Date(wa.windowExpiresAt).toLocaleString([], { weekday: 'short', hour: '2-digit', minute: '2-digit' })}.
+                  </span>
+                )}
+              </p>
+            </div>
+          )}
+          {waMode === 'window-closed' && (
+            <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/30 px-3 py-2.5">
+              <Clock size={14} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300">
+                {client.name?.split(' ')[0] || 'This client'} hasn’t messaged in 24 hours, so WhatsApp won’t accept a typed
+                message — only a pre-approved template.{' '}
+                <span className="font-semibold opacity-80">
+                  Pressing WhatsApp opens it on your own phone instead, with this message ready to send.
+                </span>
+              </p>
+            </div>
+          )}
+          {waError && (
+            <div className="mb-3 flex items-start gap-2 rounded-xl border border-red-200 dark:border-red-900 bg-red-50 dark:bg-red-950/30 px-3 py-2.5">
+              <AlertTriangle size={14} className="mt-0.5 shrink-0 text-red-600 dark:text-red-400" />
+              <p className="text-[11px] font-bold text-red-800 dark:text-red-300">{waError}</p>
+            </div>
+          )}
           <div className="bg-white dark:bg-zinc-900 border border-seafoam/15 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
             {/* Quick templates */}
             <div className="space-y-1.5">
@@ -155,18 +247,20 @@ const CommunicationPortal: React.FC<Props> = ({ client, pet, onBack, onRecordMes
               {channels.map((ch) => {
                 const Icon = ch.icon;
                 const sent = sentStatus === ch.id;
+                const busy = ch.id === 'whatsapp' && waSending;
                 return (
                   <button
                     key={ch.id}
                     onClick={() => handleSend(ch.id as any)}
-                    className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border font-black text-[10px] uppercase tracking-widest transition-all ${
+                    disabled={busy || !message.trim()}
+                    className={`flex flex-col items-center gap-1.5 py-3 rounded-xl border font-black text-[10px] uppercase tracking-widest transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                       sent
                         ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 ring-2 ring-emerald-500/20'
                         : `${ch.color} hover:opacity-80`
                     }`}
                   >
-                    {sent ? <Check size={18} /> : <Icon size={18} />}
-                    <span>{sent ? 'Sent!' : ch.label}</span>
+                    {busy ? <Loader2 size={18} className="animate-spin" /> : sent ? <Check size={18} /> : <Icon size={18} />}
+                    <span>{busy ? 'Sending…' : sent ? 'Sent!' : ch.label}</span>
                   </button>
                 );
               })}
@@ -186,7 +280,8 @@ const CommunicationPortal: React.FC<Props> = ({ client, pet, onBack, onRecordMes
                   <button
                     key={ch.id}
                     onClick={() => handleSend(ch.id as any)}
-                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all ${
+                    disabled={(ch.id === 'whatsapp' && waSending) || !message.trim()}
+                    className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
                       sent
                         ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/20 ring-2 ring-emerald-500/20'
                         : 'border-seafoam/15 dark:border-zinc-800 hover:border-seafoam hover:bg-seafoam/5 dark:hover:bg-zinc-800'
@@ -202,7 +297,12 @@ const CommunicationPortal: React.FC<Props> = ({ client, pet, onBack, onRecordMes
                     </div>
                     {sent
                       ? <Check size={16} className="text-emerald-500" />
-                      : <ExternalLink size={14} className="text-slate-400" />
+                      : ch.id === 'whatsapp' && waSending
+                        ? <Loader2 size={14} className="animate-spin text-emerald-500" />
+                        : ch.id === 'whatsapp' && waMode === 'api'
+                          // Not an ExternalLink: this one does not leave VetHub.
+                          ? <span className="text-[9px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Sends</span>
+                          : <ExternalLink size={14} className="text-slate-400" />
                     }
                   </button>
                 );

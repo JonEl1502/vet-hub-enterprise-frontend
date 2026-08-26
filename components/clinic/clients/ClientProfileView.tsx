@@ -28,6 +28,20 @@ import { printElementAsPdf } from '../shared/printPdf';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { can } from '../../../constants/modulePermissions';
 import { clientDiscountsAPI, clientsAPI, messagingAPI, toast, PlatformMessage } from '../../../services';
+
+// WhatsApp delivery states, in plain words. 'queued'/'sending' are ours (the
+// message is accepted but not yet handed to Meta); the rest come back from
+// Meta's status webhooks. Portal and email rows have no status at all and are
+// deliberately shown without one — a tick on a message that was never
+// "delivered" anywhere would be an invention.
+const MESSAGE_STATUS_LABEL: Record<string, string> = {
+  queued: 'Queued',
+  sending: 'Sending…',
+  sent: 'Sent',
+  delivered: 'Delivered',
+  read: 'Read',
+  failed: 'Failed',
+};
 import { dialog } from '../../../services/utils/dialog';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
 import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell, Star, ScrollText, FolderOpen, Camera, Loader2 } from 'lucide-react';
@@ -2301,13 +2315,40 @@ const ClientPlatformThread: React.FC<{ clientId: string | number; clientName: st
             <div className={`max-w-[78%] p-3 rounded-2xl text-sm font-medium ${
               m.fromOwner
                 ? 'bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-200 rounded-bl-sm'
-                : 'bg-seafoam text-white rounded-br-sm'
+                : m.status === 'failed'
+                  // A failed WhatsApp message must not look like a sent one.
+                  // The old thread had no way to show this because nothing was
+                  // ever really sent.
+                  ? 'bg-red-50 dark:bg-red-950/40 text-red-800 dark:text-red-300 border border-red-200 dark:border-red-900 rounded-br-sm'
+                  : 'bg-seafoam text-white rounded-br-sm'
             }`}>
               {m.subject && <p className="font-black text-xs mb-0.5">{m.subject}</p>}
               <p className="whitespace-pre-wrap leading-relaxed">{m.body}</p>
-              <p className={`text-[9px] mt-1 font-bold ${m.fromOwner ? 'text-slate-400 dark:text-zinc-500' : 'text-white/70'}`}>
+              {m.channel === 'whatsapp' && m.mediaType && (
+                <p className={`text-[9px] mt-1 font-black uppercase tracking-widest ${m.fromOwner ? 'text-slate-400 dark:text-zinc-500' : 'text-white/70'}`}>
+                  {/* The bytes live at Meta and expire after 30 days; the
+                      thread records that something was attached, not the file. */}
+                  Attachment · {m.mediaType}
+                </p>
+              )}
+              <p className={`text-[9px] mt-1 font-bold flex items-center gap-1 flex-wrap ${
+                m.fromOwner ? 'text-slate-400 dark:text-zinc-500' : m.status === 'failed' ? 'text-red-500 dark:text-red-400' : 'text-white/70'
+              }`}>
                 {!m.fromOwner && m.senderName ? `${m.senderName} · ` : ''}{formatDateTime(m.sentAt)}
+                {m.channel === 'whatsapp' && <span className="font-black uppercase tracking-widest">· WhatsApp</span>}
+                {/* status is NULL on portal/email rows — they have no delivery
+                    concept, so they get no tick. */}
+                {!m.fromOwner && m.status && <span>· {MESSAGE_STATUS_LABEL[m.status] ?? m.status}</span>}
               </p>
+              {m.status === 'failed' && (
+                <p className="text-[10px] mt-1.5 font-bold text-red-700 dark:text-red-400 leading-snug">
+                  {m.errorCode === '131047' || m.errorCode === '470'
+                    ? 'Not delivered — WhatsApp only accepts a pre-approved template once the client has been quiet for 24 hours.'
+                    : m.errorCode === '131026'
+                      ? 'Not delivered — this number is not on WhatsApp.'
+                      : `Not delivered${m.errorCode ? ` (${m.errorCode})` : ''}. ${m.errorDetail || ''}`}
+                </p>
+              )}
             </div>
           </div>
         ))}

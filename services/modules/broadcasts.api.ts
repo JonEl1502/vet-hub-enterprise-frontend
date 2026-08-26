@@ -59,7 +59,12 @@ export interface SegmentSendResult {
   results: {
     email: { sent: number; failed: number };
     portal: { sent: number };
-    whatsapp: { queued: number };
+    // `queued` is what the server accepted; `sent` is what Meta actually took
+    // on the immediate drain. They are kept apart on purpose — counting queued
+    // as sent is what used to make this screen report deliveries that never
+    // happened. `unreachable` is matched clients whose phone number does not
+    // normalise to E.164.
+    whatsapp: { queued: number; sent: number; failed: number; unreachable: number };
   };
 }
 
@@ -74,7 +79,19 @@ export const broadcastsAPI = {
 
   /** Send a segment broadcast across the chosen channels. */
   segmentSend: async (
-    data: { subject: string; body: string; filter: SegmentFilter; channels: BroadcastChannel[] },
+    data: {
+      subject: string;
+      body: string;
+      filter: SegmentFilter;
+      channels: BroadcastChannel[];
+      /**
+       * Approved Meta template. A broadcast is outside WhatsApp's 24-hour
+       * window for almost every recipient, so without one only clients who
+       * messaged the clinic in the last 24 hours will receive it.
+       * `params` is POSITIONAL — Meta matches by order, not by name.
+       */
+      whatsappTemplate?: { name: string; language?: string; params?: string[] };
+    },
     options?: RequestOptions
   ): Promise<ApiResponse<SegmentSendResult>> => {
     return post(ENDPOINTS.BROADCASTS.SEGMENT_SEND, data, { showError: true, ...options });
