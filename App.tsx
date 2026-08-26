@@ -1576,7 +1576,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               onContact={() => setShowDemoModal(true)}
               onLegal={(kind) => goAuthView(kind)}
             />
-            <DemoRequestModal onClose={() => goAuthView('landing')} />
+            {/* Supplier-shaped copy: this visitor came through the supplier
+                door, and asking them for their CLINIC name told them the
+                product was not for them. Also tags the lead
+                `source: SUPPLIER_SIGNUP` so the team can tell it apart. */}
+            <DemoRequestModal audience="supplier" onClose={() => goAuthView('landing')} />
           </>
         );
       }

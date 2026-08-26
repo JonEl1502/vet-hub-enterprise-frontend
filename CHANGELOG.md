@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: the demo request form asks a supplier about their company, not their clinic  —  2026-08-26
+- **What changed:** `DemoRequestModal` takes an `audience` prop (`clinic` by default — every
+  existing caller). `/supplier-signup`'s closed-signups fallback passes `supplier`, which swaps the
+  heading, the org-name label and placeholder, the email and message placeholders, and the
+  confirmation copy, and tags the lead so the team can tell the two apart.
+- **Record impact:** 🟢 None — a lead form; it writes no app records.
+- **Data dependency:** Requires the backend `audience` handling for the lead to be tagged
+  `SUPPLIER_SIGNUP`. Graceful fallback: an older server ignores the field and files it as a
+  normal landing lead, exactly as today.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Found by actually opening the page**, not by reading the diff. Routing `/supplier-signup` to
+  the demo form was correct; what it shipped was a supplier being asked for their CLINIC name, with
+  "Westlands Paws Vet Clinic" in the box and "number of branches" as the prompt — telling a
+  supplier the product is not for them, on the page whose whole job is to sign them up.
+- ⚠️ **The field stays `clinicName` on the wire.** It is the org-name column on the lead; renaming
+  it would be a migration for a label. The server relabels it "Company" on a supplier lead.
+
 ### page: supplier signup goes behind the signups switch, and becomes a demo  —  2026-08-26
 - **What changed:** `/supplier-signup` now falls back to the landing page + `DemoRequestModal`
   when `signupsEnabled` is false, exactly as `/signup` and `/demo-signup` already did — that
