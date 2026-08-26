@@ -447,20 +447,23 @@ const EditClientView: React.FC<EditClientViewProps> = ({ client, onBack }) => {
           </div>
         </div>
 
-        {/* Footer actions */}
-        <div className="flex gap-3">
+        {/* Footer actions — sized on a wide screen, full-width on a phone.
+            This is a full-page VIEW, so `flex-1` on both stretched the pair
+            across the whole viewport; same call as the boarding and inpatient
+            gates (user, 2026-08-26). */}
+        <div className="flex sm:justify-end gap-3">
           <button
             type="button"
             onClick={onBack}
             disabled={isSubmitting}
-            className="flex-1 px-6 py-3.5 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-2xl font-black text-sm uppercase tracking-wide hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all disabled:opacity-50"
+            className="flex-1 sm:flex-none px-5 py-2.5 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-2xl font-black text-xs uppercase tracking-wide hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all disabled:opacity-50"
           >
             Cancel
           </button>
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex-1 px-6 py-3.5 bg-seafoam text-white rounded-2xl font-black text-sm uppercase tracking-wide hover:bg-seafoam/90 transition-all disabled:opacity-50 shadow-lg shadow-seafoam/20 flex items-center justify-center gap-2"
+            className="flex-1 sm:flex-none px-8 py-2.5 bg-seafoam text-white rounded-2xl font-black text-xs uppercase tracking-wide hover:bg-seafoam/90 transition-all disabled:opacity-50 shadow-lg shadow-seafoam/20 flex items-center justify-center gap-2"
           >
             {isSubmitting ? (
               <><Loader2 size={18} className="animate-spin" />Saving…</>

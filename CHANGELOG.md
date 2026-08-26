@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: full-page action bars stop being viewport-wide slabs  —  2026-08-26
+- **What changed:** the boarding admission gate, the inpatient admission gate and Edit Client size
+  their Cancel/primary pair on a wide screen (`flex-1 sm:flex-none`, right-aligned) instead of
+  stretching each to half the viewport. Boarding was the one the user hit
+  ("cancle admint buttons too big"); the other two are the same shape.
+- **Record impact:** 🟢 None — CSS classes only, no behaviour, no data.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **This is only a bug on FULL-PAGE forms.** All three render straight into the page with no
+  width-constraining wrapper, so `flex-1` resolves against the whole viewport — a ~900px ADMIT
+  reads as a banner, not a control, and hands Cancel the same visual weight as the action it is an
+  escape from. The many `flex-1 px-6 py-3` pairs inside `max-w-*` MODALS are correct as they are
+  and were deliberately left alone.
+- ⚠️ **`flex-1 sm:flex-none`, not plain sizing.** The inpatient gate was sized down for exactly
+  this complaint on 2026-08-22, which fixed the wide screen and left a PHONE with two small
+  buttons and a band of dead space beside them. Full-width halves are right on a phone; only the
+  wide screen needs them reined in. That page keeps its earlier decision and gains the phone half.
+
 ### component: the demo request form asks a supplier about their company, not their clinic  —  2026-08-26
 - **What changed:** `DemoRequestModal` takes an `audience` prop (`clinic` by default — every
   existing caller). `/supplier-signup`'s closed-signups fallback passes `supplier`, which swaps the

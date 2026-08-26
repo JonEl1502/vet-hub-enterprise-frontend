@@ -382,15 +382,18 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
             onClick, and it can't cover another page's content.
             `-mx` + padding so the bar's background spans the full width, and
             safe-area padding so it clears a phone's home indicator. */}
-        <div className="sticky bottom-0 z-20 flex justify-end gap-3 pt-3 -mx-2 px-2 sm:-mx-4 sm:px-4 bg-white/95 dark:bg-zinc-950/95 backdrop-blur border-t border-slate-200 dark:border-zinc-800"
+        <div className="sticky bottom-0 z-20 flex sm:justify-end gap-3 pt-3 -mx-2 px-2 sm:-mx-4 sm:px-4 bg-white/95 dark:bg-zinc-950/95 backdrop-blur border-t border-slate-200 dark:border-zinc-800"
           style={{ paddingBottom: 'max(0.75rem, env(safe-area-inset-bottom))' }}>
           {/* Sized, not stretched (user, 2026-08-22). `flex-1` on both made two
               half-width slabs on a wide screen — a 900px ADMIT button reads as
               a banner, not a control, and gave Cancel the same visual weight as
               the destructive-looking primary action. Cancel now takes only the
-              room it needs and the pair sits right. */}
-          <button type="button" onClick={onClose} disabled={submitting} className="px-5 py-2.5 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-black text-xs uppercase tracking-wide hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-50">Cancel</button>
-          <button type="submit" disabled={submitting} className="px-8 py-2.5 bg-red-600 text-white rounded-xl font-black text-xs uppercase tracking-wide hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-red-600/20">
+              room it needs and the pair sits right.
+              ⚠️ `flex-1 sm:flex-none` added 2026-08-26: sizing them down helped
+              the wide screen but left a PHONE with two small buttons and a band
+              of dead space. Full-width halves are right there. */}
+          <button type="button" onClick={onClose} disabled={submitting} className="flex-1 sm:flex-none px-5 py-2.5 bg-slate-100 dark:bg-zinc-800 text-slate-700 dark:text-zinc-300 rounded-xl font-black text-xs uppercase tracking-wide hover:bg-slate-200 dark:hover:bg-zinc-700 disabled:opacity-50">Cancel</button>
+          <button type="submit" disabled={submitting} className="flex-1 sm:flex-none px-8 py-2.5 bg-red-600 text-white rounded-xl font-black text-xs uppercase tracking-wide hover:bg-red-700 disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-red-600/20">
             {submitting ? <><Loader2 size={18} className="animate-spin" /> Admitting…</> : <><Stethoscope size={18} /> Admit</>}
           </button>
         </div>
