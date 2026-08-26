@@ -26,6 +26,12 @@ export interface SubscriptionPackagePlan {
   storageGb: number;
   maxBranches?: number;      // branch clinics this plan may run (0 = none / Enterprise-only)
   maxFarms?: number;         // 231 — farms this plan may hold (0 = UNLIMITED, gated by livestock:farms)
+  /**
+   * 252 — concurrent signed-in devices per USER on this plan. 0 = UNLIMITED,
+   * same convention as maxBranches / maxFarms. Going over evicts the OLDEST
+   * session; the new sign-in always wins, so nobody is ever locked out.
+   */
+  maxDevices?: number;
   /** Add-ons layer OVER a base plan instead of replacing it (AI Assist). */
   isAddon?: boolean;
   isActive: boolean;
@@ -77,6 +83,7 @@ export interface CreatePackagePayload {
   storageGb?: number;
   maxBranches?: number;
   maxFarms?: number;
+  maxDevices?: number;
   isAddon?: boolean;
   isActive?: boolean;
   discountPercentage?: number;

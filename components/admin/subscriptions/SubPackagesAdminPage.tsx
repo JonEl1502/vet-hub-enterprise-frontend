@@ -205,6 +205,7 @@ const SubPackagesAdminPage: React.FC = () => {
       maxStaff: selected.maxStaff,
       maxBranches: selected.maxBranches ?? 0,
       maxFarms: selected.maxFarms ?? 0,
+      maxDevices: selected.maxDevices ?? 0,
       isAddon: selected.isAddon ?? false,
       storageGb: selected.storageGb,
       price: selected.price,
@@ -741,6 +742,16 @@ const SubPackagesAdminPage: React.FC = () => {
                         "no limit" instead of "none". */}
                     <Field label="Max Farms (0 = unlimited)">
                       <input type="number" value={selected.maxFarms ?? 0} onChange={e => updateSelectedField('maxFarms', Number(e.target.value))} className={inputCls}/>
+                    </Field>
+                    {/* 252 — concurrent signed-in devices PER USER. 0 =
+                        unlimited, same convention as branches and farms, and
+                        the reason shipping this signed nobody out: every plan
+                        starts at 0 and enforcement only begins when an admin
+                        sets a number. Going over evicts the OLDEST session, so
+                        the new sign-in always wins — a vet at a terminal is
+                        never the one locked out. */}
+                    <Field label="Max Devices / user (0 = unlimited)">
+                      <input type="number" min={0} value={selected.maxDevices ?? 0} onChange={e => updateSelectedField('maxDevices', Number(e.target.value))} className={inputCls}/>
                     </Field>
                     <Field label="Storage (GB)">
                       <input type="number" value={selected.storageGb} onChange={e => updateSelectedField('storageGb', Number(e.target.value))} className={inputCls}/>
