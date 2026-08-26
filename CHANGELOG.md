@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Daily Summary — the evening email, and a preview of what it will say  —  2026-08-26
+- **What changed:** **Clinic Management ▸ Daily Summary.** One switch, the hour it sends, who it
+  goes to, a *Send me a test* button, and a live preview of tonight's email — today's visits,
+  reminders and open work, then tomorrow's appointments, expected checkouts and reminders due.
+- ⚠️ **The hour is the CLINIC'S time, not the browser's**, and the control says so. Whoever is
+  reading this screen may not be in the clinic's country, and "18:00" meaning two different
+  instants to two people is the kind of setting that gets blamed on the cron.
+- ⚠️ **Recipients are shown read-only** — clinic address, owner, branch manager. An editable box
+  here would quietly become a mailing list for a whole clinic's day.
+- ⚠️ **The test sends to you and nobody else, and does not use up the day's send.** Both halves
+  matter: a test that mailed the owner makes previewing an outward-facing act, and one that
+  consumed the slot would cancel that evening's real email without saying so.
+- ⚠️ **Switched on with no address to send to is called out** rather than failing silently at
+  18:00, as is a server with no email configured.
+- **Record impact:** 🟢 None — the page writes two clinic settings and nothing else.
+- **Data dependency:** **Requires backend migration 255** (`clinics.daily_digest_enabled`,
+  `daily_digest_hour`, `daily_digest_last_sent_on`) and the `/digest/*` routes. **Graceful
+  fallback:** without them the tab shows its loading state and the preview stays empty; no other
+  screen is affected.
+- **Rollback:** revert the commit and rebuild. Any clinic already opted in keeps sending — the
+  switch lives in the database, so stopping it means `daily_digest_enabled = FALSE`, not a
+  frontend revert.
+
 ### flow: estimate prepayments record channel, reference and payer  —  2026-08-26
 - **What changed:** the boarding and inpatient admission gates replace their four flat method
   options (Cash / M-Pesa / Card / Bank transfer) with the shared `PaymentChannelPicker`, and send

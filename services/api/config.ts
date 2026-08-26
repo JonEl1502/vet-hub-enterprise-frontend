@@ -134,6 +134,13 @@ export const ENDPOINTS = {
     BILL_NOTICE: (billId: string | number) => `/whatsapp/bills/${billId}/notice`,
   },
 
+  // The evening summary email (255) — settings, preview, test send.
+  DIGEST: {
+    SETTINGS: '/digest/settings',
+    PREVIEW: '/digest/preview',
+    TEST: '/digest/test',
+  },
+
   // Admin email broadcasts to clients
   BROADCASTS: {
     BASE: '/broadcasts',
