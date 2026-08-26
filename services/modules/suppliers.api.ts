@@ -95,7 +95,13 @@ export const suppliersAPI = {
     userEmail: string;
     userPassword: string;
     userName: string;
-  }): Promise<ApiResponse<{ supplier: Supplier; user?: any }>> =>
+    /**
+     * The server opens a demo window on self-registration and returns it, so
+     * the figure shown to the supplier is the one their account carries rather
+     * than a number the UI remembers. `SUPPLIER_DEMO_TRIAL_DAYS` on the backend
+     * is the source.
+     */
+  }): Promise<ApiResponse<{ supplier: Supplier; user?: any; trialEndsAt?: string; trialDays?: number }>> =>
     post(ENDPOINTS.SUPPLIERS.REGISTER, data, { showError: false }),
 
   /**

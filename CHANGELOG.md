@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: supplier signup goes behind the signups switch, and becomes a demo  —  2026-08-26
+- **What changed:** `/supplier-signup` now falls back to the landing page + `DemoRequestModal`
+  when `signupsEnabled` is false, exactly as `/signup` and `/demo-signup` already did — that
+  branch in `App.tsx` used to render the wizard unconditionally. The form is framed as a demo
+  ("40 days free, no card required") and, on success, the app tells the supplier the real trial
+  length returned by the register endpoint rather than a number the UI remembers.
+- **Record impact:** 🟢 None — it stops account creation on a page, and adds no writes.
+- **Data dependency:** Requires the backend `registerSupplier` change for `trialDays` to come
+  back. Graceful fallback: the toast is skipped when it is absent, and registration works exactly
+  as before.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **This is the courtesy half only.** The gate that actually holds is `requireSignupsOpen` on
+  `POST /suppliers/register`. Hiding a wizard has never stopped a direct call to the endpoint
+  behind it, and the previous state — signups off on prod, supplier wizard fully reachable — is
+  what proved it.
+- ⚠️ **Step 4's copy was wrong and has been replaced.** It promised the application would be
+  "reviewed within 2-3 business days" with an email "once approved", while the endpoint created
+  the account active and `App.tsx` logged the supplier straight in. It now says what actually
+  happens: full access immediately, verification running alongside.
+- ⚠️ **`DEMO_TRIAL_DAYS` in this component mirrors `SUPPLIER_DEMO_TRIAL_DAYS` on the backend.**
+  It is only for copy shown before the account exists. Change the backend first.
+
 ### page: choose who receives the daily summary, and a broadcast template block  —  2026-08-26
 - **What changed:** *Goes to* on the Daily Summary tab becomes a chooser — the owner pinned at the
   top, then every other staff member with an email, each with a tick box. Ticking saves

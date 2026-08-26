@@ -9,6 +9,18 @@ interface Props {
   onCancel: () => void;
 }
 
+/**
+ * The demo window a self-registered supplier gets.
+ *
+ * ⚠️ Mirrors `SUPPLIER_DEMO_TRIAL_DAYS` in the backend's `supplier.service.ts`,
+ * which is what actually sets `Supplier.trialEndsAt` — this constant is only
+ * for the copy shown BEFORE the account exists. Once it does, the real figure
+ * comes back on the register response and that is what the supplier is told.
+ * Change the backend first; a number here that disagrees with the account is
+ * worse than no number.
+ */
+const DEMO_TRIAL_DAYS = 40;
+
 const SupplierRegistration: React.FC<Props> = ({ onSubmit, onCancel }) => {
   const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -157,7 +169,9 @@ const SupplierRegistration: React.FC<Props> = ({ onSubmit, onCancel }) => {
             </div>
             <div>
               <h1 className="text-2xl font-black tracking-tight">Supplier Registration</h1>
-              <p className="text-white/80 text-sm font-bold">Join VetHubCore's supplier network</p>
+              <p className="text-white/80 text-sm font-bold">
+                Join VetHubCore's supplier network — {DEMO_TRIAL_DAYS} days free, no card required
+              </p>
             </div>
           </div>
 
@@ -550,9 +564,21 @@ const SupplierRegistration: React.FC<Props> = ({ onSubmit, onCancel }) => {
                     </div>
                   )}
 
-                  <div className="bg-amber-500/10 dark:bg-amber-500/20 border border-amber-500/20 rounded-xl p-4">
+                  {/* ⚠️ This block used to say the application would be
+                      "reviewed within 2-3 business days" and that an email
+                      would arrive "once approved". Neither was true: the
+                      register endpoint creates the account active and the app
+                      logs the supplier straight in. Saying otherwise sent them
+                      away to wait for an email that was never coming, from an
+                      account they were already signed into (2026-08-26).
+                      Verification IS real — it is the admin's separate
+                      `verificationStatus` axis — it just is not the gate. */}
+                  <div className="bg-seafoam/10 dark:bg-seafoam/20 border border-seafoam/20 rounded-xl p-4">
                     <p className="text-[10px] font-bold text-pine dark:text-zinc-300">
-                      <strong className="font-black">Verification Process:</strong> Your application will be reviewed by our team within 2-3 business days. You'll receive an email notification once approved.
+                      <strong className="font-black">You're in straight away.</strong> Submitting opens your
+                      account with full access for {DEMO_TRIAL_DAYS} days — no card, nothing to wait for.
+                      Any documents you add here go to our team for verification, which runs alongside your
+                      demo and does not hold it up.
                     </p>
                   </div>
                 </div>

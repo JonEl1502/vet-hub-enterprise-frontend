@@ -1551,6 +1551,35 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     }
 
     if (authView === 'supplier-signup') {
+      /**
+       * Suppliers go through the SAME door as clinics (user, 2026-08-26).
+       *
+       * This branch used to render unconditionally, so with `signupsEnabled`
+       * false on prod the clinic signup was shut and the supplier signup stood
+       * wide open — the user found it by walking to /supplier-signup. Same
+       * fallback as `signup` / `demo-signup` above: the landing page with the
+       * demo request form, so a real supplier still has a way to reach us.
+       *
+       * ⚠️ This is the courtesy half only. The gate that actually holds is
+       * `requireSignupsOpen` on `POST /suppliers/register` — hiding a wizard
+       * never stopped a direct call to the endpoint behind it.
+       */
+      if (!signupsEnabled) {
+        return (
+          <>
+            <LandingPage
+              onLogin={() => goAuthView('login')}
+              onRegister={handleRegister}
+              onDemo={handleDemo}
+              onPricing={() => goAuthView('pricing')}
+              onSupplierSignup={() => goAuthView('supplier-signup')}
+              onContact={() => setShowDemoModal(true)}
+              onLegal={(kind) => goAuthView(kind)}
+            />
+            <DemoRequestModal onClose={() => goAuthView('landing')} />
+          </>
+        );
+      }
       return (
         <SupplierRegistration
           onSubmit={async (data) => {
@@ -1574,6 +1603,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               if (!result.success) {
                 throw new Error(result.message || 'Failed to register supplier');
               }
+
+              // The demo window the server opened. Read back rather than
+              // assumed, so the figure the supplier is told is the one their
+              // account actually carries (`SUPPLIER_DEMO_TRIAL_DAYS`).
+              const trialDays = result.data?.trialDays;
+              if (trialDays) toast.success(`Welcome aboard — your ${trialDays}-day demo has started`);
 
               // Auto-login the newly created supplier user
               await login(data.userEmail, data.userPassword);
