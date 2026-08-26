@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: client stats strip re-proportioned to 2.7 / 4.6 / 2.7  —  2026-08-26
+- **What changed:** the Visits / Spend / Message strip on the client profile was `4 : 3 : 3`,
+  giving the most room to the cell that needs the least. Now `2.7 : 4.6 : 2.7` (user, 2026-08-26).
+  Spend is the only cell holding unbounded text — two `truncate`d currency figures side by side,
+  and a lifetime total that grows for the life of the account. Visits and Message hold three short
+  glyphs and an icon.
+- **Also:** the two Spend figures were formatted differently. Lifetime went through
+  `toLocaleString()` (thousands separators), Avg/Visit through `toFixed(0)` (none) — so the same
+  currency read **"KES 54,874.5" beside "KES 7839"** in adjacent cells. Avg/Visit now uses
+  `toLocaleString` too. Not requested; it was visible in the same strip and is plainly wrong.
+- **Record impact:** 🟢 None. Layout and display formatting only — no stored value changes.
+- **Migration / rollout:** code-only.
+- **Rollback:** revert the commit.
+- ⚠️ **Watch out:** `flex-[2.7]` / `flex-[4.6]` are Tailwind arbitrary values with decimals, which
+  can silently emit nothing if the syntax is off. Verified in the built CSS (`flex:2.7`,
+  `flex:4.6`) rather than assumed — check the bundle, not the class name, if these are edited.
+- ⚠️ **Watch out:** the middle cell is Spend only for staff who can see money; others get a
+  "Last Visit" date in the same slot, which now sits in a 4.6-wide cell it does not need.
+
 ### fix: Sign-in Activity is SUPER_ADMIN only, in the nav AND on the route  —  2026-08-25
 - **What changed:** the Admin sidebar is shared by SUPER_ADMIN and MERCHANT_ADMIN, but
   `/admin/login-events` is `requireRole(['SUPER_ADMIN'])`. A MERCHANT_ADMIN therefore saw a menu
