@@ -5,6 +5,7 @@ import ClinicWallet from './ClinicWallet';
 import ClinicLogo from './ClinicLogo';
 import EmergencyBillablesTab from './EmergencyBillablesTab';
 import StorageUsageTab from './StorageUsageTab';
+import WhatsappTab from './WhatsappTab';
 import BillingView from '../billing/BillingView';
 import {
   Palette,
@@ -53,6 +54,7 @@ import {
   Siren,
   Star,
   HardDrive,
+  MessageCircle,
 } from 'lucide-react';
 import RatingsDashboardView from '../ratings/RatingsDashboardView';
 import ClinicTransferCard from './ClinicTransferCard';
@@ -116,7 +118,7 @@ const ClinicManagementView: React.FC<Props> = ({
   const { managedClinicId } = useManagementScope();
   const switchList = (selectedClinics?.length ? selectedClinics : (allClinicsForSwitch ?? []));
   const clinic = switchList.find((c: any) => String(c.id) === managedClinicId) || clinicProp;
-  const [activeTab, setActiveTab] = useState<'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification' | 'emergency' | 'ratings' | 'storage'>(initialTabOverride || 'branding');
+  const [activeTab, setActiveTab] = useState<'branding' | 'branches' | 'visuals' | 'team' | 'categories' | 'catalog' | 'billing' | 'ai' | 'wallet' | 'gateways' | 'verification' | 'emergency' | 'ratings' | 'storage' | 'whatsapp'>(initialTabOverride || 'branding');
   const [savedFeedback, setSavedFeedback] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   // Clinic-email verification status (145) — owner self-serve in Branding.
@@ -650,6 +652,7 @@ const ClinicManagementView: React.FC<Props> = ({
           { id: 'wallet', label: 'Wallet', icon: Wallet },
           { id: 'storage', label: 'Storage', icon: HardDrive },
           { id: 'gateways', label: 'Gateways', icon: Shield },
+          { id: 'whatsapp', label: 'WhatsApp', icon: MessageCircle },
           { id: 'verification', label: 'Verification', icon: BadgeCheck },
           { id: 'ratings', label: 'Ratings', icon: Star },
         ].map(tab => (
@@ -678,6 +681,7 @@ const ClinicManagementView: React.FC<Props> = ({
          <div className="lg:col-span-12">
             {activeTab === 'emergency' && <EmergencyBillablesTab currency={clinic.currency} clinicId={clinic.id} />}
             {activeTab === 'storage' && <StorageUsageTab clinicId={clinic.id} />}
+            {activeTab === 'whatsapp' && <WhatsappTab />}
             {activeTab === 'branding' && (
                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4 animate-in slide-in-from-bottom-4">
                   <div className="flex items-center gap-2.5 border-b border-slate-100 dark:border-zinc-800 pb-3">

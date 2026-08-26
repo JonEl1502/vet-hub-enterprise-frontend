@@ -44,7 +44,7 @@ const MESSAGE_STATUS_LABEL: Record<string, string> = {
 };
 import { dialog } from '../../../services/utils/dialog';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
-import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell, Star, ScrollText, FolderOpen, Camera, Loader2 } from 'lucide-react';
+import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell, Star, ScrollText, FolderOpen, Camera, Loader2, Paperclip } from 'lucide-react';
 import RemindersApptsTab from '../shared/RemindersApptsTab';
 import ClientPaymentsTab from './ClientPaymentsTab';
 import PetAvatar from '../shared/PetAvatar';
@@ -2324,11 +2324,28 @@ const ClientPlatformThread: React.FC<{ clientId: string | number; clientName: st
             }`}>
               {m.subject && <p className="font-black text-xs mb-0.5">{m.subject}</p>}
               <p className="whitespace-pre-wrap leading-relaxed">{m.body}</p>
-              {m.channel === 'whatsapp' && m.mediaType && (
-                <p className={`text-[9px] mt-1 font-black uppercase tracking-widest ${m.fromOwner ? 'text-slate-400 dark:text-zinc-500' : 'text-white/70'}`}>
-                  {/* The bytes live at Meta and expire after 30 days; the
-                      thread records that something was attached, not the file. */}
-                  Attachment · {m.mediaType}
+              {/* Our stored copy — Meta's own URL needs a bearer token and
+                  expires after 30 days, so it could never be rendered. */}
+              {m.mediaUrl && m.mediaType?.startsWith('image/') && (
+                <a href={m.mediaUrl} target="_blank" rel="noopener noreferrer" className="block mt-2">
+                  <img src={m.mediaUrl} alt="Attachment" className="rounded-lg max-h-56 border border-black/10" />
+                </a>
+              )}
+              {m.mediaUrl && !m.mediaType?.startsWith('image/') && (
+                <a
+                  href={m.mediaUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`mt-1.5 inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest underline ${m.fromOwner ? 'text-seafoam' : 'text-white/90'}`}
+                >
+                  <Paperclip size={11} /> {m.mediaType?.split('/')[1]?.toUpperCase() || 'File'}
+                </a>
+              )}
+              {/* Knew about a file, could not keep it. Saying nothing here
+                  would make the client look like they sent only text. */}
+              {!m.mediaUrl && m.mediaType && (
+                <p className={`text-[10px] mt-1 font-bold flex items-center gap-1 ${m.fromOwner ? 'text-amber-600 dark:text-amber-400' : 'text-white/80'}`}>
+                  <Paperclip size={11} /> Attachment could not be saved
                 </p>
               )}
               <p className={`text-[9px] mt-1 font-bold flex items-center gap-1 flex-wrap ${

@@ -100,6 +100,7 @@ import EditPetModal from './components/clinic/pets/EditPetModal';
 import EditVisitModal from './components/clinic/appointments/EditVisitModal';
 import CommunicationPortal from './components/clinic/communication/CommunicationPortal';
 import BroadcastView from './components/clinic/communication/BroadcastView';
+import WhatsappEnquiriesView from './components/clinic/communication/WhatsappEnquiriesView';
 import StaffListView from './components/clinic/staff/StaffListView';
 import StaffProfileView from './components/clinic/staff/StaffProfileView';
 import StaffRegistrationView from './components/clinic/staff/StaffRegistrationView';
@@ -3387,6 +3388,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <CommunicationPortal client={mc} onBack={goBack} onRecordMessage={store.recordMessage} clinic={activeClinic as any} appointments={appointments as any} />;
       case 'broadcasts':
         return <BroadcastView />;
+      case 'wa-enquiries':
+        return <WhatsappEnquiriesView />;
       default: return null;
     }
   };

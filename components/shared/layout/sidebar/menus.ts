@@ -51,6 +51,7 @@ import {
   Pill,
   ArrowRightLeft,
   type LucideIcon,
+  MessageCircle,
 } from 'lucide-react';
 
 export type AudienceId = 'admin' | 'clinic' | 'supplier' | 'freelancer' | 'livestock';
@@ -248,6 +249,9 @@ const CLINIC_ITEMS: MenuItem[] = [
       // Visit Workflows moved to Billable Items, beside Procedures (2026-07-27).
       { id: 'staff',       label: 'Staff Directory', icon: ShieldCheck },
       { id: 'broadcasts',  label: 'Broadcasts',      icon: Mail },
+      // Enquiries from WhatsApp numbers that aren't clients yet (254). Sits
+      // beside Broadcasts because both are outward-facing communication.
+      { id: 'wa-enquiries', label: 'WhatsApp Enquiries', icon: MessageCircle },
       { id: 'import-data', label: 'Import Data',     icon: Upload },
       { id: 'billing',     label: 'Billing',         icon: CreditCard },
     ],

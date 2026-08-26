@@ -100,6 +100,9 @@ export { clinicTransfersAPI } from './modules/clinicTransfer.api';
 export type { ClinicTransfer } from './modules/clinicTransfer.api';
 export type { Broadcast, BroadcastAudience, BroadcastAudienceType, SegmentFilter, SegmentBreakdown, SegmentSendResult, BroadcastChannel } from './modules/broadcasts.api';
 export { clientPortalAPI } from './modules/clientPortal.api';
+export { whatsappAPI } from './modules/whatsapp.api';
+export type { WhatsappConfigView, WhatsappTestResult, WhatsappPurpose, UnmatchedSender, UnmatchedMessage } from './modules/whatsapp.api';
+
 export { messagingAPI } from './modules/messaging.api';
 export type { PlatformMessage } from './modules/messaging.api';
 export type { PortalClinic, PortalPet, PortalAppointment, PortalMessage, PortalInvoice, PortalMyClinic, PortalVisitDetail, PortalReminder, PortalMemory, PortalMemoriesResult, PortalPetTransfer, VisitRating, PortalPlan, PortalPlanState, PortalHoldings } from './modules/clientPortal.api';

@@ -35,6 +35,7 @@ export const ALWAYS_VIEWS = new Set([
   'staff',
   'staff-profile',
   'broadcasts',
+  'wa-enquiries',
   'import-data',
   'billing',
   'emergency',

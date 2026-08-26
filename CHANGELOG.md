@@ -59,6 +59,35 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: WhatsApp settings, enquiries, and attachments that survive  —  2026-08-26
+- **What changed:** three surfaces for the gaps the 253 ship left open.
+  · **Clinic Management ▸ WhatsApp** — a clinic sets up its own WhatsApp Business number here
+  instead of someone writing SQL on the server. Phone number ID, WABA ID, the three secrets, the
+  webhook URL to paste into Meta, a read-only **Test** against Meta, per-purpose template names,
+  and the auto-reminder switch.
+  · **Communication ▸ WhatsApp Enquiries** — messages from numbers with no matching client, which
+  were previously logged server-side and dropped. Grouped by sender, converted into a real client
+  with a name a human typed, or dismissed.
+  · **Client thread attachments** — inbound photos and files now render from our own stored copy.
+- ⚠️ **Secrets are write-only.** The API returns the last four characters, the form shows masked
+  placeholders, and a blank field means *keep what is stored* — never *clear it*. Submitting the
+  form untouched is safe. Nothing on this page can redisplay a permanent access token.
+- ⚠️ **Test is a read-back, not a test send.** It asks Meta what the number is and what its quality
+  rating is. A test SEND would put a message on a real person's phone.
+- ⚠️ **Enquiries are grouped by SENDER, not by message**, and converting or dismissing closes that
+  sender's whole backlog — otherwise the leftovers reappear tomorrow looking like a fresh enquiry.
+- ⚠️ **A `mediaType` with a null `mediaUrl` now says "Attachment could not be saved"** rather than
+  rendering the message as text only. Meta deletes the original after 30 days; if our fetch missed
+  it, the thread has to admit the client sent something we no longer hold.
+- **Record impact:** 🔵 Low — **converting an enquiry creates a client record**, on purpose and by
+  an explicit click. Everything else on these screens is display or clinic-own configuration.
+- **Data dependency:** **Requires backend migration 254** (`whatsapp_configs` secrets/templates/
+  `auto_reminders`, `whatsapp_unmatched`, `media_url`/`media_fetched_at` on messages) and the
+  `/whatsapp/*` routes from backend 254. **Graceful fallback:** without them the settings tab and
+  the enquiries page render their empty state and the thread falls back to the 253 behaviour.
+- **Rollback:** revert the commit and rebuild. Stored WhatsApp configs are untouched by a
+  frontend rollback — the clinic simply loses the screen that edits them.
+
 ### flow: WhatsApp becomes a real channel, not a deep link  —  2026-08-26
 - **What changed:** WhatsApp in the Messaging Portal now **sends** — server-side, through Meta's
   Cloud API — when the clinic has a channel and Meta's 24-hour window is open. Inbound client

@@ -121,6 +121,19 @@ export const ENDPOINTS = {
     ADMIN_REVOKE: (type: string, id: string | number) => `/admin/verifications/${type}/${id}/revoke`,
   },
 
+  // Clinic-side WhatsApp admin. The Meta WEBHOOK is not here — it is
+  // unauthenticated by necessity and lives outside the API client entirely.
+  WHATSAPP: {
+    CONFIG: '/whatsapp/config',
+    CONFIG_TEST: '/whatsapp/config/test',
+    AUTO_REMINDERS: '/whatsapp/config/auto-reminders',
+    UNMATCHED: '/whatsapp/unmatched',
+    UNMATCHED_COUNT: '/whatsapp/unmatched/count',
+    UNMATCHED_CONVERT: (id: string | number) => `/whatsapp/unmatched/${id}/convert`,
+    UNMATCHED_DISMISS: (id: string | number) => `/whatsapp/unmatched/${id}/dismiss`,
+    BILL_NOTICE: (billId: string | number) => `/whatsapp/bills/${billId}/notice`,
+  },
+
   // Admin email broadcasts to clients
   BROADCASTS: {
     BASE: '/broadcasts',

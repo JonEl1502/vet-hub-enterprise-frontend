@@ -40,6 +40,13 @@ export interface PlatformMessage {
   errorDetail: string | null;
   /** Set when an inbound WhatsApp message carried an attachment. */
   mediaType: string | null;
+  /**
+   * OUR stored copy of that attachment. Meta's own URL needs a bearer token
+   * and expires after 30 days, so it can never be rendered directly.
+   * A mediaType with a null mediaUrl means we knew about a file but could not
+   * keep it — which the UI must say, rather than showing text only.
+   */
+  mediaUrl: string | null;
 }
 
 export interface WhatsappStatus {
