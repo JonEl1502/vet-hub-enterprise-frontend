@@ -421,14 +421,14 @@ const renderOverview = () => (
             what it is worth, and talk to them — so group them that way and let
             each breathe.
 
-            Widths are 2.7 / 4.6 / 2.7 (user, 2026-08-26). SPEND is the widest
-            because it is the only cell holding unbounded text — two currency
-            figures side by side, both `truncate`d, and a lifetime total grows
-            for the life of the account. Visits and Message hold at most three
-            short glyphs and an icon, so they give up the room. */}
+            Widths are 4 / 5 / 3 — twelfths (user, 2026-08-26). SPEND takes the
+            most because it is the only cell holding unbounded text: two
+            currency figures side by side, both `truncate`d, and a lifetime
+            total that grows for the life of the account. MESSAGE takes the
+            least — an icon and one word, which never grow. */}
         <div data-tour="client-stats" className="flex divide-x divide-seafoam/25">
           {/* VISITS — one heading, three figures under it */}
-          <div className="flex-[2.7] min-w-0 p-3">
+          <div className="flex-[4] min-w-0 p-3">
             <div className="flex items-center gap-1.5 mb-2">
               <div className="p-1 bg-seafoam/10 rounded-md"><Calendar size={11} className="text-seafoam" /></div>
               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Visits</p>
@@ -451,7 +451,7 @@ const renderOverview = () => (
 
           {/* SPEND — or last visit for staff who cannot see money */}
           {canSeeMoney ? (
-            <div className="flex-[4.6] min-w-0 p-3">
+            <div className="flex-[5] min-w-0 p-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <div className="p-1 bg-seafoam/10 rounded-md"><CreditCard size={11} className="text-seafoam" /></div>
                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Spend</p>
@@ -468,7 +468,7 @@ const renderOverview = () => (
               </div>
             </div>
           ) : (
-            <div className="flex-[4.6] min-w-0 p-3">
+            <div className="flex-[5] min-w-0 p-3">
               <div className="flex items-center gap-1.5 mb-2">
                 <div className="p-1 bg-cyan-500/10 rounded-md"><Activity size={11} className="text-cyan-500" /></div>
                 <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Last Visit</p>
@@ -481,7 +481,7 @@ const renderOverview = () => (
           )}
           {/* Quick messaging entry */}
           {onOpenMessaging && (
-            <button onClick={onOpenMessaging} title="Messaging Portal" className="flex-[2.7] min-w-0 px-2.5 flex flex-col items-center justify-center gap-1.5 hover:bg-seafoam/5 transition-colors">
+            <button onClick={onOpenMessaging} title="Messaging Portal" className="flex-[3] min-w-0 px-2.5 flex flex-col items-center justify-center gap-1.5 hover:bg-seafoam/5 transition-colors">
               <div className="p-1.5 bg-seafoam/10 rounded-lg"><MessageSquare size={12} className="text-seafoam" /></div>
               <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider">Message</p>
             </button>
