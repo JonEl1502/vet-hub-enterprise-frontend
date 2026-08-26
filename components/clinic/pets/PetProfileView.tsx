@@ -511,8 +511,12 @@ const PetProfileView: React.FC<Props> = ({
         )}
         {/* Combined Stats Card */}
         <div data-tour="pet-stats" className="flex gap-3">
-          {/* Visits — 3 cols */}
-          <div className="w-[60%] shrink-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
+          {/* Visits — 3 cols. Twelfths, like the client strip (user,
+              2026-08-26): 5/12 here, 7/12 for Vaccines. There is no Message
+              cell on a patient, so the two split the whole row.
+              `flex-[5]` + `min-w-0` rather than a percentage width, so the
+              three figures inside can shrink instead of overflowing. */}
+          <div className="flex-[5] min-w-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
             <div className="grid grid-cols-3 divide-x divide-slate-100 dark:divide-zinc-800 h-full">
               <div className="p-2 sm:p-3 text-center">
                 <div className="flex items-center justify-center mb-1.5">
@@ -538,7 +542,7 @@ const PetProfileView: React.FC<Props> = ({
             </div>
           </div>
           {/* Vaccines — own card */}
-          <div data-tour="pet-vaccines" className="flex-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden p-2 sm:p-3 flex flex-col items-center justify-center text-center">
+          <div data-tour="pet-vaccines" className="flex-[7] min-w-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden p-2 sm:p-3 flex flex-col items-center justify-center text-center">
             <div className="p-1.5 bg-purple-500/10 rounded-lg mb-1.5"><Shield size={12} className="text-purple-500" /></div>
             <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none mb-0.5">{totalVaccines}</p>
             <p className="text-[8px] font-bold text-slate-400 uppercase tracking-wider leading-tight">{pendingVaccines > 0 ? `${pendingVaccines} Due` : 'Vaccines'}</p>
