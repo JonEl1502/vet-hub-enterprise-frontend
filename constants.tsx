@@ -121,8 +121,9 @@ export const SPECIES = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Hamster', 'Snake', 'Hor
  * The breed picker reads the DATABASE — `useReferenceData()` → `GET /breeds` —
  * and its only fallback is the literal `['Mixed Breed']` in `RegisterPetView`.
  * **Editing this list changes nothing a user sees.** The live list is backend
- * migration 181; change that. Kept here only as a readable reference of the
- * intended set, and deliberately in step with 181 so it does not become a lie.
+ * migrations **181 + 182** (Dog, Cat) and **240** (Bird, Rabbit, Hamster, Snake,
+ * Horse, Lizard, Parrot); change those. Kept here only as a readable reference of
+ * the intended set, and deliberately in step with them so it does not become a lie.
  *
  * ⚠️ ORDERED FOR A KENYAN PRACTICE, not alphabetically. The vet's note
  * (2026-08-06): *"Add more breeds both dogs and cats including the KSD the
@@ -135,6 +136,18 @@ export const SPECIES = ['Dog', 'Cat', 'Bird', 'Rabbit', 'Hamster', 'Snake', 'Hor
  * The locally common ones lead each list (Japanese Spitz, Boerboel, Basenji,
  * Sokoke — the last two are African, the Sokoke is Kenyan). Everything after
  * that is the usual international set.
+ *
+ * The other seven species were brought off their stub lists on 2026-08-26 (the
+ * rest of the same vet ask — Dogs and cats went first because the vet said so).
+ * Same principle: Kenyan Sand Boa, Jackson's Chameleon, Rock Agama, Nile Monitor,
+ * African House Snake, Somali Pony, Basuto Pony, Boerperd and Fischer's Lovebird
+ * lead their lists, the international set follows.
+ *
+ * ⚠️ Every species now carries a **'Mixed Breed'** entry, and it is FIRST on
+ * purpose. `/breeds` comes back sorted by name, so a form that defaults to the
+ * first option defaults to whatever sorts first — "Akhal-Teke" for a horse — and
+ * stamps a breed nobody chose onto a field reports group by. The pet form picks
+ * 'Mixed Breed' explicitly instead; do not make any picker fall back to `[0]`.
  */
 export const BREEDS: Record<string, string[]> = {
   'Dog': [
@@ -210,13 +223,67 @@ export const BREEDS: Record<string, string[]> = {
     'Turkish Van', 'Ukrainian Levkoy',
     'Other'
   ],
-  'Bird': ['Budgerigar', 'Cockatiel', 'Lovebird', 'African Grey Parrot', 'Canary', 'Finch'],
-  'Rabbit': ['Netherland Dwarf', 'Holland Lop', 'Mini Rex', 'Lionhead', 'Flemish Giant'],
-  'Hamster': ['Syrian', 'Dwarf Campbell Russian', 'Roborovski', 'Chinese'],
-  'Snake': ['Ball Python', 'Corn Snake', 'King Snake', 'Garter Snake'],
-  'Horse': ['Arabian', 'Thoroughbred', 'Quarter Horse', 'Appaloosa', 'Morgan'],
-  'Lizard': ['Bearded Dragon', 'Leopard Gecko', 'Green Iguana', 'Blue-Tongued Skink'],
-  'Parrot': ['Macaw', 'Cockatoo', 'Amazon', 'Conure'],
+  'Bird': ['Mixed Breed', 'Budgerigar', 'Cockatiel', 'Lovebird', 'African Grey Parrot',
+    'Canary', 'Finch', 'Fischer\'s Lovebird', 'Peach-faced Lovebird', 'Masked Lovebird',
+    'Senegal Parrot', 'Meyer\'s Parrot', 'Jardine\'s Parrot', 'Indian Ringneck Parakeet',
+    'Cordon-bleu Finch', 'Domestic Pigeon', 'Guinea Fowl', 'Peafowl (Peacock)', 'Amazon Parrot',
+    'Barbary Dove', 'Bengalese Finch', 'Blue-and-Gold Macaw', 'Border Canary', 'Caique',
+    'Cockatoo', 'Diamond Dove', 'Eclectus Parrot', 'Fantail Pigeon', 'Fife Canary',
+    'Gloster Canary', 'Gouldian Finch', 'Green-cheeked Conure', 'Java Sparrow', 'Lorikeet',
+    'Pionus Parrot', 'Quaker Parrot (Monk Parakeet)', 'Racing Homer Pigeon',
+    'Red Factor Canary', 'Ringneck Dove', 'Scarlet Macaw', 'Society Finch', 'Sun Conure',
+    'Yorkshire Canary', 'Zebra Finch'],
+  'Rabbit': ['Mixed Breed', 'Netherland Dwarf', 'Holland Lop', 'Mini Rex', 'Lionhead',
+    'Flemish Giant', 'New Zealand', 'Californian', 'Standard Chinchilla', 'Dutch', 'Rex',
+    'American', 'American Chinchilla', 'American Fuzzy Lop', 'American Sable', 'Argente Brun',
+    'Belgian Hare', 'Beveren', 'Blanc de Hotot', 'Britannia Petite', 'Champagne d\'Argent',
+    'Checkered Giant', 'Cinnamon', 'Continental Giant', 'Crème d\'Argent', 'Dwarf Hotot',
+    'English Angora', 'English Lop', 'English Spot', 'Florida White', 'French Angora',
+    'French Lop', 'Giant Angora', 'Giant Chinchilla', 'Harlequin', 'Havana', 'Himalayan',
+    'Jersey Wooly', 'Lilac', 'Mini Lop', 'Mini Satin', 'Palomino', 'Polish', 'Rhinelander',
+    'Satin', 'Satin Angora', 'Silver', 'Silver Fox', 'Silver Marten', 'Tan', 'Thrianta',
+    'Velveteen Lop'],
+  'Hamster': ['Mixed Breed', 'Syrian', 'Dwarf Campbell Russian', 'Roborovski', 'Chinese',
+    'Campbell\'s Dwarf Russian', 'Hybrid Dwarf', 'Syrian (Black Bear)',
+    'Syrian (Long-haired / Teddy Bear)', 'Syrian (Rex)', 'Syrian (Satin)',
+    'Winter White Russian Dwarf'],
+  'Snake': ['Mixed Breed', 'Ball Python', 'Corn Snake', 'King Snake', 'Garter Snake',
+    'Kenyan Sand Boa', 'African House Snake', 'Brown House Snake', 'African Egg-eating Snake',
+    'Mole Snake', 'Rat Snake', 'Blood Python', 'Boa Constrictor', 'Brazilian Rainbow Boa',
+    'Bullsnake', 'Burmese Python', 'Carpet Python', 'Children\'s Python', 'Emerald Tree Boa',
+    'Green Tree Python', 'Milk Snake', 'Red-tailed Boa', 'Reticulated Python', 'Rosy Boa',
+    'Rubber Boa', 'Spotted Python', 'Western Hognose Snake'],
+  'Horse': ['Mixed Breed', 'Arabian', 'Thoroughbred', 'Quarter Horse', 'Appaloosa', 'Morgan',
+    'Somali Pony', 'Basuto Pony', 'Boerperd', 'Nooitgedacht Pony', 'Barb', 'Anglo-Arabian',
+    'Grade Horse (Mixed)', 'Akhal-Teke', 'American Paint Horse', 'American Saddlebred',
+    'Andalusian', 'Ardennes', 'Belgian Draft', 'Camargue', 'Cleveland Bay', 'Clydesdale',
+    'Connemara Pony', 'Criollo', 'Dales Pony', 'Dartmoor Pony', 'Dutch Warmblood',
+    'Exmoor Pony', 'Falabella', 'Fell Pony', 'Friesian', 'Gypsy Vanner', 'Hackney', 'Haflinger',
+    'Hanoverian', 'Highland Pony', 'Holsteiner', 'Icelandic Horse', 'Irish Draught',
+    'Kathiawari', 'Knabstrupper', 'Lipizzaner', 'Lusitano', 'Marwari', 'Missouri Fox Trotter',
+    'Mustang', 'New Forest Pony', 'Norwegian Fjord', 'Oldenburg', 'Orlov Trotter', 'Percheron',
+    'Peruvian Paso', 'Pony of the Americas', 'Rocky Mountain Horse', 'Selle Français',
+    'Shetland Pony', 'Shire', 'Standardbred', 'Suffolk Punch', 'Swedish Warmblood',
+    'Tennessee Walking Horse', 'Trakehner', 'Welsh Cob (Section D)',
+    'Welsh Mountain Pony (Section A)', 'Westphalian'],
+  'Lizard': ['Mixed Breed', 'Bearded Dragon', 'Leopard Gecko', 'Green Iguana',
+    'Blue-Tongued Skink', 'Jackson\'s Chameleon', 'Flap-necked Chameleon', 'Rock Agama',
+    'Red-headed Agama', 'Nile Monitor', 'Common House Gecko', 'Ackie Monitor',
+    'African Fat-tailed Gecko', 'Argentine Black and White Tegu', 'Chinese Water Dragon',
+    'Collared Lizard', 'Crested Gecko', 'Frilled Dragon', 'Gargoyle Gecko', 'Giant Day Gecko',
+    'Gold Dust Day Gecko', 'Green Anole', 'Leachianus Gecko', 'Mali Uromastyx',
+    'Panther Chameleon', 'Red-eyed Crocodile Skink', 'Rhinoceros Iguana', 'Sailfin Dragon',
+    'Savannah Monitor', 'Veiled Chameleon'],
+  'Parrot': ['Mixed Breed', 'Macaw', 'Cockatoo', 'Amazon', 'Conure', 'African Grey (Congo)',
+    'African Grey (Timneh)', 'Fischer\'s Lovebird', 'Peach-faced Lovebird', 'Senegal Parrot',
+    'Meyer\'s Parrot', 'Brown-headed Parrot', 'Jardine\'s Parrot', 'Indian Ringneck Parakeet',
+    'Black-headed Caique', 'Blue-and-Gold Macaw', 'Blue-fronted Amazon', 'Blue-headed Pionus',
+    'Budgerigar', 'Cockatiel', 'Eclectus', 'Galah (Rose-breasted Cockatoo)',
+    'Green-cheeked Conure', 'Green-winged Macaw', 'Hahn\'s Macaw', 'Hyacinth Macaw',
+    'Military Macaw', 'Moluccan Cockatoo', 'Nanday Conure', 'Orange-winged Amazon',
+    'Quaker Parrot (Monk Parakeet)', 'Rainbow Lorikeet', 'Red-bellied Parrot', 'Scarlet Macaw',
+    'Severe Macaw', 'Sulphur-crested Cockatoo', 'Sun Conure', 'Umbrella Cockatoo',
+    'White-bellied Caique', 'Yellow-naped Amazon'],
   'Other': ['N/A']
 };
 

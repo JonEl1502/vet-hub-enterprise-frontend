@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: picking a species stops stamping a breed nobody chose  —  2026-08-26
+- **What changed:** Register Patient resets the breed to `'Mixed Breed'` when the species
+  changes, instead of to `breedOptions[0]`. Two bugs in one line: `breedOptions` is memoised on
+  the CURRENT species, so in that handler it still held the OUTGOING one — choosing "Horse"
+  stamped the pet with a **Dog** breed — and even the correct first option is only whatever
+  sorts first, since `/breeds` comes back ordered by name ("Affenpinscher" for Dog,
+  "Akhal-Teke" for Horse). `constants.tsx` `BREEDS` is also brought back in step with the DB
+  for the seven species migration 240 expands.
+- **Record impact:** 🔵 Low — it changes the `breed` string written on pets registered from
+  this form. Existing pets are untouched; nothing rewrites past rows.
+- **Data dependency:** Requires migration 240 for the default to resolve to a real catalogue
+  row on Bird / Rabbit / Hamster / Snake / Horse / Lizard / Parrot. Graceful without it — the
+  picker allows a typed value, so `'Mixed Breed'` simply shows as free text.
+- **Rollback:** revert the commit and rebuild. No data to undo.
+- ⚠️ **`BREEDS` in `constants.tsx` is still wired to nothing** — the picker reads `/breeds`
+  from the DB. The constant is a readable reference kept deliberately in step with migrations
+  181 / 182 / 240; editing it alone ships nothing a user sees.
+- ⚠️ **Do not "tidy" any breed picker back to falling back on `[0]`.** EditPetModal and
+  NewVisitView are already correct (`'Mixed Breed'` and `''` respectively); Register Patient was
+  the odd one out.
+
 ### page: WhatsApp settings, enquiries, and attachments that survive  —  2026-08-26
 - **What changed:** three surfaces for the gaps the 253 ship left open.
   · **Clinic Management ▸ WhatsApp** — a clinic sets up its own WhatsApp Business number here

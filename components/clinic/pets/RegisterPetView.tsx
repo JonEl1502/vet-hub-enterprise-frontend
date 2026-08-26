@@ -429,8 +429,17 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
                     allowCreate
                     createLabel="species"
                     onChange={val => {
-                      const firstBreed = breedOptions[0] || 'Mixed Breed';
-                      setFormData({...formData, species: val, breed: firstBreed});
+                      /* Changing species resets the breed to 'Mixed Breed', not to
+                         the first option (2026-08-26). `breedOptions` is memoised on
+                         the CURRENT species, so in this handler it still holds the
+                         OUTGOING one — picking "Horse" was stamping the record with a
+                         DOG breed. And `/breeds` comes back sorted by name, so even
+                         the correct first option is just whatever sorts first
+                         ("Affenpinscher" for Dog, "Akhal-Teke" for Horse) — a default
+                         nobody chose, on a field reports group by. 'Mixed Breed' is a
+                         real catalogue row for every species (migration 240) and is
+                         what this form already initialises to. */
+                      setFormData({...formData, species: val, breed: 'Mixed Breed'});
                     }}
                   />
                   <SearchableDropdown
