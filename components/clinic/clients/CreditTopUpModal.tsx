@@ -50,7 +50,7 @@ const CreditTopUpModal: React.FC<{
         channel: channelId,
         ...(reference.trim() ? { reference: reference.trim(), note: reference.trim() } : {}),
         ...(payer.trim() ? { payer: payer.trim() } : {}),
-      } as any);
+      });
       if (res.success) {
         toast.success(`${money(n)} added to ${clientName || 'the client'}'s account`);
         onDone();

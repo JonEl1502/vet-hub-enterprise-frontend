@@ -8,6 +8,8 @@ import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
 import AdmissionGate from '../shared/AdmissionGate';
 import { useData } from '../../../contexts/DataContext';
 import { ownerAbbrev } from '../shared/ownerAbbrev';
+import PaymentChannelPicker from '../shared/PaymentChannelPicker';
+import { PaymentChannel, channelById } from '../shared/paymentChannels';
 
 interface Props {
   isOpen: boolean;
@@ -65,7 +67,15 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
   // days) + clinic-provided food/day — pay NOW (banks as client credit that
   // discharge billing draws automatically) or pay at discharge.
   const [payChoice, setPayChoice] = useState<'discharge' | 'now'>('discharge');
-  const [payMethod, setPayMethod] = useState('CASH');
+  /**
+   * Channel / reference / payer, same as the boarding gate and every other
+   * money screen. The four flat method options this replaces recorded only the
+   * enum, so an admission estimate could not be told from a Paybill afterwards
+   * and carried neither the M-Pesa code nor the paying number.
+   */
+  const [payChannelId, setPayChannelId] = useState('CASH');
+  const [payReference, setPayReference] = useState('');
+  const [payPayer, setPayPayer] = useState('');
   const estDays = useMemo(() => {
     if (!expectedDischargeAt) return null;
     const toT = new Date(expectedDischargeAt).getTime();
@@ -149,8 +159,13 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
           try {
             await clientsAPI.recordAdvance(clientId, {
               amount: estTotal,
-              paymentMethod: payMethod,
+              // Derived from the channel, never picked separately — the enum is
+              // the ledger's truth and the channel is a label on it.
+              paymentMethod: channelById(payChannelId)?.method ?? 'CASH',
               note: `Inpatient estimate prepayment — ${selectedPet.name}, ${estDays} day${estDays === 1 ? '' : 's'} (rate ${estRate}/day${estFoodPerDay ? ` + food ${estFoodPerDay}/day` : ''})`,
+              channel: payChannelId,
+              ...(payReference.trim() ? { reference: payReference.trim() } : {}),
+              ...(payPayer.trim() ? { payer: payPayer.trim() } : {}),
             });
             toast.success('Estimate collected — banked as client credit; discharge billing draws it automatically');
           } catch {
@@ -338,16 +353,20 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
                   {l}
                 </button>
               ))}
-              {payChoice === 'now' && (
-                <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
-                  className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none">
-                  <option value="CASH">Cash</option>
-                  <option value="M_PESA">M-Pesa</option>
-                  <option value="CARD">Card</option>
-                  <option value="BANK_TRANSFER">Bank transfer</option>
-                </select>
-              )}
             </div>
+            {/* Full width under the choice rather than inline beside it — it is
+                a grid of grouped options and would wrap in the button row. */}
+            {payChoice === 'now' && (
+              <PaymentChannelPicker
+                className="pt-1"
+                value={payChannelId}
+                onChange={(c: PaymentChannel) => setPayChannelId(c.id)}
+                reference={payReference}
+                onReferenceChange={setPayReference}
+                payer={payPayer}
+                onPayerChange={setPayPayer}
+              />
+            )}
             <p className="text-[10px] font-bold text-slate-400 leading-relaxed">
               {payChoice === 'now'
                 ? 'Collected now and banked as client credit — the discharge bill draws it automatically; treatment charges settle then too.'

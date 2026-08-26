@@ -7,6 +7,8 @@ import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
 import BoardingIntakeFields, { emptyBoardingIntake, BoardingIntakeValue } from '../shared/BoardingIntakeFields';
 import { useData } from '../../../contexts/DataContext';
 import { ownerAbbrev } from '../shared/ownerAbbrev';
+import PaymentChannelPicker from '../shared/PaymentChannelPicker';
+import { PaymentChannel, channelById } from '../shared/paymentChannels';
 
 // Full-page boarding admission — converted from the old full-screen modal so
 // admission is a real in-app page (sidebar + breadcrumb stay visible). Callers
@@ -48,7 +50,20 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
   // and the client either pays it NOW (banked as client credit that discharge
   // billing draws automatically) or pays at pickup.
   const [payChoice, setPayChoice] = useState<'discharge' | 'now'>('discharge');
-  const [payMethod, setPayMethod] = useState('CASH');
+  /**
+   * The CHANNEL is what staff pick ("Pochi", "Cheque"); the `PaymentMethod`
+   * enum it settles as is derived from it, so the ledger keeps recording what
+   * it always did while reconciliation gains the detail it was missing.
+   *
+   * This used to be four flat method options (Cash / M-Pesa / Card / Bank
+   * transfer) and nothing else — so an estimate taken at the gate was the one
+   * payment in the product that could not be told apart from a Paybill after
+   * the fact, and carried neither the M-Pesa code nor the paying number. Every
+   * other money screen has captured all three since 2026-08-13.
+   */
+  const [payChannelId, setPayChannelId] = useState('CASH');
+  const [payReference, setPayReference] = useState('');
+  const [payPayer, setPayPayer] = useState('');
   const estDays = useMemo(() => {
     if (!intake.expectedPickupAt) return null;
     const fromT = dropOffAt ? new Date(dropOffAt).getTime() : Date.now();
@@ -127,8 +142,16 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
           try {
             await clientsAPI.recordAdvance(clientId, {
               amount: estTotal,
-              paymentMethod: payMethod,
+              // Derived from the channel, never picked separately — the enum is
+              // the ledger's truth and the channel is a label on it.
+              paymentMethod: channelById(payChannelId)?.method ?? 'CASH',
               note: `Boarding estimate prepayment — ${selectedPet.name}, ${estDays} day${estDays === 1 ? '' : 's'} (rate ${estRate}/day${estFoodPerDay ? ` + food ${estFoodPerDay}/day` : ''})`,
+              channel: payChannelId,
+              // The descriptive note above is kept as the note; the reference is
+              // the client's own proof and belongs in its own field, which is
+              // what reconciliation searches on.
+              ...(payReference.trim() ? { reference: payReference.trim() } : {}),
+              ...(payPayer.trim() ? { payer: payPayer.trim() } : {}),
             });
             toast.success(`Estimate collected — banked as client credit; discharge billing draws it automatically`);
           } catch {
@@ -267,16 +290,22 @@ const AdmitBoardingModal: React.FC<Props> = ({ isOpen, onClose, pets, onCreated,
                   {l}
                 </button>
               ))}
-              {payChoice === 'now' && (
-                <select value={payMethod} onChange={e => setPayMethod(e.target.value)}
-                  className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 outline-none">
-                  <option value="CASH">Cash</option>
-                  <option value="M_PESA">M-Pesa</option>
-                  <option value="CARD">Card</option>
-                  <option value="BANK_TRANSFER">Bank transfer</option>
-                </select>
-              )}
             </div>
+            {/* Channel + its own reference + who paid — the same trio every
+                other money screen captures. Full width under the choice rather
+                than inline beside it: it is a grid of grouped options, and
+                squeezing it into the button row would wrap on a phone. */}
+            {payChoice === 'now' && (
+              <PaymentChannelPicker
+                className="pt-1"
+                value={payChannelId}
+                onChange={(c: PaymentChannel) => setPayChannelId(c.id)}
+                reference={payReference}
+                onReferenceChange={setPayReference}
+                payer={payPayer}
+                onPayerChange={setPayPayer}
+              />
+            )}
             <p className="text-[10px] font-bold text-slate-400 leading-relaxed">
               {payChoice === 'now'
                 ? 'Collected now and banked as client credit — the discharge bill draws it automatically; any difference settles then.'

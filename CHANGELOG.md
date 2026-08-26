@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: estimate prepayments record channel, reference and payer  —  2026-08-26
+- **What changed:** the boarding and inpatient admission gates replace their four flat method
+  options (Cash / M-Pesa / Card / Bank transfer) with the shared `PaymentChannelPicker`, and send
+  `channel`, `reference` and `payer` to `POST /clients/:id/advance` alongside the amount. The
+  `PaymentMethod` enum is now DERIVED from the picked channel rather than chosen separately.
+  `clients.api.ts#recordAdvance` finally declares the three fields, so `CreditTopUpModal` drops
+  the `as any` it needed to get past the old signature.
+- **Record impact:** 🔵 Low — it adds `metadata.channel` / `.reference` / `.payer` to advance
+  transactions written from these two gates. Existing transactions are untouched and nothing
+  backfills them.
+- **Data dependency:** None. The server has accepted all three since the advance endpoint was
+  built and stores them in `transaction.metadata` (Json) — no column, no migration.
+- **Rollback:** revert the commit and rebuild. Advances already written keep their metadata,
+  which is additive and harmless.
+- ⚠️ **Never pick the method independently of the channel.** `channelById(id).method` is the only
+  correct source: the enum is what the ledger, the drawer and every money report group on, and a
+  channel is a label on it. If the two disagree the method wins — so letting them disagree is how
+  a Pochi payment ends up filed as a bank transfer.
+- ⚠️ **The descriptive note stays the note.** `CreditTopUpModal` copies the reference into `note`
+  because it has nothing better; these two gates already write a real one ("Boarding estimate
+  prepayment — Rex, 3 days (rate 1500/day + food 400/day)"), so the reference goes to its own
+  field, which is what reconciliation searches on.
+
 ### flow: picking a species stops stamping a breed nobody chose  —  2026-08-26
 - **What changed:** Register Patient resets the breed to `'Mixed Breed'` when the species
   changes, instead of to `breedOptions[0]`. Two bugs in one line: `breedOptions` is memoised on

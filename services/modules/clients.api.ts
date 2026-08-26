@@ -298,8 +298,31 @@ export const clientsAPI = {
    * Unapplied money on the client's account. DERIVED on read — money paid that
    * no settlement has attached to a receivable. There is no stored balance.
    */
-  /** Prepayment into the client's payment account (derived credit) — no invoices. */
-  recordAdvance: (clientId: string | number, data: { amount: number; paymentMethod: string; note?: string }): Promise<ApiResponse<{ transactionId: string; amount: number; creditBalance: number | null }>> =>
+  /**
+   * Prepayment into the client's payment account (derived credit) — no invoices.
+   *
+   * `channel` / `reference` / `payer` are the same reconciliation trio the
+   * collect path writes, and the server has taken all three since the advance
+   * endpoint was built — it stores them on `transaction.metadata` under those
+   * exact keys, so there is no column and no migration. They were missing HERE,
+   * which is why every caller that wanted them had to `as any` its way past this
+   * signature (and the two admission gates simply did not send them).
+   *
+   * Derive `paymentMethod` from the picked channel (`channelById(id).method`),
+   * never independently: the enum is the ledger's truth and the channel is a
+   * label on it — if the two disagree, the method wins.
+   */
+  recordAdvance: (clientId: string | number, data: {
+    amount: number;
+    paymentMethod: string;
+    note?: string;
+    /** HOW it arrived, one rung below the method: MPESA_POCHI, BANK_DEPOSIT… */
+    channel?: string;
+    /** Identifies the TRANSACTION — M-Pesa code, cheque no., deposit slip. */
+    reference?: string;
+    /** Identifies the PAYER — the paying phone number or the account debited. */
+    payer?: string;
+  }): Promise<ApiResponse<{ transactionId: string; amount: number; creditBalance: number | null }>> =>
     post(`/clients/${clientId}/advance`, data, { showError: true }),
 
   /** Client file attachments (backend 175) — metadata only; bytes go to R2 via uploadsAPI (scope 'client'). */
