@@ -27,8 +27,9 @@ const PURPOSE_LABEL: Record<WhatsappPurpose, { label: string; hint: string }> = 
   clinic_broadcast: { label: 'Broadcast', hint: 'marketing — approved separately' },
 };
 const PURPOSES = Object.keys(PURPOSE_LABEL) as WhatsappPurpose[];
-/** Everything the default template can stand in for. Broadcast cannot. */
-const OVERRIDE_PURPOSES: WhatsappPurpose[] = ['appointment_reminder', 'vaccination_due', 'bill_due', 'clinic_broadcast'];
+/** Everything the default template can stand in for. Broadcast cannot — it has
+ *  its own block above, because it is a second template you must actually create. */
+const OVERRIDE_PURPOSES: WhatsappPurpose[] = ['appointment_reminder', 'vaccination_due', 'bill_due'];
 
 /**
  * The wording to paste into Meta for the default template. Kept here rather
@@ -38,6 +39,15 @@ const OVERRIDE_PURPOSES: WhatsappPurpose[] = ['appointment_reminder', 'vaccinati
  */
 const DEFAULT_TEMPLATE_BODY =
   'Hello {{1}}, this is {{4}}. Regarding {{2}} — {{3}}. Reply to this message if you need anything.';
+
+/**
+ * The broadcast template, which is a SECOND template and a different Meta
+ * category. Marketing cannot ride on a utility template — that is how a number
+ * gets reclassified or its quality rating dropped — so a clinic that broadcasts
+ * has to create this one too.
+ */
+const BROADCAST_TEMPLATE_BODY =
+  'Hello {{1}}, a message from {{2}}: {{3}} Reply STOP if you would rather not receive these.';
 
 const FIELD =
   'w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 ' +
@@ -273,6 +283,54 @@ const WhatsappTab: React.FC = () => {
           </p>
         </div>
 
+        {/* ── Broadcast: a second template, MARKETING category ─────────── */}
+        <div className="rounded-xl border border-slate-200 dark:border-zinc-800 p-2.5 space-y-1.5">
+          <div>
+            <p className="text-xs font-black text-pine dark:text-zinc-100">Broadcast template</p>
+            <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">
+              Only needed if you send broadcasts. <strong>It cannot be the default one.</strong>
+              Meta categorises templates, and a broadcast is <strong>MARKETING</strong> while the
+              rest are UTILITY — sending marketing on a utility template is how a number gets
+              reclassified or its quality rating dropped. With no broadcast template, WhatsApp
+              broadcasts reach only clients who messaged you in the last 24 hours.
+            </p>
+          </div>
+          <div className="space-y-1">
+            <label className={LABEL}>{PURPOSE_LABEL.clinic_broadcast.label}</label>
+            <input
+              value={templates.clinic_broadcast ?? ''}
+              onChange={(e) => setTemplates((t) => ({ ...t, clinic_broadcast: e.target.value }))}
+              placeholder={cfg.platformTemplates?.clinic_broadcast?.name || 'clinic_broadcast'}
+              className={FIELD}
+            />
+            <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-600">
+              [client, clinic, message] · category <strong>MARKETING</strong>
+            </p>
+          </div>
+          <div className="rounded-lg bg-slate-50 dark:bg-zinc-800/60 p-2.5 space-y-1.5">
+            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
+              Paste this as the template body in Meta
+            </p>
+            <div className="flex items-start gap-2">
+              <code className="flex-1 text-[10px] font-bold text-pine dark:text-zinc-200 leading-relaxed break-words">
+                {BROADCAST_TEMPLATE_BODY}
+              </code>
+              <button
+                type="button"
+                onClick={() => { navigator.clipboard.writeText(BROADCAST_TEMPLATE_BODY); toast.success('Broadcast template body copied'); }}
+                className="shrink-0 p-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 hover:border-seafoam"
+                title="Copy broadcast template body"
+              >
+                <Copy size={12} className="text-slate-400" />
+              </button>
+            </div>
+            <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-600">
+              Once approved, a broadcast that leaves its template field blank uses this one
+              automatically. The opt-out line is not decoration — Meta expects marketing to carry one.
+            </p>
+          </div>
+        </div>
+
         {/* Per-purpose overrides, folded away. Most clinics never open this. */}
         <details className="rounded-xl border border-slate-200 dark:border-zinc-800 p-2.5">
           <summary className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 cursor-pointer">
@@ -280,9 +338,7 @@ const WhatsappTab: React.FC = () => {
           </summary>
           <p className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mt-2">
             Only if you have had purpose-specific wording approved. Anything left blank uses the
-            default above. <strong>Broadcasts are the exception</strong> — Meta approves marketing
-            separately, so a broadcast never falls back to the default and sends nothing without
-            its own template.
+            default above.
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2">
             {OVERRIDE_PURPOSES.map((p) => (

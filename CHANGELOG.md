@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: choose who receives the daily summary, and a broadcast template block  —  2026-08-26
+- **What changed:** *Goes to* on the Daily Summary tab becomes a chooser — the owner pinned at the
+  top, then every other staff member with an email, each with a tick box. Ticking saves
+  immediately, like the hour control.
+- ⚠️ **The owner cannot be unticked**, and the panel says why by simply not offering it: a summary
+  switched on with nobody receiving it would look identical to one that is working.
+- ⚠️ **Staff with no email are not listed** rather than listed and disabled — there is nothing to
+  fix in that row from this screen.
+- **What changed (WhatsApp tab):** the broadcast template gets its own block out of the optional
+  overrides, with the exact MARKETING body to paste into Meta and a copy button.
+- ⚠️ **It states that the broadcast template cannot be the default one** — different Meta
+  category — and that with none configured, WhatsApp broadcasts reach only clients who messaged
+  in the last 24 hours.
+- **Record impact:** 🟢 None from the frontend — it writes clinic settings and template names.
+- **Data dependency:** **Requires backend migration 256** and the `recipientIds` field on
+  `PUT /digest/settings`. **Graceful fallback:** without it the chooser renders the owner alone
+  and ticking fails with the API's error.
+- **Rollback:** revert the commit and rebuild. Any recipients already chosen stay in the database.
+
 ### component: the floating Save card moves off the tab strip  —  2026-08-26
 - **What changed:** Clinic Management's floating *Save changes* card moves from **top-right to
   bottom-right**.

@@ -96,7 +96,7 @@ const DailySummaryTab: React.FC = () => {
     loadPreview(true);
   }, [loadPreview]);
 
-  const save = async (patch: { enabled?: boolean; hour?: number }) => {
+  const save = async (patch: { enabled?: boolean; hour?: number; recipientIds?: string[] }) => {
     setSaving(true);
     try {
       const r = await digestAPI.saveSettings(patch);
@@ -105,6 +105,19 @@ const DailySummaryTab: React.FC = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  /**
+   * Ticking saves immediately, like the hour control — this panel has no Save
+   * of its own, and a checkbox that silently needs a button pressed elsewhere
+   * is a setting people believe they changed.
+   */
+  const toggleRecipient = async (id: string) => {
+    if (!cfg) return;
+    const next = cfg.staff.some((p) => p.id === id && p.selected)
+      ? cfg.staff.filter((p) => p.selected && p.id !== id).map((p) => p.id)
+      : [...cfg.staff.filter((p) => p.selected).map((p) => p.id), id];
+    await save({ recipientIds: next });
   };
 
   const sendTest = async () => {
@@ -188,20 +201,47 @@ const DailySummaryTab: React.FC = () => {
 
           <div className="space-y-1">
             <label className={LABEL}><Users size={9} className="inline mb-0.5 mr-1" />Goes to</label>
-            <div className="flex flex-wrap gap-1.5">
-              {cfg.recipients.map((r) => (
-                <span key={r} className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-zinc-800 text-[10px] font-bold text-pine dark:text-zinc-200 truncate max-w-full">
-                  {r}
-                </span>
+            <div className="rounded-lg border border-slate-200 dark:border-zinc-700 divide-y divide-slate-100 dark:divide-zinc-800 max-h-44 overflow-y-auto">
+              {/* The owner is fixed. Letting them untick themselves is how a
+                  clinic ends up with the summary on and nobody receiving it. */}
+              {cfg.owner && (
+                <div className="flex items-center gap-2 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-800/50">
+                  <CheckCircle2 size={13} className="shrink-0 text-seafoam" />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-black text-pine dark:text-zinc-100 truncate">{cfg.owner.name}</span>
+                    <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 truncate">{cfg.owner.email}</span>
+                  </span>
+                  <span className="shrink-0 text-[8px] font-black uppercase tracking-widest text-seafoam">Owner</span>
+                </div>
+              )}
+              {cfg.staff.map((p) => (
+                <label key={p.id} className="flex items-center gap-2 px-2.5 py-1.5 cursor-pointer hover:bg-slate-50 dark:hover:bg-zinc-800/50">
+                  <input
+                    type="checkbox"
+                    checked={p.selected}
+                    disabled={saving}
+                    onChange={() => toggleRecipient(p.id)}
+                    className="shrink-0 accent-seafoam"
+                  />
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-bold text-pine dark:text-zinc-100 truncate">{p.name}</span>
+                    <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 truncate">{p.email}</span>
+                  </span>
+                  <span className="shrink-0 text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-600">
+                    {p.role.replace(/_/g, ' ')}
+                  </span>
+                </label>
               ))}
-              {noRecipients && (
-                <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
-                  Nobody — set a clinic email or an owner
-                </span>
+              {!cfg.owner && cfg.staff.length === 0 && (
+                <p className="px-2.5 py-2 text-[10px] font-bold text-amber-600 dark:text-amber-400">
+                  Nobody at this clinic has an email address on file.
+                </p>
               )}
             </div>
             <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-600">
-              Clinic address, owner and branch manager. Not editable here.
+              The owner always receives it. Tick anyone else who should.
+              {/* Someone with no address is not shown at all — a tick box that
+                  can never deliver is worse than an absence. */}
             </p>
           </div>
         </div>

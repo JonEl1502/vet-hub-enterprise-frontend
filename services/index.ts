@@ -101,7 +101,7 @@ export type { ClinicTransfer } from './modules/clinicTransfer.api';
 export type { Broadcast, BroadcastAudience, BroadcastAudienceType, SegmentFilter, SegmentBreakdown, SegmentSendResult, BroadcastChannel } from './modules/broadcasts.api';
 export { clientPortalAPI } from './modules/clientPortal.api';
 export { digestAPI } from './modules/digest.api';
-export type { DigestSettings, DigestData, DigestRow } from './modules/digest.api';
+export type { DigestSettings, DigestData, DigestRow, DigestPerson } from './modules/digest.api';
 export { whatsappAPI } from './modules/whatsapp.api';
 export type { WhatsappConfigView, WhatsappTestResult, WhatsappPurpose, UnmatchedSender, UnmatchedMessage } from './modules/whatsapp.api';
 

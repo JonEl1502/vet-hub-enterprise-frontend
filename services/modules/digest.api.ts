@@ -14,6 +14,16 @@ import { get, post, put } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
 
+/** Someone who can receive the summary. */
+export interface DigestPerson {
+  id: string;
+  name: string;
+  email: string;
+  role: string;
+  /** Ticked. Always true for the owner, who cannot be unticked. */
+  selected: boolean;
+}
+
 export interface DigestSettings {
   enabled: boolean;
   /** 0–23, in `timezone`. */
@@ -21,7 +31,15 @@ export interface DigestSettings {
   timezone: string;
   /** Local day (YYYY-MM-DD) last sent for, or null if never. */
   lastSentOn: string | null;
-  /** Resolved from the clinic address, owner and manager. Read-only. */
+  /**
+   * Always included, never unticked — an owner who could remove themselves
+   * could leave the summary switched on and going nowhere. Null only when the
+   * clinic has no owner account with an email.
+   */
+  owner: DigestPerson | null;
+  /** Everyone else at the clinic with an email; `selected` says who is ticked. */
+  staff: DigestPerson[];
+  /** The addresses one send resolves to right now. Derived, read-only. */
   recipients: string[];
   /** False when the server has no RESEND_API_KEY — nothing will send. */
   emailConfigured: boolean;
@@ -74,7 +92,8 @@ export const digestAPI = {
   getSettings: (options?: RequestOptions): Promise<ApiResponse<DigestSettings>> =>
     get(ENDPOINTS.DIGEST.SETTINGS, { silent: true, ...options }),
 
-  saveSettings: (data: { enabled?: boolean; hour?: number }, options?: RequestOptions): Promise<ApiResponse<DigestSettings>> =>
+  /** `recipientIds` is the EXTRA staff — never the owner, who is always sent. */
+  saveSettings: (data: { enabled?: boolean; hour?: number; recipientIds?: string[] }, options?: RequestOptions): Promise<ApiResponse<DigestSettings>> =>
     put(ENDPOINTS.DIGEST.SETTINGS, data, { showError: true, ...options }),
 
   /** The numbers without sending anything. `day` defaults to today. */
