@@ -20,12 +20,24 @@ import { toast } from '../../../services';
  */
 
 const PURPOSE_LABEL: Record<WhatsappPurpose, { label: string; hint: string }> = {
+  default: { label: 'Default template', hint: '[client, subject, detail, clinic]' },
   appointment_reminder: { label: 'Appointment reminder', hint: '[client, pet, when, clinic]' },
   vaccination_due: { label: 'Vaccination due', hint: '[client, pet, vaccine, clinic]' },
   bill_due: { label: 'Bill outstanding', hint: '[client, amount, bill no., clinic]' },
   clinic_broadcast: { label: 'Broadcast', hint: 'marketing — approved separately' },
 };
 const PURPOSES = Object.keys(PURPOSE_LABEL) as WhatsappPurpose[];
+/** Everything the default template can stand in for. Broadcast cannot. */
+const OVERRIDE_PURPOSES: WhatsappPurpose[] = ['appointment_reminder', 'vaccination_due', 'bill_due', 'clinic_broadcast'];
+
+/**
+ * The wording to paste into Meta for the default template. Kept here rather
+ * than only in the runbook because this is where someone is standing when they
+ * need it, and a template whose variables are in a different order from ours
+ * sends the right values into the wrong slots — successfully, and unreadably.
+ */
+const DEFAULT_TEMPLATE_BODY =
+  'Hello {{1}}, this is {{4}}. Regarding {{2}} — {{3}}. Reply to this message if you need anything.';
 
 const FIELD =
   'w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 ' +
@@ -211,30 +223,82 @@ const WhatsappTab: React.FC = () => {
       </div>
 
       {/* ── Templates ───────────────────────────────────────────────────── */}
-      <div className="space-y-2">
+      <div className="space-y-2.5">
         <div>
-          <p className="text-xs font-black text-pine dark:text-zinc-100">Approved template names</p>
+          <p className="text-xs font-black text-pine dark:text-zinc-100">Approved template</p>
           <p className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400">
             WhatsApp only lets you message a client out of the blue with a template Meta has
-            approved in advance. Leave one blank to use VetHub&rsquo;s.
-            <strong> Variables are matched by position, not by name</strong> — the order each one
-            expects is shown beside it.
+            approved in advance. <strong>One is enough.</strong> Get this one approved and
+            appointment reminders, vaccination notices and bill notices all send through it.
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-          {PURPOSES.map((p) => (
-            <div key={p} className="space-y-1">
-              <label className={LABEL}>{PURPOSE_LABEL[p].label}</label>
-              <input
-                value={templates[p] ?? ''}
-                onChange={(e) => setTemplates((t) => ({ ...t, [p]: e.target.value }))}
-                placeholder={cfg.platformTemplates?.[p]?.name || p}
-                className={FIELD}
-              />
-              <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-600">{PURPOSE_LABEL[p].hint}</p>
-            </div>
-          ))}
+
+        <div className="space-y-1">
+          <label className={LABEL}>{PURPOSE_LABEL.default.label}</label>
+          <input
+            value={templates.default ?? ''}
+            onChange={(e) => setTemplates((t) => ({ ...t, default: e.target.value }))}
+            placeholder={cfg.platformTemplates?.default?.name || 'vethub_notification'}
+            className={FIELD}
+          />
+          <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-600">
+            {PURPOSE_LABEL.default.hint} · category <strong>UTILITY</strong>
+          </p>
         </div>
+
+        {/* The exact body to submit. Variables are positional, so a template
+            worded in a different order sends the right values into the wrong
+            slots — and Meta accepts the send. */}
+        <div className="rounded-xl bg-slate-50 dark:bg-zinc-800/60 p-2.5 space-y-1.5">
+          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
+            Paste this as the template body in Meta
+          </p>
+          <div className="flex items-start gap-2">
+            <code className="flex-1 text-[10px] font-bold text-pine dark:text-zinc-200 leading-relaxed break-words">
+              {DEFAULT_TEMPLATE_BODY}
+            </code>
+            <button
+              type="button"
+              onClick={() => { navigator.clipboard.writeText(DEFAULT_TEMPLATE_BODY); toast.success('Template body copied'); }}
+              className="shrink-0 p-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 hover:border-seafoam"
+              title="Copy template body"
+            >
+              <Copy size={12} className="text-slate-400" />
+            </button>
+          </div>
+          <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-600">
+            <strong>Keep the numbering exactly as written.</strong> Meta matches variables by
+            position, so a reworded template sends the right values into the wrong slots — and the
+            send still succeeds.
+          </p>
+        </div>
+
+        {/* Per-purpose overrides, folded away. Most clinics never open this. */}
+        <details className="rounded-xl border border-slate-200 dark:border-zinc-800 p-2.5">
+          <summary className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 cursor-pointer">
+            Different template for a specific purpose (optional)
+          </summary>
+          <p className="text-[10px] font-semibold text-slate-500 dark:text-zinc-400 mt-2">
+            Only if you have had purpose-specific wording approved. Anything left blank uses the
+            default above. <strong>Broadcasts are the exception</strong> — Meta approves marketing
+            separately, so a broadcast never falls back to the default and sends nothing without
+            its own template.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 mt-2">
+            {OVERRIDE_PURPOSES.map((p) => (
+              <div key={p} className="space-y-1">
+                <label className={LABEL}>{PURPOSE_LABEL[p].label}</label>
+                <input
+                  value={templates[p] ?? ''}
+                  onChange={(e) => setTemplates((t) => ({ ...t, [p]: e.target.value }))}
+                  placeholder={templates.default?.trim() || cfg.platformTemplates?.[p]?.name || p}
+                  className={FIELD}
+                />
+                <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-600">{PURPOSE_LABEL[p].hint}</p>
+              </div>
+            ))}
+          </div>
+        </details>
       </div>
 
       {/* ── BYOK credentials ────────────────────────────────────────────── */}

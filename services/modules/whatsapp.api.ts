@@ -16,8 +16,18 @@ import { get, post, put, del } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
 
-/** The purposes Meta must approve a template for, one each. */
-export type WhatsappPurpose = 'appointment_reminder' | 'bill_due' | 'vaccination_due' | 'clinic_broadcast';
+/**
+ * The purposes Meta must approve a template for.
+ *
+ * `default` is the one most clinics will ever fill in: a single generic
+ * notification template that stands in for the three utility purposes, so
+ * going live means one Meta review instead of three.
+ *
+ * ⚠️ `clinic_broadcast` NEVER falls back to `default` — a broadcast is
+ * MARKETING and the rest are UTILITY, and sending marketing through a utility
+ * template is how a number gets reclassified or its quality rating dropped.
+ */
+export type WhatsappPurpose = 'default' | 'appointment_reminder' | 'bill_due' | 'vaccination_due' | 'clinic_broadcast';
 
 export interface WhatsappTemplateRef {
   name: string;

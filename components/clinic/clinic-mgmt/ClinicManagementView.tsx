@@ -1619,10 +1619,17 @@ const ClinicManagementView: React.FC<Props> = ({
             )}
          </div>
 
-         {/* Live Preview + Save — floating hover card, top-right, on every tab.
+         {/* Live Preview + Save — floating hover card, BOTTOM-right, on every tab.
              The content column runs full width underneath. z-50 keeps it UNDER
-             the navbar (z-60) so the profile dropdown paints on top. */}
-         <div className="hidden lg:block fixed top-14 right-6 z-50 w-60 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md border border-slate-200/70 dark:border-zinc-800/70 rounded-xl p-3 shadow-xl space-y-3 opacity-55 hover:opacity-100 hover:bg-white/95 dark:hover:bg-zinc-900/95 transition-all">
+             the navbar (z-60) so the profile dropdown paints on top.
+             ⚠️ It sat top-right until 2026-08-26, where it covered the right end
+             of the tab strip — and a faded card over a tab does not just look
+             wrong, it eats the click. The strip grows every time a tab is added
+             (Daily Summary was the one that made it unusable), so the fix is to
+             get the card off that row entirely rather than to reserve a width
+             that the next tab overruns again. The page already carries pb-20,
+             so nothing sits underneath it down here. */}
+         <div className="hidden lg:block fixed bottom-6 right-6 z-50 w-60 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md border border-slate-200/70 dark:border-zinc-800/70 rounded-xl p-3 shadow-xl space-y-3 opacity-55 hover:opacity-100 hover:bg-white/95 dark:hover:bg-zinc-900/95 transition-all">
             <div className="p-3 rounded-xl border shadow relative overflow-hidden" style={{ backgroundColor: localColors.primary }}>
                <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent"></div>
                <div className="relative z-10 flex items-center gap-2.5">

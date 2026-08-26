@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: the floating Save card moves off the tab strip  —  2026-08-26
+- **What changed:** Clinic Management's floating *Save changes* card moves from **top-right to
+  bottom-right**.
+- ⚠️ **It was covering the right end of the tab strip, and a faded card over a tab does not just
+  look wrong — it eats the click.** Verification and Ratings were unreachable at common laptop
+  widths. The strip grows every time a tab is added and Daily Summary was the one that pushed it
+  under the card, so the fix is to get the card off that row rather than reserve a width the next
+  tab overruns again. The page already carries `pb-20`, so nothing sits under it at the bottom.
+- **Record impact:** 🟢 None — positioning only.
+- **Data dependency:** None.
+- **Rollback:** revert the class change.
+
+### page: WhatsApp settings ask for one template, not four  —  2026-08-26
+- **What changed:** the Approved templates block is now a single **Default template** field with
+  the exact body to paste into Meta and a copy button. The four per-purpose fields fold away under
+  *Different template for a specific purpose (optional)*.
+- ⚠️ **Broadcasts are called out as the exception** — Meta approves marketing separately, so a
+  broadcast never falls back to the default and sends nothing without its own template.
+- ⚠️ **The body text is shown verbatim because variables are positional.** A template reworded in
+  Meta sends the right values into the wrong slots and the send still succeeds, so the screen
+  states the numbering rather than leaving it to the runbook nobody has open at that moment.
+- **Record impact:** 🟢 None — it writes the same `templates` map, with one more key.
+- **Data dependency:** **Requires the backend `default` purpose** (same day). Without it a name
+  typed into Default is stored and ignored; every per-purpose field behaves as before.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: Daily Summary — the evening email, and a preview of what it will say  —  2026-08-26
 - **What changed:** **Clinic Management ▸ Daily Summary.** One switch, the hour it sends, who it
   goes to, a *Send me a test* button, and a live preview of tonight's email — today's visits,
