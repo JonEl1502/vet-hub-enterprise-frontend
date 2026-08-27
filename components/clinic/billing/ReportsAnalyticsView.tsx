@@ -778,10 +778,12 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
 
             </div>{/* /left 2-col stack */}
 
-            {/* Right third (user, 2026-08-27): the two donuts stack here.
-                They read as a pair — where the money came from, how it was
-                paid — and two compact cards fill this full-height column,
-                which a single centred card left mostly empty. */}
+            {/* Right third (user, 2026-08-27). This column is as tall as the
+                two stacked charts beside it (~850px), and NOTHING compact
+                fills it: one centred health-score card left ~450px of void,
+                and so did two donuts. It takes all three small cards —
+                ~620px — to read as a column rather than a gap. If you move
+                a card out of here, put something else in. */}
             <div className="flex flex-col gap-4">
               {/* Revenue by Department */}
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
@@ -855,46 +857,48 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                   </div>
                 )}
               </div>
-            </div>{/* /right third donut stack */}
+              {/* Business Health Score — LAST, and it absorbs the slack.
+                  Three cards still come up ~230px short of the two charts, so
+                  this one takes `flex-1` and centres itself in whatever height
+                  is left: the column closes exactly instead of ending in a gap.
+                  The donuts stay their natural size; only this one stretches. */}
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-center flex-1">
+                <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight mb-1">Business Health Score</h3>
+                <div className="flex flex-col items-center">
+                  <svg viewBox="0 0 200 110" className="w-44">
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e2e8f0" strokeWidth="14" strokeLinecap="round" className="dark:opacity-20" />
+                    <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#healthGrad)" strokeWidth="14" strokeLinecap="round"
+                      strokeDasharray={`${(health.score / 100) * 251} 251`} />
+                    <defs>
+                      <linearGradient id="healthGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" stopColor={C.amber} />
+                        <stop offset="60%" stopColor={C.lime} />
+                        <stop offset="100%" stopColor={C.green} />
+                      </linearGradient>
+                    </defs>
+                    <text x="100" y="82" textAnchor="middle" className="fill-pine dark:fill-zinc-100" style={{ fontSize: 34, fontWeight: 900 }}>{health.score}</text>
+                    <text x="100" y="100" textAnchor="middle" className="fill-slate-400" style={{ fontSize: 11, fontWeight: 700 }}>/100</text>
+                  </svg>
+                  <span className="inline-flex items-center gap-1 -mt-1 mb-2 text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                    <Sparkles size={11} /> {health.label}
+                  </span>
+                </div>
+                <div className="space-y-1.5">
+                  {health.dims.map(d => (
+                    <div key={d.key} className="flex items-center justify-between">
+                      <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">{d.key}</span>
+                      <Stars n={d.stars} />
+                    </div>
+                  ))}
+                </div>
+                <p className="mt-2 text-[9px] font-bold text-slate-400 text-center">Score is based on current period performance</p>
+              </div>
+            </div>{/* /right third: donuts + health score */}
 
           </div>
 
-          {/* ── Health score · Top vets · Client growth ── */}
-          {/* The score spans both rows on the left so the two short list
-              cards stack beside it with no dead cell at the end. */}
+          {/* ── Top vets · Client growth ── */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
-            {/* Business Health Score */}
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-center md:row-span-2">
-              <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight mb-1">Business Health Score</h3>
-              <div className="flex flex-col items-center">
-                <svg viewBox="0 0 200 110" className="w-44">
-                  <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="#e2e8f0" strokeWidth="14" strokeLinecap="round" className="dark:opacity-20" />
-                  <path d="M 20 100 A 80 80 0 0 1 180 100" fill="none" stroke="url(#healthGrad)" strokeWidth="14" strokeLinecap="round"
-                    strokeDasharray={`${(health.score / 100) * 251} 251`} />
-                  <defs>
-                    <linearGradient id="healthGrad" x1="0%" y1="0%" x2="100%" y2="0%">
-                      <stop offset="0%" stopColor={C.amber} />
-                      <stop offset="60%" stopColor={C.lime} />
-                      <stop offset="100%" stopColor={C.green} />
-                    </linearGradient>
-                  </defs>
-                  <text x="100" y="82" textAnchor="middle" className="fill-pine dark:fill-zinc-100" style={{ fontSize: 34, fontWeight: 900 }}>{health.score}</text>
-                  <text x="100" y="100" textAnchor="middle" className="fill-slate-400" style={{ fontSize: 11, fontWeight: 700 }}>/100</text>
-                </svg>
-                <span className="inline-flex items-center gap-1 -mt-1 mb-2 text-[10px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
-                  <Sparkles size={11} /> {health.label}
-                </span>
-              </div>
-              <div className="space-y-1.5">
-                {health.dims.map(d => (
-                  <div key={d.key} className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">{d.key}</span>
-                    <Stars n={d.stars} />
-                  </div>
-                ))}
-              </div>
-              <p className="mt-2 text-[9px] font-bold text-slate-400 text-center">Score is based on current period performance</p>
-            </div>
 
             {/* Top Veterinarians */}
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
