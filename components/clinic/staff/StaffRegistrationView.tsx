@@ -208,6 +208,9 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
   const divider = <div className="border-t border-slate-100 dark:border-zinc-800" />;
   const showOwner = ['SUPER_ADMIN', 'MERCHANT_ADMIN'].includes(user?.role || '');
   const roleDefaultGranular = ROLE_DEFAULT_PERMISSIONS[formData.role as UserRole] || [];
+  // How many of the switches below are read by no gate. Derived from the
+  // catalog's own `live` flag so it can never drift from the badges.
+  const inertCount = ALL_PERMISSIONS.filter(p => !p.live).length;
   const permsByCategory = ALL_PERMISSIONS.reduce((acc, p) => {
     (acc[p.category] ||= []).push(p);
     return acc;
@@ -474,13 +477,25 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                 <Section
                   icon={KeyRound}
                   title="Permissions"
-                  hint="Role defaults are locked on. Toggle extras to grant more."
+                  hint={`Role defaults are locked on. Toggle extras to grant more. ${inertCount} of these are marked N/A — nothing reads them yet, so ticking one grants and restricts nothing. Page Access above is the gate that works.`}
                   right={<span className="text-[8px] font-black text-slate-400 uppercase tracking-widest shrink-0">{roleLabel(formData.role)}</span>}
                 />
                 <div className="space-y-3">
                   {Object.entries(permsByCategory).map(([category, perms]) => (
                     <div key={category}>
-                      <p className="text-[8px] font-black text-seafoam uppercase tracking-widest mb-1.5">{category}</p>
+                      <p className="text-[8px] font-black text-seafoam uppercase tracking-widest mb-1.5">
+                        {category}
+                        {/* Clients & Pets, Medical and Reports are inert END TO
+                            END — 14 of the 19 dead tokens. Badging each switch
+                            individually still reads as "mostly works, a few
+                            gaps"; saying it once per category is what stops an
+                            owner believing they restricted deletion. */}
+                        {perms.every(pp => !pp.live) && (
+                          <span className="ml-1.5 text-[7px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-500">
+                            · none of these are enforced yet
+                          </span>
+                        )}
+                      </p>
                       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-1.5">
                         {perms.map(perm => {
                           const isRoleDefault = roleDefaultGranular.includes(perm.id);
@@ -492,18 +507,33 @@ const StaffRegistrationView: React.FC<Props> = ({ onSave, onCancel, clinics, edi
                               type="button"
                               disabled={isRoleDefault}
                               onClick={() => togglePermission(perm.id)}
+                              title={
+                                !perm.live
+                                  ? 'Nothing reads this yet — ticking it changes no access anywhere in the app'
+                                  : isRoleDefault ? 'Role default' : isExtra ? 'Custom grant' : undefined
+                              }
                               className={`flex items-center gap-1.5 px-2 py-1.5 rounded-lg border text-left transition-all ${
                                 isRoleDefault
                                   ? 'bg-seafoam/10 border-seafoam/30 text-seafoam cursor-not-allowed opacity-90'
                                   : isExtra
                                     ? 'bg-indigo-500/10 border-indigo-500/40 text-indigo-600 dark:text-indigo-300'
                                     : 'bg-slate-50 dark:bg-zinc-800 border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:border-seafoam/30'
-                              }`}
+                              } ${!perm.live ? 'opacity-60' : ''}`}
                             >
                               <span className={`w-3 h-3 rounded flex items-center justify-center shrink-0 border ${checked ? 'bg-current border-current' : 'border-slate-300 dark:border-zinc-600'}`}>
                                 {checked && <Check size={8} className="text-white dark:text-zinc-900" strokeWidth={3} />}
                               </span>
-                              <span className="text-[9px] font-black uppercase tracking-wide truncate">{perm.label}</span>
+                              <span className="text-[9px] font-black uppercase tracking-wide truncate flex-1">{perm.label}</span>
+                              {/* SAY WHEN A SWITCH IS NOT WIRED TO ANYTHING (216).
+                                  StaffProfileView has badged these since 216; this
+                                  form did not, so the SAME token looked authoritative
+                                  when creating someone and honest when editing them.
+                                  That asymmetry is worse than either state alone. */}
+                              {!perm.live && (
+                                <span className="text-[7px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600 shrink-0">
+                                  n/a
+                                </span>
+                              )}
                             </button>
                           );
                         })}
