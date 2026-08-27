@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### payments: the amount box belongs to the method, and credit gets its own  —  2026-08-27
+- **What changed:** in the client Payments tab collect bar — (a) the tendered-amount input moved
+  from after the credit button to beside the method select, and its label/tooltip follow the
+  chosen method; (b) credit is no longer all-or-nothing: a new box sets how much to draw, blank
+  keeping the old "draw the most the selection absorbs"; (c) a red line names the case where
+  credit already covers the selection and cash is tendered anyway.
+- **Record impact:** 🔵 Low — it changes what a collection WRITES: `useCredit` now goes as a
+  number when a figure is typed (`true` when blank, unchanged). Only collections staff actively
+  submit are affected.
+- **Data dependency:** None — `useCredit` has accepted `boolean | number` since the collect
+  endpoint was built (`payment.service.ts`, `useCredit === true ? available : Number(...)`),
+  and `VisitDetailView` has been sending the numeric form since 2026-08-13.
+- **Rollback:** revert the commit and rebuild. The server accepts both forms, so a rolled-back
+  bundle keeps working.
+- ⚠️ **This bar never got the prod #158 guard.** Credit covering the selection in full while cash
+  is ALSO tendered means the cash settles nothing and is handed straight back as credit — the
+  client pays cash to gain credit. The visit settle modal was fixed for this on 2026-08-13 (see
+  the ⚠️ block near `creditApplied` in `VisitDetailView`); this bar was not, and its layout
+  invited it by putting the amount box directly after the credit button.
+- ⚠️ **Deliberately NOT blocked.** Over-tendering into credit is legitimate here — a client
+  leaving money on account — so the case is named in red with the way out (draw less credit),
+  not refused. Do not "fix" it into a hard block.
+- ⚠️ **The credit box is clamped to `min(credit, selectedTotal)` on the client** so the preview
+  cannot promise a draw the server would clamp away. The server clamps again at
+  `min(available, cap, netDue)` — keep both.
+
 ### wizard: clicking the active Seg pill clears it  —  2026-08-27
 - **What changed:** the shared `Seg` single-select pill row (21 rows across the visit wizard —
   severity, confidence, appetite, visit outcome, client decision, follow-up reason…) deselects
