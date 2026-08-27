@@ -1762,9 +1762,9 @@ const renderOverview = () => (
             {canTakeMoney && !showAddDiscount && (
               <button
                 onClick={() => setShowAddDiscount(true)}
-                className="flex items-center gap-2 px-5 py-2.5 bg-seafoam text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all shadow-lg"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-seafoam text-white rounded-lg text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all"
               >
-                <Plus size={14} /> Add Discount
+                <Plus size={11} /> Add Discount
               </button>
             )}
 
@@ -1857,58 +1857,66 @@ const renderOverview = () => (
             {discountsLoading ? (
               <div className="py-16 text-center"><p className="text-[10px] font-black text-slate-400 uppercase tracking-widest animate-pulse">Loading discounts...</p></div>
             ) : discounts.length > 0 ? (
-              <div className="space-y-3">
+              /* Three across (user, 2026-08-27). A discount is a short record —
+                 name, value, state, dates — and one per full-width row left
+                 most of the line empty. The card stacks instead of sitting in
+                 one flex row, because the meta cannot share a line with the
+                 name at a third of the width. */
+              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 items-stretch">
                 {discounts.map(d => {
                   const isExpired = new Date(d.expiresAt) < new Date();
                   const isActive = !d.isRedeemed && !isExpired;
                   return (
-                    <div key={d.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-3.5 shadow-sm transition-all ${
+                    <div key={d.id} className={`bg-white dark:bg-zinc-900 border rounded-2xl p-3.5 shadow-sm transition-all flex flex-col ${
                       isActive ? 'border-emerald-300 dark:border-emerald-700/50' :
                       d.isRedeemed ? 'border-blue-200 dark:border-blue-800/40 opacity-70' :
                       'border-red-200 dark:border-red-800/40 opacity-60'
                     }`}>
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="flex items-start gap-3 min-w-0">
-                          <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
-                            isActive ? 'bg-emerald-500/10' : d.isRedeemed ? 'bg-blue-500/10' : 'bg-red-500/10'
-                          }`}>
-                            <Tag size={16} className={isActive ? 'text-emerald-500' : d.isRedeemed ? 'text-blue-500' : 'text-red-400'} />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <p className="text-pine dark:text-zinc-100 font-black text-sm uppercase truncate">{d.name}</p>
-                              <span className={`text-base font-black font-mono ${isActive ? 'text-emerald-600' : 'text-slate-400'}`}>
-                                {d.discountType === 'PERCENTAGE' ? `${d.value}%` : `${client.currency || 'KES'} ${Number(d.value).toLocaleString()}`}
-                              </span>
-                              <span className={`text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg ${
-                                isActive ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' :
-                                d.isRedeemed ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
-                                'bg-red-500/10 text-red-400 border border-red-500/20'
-                              }`}>
-                                {isActive ? 'Active' : d.isRedeemed ? 'Redeemed' : 'Expired'}
-                              </span>
-                            </div>
-                            {d.note && (
-                              <p className="text-[11px] text-slate-500 dark:text-zinc-400 italic mt-0.5 truncate">"{d.note}"</p>
-                            )}
-                          </div>
+                      {/* Identity: icon, name, what it is worth, what state it is in. */}
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                          isActive ? 'bg-emerald-500/10' : d.isRedeemed ? 'bg-blue-500/10' : 'bg-red-500/10'
+                        }`}>
+                          <Tag size={16} className={isActive ? 'text-emerald-500' : d.isRedeemed ? 'text-blue-500' : 'text-red-400'} />
                         </div>
-                        <div className="text-right shrink-0 space-y-1">
-                          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
-                            {isExpired ? 'Expired' : 'Expires'} {formatDate(d.expiresAt)}
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <p className="text-pine dark:text-zinc-100 font-black text-sm uppercase truncate">{d.name}</p>
+                            <span className={`text-[7px] font-black uppercase tracking-widest px-2 py-0.5 rounded-lg shrink-0 ${
+                              isActive ? 'bg-emerald-500/10 text-emerald-600 border border-emerald-500/20' :
+                              d.isRedeemed ? 'bg-blue-500/10 text-blue-500 border border-blue-500/20' :
+                              'bg-red-500/10 text-red-400 border border-red-500/20'
+                            }`}>
+                              {isActive ? 'Active' : d.isRedeemed ? 'Redeemed' : 'Expired'}
+                            </span>
+                          </div>
+                          <p className={`text-base font-black font-mono ${isActive ? 'text-emerald-600' : 'text-slate-400'}`}>
+                            {d.discountType === 'PERCENTAGE' ? `${d.value}%` : `${client.currency || 'KES'} ${Number(d.value).toLocaleString()}`}
                           </p>
-                          {d.isRedeemed && d.redeemedAt && (
-                            <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest">
-                              Redeemed {formatDate(d.redeemedAt)}
-                            </p>
-                          )}
-                          {d.creatorName && (
-                            <p className="text-[8px] font-bold text-slate-400">by {d.creatorName}</p>
+                          {d.note && (
+                            <p className="text-[11px] text-slate-500 dark:text-zinc-400 italic mt-0.5 line-clamp-2">"{d.note}"</p>
                           )}
                         </div>
                       </div>
-                      {/* Remove sits with the meta, not in a footer band of its
-                          own — the card was mostly empty space below the note. */}
+
+                      {/* Meta sits UNDER the identity, not beside it — at a third
+                          of the width there is no room for two columns, and the
+                          dates were the half that got crushed. mt-auto keeps it
+                          on the floor so cards in a row line up. */}
+                      <div className="mt-auto pt-2.5 space-y-0.5">
+                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">
+                          {isExpired ? 'Expired' : 'Expires'} {formatDate(d.expiresAt)}
+                        </p>
+                        {d.isRedeemed && d.redeemedAt && (
+                          <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest">
+                            Redeemed {formatDate(d.redeemedAt)}
+                          </p>
+                        )}
+                        {d.creatorName && (
+                          <p className="text-[8px] font-bold text-slate-400 truncate">by {d.creatorName}</p>
+                        )}
+                      </div>
+
                       {isActive && canTakeMoney && (
                         <div className="mt-1.5 flex justify-end">
                           <button
