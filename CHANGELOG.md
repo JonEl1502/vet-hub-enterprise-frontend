@@ -59,6 +59,35 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### portal: a submitted visit rating is a readout, not a form  —  2026-08-27
+- **What changed:** "Edit your rating" is gone from `ClientVisitDetail`. A rated visit renders a
+  new `SubmittedRating` block — average ⭐, the per-facet stars as static icons, the comment and
+  the date — and states that the rating has been counted and can no longer be changed. The rate
+  button renders only when unrated; the modal is additionally guarded on `!rating.rated`.
+  `RatingModal` lost its `existing` prop: it always starts blank, warns that submitting is final,
+  and its button always reads "Submit rating". `VisitRating` gained `ratedAt`.
+- **Record impact:** 🟢 None — removes a write path, adds none. Existing ratings become
+  uneditable, not altered.
+- **Data dependency:** None. `ratedAt` is derived server-side from `visit_ratings.created_at`,
+  which migration 091 already created; the field is optional and the panel renders without it.
+- **Rollback:** revert the commit and rebuild. The server still refuses a second submit, so a
+  rolled-back UI would offer an edit that 400s.
+- ⚠️ **The UI guard is not the enforcement.** `rateVisit` refuses server-side. This change stops
+  the portal inviting an edit it cannot honour; do not restore the edit affordance without also
+  reverting the backend.
+
+### bi: the two donuts take the tall right third, health score moves down  —  2026-08-27
+- **What changed:** in Reports & Analytics, Revenue by Department and Payment Methods stack in the
+  full-height right third beside the two time-series charts; Business Health Score drops to the
+  row below, spanning both its rows on the left so Top Vets and Client Growth stack beside it.
+- **Record impact:** 🟢 None — JSX moved, no data, props or logic touched.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **The right third is full-height by design** (`items-stretch` against a two-chart stack). It
+  wants content that fills it — the health score is a gauge plus six rows and left it mostly
+  empty, which is why it was `justify-center` in the first place. Anything moved back in there
+  should be two cards, not one.
+
 ### component: full-page action bars stop being viewport-wide slabs  —  2026-08-26
 - **What changed:** the boarding admission gate, the inpatient admission gate and Edit Client size
   their Cancel/primary pair on a wide screen (`flex-1 sm:flex-none`, right-aligned) instead of
