@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### payroll: Bonuses pane — award with a reason  —  2026-08-27
+- **What changed:** `HrBonusesPane` adds a third pane under HR ▸ Payroll. Award a bonus to a staff
+  member with an amount, a date earned, an optional category and a **required reason**; the next
+  pay run covering that date picks it up automatically. Edit and cancel while unpaid.
+- **Record impact:** 🔵 Low — a bonus feeds a pay run, which feeds a payslip and a Finance expense.
+- **Data dependency:** **Requires migration 260** (plus 257–259 for the rest of HR/payroll).
+- **Rollback:** revert and rebuild. Already-paid bonuses stay on their payslips.
+- ⚠️ **The reason gets its own line on the card, not a tooltip.** It is the record, and it is what
+  appears on the payslip — the server writes it as the line's label. The form says so explicitly
+  ("write it for the person receiving it, not for the file"). Blank is refused client and server.
+- ⚠️ **Status is read from the server, never computed here** (`PENDING` / `ON_RUN` / `PAID` /
+  `CANCELLED`). It is derived from the run the bonus sits on so it cannot disagree with it — do not
+  reimplement it from `payRunId` in the client.
+- ⚠️ **Non-taxable warns.** A cash bonus is normally taxable; unticking it by accident underpays
+  PAYE for that person.
+- ℹ️ Edit/cancel are hidden once the bonus is PAID — at that point it is part of a payslip somebody
+  was already paid from.
+
 ### payroll: Payroll tab under HR  —  2026-08-27
 - **What changed:** `HrPayrollTab` adds a sixth tab to HR with two panes — Pay runs (create,
   recompute, approve, mark paid, statutory return) and Statutory rates (review, edit, verify).
