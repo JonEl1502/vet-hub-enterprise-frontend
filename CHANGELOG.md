@@ -59,6 +59,33 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### hr: HR under Clinic Management — people, leave, rota, attendance  —  2026-08-27
+- **What changed:** new `hr` view (`components/clinic/hr/`) and a sidebar entry in the Clinic
+  Management dropdown, directly under Staff Directory. Five tabs: Overview, People, Leave, Rota,
+  Attendance. New `services/modules/hr.api.ts`. Gated on `VIEW_CLINIC_MGMT` in `App.tsx canAccess`.
+- **Record impact:** 🔵 Low — writes employment files, leave decisions, shifts and attendance.
+  All are new records; nothing pre-existing is rewritten.
+- **Data dependency:** **Requires migrations 257 + 258.** Every tab 404s without them — there is no
+  graceful fallback, because a blank HR page would read as "no staff" rather than "not deployed".
+- **Rollback:** revert the commit and rebuild. The sidebar entry disappears; data stays.
+- ⚠️ **Pay renders on `'basicSalary' in record`, NEVER on truthiness.** The server OMITS pay keys
+  for a non-owner rather than nulling them. A manager shown an empty salary box would fill it in,
+  and the save would silently drop it — the server ignores pay fields from a caller who cannot see
+  them. The People drawer hides the whole section and says who can see it instead.
+- ⚠️ **`isoDay()` in `hrShared.tsx` formats the BROWSER's day, not UTC.**
+  `toISOString().slice(0,10)` is wrong here and was the first bug: at UTC+3 (Nairobi) anything
+  before 03:00 local is still *yesterday* in UTC, so "today" on Attendance would silently be the
+  previous date. **Do not "simplify" it back to toISOString.**
+- ⚠️ **The rota overlays approved leave for a reason.** The rota alone cannot tell "off" from "not
+  yet rostered", and rostering someone who is on approved leave is the mistake the page exists to
+  catch. Warned, not blocked — a clinic short-handed enough to ask may mean it.
+- ⚠️ **Clock in/out sends a full ISO instant, not a time-of-day.** The server measures lateness
+  against the rostered start and needs a real point in time; a bare "09:15" would be read in the
+  server's timezone, not the clinic's.
+- ℹ️ People is driven from `user_clinics`, not from who has an employment record, so a new hire
+  appears before anyone has filled anything in. Overview leads with that gap ("N people have no
+  employment file") because it is the actionable number.
+
 ### discounts: smaller Add button, three cards across  —  2026-08-27
 - **What changed:** on the client Discounts & Credits tab the Add Discount button dropped from
   `px-5 py-2.5 text-xs` with a shadow to `px-3 py-1.5 text-[9px]`, matching the other controls on
