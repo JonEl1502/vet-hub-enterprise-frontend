@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### wizard: clicking the active Seg pill clears it  —  2026-08-27
+- **What changed:** the shared `Seg` single-select pill row (21 rows across the visit wizard —
+  severity, confidence, appetite, visit outcome, client decision, follow-up reason…) deselects
+  when you click the pill that is already on. It emits `''`. Added `aria-pressed` and a
+  "Click again to clear" tooltip. The three call sites that log a journey event on change
+  (`PriorPlanStep` reason, `FollowUpStep` closeOutcome, `CommunicationStep` decision) now guard
+  on a truthy value.
+- **Record impact:** 🟢 None — wizard step state only, nothing written until the step saves.
+- **Data dependency:** None. `''` is already the not-set value: `TemplateStep`'s select variant
+  of the same field has shipped an explicit `<option value="">—</option>` all along.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **A pill row had no other way back to unset.** A select has its "—"; a Seg did not, so a
+  mis-click was permanent on fields that record clinical judgement. That is the whole reason for
+  the change — do not "simplify" it back to `onChange(o)`.
+- ⚠️ **Guard any NEW emit/side-effect call site on a truthy value.** `onChange` now fires with
+  `''`, so an unguarded `` emit(`… ${v.toLowerCase()}`) `` logs a dangling label on a clear.
+
 ### portal: a submitted visit rating is a readout, not a form  —  2026-08-27
 - **What changed:** "Edit your rating" is gone from `ClientVisitDetail`. A rated visit renders a
   new `SubmittedRating` block — average ⭐, the per-facet stars as static icons, the comment and
