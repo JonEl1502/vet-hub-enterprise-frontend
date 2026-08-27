@@ -109,6 +109,7 @@ export type { WhatsappConfigView, WhatsappTestResult, WhatsappPurpose, Unmatched
 
 export { messagingAPI } from './modules/messaging.api';
 export type { PlatformMessage } from './modules/messaging.api';
+export type { Bonus, BonusStatus } from './modules/payroll.api';
 export type { RateTable, RateConfig, PayeBand, PayRun, PayRunTotals, Payslip, PayslipLine,
   StatutoryReturn, PayRunStatus, PayslipLineKind } from './modules/payroll.api';
 export type { HrPerson, HrEmploymentRecord, HrLeaveType, HrLeaveRequest, HrBalanceRow, HrShiftTemplate,

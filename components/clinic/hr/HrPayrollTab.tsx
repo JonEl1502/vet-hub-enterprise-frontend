@@ -10,6 +10,7 @@ import {
 import {
   Card, Empty, Field, INPUT, BTN_PRIMARY, BTN_GHOST, Pill, titleCase, prettyDate, isoDay,
 } from './hrShared';
+import HrBonusesPane from './HrBonusesPane';
 
 const RUN_TONE: Record<string, any> = {
   DRAFT: 'amber', APPROVED: 'sky', PAID: 'emerald', CANCELLED: 'slate',
@@ -27,7 +28,7 @@ const money = (n: number, c = 'KES') =>
  * advice, and payroll refuses to approve a run computed from unchecked rates.
  */
 const HrPayrollTab: React.FC = () => {
-  const [pane, setPane] = useState<'runs' | 'rates'>('runs');
+  const [pane, setPane] = useState<'runs' | 'bonuses' | 'rates'>('runs');
   const [openRun, setOpenRun] = useState<string | null>(null);
 
   if (openRun) return <RunDetail id={openRun} onBack={() => setOpenRun(null)} />;
@@ -35,16 +36,18 @@ const HrPayrollTab: React.FC = () => {
   return (
     <div className="space-y-4">
       <div className="inline-flex rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800">
-        {(['runs', 'rates'] as const).map(p => (
+        {(['runs', 'bonuses', 'rates'] as const).map(p => (
           <button key={p} type="button" onClick={() => setPane(p)}
             className={`px-3 py-1.5 text-[9px] font-black uppercase tracking-widest transition-all ${
               pane === p ? 'bg-seafoam text-white' : 'bg-white dark:bg-zinc-900 text-slate-500 hover:bg-slate-50 dark:hover:bg-zinc-800'
             }`}>
-            {p === 'runs' ? 'Pay runs' : 'Statutory rates'}
+            {p === 'runs' ? 'Pay runs' : p === 'bonuses' ? 'Bonuses' : 'Statutory rates'}
           </button>
         ))}
       </div>
-      {pane === 'runs' ? <Runs onOpen={setOpenRun} /> : <Rates />}
+      {pane === 'runs' && <Runs onOpen={setOpenRun} />}
+      {pane === 'bonuses' && <HrBonusesPane />}
+      {pane === 'rates' && <Rates />}
     </div>
   );
 };

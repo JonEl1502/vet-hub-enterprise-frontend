@@ -83,6 +83,28 @@ export interface PayRun {
   payslips?: Payslip[];
 }
 
+export type BonusStatus = 'PENDING' | 'ON_RUN' | 'PAID' | 'CANCELLED';
+
+export interface Bonus {
+  id: string;
+  userId: string;
+  name: string;
+  avatarUrl: string | null;
+  amount: number;
+  /** Why it was given. Never blank — the server refuses one without it. */
+  reason: string;
+  category: string | null;
+  awardedOn: string;
+  isTaxable: boolean;
+  cancelledAt: string | null;
+  awardedByName: string | null;
+  payRunId: string | null;
+  /** Derived server-side from the run it sits on, so it cannot disagree. */
+  status: BonusStatus;
+  payRunPeriod: { start: string; end: string } | null;
+  notes: string | null;
+}
+
 export interface StatutoryReturn {
   period: { start: string; end: string };
   status: PayRunStatus;
@@ -105,6 +127,17 @@ export const payrollAPI = {
     put(`/payroll/rates/${id}`, data, { showError: true, ...o }),
   verifyRates: (id: string, o?: RequestOptions) =>
     post(`/payroll/rates/${id}/verify`, {}, { showError: true, ...o }),
+
+  // Bonuses
+  bonuses: (params?: { userId?: string; from?: string; to?: string; unpaidOnly?: boolean }, o?: RequestOptions): Promise<ApiResponse<{ bonuses: Bonus[] }>> => {
+    const q = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => { if (v) q.set(k, String(v)); });
+    return get(`/payroll/bonuses${q.toString() ? `?${q}` : ''}`, { ...o });
+  },
+  awardBonus: (data: { userId: string; amount: number; reason: string; category?: string; awardedOn?: string; isTaxable?: boolean; notes?: string }, o?: RequestOptions) =>
+    post('/payroll/bonuses', data, { showError: true, ...o }),
+  updateBonus: (id: string, data: Partial<Bonus> & { cancel?: boolean }, o?: RequestOptions) =>
+    put(`/payroll/bonuses/${id}`, data, { showError: true, ...o }),
 
   // Runs
   runs: (o?: RequestOptions): Promise<ApiResponse<{ runs: PayRun[] }>> =>
