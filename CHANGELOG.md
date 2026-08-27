@@ -59,6 +59,29 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### payroll: Payroll tab under HR  —  2026-08-27
+- **What changed:** `HrPayrollTab` adds a sixth tab to HR with two panes — Pay runs (create,
+  recompute, approve, mark paid, statutory return) and Statutory rates (review, edit, verify).
+  New `services/modules/payroll.api.ts`.
+- **Record impact:** 🟡 Medium — Mark paid posts a real Payroll expense to Finance.
+- **Data dependency:** **Requires migration 259** (and 257/258 for the rest of HR).
+- **Rollback:** revert and rebuild. Already-posted expenses stay — reverse them in Finance.
+- ⚠️ **Owner-only, and the tab is FILTERED OUT for anyone else** rather than left to 403 on every
+  request. `HrView` also falls back to Overview if `tab` is a stale `payroll` for a non-owner.
+  Every payroll view contains salaries by construction — this is deliberately narrower than the
+  rest of HR, which is manager-and-above.
+- 🔴 **The verification gate is stated where the Approve button is, not buried in settings.** A
+  draft with unverified rates carries a red panel saying the figures are a starting point typed
+  from public guidance, **not tax advice**, and that the run cannot be approved until somebody
+  checks them against the current Finance Act. **Do not soften or relocate that panel.**
+- ⚠️ **Mark paid says what it will write BEFORE writing it:** gross + employer NSSF + employer
+  housing levy, which is the clinic's real cost and is NOT the net that reaches staff accounts. It
+  also says it can only be done once.
+- ⚠️ **The run header shows `employerCost` beside net for the same reason** — employer
+  contributions never appear on a payslip and are the number owners are most often surprised by.
+- ℹ️ The statutory return shows NSSF and the housing levy as BOTH halves, because they are remitted
+  together. A missing KRA PIN renders in red rather than as a blank.
+
 ### hr: HR under Clinic Management — people, leave, rota, attendance  —  2026-08-27
 - **What changed:** new `hr` view (`components/clinic/hr/`) and a sidebar entry in the Clinic
   Management dropdown, directly under Staff Directory. Five tabs: Overview, People, Leave, Rota,
