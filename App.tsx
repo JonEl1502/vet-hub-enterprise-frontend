@@ -102,6 +102,7 @@ import CommunicationPortal from './components/clinic/communication/Communication
 import BroadcastView from './components/clinic/communication/BroadcastView';
 import WhatsappEnquiriesView from './components/clinic/communication/WhatsappEnquiriesView';
 import StaffListView from './components/clinic/staff/StaffListView';
+import HrView from './components/clinic/hr/HrView';
 import StaffProfileView from './components/clinic/staff/StaffProfileView';
 import StaffRegistrationView from './components/clinic/staff/StaffRegistrationView';
 import SupplierDetailView from './components/shared/marketplace/SupplierDetailView';
@@ -2384,7 +2385,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       return hasPerm(Permission.VIEW_REFERRALS);
 
     // Clinic management group
-    if (['settings', 'staff', 'staff-profile', 'staff-new', 'staff-edit', 'billing', 'import-data', 'broadcasts'].includes(view))
+    if (['settings', 'staff', 'staff-profile', 'staff-new', 'staff-edit', 'hr', 'billing', 'import-data', 'broadcasts'].includes(view))
       return hasPerm(Permission.VIEW_CLINIC_MGMT);
 
     // Suppliers hub — full-access roles or users with VIEW_SUPPLIERS permission
@@ -2923,6 +2924,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onEditStaff={(s) => navigateTo('staff-edit', { staffId: s.id })}
           onUpdateBilling={()=>{}}
         />;
+      // HR is manager-and-above on the SERVER too (hr.controller guards every
+      // route); this only decides whether the page is reachable.
+      case 'hr': return <HrView />;
       case 'staff': return <StaffListView staff={allStaff} clinics={store.clinics} onAddStaff={() => navigateTo('staff-new')} onEditStaff={(s) => navigateTo('staff-edit', { staffId: s.id })} onViewStaff={(s) => navigateTo('staff-profile', { staffId: s.id })} onDeleteStaff={()=>{}} currentUserId={user ? Number(user.id) : undefined} onToggleStatus={async (s, next) => { try { await usersAPI.update(s.id, { isActive: next } as any); toast.success(next ? 'Staff activated' : 'Staff deactivated'); await refreshStaff(); } catch (e: any) { toast.error(e?.message || 'Failed to update status'); } }} />;
       case 'staff-new':
       case 'staff-edit': {

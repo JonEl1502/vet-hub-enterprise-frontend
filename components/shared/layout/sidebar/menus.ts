@@ -25,6 +25,7 @@ import {
   Layers,
   ClipboardList,
   ShieldCheck,
+  Briefcase,
   Award,
   BadgeCheck,
   CreditCard,
@@ -248,6 +249,10 @@ const CLINIC_ITEMS: MenuItem[] = [
       { id: 'settings',    label: 'Clinic Settings', icon: Settings2 },
       // Visit Workflows moved to Billable Items, beside Procedures (2026-07-27).
       { id: 'staff',       label: 'Staff Directory', icon: ShieldCheck },
+      // HR sits directly under the directory (user, 2026-08-27). The directory
+      // says who MAY ACT at this clinic; HR says who is EMPLOYED here — the
+      // same people, and the next question anyone asks about them.
+      { id: 'hr',          label: 'HR',              icon: Briefcase },
       { id: 'broadcasts',  label: 'Broadcasts',      icon: Mail },
       // Enquiries from WhatsApp numbers that aren't clients yet (254). Sits
       // beside Broadcasts because both are outward-facing communication.
