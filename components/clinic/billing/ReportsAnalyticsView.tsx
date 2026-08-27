@@ -576,11 +576,12 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
             })}
           </div>
 
-          {/* ── Performance · Cash flow · Health ──
+          {/* ── Performance · Cash flow · Revenue mix ──
               2:1 (user, 2026-08-02): the two time-series charts STACK in the
-              left two-thirds and the health score runs full height on the
-              right. Three equal columns squeezed both charts to ~1/3 width,
-              which is what crushed their axis labels. */}
+              left two-thirds. Three equal columns squeezed both charts to ~1/3
+              width, which is what crushed their axis labels. The right third
+              holds the two donuts (user, 2026-08-27) — it swapped places with
+              the health score, which now sits below. */}
           <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-stretch">
             <div className="xl:col-span-2 flex flex-col gap-4">
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
@@ -777,8 +778,93 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
 
             </div>{/* /left 2-col stack */}
 
-            {/* Business Health Score — right third, full height */}
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-center">
+            {/* Right third (user, 2026-08-27): the two donuts stack here.
+                They read as a pair — where the money came from, how it was
+                paid — and two compact cards fill this full-height column,
+                which a single centred card left mostly empty. */}
+            <div className="flex flex-col gap-4">
+              {/* Revenue by Department */}
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+                <div className="mb-2">
+                  <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Revenue by Department</h3>
+                  <p className="text-[10px] font-bold text-slate-400">Breakdown of income sources</p>
+                </div>
+                {catRows.length === 0 ? (
+                  <p className="py-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600">No revenue in this period</p>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-28 h-28 shrink-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={catRows} dataKey="amount" nameKey="category" innerRadius={34} outerRadius={52} paddingAngle={2} strokeWidth={0}>
+                            {catRows.map((_, i) => <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />)}
+                          </Pie>
+                          <Tooltip {...tooltipStyle} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-[10px] font-black text-pine dark:text-zinc-100">{currency} {moneyShort(catTotal)}</span>
+                        <span className="text-[8px] font-bold text-slate-400">Total</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      {catRows.map((c, i) => (
+                        <div key={c.category} className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }} />
+                          <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 truncate flex-1">{c.category}</span>
+                          <span className="text-[9px] font-black text-slate-400 w-8 text-right">{catTotal > 0 ? Math.round((c.amount / catTotal) * 100) : 0}%</span>
+                          <span className="text-[9px] font-black font-mono text-pine dark:text-zinc-100 w-16 text-right">{currency} {moneyShort(c.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Payment Methods */}
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+                <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight mb-2">Payment Methods</h3>
+                {(bi?.paymentMethods?.length ?? 0) === 0 ? (
+                  <p className="py-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600">No payments in this period</p>
+                ) : (
+                  <div className="flex items-center gap-3">
+                    <div className="relative w-28 h-28 shrink-0">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
+                          <Pie data={bi!.paymentMethods} dataKey="amount" nameKey="method" innerRadius={34} outerRadius={52} paddingAngle={2} strokeWidth={0}>
+                            {bi!.paymentMethods.map((_, i) => <Cell key={i} fill={[C.green, C.sky, C.purple, C.amber, C.pink, C.slate][i % 6]} />)}
+                          </Pie>
+                          <Tooltip {...tooltipStyle} />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                        <span className="text-[10px] font-black text-pine dark:text-zinc-100">{currency} {moneyShort(pmTotal)}</span>
+                        <span className="text-[8px] font-bold text-slate-400">Total</span>
+                      </div>
+                    </div>
+                    <div className="flex-1 min-w-0 space-y-1">
+                      {bi!.paymentMethods.slice(0, 6).map((m, i) => (
+                        <div key={m.method} className="flex items-center gap-1.5">
+                          <span className="w-2 h-2 rounded-full shrink-0" style={{ background: [C.green, C.sky, C.purple, C.amber, C.pink, C.slate][i % 6] }} />
+                          <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 truncate flex-1">{m.method.replace(/_/g, ' ')}</span>
+                          <span className="text-[9px] font-black text-slate-400 w-8 text-right">{pmTotal > 0 ? Math.round((m.amount / pmTotal) * 100) : 0}%</span>
+                          <span className="text-[9px] font-black font-mono text-pine dark:text-zinc-100 w-16 text-right">{currency} {moneyShort(m.amount)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>{/* /right third donut stack */}
+
+          </div>
+
+          {/* ── Health score · Top vets · Client growth ── */}
+          {/* The score spans both rows on the left so the two short list
+              cards stack beside it with no dead cell at the end. */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
+            {/* Business Health Score */}
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 flex flex-col justify-center md:row-span-2">
               <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight mb-1">Business Health Score</h3>
               <div className="flex flex-col items-center">
                 <svg viewBox="0 0 200 110" className="w-44">
@@ -809,47 +895,6 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
               </div>
               <p className="mt-2 text-[9px] font-bold text-slate-400 text-center">Score is based on current period performance</p>
             </div>
-          </div>
-
-          {/* ── Dept · Top vets · Methods · Client growth ── */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
-            {/* Revenue by Department */}
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
-              <div className="mb-2">
-                <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Revenue by Department</h3>
-                <p className="text-[10px] font-bold text-slate-400">Breakdown of income sources</p>
-              </div>
-              {catRows.length === 0 ? (
-                <p className="py-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600">No revenue in this period</p>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <div className="relative w-28 h-28 shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={catRows} dataKey="amount" nameKey="category" innerRadius={34} outerRadius={52} paddingAngle={2} strokeWidth={0}>
-                          {catRows.map((_, i) => <Cell key={i} fill={DONUT_COLORS[i % DONUT_COLORS.length]} />)}
-                        </Pie>
-                        <Tooltip {...tooltipStyle} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-[10px] font-black text-pine dark:text-zinc-100">{currency} {moneyShort(catTotal)}</span>
-                      <span className="text-[8px] font-bold text-slate-400">Total</span>
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-1">
-                    {catRows.map((c, i) => (
-                      <div key={c.category} className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: DONUT_COLORS[i % DONUT_COLORS.length] }} />
-                        <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 truncate flex-1">{c.category}</span>
-                        <span className="text-[9px] font-black text-slate-400 w-8 text-right">{catTotal > 0 ? Math.round((c.amount / catTotal) * 100) : 0}%</span>
-                        <span className="text-[9px] font-black font-mono text-pine dark:text-zinc-100 w-16 text-right">{currency} {moneyShort(c.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
 
             {/* Top Veterinarians */}
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
@@ -876,42 +921,6 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
               )}
             </div>
 
-            {/* Payment Methods */}
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
-              <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight mb-2">Payment Methods</h3>
-              {(bi?.paymentMethods?.length ?? 0) === 0 ? (
-                <p className="py-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600">No payments in this period</p>
-              ) : (
-                <div className="flex items-center gap-3">
-                  <div className="relative w-28 h-28 shrink-0">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={bi!.paymentMethods} dataKey="amount" nameKey="method" innerRadius={34} outerRadius={52} paddingAngle={2} strokeWidth={0}>
-                          {bi!.paymentMethods.map((_, i) => <Cell key={i} fill={[C.green, C.sky, C.purple, C.amber, C.pink, C.slate][i % 6]} />)}
-                        </Pie>
-                        <Tooltip {...tooltipStyle} />
-                      </PieChart>
-                    </ResponsiveContainer>
-                    <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                      <span className="text-[10px] font-black text-pine dark:text-zinc-100">{currency} {moneyShort(pmTotal)}</span>
-                      <span className="text-[8px] font-bold text-slate-400">Total</span>
-                    </div>
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-1">
-                    {bi!.paymentMethods.slice(0, 6).map((m, i) => (
-                      <div key={m.method} className="flex items-center gap-1.5">
-                        <span className="w-2 h-2 rounded-full shrink-0" style={{ background: [C.green, C.sky, C.purple, C.amber, C.pink, C.slate][i % 6] }} />
-                        <span className="text-[10px] font-bold text-slate-600 dark:text-zinc-300 truncate flex-1">{m.method.replace(/_/g, ' ')}</span>
-                        <span className="text-[9px] font-black text-slate-400 w-8 text-right">{pmTotal > 0 ? Math.round((m.amount / pmTotal) * 100) : 0}%</span>
-                        <span className="text-[9px] font-black font-mono text-pine dark:text-zinc-100 w-16 text-right">{currency} {moneyShort(m.amount)}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Client Growth */}
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
               <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight mb-3">Client Growth</h3>
               <div className="space-y-2.5">
