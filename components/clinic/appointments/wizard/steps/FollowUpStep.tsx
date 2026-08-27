@@ -42,7 +42,7 @@ const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit, visible
             <Seg options={OUTCOME} value={d.currentOutcome} onChange={v => setData({ currentOutcome: v })} />
           </L>}
           {show('closeOutcome') && <L label="Outcome when visit is closed">
-            <Seg options={CLOSE_OUTCOME} value={d.closeOutcome} onChange={v => { setData({ closeOutcome: v }); emit(`Visit outcome — ${v.toLowerCase()}`, 'milestone', true); }} />
+            <Seg options={CLOSE_OUTCOME} value={d.closeOutcome} onChange={v => { setData({ closeOutcome: v }); if (v) emit(`Visit outcome — ${v.toLowerCase()}`, 'milestone', true); }} />
           </L>}
           {show('outcomeNotes') && <L label="Outcome notes">
             <textarea className="field-textarea" rows={2} placeholder="Notes on outcome…" value={d.outcomeNotes ?? ''} onChange={e => setData({ outcomeNotes: e.target.value })} />

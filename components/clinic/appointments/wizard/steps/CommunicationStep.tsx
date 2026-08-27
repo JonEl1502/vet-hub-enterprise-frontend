@@ -47,7 +47,7 @@ const CommunicationStep: React.FC<StepProps> = ({ data, setData, client, emit, v
       <Section icon={MessageSquare} title="Communication Summary">
           <CheckGrid items={SUMMARY} value={d.summary} onToggle={toggleInto('summary')} cols="grid-cols-1" />
           {show('decision') && <L label="Client decision">
-            <Seg options={DECISION} value={d.decision} onChange={v => { setData({ decision: v }); emit(`Client decision — ${v.toLowerCase()}`, v === 'Approved' ? 'milestone' : 'action', true); }} />
+            <Seg options={DECISION} value={d.decision} onChange={v => { setData({ decision: v }); if (v) emit(`Client decision — ${v.toLowerCase()}`, v === 'Approved' ? 'milestone' : 'action', true); }} />
           </L>}
           {show('estimateApproved') && <L label="Estimate approved"><Seg options={['Yes', 'No', 'Pending']} value={d.estimateApproved} onChange={v => { setData({ estimateApproved: v }); if (v === 'Yes') emit('Estimate approved by client', 'billing', true); }} /></L>}
           {show('method') && <L label="Communication method"><Seg options={METHODS} value={d.method} onChange={v => setData({ method: v })} /></L>}

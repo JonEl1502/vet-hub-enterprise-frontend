@@ -28,15 +28,28 @@ export const L: React.FC<{ label: string; required?: boolean; children: React.Re
   </div>
 );
 
-// Single-select pill row (Seg) — same visual language as triage CheckChip.
+/**
+ * Single-select pill row (Seg) — same visual language as triage CheckChip.
+ *
+ * Clicking the ACTIVE pill clears the row (user, 2026-08-27: "i might click
+ * something by mistake"). A pill row has no other way back to unset — unlike a
+ * select, which has its "—" option — so a mis-click used to be permanent, and
+ * these rows record clinical judgement (severity, outcome, why they're back).
+ * A wrong one that cannot be taken back is worse than none. The clear emits
+ * `''`, which is what every consumer already treats as not-set.
+ */
 export const Seg: React.FC<{ options: string[]; value?: string; onChange: (v: string) => void }> = ({ options, value, onChange }) => (
   <div className="flex flex-wrap gap-1.5">
-    {options.map(o => (
-      <button key={o} type="button" onClick={() => onChange(o)}
-        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${value === o ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800 hover:border-seafoam/50'}`}>
-        {o}
-      </button>
-    ))}
+    {options.map(o => {
+      const on = value === o;
+      return (
+        <button key={o} type="button" aria-pressed={on} onClick={() => onChange(on ? '' : o)}
+          title={on ? 'Click again to clear' : undefined}
+          className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${on ? 'bg-seafoam text-white border-seafoam' : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800 hover:border-seafoam/50'}`}>
+          {o}
+        </button>
+      );
+    })}
   </div>
 );
 

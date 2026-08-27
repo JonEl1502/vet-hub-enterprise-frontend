@@ -230,7 +230,7 @@ const PriorPlanStep: React.FC<StepProps> = ({ visit, data, setData, emit }) => {
       {/* Always editable — this is what the follow-up is FOR. */}
       <Section icon={History} title="Why they're back today">
         <L label="Reason for this follow-up">
-          <Seg options={REASONS} value={d.reason} onChange={v => { setData({ reason: v }); emit(`Follow-up reason — ${v.toLowerCase()}`, 'milestone', true); }} />
+          <Seg options={REASONS} value={d.reason} onChange={v => { setData({ reason: v }); if (v) emit(`Follow-up reason — ${v.toLowerCase()}`, 'milestone', true); }} />
         </L>
         <L label="Focus for today">
           <textarea className="field-textarea" rows={2}
