@@ -165,6 +165,15 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
    * off for a client deliberately holding credit back.
    */
   const [applyCredit, setApplyCredit] = React.useState(false);
+  /**
+   * How much of the credit to spend (user, 2026-08-27: "can user state how
+   * much to come from each"). Blank = the old behaviour, draw the most the
+   * selection can absorb. A typed value is sent as a NUMERIC `useCredit`,
+   * which the server has always accepted — it caps at
+   * `min(available, cap, netDue)`, so a client deliberately holding credit
+   * back can now part-spend it instead of choosing all-or-nothing.
+   */
+  const [creditWanted, setCreditWanted] = React.useState('');
   const [allocMode, setAllocMode] = React.useState<'AUTO' | 'MANUAL'>('AUTO');
   /**
    * How AUTO orders the invoices when the money is short (user, 2026-08-04:
@@ -432,7 +441,15 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   const round2 = (n: number) => Math.round(n * 100) / 100;
   // Credit spends FIRST (mirrors the server: drawn before cash is asked for,
   // oldest invoice first). It reduces the cash due; it is never part of it.
-  const creditDraw = applyCredit ? round2(Math.min(credit, selectedTotal)) : 0;
+  // Blank draws the most the selection can absorb; a typed value is clamped to
+  // the same ceiling the server applies, so the preview cannot promise a draw
+  // the server would refuse.
+  const creditMax = round2(Math.min(credit, selectedTotal));
+  const creditDraw = !applyCredit
+    ? 0
+    : creditWanted.trim() === ''
+      ? creditMax
+      : round2(Math.max(0, Math.min(creditMax, Number(creditWanted) || 0)));
   const cashDue = round2(selectedTotal - creditDraw);
   // Blank means "the cash the selection still needs"; anything else is a
   // short (or deliberate over-) pay.
@@ -445,6 +462,22 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   const surplus = overTendered ? round2(fundsTotal - selectedTotal) : 0;
   // Only the applied part of the cash spreads across invoices.
   const appliedCash = round2(Math.min(tenderedNum, cashDue));
+  /**
+   * Credit already clears the selection, yet cash is being taken anyway — so
+   * that cash settles NOTHING and is handed straight back as credit. The
+   * client pays cash to gain credit.
+   *
+   * This is prod #158 (user, 2026-08-13). It was fixed in the visit settle
+   * modal then — see the ⚠️ block in VisitDetailView near `creditApplied` —
+   * but this bar was never given the same guard, and its layout actively
+   * invited it: the amount box used to sit after the credit button, reading
+   * as though it belonged to credit.
+   *
+   * NOT blocked. Over-tendering into credit is a legitimate deliberate act in
+   * this bar (a client leaving money on account), and blocking it would break
+   * that. Named instead, with the way out — draw less credit — pointed at.
+   */
+  const cashBecomesCredit = applyCredit && cashDue <= 0.005 && tenderedNum > 0.005;
 
   // How the credit would spread — oldest invoice first, same as the server.
   const creditSplit = React.useMemo(() => {
@@ -515,7 +548,12 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
         // is "the cash still due after credit", which a typed value overrides
         // in BOTH directions (short pay and deliberate overpay-into-credit).
         ...(tendered.trim() !== '' ? { amountTendered: tenderedNum } : {}),
-        ...(applyCredit && creditDraw > 0 ? { useCredit: true } : {}),
+        // `true` means "draw the maximum" — keep sending it when nothing was
+        // typed so a plain collection is the same request it always was. A
+        // typed amount goes as the number the server clamps.
+        ...(applyCredit && creditDraw > 0
+          ? { useCredit: creditWanted.trim() === '' ? true : creditDraw }
+          : {}),
         ...(reference.trim() ? { reference: reference.trim() } : {}),
         ...(appliedDiscount
           ? { discountType: appliedDiscount.discountType, discountValue: Number(appliedDiscount.value) }
@@ -768,10 +806,26 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                 className="px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:bg-slate-200 transition-all">
                 {selected.size === selectable.length ? 'Clear' : `Select all (${selectable.length})`}
               </button>
-              <select value={method} onChange={e => setMethod(e.target.value)}
-                className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam">
-                {METHODS.map(m => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
-              </select>
+              {/* The method and the amount tendered IN it are one control
+                  (user, 2026-08-27). They were split by the credit button, which
+                  read as though the box belonged to credit — it never did:
+                  credit is a separate source with its own box below. The label
+                  follows the method, so an M-Pesa collection no longer says
+                  "Cash". */}
+              <label className="inline-flex items-center gap-1.5">
+                <select value={method} onChange={e => setMethod(e.target.value)}
+                  className="px-3 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam">
+                  {METHODS.map(m => <option key={m} value={m}>{m.replace('_', ' ')}</option>)}
+                </select>
+                <input
+                  type="number" min={0} step="0.01" inputMode="decimal"
+                  value={tendered} onChange={e => setTendered(e.target.value)}
+                  placeholder={cashDue.toFixed(2)}
+                  disabled={selected.size === 0}
+                  title={`Amount taken in ${method.replace('_', ' ').toLowerCase()} — leave blank to settle what credit did not cover`}
+                  aria-label={`Amount tendered in ${method.replace('_', ' ').toLowerCase()}`}
+                  className="w-28 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] font-black font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+              </label>
               <span className="text-[10px] font-bold text-slate-400">
                 {selected.size} selected · <span className="text-pine dark:text-zinc-100 font-black">{money(selectedTotal, currency)}</span>
               </span>
@@ -782,28 +836,37 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                 <button type="button"
                   onClick={() => setApplyCredit(v => !v)}
                   disabled={selected.size === 0}
-                  title="Spend the client's payment-account credit on this collection — drawn before cash, oldest invoice first"
+                  title="Spend the client's payment-account credit on this collection — drawn before cash, oldest invoice first. Set how much in the box beside it."
                   className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all disabled:opacity-40 ${
                     applyCredit
                       ? 'bg-emerald-600 text-white border-emerald-600'
                       : 'bg-white dark:bg-zinc-950 text-emerald-600 border-emerald-300 dark:border-emerald-900/50 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
                   }`}>
                   <Wallet size={11} />
-                  {applyCredit ? `Deducting ${money(creditDraw, currency)} from credit` : `Credit NOT used · ${money(credit, currency)} available`}
+                  {applyCredit ? 'Using credit' : `Credit NOT used · ${money(credit, currency)} available`}
                 </button>
               )}
 
-              {/* Amount tendered — blank settles the (post-credit) cash due. */}
-              <label className="inline-flex items-center gap-1.5">
-                <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Cash</span>
-                <input
-                  type="number" min={0} step="0.01" inputMode="decimal"
-                  value={tendered} onChange={e => setTendered(e.target.value)}
-                  placeholder={cashDue.toFixed(2)}
-                  disabled={selected.size === 0}
-                  title="Leave blank to settle the selection in full (after any credit)"
-                  className="w-28 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] font-black font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
-              </label>
+              {/* How much comes from credit. Blank = draw the most the
+                  selection can absorb, which is what the toggle alone used to
+                  do; type a figure to part-spend instead. Capped at the
+                  selection so the box cannot promise a draw the server
+                  clamps away. */}
+              {credit > 0 && applyCredit && (
+                <label className="inline-flex items-center gap-1.5">
+                  <input
+                    type="number" min={0} max={creditMax} step="0.01" inputMode="decimal"
+                    value={creditWanted} onChange={e => setCreditWanted(e.target.value)}
+                    placeholder={creditMax.toFixed(2)}
+                    disabled={selected.size === 0}
+                    title={`How much of the ${money(credit, currency)} credit to spend — blank draws ${money(creditMax, currency)}, the most this selection can absorb`}
+                    aria-label="Amount to draw from credit"
+                    className="w-28 px-2.5 py-1.5 bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-300 dark:border-emerald-900/50 rounded-lg text-[10px] font-black font-mono text-right text-emerald-700 dark:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+                  <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
+                    of {money(credit, currency)}
+                  </span>
+                </label>
+              )}
 
               {/* Only worth choosing a split once the money is short of the total. */}
               {isShort && selected.size > 1 && (
@@ -867,15 +930,18 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                   </div>
                 )
               )}
-              {((allocMode === 'MANUAL' && isShort && Math.abs(remaining) > 0.005) || isShort || overTendered) && (
+              {((allocMode === 'MANUAL' && isShort && Math.abs(remaining) > 0.005) || isShort || overTendered || cashBecomesCredit) && (
                 <p className={`w-full text-[9px] font-black uppercase tracking-wider ${
-                  allocMode === 'MANUAL' && isShort && Math.abs(remaining) > 0.005 ? 'text-rose-500' : 'text-amber-600'
+                  (allocMode === 'MANUAL' && isShort && Math.abs(remaining) > 0.005) || cashBecomesCredit
+                    ? 'text-rose-500' : 'text-amber-600'
                 }`}>
                   {allocMode === 'MANUAL' && isShort && Math.abs(remaining) > 0.005
                     ? `${money(Math.abs(remaining), currency)} ${remaining > 0 ? 'still to allocate' : 'over-allocated'}`
                     : isShort
                       ? `Short payment — ${money(round2(selectedTotal - fundsTotal), currency)} will stay outstanding`
-                      : `${money(surplus, currency)} more than the selection — the surplus is saved as client credit`}
+                      : cashBecomesCredit
+                        ? `Credit already covers the selection — this ${money(tenderedNum, currency)} settles nothing and goes straight back on account. Draw less credit to take it against the bill.`
+                        : `${money(surplus, currency)} more than the selection — the surplus is saved as client credit`}
                 </p>
               )}
 
