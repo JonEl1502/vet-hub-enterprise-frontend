@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### discounts: smaller Add button, three cards across  —  2026-08-27
+- **What changed:** on the client Discounts & Credits tab the Add Discount button dropped from
+  `px-5 py-2.5 text-xs` with a shadow to `px-3 py-1.5 text-[9px]`, matching the other controls on
+  the page. The list went from one full-width row per discount to a
+  `md:grid-cols-2 xl:grid-cols-3` grid, and the card restacks: identity (icon, name, state, value,
+  note) on top, meta (expires / redeemed / by) underneath with `mt-auto`.
+- **Record impact:** 🟢 None — presentation only.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **The card had to restack, not just narrow.** It was one flex row with the meta in a
+  right-hand column; at a third of the width the dates were the half that got crushed. `mt-auto`
+  on the meta block is what keeps cards in a row lining up along the floor.
+- ℹ️ The empty-state "Add First Discount" CTA was deliberately left at its larger size — it is a
+  hero in a tall empty panel, not a toolbar control.
+
 ### payments: the amount box belongs to the method, and credit gets its own  —  2026-08-27
 - **What changed:** in the client Payments tab collect bar — (a) the tendered-amount input moved
   from after the credit button to beside the method select, and its label/tooltip follow the
@@ -119,17 +134,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
   the portal inviting an edit it cannot honour; do not restore the edit affordance without also
   reverting the backend.
 
-### bi: the two donuts take the tall right third, health score moves down  —  2026-08-27
-- **What changed:** in Reports & Analytics, Revenue by Department and Payment Methods stack in the
-  full-height right third beside the two time-series charts; Business Health Score drops to the
-  row below, spanning both its rows on the left so Top Vets and Client Growth stack beside it.
+### bi: the right third takes all three small cards  —  2026-08-27
+- **What changed:** in Reports & Analytics the right third beside the two stacked time-series
+  charts now holds Revenue by Department, Payment Methods AND Business Health Score. The score
+  card is last, with `flex-1 justify-center`, so it absorbs the leftover height. Row B is now a
+  plain 2-up: Top Vets | Client Growth.
 - **Record impact:** 🟢 None — JSX moved, no data, props or logic touched.
 - **Data dependency:** None.
 - **Rollback:** revert the commit and rebuild.
-- ⚠️ **The right third is full-height by design** (`items-stretch` against a two-chart stack). It
-  wants content that fills it — the health score is a gauge plus six rows and left it mostly
-  empty, which is why it was `justify-center` in the first place. Anything moved back in there
-  should be two cards, not one.
+- ⚠️ **NOTHING COMPACT FILLS THAT COLUMN — this was got wrong twice in one day.** It is
+  `items-stretch` against two ~425px charts, so it is ~850px tall. One centred health-score card
+  left ~450px of void; swapping in two donuts moved the void rather than closing it (~420px of
+  content). It takes all three small cards (~620px) plus a `flex-1` card to absorb the rest.
+  **If you move a card out of here, put another one in** — and do not re-litigate this by
+  swapping which single card lives there.
 
 ### component: full-page action bars stop being viewport-wide slabs  —  2026-08-26
 - **What changed:** the boarding admission gate, the inpatient admission gate and Edit Client size
