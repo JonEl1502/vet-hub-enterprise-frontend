@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### staff: the create form now admits which permissions do nothing  —  2026-08-27
+- **What changed:** `StaffRegistrationView`'s Permissions grid marks the inert tokens the way
+  `StaffProfileView` already did — "n/a" badge, tooltip, 60% opacity — plus a per-category note
+  where every token is inert, and a count in the section hint.
+- **Record impact:** 🟢 None — labelling only. Enforcement is unchanged.
+- **Data dependency:** None. Everything is derived from `PermissionDef.live` in
+  `constants/permissions.ts`, so the badges cannot drift from the catalog.
+- **Rollback:** revert and rebuild.
+- 🔴 **19 of the 33 granular permission tokens are read by NO gate on either side (216).** Verified
+  2026-08-27 against the code, not the flag: the API's `requireAccess` reads only
+  `view_inventory`, `edit_inventory`, `view_payments`, `view_staff`, `manage_staff`;
+  `LEGACY_GRANT_MAP` bridges the nine inventory/payments tokens; `userCan` in `VisitsListView`
+  reads `create/edit/delete_appointments`. That is the whole live set — 14 tokens.
+- 🔴 **Clients & Pets (7), Medical (5) and Reports (2) are inert END TO END.** Ticking "Delete
+  Clients" off restricts nothing. Those categories say so once in the heading, because badging
+  each switch individually still reads as "mostly works, a few gaps".
+- ⚠️ **This form was the worse half of an asymmetry.** The profile editor had been honest since 216
+  while the create form was not — and creation is where an owner actually sets someone's access.
+  If you add a token to `ALL_PERMISSIONS`, set `live` truthfully or it will show as n/a here.
+- ℹ️ Page Access (the five `VIEW_*` tokens) IS enforced, via `App.tsx canAccess`. The hint now
+  points at it as the gate that works.
+
 ### payroll: Bonuses pane — award with a reason  —  2026-08-27
 - **What changed:** `HrBonusesPane` adds a third pane under HR ▸ Payroll. Award a bonus to a staff
   member with an amount, a date earned, an optional category and a **required reason**; the next
