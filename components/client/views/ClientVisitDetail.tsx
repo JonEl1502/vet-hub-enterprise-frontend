@@ -114,20 +114,14 @@ const ClientVisitDetail: React.FC = () => {
         )}
 
         {visit.status === 'COMPLETED' && (
-          <div className="flex flex-wrap items-center gap-3 mt-4 pt-4 border-t" style={{ borderColor: 'var(--cp-border)' }}>
-            <button className="cp-btn" onClick={() => setRateOpen(true)}>
-              <Star className="w-4 h-4" /> {rating?.rated ? 'Edit your rating' : 'Rate your visit'}
-            </button>
-            {rating?.rated && (() => {
-              const vals = Object.values(rating.facets).filter((v): v is number => typeof v === 'number');
-              const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
-              return (
-                <span className="flex items-center gap-1 text-sm font-black" style={{ color: 'var(--cp-ink)' }}>
-                  <Star className="w-4 h-4" style={{ fill: '#f5b301', color: '#f5b301' }} /> {avg.toFixed(1)}
-                  <span className="cp-muted font-bold text-xs">· thanks for rating</span>
-                </span>
-              );
-            })()}
+          <div className="mt-4 pt-4 border-t" style={{ borderColor: 'var(--cp-border)' }}>
+            {rating?.rated
+              ? <SubmittedRating rating={rating} attendingName={visit.attendingName} />
+              : (
+                <button className="cp-btn" onClick={() => setRateOpen(true)}>
+                  <Star className="w-4 h-4" /> Rate your visit
+                </button>
+              )}
           </div>
         )}
       </div>
@@ -217,14 +211,61 @@ const ClientVisitDetail: React.FC = () => {
         />
       )}
 
-      {rateOpen && (
+      {rateOpen && !rating?.rated && (
         <RatingModal
           visit={visit}
-          existing={rating}
           onClose={() => setRateOpen(false)}
           onDone={() => { setRateOpen(false); load(); }}
         />
       )}
+    </div>
+  );
+};
+
+// Static five-star readout for a rating that's already been submitted.
+const StarReadout: React.FC<{ label: string; value: number }> = ({ label, value }) => (
+  <div className="flex items-center justify-between gap-3 py-1.5">
+    <span className="text-sm font-bold" style={{ color: 'var(--cp-ink)' }}>{label}</span>
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map((n) => (
+        <Star key={n} className="w-4 h-4" style={n <= value ? { fill: '#f5b301', color: '#f5b301' } : { color: 'var(--cp-border)' }} />
+      ))}
+    </div>
+  </div>
+);
+
+// What the owner submitted. Ratings are final once sent — they're already
+// tallied into the clinic's score — so this is a readout, not a form.
+const SubmittedRating: React.FC<{ rating: VisitRating; attendingName: string | null }> = ({ rating, attendingName }) => {
+  const f = rating.facets;
+  const vals = Object.values(f).filter((v): v is number => typeof v === 'number');
+  const avg = vals.length ? vals.reduce((s, v) => s + v, 0) / vals.length : 0;
+  const rows: Array<[string, number | undefined]> = [
+    [attendingName ? `Vet — ${attendingName}` : 'Attending vet', f.vet],
+    ['Staff & support', f.staff],
+    ['Service quality', f.service],
+    ['The clinic', f.clinic],
+    ['Overall experience', f.overall],
+  ];
+  return (
+    <div>
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="flex items-center gap-1 text-sm font-black" style={{ color: 'var(--cp-ink)' }}>
+          <Star className="w-4 h-4" style={{ fill: '#f5b301', color: '#f5b301' }} /> {avg.toFixed(1)}
+        </span>
+        <span className="cp-muted font-bold text-xs">
+          · thanks for rating{rating.ratedAt ? ` on ${new Date(rating.ratedAt).toLocaleDateString()}` : ''}
+        </span>
+      </div>
+      <div className="mt-2 divide-y" style={{ borderColor: 'var(--cp-border)' }}>
+        {rows.filter(([, v]) => typeof v === 'number' && v > 0).map(([label, v]) => (
+          <StarReadout key={label} label={label} value={v as number} />
+        ))}
+      </div>
+      {rating.comment && (
+        <p className="text-sm mt-2 italic" style={{ color: 'var(--cp-ink)' }}>“{rating.comment}”</p>
+      )}
+      <p className="text-xs cp-muted font-bold mt-2">Your rating has been counted and can no longer be changed.</p>
     </div>
   );
 };
@@ -243,15 +284,14 @@ const StarRow: React.FC<{ label: string; value: number; onChange: (v: number) =>
   </div>
 );
 
-// Rate a completed visit across all facets — one submit saves them all.
-const RatingModal: React.FC<{ visit: PortalVisitDetail; existing: VisitRating | null; onClose: () => void; onDone: () => void }> = ({ visit, existing, onClose, onDone }) => {
-  const f = existing?.facets || {};
-  const [vet, setVet] = useState(f.vet || 0);
-  const [staff, setStaff] = useState(f.staff || 0);
-  const [service, setService] = useState(f.service || 0);
-  const [clinic, setClinic] = useState(f.clinic || 0);
-  const [overall, setOverall] = useState(f.overall || 0);
-  const [comment, setComment] = useState(existing?.comment || '');
+// Rate a completed visit across all facets — one submit saves them all, once.
+const RatingModal: React.FC<{ visit: PortalVisitDetail; onClose: () => void; onDone: () => void }> = ({ visit, onClose, onDone }) => {
+  const [vet, setVet] = useState(0);
+  const [staff, setStaff] = useState(0);
+  const [service, setService] = useState(0);
+  const [clinic, setClinic] = useState(0);
+  const [overall, setOverall] = useState(0);
+  const [comment, setComment] = useState('');
   const [busy, setBusy] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -274,6 +314,7 @@ const RatingModal: React.FC<{ visit: PortalVisitDetail; existing: VisitRating | 
     <CpModal title="Rate your visit" onClose={onClose}>
       <form onSubmit={submit} className="space-y-1">
         <p className="text-sm cp-muted mb-2">How was your visit at {visit.clinic?.name}? Your feedback helps them improve.</p>
+        <p className="text-xs font-bold mb-2" style={{ color: '#c0392b' }}>Ratings are final — once you submit, they’re counted and can’t be changed.</p>
         <div className="divide-y" style={{ borderColor: 'var(--cp-border)' }}>
           <StarRow label={visit.attendingName ? `Vet — ${visit.attendingName}` : 'Attending vet'} value={vet} onChange={setVet} />
           <StarRow label="Staff & support" value={staff} onChange={setStaff} />
@@ -286,7 +327,7 @@ const RatingModal: React.FC<{ visit: PortalVisitDetail; existing: VisitRating | 
           <textarea className="cp-input" rows={2} value={comment} onChange={(e) => setComment(e.target.value)} placeholder="Tell them what went well or could be better" />
         </div>
         <button type="submit" className="cp-btn w-full mt-3" disabled={busy}>
-          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : (existing?.rated ? 'Update rating' : 'Submit rating')}
+          {busy ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Submit rating'}
         </button>
       </form>
     </CpModal>

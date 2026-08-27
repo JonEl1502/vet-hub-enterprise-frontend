@@ -109,10 +109,12 @@ export interface PortalVisitDetail extends PortalAppointment {
   events: Array<{ id: string; at: string; label: string; kind: string }>;
 }
 
+// A visit rating is write-once: once `rated` is true it is tallied and final.
 export interface VisitRating {
   rated: boolean;
   facets: { vet?: number; staff?: number; service?: number; clinic?: number; overall?: number };
   comment: string | null;
+  ratedAt: string | null;
 }
 
 export interface PortalReminder {
@@ -361,6 +363,7 @@ export const clientPortalAPI = {
   visitRating: (appointmentId: string | number, options?: RequestOptions): Promise<ApiResponse<{ rating: VisitRating }>> =>
     get(ENDPOINTS.PORTAL.APPOINTMENT_RATING(appointmentId), { silent: true, ...options }),
 
+  // Submit once — the API rejects a second submit for the same visit.
   rateVisit: (
     appointmentId: string | number,
     data: { vet?: number; staff?: number; service?: number; clinic?: number; overall?: number; comment?: string },
