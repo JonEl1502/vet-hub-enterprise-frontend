@@ -1,25 +1,33 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Users, CalendarOff, CalendarDays, UserCheck, Loader2, AlertTriangle,
-  BadgeCheck, ShieldAlert, Briefcase,
+  BadgeCheck, ShieldAlert, Briefcase, Wallet,
 } from 'lucide-react';
 import PageHeader from '../../shared/common/PageHeader';
+import { useAuth } from '../../../contexts/AuthContext';
 import { hrAPI, HrOverview } from '../../../services/modules/hr.api';
 import { Card, Stat, Pill, Empty, prettyDate, titleCase, EMPLOYMENT_TONE } from './hrShared';
 import HrPeopleTab from './HrPeopleTab';
 import HrLeaveTab from './HrLeaveTab';
 import HrRotaTab from './HrRotaTab';
 import HrAttendanceTab from './HrAttendanceTab';
+import HrPayrollTab from './HrPayrollTab';
 
-type Tab = 'overview' | 'people' | 'leave' | 'rota' | 'attendance';
+type Tab = 'overview' | 'people' | 'leave' | 'rota' | 'attendance' | 'payroll';
 
-const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
+const TABS: { id: Tab; label: string; icon: React.ElementType; ownerOnly?: boolean }[] = [
   { id: 'overview',   label: 'Overview',   icon: Briefcase },
   { id: 'people',     label: 'People',     icon: Users },
   { id: 'leave',      label: 'Leave',      icon: CalendarOff },
   { id: 'rota',       label: 'Rota',       icon: CalendarDays },
   { id: 'attendance', label: 'Attendance', icon: UserCheck },
+  // Payroll is OWNER-ONLY — every view of it contains salaries by
+  // construction. The server returns 403 for anyone else; this only stops a
+  // manager finding a tab that would refuse them.
+  { id: 'payroll',    label: 'Payroll',    icon: Wallet, ownerOnly: true },
 ];
+
+const OWNER_ROLES = ['CLINIC_OWNER', 'SUPER_ADMIN', 'MERCHANT_ADMIN'];
 
 /**
  * HR — Clinic Management ▸ HR.
@@ -28,11 +36,18 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
  * and attendance. Manager-and-above throughout; pay is narrower still (owner
  * only) and enforced server-side — see hr.controller.
  *
- * Payroll is deliberately absent. It writes real money and belongs to the S1
- * lane with statutory rates the user has to sign off; phase 2.
+ * Payroll (phase 2) is narrower again: owner-only, and it will not approve a
+ * run until somebody has verified the statutory rates.
  */
 const HrView: React.FC<{ initialTab?: Tab }> = ({ initialTab = 'overview' }) => {
   const [tab, setTab] = useState<Tab>(initialTab);
+  const { user } = useAuth();
+  const isOwner = OWNER_ROLES.includes(String(user?.role || ''));
+  const tabs = TABS.filter(t => !t.ownerOnly || isOwner);
+
+  // A manager who somehow lands on payroll gets sent back rather than left on
+  // a tab whose every request 403s.
+  const active: Tab = tabs.some(t => t.id === tab) ? tab : 'overview';
 
   return (
     <div className="space-y-5">
@@ -43,10 +58,10 @@ const HrView: React.FC<{ initialTab?: Tab }> = ({ initialTab = 'overview' }) => 
       />
 
       <div className="flex flex-wrap gap-1.5">
-        {TABS.map(t => (
+        {tabs.map(t => (
           <button key={t.id} type="button" onClick={() => setTab(t.id)}
             className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-              tab === t.id
+              active === t.id
                 ? 'bg-seafoam text-white'
                 : 'bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100'
             }`}>
@@ -55,11 +70,12 @@ const HrView: React.FC<{ initialTab?: Tab }> = ({ initialTab = 'overview' }) => 
         ))}
       </div>
 
-      {tab === 'overview' && <Overview onGo={setTab} />}
-      {tab === 'people' && <HrPeopleTab />}
-      {tab === 'leave' && <HrLeaveTab />}
-      {tab === 'rota' && <HrRotaTab />}
-      {tab === 'attendance' && <HrAttendanceTab />}
+      {active === 'overview' && <Overview onGo={setTab} />}
+      {active === 'people' && <HrPeopleTab />}
+      {active === 'leave' && <HrLeaveTab />}
+      {active === 'rota' && <HrRotaTab />}
+      {active === 'attendance' && <HrAttendanceTab />}
+      {active === 'payroll' && <HrPayrollTab />}
     </div>
   );
 };

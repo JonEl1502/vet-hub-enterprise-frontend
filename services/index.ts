@@ -89,6 +89,7 @@ export type { FxRatesPayload, ConversionResult } from './modules/fx.api';
 export { broadcastsAPI } from './modules/broadcasts.api';
 export { ratingsAPI } from './modules/ratings.api';
 export { hrAPI } from './modules/hr.api';
+export { payrollAPI } from './modules/payroll.api';
 export type { RatingsDashboard } from './modules/ratings.api';
 export { billsAPI } from './modules/bills.api';
 export { invoicesAPI } from './modules/invoices.api';
@@ -108,6 +109,8 @@ export type { WhatsappConfigView, WhatsappTestResult, WhatsappPurpose, Unmatched
 
 export { messagingAPI } from './modules/messaging.api';
 export type { PlatformMessage } from './modules/messaging.api';
+export type { RateTable, RateConfig, PayeBand, PayRun, PayRunTotals, Payslip, PayslipLine,
+  StatutoryReturn, PayRunStatus, PayslipLineKind } from './modules/payroll.api';
 export type { HrPerson, HrEmploymentRecord, HrLeaveType, HrLeaveRequest, HrBalanceRow, HrShiftTemplate,
   HrShift, HrRota, HrAttendanceRow, HrTimesheetRow, HrOverview, HrContractType, HrEmploymentStatus,
   HrLeaveStatus, HrShiftStatus, HrAttendanceStatus } from './modules/hr.api';
