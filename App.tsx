@@ -3045,6 +3045,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           seed={currentNav.params?.seed}
           currency={firstActiveClinic?.currency || 'KES'}
           onBack={goBack}
+          onOpenTemplate={(id) => navigateTo('procedure-editor', { templateId: id })}
         />;
       case 'workflows':
         return <WorkflowsView onOpenBuilder={(templateId) => navigateTo('workflow-builder', { templateId })} />;
