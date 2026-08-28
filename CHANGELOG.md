@@ -82,6 +82,10 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 - ⚠️ **The copy is a DRAFT and may be incomplete.** Components the clinic does not stock cannot come
   across; a second toast names them, and it is not decoration — a copy that quietly lost half its
   drug lines looks identical to one that copied cleanly.
+- ⚠️ **A THIRD toast names components that copied with NO price.** Because the platform's price is
+  dropped in favour of the clinic's own, a line the clinic has never priced resolves to **0 and is
+  still billable** — money not charged. It cannot auto-apply (the copy is an inactive draft with no
+  trigger), but activating without reading the price column would ship it. Set a price first.
 - ℹ️ Prices on a copy come from the clinic's own stock and catalogue, not the platform's numbers
   (FEE lines excepted, where the amount IS the line). The trigger service is not inherited.
 
