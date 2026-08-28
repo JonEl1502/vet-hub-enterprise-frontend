@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### visits: a visit can be RECORDED for a past day  —  2026-08-28
+- **What changed:** `DateTimePicker` gains `allowPastDays` (default **0** — every other caller keeps
+  the old rule) and `NewVisitView` passes 90, so the visit calendar no longer greys out yesterday.
+  A past date is labelled "⏪ Back-dated — N days ago" in the Date & Time header. For Westlands
+  Vets, who see the animal one day and enter the visit the next.
+- **Record impact:** 🟢 None on existing rows. New visits can now carry an earlier `scheduled_at`,
+  which is what date-grouped revenue reports file them under.
+- **Data dependency:** None — the backend never rejected a past `scheduledAt`; the calendar was the
+  only thing stopping it.
+- **Rollback:** revert and rebuild. Visits already recorded keep their dates.
+- ⚠️ **The DEFAULT is unchanged and must stay unchanged** (user, explicitly): the form opens on today
+  at the next half-hour (16:57 → 17:00) and ⏱ Now still snaps to this minute. This lifts a refusal;
+  it does not change what you get by not touching anything.
+- ⚠️ **A bound, not a boolean.** 90 days, matching the inpatient back-date cap. An unbounded calendar
+  lets a mistyped year file revenue in a closed reporting period.
+- 🔵 **Every `toISOString().split('T')[0]` in this form was replaced with a LOCAL `YYYY-MM-DD`.**
+  Those are UTC, so east of Greenwich a date built from a local wall-clock moment can land on the
+  PREVIOUS day — in Nairobi (UTC+3) anything before 03:00 does. It was survivable while the calendar
+  only went forwards; it stops being survivable once a visit can be recorded for a past day, which
+  is exactly when someone types an early-morning time. ⚠️ If you add another date field here, use
+  `localDay()`, not `toISOString()`.
+- ℹ️ Time slots on a past day still render availability from the staff rota. Harmless — a past day's
+  "2 staff available" is noise, not a claim — but it is why the chip exists to say the date is
+  behind today.
+
 ### inpatient: Back-date the admission from the chart header  —  2026-08-28
 - **What changed:** A **Back-date** control beside the header badges on `InpatientChartPage` opens a
   dialog that prices the change as the date is picked, then requires a reason before it commits.
