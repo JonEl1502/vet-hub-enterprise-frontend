@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### procedures: a shared-library recipe is read-only in fact, and copyable  —  2026-08-28
+- **What changed:** `ProcedureEditorPage` stops contradicting its own banner. The "Shared library ·
+  view only" notice sat above a form where every field was editable and both Save buttons were
+  enabled, so a clinic could rebuild a recipe line by line — the Cost & Price summary recomputing as
+  they typed — and lose all of it to a red toast on save. The editable regions of all four tabs are
+  now wrapped in `<fieldset disabled>`; Save draft / Save & activate are replaced by **Copy to my
+  clinic** on a global; `ProceduresView` gets the same action beside its "View only" chip.
+- **Record impact:** 🟢 None on existing records. A copy writes new clinic-owned rows.
+- **Data dependency:** **Requires the backend `POST /procedure-templates/:id/copy`** shipped the
+  same day. Without it the button 404s — the read-only lockdown is safe on its own, the copy is not.
+  Reads `template.isGlobal`, which the API has returned since migration 202.
+- **Rollback:** revert and rebuild.
+- ⚠️ **The fieldsets use `className="contents"` (`display: contents`) so layout is untouched** and
+  the browser disables every input, select and button inside — no per-control `disabled` plumbing to
+  drift out of sync as the form grows. `disabled` propagation is a DOM behaviour and is unaffected
+  by `display: contents`.
+- ⚠️ **Two regions are deliberately left LIVE inside a global:** the components FILTER tabs and the
+  example-patient QUOTE tester. Both are reads, and quoting a shared recipe against your own stock
+  is exactly what the banner promises a global is good for. If you ever wrap the whole tab body in
+  one fieldset you will kill both — a nested fieldset cannot re-enable.
+- ⚠️ **The copy is a DRAFT and may be incomplete.** Components the clinic does not stock cannot come
+  across; a second toast names them, and it is not decoration — a copy that quietly lost half its
+  drug lines looks identical to one that copied cleanly.
+- ℹ️ Prices on a copy come from the clinic's own stock and catalogue, not the platform's numbers
+  (FEE lines excepted, where the amount IS the line). The trigger service is not inherited.
+
 ### staff: the create form now admits which permissions do nothing  —  2026-08-27
 - **What changed:** `StaffRegistrationView`'s Permissions grid marks the inert tokens the way
   `StaffProfileView` already did — "n/a" badge, tooltip, 60% opacity — plus a per-category note
