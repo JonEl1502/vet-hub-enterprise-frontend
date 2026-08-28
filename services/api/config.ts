@@ -256,6 +256,7 @@ export const ENDPOINTS = {
   PROCEDURE_TEMPLATES: {
     BASE: '/procedure-templates',
     BY_ID: (id: string | number) => `/procedure-templates/${id}`,
+    COPY: (id: string | number) => `/procedure-templates/${id}/copy`,
     PREVIEW: (id: string | number) => `/procedure-templates/${id}/preview`,
     APPLY: (id: string | number) => `/procedure-templates/${id}/apply`,
     APPLICATIONS: '/procedure-templates/applications',

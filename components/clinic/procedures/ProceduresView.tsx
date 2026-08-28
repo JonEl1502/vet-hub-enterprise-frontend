@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { ClipboardList, Plus, Loader2, Trash2, Pencil, Search, Zap, FlaskConical, Pill, Package, Stethoscope, Wand2, Globe, Eye } from 'lucide-react';
+import { ClipboardList, Plus, Loader2, Trash2, Pencil, Search, Zap, FlaskConical, Pill, Package, Stethoscope, Wand2, Globe, Eye, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { procedureTemplatesAPI, ProcedureTemplate, dialog } from '../../../services';
 import ListFilterBar, { inRange } from '../shared/ListFilterBar';
@@ -98,6 +98,27 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
       const res = await procedureTemplatesAPI.remove(t.id);
       if (res.success) { toast.success(res.data?.deactivated ? 'Deactivated (kept — it has past applications)' : 'Deleted'); await load(); }
     } catch (e: any) { toast.error(e?.message || 'Failed to delete'); }
+    finally { setBusyId(null); }
+  };
+
+  // A shared-library recipe cannot be edited in place, so the way to make it
+  // yours is to take a copy. The copy lands as a DRAFT with its product lines
+  // re-resolved against this clinic's stock — `skipped` names whatever could
+  // not come across, which is nearly always "you do not carry that drug".
+  const copyToClinic = async (t: ProcedureTemplate) => {
+    setBusyId(t.id);
+    try {
+      const res = await procedureTemplatesAPI.copy(t.id);
+      if (res.success && res.data?.template) {
+        const { template, skipped } = res.data;
+        toast.success(`Copied as "${template.name}" — saved as a draft`);
+        if (skipped?.length) {
+          toast(`${skipped.length} component(s) skipped: ${skipped.map(k => `${k.name} (${k.reason})`).join('; ')}`,
+            { icon: '⚠️', duration: 10000 });
+        }
+        onOpenEditor(template.id);
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to copy'); }
     finally { setBusyId(null); }
   };
 
@@ -218,9 +239,21 @@ const ProceduresView: React.FC<Props> = ({ currency = 'KES', onOpenEditor }) => 
                         a bug rather than a rule — so the actions are replaced
                         by what is actually true of the row. */}
                     {t.isGlobal ? (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest text-indigo-500 bg-indigo-500/10 border border-indigo-500/20">
-                        <Eye size={11} /> View only
-                      </span>
+                      <>
+                        <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest text-indigo-500 bg-indigo-500/10 border border-indigo-500/20">
+                          <Eye size={11} /> View only
+                        </span>
+                        {/* "View only" states the rule; without this it is also a
+                            dead end. Copying is the one write a clinic can make
+                            against a global, so it belongs next to the label. */}
+                        {perms.create && (
+                          <button onClick={(e) => { e.stopPropagation(); copyToClinic(t); }} disabled={busyId === t.id}
+                            className="p-2 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 hover:text-pine disabled:opacity-50"
+                            title="Copy to my clinic — creates an editable draft priced from your own stock">
+                            {busyId === t.id ? <Loader2 size={14} className="animate-spin" /> : <Copy size={14} />}
+                          </button>
+                        )}
+                      </>
                     ) : (
                       <>
                         {perms.edit && (

@@ -183,6 +183,15 @@ export const procedureTemplatesAPI = {
   remove: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ success: boolean; deactivated: boolean }>> =>
     del(ENDPOINTS.PROCEDURE_TEMPLATES.BY_ID(id), { showError: true, ...options }),
 
+  /**
+   * Clone a recipe into this clinic. The only write a clinic can make against a
+   * shared-library global — the copy lands as a DRAFT, its product lines
+   * re-resolved against this clinic's own stock, and `skipped` names every
+   * component that could not come across (usually "you do not stock it").
+   */
+  copy: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ template: ProcedureTemplate; skipped: Array<{ name: string; reason: string }>; fromGlobal: boolean }>> =>
+    post(ENDPOINTS.PROCEDURE_TEMPLATES.COPY(id), {}, { showError: true, ...options }),
+
   /** Dry-run quote: what would this template produce for a patient / weight / flags? */
   preview: async (id: string | number, body: { petId?: string | number; weightKg?: number; flags?: ProcedureFlags }, options?: RequestOptions): Promise<ApiResponse<{ preview: ProcedurePreview }>> =>
     post(ENDPOINTS.PROCEDURE_TEMPLATES.PREVIEW(id), body, options),

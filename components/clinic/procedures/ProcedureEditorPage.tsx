@@ -2,7 +2,7 @@ import PageHeader from '../../shared/common/PageHeader';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ChevronLeft, Loader2, Plus, Trash2, Search, X, Zap, ArrowUp, ArrowDown,
-  Stethoscope, Pill, Package, FlaskConical, ScanLine, Coins, Check, ClipboardList, Calculator, Layers, UserRound, Globe,
+  Stethoscope, Pill, Package, FlaskConical, ScanLine, Coins, Check, ClipboardList, Calculator, Layers, UserRound, Globe, Copy,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
@@ -20,6 +20,8 @@ interface Props {
   seed?: 'spay-example';
   currency?: string;
   onBack: () => void;
+  /** Reopen the editor on another template — used to land on a fresh copy. */
+  onOpenTemplate?: (id: string) => void;
 }
 
 type Tab = 'details' | 'components' | 'rules' | 'workflow' | 'summary';
@@ -106,7 +108,7 @@ const slug = (s: string) => s.toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').r
 let keyCounter = 0;
 const nextKey = () => `k${++keyCounter}`;
 
-const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KES', onBack }) => {
+const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KES', onBack, onOpenTemplate }) => {
   const { inventory, ensureInventory } = useData() as any;
   const { staff } = useStaff();
   // Inventory loads lazily per page — force it here so the medication/
@@ -116,6 +118,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
   const [tab, setTab] = useState<Tab>('details');
   const [loading, setLoading] = useState(!!templateId);
   const [saving, setSaving] = useState(false);
+  const [copying, setCopying] = useState(false);
   /** True when the open recipe belongs to the shared library (migration 202). */
   const [isGlobal, setIsGlobal] = useState(false);
   const [savedId, setSavedId] = useState<string | null>(templateId);
@@ -484,6 +487,30 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
     finally { setSaving(false); }
   };
 
+  // -------------------------------------------------------------------- copy
+  // The one write a clinic CAN make against a shared-library recipe: clone it,
+  // then edit the clone. The server re-resolves the product lines against this
+  // clinic's own stock, so anything they do not carry cannot come across — the
+  // second toast names those, because a copy that quietly lost half its drug
+  // lines looks exactly like one that copied cleanly.
+  const copyToClinic = async () => {
+    if (!savedId) return;
+    setCopying(true);
+    try {
+      const res = await procedureTemplatesAPI.copy(savedId);
+      if (res.success && res.data?.template) {
+        const { template, skipped } = res.data;
+        toast.success(`Copied as "${template.name}" — saved as a draft`);
+        if (skipped?.length) {
+          toast(`${skipped.length} component(s) skipped: ${skipped.map(k => `${k.name} (${k.reason})`).join('; ')}`,
+            { icon: '⚠️', duration: 10000 });
+        }
+        if (onOpenTemplate) onOpenTemplate(template.id); else onBack();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to copy'); }
+    finally { setCopying(false); }
+  };
+
   if (loading) return <LoadingSpinner fullScreen message="Loading procedure..." />;
 
   const TABS: Array<{ id: Tab; label: string }> = [
@@ -503,14 +530,21 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
         subtitle="Procedure recipe · fees + products + diagnostics + pricing rules"
         onBack={onBack}
         badge={{ label: draft.isActive ? 'Active' : 'Draft', tone: draft.isActive ? 'success' : 'neutral' }}
-        actions={
+        actions={isGlobal ? (
+          // No Save on a shared-library recipe. It used to sit here enabled and
+          // fail with a toast AFTER the work was typed, which is how a clinic
+          // loses five minutes of edits to a rule they were never shown first.
+          <button onClick={copyToClinic} disabled={copying} className="flex items-center gap-1.5 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95 disabled:opacity-50">
+            {copying ? <Loader2 size={13} className="animate-spin" /> : <Copy size={13} />} Copy to my clinic
+          </button>
+        ) : (
           <>
             <button onClick={() => save(false)} disabled={saving} className="px-4 py-2.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-200 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 disabled:opacity-50">Save draft</button>
             <button onClick={() => save(true)} disabled={saving} className="flex items-center gap-1.5 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95 disabled:opacity-50">
               {saving ? <Loader2 size={13} className="animate-spin" /> : <Check size={13} />} Save & activate
             </button>
           </>
-        }
+        )}
       />
 
       {/* Tabs */}
@@ -531,7 +565,9 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
             <span className="uppercase tracking-widest font-black">Shared library · view only.</span>{' '}
             Every clinic sees this recipe, so only a platform admin can change it. You can still
             apply it to a visit — its drugs and consumables resolve against <b>your own</b> stock,
-            and anything you do not carry is skipped with a reason.
+            and anything you do not carry is skipped with a reason.{' '}
+            <b>To change anything, use “Copy to my clinic”</b> — you get an editable draft priced
+            from your own stock and catalogue.
           </p>
         </div>
       )}
@@ -540,6 +576,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
         {/* ------------------------------------------------ main column */}
         <div className="space-y-4 min-w-0">
           {tab === 'details' && (
+            <fieldset disabled={isGlobal} className="contents">
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div><label className="field-label">Procedure name *</label><input className="field-input" value={draft.name} onChange={e => setDraft({ ...draft, name: e.target.value })} placeholder="Spay – Dog (Routine)" /></div>
@@ -586,11 +623,13 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
               </div>
               <div><label className="field-label">Procedure discount ({currency})</label><input type="number" min={0} className="field-input max-w-[180px]" value={draft.discount} onChange={e => setDraft({ ...draft, discount: e.target.value })} placeholder="0" /></div>
             </div>
+            </fieldset>
           )}
 
           {tab === 'components' && (
             <div className="space-y-4">
               {/* Add component */}
+              <fieldset disabled={isGlobal} className="contents">
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
                 <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 flex items-center gap-2"><Plus size={13} className="text-seafoam" /> Add component</p>
                 <div className="flex flex-wrap gap-1.5">
@@ -687,6 +726,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                   </div>
                 )}
               </div>
+              </fieldset>
 
               {/* Filter tabs */}
               <div className="flex gap-1.5 overflow-x-auto">
@@ -702,6 +742,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
               {filteredItems.length === 0 ? (
                 <p className="text-[11px] text-slate-400 text-center py-6">No components{componentFilter !== 'ALL' ? ' of this type' : ''} yet — add fees, medications, consumables and diagnostics above.</p>
               ) : (
+                <fieldset disabled={isGlobal} className="contents">
                 <div className="space-y-2">
                   {filteredItems.map(i => (
                     <div key={i.key} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 space-y-2.5">
@@ -804,12 +845,14 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                     </div>
                   ))}
                 </div>
+                </fieldset>
               )}
             </div>
           )}
 
           {tab === 'rules' && (
             <div className="space-y-4">
+              <fieldset disabled={isGlobal} className="contents">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 flex items-center gap-2"><Zap size={13} className="text-amber-500" /> Dynamic pricing rules</p>
                 <button onClick={addRule} className="flex items-center gap-1.5 px-3 py-2 bg-pine text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-pine/90"><Plus size={12} /> Add rule</button>
@@ -846,6 +889,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                   </div>
                 </div>
               ))}
+              </fieldset>
 
               {/* Example patient tester */}
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
@@ -881,6 +925,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
           {tab === 'workflow' && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {/* Stage editor */}
+              <fieldset disabled={isGlobal} className="contents">
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200">Protocol stages</p>
@@ -897,6 +942,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                 ))}
                 <p className="text-[9px] text-slate-400">Assign each component to a stage on the Components tab — the visit page renders this as the procedure checklist.</p>
               </div>
+              </fieldset>
 
               {/* Checklist preview */}
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
