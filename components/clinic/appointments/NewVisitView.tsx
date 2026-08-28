@@ -96,6 +96,22 @@ const WeightInput = ({ value, unit, onChange, onUnitChange }: { value: string, u
     );
   };
 
+/**
+ * LOCAL `YYYY-MM-DD`. `toISOString().split('T')[0]` is UTC, so east of Greenwich
+ * a date built from a local wall-clock moment can land on the previous day —
+ * in Nairobi (UTC+3) anything before 03:00 does. That was survivable while the
+ * calendar only went forwards; it stops being survivable once a visit can be
+ * RECORDED for a past day, which is exactly when someone types an early-morning
+ * time ("seen at 2am yesterday").
+ */
+const localDay = (d: Date) => {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
+
+/** How far back a visit may be RECORDED — see DateTimePicker#allowPastDays. */
+const MAX_BACKDATE_DAYS = 90;
+
 const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSave, onCancel, initialClientId, initialPetId, initialReferralId, initialParentApptId, initialCategoryId, initialEncounterType, initialStagedItems }) => {
   const { categories: apiCategories, getServicesByCategory, species: apiSpecies, getBreedsBySpecies } = useReferenceData();
   const { staff } = useStaff();
@@ -518,7 +534,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     petSpecies: 'Dog',
     petBreed: 'Mixed Breed',
     petAge: 1,
-    apptDate: new Date().toISOString().split('T')[0],
+    apptDate: localDay(new Date()),
     apptTime: (() => {
       const now = new Date();
       const m = now.getMinutes();
@@ -2442,9 +2458,24 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                    </p>
                  )}
                  <div className="flex items-center gap-2 shrink-0">
+                   {/* A back-dated visit files its revenue on the earlier day, so
+                       it says so. Without this the only difference between
+                       "today" and "three weeks ago" is one small number in the
+                       middle of the header. */}
+                   {(() => {
+                     if (!formData.apptDate) return null;
+                     const today = localDay(new Date());
+                     if (formData.apptDate >= today) return null;
+                     const days = Math.round((new Date(today).getTime() - new Date(formData.apptDate).getTime()) / 86400000);
+                     return (
+                       <span className="px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest">
+                         ⏪ Back-dated — {days} day{days === 1 ? '' : 's'} ago
+                       </span>
+                     );
+                   })()}
                    {isWalkIn && <span className="px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest">🚶 Walk-in — arriving now</span>}
                    <button type="button"
-                     onClick={() => { const n = new Date(); setFormData({ ...formData, apptDate: n.toISOString().split('T')[0], apptTime: n.toTimeString().slice(0, 5) }); }}
+                     onClick={() => { const n = new Date(); setFormData({ ...formData, apptDate: localDay(n), apptTime: n.toTimeString().slice(0, 5) }); }}
                      title="Set to today, right now"
                      className="px-2.5 py-1 rounded-lg border border-seafoam/40 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
                      ⏱ Now
@@ -2456,12 +2487,17 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                 selectedDate={formData.apptDate ? new Date(formData.apptDate + 'T' + formData.apptTime) : new Date()}
                 selectedTime={formData.apptTime}
                 onDateTimeChange={(date) => {
-                  const dateStr = date.toISOString().split('T')[0];
+                  const dateStr = localDay(date);
                   const timeStr = date.toTimeString().slice(0, 5);
                   setFormData({...formData, apptDate: dateStr, apptTime: timeStr});
                 }}
                 existingAppointments={appointments || []}
                 staffMembers={availableStaff}
+                // Recording a visit that already happened (Westlands Vets,
+                // 2026-08-28). The DEFAULT is untouched — the form still opens
+                // on today at the next half-hour — this only stops the calendar
+                // refusing yesterday.
+                allowPastDays={MAX_BACKDATE_DAYS}
               />
            </div>
         </div>

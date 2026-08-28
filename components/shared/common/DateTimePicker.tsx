@@ -27,6 +27,17 @@ interface Props {
   // 'sideBySide' puts the calendar and time slots in two columns (wide
   // containers); default 'stacked' keeps the original vertical flow.
   layout?: 'stacked' | 'sideBySide';
+  /**
+   * How many days into the PAST the calendar will go. 0 (the default) keeps the
+   * original rule — nothing before today is selectable.
+   *
+   * Booking screens should leave this alone. It exists for RECORDING a visit
+   * that already happened (Westlands Vets, 2026-08-28: the animal was seen
+   * yesterday, the visit is being entered today), which is a different job from
+   * scheduling one. A bound rather than a boolean because an unbounded calendar
+   * lets a mistyped year file revenue in a closed period.
+   */
+  allowPastDays?: number;
 }
 
 const DateTimePicker: React.FC<Props> = ({
@@ -42,6 +53,7 @@ const DateTimePicker: React.FC<Props> = ({
   workingHours = { start: 8, end: 18 },
   slotDuration = 30,
   layout = 'stacked',
+  allowPastDays = 0,
 }) => {
   const [showTimePicker, setShowTimePicker] = useState(true);
 
@@ -161,7 +173,15 @@ const DateTimePicker: React.FC<Props> = ({
           <DatePicker
             selected={selectedDate}
             onChange={handleDateSelect}
-            minDate={new Date()}
+            minDate={(() => {
+              // Local midnight, not `new Date()`: a minDate carrying the current
+              // TIME makes today itself partly unselectable in some pickers, and
+              // "N days back" has to mean whole days.
+              const floor = new Date();
+              floor.setHours(0, 0, 0, 0);
+              floor.setDate(floor.getDate() - Math.max(0, allowPastDays));
+              return floor;
+            })()}
             inline
             calendarClassName="custom-datepicker !w-full"
             dayClassName={(date) => {
