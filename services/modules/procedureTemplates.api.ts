@@ -186,10 +186,11 @@ export const procedureTemplatesAPI = {
   /**
    * Clone a recipe into this clinic. The only write a clinic can make against a
    * shared-library global — the copy lands as a DRAFT, its product lines
-   * re-resolved against this clinic's own stock, and `skipped` names every
-   * component that could not come across (usually "you do not stock it").
+   * re-resolved against this clinic's own stock. `skipped` names every component
+   * that could not come across (usually "you do not stock it"); `zeroPriced`
+   * names the ones that DID come across but resolved to no price.
    */
-  copy: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ template: ProcedureTemplate; skipped: Array<{ name: string; reason: string }>; fromGlobal: boolean }>> =>
+  copy: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ template: ProcedureTemplate; skipped: Array<{ name: string; reason: string }>; zeroPriced: string[]; fromGlobal: boolean }>> =>
     post(ENDPOINTS.PROCEDURE_TEMPLATES.COPY(id), {}, { showError: true, ...options }),
 
   /** Dry-run quote: what would this template produce for a patient / weight / flags? */

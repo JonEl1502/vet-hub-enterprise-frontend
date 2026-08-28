@@ -499,11 +499,17 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
     try {
       const res = await procedureTemplatesAPI.copy(savedId);
       if (res.success && res.data?.template) {
-        const { template, skipped } = res.data;
+        const { template, skipped, zeroPriced } = res.data;
         toast.success(`Copied as "${template.name}" — saved as a draft`);
         if (skipped?.length) {
           toast(`${skipped.length} component(s) skipped: ${skipped.map(k => `${k.name} (${k.reason})`).join('; ')}`,
             { icon: '⚠️', duration: 10000 });
+        }
+        // Copied, but priced at nothing — your catalogue/stock has no price for
+        // them. Billable at zero is money not charged, so it is said out loud.
+        if (zeroPriced?.length) {
+          toast(`${zeroPriced.length} component(s) copied with NO price — set one before activating: ${zeroPriced.join(', ')}`,
+            { icon: '⚠️', duration: 12000 });
         }
         if (onOpenTemplate) onOpenTemplate(template.id); else onBack();
       }
