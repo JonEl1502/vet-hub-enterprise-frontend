@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### inpatient: Back-date the admission from the chart header  —  2026-08-28
+- **What changed:** A **Back-date** control beside the header badges on `InpatientChartPage` opens a
+  dialog that prices the change as the date is picked, then requires a reason before it commits.
+  For Westlands Vets, whose patients are admitted days before anyone opens a chart.
+- **Record impact:** 🟡 Medium — the button's whole purpose is to move a date and re-price a stay.
+  The UI itself writes nothing; every guard is server-side.
+- **Data dependency:** **Requires `POST /inpatient/:id/backdate`** shipped the same day. Reads
+  `hospitalization.billing.isPaid` to decide whether to render at all.
+- **Rollback:** revert and rebuild.
+- 🔴 **The preview is the feature, not decoration.** Back-dating adds nights AND days of food; the
+  panel names nights before → after, both charge lines and the new visit total, ending in "The
+  client will be billed X more." Nobody should meet that number on the invoice.
+- ⚠️ **Hidden once the bill is settled** — the same rule the reopen action bar uses. The server
+  refuses there, so the button would be a dead end; the route forward is to unlock the visit.
+- ⚠️ **`datetime-local` speaks LOCAL wall-clock.** The seed and `max` use a local formatter, not
+  `toISOString().slice(0,16)` — in Nairobi the naive version reads back three hours early, and 09:00
+  silently becoming 06:00 crosses a day boundary and changes what is billed.
+- ℹ️ An admission with no daily rate and no food program says "back-dating moves the record, not the
+  bill" rather than showing a confident "+0" that reads like a broken preview.
+
 ### procedures: a shared-library recipe is read-only in fact, and copyable  —  2026-08-28
 - **What changed:** `ProcedureEditorPage` stops contradicting its own banner. The "Shared library ·
   view only" notice sat above a form where every field was editable and both Save buttons were
