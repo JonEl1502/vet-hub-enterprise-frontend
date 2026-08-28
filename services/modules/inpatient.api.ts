@@ -53,6 +53,28 @@ export interface TreatmentPlanSection {
   items: TreatmentPlanItem[];
 }
 
+/** What a back-date will cost, or did cost. Money — every field is billable. */
+export interface InpatientBackdate {
+  applied: boolean;
+  from: string;
+  to: string;
+  nightsBefore: number;
+  nightsAfter: number;
+  nightsAdded: number;
+  dailyRate: number;
+  perDayFood: number;
+  stayBefore: number;
+  stayAfter: number;
+  foodBefore: number;
+  foodAfter: number;
+  difference: number;
+  visitTotalBefore: number | null;
+  visitTotalAfter: number | null;
+  /** false = no rate and no food program, so back-dating moves no money. */
+  priced: boolean;
+  hospitalization?: Hospitalization;
+}
+
 export const inpatientAPI = {
   // ── Treatment plan (132). A PLAN, not a charge: nothing here bills or moves
   // stock — administration goes through the MAR / consumable path.
@@ -101,6 +123,21 @@ export const inpatientAPI = {
     post(ENDPOINTS.INPATIENT.BILL(id), reminder ? { reminder } : {}, { showError: true, ...options }),
 
   // Undo a discharge so the admission can be corrected. 400s once paid.
+  /**
+   * Move an admission BACKWARDS and re-price the stay.
+   *
+   * ⚠️ Always call it with `preview: true` first and show the delta. This is a
+   * money operation — the server bills the added nights and days of food — and
+   * it REFUSES outright on a settled visit, with the amount in the message.
+   */
+  backdate: async (
+    id: string | number,
+    body: { admittedAt: string; reason?: string; moveVisitDate?: boolean },
+    preview = false,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<InpatientBackdate>> =>
+    post(`${ENDPOINTS.INPATIENT.BACKDATE(id)}${preview ? '?preview=1' : ''}`, body, { showError: !preview, ...options }),
+
   reopen: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<any>> =>
     post(ENDPOINTS.INPATIENT.REOPEN(id), {}, { showError: true, ...options }),
 

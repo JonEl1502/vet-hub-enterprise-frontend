@@ -1,10 +1,10 @@
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import { dialog } from '../../../services/utils/dialog';
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2, Trash2, Receipt, Pencil, X, RotateCcw} from 'lucide-react';
+import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2, Trash2, Receipt, Pencil, X, RotateCcw, CalendarClock, AlertTriangle} from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import TreatmentPlanPanel from './TreatmentPlanPanel';
-import { inpatientAPI, Hospitalization, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
+import { inpatientAPI, Hospitalization, InpatientBackdate, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import { formatDate, formatTime, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import StayChargeCard from '../shared/StayChargeCard';
@@ -20,6 +20,17 @@ import { useClinic } from '../../../contexts/ClinicContext';
 
 const FRACTIONAL_UNITS = new Set(['ml', 'mg', 'g', 'l', 'cc', 'mcg', 'iu']);
 const stepFor = (unit?: string) => (unit && FRACTIONAL_UNITS.has(unit.toLowerCase()) ? 0.1 : 1);
+
+/**
+ * `datetime-local` speaks LOCAL wall-clock, so `toISOString().slice(0,16)` is
+ * wrong by the UTC offset — in Nairobi that reads back three hours earlier and
+ * a back-date to 09:00 would silently become 06:00, crossing a day boundary at
+ * either end of the stay and changing what is billed.
+ */
+const toLocalInput = (d: Date) => {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
+};
 
 interface Props {
   hospId: string; onBack: () => void; onChanged?: () => void; onOpenAppointment?: (appointmentId: string, settle?: boolean) => void;
@@ -105,6 +116,13 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   const [drugQty, setDrugQty] = useState<number>(1);
   const [drugBillable, setDrugBillable] = useState(true);
   const resetDrug = () => { setDrugItem(null); setDrugQty(1); setDrugBillable(true); };
+  // Back-date (Westlands Vets, 2026-08-28) — see `backdate` in inpatient.service.
+  const [showBackdate, setShowBackdate] = useState(false);
+  const [backdateAt, setBackdateAt] = useState('');
+  const [backdateReason, setBackdateReason] = useState('');
+  const [backdatePreview, setBackdatePreview] = useState<InpatientBackdate | null>(null);
+  const [backdateError, setBackdateError] = useState<string | null>(null);
+  const [backdateBusy, setBackdateBusy] = useState(false);
   const [showDischarge, setShowDischarge] = useState(false);
   const [showDischargeGate, setShowDischargeGate] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -469,6 +487,61 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
    * the visit is PAID — that is the `BILLED ⇒ RECORD LOCKED` rule, and the way
    * past it is voiding the payment, deliberately not this button.
    */
+  // ------------------------------------------------------------- back-date
+  // Opening the dialog seeds YESTERDAY, not the current date: the field exists
+  // to move the admission earlier, and a picker that opens on a value the
+  // server will reject ("pick a date BEFORE...") teaches nothing.
+  const openBackdate = useCallback(() => {
+    if (!h) return;
+    const seed = new Date(h.admittedAt);
+    seed.setDate(seed.getDate() - 1);
+    setBackdateAt(toLocalInput(seed));
+    setBackdateReason('');
+    setBackdatePreview(null);
+    setBackdateError(null);
+    setShowBackdate(true);
+  }, [h]);
+
+  // Price the change as the date is typed. `preview: true` writes nothing —
+  // and it runs the SAME guards as the real call, so a settled bill or an
+  // out-of-range date is refused here, with its reason, before anyone commits.
+  useEffect(() => {
+    if (!showBackdate || !backdateAt) { setBackdatePreview(null); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await inpatientAPI.backdate(hospId, { admittedAt: new Date(backdateAt).toISOString() }, true);
+        if (cancelled) return;
+        if (res.success && res.data) { setBackdatePreview(res.data); setBackdateError(null); }
+      } catch (e: any) {
+        if (cancelled) return;
+        setBackdatePreview(null);
+        setBackdateError(e?.message || 'That date cannot be used');
+      }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [showBackdate, backdateAt, hospId]);
+
+  const applyBackdate = useCallback(async () => {
+    if (!backdateAt || !backdateReason.trim()) return;
+    setBackdateBusy(true);
+    try {
+      const res = await inpatientAPI.backdate(hospId, {
+        admittedAt: new Date(backdateAt).toISOString(),
+        reason: backdateReason.trim(),
+        moveVisitDate: true,
+      });
+      if (res.success && res.data) {
+        toast.success(`Admission back-dated — ${res.data.nightsBefore} → ${res.data.nightsAfter} nights`);
+        setShowBackdate(false);
+        await load();
+        onChanged?.();
+      }
+    } catch (e: any) {
+      setBackdateError(e?.message || 'Failed to back-date');
+    } finally { setBackdateBusy(false); }
+  }, [hospId, backdateAt, backdateReason, load, onChanged]);
+
   const reopenAdmission = useCallback(async () => {
     const ok = await dialog.confirm({
       title: 'Reopen this admission?',
@@ -538,6 +611,17 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
         condensedMeta={h ? `${h.cage ? `· Cage ${h.cage}` : ''} ${h.inpatientNo || ''}` : ''}
         subtitle={h ? `${h.cage ? `Cage ${h.cage} · ` : ''}${h.inpatientNo || ''} · ${h.diagnosis || 'No diagnosis'}` : undefined}
         right={<>
+          {/* BACK-DATE (Westlands Vets, 2026-08-28) — the patient was admitted
+              days before anyone opened a chart. Hidden once the bill is
+              SETTLED, the same rule the reopen bar uses: the server refuses
+              there, so offering the button would be a dead end. */}
+          {h && !h.billing?.isPaid && (
+            <button onClick={openBackdate}
+              title="Move this admission to an earlier start date and re-price the stay"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/15 border border-white/20 text-white text-[9px] font-black uppercase tracking-widest hover:bg-white/25 transition-colors">
+              <CalendarClock size={12} /> Back-date
+            </button>
+          )}
           {/* RUNNING TOTAL — stay + food + consumables, every day, in one place.
               The per-day line already showed "stay X + items Y" but only for
               the day you were looking at, and the rail's accrual covered the
@@ -1364,6 +1448,106 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
               ]}
             />
           </>
+        );
+      })()}
+
+      {/* BACK-DATE DIALOG.
+          Money, not a date field: the server bills the added nights and days of
+          food, and the nightly `stayAccrual` cron would reach the same figure
+          within a day even if this did not. So the delta is priced live and
+          shown BEFORE the confirm, and the reason is required — a bill that
+          grew by 7,000 must carry the sentence explaining why. */}
+      {showBackdate && h && (() => {
+        const money = (n: number) => `KES ${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+        const pv = backdatePreview;
+        const ready = !!backdateAt && !!backdateReason.trim() && !!pv && !backdateError;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={() => !backdateBusy && setShowBackdate(false)}>
+            <div onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5"><CalendarClock size={13} /> Back-date admission</p>
+                  <p className="text-sm font-black text-pine dark:text-zinc-100 mt-0.5">{h.pet?.name} · {h.inpatientNo || 'No inpatient no.'}</p>
+                </div>
+                <button onClick={() => setShowBackdate(false)} disabled={backdateBusy}
+                  className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50"><X size={15} /></button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="field-label">Currently admitted</label>
+                  <p className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 py-2.5">
+                    {formatDate(h.admittedAt)} · {formatTime(h.admittedAt)}
+                  </p>
+                </div>
+                <div>
+                  <label className="field-label">New start date *</label>
+                  <input type="datetime-local" className="field-input" value={backdateAt}
+                    max={toLocalInput(new Date(h.admittedAt))}
+                    onChange={(e) => setBackdateAt(e.target.value)} />
+                </div>
+              </div>
+
+              {backdateError && (
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50">
+                  <AlertTriangle size={14} className="text-rose-500 shrink-0 mt-0.5" />
+                  <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 leading-relaxed">{backdateError}</p>
+                </div>
+              )}
+
+              {pv && (
+                <div className="rounded-xl bg-slate-50 dark:bg-zinc-950/40 border border-slate-200 dark:border-zinc-800 p-3 space-y-1.5 text-[11px]">
+                  <div className="flex justify-between font-bold text-slate-500 dark:text-zinc-400">
+                    <span>Nights</span><span className="font-mono">{pv.nightsBefore} → {pv.nightsAfter} <span className="text-amber-600">(+{pv.nightsAdded})</span></span>
+                  </div>
+                  <div className="flex justify-between font-bold text-slate-500 dark:text-zinc-400">
+                    <span>Stay @ {money(pv.dailyRate)}/day</span><span className="font-mono">{money(pv.stayBefore)} → {money(pv.stayAfter)}</span>
+                  </div>
+                  {pv.perDayFood > 0 && (
+                    <div className="flex justify-between font-bold text-slate-500 dark:text-zinc-400">
+                      <span>Food</span><span className="font-mono">{money(pv.foodBefore)} → {money(pv.foodAfter)}</span>
+                    </div>
+                  )}
+                  {pv.visitTotalBefore != null && (
+                    <div className="flex justify-between font-black text-pine dark:text-zinc-100 text-sm pt-1.5 border-t border-slate-200 dark:border-zinc-800">
+                      <span>Visit total</span>
+                      <span className="font-mono">{money(pv.visitTotalBefore)} → {money(pv.visitTotalAfter ?? 0)}</span>
+                    </div>
+                  )}
+                  {/* An admission nobody priced back-dates for free. Saying so
+                      beats a confident "+0" that reads like a broken preview. */}
+                  {!pv.priced ? (
+                    <p className="text-[10px] font-bold text-slate-400 pt-1">
+                      No daily rate and no food program on this admission — back-dating moves the record, not the bill.
+                    </p>
+                  ) : (
+                    <p className="text-[10px] font-black text-amber-600 pt-1">
+                      The client will be billed {money(pv.difference)} more.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="field-label">Why is this being back-dated? *</label>
+                <textarea className="field-textarea" rows={2} value={backdateReason}
+                  onChange={(e) => setBackdateReason(e.target.value)}
+                  placeholder="Admitted Thursday evening, chart only opened on Monday" />
+                <p className="text-[9px] text-slate-400 mt-1">Written to the daily sheet with the old and new dates — this changes what the client is billed.</p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button onClick={() => setShowBackdate(false)} disabled={backdateBusy}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-200 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50">Cancel</button>
+                <button onClick={applyBackdate} disabled={!ready || backdateBusy}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-seafoam text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95 disabled:opacity-50">
+                  {backdateBusy ? <Loader2 size={13} className="animate-spin" /> : <CalendarClock size={13} />} Back-date &amp; re-price
+                </button>
+              </div>
+            </div>
+          </div>
         );
       })()}
 
