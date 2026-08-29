@@ -897,6 +897,19 @@ body {
   border-color: var(--sp-accent);
   box-shadow: 0 0 0 3px var(--sp-accent-soft);
 }
+/* The scan/search field. It is the busiest control in the app and was reading
+ * as a plain grey box among plain white cards. */
+.supplier-pos .sp-input-scan {
+  box-shadow:
+    0 1px 2px rgba(16, 21, 28, 0.04),
+    0 8px 20px -14px rgba(16, 21, 28, 0.4);
+  font-weight: 600;
+}
+.supplier-pos .sp-input-scan:focus {
+  box-shadow:
+    0 0 0 3px var(--sp-accent-soft),
+    0 8px 20px -14px rgba(16, 21, 28, 0.4);
+}
 
 /* ── Chips (categories + smart filters) ──────────────────────────────── */
 .supplier-pos .sp-chip {
@@ -972,6 +985,68 @@ body {
   font-weight: 800;
   letter-spacing: 0.02em;
   text-transform: uppercase;
+}
+
+/* ── The scan FAB ─────────────────────────────────────────────────────────
+ * Sits above the cart bar when there is one, and above the tab bar when there
+ * is not, so it never covers the running total. The offsets are variables so
+ * the two states are one rule rather than two.
+ * `--sp-fab-lift` is set inline by PosSellView's parent when the cart bar
+ * shows; it defaults to the tab bar height alone. */
+.supplier-pos .sp-fab {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--sp-accent);
+  color: var(--sp-accent-ink);
+  z-index: 30;
+  /* A double shadow so it reads as floating ABOVE the grid rather than as
+   * another tile that happens to be round. */
+  box-shadow:
+    0 4px 10px -2px rgba(16, 21, 28, 0.28),
+    0 14px 30px -8px color-mix(in srgb, var(--sp-accent) 70%, transparent);
+  transition: transform 0.1s ease, box-shadow 0.15s ease;
+}
+.supplier-pos .sp-fab:active { transform: scale(0.93); }
+
+/* The FAB floats OVER the grid, so the last row has to be able to scroll out
+ * from under it — otherwise the bottom-right product is permanently half
+ * covered and simply cannot be tapped. Only where the FAB exists. */
+.supplier-pos .sp-grid-scroll { padding-bottom: 5.5rem; }
+
+/* ⚠️ The FAB is hidden HERE, not with Tailwind's `lg:hidden` on the element.
+ * `.supplier-pos .sp-fab` sets `display: flex` at specificity (0,2,0) and
+ * `.lg\:hidden` is (0,1,0) — so the utility lost and a camera button sat on
+ * top of the grid on every desktop. A desk has a laser scanner pointed at the
+ * search field and no use for one. */
+@media (min-width: 1024px) {
+  .supplier-pos .sp-fab { display: none; }
+  .supplier-pos .sp-grid-scroll { padding-bottom: 0.75rem; }
+}
+
+/* The reticle's travelling line — the one piece of motion in the whole till,
+ * and it earns its place: it says "this is live" while nothing is decoding. */
+.supplier-pos .sp-scanline {
+  position: absolute;
+  left: 6%;
+  right: 6%;
+  height: 2px;
+  border-radius: 2px;
+  background: linear-gradient(to right, transparent, #5fe0b0, transparent);
+  animation: sp-scan 2s ease-in-out infinite;
+}
+@keyframes sp-scan {
+  0%, 100% { top: 12%; opacity: 0.2; }
+  50%      { top: 84%; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .supplier-pos .sp-scanline { animation: none; top: 50%; }
 }
 
 /* ── Numbers ──────────────────────────────────────────────────────────

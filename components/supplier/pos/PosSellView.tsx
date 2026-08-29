@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X, ScanLine } from 'lucide-react';
+import PosScanner from './PosScanner';
 import type { PosController } from './usePos';
 import type { PosProduct } from '../../../services';
 import { categoryTheme } from './categoryTheme';
@@ -42,6 +43,7 @@ const PosSellView: React.FC<Props> = ({ pos }) => {
   const [tab, setTab] = useState<string>('all');
   const [query, setQuery] = useState('');
   const [flash, setFlash] = useState<{ text: string; bad?: boolean } | null>(null);
+  const [scannerOpen, setScannerOpen] = useState(false);
   const scanRef = useRef<HTMLInputElement>(null);
 
   /**
@@ -67,6 +69,17 @@ const PosSellView: React.FC<Props> = ({ pos }) => {
   const say = (text: string, bad?: boolean) => {
     setFlash({ text, bad });
     window.setTimeout(() => setFlash((f) => (f?.text === text ? null : f)), 2500);
+  };
+
+  /**
+   * A camera read goes through the SAME `pos.scan` as a typed code or a laser
+   * scanner's keystrokes. One path means the cart, the stock check and the
+   * "out of stock" message can never disagree by input method.
+   */
+  const onCameraDetected = async (code: string) => {
+    const res = await pos.scan(code);
+    say(res.ok ? `Added ${res.message}` : res.message || 'Not found', !res.ok);
+    return res.ok;
   };
 
   const onScanSubmit = async (e: React.FormEvent) => {
@@ -118,7 +131,7 @@ const PosSellView: React.FC<Props> = ({ pos }) => {
   }, [products, query, tab, stats]);
 
   return (
-    <div className="flex flex-col h-full min-h-0">
+    <div className="relative flex flex-col h-full min-h-0">
       {/* Scan + search. One field: a scanner is a keyboard, so the thing the
           cashier types into and the thing the scanner types into are the same. */}
       <div className="px-3 lg:px-5 pt-3 pb-2 shrink-0">
@@ -132,7 +145,7 @@ const PosSellView: React.FC<Props> = ({ pos }) => {
             ref={scanRef}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            className="sp-input pl-10 pr-10"
+            className="sp-input sp-input-scan pl-10 pr-12"
             placeholder="Scan a barcode, or search"
             autoComplete="off"
             enterKeyHint="search"
@@ -148,11 +161,15 @@ const PosSellView: React.FC<Props> = ({ pos }) => {
               <X size={16} style={{ color: 'var(--sp-muted)' }} />
             </button>
           ) : (
-            <ScanLine
-              size={17}
-              className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none"
+            <button
+              type="button"
+              onClick={() => setScannerOpen(true)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 w-9 h-9 rounded-lg flex items-center justify-center"
               style={{ color: 'var(--sp-muted)' }}
-            />
+              aria-label="Scan with the camera"
+            >
+              <ScanLine size={17} />
+            </button>
           )}
         </form>
         {flash && (
@@ -198,7 +215,7 @@ const PosSellView: React.FC<Props> = ({ pos }) => {
       </div>
 
       {/* The grid. 2 columns on a phone, more as the screen allows. */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 lg:px-5 pb-3">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 lg:px-5 pb-3 sp-grid-scroll">
         {visible.length === 0 ? (
           <p className="text-center text-sm sp-muted py-16">
             {products.length === 0 ? 'Loading the catalogue…' : 'Nothing matches'}
@@ -223,6 +240,27 @@ const PosSellView: React.FC<Props> = ({ pos }) => {
           </div>
         )}
       </div>
+
+      {/* ── Scan FAB ────────────────────────────────────────────────────────
+          The thumb's home position on a phone is the bottom-right corner, and
+          scanning is the single most repeated action at a counter — so it gets
+          the one spot the hand reaches without regripping. Touch only: a desk
+          has a laser scanner pointed at the search field and no use for a
+          camera button in the way of the grid. */}
+      <button
+        onClick={() => setScannerOpen(true)}
+        className="sp-fab"
+        aria-label="Scan a barcode with the camera"
+      >
+        <ScanLine size={23} strokeWidth={2.3} />
+      </button>
+
+      <PosScanner
+        open={scannerOpen}
+        onClose={() => setScannerOpen(false)}
+        onDetected={onCameraDetected}
+        onTypeInstead={() => scanRef.current?.focus()}
+      />
     </div>
   );
 };
@@ -294,7 +332,7 @@ const Tile: React.FC<{
             aria-hidden="true"
             title={p.category}
           >
-            {theme.glyph}
+            <theme.Icon size={17} strokeWidth={2.1} />
           </span>
         )}
 
