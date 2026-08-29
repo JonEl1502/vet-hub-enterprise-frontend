@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus, Sprout,
   Settings, LogOut, Sun, Moon, Monitor, ChevronDown, Sparkles,
@@ -32,7 +32,38 @@ const ClientLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { invoices, messages } = useClientPortal();
   const navigate = useNavigate();
-  const { mode, setMode, canSwitch, holdings } = usePortalMode();
+  const { mode, setMode, canSwitch, holdings, loading: modeLoading } = usePortalMode();
+  const { pathname } = useLocation();
+
+  /**
+   * Keep the ROUTE and the MODE agreeing — they could not, before this.
+   *
+   * The switcher navigates when you click it, but nothing reconciled the two on
+   * a fresh load. A farmer with no pets therefore opened the app to the FARM
+   * chip lit, the farm nav rendered, and the PET dashboard underneath it saying
+   * "here's what's happening with your pets" over "0 Pets". Three parts of one
+   * screen disagreeing about who the user is.
+   *
+   * The rule is deliberately asymmetric, because the two kinds of route carry
+   * different amounts of intent:
+   *
+   * · `/client` is the HOME route and belongs to whichever mode is current — so
+   *   it follows the mode.
+   * · `/client/pets` or `/client/farm` are SPECIFIC. Someone who asked for that
+   *   page means it, and the mode should follow the ROUTE instead. That also
+   *   makes a bookmark, a back button and a deep link behave, none of which
+   *   know anything about a mode stored in localStorage.
+   */
+  useEffect(() => {
+    if (modeLoading) return;
+    if (pathname === '/client' && mode === 'FARM') {
+      navigate('/client/farm', { replace: true });
+    } else if (pathname.startsWith('/client/pets') && mode === 'FARM' && holdings?.hasPets) {
+      setMode('PETS');
+    } else if (pathname.startsWith('/client/farm') && mode === 'PETS' && holdings?.canUseFarmMode) {
+      setMode('FARM');
+    }
+  }, [pathname, mode, modeLoading, holdings, navigate, setMode]);
   const { mode: theme, setMode: setTheme } = useThemeMode();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -251,7 +282,15 @@ const ClientLayout: React.FC = () => {
             the guard that makes a sideways-scrolling page impossible rather
             than merely unlikely. */}
         <main className="flex-1 min-w-0 overflow-x-clip p-3 sm:p-4 lg:py-4 lg:pl-3 lg:pr-4 pb-24 md:pb-6">
-          <Outlet />
+          {/* ⚠️ Hold the HOME route until the mode is known. Without this a
+              farmer sees "here's what's happening with your pets" flash on
+              every single app open, because the pet dashboard renders while
+              holdings are still in flight and only then gets redirected away.
+              Only `/client` is held — every other route is already unambiguous
+              and must not be delayed. */}
+          {modeLoading && pathname === '/client'
+            ? <div className="cp-card px-5 py-12 text-center text-sm text-slate-400">Loading…</div>
+            : <Outlet />}
         </main>
       </div>
 
