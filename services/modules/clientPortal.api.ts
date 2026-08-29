@@ -625,6 +625,18 @@ export const clientPortalAPI = {
   searchFarmVendors: (q: string, options?: RequestOptions): Promise<ApiResponse<{ vendors: PortalVendor[] }>> =>
     get(`/portal/me/farm-vendors?q=${encodeURIComponent(q)}`, { cache: false, silent: true, ...options }),
 
+  /**
+   * Clinics a farm may be connected to — ONLY those holding the Farms add-on.
+   * `filtered` counts the ones that matched the search but cannot take farms,
+   * so the UI can say so rather than let a farmer conclude their vet is absent.
+   */
+  farmClinicOptions: (q: string, options?: RequestOptions): Promise<ApiResponse<{ clinics: PortalClinic[]; filtered: number }>> =>
+    get(`/portal/me/farm-clinics?q=${encodeURIComponent(q)}`, { cache: false, silent: true, ...options }),
+
+  /** Connect a farm to a clinic, or pass null to disconnect. */
+  setFarmClinic: (farmId: string, clinicId: string | null, options?: RequestOptions): Promise<ApiResponse<{ linkedClinicId: string | null; clinic: { id: string; name: string; logo: string | null } | null }>> =>
+    patch(`/portal/me/farms/${farmId}/clinic`, { clinicId }, { showError: true, ...options }),
+
   /** A farmer adds their own farm — what makes the ladder's farm counts real. */
   createMyFarm: (data: { name: string; farmType?: string; county?: string; location?: string; sizeAcres?: number; notes?: string }, options?: RequestOptions): Promise<ApiResponse<{ farm: PortalFarm }>> =>
     post('/portal/me/farms', data, { showError: true, ...options }),

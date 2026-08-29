@@ -13,12 +13,12 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Sprout, Milk, Wheat, Check, Loader2, CalendarClock, AlertTriangle, Plus, MapPin, Siren, Pencil } from 'lucide-react';
+import { Sprout, Milk, Wheat, Check, Loader2, CalendarClock, AlertTriangle, Plus, MapPin, Siren, Pencil, Building2, Search, X } from 'lucide-react';
 import {
   clientPortalAPI,
   type PortalFarm, type PortalFeedingPlan, type PortalProduceSchedule,
   type PortalProduceRecord, type PortalAnimalGroup, type PortalCropPlot,
-  type PortalFarmVisitRequest, type PortalHoldings,
+  type PortalFarmVisitRequest, type PortalHoldings, type PortalClinic,
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
@@ -56,6 +56,12 @@ const ClientFarms: React.FC = () => {
   // 262 — which farm product this account is on. 'BASIC' is the free record
   // book; 'FULL' additionally has feeding plans, crops and the vet link.
   const [holdings, setHoldings] = useState<PortalHoldings | null>(null);
+  // Connecting a farm to a clinic (user, 2026-08-29).
+  const [clinicOpen, setClinicOpen] = useState(false);
+  const [clinicQ, setClinicQ] = useState('');
+  const [clinicOpts, setClinicOpts] = useState<PortalClinic[]>([]);
+  const [clinicFiltered, setClinicFiltered] = useState(0);
+  const [clinicSearching, setClinicSearching] = useState(false);
   const tier = holdings?.farmTier ?? 'BASIC';
   const isFull = tier === 'FULL';
   const [newFarmName, setNewFarmName] = useState('');
@@ -179,6 +185,40 @@ const ClientFarms: React.FC = () => {
     } finally { setSaving(false); }
   };
 
+  /**
+   * ⚠️ Only clinics holding the Farms add-on are offered, and the server
+   * refuses the rest on the way in too. A link to a clinic without it is a DEAD
+   * relationship — the clinic-side livestock module is itself gated, so they
+   * could never open the farm or receive the visit request the farmer thought
+   * they had sent.
+   */
+  useEffect(() => {
+    if (!clinicOpen) return;
+    const q = clinicQ.trim();
+    if (q.length < 2) { setClinicOpts([]); setClinicFiltered(0); return; }
+    setClinicSearching(true);
+    const id = setTimeout(() => {
+      clientPortalAPI.farmClinicOptions(q)
+        .then((r) => {
+          if (r.success && r.data) { setClinicOpts(r.data.clinics); setClinicFiltered(r.data.filtered); }
+        })
+        .finally(() => setClinicSearching(false));
+    }, 300);
+    return () => clearTimeout(id);
+  }, [clinicQ, clinicOpen]);
+
+  const connectClinic = async (clinicId: string | null) => {
+    setSaving(true);
+    try {
+      const r = await clientPortalAPI.setFarmClinic(activeId, clinicId);
+      if (r.success) {
+        toast.success(clinicId ? 'Clinic connected' : 'Clinic disconnected');
+        setClinicOpen(false); setClinicQ(''); setClinicOpts([]);
+        await loadFarms();
+      }
+    } finally { setSaving(false); }
+  };
+
   const fedToday = (d: string | null) => !!d && new Date(d).toDateString() === new Date().toDateString();
   const isDue = (d: string | null) => !!d && new Date(d).getTime() <= Date.now();
   const active = farms.find((f) => f.id === activeId);
@@ -273,11 +313,28 @@ const ClientFarms: React.FC = () => {
                 </p>
               )}
             </div>
-            {active.clinic && (
-              <span className="shrink-0 text-[10px] text-slate-400 text-right">
-                Cared for by<br /><span className="font-bold text-slate-600">{active.clinic.name}</span>
-              </span>
-            )}
+            {/* The clinic link is now something the FARMER controls. It used to
+                be read-only text, which meant an owner-created farm — the whole
+                point of the free tier — could never reach a vet at all. */}
+            <button
+              type="button"
+              onClick={() => { setClinicOpen(true); setClinicQ(''); }}
+              className="shrink-0 text-right group"
+              title={active.clinic ? 'Change or remove the clinic' : 'Connect a clinic'}
+            >
+              {active.clinic ? (
+                <>
+                  <span className="block text-[10px] text-slate-400">Cared for by</span>
+                  <span className="text-[11px] font-bold text-slate-600 dark:text-zinc-300 group-hover:text-pine flex items-center gap-1 justify-end">
+                    {active.clinic.name} <Pencil size={9} className="opacity-50" />
+                  </span>
+                </>
+              ) : (
+                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest cp-accent-text">
+                  <Building2 size={11} /> Connect a clinic
+                </span>
+              )}
+            </button>
           </div>
           {/* ⚠️ These used to be a full-width 3-up grid, which on a desktop put
               a metre of empty space between "79 HEAD" and "0 PLOTS". They are
@@ -533,6 +590,79 @@ const ClientFarms: React.FC = () => {
             ))}
           </div>
         </section>
+      )}
+
+      {clinicOpen && (
+        <CpModal title="Your clinic" onClose={() => setClinicOpen(false)}>
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500 leading-relaxed">
+              A connected clinic can see this farm's herds and records, and you can request farm
+              visits from them.
+            </p>
+
+            {active?.clinic && (
+              <div className="cp-card p-3 flex items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-slate-800 dark:text-zinc-100 truncate">{active.clinic.name}</p>
+                  <p className="text-[10px] text-slate-400">Connected</p>
+                </div>
+                <button
+                  className="shrink-0 px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-rose-600 hover:border-rose-200 flex items-center gap-1"
+                  onClick={() => connectClinic(null)}
+                  disabled={saving}
+                >
+                  <X size={11} /> Remove
+                </button>
+              </div>
+            )}
+
+            <div>
+              <label className="cp-label flex items-center gap-1"><Search size={11} /> Find a clinic</label>
+              <input
+                className="cp-input w-full"
+                placeholder="Clinic name or town"
+                value={clinicQ}
+                onChange={(e) => setClinicQ(e.target.value)}
+                autoFocus
+              />
+            </div>
+
+            {clinicSearching && <p className="text-[11px] text-slate-400">Searching…</p>}
+
+            {clinicOpts.length > 0 && (
+              <div className="cp-card overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
+                {clinicOpts.map((c) => (
+                  <button
+                    key={c.id}
+                    className="w-full text-left px-3.5 py-2.5 hover:bg-slate-50 dark:hover:bg-white/[0.03] disabled:opacity-50"
+                    onClick={() => connectClinic(c.id)}
+                    disabled={saving || c.id === active?.clinic?.id}
+                  >
+                    <p className="text-sm font-bold text-slate-800 dark:text-zinc-100 truncate">{c.name}</p>
+                    <p className="text-[10px] text-slate-400 truncate">
+                      {[c.city, c.phone].filter(Boolean).join(' · ') || 'Offers farm services'}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {clinicQ.trim().length >= 2 && !clinicSearching && clinicOpts.length === 0 && (
+              <p className="text-xs text-slate-500">No clinic here offers farm services yet.</p>
+            )}
+
+            {/* ⚠️ Say WHY a clinic is missing. Without this a farmer whose own
+                vet is on VetHub — but without the Farms add-on — searches, sees
+                nothing, and concludes the app does not know them. */}
+            {clinicFiltered > 0 && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 leading-relaxed">
+                {clinicFiltered} other {clinicFiltered === 1 ? 'clinic matches' : 'clinics match'} your
+                search but {clinicFiltered === 1 ? 'does' : 'do'} not offer farm services on VetHub yet.
+                Ask them to add Farms to their plan and they will show up here.
+              </p>
+            )}
+          </div>
+        </CpModal>
       )}
 
       {requesting && (
