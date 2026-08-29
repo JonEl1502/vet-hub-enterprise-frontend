@@ -22,6 +22,13 @@ export interface PlanAccess {
   packageName?: string | null;
   tier?: number | null;
   graceFullAccessUntil?: string | null;
+  /**
+   * When the free trial runs out. Both the clinic and the supplier access
+   * endpoints return it; it used to be dropped on the way into context, which
+   * is why a supplier on a 40-day demo trial was described as being on a free
+   * plan with nothing running out.
+   */
+  trialEndsAt?: string | null;
   /** Active add-ons layering over the base plan (e.g. AI Assist). */
   addOns?: Array<{ name: string | null; expiresAt: string }>;
 }
@@ -39,13 +46,28 @@ export interface PlanAccess {
  * free plan they did not choose. The difference is whether a package name came
  * back with the locked state.
  */
+export function trialDaysLeft(access: PlanAccess | null): number | null {
+  if (!access?.trialEndsAt) return null;
+  const ms = new Date(access.trialEndsAt).getTime() - Date.now();
+  if (Number.isNaN(ms)) return null;
+  // Round UP: with 6 hours left a supplier has "1 day", not "0 days", and a
+  // countdown that reads zero while access still works is a support ticket.
+  return Math.max(0, Math.ceil(ms / 86_400_000));
+}
+
 export function planLabel(access: PlanAccess | null): {
   text: string;
   tone: 'neutral' | 'trial' | 'warn';
 } {
   if (!access) return { text: 'Free plan', tone: 'neutral' };
 
-  if (access.state === 'TRIAL') return { text: 'Free trial', tone: 'trial' };
+  if (access.state === 'TRIAL') {
+    const days = trialDaysLeft(access);
+    // An open-ended trial has no countdown worth showing — see
+    // OPEN_ENDED_TRIAL_DAYS for why those exist.
+    if (days == null || isOpenEndedTrial(days)) return { text: 'Free trial', tone: 'trial' };
+    return { text: `Free trial — ${days} day${days === 1 ? '' : 's'} left`, tone: 'trial' };
+  }
 
   if (access.packageName) {
     return access.state === 'LOCKED'

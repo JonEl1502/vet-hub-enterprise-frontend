@@ -82,6 +82,9 @@ export const PlanAccessProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             featureKeys: r.data.featureKeys ?? [],
             packageName: r.data.packageName ?? null,
             tier: r.data.tier ?? null,
+            // Both access endpoints return this; it was being dropped here, so
+            // a trial could never be shown as a trial with a countdown.
+            trialEndsAt: (r.data as any).trialEndsAt ?? null,
             graceFullAccessUntil: (r.data as any).graceFullAccessUntil ?? null,
             addOns: (r.data as any).addOns ?? [],
           });
