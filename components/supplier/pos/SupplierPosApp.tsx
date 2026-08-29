@@ -152,29 +152,28 @@ const SupplierPosApp: React.FC = () => {
   }
 
   /**
-   * The way back to the portal — offered to whoever runs the shop, withheld
-   * from a CASHIER. A till left unattended should not be one tap from the
-   * catalogue, the pricing and the order book; the same reason the Shower to
-   * Shower POS hides its back-office link from cashiers.
+   * The way back to the portal — shown to EVERYONE, cashiers included.
    *
-   * ⚠️ This is presentation only. The portal's own routes do their own
-   * checking — hiding a link is not access control.
+   * ⚠️ This was hidden from cashiers for one release and that was wrong twice
+   * over. It trapped them: the only other control on the rail is Sign out, so a
+   * cashier who opened the till had no way back to their own shop. And it was
+   * pretending to be a permission — the portal is a URL anyone can type, so
+   * hiding the button protected nothing while making the real hole harder to
+   * see. What actually protects the catalogue, the staff list and the
+   * subscription is `requireSupplierRole` on those routes, which is where it
+   * belongs.
    */
-  const canLeaveTill = pos.till?.supplierRole !== 'CASHIER';
-
   const identity = (
     <>
-      {canLeaveTill && (
-        <button
-          onClick={() => navigate('/')}
-          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-          style={{ color: 'rgba(242,245,249,0.55)' }}
-          aria-label="Back to the supplier portal"
-          title="Back to the supplier portal"
-        >
-          <LayoutGrid size={16} />
-        </button>
-      )}
+      <button
+        onClick={() => navigate('/')}
+        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+        style={{ color: 'rgba(242,245,249,0.55)' }}
+        aria-label="Back to the supplier portal"
+        title="Back to the supplier portal"
+      >
+        <LayoutGrid size={16} />
+      </button>
       <div
         className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
         style={{ background: 'var(--sp-accent)', color: 'var(--sp-accent-ink)' }}
