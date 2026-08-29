@@ -382,10 +382,20 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
           phone order stays untouched: a `row-span-2` rail would otherwise have
           to be moved above `Recent` in the markup and would then render in the
           wrong place on mobile. */}
-      <div className="grid gap-4 lg:gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+      {/* ⚠️ `grid-cols-1` is LOAD-BEARING and is why this scrolled sideways on a
+          phone. Without an explicit mobile track, `grid-template-columns` is
+          `none`, so items land in an IMPLICIT column sized `auto` — and an
+          `auto` track's maximum is **max-content**, which (unlike `1fr`) is NOT
+          clamped to the container. The Record section's max-content is both
+          hint strings unwrapped side by side ("What came off the farm, and what
+          you sold it for" …), about 500px, so the track grew past a 366px
+          content box and every child overflowed with it.
+          Tailwind's `grid-cols-1` is `repeat(1, minmax(0, 1fr))` — the
+          `minmax(0, …)` is the part that fixes it. */}
+      <div className="grid grid-cols-1 gap-4 lg:gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
 
       {/* ── The four actions ─────────────────────────────────────────────── */}
-      <section className="lg:col-start-1 lg:row-start-1">
+      <section className="min-w-0 lg:col-start-1 lg:row-start-1">
         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Record</h3>
         {/* 2-up on a phone, 4-up from `md`. At full width each of these was a
             ~700px slab for a one-line action. */}
@@ -405,7 +415,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
       </section>
 
       {/* ── The herd — the standing rail on desktop ──────────────────────── */}
-      <section className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-20">
+      <section className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-20">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">
             My animals
@@ -481,7 +491,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
       </section>
 
       {/* ── What has been recorded ───────────────────────────────────────── */}
-      <section className="lg:col-start-1 lg:row-start-2">
+      <section className="min-w-0 lg:col-start-1 lg:row-start-2">
         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Recent</h3>
         {entries.length === 0 ? (
           <div className="cp-card text-center px-5 py-6 text-xs text-slate-400">
