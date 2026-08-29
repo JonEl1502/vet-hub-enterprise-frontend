@@ -10,6 +10,7 @@ import PosTender from './PosTender';
 import PosReceipt from './PosReceipt';
 import PosSales from './PosSales';
 import PosShiftView from './PosShift';
+import PosSaleDetail from './PosSaleDetail';
 
 /**
  * The till, whole.
@@ -66,6 +67,10 @@ const SupplierPosApp: React.FC = () => {
   const [cartOpen, setCartOpen] = useState(false);
   const [lastSale, setLastSale] = useState<any>(null);
   const [changeDue, setChangeDue] = useState<number | undefined>(undefined);
+  /** The sale being read on the Sales tab. Null = the list. */
+  const [openSaleId, setOpenSaleId] = useState<string | null>(null);
+  /** Bumped after a void so the list re-reads without the cashier tapping refresh. */
+  const [salesVersion, setSalesVersion] = useState(0);
 
   if (pos.phase === 'loading') {
     return (
@@ -98,7 +103,37 @@ const SupplierPosApp: React.FC = () => {
 
   const newSale = () => { setLastSale(null); setChangeDue(undefined); setStep('shopping'); };
 
-  // ── Phone: tender and receipt own the screen ───────────────────────────
+  const canVoid = pos.till?.supplierRole === 'OWNER' || pos.till?.supplierRole === 'MANAGER';
+
+  const afterVoid = () => {
+    setOpenSaleId(null);
+    setSalesVersion((v) => v + 1);
+    // Voiding puts stock back, so the grid behind is now wrong.
+    pos.reload({ silent: true });
+  };
+
+  const salesTab = (
+    <PosSales pos={pos} onOpenSale={setOpenSaleId} reloadKey={salesVersion} />
+  );
+
+  const saleDetail = openSaleId ? (
+    <PosSaleDetail
+      saleId={openSaleId}
+      currency={pos.currency}
+      canVoid={canVoid}
+      onBack={() => setOpenSaleId(null)}
+      onVoided={afterVoid}
+    />
+  ) : null;
+
+  // ── Phone: a sale, tender and receipt each own the screen ──────────────
+  if (!isDesktop && tab === 'sales' && saleDetail) {
+    return (
+      <div className="supplier-pos sp-root" style={{ height: '100dvh' }}>
+        {saleDetail}
+      </div>
+    );
+  }
   if (!isDesktop && step === 'tender') {
     return (
       <div className="supplier-pos sp-root" style={{ height: '100dvh' }}>
@@ -199,7 +234,7 @@ const SupplierPosApp: React.FC = () => {
             return (
               <button
                 key={t.id}
-                onClick={() => setTab(t.id)}
+                onClick={() => { setTab(t.id); setOpenSaleId(null); }}
                 className="w-[3.25rem] py-2.5 rounded-xl flex flex-col items-center gap-1 transition-colors"
                 style={{
                   background: on ? 'var(--sp-accent)' : 'transparent',
@@ -239,19 +274,24 @@ const SupplierPosApp: React.FC = () => {
           </header>
 
           {tab === 'sell' && <PosSellView pos={pos} />}
-          {tab === 'sales' && <PosSales pos={pos} />}
+          {tab === 'sales' && salesTab}
           {tab === 'shift' && <PosShiftView pos={pos} />}
         </main>
 
         {/* The rail. Cart, then tender, then receipt — the catalogue stays put
             behind all three, so an extra item at the last second costs one tap
             rather than backing out of a full-screen step. */}
-        {tab === 'sell' && (
+        {/* The rail carries the cart while selling, and the opened receipt while
+            reading the day back. The list stays visible beside it, so stepping
+            through several sales is one click each rather than a round trip. */}
+        {(tab === 'sell' || (tab === 'sales' && saleDetail)) && (
           <aside
             className="w-[24rem] xl:w-[26rem] shrink-0 flex flex-col border-l"
             style={{ borderColor: 'var(--sp-border)', background: 'var(--sp-surface)' }}
           >
-            {step === 'receipt' && lastSale ? (
+            {tab === 'sales' ? (
+              saleDetail
+            ) : step === 'receipt' && lastSale ? (
               <PosReceipt
                 sale={lastSale}
                 currency={pos.currency}
@@ -302,7 +342,7 @@ const SupplierPosApp: React.FC = () => {
 
       <div className="flex-1 min-h-0 flex flex-col">
         {tab === 'sell' && <PosSellView pos={pos} />}
-        {tab === 'sales' && <PosSales pos={pos} />}
+        {tab === 'sales' && salesTab}
         {tab === 'shift' && <PosShiftView pos={pos} />}
       </div>
 
@@ -344,7 +384,7 @@ const SupplierPosApp: React.FC = () => {
         {TABS.map((t) => (
           <button
             key={t.id}
-            onClick={() => setTab(t.id)}
+            onClick={() => { setTab(t.id); setOpenSaleId(null); }}
             /* 56px: a tab bar is hit with a thumb at arm's length, not a cursor. */
             className="flex-1 flex flex-col items-center justify-center gap-0.5 py-2"
             style={{

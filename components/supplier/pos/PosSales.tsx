@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshCw, Ban } from 'lucide-react';
+import { RefreshCw, ChevronRight } from 'lucide-react';
 import { supplierPosAPI, toast, type PosSaleSummary } from '../../../services';
 import type { PosController } from './usePos';
 
@@ -8,38 +8,31 @@ import type { PosController } from './usePos';
 const money = (n: number, currency: string) =>
   `${currency} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-const PosSales: React.FC<{ pos: PosController }> = ({ pos }) => {
+const PosSales: React.FC<{ pos: PosController; onOpenSale: (id: string) => void; reloadKey?: number }> = ({
+  pos,
+  onOpenSale,
+  reloadKey = 0,
+}) => {
   const [sales, setSales] = useState<PosSaleSummary[]>([]);
   const [loading, setLoading] = useState(true);
   // A cashier only ever has their own; a manager gets the whole branch.
-  const canVoid = pos.till?.supplierRole === 'OWNER' || pos.till?.supplierRole === 'MANAGER';
+  const isManager = pos.till?.supplierRole === 'OWNER' || pos.till?.supplierRole === 'MANAGER';
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await supplierPosAPI.listSales({ date: 'today', mine: !canVoid });
+      const res = await supplierPosAPI.listSales({ date: 'today', mine: !isManager });
       setSales(res.data.sales);
     } catch (e: any) {
       toast.error(e?.message || 'Could not load today’s sales');
     } finally {
       setLoading(false);
     }
-  }, [canVoid]);
+  }, [isManager]);
 
-  useEffect(() => { load(); }, [load]);
-
-  const voidSale = async (sale: PosSaleSummary) => {
-    const reason = window.prompt(`Void ${sale.saleNumber}? Say why:`);
-    if (!reason?.trim()) return;
-    try {
-      await supplierPosAPI.voidSale(sale.id, reason.trim());
-      toast.success(`${sale.saleNumber} voided — stock returned`);
-      load();
-      pos.reload({ silent: true });
-    } catch (e: any) {
-      toast.error(e?.message || 'Could not void that sale');
-    }
-  };
+  // `reloadKey` belongs on the EFFECT, not on `load` — what changes after a
+  // void is when we should re-read, not how.
+  useEffect(() => { load(); }, [load, reloadKey]);
 
   return (
     <div className="flex flex-col h-full min-h-0">
@@ -54,41 +47,36 @@ const PosSales: React.FC<{ pos: PosController }> = ({ pos }) => {
         {sales.length === 0 && !loading && (
           <p className="text-center text-sm sp-muted py-16">Nothing rung up yet today</p>
         )}
+        {/* Every row opens. "What did I sell them?" is the question this tab is
+            actually asked, and the total alone cannot answer it. */}
         {sales.map((s) => (
-          <div key={s.id} className="sp-card p-3.5">
-            <div className="flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[12px] font-mono sp-muted">{s.saleNumber}</p>
-                <p className="text-[12px] sp-muted mt-0.5">
-                  {s.itemCount} item{s.itemCount === 1 ? '' : 's'} · {s.methods.join(', ')}
-                  {s.customerPhone ? ` · ${s.customerPhone}` : ''}
-                </p>
-              </div>
-              <div className="text-right shrink-0">
-                <p
-                  className={`text-[16px] font-black sp-num ${s.status === 'VOIDED' ? 'sp-muted line-through' : ''}`}
-                >
-                  {money(s.total, s.currency)}
-                </p>
-                <p className="text-[10px] font-bold uppercase tracking-wider sp-muted">
-                  {new Date(s.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              </div>
+          <button
+            key={s.id}
+            onClick={() => onOpenSale(s.id)}
+            className="sp-card p-3.5 w-full text-left flex items-center gap-3"
+          >
+            <div className="min-w-0 flex-1">
+              <p className="text-[12px] font-mono sp-muted">{s.saleNumber}</p>
+              <p className="text-[12px] sp-muted mt-0.5 truncate">
+                {s.itemCount} item{s.itemCount === 1 ? '' : 's'} · {s.methods.join(', ')}
+                {s.customerPhone ? ` · ${s.customerPhone}` : ''}
+              </p>
+              {s.status === 'VOIDED' && (
+                <p className="text-[11px] font-bold sp-bad mt-1">Voided</p>
+              )}
             </div>
-
-            {s.status === 'VOIDED' ? (
-              <p className="text-[11px] font-bold sp-bad mt-2">Voided</p>
-            ) : (
-              canVoid && (
-                <button
-                  onClick={() => voidSale(s)}
-                  className="sp-btn sp-btn-quiet mt-2 px-0 text-[12px] gap-1.5"
-                >
-                  <Ban size={13} /> Void
-                </button>
-              )
-            )}
-          </div>
+            <div className="text-right shrink-0">
+              <p
+                className={`text-[16px] font-black sp-num ${s.status === 'VOIDED' ? 'sp-muted line-through' : ''}`}
+              >
+                {money(s.total, s.currency)}
+              </p>
+              <p className="text-[10px] font-bold uppercase tracking-wider sp-muted">
+                {new Date(s.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+            <ChevronRight size={16} className="shrink-0" style={{ color: 'var(--sp-muted)' }} />
+          </button>
         ))}
       </div>
     </div>

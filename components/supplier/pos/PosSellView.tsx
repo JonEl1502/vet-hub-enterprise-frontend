@@ -4,6 +4,7 @@ import PosScanner from './PosScanner';
 import type { PosController } from './usePos';
 import type { PosProduct } from '../../../services';
 import { categoryTheme } from './categoryTheme';
+import { money, unitFor } from './format';
 
 /**
  * The catalogue half of the till: scan bar, chips, product grid.
@@ -20,19 +21,6 @@ const SMART_TABS = [
   { id: 'out', label: 'Sold out' },
   { id: 'never', label: 'Never sold' },
 ] as const;
-
-/**
- * "1 bottles" is the sort of thing that makes software look unfinished.
- * The stored unit is already plural ("Bottles", "Bags"), so one is the case
- * that needs handling, not the other way round.
- */
-const unitFor = (qty: number, unit: string) => {
-  const u = unit.toLowerCase();
-  return qty === 1 && u.endsWith('s') ? u.slice(0, -1) : u;
-};
-
-const money = (n: number, currency: string) =>
-  `${currency} ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
 interface Props {
   pos: PosController;
