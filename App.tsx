@@ -23,6 +23,7 @@ import Sidebar from './components/shared/layout/sidebar/Sidebar';
 import SupplierSidebar from './components/supplier/layout/SupplierSidebar';
 import SupplierDashboard from './components/supplier/dashboard/SupplierDashboard';
 import SupplierProductsView from './components/supplier/products/SupplierProductsView';
+import SupplierInventoryView from './components/supplier/inventory/SupplierInventoryView';
 import SupplierProductFormPage from './components/supplier/products/SupplierProductFormPage';
 import SupplierOrdersView from './components/supplier/orders/SupplierOrdersView';
 import SupplierOrderDetailView from './components/supplier/orders/SupplierOrderDetailView';
@@ -2443,7 +2444,19 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             }}
           />;
         case 'supplier-products': return <SupplierProductsView setView={navigateTo} />;
-        case 'supplier-inventory': return <SupplierProductsView setView={navigateTo} />;
+        /**
+         * The stockroom, not the catalogue. These were the same screen until
+         * 261 gave a supplier real per-branch stock — "Inventory" pointing at
+         * the product list meant a supplier had nowhere to see what was
+         * actually on a shelf, or move it between branches.
+         */
+        case 'supplier-inventory':
+          return (
+            <SupplierInventoryView
+              setView={navigateTo}
+              canManage={!user?.supplierRole || ['OWNER', 'MANAGER'].includes(String(user.supplierRole))}
+            />
+          );
         case 'supplier-product-new': return <SupplierProductFormPage setView={navigateTo} />;
         case 'supplier-product-edit': return <SupplierProductFormPage productId={currentNav.params?.productId} setView={navigateTo} />;
         case 'supplier-orders': return <SupplierOrdersView setView={navigateTo} />;

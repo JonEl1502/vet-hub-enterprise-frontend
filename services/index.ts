@@ -77,6 +77,11 @@ export { stockMovementsAPI } from './modules/stockMovements.api';
 export { suppliersAPI } from './modules/suppliers.api';
 export { supplierProductsAPI } from './modules/supplierProducts.api';
 export { supplierPosAPI } from './modules/supplierPos.api';
+export { supplierStockAPI } from './modules/supplierStock.api';
+export type {
+  SupplierStockRow, SupplierMovement, SupplierBatch, SupplierSource,
+  SupplierProductSource, SupplierStockStatus, SupplierSourceType,
+} from './modules/supplierStock.api';
 export type {
   PosProduct, PosProductStat, PosTill, PosBranch, PosShopBrand,
   PosLineInput, PosPreview, PosPreviewLine, PosPaymentInput, PosPaymentMethod,

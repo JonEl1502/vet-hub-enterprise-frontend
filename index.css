@@ -1070,3 +1070,72 @@ body {
   transition: transform 0.06s ease, background 0.12s ease;
 }
 .supplier-pos .sp-key:active { transform: scale(0.95); background: var(--sp-surface-2); }
+
+/* =========================================================================
+ * Supplier stockroom controls.
+ *
+ * Small, unscoped-by-design utilities used only under components/supplier/
+ * inventory. They exist so five dialogs stop repeating the same nine Tailwind
+ * classes on every input, which is how two of them drift apart.
+ * ======================================================================= */
+.sup-input {
+  width: 100%;
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  padding: 0.55rem 0.75rem;
+  /* 16px: iOS Safari zooms the whole page on a focused input smaller than this,
+     and a zoomed stock take is unusable until you pinch back out. */
+  font-size: 16px;
+  font-weight: 600;
+  background: #fff;
+  color: #1f3d39;
+}
+.dark .sup-input { background: #18181b; border-color: #27272a; color: #f4f4f5; }
+.sup-input:focus { outline: none; border-color: #1C7A5B; box-shadow: 0 0 0 3px rgba(28,122,91,0.12); }
+.sup-input::placeholder { color: #94a3b8; font-weight: 500; }
+
+.sup-select {
+  border: 1px solid rgb(226 232 240);
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  background: #fff;
+  color: #1f3d39;
+}
+.dark .sup-select { background: #18181b; border-color: #27272a; color: #f4f4f5; }
+
+.sup-label {
+  display: block;
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #94a3b8;
+  margin-bottom: 0.3rem;
+}
+
+.sup-btn, .sup-btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 0.75rem;
+  padding: 0.5rem 0.85rem;
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  transition: opacity 0.15s ease, background 0.15s ease;
+}
+.sup-btn { background: #1C7A5B; color: #fff; }
+.sup-btn:hover:not(:disabled) { opacity: 0.9; }
+.sup-btn:disabled, .sup-btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
+.sup-btn-ghost {
+  background: #fff;
+  color: #1f3d39;
+  border: 1px solid rgb(226 232 240);
+}
+.dark .sup-btn-ghost { background: #18181b; border-color: #27272a; color: #f4f4f5; }
+.sup-btn-ghost:hover:not(:disabled) { background: rgb(248 250 252); }
+.dark .sup-btn-ghost:hover:not(:disabled) { background: #27272a; }
