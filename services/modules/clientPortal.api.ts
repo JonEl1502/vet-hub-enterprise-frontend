@@ -291,6 +291,10 @@ export interface FarmAnimal {
   /** Null = nobody knows. `dobIsApprox` marks one derived from a stated age. */
   dob: string | null;
   dobIsApprox: boolean;
+  /** LAYER · BROILER · INDIGENOUS · DAIRY · MEAT · WOOL · HIDE · … (265) */
+  purpose: string | null;
+  /** Poultry's answer to "pregnant" — point of lay (265). */
+  layingSince: string | null;
   tagNumber: string | null;
   rfidNumber: string | null;
   color: string | null;
@@ -415,6 +419,8 @@ export interface PortalAnimalGroup {
    */
   males: number; females: number; adults: number;
   young: number; pregnant: number; lactating: number;
+  /** FREE-tier breakdown: {"LAYER":200,"BROILER":900}. Zero counts are dropped. */
+  purposeCounts: Record<string, number>;
 }
 
 export interface PortalCropPlot {
@@ -642,7 +648,8 @@ export const clientPortalAPI = {
   /** Counts and composition. Breed/housing/purpose stay clinic-maintained. */
   updateAnimalGroup: (
     groupId: string,
-    data: Partial<Record<'headCount' | 'males' | 'females' | 'adults' | 'young' | 'pregnant' | 'lactating', number>>,
+    data: Partial<Record<'headCount' | 'males' | 'females' | 'adults' | 'young' | 'pregnant' | 'lactating', number>>
+      & { purposeCounts?: Record<string, number> },
     options?: RequestOptions,
   ): Promise<ApiResponse<{ group: PortalAnimalGroup }>> =>
     patch(`/portal/me/animal-groups/${groupId}`, data, { showError: true, ...options }),

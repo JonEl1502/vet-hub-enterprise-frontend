@@ -22,6 +22,7 @@ import {
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
+import { speciesConfig, purposeLabel } from './farmSpecies';
 
 const STATUS_TONE: Record<string, string> = {
   ACTIVE: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300',
@@ -63,7 +64,11 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
   const [weighing, setWeighing] = useState<FarmAnimal | null>(null);
   const [weightVal, setWeightVal] = useState('');
 
-  const [form, setForm] = useState<any>({ name: '', species: 'Cattle', breed: '', sex: '', ageMonths: '', tagNumber: '', animalGroupId: '', weightValue: '' });
+  const [form, setForm] = useState<any>({ name: '', species: 'Cattle', breed: '', sex: '', ageMonths: '', tagNumber: '', animalGroupId: '', weightValue: '', purpose: '' });
+  // ⚠️ Everything species-specific comes from ONE config, shared with the free
+  // tier's herd breakdown — so "layers" means the same thing on both sides of
+  // the paywall and the numbers stay comparable when someone upgrades.
+  const cfg = speciesConfig(form.species);
 
   const load = useCallback(() => {
     if (tier !== 'FULL') { setLoading(false); return Promise.resolve(); }
@@ -89,12 +94,13 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
         ageMonths: form.ageMonths === '' ? undefined : Number(form.ageMonths),
         tagNumber: form.tagNumber.trim() || undefined,
         animalGroupId: form.animalGroupId || undefined,
+        purpose: form.purpose || undefined,
         weightValue: form.weightValue === '' ? undefined : Number(form.weightValue),
       } as any);
       if (r.success) {
         toast.success(`${form.name.trim()} added`);
         setAddOpen(false);
-        setForm({ name: '', species: form.species, breed: '', sex: '', ageMonths: '', tagNumber: '', animalGroupId: form.animalGroupId, weightValue: '' });
+        setForm({ name: '', species: form.species, breed: '', sex: '', ageMonths: '', tagNumber: '', animalGroupId: form.animalGroupId, weightValue: '', purpose: form.purpose });
         await load(); onChanged?.();
       }
     } finally { setSaving(false); }
@@ -216,12 +222,12 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-bold text-slate-800 dark:text-zinc-100 truncate flex items-center gap-1.5">
                       {a.name}
-                      {a.isPregnant && <Baby size={11} className="text-amber-500 shrink-0" />}
-                      {a.isLactating && <Milk size={11} className="text-sky-500 shrink-0" />}
+                      {a.isPregnant && speciesConfig(a.species).pregnancy && <Baby size={11} className="text-amber-500 shrink-0" />}
+                      {a.isLactating && speciesConfig(a.species).lactation && <Milk size={11} className="text-sky-500 shrink-0" />}
                     </p>
                     <p className="text-[10px] text-slate-400 truncate">
                       {[
-                        a.species, a.breed,
+                        a.species, a.breed, purposeLabel(a.purpose),
                         a.sex === 'MALE' ? '♂' : a.sex === 'FEMALE' ? '♀' : null,
                         ageOf(a.dob, a.dobIsApprox),
                         a.tagNumber ? `#${a.tagNumber}` : null,
@@ -268,6 +274,14 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
                 <input className="cp-input w-full" placeholder="Friesian" value={form.breed}
                   onChange={(e) => setForm({ ...form, breed: e.target.value })} />
               </div>
+            </div>
+            <div>
+              <label className="cp-label">Kept for</label>
+              <select className="cp-input w-full" value={form.purpose}
+                onChange={(e) => setForm({ ...form, purpose: e.target.value })}>
+                <option value="">Not sure</option>
+                {cfg.purposes.map((pp) => <option key={pp.key} value={pp.key}>{pp.label}</option>)}
+              </select>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -333,20 +347,53 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
               <p className="text-[10px] text-slate-400">Age is approximate — taken from what you told us, not a birth date.</p>
             )}
 
-            <div className="flex flex-wrap gap-1.5">
-              <button
-                className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${detail.isPregnant ? 'bg-amber-500 text-white border-amber-500' : 'bg-white dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700'}`}
-                onClick={() => setFlag(detail, { isPregnant: !detail.isPregnant })}
-              >
-                <Baby size={11} className="inline mr-1" />Pregnant
-              </button>
-              <button
-                className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${detail.isLactating ? 'bg-sky-500 text-white border-sky-500' : 'bg-white dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700'}`}
-                onClick={() => setFlag(detail, { isLactating: !detail.isLactating })}
-              >
-                <Milk size={11} className="inline mr-1" />Milking
-              </button>
-            </div>
+            {/* ⚠️ Species-correct, and ABSENT where it makes no sense. A hen is
+                never asked whether she is pregnant; she is asked when she came
+                into lay, which is the number that predicts her income. */}
+            {(() => {
+              const dcfg = speciesConfig(detail.species);
+              return (
+                <>
+                  <div className="flex flex-wrap gap-1.5">
+                    {dcfg.pregnancy && (
+                      <button
+                        className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${detail.isPregnant ? 'bg-amber-500 text-white border-amber-500' : 'bg-white dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700'}`}
+                        onClick={() => setFlag(detail, { isPregnant: !detail.isPregnant })}
+                      >
+                        <Baby size={11} className="inline mr-1" />{dcfg.pregnantLabel}
+                      </button>
+                    )}
+                    {dcfg.lactation && (
+                      <button
+                        className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${detail.isLactating ? 'bg-sky-500 text-white border-sky-500' : 'bg-white dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700'}`}
+                        onClick={() => setFlag(detail, { isLactating: !detail.isLactating })}
+                      >
+                        <Milk size={11} className="inline mr-1" />{dcfg.lactatingLabel}
+                      </button>
+                    )}
+                    {detail.purpose && (
+                      <span className="px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400">
+                        {purposeLabel(detail.purpose)}
+                      </span>
+                    )}
+                  </div>
+                  {dcfg.laying && (
+                    <div>
+                      <label className="cp-label">Laying since</label>
+                      <input
+                        className="cp-input w-full" type="date"
+                        value={detail.layingSince ? String(detail.layingSince).slice(0, 10) : ''}
+                        max={new Date().toISOString().slice(0, 10)}
+                        onChange={(e) => setFlag(detail, { layingSince: e.target.value || null } as any)}
+                      />
+                      <p className="mt-1 text-[10px] text-slate-400">
+                        Point of lay — how her laying year is measured.
+                      </p>
+                    </div>
+                  )}
+                </>
+              );
+            })()}
 
             <div className="cp-card p-3.5">
               <div className="flex items-center justify-between gap-2">

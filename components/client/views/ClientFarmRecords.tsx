@@ -30,6 +30,7 @@ import {
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
 import { useNavigate } from 'react-router-dom';
+import { speciesConfig, purposeLabel } from './farmSpecies';
 
 const KES = (n: number) =>
   `KES ${Math.round(n).toLocaleString('en-KE')}`;
@@ -169,15 +170,24 @@ const VendorField: React.FC<{
 
 // ─── Herd composition editor ─────────────────────────────────────────────────
 
-const COMPOSITION_FIELDS = [
-  { key: 'headCount', label: 'Total' },
-  { key: 'males', label: 'Male' },
-  { key: 'females', label: 'Female' },
-  { key: 'adults', label: 'Adult' },
-  { key: 'young', label: 'Young' },
-  { key: 'pregnant', label: 'Pregnant' },
-  { key: 'lactating', label: 'Milking' },
-] as const;
+/**
+ * ⚠️ The FREE tier's fields are species-aware too — the user's *"generalities"*
+ * still have to be the RIGHT generalities. A poultry keeper is never shown
+ * "Pregnant"; they are shown a layer / broiler / kienyeji breakdown, which is
+ * the split that actually describes their flock.
+ */
+const compositionFields = (species?: string | null) => {
+  const cfg = speciesConfig(species);
+  return [
+    { key: 'headCount', label: 'Total' },
+    { key: 'males', label: 'Male' },
+    { key: 'females', label: 'Female' },
+    { key: 'adults', label: 'Adult' },
+    { key: 'young', label: cfg.youngLabel },
+    ...(cfg.pregnancy ? [{ key: 'pregnant', label: cfg.pregnantLabel }] : []),
+    ...(cfg.lactation ? [{ key: 'lactating', label: cfg.lactatingLabel }] : []),
+  ];
+};
 
 interface Props {
   farmId: string;
@@ -307,10 +317,15 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
     } finally { setSaving(false); }
   };
 
+  const [purposeComp, setPurposeComp] = useState<Record<string, string>>({});
+
   const openComposition = (g: PortalAnimalGroup) => {
     setEditHerd(g);
     setComp(Object.fromEntries(
-      COMPOSITION_FIELDS.map((f) => [f.key, String((g as any)[f.key] ?? 0)]),
+      compositionFields(g.species).map((f) => [f.key, String((g as any)[f.key] ?? 0)]),
+    ));
+    setPurposeComp(Object.fromEntries(
+      speciesConfig(g.species).purposes.map((p) => [p.key, String(g.purposeCounts?.[p.key] ?? '')]),
     ));
   };
 
@@ -321,6 +336,11 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
       const payload = Object.fromEntries(
         Object.entries(comp).map(([k, v]) => [k, Number(v || 0)]),
       ) as any;
+      // Zeros are dropped server-side too; sending them keeps the intent
+      // ("I cleared this") without storing a map of empty chips.
+      payload.purposeCounts = Object.fromEntries(
+        Object.entries(purposeComp).map(([k, v]) => [k, Number(v || 0)]),
+      );
       const r = await clientPortalAPI.updateAnimalGroup(editHerd.id, payload);
       if (r.success) { toast.success('Herd updated'); setEditHerd(null); onGroupsChanged(); }
     } finally { setSaving(false); }
@@ -469,10 +489,15 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2 lg:gap-1.5">
             {groups.map((g) => {
+              const gcfg = speciesConfig(g.species);
               const chips = [
                 ['♂', g.males], ['♀', g.females],
-                ['Adult', g.adults], ['Young', g.young],
-                ['Pregnant', g.pregnant], ['Milking', g.lactating],
+                ['Adult', g.adults], [gcfg.youngLabel, g.young],
+                ...(gcfg.pregnancy ? [[gcfg.pregnantLabel, g.pregnant]] : []),
+                ...(gcfg.lactation ? [[gcfg.lactatingLabel, g.lactating]] : []),
+                // The purpose split reads as part of the same row — it is the
+                // same kind of fact, just the one that describes a flock best.
+                ...Object.entries(g.purposeCounts ?? {}).map(([k, v]) => [purposeLabel(k) ?? k, v]),
               ].filter(([, v]) => Number(v) > 0);
               return (
                 <div key={g.id} className="cp-card p-3.5">
@@ -761,7 +786,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
         <CpModal onClose={() => setEditHerd(null)} title={editHerd.name}>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
-              {COMPOSITION_FIELDS.map((f) => (
+              {compositionFields(editHerd.species).map((f) => (
                 <div key={f.key}>
                   <label className="cp-label">{f.label}</label>
                   <input
@@ -771,6 +796,25 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
                   />
                 </div>
               ))}
+            </div>
+
+            {/* The "generalities" the user asked for: how many layers, how many
+                broilers, how many kienyeji — without naming a single bird. */}
+            <div>
+              <p className="cp-label">What they are kept for</p>
+              <div className="grid grid-cols-2 gap-2">
+                {speciesConfig(editHerd.species).purposes.map((pp) => (
+                  <div key={pp.key}>
+                    <label className="text-[10px] text-slate-500">{pp.label}</label>
+                    <input
+                      className="cp-input w-full" type="number" inputMode="numeric" min="0"
+                      placeholder="0"
+                      value={purposeComp[pp.key] ?? ''}
+                      onChange={(e) => setPurposeComp((c) => ({ ...c, [pp.key]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
             {compHint && (
               <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
