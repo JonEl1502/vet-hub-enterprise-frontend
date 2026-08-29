@@ -18,10 +18,12 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Stethoscope, Building2, Phone, Mail, Search, Loader2, Sparkles, X, MapPin, Siren, ShieldCheck,
+  Plus, AlertTriangle, Trash2,
 } from 'lucide-react';
 import {
-  clientPortalAPI,
+  clientPortalAPI, TREATMENT_KINDS, TREATMENT_ROUTES, ADMINISTERED_BY,
   type PortalFarm, type FarmMedical, type PortalClinic, type PortalHoldings,
+  type PortalAnimalGroup, type FarmAnimal,
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
@@ -47,6 +49,18 @@ const ClientFarmMedical: React.FC = () => {
   const [filtered, setFiltered] = useState(0);
   const [searching, setSearching] = useState(false);
 
+  // Recording a treatment
+  const [txOpen, setTxOpen] = useState(false);
+  const [groups, setGroups] = useState<PortalAnimalGroup[]>([]);
+  const [animals, setAnimals] = useState<FarmAnimal[]>([]);
+  const [tx, setTx] = useState<any>({
+    scope: 'GROUP', kind: 'TREATMENT', product: '', animalGroupId: '', farmAnimalId: '',
+    treatedCount: '', dose: '', route: '', batchNo: '', reason: '',
+    administeredBy: 'OWNER', administeredName: '',
+    withdrawalMeatDays: '', withdrawalMilkDays: '', amount: '', vendorName: '',
+    treatedOn: new Date().toISOString().slice(0, 10),
+  });
+
   const isFull = holdings?.farmTier === 'FULL';
 
   useEffect(() => {
@@ -67,6 +81,66 @@ const ClientFarmMedical: React.FC = () => {
     clientPortalAPI.farmMedical(farmId).then((r) => { if (r.success && r.data) setData(r.data); });
   }, []);
   useEffect(() => { load(activeId); }, [activeId, load]);
+
+  // Targets for the scope picker. Animals only exist on the paid tier, and the
+  // picker simply does not offer ANIMAL scope without them.
+  useEffect(() => {
+    if (!activeId) return;
+    clientPortalAPI.getFarmDetail(activeId, { showError: false })
+      .then((r) => { if (r.success && r.data) setGroups(r.data.animalGroups); });
+    if (isFull) {
+      clientPortalAPI.listFarmAnimals(activeId)
+        .then((r) => { if (r.success && r.data) setAnimals(r.data.animals); });
+    }
+  }, [activeId, isFull]);
+
+  const saveTreatment = async () => {
+    if (!tx.product.trim()) { toast.error('What was given?'); return; }
+    if (tx.scope === 'GROUP' && !tx.animalGroupId) { toast.error('Which herd or flock?'); return; }
+    if (tx.scope === 'ANIMAL' && !tx.farmAnimalId) { toast.error('Which animal?'); return; }
+    setSaving(true);
+    try {
+      const r = await clientPortalAPI.createFarmTreatment(activeId, {
+        scope: tx.scope, kind: tx.kind, product: tx.product.trim(),
+        animalGroupId: tx.scope === 'GROUP' ? tx.animalGroupId : undefined,
+        farmAnimalId: tx.scope === 'ANIMAL' ? tx.farmAnimalId : undefined,
+        treatedCount: tx.treatedCount === '' ? null : Number(tx.treatedCount),
+        treatedOn: tx.treatedOn,
+        dose: tx.dose.trim() || undefined,
+        route: tx.route || undefined,
+        batchNo: tx.batchNo.trim() || undefined,
+        reason: tx.reason.trim() || undefined,
+        administeredBy: tx.administeredBy,
+        administeredName: tx.administeredName.trim() || undefined,
+        withdrawalMeatDays: tx.withdrawalMeatDays === '' ? null : Number(tx.withdrawalMeatDays),
+        withdrawalMilkDays: tx.withdrawalMilkDays === '' ? null : Number(tx.withdrawalMilkDays),
+        amount: tx.amount === '' ? null : Number(tx.amount),
+        vendorName: tx.vendorName.trim() || undefined,
+      });
+      if (r.success) {
+        toast.success('Treatment recorded');
+        setTxOpen(false);
+        setTx({ ...tx, product: '', dose: '', batchNo: '', reason: '', amount: '', treatedCount: '' });
+        load(activeId);
+      }
+    } finally { setSaving(false); }
+  };
+
+  const removeTreatment = async (id: string) => {
+    const r = await clientPortalAPI.deleteFarmTreatment(id);
+    if (r.success) load(activeId);
+  };
+
+  /**
+   * Scope picker options. ⚠️ ANIMAL is offered only when named animals exist —
+   * a poultry keeper who has never named a bird should not be shown a scope
+   * whose target list is empty.
+   */
+  const scopeOptions = [
+    { key: 'ANIMAL', label: 'One animal', hide: animals.length === 0 },
+    { key: 'GROUP', label: 'A herd / flock', hide: groups.length === 0 },
+    { key: 'FARM', label: 'The whole farm', hide: false },
+  ].filter((s) => !s.hide);
 
   useEffect(() => {
     if (!connectOpen) return;
@@ -143,6 +217,27 @@ const ClientFarmMedical: React.FC = () => {
         </div>
       )}
 
+      {/* ⚠️ FIRST on the page, deliberately. Residues turn up in 5–16% of milk
+          sampled from Kenyan smallholder dairies, so this is the single most
+          useful thing the screen can say — and it is asked while the vehicle is
+          waiting at the gate, not at leisure. */}
+      {(data?.withholding.length ?? 0) > 0 && (
+        <div className="rounded-2xl border border-amber-300 bg-amber-50 dark:bg-amber-400/10 dark:border-amber-400/30 p-4">
+          <p className="text-sm font-black text-amber-800 dark:text-amber-300 flex items-center gap-1.5">
+            <AlertTriangle size={15} /> Do not sell yet
+          </p>
+          <div className="mt-2 space-y-1.5">
+            {data!.withholding.map((w) => (
+              <p key={w.id} className="text-[11px] text-amber-800 dark:text-amber-200 leading-snug">
+                <strong>{w.farmAnimalName ?? w.animalGroupName ?? 'The farm'}</strong> — {w.product}.
+                {w.milkHeld && w.milkSafeOn && <> Milk safe from <strong>{day(w.milkSafeOn)}</strong>.</>}
+                {w.meatHeld && w.meatSafeOn && <> Meat safe from <strong>{day(w.meatSafeOn)}</strong>.</>}
+              </p>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
         {/* ── Your clinic ─────────────────────────────────────────────────── */}
         <section className="min-w-0 lg:col-start-2">
@@ -185,11 +280,69 @@ const ClientFarmMedical: React.FC = () => {
           )}
         </section>
 
-        {/* ── Treatments bought ───────────────────────────────────────────── */}
+        {/* ── What was actually given ─────────────────────────────────────── */}
         <section className="min-w-0 lg:col-start-1 lg:row-start-1">
           <div className="flex items-center justify-between mb-2">
             <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
-              <Stethoscope size={13} /> Medicine &amp; treatments
+              <Stethoscope size={13} /> Treatment records
+            </h3>
+            <button className="text-[10px] font-black uppercase tracking-widest cp-accent-text flex items-center gap-1"
+              onClick={() => setTxOpen(true)}>
+              <Plus size={11} /> Record
+            </button>
+          </div>
+          {(data?.clinical.length ?? 0) === 0 ? (
+            <div className="cp-card px-5 py-8 text-center">
+              <p className="text-xs text-slate-500 leading-relaxed max-w-md mx-auto">
+                Record what you gave, to whom, and how long before the milk or meat is safe. Chickens
+                are treated as a flock; a cow can be treated on her own, with her herd, or with the
+                whole farm — you pick.
+              </p>
+              <button className="cp-btn mt-3" onClick={() => setTxOpen(true)}><Plus size={14} /> Record a treatment</button>
+            </div>
+          ) : (
+            <div className="cp-card overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
+              {data!.clinical.map((c) => (
+                <div key={c.id} className="group flex items-baseline gap-3 px-3.5 sm:px-4 py-2">
+                  <span className="shrink-0 w-[76px] text-[10px] font-bold uppercase tracking-wider text-slate-400 tabular-nums">
+                    {new Date(c.treatedOn).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-bold text-slate-800 dark:text-zinc-100 truncate">
+                      {c.product}
+                      {(c.milkHeld || c.meatHeld) && (
+                        <span className="ml-1.5 px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-400/15 text-amber-700 dark:text-amber-300 text-[9px] font-black uppercase tracking-wider">
+                          holding
+                        </span>
+                      )}
+                    </p>
+                    <p className="text-[10px] text-slate-400 truncate">
+                      {[
+                        c.scope === 'FARM' ? 'Whole farm'
+                          : c.scope === 'GROUP' ? c.animalGroupName
+                          : c.farmAnimalName,
+                        c.treatedCount ? `${c.treatedCount} head` : null,
+                        TREATMENT_KINDS.find((k) => k.key === c.kind)?.label,
+                        c.dose,
+                        c.batchNo ? `batch ${c.batchNo}` : null,
+                      ].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+                  <button className="shrink-0 p-1 text-transparent group-hover:text-slate-300 hover:!text-rose-500"
+                    onClick={() => removeTreatment(c.id)} title="Remove this record">
+                    <Trash2 size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* ── Treatments bought ───────────────────────────────────────────── */}
+        <section className="min-w-0 lg:col-start-1 lg:row-start-2">
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">
+              What it cost
             </h3>
             {!!data?.spentOnHealth && (
               <span className="text-[11px] font-black text-slate-600 dark:text-zinc-300">{KES(data.spentOnHealth)}</span>
@@ -226,7 +379,7 @@ const ClientFarmMedical: React.FC = () => {
         </section>
 
         {/* ── Who you have dealt with ─────────────────────────────────────── */}
-        <section className="min-w-0 lg:col-start-1 lg:row-start-2">
+        <section className="min-w-0 lg:col-start-1 lg:row-start-3">
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
             Who you have dealt with
           </h3>
@@ -277,6 +430,167 @@ const ClientFarmMedical: React.FC = () => {
           )}
         </section>
       </div>
+
+      {/* ── Record a treatment ───────────────────────────────────────────── */}
+      {txOpen && (
+        <CpModal title="Record a treatment" onClose={() => setTxOpen(false)}>
+          <div className="space-y-3">
+            {/* ⚠️ SCOPE FIRST, and chosen rather than inferred. "I dosed the
+                whole flock" and "I injected this cow" are different facts, and
+                guessing from which id happens to be filled would quietly turn
+                900 birds into one. */}
+            <div>
+              <label className="cp-label">What was treated?</label>
+              <div className="flex flex-wrap gap-1.5">
+                {scopeOptions.map((s) => (
+                  <button key={s.key} type="button"
+                    onClick={() => setTx({ ...tx, scope: s.key })}
+                    className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${
+                      tx.scope === s.key ? 'bg-pine text-white border-pine'
+                        : 'bg-white dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700'}`}>
+                    {s.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {tx.scope === 'GROUP' && (
+              <div>
+                <label className="cp-label">Which herd or flock</label>
+                <select className="cp-input w-full" value={tx.animalGroupId}
+                  onChange={(e) => {
+                    const g = groups.find((x) => x.id === e.target.value);
+                    // Pre-fill the head count from the unit: a flock dose covers
+                    // the flock, and retyping 1,200 is how the field gets left blank.
+                    setTx({ ...tx, animalGroupId: e.target.value, treatedCount: g ? String(g.headCount) : tx.treatedCount });
+                  }}>
+                  <option value="">Choose…</option>
+                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name} ({g.headCount})</option>)}
+                </select>
+              </div>
+            )}
+
+            {tx.scope === 'ANIMAL' && (
+              <div>
+                <label className="cp-label">Which animal</label>
+                <select className="cp-input w-full" value={tx.farmAnimalId}
+                  onChange={(e) => setTx({ ...tx, farmAnimalId: e.target.value, treatedCount: '1' })}>
+                  <option value="">Choose…</option>
+                  {animals.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}{a.tagNumber ? ` · ${a.tagNumber}` : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="cp-label">Kind</label>
+                <select className="cp-input w-full" value={tx.kind}
+                  onChange={(e) => setTx({ ...tx, kind: e.target.value })}>
+                  {TREATMENT_KINDS.map((k) => <option key={k.key} value={k.key}>{k.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="cp-label">How many head</label>
+                <input className="cp-input w-full" type="number" min="1" placeholder="—"
+                  value={tx.treatedCount} onChange={(e) => setTx({ ...tx, treatedCount: e.target.value })} />
+              </div>
+            </div>
+
+            <div>
+              <label className="cp-label">What was given?</label>
+              <input className="cp-input w-full" placeholder="Oxytetracycline 10%"
+                value={tx.product} onChange={(e) => setTx({ ...tx, product: e.target.value })} />
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="cp-label">Dose</label>
+                <input className="cp-input w-full" placeholder="20 ml"
+                  value={tx.dose} onChange={(e) => setTx({ ...tx, dose: e.target.value })} />
+              </div>
+              <div>
+                {/* The field farmers skip unless it sits beside the product —
+                    and it is what a residue trace-back actually runs on. */}
+                <label className="cp-label">Batch no.</label>
+                <input className="cp-input w-full" placeholder="on the bottle"
+                  value={tx.batchNo} onChange={(e) => setTx({ ...tx, batchNo: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="cp-label">How was it given</label>
+                <select className="cp-input w-full" value={tx.route}
+                  onChange={(e) => setTx({ ...tx, route: e.target.value })}>
+                  <option value="">Not sure</option>
+                  {TREATMENT_ROUTES.map((r) => <option key={r.key} value={r.key}>{r.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="cp-label">Who gave it</label>
+                <select className="cp-input w-full" value={tx.administeredBy}
+                  onChange={(e) => setTx({ ...tx, administeredBy: e.target.value })}>
+                  {ADMINISTERED_BY.map((a) => <option key={a.key} value={a.key}>{a.label}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* ⚠️ The reason this screen exists. Residues turn up in 5–16% of
+                milk sampled from Kenyan smallholder dairies — almost always
+                because nobody wrote down when it would be safe again. */}
+            <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-400/10 dark:border-amber-400/25 p-3">
+              <p className="text-[10px] font-black uppercase tracking-widest text-amber-800 dark:text-amber-300">
+                Withdrawal — read the bottle
+              </p>
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-[10px] text-amber-800 dark:text-amber-300">Milk (days)</label>
+                  <input className="cp-input w-full" type="number" min="0" placeholder="0"
+                    value={tx.withdrawalMilkDays}
+                    onChange={(e) => setTx({ ...tx, withdrawalMilkDays: e.target.value })} />
+                </div>
+                <div>
+                  <label className="text-[10px] text-amber-800 dark:text-amber-300">Meat (days)</label>
+                  <input className="cp-input w-full" type="number" min="0" placeholder="0"
+                    value={tx.withdrawalMeatDays}
+                    onChange={(e) => setTx({ ...tx, withdrawalMeatDays: e.target.value })} />
+                </div>
+              </div>
+              <p className="mt-1.5 text-[10px] text-amber-700 dark:text-amber-300/80">
+                We work out the safe date and warn you until it passes.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2">
+              <div>
+                <label className="cp-label">When</label>
+                <input className="cp-input w-full" type="date" value={tx.treatedOn}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setTx({ ...tx, treatedOn: e.target.value })} />
+              </div>
+              <div>
+                <label className="cp-label">Cost (KES)</label>
+                <input className="cp-input w-full" type="number" min="0" placeholder="—"
+                  value={tx.amount} onChange={(e) => setTx({ ...tx, amount: e.target.value })} />
+              </div>
+            </div>
+
+            <div>
+              <label className="cp-label">Why <span className="text-slate-400 font-normal normal-case tracking-normal">— optional</span></label>
+              <input className="cp-input w-full" placeholder="Mastitis, left quarter"
+                value={tx.reason} onChange={(e) => setTx({ ...tx, reason: e.target.value })} />
+            </div>
+
+            <button className="cp-btn w-full" onClick={saveTreatment} disabled={saving || !tx.product.trim()}>
+              {saving ? 'Saving…' : 'Record it'}
+            </button>
+          </div>
+        </CpModal>
+      )}
 
       {/* ── Free tier: the sweet nudge, not a dead end ────────────────────── */}
       {pitchOpen && (

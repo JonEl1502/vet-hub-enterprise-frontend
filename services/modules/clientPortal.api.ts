@@ -270,10 +270,78 @@ export interface FarmContact {
   linked?: boolean;
 }
 
+/** A treatment, recorded at the scope it actually happened (266). */
+export interface FarmTreatment {
+  id: string;
+  farmId: string;
+  scope: 'FARM' | 'GROUP' | 'ANIMAL';
+  animalGroupId: string | null;
+  animalGroupName: string | null;
+  farmAnimalId: string | null;
+  farmAnimalName: string | null;
+  /** How many head this covered — 900 birds, or 1 cow. */
+  treatedCount: number | null;
+  treatedOn: string;
+  treatedAt: string | null;
+  kind: string;
+  product: string;
+  batchNo: string | null;
+  dose: string | null;
+  route: string | null;
+  reason: string | null;
+  administeredBy: string;
+  administeredName: string | null;
+  withdrawalMeatDays: number | null;
+  withdrawalMilkDays: number | null;
+  /** ⚠️ DERIVED server-side. Never sent from the client. */
+  meatSafeOn: string | null;
+  milkSafeOn: string | null;
+  /** Precomputed so a list never disagrees with itself across midnight. */
+  meatHeld: boolean;
+  milkHeld: boolean;
+  notes: string | null;
+  amount: number | null;
+}
+
+export const TREATMENT_KINDS = [
+  { key: 'TREATMENT', label: 'Treatment' },
+  { key: 'VACCINATION', label: 'Vaccination' },
+  { key: 'DEWORMING', label: 'Deworming' },
+  { key: 'PEST_CONTROL', label: 'Spray / dip' },
+  { key: 'SUPPLEMENT', label: 'Supplement' },
+  { key: 'AI', label: 'Insemination' },
+  { key: 'OTHER', label: 'Other' },
+];
+
+export const TREATMENT_ROUTES = [
+  { key: 'ORAL', label: 'By mouth' },
+  { key: 'INJECTION_IM', label: 'Injection — muscle' },
+  { key: 'INJECTION_SC', label: 'Injection — under skin' },
+  { key: 'INJECTION_IV', label: 'Injection — vein' },
+  { key: 'INTRAMAMMARY', label: 'Into the udder' },
+  { key: 'TOPICAL', label: 'On the skin' },
+  { key: 'SPRAY', label: 'Spray' },
+  { key: 'DIP', label: 'Dip' },
+  { key: 'IN_WATER', label: 'In the water' },
+  { key: 'IN_FEED', label: 'In the feed' },
+  { key: 'OTHER', label: 'Other' },
+];
+
+export const ADMINISTERED_BY = [
+  { key: 'OWNER', label: 'Myself' },
+  { key: 'VET', label: 'A vet' },
+  { key: 'PARAVET', label: 'A paravet' },
+  { key: 'AGROVET', label: 'The agrovet' },
+];
+
 export interface FarmMedical {
   tier: 'NONE' | 'BASIC' | 'FULL';
   linkedClinicId: string | null;
   treatments: PortalLedgerEntry[];
+  /** The clinical records (266) — distinct from the money lines above. */
+  clinical: FarmTreatment[];
+  /** Still under withholding right now. Surfaced first: the vehicle is waiting. */
+  withholding: FarmTreatment[];
   spentOnHealth: number;
   contacts: FarmContact[];
 }
@@ -713,6 +781,23 @@ export const clientPortalAPI = {
   /** Connect a farm to a clinic, or pass null to disconnect. */
   setFarmClinic: (farmId: string, clinicId: string | null, options?: RequestOptions): Promise<ApiResponse<{ linkedClinicId: string | null; clinic: { id: string; name: string; logo: string | null } | null }>> =>
     patch(`/portal/me/farms/${farmId}/clinic`, { clinicId }, { showError: true, ...options }),
+
+  createFarmTreatment: (
+    farmId: string,
+    data: {
+      scope: 'FARM' | 'GROUP' | 'ANIMAL'; product: string; kind?: string;
+      animalGroupId?: string; farmAnimalId?: string; treatedCount?: number | null;
+      treatedOn?: string; treatedAt?: string | null; dose?: string; route?: string;
+      batchNo?: string; reason?: string; administeredBy?: string; administeredName?: string;
+      withdrawalMeatDays?: number | null; withdrawalMilkDays?: number | null;
+      amount?: number | null; vendorName?: string; notes?: string;
+    },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ treatment: FarmTreatment }>> =>
+    post(`/portal/me/farms/${farmId}/treatments`, data, { showError: true, ...options }),
+
+  deleteFarmTreatment: (treatmentId: string, options?: RequestOptions): Promise<ApiResponse<{ deleted: boolean }>> =>
+    del(`/portal/me/farm-treatments/${treatmentId}`, { showError: true, ...options }),
 
   /** Treatments bought, and everyone this farm has actually dealt with. */
   farmMedical: (farmId: string, options?: RequestOptions): Promise<ApiResponse<FarmMedical>> =>
