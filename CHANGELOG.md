@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### inpatient: a daily-rate change is priced before it saves  —  2026-08-29
+
+- **What changed:** the rate multiplies by every night **already accrued**, so moving 1,200 to 2,000
+  on a nine-day stay is +7,200 the moment it saves — and it used to go straight to a PATCH with a
+  success toast and no figure anywhere. `StayChargeCard`'s save now opens a dialog shaped like the
+  back-date one: a live preview (days, rate, stay charge, and the visit total before → after), a
+  required reason, and the server's refusal shown in place when the bill is settled. **Recalculate**
+  pins the clinic default rate through the same dialog instead of quietly writing a rate the clinic
+  never set, then bills.
+- **Record impact:** 🔵 Low — only the admission the user is actively editing. The write itself is
+  the backend's; this page decides whether it is made at all.
+- **Data dependency:** **Requires the backend `POST /inpatient/:id/rate` endpoint** (same-day
+  backend entry). Shipped before it, the preview 404s and the dialog cannot be confirmed — the old
+  PATCH path is no longer used from here. Deploy the backend first.
+- **Rollback:** revert and rebuild. Rates already changed keep their new value.
+- ⚠️ **`StayChargeCard` is untouched** — it is S3's shared component. The whole flow lives in
+  `InpatientChartPage`, which is why the card still just calls `onSaveRate` and knows nothing about
+  pricing.
+
 ### visits: a visit can be RECORDED for a past day  —  2026-08-28
 - **What changed:** `DateTimePicker` gains `allowPastDays` (default **0** — every other caller keeps
   the old rule) and `NewVisitView` passes 90, so the visit calendar no longer greys out yesterday.
