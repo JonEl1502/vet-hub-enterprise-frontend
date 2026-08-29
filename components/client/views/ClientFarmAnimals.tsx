@@ -60,6 +60,12 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
   const [saving, setSaving] = useState(false);
 
   const [addOpen, setAddOpen] = useState(false);
+  // Creating the UNIT itself — a house, a batch, a herd. It lived only on the
+  // farm home, which is the wrong place to think of it from: you notice a
+  // missing unit while looking at the animals.
+  const [unitOpen, setUnitOpen] = useState(false);
+  const [unitName, setUnitName] = useState('');
+  const [unitSpecies, setUnitSpecies] = useState('Poultry');
   const [detail, setDetail] = useState<FarmAnimal | null>(null);
   const [weighing, setWeighing] = useState<FarmAnimal | null>(null);
   const [weightVal, setWeightVal] = useState('');
@@ -119,6 +125,21 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
     } finally { setSaving(false); }
   };
 
+  const addUnit = async () => {
+    if (!unitName.trim() || !unitSpecies.trim()) { toast.error('Name it and say what is in it'); return; }
+    setSaving(true);
+    try {
+      const r = await clientPortalAPI.createAnimalGroup(farmId, {
+        name: unitName.trim(), species: unitSpecies.trim(),
+      });
+      if (r.success) {
+        toast.success(`${unitName.trim()} added`);
+        setUnitOpen(false); setUnitName('');
+        onChanged?.();
+      }
+    } finally { setSaving(false); }
+  };
+
   const openDetail = async (a: FarmAnimal) => {
     const r = await clientPortalAPI.getFarmAnimal(a.id);
     if (r.success && r.data) setDetail(r.data.animal);
@@ -132,14 +153,35 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
     }
   };
 
-  const grouped = useMemo(() => {
-    const m = new Map<string, FarmAnimal[]>();
+  /**
+   * ⚠️ Sections are built from the UNITS, not from the animals.
+   *
+   * They used to be grouped off `animals`, so a unit with nothing named in it
+   * simply did not exist on this screen — a farmer with "Layers — house A" and
+   * "Broilers — batch 14" opened Animals and saw an empty page, with no hint
+   * that their houses were already set up or where to put a bird. That is the
+   * bug the user reported: *"I see poultry unit but in animals I don't see unit
+   * A B C."*
+   *
+   * Every unit now shows with its head count and how many are named, so the
+   * gap between "1,200 birds" and "0 named" is visible and has a button on it.
+   */
+  const sections = useMemo(() => {
+    const byGroup = new Map<string, FarmAnimal[]>();
+    const loose: FarmAnimal[] = [];
     animals.forEach((a) => {
-      const k = a.animalGroupName ?? 'Not in a herd';
-      m.set(k, [...(m.get(k) ?? []), a]);
+      if (a.animalGroupId) byGroup.set(a.animalGroupId, [...(byGroup.get(a.animalGroupId) ?? []), a]);
+      else loose.push(a);
     });
-    return [...m.entries()];
-  }, [animals]);
+    const rows = groups
+      .filter((g) => !groupFilter || g.id === groupFilter)
+      .map((g) => ({ group: g, list: byGroup.get(g.id) ?? [] }));
+    if (loose.length && !groupFilter) rows.push({ group: null as any, list: loose });
+    // While SEARCHING, empty units are noise — the answer is the matches, and
+    // burying three of them under six empty headers is worse than not showing
+    // the headers at all.
+    return q.trim() ? rows.filter((r) => r.list.length > 0) : rows;
+  }, [animals, groups, groupFilter, q]);
 
   // ── The free tier: what naming buys, not a broken button ──────────────────
   if (tier !== 'FULL') {
@@ -188,6 +230,12 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
             {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
           </select>
         )}
+        <button
+          className="shrink-0 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-500"
+          onClick={() => setUnitOpen(true)}
+        >
+          + Unit
+        </button>
         <button className="cp-btn shrink-0" onClick={() => setAddOpen(true)}>
           <Plus size={14} /> Add animal
         </button>
@@ -197,21 +245,57 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
         <div className="cp-card px-5 py-10 text-center text-sm text-slate-400">
           <Loader2 size={16} className="animate-spin mx-auto" />
         </div>
-      ) : animals.length === 0 ? (
+      ) : sections.length === 0 ? (
         <div className="cp-card px-5 py-10 text-center">
-          <p className="text-sm font-bold text-slate-700 dark:text-zinc-200">No animals named yet</p>
-          <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
-            Start with the ones you make decisions about — the milkers, the breeding stock. A flock
-            can stay a number.
+          <p className="text-sm font-bold text-slate-700 dark:text-zinc-200">
+            {q.trim() ? 'Nothing matches that' : 'No herds or units yet'}
           </p>
-          <button className="cp-btn mt-3" onClick={() => setAddOpen(true)}><Plus size={14} /> Add the first</button>
+          <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
+            {q.trim()
+              ? 'Try a name, a tag number or a breed.'
+              : 'Set up a unit first — a house, a batch, a herd — then name the animals in it.'}
+          </p>
+          {!q.trim() && (
+            <button className="cp-btn mt-3" onClick={() => setUnitOpen(true)}><Plus size={14} /> Add a unit</button>
+          )}
         </div>
       ) : (
-        grouped.map(([groupName, list]) => (
-          <section key={groupName}>
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 mt-1">
-              {groupName} <span className="text-slate-300">{list.length}</span>
-            </h4>
+        sections.map(({ group, list }) => (
+          <section key={group?.id ?? 'loose'}>
+            <div className="flex items-end justify-between gap-2 mb-1.5 mt-1">
+              <div className="min-w-0">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-500 truncate">
+                  {group?.name ?? 'Not in a unit'}
+                </h4>
+                <p className="text-[10px] text-slate-400">
+                  {group
+                    ? [
+                        group.species,
+                        `${group.headCount} head`,
+                        list.length ? `${list.length} named` : 'none named yet',
+                      ].filter(Boolean).join(' · ')
+                    : `${list.length} animal${list.length === 1 ? '' : 's'}`}
+                </p>
+              </div>
+              {group && (
+                <button
+                  className="shrink-0 text-[10px] font-black uppercase tracking-widest cp-accent-text flex items-center gap-1"
+                  onClick={() => { setForm({ ...form, animalGroupId: group.id, species: group.species || form.species }); setAddOpen(true); }}
+                >
+                  <Plus size={11} /> Add
+                </button>
+              )}
+            </div>
+            {list.length === 0 ? (
+              /* ⚠️ An empty unit is shown, not hidden. The whole point is that a
+                 farmer can see the house exists and that nothing in it is named
+                 yet — that gap is the thing they need to act on. */
+              <div className="cp-card px-4 py-3 text-[11px] text-slate-400">
+                {group?.headCount
+                  ? `${group.headCount} counted here, none named individually.`
+                  : 'Nothing here yet.'}
+              </div>
+            ) : (
             <div className="cp-card overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
               {list.map((a) => (
                 <button
@@ -248,6 +332,7 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
                 </button>
               ))}
             </div>
+            )}
           </section>
         ))
       )}
@@ -329,6 +414,33 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
             )}
             <button className="cp-btn w-full" onClick={add} disabled={saving || !form.name.trim()}>
               {saving ? 'Adding…' : 'Add'}
+            </button>
+          </div>
+        </CpModal>
+      )}
+
+      {/* ── A unit: a house, a batch, a herd ──────────────────────────────── */}
+      {unitOpen && (
+        <CpModal title="Add a unit" onClose={() => setUnitOpen(false)}>
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500 leading-relaxed">
+              A unit is however you already split the farm — house A, batch 14, the milking herd.
+              Animals go in one, and its numbers add up from them.
+            </p>
+            <div>
+              <label className="cp-label">Call it</label>
+              <input className="cp-input w-full" placeholder="Layers — house B"
+                value={unitName} onChange={(e) => setUnitName(e.target.value)} autoFocus />
+            </div>
+            <div>
+              <label className="cp-label">What is in it?</label>
+              <select className="cp-input w-full" value={unitSpecies}
+                onChange={(e) => setUnitSpecies(e.target.value)}>
+                {FARM_SPECIES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <button className="cp-btn w-full" onClick={addUnit} disabled={saving || !unitName.trim()}>
+              {saving ? 'Adding…' : 'Add unit'}
             </button>
           </div>
         </CpModal>
