@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { ShoppingBag, Receipt, Wallet, LogOut, ChevronDown, ShoppingCart } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import BottomSheet from '../../shared/common/mobile/BottomSheet';
-import { usePos } from './usePos';
+import { usePos, type PosController } from './usePos';
+import { useIsDesktop } from './useIsDesktop';
 import PosSellView from './PosSellView';
 import PosCart from './PosCart';
 import PosTender from './PosTender';
@@ -13,12 +14,21 @@ import PosShiftView from './PosShift';
 /**
  * The till, whole.
  *
- * ── Two layouts, one component tree ────────────────────────────────────────
- * Under `md` this is a MOBILE APP: fixed viewport, no page scroll, a bottom tab
- * bar, and the cart in a drag-dismissable sheet. At `md` and up it becomes the
- * familiar two-pane counter POS — catalogue left, cart rail right. Neither is a
- * shrunken version of the other; the same pieces are simply arranged for the
- * hand or for the desk.
+ * ── Two layouts, and they are genuinely different ──────────────────────────
+ *
+ * PHONE — a mobile app. Fixed viewport, bottom tab bar, cart in a
+ * drag-dismissable sheet, and tender/receipt taking the WHOLE screen: at that
+ * moment the cashier is doing one thing and there is no room to show anything
+ * else.
+ *
+ * DESK — a counter POS. A vertical icon rail on the left instead of a bottom
+ * bar (a tab bar across the foot of a 27" monitor is a phone pattern wearing a
+ * big coat — it spends a whole row on three buttons and puts navigation as far
+ * from the eye as the screen allows), a denser grid, and tender/receipt
+ * rendered INSIDE the right-hand rail rather than over everything. On a desk
+ * the catalogue should stay visible while money is taken: the customer adds one
+ * more thing at the till more often than any other interruption, and a
+ * full-screen keypad means backing all the way out to add it.
  *
  * ── Why this is a route and not a view in App.tsx ──────────────────────────
  * The supplier portal switches views by string inside App.tsx. The till does
@@ -29,6 +39,12 @@ import PosShiftView from './PosShift';
 
 type Tab = 'sell' | 'sales' | 'shift';
 type Step = 'shopping' | 'tender' | 'receipt';
+
+const TABS = [
+  { id: 'sell', label: 'Sell', icon: ShoppingBag },
+  { id: 'sales', label: 'Sales', icon: Receipt },
+  { id: 'shift', label: 'Shift', icon: Wallet },
+] as const;
 
 const money = (n: number, currency: string) =>
   `${currency} ${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -44,6 +60,7 @@ const initialsOf = (name?: string | null) =>
 const SupplierPosApp: React.FC = () => {
   const pos = usePos();
   const { user, logout } = useAuth();
+  const isDesktop = useIsDesktop();
   const [tab, setTab] = useState<Tab>('sell');
   const [step, setStep] = useState<Step>('shopping');
   const [cartOpen, setCartOpen] = useState(false);
@@ -60,8 +77,10 @@ const SupplierPosApp: React.FC = () => {
 
   if (pos.phase === 'error') {
     return (
-      <div className="supplier-pos sp-root flex flex-col items-center justify-center gap-3 px-6 text-center"
-           style={{ height: '100dvh' }}>
+      <div
+        className="supplier-pos sp-root flex flex-col items-center justify-center gap-3 px-6 text-center"
+        style={{ height: '100dvh' }}
+      >
         <p className="text-sm font-bold sp-bad">{pos.error}</p>
         <button onClick={() => window.location.reload()} className="sp-btn">Try again</button>
       </div>
@@ -79,16 +98,15 @@ const SupplierPosApp: React.FC = () => {
 
   const newSale = () => { setLastSale(null); setChangeDue(undefined); setStep('shopping'); };
 
-  // Tender and receipt take the whole screen on every size: at that moment the
-  // cashier is doing one thing, and the grid behind is noise.
-  if (step === 'tender') {
+  // ── Phone: tender and receipt own the screen ───────────────────────────
+  if (!isDesktop && step === 'tender') {
     return (
       <div className="supplier-pos sp-root" style={{ height: '100dvh' }}>
         <PosTender pos={pos} onDone={onSaleDone} onBack={() => setStep('shopping')} />
       </div>
     );
   }
-  if (step === 'receipt' && lastSale) {
+  if (!isDesktop && step === 'receipt' && lastSale) {
     return (
       <div className="supplier-pos sp-root" style={{ height: '100dvh' }}>
         <PosReceipt sale={lastSale} currency={pos.currency} changeDue={changeDue} onNewSale={newSale} />
@@ -96,9 +114,179 @@ const SupplierPosApp: React.FC = () => {
     );
   }
 
+  const identity = (
+    <>
+      <div
+        className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
+        style={{ background: 'var(--sp-accent)', color: 'var(--sp-accent-ink)' }}
+        title={`${user?.name || user?.email} — ${pos.till?.supplierRole ?? ''}`}
+      >
+        {initialsOf(user?.name || user?.email)}
+      </div>
+      <button
+        onClick={() => logout()}
+        className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+        style={{ color: 'rgba(242,245,249,0.55)' }}
+        aria-label="Sign out"
+      >
+        <LogOut size={16} />
+      </button>
+    </>
+  );
+
+  const branchLine = (
+    <div className="flex items-center gap-1.5">
+      {pos.canSwitchBranch && pos.branches.length > 1 ? (
+        <div className="relative">
+          <select
+            value={pos.branchId}
+            onChange={(e) => pos.switchBranch(e.target.value)}
+            className="appearance-none bg-transparent text-[11px] font-bold pr-4 outline-none cursor-pointer"
+            style={{ color: 'rgba(242,245,249,0.65)' }}
+            aria-label="Branch"
+          >
+            {pos.branches.map((b) => (
+              <option key={b.id} value={b.id} style={{ color: '#10151c' }}>
+                {b.name}
+              </option>
+            ))}
+          </select>
+          <ChevronDown
+            size={11}
+            className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none"
+            style={{ color: 'rgba(242,245,249,0.65)' }}
+          />
+        </div>
+      ) : (
+        <p className="text-[11px] font-bold" style={{ color: 'rgba(242,245,249,0.65)' }}>
+          {pos.branch?.name ?? '—'}
+        </p>
+      )}
+      {/* Green when the catalogue last refreshed cleanly, amber when the grid
+          on screen is cached and possibly stale. */}
+      <span
+        className="w-1.5 h-1.5 rounded-full shrink-0"
+        style={{ background: pos.online ? 'var(--sp-good)' : 'var(--sp-warn)' }}
+        title={pos.online ? 'Online' : 'Offline — showing the last catalogue'}
+      />
+    </div>
+  );
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // DESK
+  // ═══════════════════════════════════════════════════════════════════════
+  if (isDesktop) {
+    return (
+      <div className="supplier-pos sp-root flex overflow-hidden" style={{ height: '100dvh' }}>
+        {/* Nav rail. Vertical, narrow, and out of the way — the catalogue is
+            what the screen is for. */}
+        <nav
+          className="sp-chrome shrink-0 flex flex-col items-center gap-1 pb-3 w-[4.5rem] border-r"
+          style={{ borderColor: 'rgba(255,255,255,0.06)' }}
+        >
+          <div className="flex items-center justify-center shrink-0" style={{ height: '3.5rem' }}>
+            <div
+              className="w-9 h-9 rounded-xl flex items-center justify-center text-base"
+              style={{ background: 'rgba(255,255,255,0.08)' }}
+              title={pos.shop?.name ?? 'Till'}
+            >
+              🌾
+            </div>
+          </div>
+
+          {TABS.map((t) => {
+            const on = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className="w-[3.25rem] py-2.5 rounded-xl flex flex-col items-center gap-1 transition-colors"
+                style={{
+                  background: on ? 'var(--sp-accent)' : 'transparent',
+                  color: on ? 'var(--sp-accent-ink)' : 'rgba(242,245,249,0.55)',
+                }}
+                aria-current={on ? 'page' : undefined}
+              >
+                <t.icon size={18} strokeWidth={on ? 2.6 : 2} />
+                <span className="text-[9px] font-black uppercase tracking-wide">{t.label}</span>
+              </button>
+            );
+          })}
+
+          <div className="mt-auto flex flex-col items-center gap-1.5">{identity}</div>
+        </nav>
+
+        {/* Catalogue */}
+        <main className="flex-1 min-w-0 flex flex-col">
+          <header
+            className="sp-chrome shrink-0 flex items-center gap-3 px-5 border-b"
+            /* h matched to the rail header below — a stepped top edge where the
+               two panes meet is the sort of thing you cannot un-see. */
+            style={{ borderColor: 'rgba(255,255,255,0.06)', height: '3.5rem' }}
+          >
+            <div className="min-w-0">
+              <p className="text-[14px] font-black leading-tight truncate">
+                {pos.shop?.name ?? 'Till'}
+              </p>
+              {branchLine}
+            </div>
+            <p
+              className="ml-auto text-[11px] font-bold hidden lg:block"
+              style={{ color: 'rgba(242,245,249,0.4)' }}
+            >
+              Scanner ready — just scan, no need to click the box
+            </p>
+          </header>
+
+          {tab === 'sell' && <PosSellView pos={pos} />}
+          {tab === 'sales' && <PosSales pos={pos} />}
+          {tab === 'shift' && <PosShiftView pos={pos} />}
+        </main>
+
+        {/* The rail. Cart, then tender, then receipt — the catalogue stays put
+            behind all three, so an extra item at the last second costs one tap
+            rather than backing out of a full-screen step. */}
+        {tab === 'sell' && (
+          <aside
+            className="w-[24rem] xl:w-[26rem] shrink-0 flex flex-col border-l"
+            style={{ borderColor: 'var(--sp-border)', background: 'var(--sp-surface)' }}
+          >
+            {step === 'receipt' && lastSale ? (
+              <PosReceipt
+                sale={lastSale}
+                currency={pos.currency}
+                changeDue={changeDue}
+                onNewSale={newSale}
+              />
+            ) : step === 'tender' ? (
+              <PosTender pos={pos} onDone={onSaleDone} onBack={() => setStep('shopping')} />
+            ) : (
+              <>
+                <div
+                  className="px-4 border-b flex items-center justify-between shrink-0"
+                  style={{ borderColor: 'var(--sp-border)', height: '3.5rem' }}
+                >
+                  <h2 className="text-[13px] font-black uppercase tracking-wide">Current sale</h2>
+                  {pos.cart.length > 0 && (
+                    <button onClick={pos.clearCart} className="text-[12px] font-bold sp-muted">
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <PosCart pos={pos} onTender={goTender} />
+              </>
+            )}
+          </aside>
+        )}
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // HAND
+  // ═══════════════════════════════════════════════════════════════════════
   return (
     <div className="supplier-pos sp-root flex flex-col overflow-hidden" style={{ height: '100dvh' }}>
-      {/* ── Chrome ─────────────────────────────────────────────────────── */}
       <header
         className="sp-chrome shrink-0 flex items-center gap-2.5 px-3"
         style={{ paddingTop: 'calc(0.6rem + var(--sp-safe-top))', paddingBottom: '0.6rem' }}
@@ -107,104 +295,25 @@ const SupplierPosApp: React.FC = () => {
           <p className="text-[14px] font-black leading-tight truncate">
             {pos.shop?.name ?? 'Till'}
           </p>
-          <div className="flex items-center gap-1.5">
-            {pos.canSwitchBranch && pos.branches.length > 1 ? (
-              <div className="relative">
-                <select
-                  value={pos.branchId}
-                  onChange={(e) => pos.switchBranch(e.target.value)}
-                  className="appearance-none bg-transparent text-[11px] font-bold pr-4 outline-none cursor-pointer"
-                  style={{ color: 'rgba(242,245,249,0.65)' }}
-                  aria-label="Branch"
-                >
-                  {pos.branches.map((b) => (
-                    <option key={b.id} value={b.id} style={{ color: '#10151c' }}>
-                      {b.name}
-                    </option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={11}
-                  className="absolute right-0 top-1/2 -translate-y-1/2 pointer-events-none"
-                  style={{ color: 'rgba(242,245,249,0.65)' }}
-                />
-              </div>
-            ) : (
-              <p className="text-[11px] font-bold" style={{ color: 'rgba(242,245,249,0.65)' }}>
-                {pos.branch?.name ?? '—'}
-              </p>
-            )}
-            {/* Green when the catalogue last refreshed cleanly, amber when the
-                grid on screen is cached and possibly stale. */}
-            <span
-              className="w-1.5 h-1.5 rounded-full shrink-0"
-              style={{ background: pos.online ? 'var(--sp-good)' : 'var(--sp-warn)' }}
-              title={pos.online ? 'Online' : 'Offline — showing the last catalogue'}
-            />
-          </div>
+          {branchLine}
         </div>
-
-        {/* Who is on the till. */}
-        <div
-          className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
-          style={{ background: 'var(--sp-accent)', color: 'var(--sp-accent-ink)' }}
-          title={`${user?.name || user?.email} — ${pos.till?.supplierRole ?? ''}`}
-        >
-          {initialsOf(user?.name || user?.email)}
-        </div>
-        <button
-          onClick={() => logout()}
-          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-          style={{ color: 'rgba(242,245,249,0.55)' }}
-          aria-label="Sign out"
-        >
-          <LogOut size={16} />
-        </button>
+        {identity}
       </header>
 
-      {/* ── Body ───────────────────────────────────────────────────────── */}
-      <div className="flex-1 min-h-0 flex">
-        <main className="flex-1 min-w-0 flex flex-col">
-          {tab === 'sell' && <PosSellView pos={pos} />}
-          {tab === 'sales' && <PosSales pos={pos} />}
-          {tab === 'shift' && <PosShiftView pos={pos} />}
-        </main>
-
-        {/* Desktop cart rail. Hidden on mobile, where the sheet takes over. */}
-        {tab === 'sell' && (
-          <aside
-            className="hidden md:flex w-96 shrink-0 flex-col border-l"
-            style={{ borderColor: 'var(--sp-border)', background: 'var(--sp-surface)' }}
-          >
-            <div
-              className="px-4 py-3 border-b flex items-center justify-between shrink-0"
-              style={{ borderColor: 'var(--sp-border)' }}
-            >
-              <h2 className="text-[13px] font-black uppercase tracking-wide">Current sale</h2>
-              {pos.cart.length > 0 && (
-                <button onClick={pos.clearCart} className="text-[12px] font-bold sp-muted">
-                  Clear
-                </button>
-              )}
-            </div>
-            <PosCart pos={pos} onTender={goTender} />
-          </aside>
-        )}
+      <div className="flex-1 min-h-0 flex flex-col">
+        {tab === 'sell' && <PosSellView pos={pos} />}
+        {tab === 'sales' && <PosSales pos={pos} />}
+        {tab === 'shift' && <PosShiftView pos={pos} />}
       </div>
 
-      {/* ── Mobile: the cart bar ───────────────────────────────────────────
-          A persistent summary that opens the sheet. This is the mobile answer
-          to the desktop rail: the running total stays visible without spending
-          a third of a phone screen on a list nobody reads until the end. */}
+      {/* The mobile answer to the desktop rail: the running total stays visible
+          without spending a third of a phone screen on a list nobody reads
+          until the end. */}
       {tab === 'sell' && pos.itemCount > 0 && (
         <button
           onClick={() => setCartOpen(true)}
-          className="md:hidden shrink-0 flex items-center gap-3 px-4 py-3"
-          style={{
-            background: 'var(--sp-accent)',
-            color: 'var(--sp-accent-ink)',
-            paddingBottom: '0.75rem',
-          }}
+          className="shrink-0 flex items-center gap-3 px-4 py-3"
+          style={{ background: 'var(--sp-accent)', color: 'var(--sp-accent-ink)' }}
         >
           <span className="relative">
             <ShoppingCart size={20} />
@@ -224,7 +333,6 @@ const SupplierPosApp: React.FC = () => {
         </button>
       )}
 
-      {/* ── Bottom tabs ────────────────────────────────────────────────── */}
       <nav
         className="shrink-0 flex border-t"
         style={{
@@ -233,11 +341,7 @@ const SupplierPosApp: React.FC = () => {
           paddingBottom: 'var(--sp-safe-bottom)',
         }}
       >
-        {([
-          { id: 'sell', label: 'Sell', icon: ShoppingBag },
-          { id: 'sales', label: 'Sales', icon: Receipt },
-          { id: 'shift', label: 'Shift', icon: Wallet },
-        ] as const).map((t) => (
+        {TABS.map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
@@ -255,7 +359,6 @@ const SupplierPosApp: React.FC = () => {
         ))}
       </nav>
 
-      {/* ── Mobile cart sheet ──────────────────────────────────────────── */}
       <BottomSheet
         isOpen={cartOpen}
         onClose={() => setCartOpen(false)}

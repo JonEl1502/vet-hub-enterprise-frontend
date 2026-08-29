@@ -734,9 +734,35 @@ body {
   border-color: var(--sp-accent);
 }
 .supplier-pos .sp-tile:disabled { opacity: 0.42; }
+
+/* On a desk the pointer is precise and the screen is wide, so the 104px floor a
+ * thumb needs just becomes dead space inside every tile. The touch floor stays
+ * — this only relaxes it from `lg` up, where `useIsDesktop` also flips. */
+@media (min-width: 1024px) {
+  .supplier-pos .sp-tile-dense { min-height: 5.5rem; padding: 0.6rem 0.7rem; }
+}
 .supplier-pos .sp-tile-in-cart {
   border-color: var(--sp-accent);
   box-shadow: inset 0 0 0 1px var(--sp-accent);
+}
+
+/* The product grid.
+ *
+ * TWO columns on a phone, fixed — a thumb needs the width and the eye needs the
+ * regularity. From `md` the count is driven by a MINIMUM TILE WIDTH instead, so
+ * a wide monitor gains columns rather than stretching four tiles to 350px each
+ * (a card with the price lost in the middle of it, not a button).
+ *
+ * ⚠️ The mobile rule is NOT `auto-fill` with the same floor: 13.5rem is wider
+ * than half a 390px screen, so auto-fill collapses the phone to one column. */
+.supplier-pos .sp-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+@media (min-width: 1024px) {
+  .supplier-pos .sp-grid {
+    grid-template-columns: repeat(auto-fill, minmax(13.5rem, 1fr));
+  }
 }
 
 /* ── Controls ─────────────────────────────────────────────────────────── */

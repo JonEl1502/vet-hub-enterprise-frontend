@@ -110,7 +110,7 @@ const PosSellView: React.FC<Props> = ({ pos }) => {
     <div className="flex flex-col h-full min-h-0">
       {/* Scan + search. One field: a scanner is a keyboard, so the thing the
           cashier types into and the thing the scanner types into are the same. */}
-      <div className="px-3 pt-3 pb-2 shrink-0">
+      <div className="px-3 lg:px-5 pt-3 pb-2 shrink-0">
         <form onSubmit={onScanSubmit} className="relative">
           <Search
             size={17}
@@ -156,7 +156,7 @@ const PosSellView: React.FC<Props> = ({ pos }) => {
 
       {/* Categories + the smart filters. Scroll-snapped so a thumb flick lands
           on a chip edge rather than halfway through one. */}
-      <div className="sp-rail px-3 pb-2.5 shrink-0">
+      <div className="sp-rail lg:flex-wrap px-3 lg:px-5 pb-2.5 shrink-0">
         <button
           onClick={() => setTab('all')}
           className={`sp-chip ${tab === 'all' ? 'sp-chip-on' : ''}`}
@@ -185,13 +185,18 @@ const PosSellView: React.FC<Props> = ({ pos }) => {
       </div>
 
       {/* The grid. 2 columns on a phone, more as the screen allows. */}
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-3">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 lg:px-5 pb-3">
         {visible.length === 0 ? (
           <p className="text-center text-sm sp-muted py-16">
             {products.length === 0 ? 'Loading the catalogue…' : 'Nothing matches'}
           </p>
         ) : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2.5 content-start">
+          // Exactly two in a hand, as many as fit on a desk — see `.sp-grid`.
+          // ⚠️ Not an inline `auto-fill, minmax(13.5rem, 1fr)`: that floor is
+          // wider than half a 390px phone, so the whole grid collapsed to ONE
+          // column on mobile. The column rule has to change at the breakpoint,
+          // which means it belongs in CSS, not in a style attribute.
+          <div className="sp-grid gap-2.5 content-start">
             {visible.map((p) => (
               <Tile
                 key={p.id}
@@ -231,7 +236,7 @@ const Tile: React.FC<{
     <button
       onClick={onAdd}
       disabled={soldOut || remaining <= 0}
-      className={`sp-tile ${qtyInCart > 0 ? 'sp-tile-in-cart' : ''}`}
+      className={`sp-tile sp-tile-dense ${qtyInCart > 0 ? 'sp-tile-in-cart' : ''}`}
     >
       {qtyInCart > 0 ? (
         <span
