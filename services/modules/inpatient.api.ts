@@ -75,6 +75,22 @@ export interface InpatientBackdate {
   hospitalization?: Hospitalization;
 }
 
+/** What a daily-rate change will cost, or did cost. Money — every field is billable. */
+export interface InpatientReprice {
+  applied: boolean;
+  nights: number;
+  rateBefore: number;
+  rateAfter: number;
+  stayBefore: number;
+  stayAfter: number;
+  difference: number;
+  visitTotalBefore: number | null;
+  visitTotalAfter: number | null;
+  /** false = no linked visit, so the rate change moves no money. */
+  billed: boolean;
+  hospitalization?: Hospitalization;
+}
+
 export const inpatientAPI = {
   // ── Treatment plan (132). A PLAN, not a charge: nothing here bills or moves
   // stock — administration goes through the MAR / consumable path.
@@ -137,6 +153,23 @@ export const inpatientAPI = {
     options?: RequestOptions,
   ): Promise<ApiResponse<InpatientBackdate>> =>
     post(`${ENDPOINTS.INPATIENT.BACKDATE(id)}${preview ? '?preview=1' : ''}`, body, { showError: !preview, ...options }),
+
+  /**
+   * Change the daily rate and RE-PRICE the accrued nights.
+   *
+   * ⚠️ Always call it with `preview: true` first and show the delta. The rate
+   * multiplies by every night already accrued, not just the ones still to come,
+   * and the server REFUSES outright on a settled visit with the amount in the
+   * message. A real change needs a `reason` — the server records it on the
+   * chart's daily sheet.
+   */
+  reprice: async (
+    id: string | number,
+    body: { dailyRate: number | null; reason?: string },
+    preview = false,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<InpatientReprice>> =>
+    post(`${ENDPOINTS.INPATIENT.RATE(id)}${preview ? '?preview=1' : ''}`, body, { showError: !preview, ...options }),
 
   reopen: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<any>> =>
     post(ENDPOINTS.INPATIENT.REOPEN(id), {}, { showError: true, ...options }),

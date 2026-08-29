@@ -1,10 +1,10 @@
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import { dialog } from '../../../services/utils/dialog';
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2, Trash2, Receipt, Pencil, X, RotateCcw, CalendarClock, AlertTriangle} from 'lucide-react';
+import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2, Trash2, Receipt, Pencil, X, RotateCcw, CalendarClock, AlertTriangle, Coins} from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import TreatmentPlanPanel from './TreatmentPlanPanel';
-import { inpatientAPI, Hospitalization, InpatientBackdate, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
+import { inpatientAPI, Hospitalization, InpatientBackdate, InpatientReprice, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import { formatDate, formatTime, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import StayChargeCard from '../shared/StayChargeCard';
@@ -123,6 +123,18 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   const [backdatePreview, setBackdatePreview] = useState<InpatientBackdate | null>(null);
   const [backdateError, setBackdateError] = useState<string | null>(null);
   const [backdateBusy, setBackdateBusy] = useState(false);
+  // Daily-rate change (2026-08-29) — see `reprice` in inpatient.service. The
+  // rate multiplies by every night ALREADY accrued, so this is priced and
+  // confirmed like the back-date rather than saved like a field.
+  const [showRate, setShowRate] = useState(false);
+  const [rateValue, setRateValue] = useState('');
+  const [rateReason, setRateReason] = useState('');
+  const [ratePreview, setRatePreview] = useState<InpatientReprice | null>(null);
+  const [rateError, setRateError] = useState<string | null>(null);
+  const [rateBusy, setRateBusy] = useState(false);
+  // The recalculate button pins a rate before billing, so it reuses this dialog
+  // and then goes on to bill. A plain rate edit stops at the save.
+  const [rateThenBill, setRateThenBill] = useState(false);
   const [showDischarge, setShowDischarge] = useState(false);
   const [showDischargeGate, setShowDischargeGate] = useState(false);
   const [showShare, setShowShare] = useState(false);
@@ -557,26 +569,92 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   }, [hospId, load, onChanged]);
 
   /**
+   * Open the rate dialog seeded with a rate.
+   *
+   * ⚠️ A RATE CHANGE IS PRICED BEFORE IT IS SAVED. It multiplies by every night
+   * already accrued — moving 1,200 to 2,000 on a nine-day stay is +7,200 the
+   * moment it saves — so it goes through a preview and a stated reason, the
+   * same as the back-date, instead of writing on the way past.
+   */
+  const openRate = useCallback((seed: number, opts?: { thenBill?: boolean; reason?: string }) => {
+    setRateValue(String(seed ?? ''));
+    setRateReason(opts?.reason ?? '');
+    setRatePreview(null);
+    setRateError(null);
+    setRateThenBill(!!opts?.thenBill);
+    setShowRate(true);
+  }, []);
+
+  /**
    * Re-run days × rate onto the visit's bill.
    *
    * ⚠️ PINS THE RATE FIRST when the admission has none of its own. The server
    * charges `if (hosp.dailyRate)` — it does NOT know about the clinic default —
    * so recalculating an admission showing the clinic rate wrote nothing and the
    * total stayed at 0 while the card promised 1,200.
+   *
+   * That pin IS a rate change and it moves the bill, so it goes through the
+   * dialog too rather than writing a rate the clinic never explicitly set.
+   * Billing follows once the rate is in.
    */
   const recalcCharge = useCallback(async (effectiveRate: number) => {
     if (effectiveRate > 0 && Number(h?.dailyRate ?? 0) !== effectiveRate) {
-      const p = await inpatientAPI.update(hospId, { dailyRate: effectiveRate } as any);
-      if (!p.success) return;
+      openRate(effectiveRate, {
+        thenBill: true,
+        reason: 'Pinned the clinic default rate so the stay charge could be recalculated',
+      });
+      return;
     }
     const r = await inpatientAPI.bill(hospId, null);
     if (r.success) { toast.success('Charge recalculated'); await load(); onChanged?.(); }
-  }, [hospId, h?.dailyRate, load, onChanged]);
+  }, [hospId, h?.dailyRate, load, onChanged, openRate]);
 
   const saveDailyRate = useCallback(async (rate: number) => {
-    const r = await inpatientAPI.update(hospId, { dailyRate: rate } as any);
-    if (r.success) { toast.success('Daily rate updated'); await load(); onChanged?.(); }
-  }, [hospId, load, onChanged]);
+    openRate(rate);
+  }, [openRate]);
+
+  // Price the change as the rate is typed. `preview: true` writes nothing —
+  // and it runs the SAME guards as the save, so a settled bill refuses here
+  // rather than after the user has committed to it.
+  useEffect(() => {
+    if (!showRate || rateValue === '') { setRatePreview(null); return; }
+    const next = Number(rateValue);
+    if (!Number.isFinite(next) || next < 0) { setRatePreview(null); setRateError('That is not a valid rate'); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await inpatientAPI.reprice(hospId, { dailyRate: next }, true);
+        if (cancelled) return;
+        if (res.success && res.data) { setRatePreview(res.data); setRateError(null); }
+      } catch (e: any) {
+        if (cancelled) return;
+        setRatePreview(null);
+        setRateError(e?.message || 'That rate cannot be used');
+      }
+    }, 350);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [showRate, rateValue, hospId]);
+
+  const applyRate = useCallback(async () => {
+    if (rateValue === '' || !rateReason.trim()) return;
+    setRateBusy(true);
+    try {
+      const res = await inpatientAPI.reprice(hospId, {
+        dailyRate: Number(rateValue),
+        reason: rateReason.trim(),
+      });
+      if (res.success) {
+        // The pin-then-bill path: the rate is in, now materialise the charge.
+        if (rateThenBill) await inpatientAPI.bill(hospId, null);
+        toast.success(rateThenBill ? 'Charge recalculated' : 'Daily rate updated');
+        setShowRate(false);
+        await load();
+        onChanged?.();
+      }
+    } catch (e: any) {
+      setRateError(e?.message || 'Failed to change the rate');
+    } finally { setRateBusy(false); }
+  }, [hospId, rateValue, rateReason, rateThenBill, load, onChanged]);
   const billOutstanding = !!h?.billing && !h.billing.isPaid && (h.billing.totalCost ?? 0) > 0;
 
   return (
@@ -1544,6 +1622,102 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                 <button onClick={applyBackdate} disabled={!ready || backdateBusy}
                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-seafoam text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95 disabled:opacity-50">
                   {backdateBusy ? <Loader2 size={13} className="animate-spin" /> : <CalendarClock size={13} />} Back-date &amp; re-price
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {showRate && h && (() => {
+        const money = (n: number) => `KES ${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+        const pv = ratePreview;
+        const ready = rateValue !== '' && !!rateReason.trim() && !!pv && !rateError;
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={() => !rateBusy && setShowRate(false)}>
+            <div onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1.5"><Coins size={13} /> Change daily rate</p>
+                  <p className="text-sm font-black text-pine dark:text-zinc-100 mt-0.5">{h.pet?.name} · {h.inpatientNo || 'No inpatient no.'}</p>
+                </div>
+                <button onClick={() => setShowRate(false)} disabled={rateBusy}
+                  className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50"><X size={15} /></button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="field-label">Current rate</label>
+                  <p className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 py-2.5">
+                    {h.dailyRate != null ? money(Number(h.dailyRate)) : 'None set on this admission'}
+                  </p>
+                </div>
+                <div>
+                  <label className="field-label">New rate (KES/day) *</label>
+                  <input type="number" min="0" className="field-input" value={rateValue}
+                    onChange={(e) => setRateValue(e.target.value)} />
+                </div>
+              </div>
+
+              {rateError && (
+                <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900/50">
+                  <AlertTriangle size={14} className="text-rose-500 shrink-0 mt-0.5" />
+                  <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 leading-relaxed">{rateError}</p>
+                </div>
+              )}
+
+              {pv && (
+                <div className="rounded-xl bg-slate-50 dark:bg-zinc-950/40 border border-slate-200 dark:border-zinc-800 p-3 space-y-1.5 text-[11px]">
+                  <div className="flex justify-between font-bold text-slate-500 dark:text-zinc-400">
+                    <span>Days accrued</span><span className="font-mono">{pv.nights}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-slate-500 dark:text-zinc-400">
+                    <span>Rate</span><span className="font-mono">{money(pv.rateBefore)} → {money(pv.rateAfter)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-slate-500 dark:text-zinc-400">
+                    <span>Stay charge</span><span className="font-mono">{money(pv.stayBefore)} → {money(pv.stayAfter)}</span>
+                  </div>
+                  {pv.visitTotalBefore != null && (
+                    <div className="flex justify-between font-black text-pine dark:text-zinc-100 text-sm pt-1.5 border-t border-slate-200 dark:border-zinc-800">
+                      <span>Visit total</span>
+                      <span className="font-mono">{money(pv.visitTotalBefore)} → {money(pv.visitTotalAfter ?? 0)}</span>
+                    </div>
+                  )}
+                  {/* An admission with no linked visit re-prices the record and
+                      nothing else. Saying so beats a confident delta against a
+                      bill that does not exist. */}
+                  {!pv.billed ? (
+                    <p className="text-[10px] font-bold text-slate-400 pt-1">
+                      No visit is linked to this admission — the new rate changes the record, not a bill.
+                    </p>
+                  ) : pv.difference === 0 ? (
+                    <p className="text-[10px] font-bold text-slate-400 pt-1">No change to the bill.</p>
+                  ) : (
+                    <p className="text-[10px] font-black text-amber-600 pt-1">
+                      {pv.difference > 0
+                        ? `The client will be billed ${money(pv.difference)} more.`
+                        : `${money(Math.abs(pv.difference))} comes off the client's bill.`}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <label className="field-label">Why is the rate changing? *</label>
+                <textarea className="field-textarea" rows={2} value={rateReason}
+                  onChange={(e) => setRateReason(e.target.value)}
+                  placeholder="Moved to the ICU rate from day one — agreed with the owner" />
+                <p className="text-[9px] text-slate-400 mt-1">Written to the daily sheet with the old and new rates — this changes what the client is billed.</p>
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button onClick={() => setShowRate(false)} disabled={rateBusy}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-200 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50">Cancel</button>
+                <button onClick={applyRate} disabled={!ready || rateBusy}
+                  className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-seafoam text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95 disabled:opacity-50">
+                  {rateBusy ? <Loader2 size={13} className="animate-spin" /> : <Coins size={13} />} Save &amp; re-price
                 </button>
               </div>
             </div>
