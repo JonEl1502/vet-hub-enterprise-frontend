@@ -36,6 +36,22 @@ const KES = (n: number) =>
 const fmtDay = (d: string) =>
   new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
+const hhmm = (d: Date) =>
+  `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+/**
+ * The two times that actually matter on a smallholding.
+ *
+ * A cow is milked twice and fed twice, and those are the events a farmer is
+ * recording nine times out of ten. Two taps beat spinning a time picker, and
+ * the picker is still right there for everything else.
+ */
+const QUICK_TIMES = [
+  { label: 'Morning', value: '06:30' },
+  { label: 'Midday', value: '12:00' },
+  { label: 'Evening', value: '18:30' },
+] as const;
+
 /** The four things a farmer actually does, in the order they do them. */
 const SHEETS = [
   { key: 'FEED', label: 'Fed them', icon: Wheat, tone: 'amber',
@@ -181,6 +197,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
   const [vendor, setVendor] = useState('');
   const [vendorId, setVendorId] = useState<string | null>(null);
   const [entryDate, setEntryDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [entryTime, setEntryTime] = useState('');
 
   // Herd sheets
   const [addHerd, setAddHerd] = useState(false);
@@ -208,6 +225,10 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
     setItem(''); setAmount(''); setQuantity(''); setUnit(unitFor(key));
     setGroupId(''); setVendor(''); setVendorId(null);
     setEntryDate(new Date().toISOString().slice(0, 10));
+    // Pre-filled with NOW, because the overwhelming case is recording something
+    // that just happened. Clearable, because the other case — catching up on
+    // last week — must not be forced to invent a clock time it does not know.
+    setEntryTime(hhmm(new Date()));
   };
 
   const pickCategory = (key: string) => {
@@ -229,6 +250,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
         quantity: quantity === '' ? null : Number(quantity),
         unit: unit || undefined,
         entryDate,
+        entryTime: entryTime || null,
         animalGroupId: groupId || undefined,
         vendorName: vendor.trim() || undefined,
         vendorSupplierId: vendorId || undefined,
@@ -306,7 +328,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
   return (
     <div className="space-y-5">
       {/* ── Money first. This is why they come back. ─────────────────────── */}
-      <section className="cp-card">
+      <section className="cp-card p-4 sm:p-5">
         <div className="flex items-center justify-between gap-3">
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">
             {summary?.windowDays ? `Last ${summary.windowDays} days` : 'All time'}
@@ -400,7 +422,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
         </div>
 
         {groups.length === 0 ? (
-          <div className="cp-card text-center py-8">
+          <div className="cp-card text-center px-5 py-8">
             <p className="text-sm font-bold text-slate-700">Tell us what you keep</p>
             <p className="mt-1 text-xs text-slate-500 max-w-xs mx-auto">
               Cows, goats, pigs, chickens — add each kind once, then record against it as
@@ -411,7 +433,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2 lg:gap-1.5">
             {groups.map((g) => {
               const chips = [
                 ['♂', g.males], ['♀', g.females],
@@ -419,7 +441,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
                 ['Pregnant', g.pregnant], ['Milking', g.lactating],
               ].filter(([, v]) => Number(v) > 0);
               return (
-                <div key={g.id} className="cp-card">
+                <div key={g.id} className="cp-card p-3.5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-slate-800 truncate">{g.name}</p>
@@ -462,35 +484,75 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
       <section className="lg:col-start-1 lg:row-start-2">
         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Recent</h3>
         {entries.length === 0 ? (
-          <div className="cp-card text-center py-6 text-xs text-slate-400">
+          <div className="cp-card text-center px-5 py-6 text-xs text-slate-400">
             Nothing recorded yet. Use the buttons above as things happen.
           </div>
         ) : (
-          <div className="space-y-1.5">
-            {entries.map((e) => (
-              <div key={e.id} className="cp-card flex items-center justify-between gap-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-800 truncate">{e.item}</p>
-                  <p className="text-[10px] text-slate-400 truncate">
-                    {[
-                      fmtDay(e.entryDate),
-                      labelFor(e.category),
-                      e.quantity != null ? `${e.quantity}${e.unit ? ` ${e.unit.toLowerCase()}` : ''}` : null,
-                      e.animalGroupName,
-                      e.vendorSupplierName || e.vendorName,
-                    ].filter(Boolean).join(' · ')}
-                  </p>
-                </div>
-                <div className="shrink-0 flex items-center gap-2">
-                  <span className={`text-sm font-black ${e.direction === 'INCOME' ? 'text-emerald-600' : 'text-slate-600'}`}>
+          /**
+           * ⚠️ ONE container, not one card per line.
+           *
+           * Each entry used to be its own full-width `cp-card` — a ~1000px pill
+           * holding two short strings and a number, with a metre of nothing in
+           * the middle and 84px of height apiece. Six records filled a desktop
+           * screen. A money history is a LIST: the value of it is scanning down
+           * the amounts, and per-row card chrome breaks that column into
+           * fragments while costing three times the vertical space.
+           *
+           * Date leads the row and repeats only when it changes, so a day's
+           * entries read as a group without needing a heading row.
+           */
+          <div className="cp-card overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
+            {entries.map((e, i) => {
+              const sameDayAsPrev = i > 0 && entries[i - 1].entryDate === e.entryDate;
+              return (
+                <div
+                  key={e.id}
+                  className="group flex items-baseline gap-3 px-3.5 sm:px-4 py-2 hover:bg-slate-50/70 dark:hover:bg-white/[0.03] transition-colors"
+                >
+                  {/* Fixed-width date gutter is what makes every row below it
+                      line up; blank on a repeat so the eye groups the day. */}
+                  <span className="shrink-0 w-[76px] sm:w-[92px] text-[10px] font-bold uppercase tracking-wider text-slate-400 tabular-nums">
+                    {sameDayAsPrev ? '' : fmtDay(e.entryDate)}
+                    {e.entryTime && (
+                      <span className="ml-1 font-normal normal-case tracking-normal text-slate-300 dark:text-zinc-600">
+                        {e.entryTime}
+                      </span>
+                    )}
+                  </span>
+
+                  <div className="min-w-0 flex-1">
+                    <p className="text-[13px] font-bold text-slate-800 dark:text-zinc-100 truncate leading-snug">
+                      {e.item}
+                    </p>
+                    <p className="text-[10px] text-slate-400 truncate">
+                      {[
+                        labelFor(e.category),
+                        e.quantity != null ? `${e.quantity}${e.unit ? ` ${e.unit.toLowerCase()}` : ''}` : null,
+                        e.animalGroupName,
+                        e.vendorSupplierName || e.vendorName,
+                      ].filter(Boolean).join(' · ')}
+                    </p>
+                  </div>
+
+                  <span className={`shrink-0 text-[13px] font-black tabular-nums ${
+                    e.direction === 'INCOME' ? 'text-emerald-600' : 'text-slate-600 dark:text-zinc-300'
+                  }`}>
                     {e.direction === 'INCOME' ? '+' : '−'}{KES(e.amount)}
                   </span>
-                  <button className="text-slate-300 hover:text-rose-500 p-1" onClick={() => remove(e)} title="Delete">
+
+                  {/* Reveals on hover, holds its width always — a delete that
+                      appears from nowhere shifts the amount column under the
+                      cursor mid-scan. */}
+                  <button
+                    className="shrink-0 p-1 text-transparent group-hover:text-slate-300 hover:!text-rose-500 focus:text-slate-400 transition-colors"
+                    onClick={() => remove(e)}
+                    title="Delete this record"
+                  >
                     <Trash2 size={13} />
                   </button>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
@@ -569,12 +631,37 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
             )}
 
             <div>
-              <label className="cp-label">When</label>
-              <input
-                className="cp-input w-full" type="date" value={entryDate}
-                max={new Date().toISOString().slice(0, 10)}
-                onChange={(e) => setEntryDate(e.target.value)}
-              />
+              <div className="flex items-center justify-between gap-2 mb-1">
+                <label className="cp-label !mb-0">When</label>
+                <div className="flex gap-1">
+                  {QUICK_TIMES.map((q) => (
+                    <button
+                      key={q.value}
+                      type="button"
+                      onClick={() => setEntryTime(q.value)}
+                      className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                        entryTime === q.value
+                          ? 'bg-pine text-white border-pine'
+                          : 'bg-white dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700'
+                      }`}
+                    >
+                      {q.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div className="grid grid-cols-[1fr_auto] gap-2">
+                <input
+                  className="cp-input w-full" type="date" value={entryDate}
+                  max={new Date().toISOString().slice(0, 10)}
+                  onChange={(e) => setEntryDate(e.target.value)}
+                />
+                <input
+                  className="cp-input" type="time" value={entryTime}
+                  onChange={(e) => setEntryTime(e.target.value)}
+                  title="Leave empty if you are recording something from a while back"
+                />
+              </div>
             </div>
 
             <button className="cp-btn w-full" onClick={submit} disabled={saving || !item.trim()}>

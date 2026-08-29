@@ -234,6 +234,8 @@ export interface PortalLedgerEntry {
   animalGroupId: string | null;
   animalGroupName: string | null;
   entryDate: string;
+  /** "HH:MM" wall-clock on the farm, or null when it was back-recorded (263). */
+  entryTime: string | null;
   direction: 'INCOME' | 'EXPENSE';
   category: string;
   item: string;
@@ -594,7 +596,7 @@ export const clientPortalAPI = {
     farmId: string,
     data: {
       category: string; item: string; amount: number;
-      quantity?: number | null; unit?: string; entryDate?: string;
+      quantity?: number | null; unit?: string; entryDate?: string; entryTime?: string | null;
       animalGroupId?: string; vendorName?: string; vendorSupplierId?: string; notes?: string;
     },
     options?: RequestOptions,
@@ -603,7 +605,7 @@ export const clientPortalAPI = {
 
   updateLedgerEntry: (
     entryId: string,
-    data: Partial<{ item: string; amount: number; quantity: number | null; unit: string; entryDate: string; vendorName: string; notes: string }>,
+    data: Partial<{ item: string; amount: number; quantity: number | null; unit: string; entryDate: string; entryTime: string | null; vendorName: string; notes: string }>,
     options?: RequestOptions,
   ): Promise<ApiResponse<{ entry: PortalLedgerEntry }>> =>
     patch(`/portal/me/farm-ledger/${entryId}`, data, { showError: true, ...options }),

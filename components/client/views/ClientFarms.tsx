@@ -184,7 +184,7 @@ const ClientFarms: React.FC = () => {
   const active = farms.find((f) => f.id === activeId);
 
   if (loading) {
-    return <div className="cp-card text-center py-12 text-sm text-slate-400">Loading your farm…</div>;
+    return <div className="cp-card text-center px-5 py-12 text-sm text-slate-400">Loading your farm…</div>;
   }
 
   // Has farms (or wants them) but not the plan. Deliberately NOT phrased as an
@@ -192,7 +192,7 @@ const ClientFarms: React.FC = () => {
   // one thing they need is named plainly.
   if (locked) {
     return (
-      <div className="cp-card text-center py-14">
+      <div className="cp-card text-center px-5 py-14">
         <Sprout size={26} className="mx-auto cp-accent-text" />
         <p className="mt-3 text-sm font-bold text-slate-700">Farm mode is on the Farmer plan</p>
         <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
@@ -207,7 +207,7 @@ const ClientFarms: React.FC = () => {
   if (farms.length === 0) {
     return (
       <>
-        <div className="cp-card text-center py-14">
+        <div className="cp-card text-center px-5 py-14">
           <Sprout size={26} className="mx-auto text-slate-300" />
           <p className="mt-3 text-sm font-bold text-slate-700">No farm on your account yet</p>
           <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
@@ -263,7 +263,7 @@ const ClientFarms: React.FC = () => {
       )}
 
       {active && (
-        <div className="cp-card relative">
+        <div className="cp-card relative p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3 sm:pr-56">
             <div className="min-w-0">
               <h2 className="text-base font-black text-slate-800 truncate">{active.name}</h2>
@@ -316,11 +316,11 @@ const ClientFarms: React.FC = () => {
           <Sprout size={13} /> Today's feeding
         </h3>
         {plans.length === 0 ? (
-          <div className="cp-card text-center py-6 text-xs text-slate-400">No feeding plans set up yet.</div>
+          <div className="cp-card text-center px-5 py-6 text-xs text-slate-400">No feeding plans set up yet.</div>
         ) : (
           <div className="space-y-2">
             {plans.map((p) => (
-              <div key={p.id} className="cp-card flex items-center justify-between gap-3">
+              <div key={p.id} className="cp-card p-3.5 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-slate-800 truncate">{p.name}</p>
                   <p className="text-[11px] text-slate-500 truncate">
@@ -369,11 +369,11 @@ const ClientFarms: React.FC = () => {
           <CalendarClock size={13} /> Produce
         </h3>
         {schedules.length === 0 ? (
-          <div className="cp-card text-center py-6 text-xs text-slate-400">No produce scheduled yet.</div>
+          <div className="cp-card text-center px-5 py-6 text-xs text-slate-400">No produce scheduled yet.</div>
         ) : (
           <div className="space-y-2">
             {schedules.map((s) => (
-              <div key={s.id} className="cp-card flex items-center justify-between gap-3">
+              <div key={s.id} className="cp-card p-3.5 flex items-center justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-bold text-slate-800 truncate">{s.produce}</p>
                   <p className="text-[11px] text-slate-500 truncate">
@@ -414,13 +414,13 @@ const ClientFarms: React.FC = () => {
           </button>
         </div>
         {visitRequests.length === 0 ? (
-          <div className="cp-card text-center py-6 text-xs text-slate-400">
+          <div className="cp-card text-center px-5 py-6 text-xs text-slate-400">
             No visits requested. Ask your clinic to come out when something needs a vet.
           </div>
         ) : (
           <div className="space-y-2">
             {visitRequests.slice(0, 5).map((v) => (
-              <div key={v.id} className="cp-card">
+              <div key={v.id} className="cp-card p-3.5">
                 <div className="flex items-center justify-between gap-2">
                   <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
                     v.status === 'SCHEDULED' ? 'bg-indigo-100 text-indigo-700'
@@ -459,7 +459,7 @@ const ClientFarms: React.FC = () => {
             <Siren size={13} /> Vet visits
           </h3>
           <div className="cp-card overflow-hidden">
-            <div className="p-1 sm:p-2 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+            <div className="p-4 sm:p-5 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
               <div>
                 <p className="text-sm font-black text-slate-800 dark:text-zinc-100">
                   Get the vet to come to the farm
@@ -511,7 +511,7 @@ const ClientFarms: React.FC = () => {
           </h3>
           <div className="grid grid-cols-2 gap-2">
             {plots.map((p) => (
-              <div key={p.id} className="cp-card">
+              <div key={p.id} className="cp-card p-3.5">
                 <p className="text-sm font-bold text-slate-800 truncate">{p.name}</p>
                 <p className="text-[11px] text-slate-500">{p.crop}</p>
                 <p className="text-[10px] text-slate-400 mt-1">Harvest {fmtDate(p.expectedHarvestOn)}</p>
@@ -524,7 +524,7 @@ const ClientFarms: React.FC = () => {
       {records.length > 0 && (
         <section>
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Recent yield</h3>
-          <div className="cp-card divide-y divide-slate-100">
+          <div className="cp-card px-4 divide-y divide-slate-100 dark:divide-zinc-800">
             {records.slice(0, 8).map((r) => (
               <div key={r.id} className="py-2 flex items-center justify-between">
                 <span className="text-xs text-slate-500">{fmtDate(r.recordedOn)}</span>

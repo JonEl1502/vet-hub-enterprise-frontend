@@ -193,7 +193,7 @@ const ClientLayout: React.FC = () => {
           this shell has no fixed sidebar to strand space beside. */}
       <div className="flex max-w-[1400px] mx-auto w-full">
         {/* Desktop side rail */}
-        <aside className="hidden md:block w-56 shrink-0 p-4 sticky top-16 self-start">
+        <aside className="hidden md:block w-52 lg:w-56 shrink-0 p-3 lg:pl-4 lg:pr-2 sticky top-16 self-start">
           <nav className="cp-rail flex flex-col gap-1 p-2.5">
             {NAV.map(({ to, end, label, icon: Icon }) => (
               <NavLink key={to} to={to} end={end} className={linkClasses}>
@@ -232,7 +232,10 @@ const ClientLayout: React.FC = () => {
         </aside>
 
         {/* Page content */}
-        <main className="flex-1 min-w-0 p-4 sm:p-5 lg:px-6 pb-24 md:pb-6">
+        {/* ⚠️ Gutters, not padding-for-its-own-sake. `.cp-card` ships with NO
+            padding of its own, so every card states its own inset — the page
+            only needs enough edge to keep cards off the viewport. */}
+        <main className="flex-1 min-w-0 p-3 sm:p-4 lg:py-4 lg:pl-3 lg:pr-4 pb-24 md:pb-6">
           <Outlet />
         </main>
       </div>
