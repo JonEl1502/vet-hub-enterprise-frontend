@@ -1,32 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  DollarSign,
-  Clock,
-  BarChart3,
-  TrendingUp,
-  Wallet,
-  ArrowUpRight,
-  ArrowDownRight,
-  Activity,
-  Truck,
-  CheckCircle2,
-  XCircle,
-  Package as PackageIcon,
-  Plus,
-  Globe,
-  Eye,
-  EyeOff,
-  LayoutGrid,
-  Table as TableIcon,
-  ListChecks,
-  AlertTriangle,
-  ArrowRight,
-  ShoppingCart,
-  Boxes,
-  Star,
-  Edit,
-  Power,
-  Trash2,
+  Activity, AlertTriangle, ArrowDownRight, ArrowRight, ArrowUpRight, BarChart3, Boxes, Check, CheckCircle2, Clock, DollarSign, Edit, Eye, EyeOff, Globe, LayoutGrid, ListChecks, Package as PackageIcon, Plus, Power, ShoppingCart, Star, Table as TableIcon, Trash2, TrendingUp, Truck, Wallet, XCircle,
 } from 'lucide-react';
 import {
   AreaChart,
@@ -51,8 +25,7 @@ import { supplierSubscriptionAPI, type SupplierSubscription } from '../../../ser
 import { suppliersAPI, CreateSupplierData } from '../../../services/modules/suppliers.api';
 import { toast } from '../../../services/utils/toast';
 import { dialog } from '../../../services';
-import { planLabel } from '../../../services/entitlements';
-import { usePlanAccess } from '../../../contexts/PlanAccessContext';
+import SupplierPlanBanner from './SupplierPlanBanner';
 import type { PurchaseOrder } from '../../../services/modules/purchaseOrders.api';
 import type { SupplierProduct } from '../../../services/modules/supplierProducts.api';
 import type { Supplier } from '../../../services/modules/suppliers.api';
@@ -89,7 +62,6 @@ interface SupplierDashboardProps {
 
 const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
   const { user } = useAuth();
-  const { access: planAccess } = usePlanAccess();
   const { branches, activeBranchIds } = useSupplierBranch();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
@@ -425,17 +397,41 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
   }, [subscription, products.length]);
 
   // Onboarding checklist — hidden once every step is done.
+  /**
+   * Setup steps.
+   *
+   * ⚠️ "Subscribe to a plan" USED to be step one. It is gone because the plan
+   * banner above now owns that decision, and having both meant "subscribe"
+   * shouted twice on one screen for a single action.
+   *
+   * ⚠️ "Receive your first order" is a MILESTONE, not an action — nothing the
+   * supplier clicks makes it happen. It used to carry a "View products" button,
+   * a CTA that had nothing to do with its own sentence. It now states what it
+   * is waiting for, in the same footer slot the action card uses, so the row
+   * keeps one baseline.
+   */
   const onboarding = useMemo(() => {
-    const hasSub = !!subscription?.isActive;
-    const hasProducts = products.length > 0;
-    const hasOrders = orders.length > 0;
     const steps = [
-      { key: 'sub', label: 'Subscribe to a plan', desc: 'Pick a plan to publish your catalogue to clinics.', done: hasSub, cta: 'Choose plan', view: 'supplier-billing' },
-      { key: 'prod', label: 'Add your first product', desc: 'List what you sell so clinics can find and order it.', done: hasProducts, cta: 'Add product', view: 'supplier-product-new' },
-      { key: 'order', label: 'Receive your first order', desc: 'Keep products visible and share your catalogue with clinics.', done: hasOrders, cta: 'View products', view: 'supplier-products' },
+      {
+        key: 'prod',
+        label: 'Add your first product',
+        desc: 'List what you sell so clinics can find and order it.',
+        done: products.length > 0,
+        cta: 'Add product',
+        view: 'supplier-product-new',
+        altCta: 'or import a price list',
+        altView: 'supplier-import',
+      },
+      {
+        key: 'order',
+        label: 'Receive your first order',
+        desc: 'Clinics order from your catalogue. Nothing to do here — this ticks itself.',
+        done: orders.length > 0,
+        waitingFor: 'Waiting for your first order',
+      },
     ];
     return { steps, complete: steps.every(s => s.done), doneCount: steps.filter(s => s.done).length };
-  }, [subscription, products.length, orders.length]);
+  }, [products.length, orders.length]);
 
   if (loading) {
     return (
@@ -656,56 +652,110 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
       {activeTab === 'overview' && (
       <div className="space-y-6">
           {/* Onboarding checklist — supplier's own dashboard, hidden once complete */}
+          {/* Plan state, in one line — the same treatment the clinic dashboard
+              uses, and the ONLY place "choose plan" is offered on this screen. */}
+          {!isAdmin && <SupplierPlanBanner onChoosePlan={() => setView?.('supplier-billing')} />}
+
           {!isAdmin && !onboarding.complete && (
-            <div className="bg-gradient-to-br from-seafoam/10 to-white dark:from-seafoam/10 dark:to-zinc-900 border border-seafoam/30 rounded-2xl p-5 shadow-sm">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
                 <ListChecks size={16} className="text-seafoam" />
                 <h2 className="text-sm font-black uppercase tracking-wider text-pine dark:text-zinc-100">Get set up</h2>
-                <span className="text-[10px] font-black text-seafoam ml-auto">{onboarding.doneCount}/{onboarding.steps.length} done</span>
+                <span className="text-[10px] font-black text-slate-400 dark:text-zinc-500 ml-auto tabular-nums">
+                  {onboarding.doneCount} of {onboarding.steps.length} done
+                </span>
               </div>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400 mb-4">Finish these steps to start selling to clinics on VetHubCore.</p>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {onboarding.steps.map((s, i) => (
-                  <div key={s.key} className={`rounded-xl border p-3 flex flex-col gap-2 ${s.done ? 'border-emerald-500/30 bg-emerald-500/5' : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'}`}>
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400 mb-4">Finish these to start selling to clinics on VetHubCore.</p>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {onboarding.steps.map((s) => (
+                  <div
+                    key={s.key}
+                    /* ⚠️ A DONE step recedes. It used to get a green tint, a
+                       green border and a strikethrough heading, which made the
+                       finished step the loudest thing in the row — the opposite
+                       of what a checklist is for. */
+                    className={`rounded-xl border p-3.5 flex flex-col gap-2 transition-colors ${
+                      s.done
+                        ? 'border-slate-100 dark:border-zinc-800/60 bg-slate-50/60 dark:bg-zinc-900/40'
+                        : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
+                    }`}
+                  >
                     <div className="flex items-center gap-2">
-                      {s.done
-                        ? <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-                        : <span className="w-4 h-4 rounded-full border-2 border-slate-300 dark:border-zinc-600 text-[9px] font-black flex items-center justify-center text-slate-400 shrink-0">{i + 1}</span>}
-                      <p className={`text-xs font-black ${s.done ? 'text-emerald-600 dark:text-emerald-400 line-through' : 'text-pine dark:text-zinc-100'}`}>{s.label}</p>
+                      {s.done ? (
+                        <Check size={13} className="text-emerald-500 shrink-0" strokeWidth={3} />
+                      ) : (
+                        /* A hollow dot, not a number. Numbered circles next to
+                           a tick read as a broken sequence the moment any step
+                           but the first is the one that is done. */
+                        <span className="w-[13px] h-[13px] rounded-full border-2 border-slate-300 dark:border-zinc-600 shrink-0" />
+                      )}
+                      <p
+                        className={`text-xs font-black ${
+                          s.done
+                            ? 'text-slate-400 dark:text-zinc-500'
+                            : 'text-pine dark:text-zinc-100'
+                        }`}
+                      >
+                        {s.label}
+                      </p>
                     </div>
+
                     <p className="text-[10px] text-slate-400 dark:text-zinc-500 leading-snug flex-1">{s.desc}</p>
-                    {!s.done && (
-                      <button onClick={() => setView?.(s.view)} className="flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wider text-white bg-pine dark:bg-zinc-100 dark:text-pine rounded-lg py-1.5 hover:opacity-90 transition-all">
-                        {s.cta} <ArrowRight size={11} />
-                      </button>
-                    )}
+
+                    {/* One footer slot per card, always occupied, so the row
+                        keeps a single baseline whatever each step's state is. */}
+                    <div className="min-h-[1.9rem] flex flex-col justify-end">
+                      {s.done ? (
+                        <p className="text-[10px] font-black uppercase tracking-wider text-emerald-600/70 dark:text-emerald-500/70">
+                          Done
+                        </p>
+                      ) : s.view ? (
+                        <>
+                          <button
+                            onClick={() => setView?.(s.view!)}
+                            className="flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wider text-white bg-pine dark:bg-zinc-100 dark:text-pine rounded-lg py-1.5 hover:opacity-90 transition-all"
+                          >
+                            {s.cta} <ArrowRight size={11} />
+                          </button>
+                          {s.altCta && (
+                            <button
+                              onClick={() => setView?.(s.altView!)}
+                              className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 hover:text-seafoam mt-1.5 self-center"
+                            >
+                              {s.altCta}
+                            </button>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 italic">
+                          {s.waitingFor}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Plan + listing quota — supplier's own dashboard */}
+          {/* Listing quota — the plan itself is stated in the banner above, so
+              this reports how much of it is used, not what it is. */}
           {!isAdmin && (
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm flex flex-wrap items-center gap-4">
+              {/* ⚠️ The PLAN NAME is not repeated here. The banner a few inches
+                  above states it, and the sidebar states it again — a third copy
+                  in between was the same sentence three times on one screen.
+                  This strip answers a different question: how much of the plan
+                  has been used. */}
               <div className="flex items-center gap-2">
                 <Boxes size={16} className="text-seafoam" />
-                <div>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Plan</p>
-                  {/* Same words as the sidebar. This said "No subscription"
-                      while the sidebar said "Free plan" — one state, two names,
-                      on the same screen. `planLabel` is the single wording. */}
-                  <p className="text-xs font-black text-pine dark:text-zinc-100">
-                    {subscription?.isActive
-                      ? subscription.package?.name || 'Active'
-                      : planLabel(planAccess).text}
-                  </p>
-                </div>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Listings</p>
               </div>
               <div className="h-8 w-px bg-slate-100 dark:bg-zinc-800" />
               <div className="flex-1 min-w-[180px]">
                 <div className="flex items-center justify-between mb-1">
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Listings used</p>
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Used</p>
                   <p className="text-[10px] font-black text-pine dark:text-zinc-100">
                     {listingInfo.used}{listingInfo.unlimited ? ' / ∞' : listingInfo.limit != null ? ` / ${listingInfo.limit}` : ''}
                   </p>
@@ -717,11 +767,10 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
                   />
                 </div>
               </div>
-              {!subscription?.isActive && (
-                <button onClick={() => setView?.('supplier-billing')} className="text-[10px] font-black uppercase text-white bg-pine dark:bg-zinc-100 dark:text-pine rounded-lg px-3 py-2 hover:opacity-90 flex items-center gap-1">
-                  Subscribe <ArrowRight size={11} />
-                </button>
-              )}
+              {/* ⚠️ No Subscribe button here. The plan banner at the top of this
+                  same screen already offers it, and two buttons for one action
+                  a few inches apart is how a page starts nagging. This strip
+                  now reports state; the banner is where you act on it. */}
             </div>
           )}
 
