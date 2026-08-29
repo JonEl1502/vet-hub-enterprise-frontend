@@ -1,5 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useAuth } from '../../../contexts/AuthContext';
+import { usePlanAccess } from '../../../contexts/PlanAccessContext';
+import { planLabel } from '../../../services/entitlements';
 import {
   LayoutDashboard,
   Package,
@@ -40,6 +42,14 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
 }) => {
   const { user } = useAuth();
   const supplierName = user?.supplier?.name || 'Supplier Portal';
+  /**
+   * The plan, under the shop name — the same place the clinic sidebar puts it
+   * (`headerSubtitle` in sidebar/Sidebar.tsx). A supplier could previously only
+   * find out what they were paying for by opening Billing; the word "Supplier
+   * Portal" sat here instead, which told them nothing they did not know.
+   */
+  const { access } = usePlanAccess();
+  const plan = planLabel(access);
   const [hoveredItemTop, setHoveredItemTop] = useState<number>(0);
   const [activeHoverId, setActiveHoverId] = useState<string | null>(null);
   const [managementOpen, setManagementOpen] = useState(
@@ -155,7 +165,18 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
           {(!isCollapsed || isMobileOpen) && (
             <div className="animate-in fade-in slide-in-from-left-2 overflow-hidden min-w-0">
               <h1 className="text-pine dark:text-zinc-100 font-black text-base tracking-tighter leading-none uppercase truncate">{supplierName}</h1>
-              <p className="text-seafoam/70 dark:text-zinc-500 text-[7px] font-black uppercase tracking-widest mt-0.5 truncate">Supplier Portal</p>
+              <p
+                className={`text-[7px] font-black uppercase tracking-widest mt-0.5 truncate ${
+                  plan.tone === 'warn'
+                    ? 'text-red-500'
+                    : plan.tone === 'trial'
+                      ? 'text-amber-600 dark:text-amber-500'
+                      : 'text-seafoam/70 dark:text-zinc-500'
+                }`}
+                title={plan.text}
+              >
+                {plan.text}
+              </p>
             </div>
           )}
         </div>

@@ -27,6 +27,36 @@ export interface PlanAccess {
 }
 
 /**
+ * The one-line plan label — "Growth Plan", "Free trial", "Free plan".
+ *
+ * Shared so the supplier portal and the clinic sidebar cannot drift into
+ * describing the same four states differently.
+ *
+ * ⚠️ LOCKED means two different things and they must not read the same. A
+ * supplier who never subscribed is on the FREE plan, which is a normal place to
+ * be and should not look like a fault. A supplier whose paid plan lapsed is
+ * EXPIRED, and needs to know that rather than being quietly told they are on a
+ * free plan they did not choose. The difference is whether a package name came
+ * back with the locked state.
+ */
+export function planLabel(access: PlanAccess | null): {
+  text: string;
+  tone: 'neutral' | 'trial' | 'warn';
+} {
+  if (!access) return { text: 'Free plan', tone: 'neutral' };
+
+  if (access.state === 'TRIAL') return { text: 'Free trial', tone: 'trial' };
+
+  if (access.packageName) {
+    return access.state === 'LOCKED'
+      ? { text: `${access.packageName} — expired`, tone: 'warn' }
+      : { text: `${access.packageName} Plan`, tone: 'neutral' };
+  }
+
+  return { text: 'Free plan', tone: 'neutral' };
+}
+
+/**
  * Views that are reachable on ANY plan, including LOCKED. A locked clinic must
  * still be able to pay, manage staff, and handle an emergency.
  */
