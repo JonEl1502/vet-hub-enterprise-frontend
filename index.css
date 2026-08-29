@@ -629,3 +629,228 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .needs-attention { animation: none; box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.9) inset; }
 }
+
+/* =========================================================================
+ * Supplier POS — the till.
+ *
+ * Scoped under .supplier-pos so none of it reaches the staff app or the
+ * pet-owner portal, exactly as .client-portal is scoped. Three things make
+ * this a different design problem from either of those:
+ *
+ *   1. It is used STANDING UP, ONE-HANDED, at speed, often in daylight.
+ *      Contrast is high and targets are large on purpose; this is the one
+ *      surface where "airy" is wrong.
+ *   2. The accent is the SUPPLIER'S OWN brand colour, injected at runtime from
+ *      `Supplier.primaryColor`. Every accent below therefore reads from
+ *      --sp-accent rather than hard-coding a hue.
+ *   3. It must be legible on a cheap phone in sunlight, so the ink is near
+ *      black rather than the brand's pine.
+ * ======================================================================= */
+.supplier-pos {
+  --sp-bg: #f4f5f7;           /* cool paper canvas */
+  --sp-surface: #ffffff;      /* tiles, cart, sheets */
+  --sp-surface-2: #eef0f4;    /* inputs, chips, pressed states */
+  --sp-border: #dfe3ea;
+  --sp-ink: #10151c;          /* near-black: sunlight legibility */
+  --sp-ink-2: #3d4655;
+  --sp-muted: #7c8698;
+  --sp-accent: #1C7A5B;       /* overridden per supplier at runtime */
+  --sp-accent-ink: #ffffff;   /* text ON the accent */
+  --sp-accent-soft: #e7f2ed;
+  --sp-good: #12805c;
+  --sp-warn: #b4630c;
+  --sp-bad: #c02a25;
+  --sp-chrome: #0e1420;       /* header + tab bar */
+  --sp-chrome-ink: #f2f5f9;
+
+  /* The phone's own safe areas. Without these the tab bar sits under the
+     home indicator and the tender keypad loses its bottom row. */
+  --sp-safe-top: env(safe-area-inset-top, 0px);
+  --sp-safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  background: var(--sp-bg);
+  color: var(--sp-ink);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ⚠️ The full-viewport height belongs to the ROOT of the till, not to the token
+ * class. `.supplier-pos` is also applied to nested wrappers so they inherit the
+ * palette — most importantly the cart inside the bottom sheet. A `min-height`
+ * on the token class forced that 700px sheet to be 844px tall and pushed the
+ * pay button clean off the screen.
+ *
+ * dvh, not vh: on mobile Safari the URL bar makes vh TALLER than the visible
+ * viewport, which loses the bottom of the page exactly when it matters. */
+.supplier-pos.sp-root {
+  min-height: 100dvh;
+}
+.dark .supplier-pos {
+  --sp-bg: #0b0f16;
+  --sp-surface: #151b25;
+  --sp-surface-2: #1c2431;
+  --sp-border: #28303d;
+  --sp-ink: #f2f5f9;
+  --sp-ink-2: #c3ccd9;
+  --sp-muted: #7f8b9d;
+  --sp-accent-soft: #14261f;
+  --sp-good: #3fbf90;
+  --sp-warn: #e0a458;
+  --sp-bad: #f0655f;
+  --sp-chrome: #070b11;
+}
+
+/* ── Surfaces ─────────────────────────────────────────────────────────── */
+.supplier-pos .sp-card {
+  background: var(--sp-surface);
+  border: 1px solid var(--sp-border);
+  border-radius: 1rem;
+}
+.supplier-pos .sp-chrome {
+  background: var(--sp-chrome);
+  color: var(--sp-chrome-ink);
+}
+
+/* ── The product tile ─────────────────────────────────────────────────────
+ * The single most-tapped thing in the app. min-height is a floor, not a
+ * height: a long product name must wrap rather than clip, because a cashier
+ * choosing between two similar names is the slowest moment at the counter. */
+.supplier-pos .sp-tile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-height: 6.5rem;
+  padding: 0.75rem;
+  text-align: left;
+  background: var(--sp-surface);
+  border: 1px solid var(--sp-border);
+  border-radius: 1rem;
+  transition: transform 0.08s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+.supplier-pos .sp-tile:active:not(:disabled) {
+  /* A press must be felt instantly. Anything slower than ~80ms reads as a
+     missed tap and the cashier taps again — which is how you get doubles. */
+  transform: scale(0.97);
+  border-color: var(--sp-accent);
+}
+.supplier-pos .sp-tile:disabled { opacity: 0.42; }
+.supplier-pos .sp-tile-in-cart {
+  border-color: var(--sp-accent);
+  box-shadow: inset 0 0 0 1px var(--sp-accent);
+}
+
+/* ── Controls ─────────────────────────────────────────────────────────── */
+.supplier-pos .sp-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background: var(--sp-accent);
+  color: var(--sp-accent-ink);
+  border-radius: 0.9rem;
+  font-weight: 800;
+  /* 48px floor — below this, thumbs miss. */
+  min-height: 3rem;
+  padding: 0 1.1rem;
+  transition: filter 0.15s ease, transform 0.08s ease;
+}
+.supplier-pos .sp-btn:active:not(:disabled) { transform: scale(0.98); }
+.supplier-pos .sp-btn:disabled { opacity: 0.4; }
+.supplier-pos .sp-btn-ghost {
+  background: var(--sp-surface);
+  color: var(--sp-ink);
+  border: 1px solid var(--sp-border);
+}
+.supplier-pos .sp-btn-quiet { background: transparent; color: var(--sp-muted); min-height: 2.25rem; }
+
+.supplier-pos .sp-input {
+  width: 100%;
+  background: var(--sp-surface);
+  border: 1px solid var(--sp-border);
+  border-radius: 0.9rem;
+  padding: 0.7rem 0.9rem;
+  /* ⚠️ 16px MINIMUM. iOS Safari zooms the whole page when a focused input has
+     smaller text, and a zoomed till is unusable until the cashier pinches back
+     out. This is the reason, not aesthetics. */
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--sp-ink);
+  min-height: 3rem;
+}
+.supplier-pos .sp-input::placeholder { color: var(--sp-muted); font-weight: 500; }
+.supplier-pos .sp-input:focus {
+  outline: none;
+  border-color: var(--sp-accent);
+  box-shadow: 0 0 0 3px var(--sp-accent-soft);
+}
+
+/* ── Chips (categories + smart filters) ──────────────────────────────── */
+.supplier-pos .sp-chip {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  padding: 0.5rem 0.95rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+  background: var(--sp-surface);
+  border: 1px solid var(--sp-border);
+  color: var(--sp-ink-2);
+}
+.supplier-pos .sp-chip-on {
+  background: var(--sp-accent);
+  border-color: var(--sp-accent);
+  color: var(--sp-accent-ink);
+}
+
+/* Horizontal chip rail. The scrollbar is hidden because on a touch screen it
+   is noise, and on desktop the row is short enough to see all of. */
+.supplier-pos .sp-rail {
+  display: flex;
+  gap: 0.5rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.supplier-pos .sp-rail::-webkit-scrollbar { display: none; }
+
+/* ── Status text ─────────────────────────────────────────────────────── */
+.supplier-pos .sp-good { color: var(--sp-good); }
+.supplier-pos .sp-warn { color: var(--sp-warn); }
+.supplier-pos .sp-bad { color: var(--sp-bad); }
+.supplier-pos .sp-muted { color: var(--sp-muted); }
+
+.supplier-pos .sp-badge {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+/* ── Numbers ──────────────────────────────────────────────────────────
+ * Tabular figures so a running total does not jitter horizontally as digits
+ * change — at a counter that reads as the number changing when it has not. */
+.supplier-pos .sp-num { font-variant-numeric: tabular-nums; }
+
+/* ── The keypad ───────────────────────────────────────────────────────── */
+.supplier-pos .sp-key {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 3.5rem;
+  border-radius: 0.9rem;
+  background: var(--sp-surface);
+  border: 1px solid var(--sp-border);
+  font-size: 1.35rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--sp-ink);
+  transition: transform 0.06s ease, background 0.12s ease;
+}
+.supplier-pos .sp-key:active { transform: scale(0.95); background: var(--sp-surface-2); }

@@ -76,6 +76,12 @@ export type { ShareableRecordType, RecordAccessLogEntry } from './modules/record
 export { stockMovementsAPI } from './modules/stockMovements.api';
 export { suppliersAPI } from './modules/suppliers.api';
 export { supplierProductsAPI } from './modules/supplierProducts.api';
+export { supplierPosAPI } from './modules/supplierPos.api';
+export type {
+  PosProduct, PosProductStat, PosTill, PosBranch, PosShopBrand,
+  PosLineInput, PosPreview, PosPreviewLine, PosPaymentInput, PosPaymentMethod,
+  PosSaleSummary, PosSaleStatus, PosShift,
+} from './modules/supplierPos.api';
 export { communityAPI } from './modules/community.api';
 export { purchaseOrderAPI } from './modules/purchaseOrders.api';
 export { walletAPI } from './modules/wallet.api';

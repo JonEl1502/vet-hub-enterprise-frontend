@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import App from './App';
 import ClientApp from './components/client/ClientApp';
+import PosRoute from './components/supplier/pos/PosRoute';
 import { storeMode } from './components/client/usePortalMode';
 import LegalPage, { type LegalKind } from './components/shared/marketing/LegalPage';
 import { useAuth } from './contexts/AuthContext';
@@ -71,6 +72,11 @@ const RoutedApp: React.FC = () => {
     <Routes>
       {/* Pet-owner portal (own auth + views) */}
       <Route path="/client/*" element={<ClientApp />} />
+
+      {/* The supplier till. Its own full-bleed route, not a view inside App:
+          a cashier signs in here and never sees the supplier portal, and the
+          page has to survive a mid-shift refresh on its own URL. */}
+      <Route path="/pos" element={<PosRoute />} />
 
       {/* Livestock marketing entry — lands in the portal's farm mode. */}
       <Route path="/livestock" element={<LivestockEntry />} />

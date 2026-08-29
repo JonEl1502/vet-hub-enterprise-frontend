@@ -429,6 +429,21 @@ export const ENDPOINTS = {
     UPDATE_STATUS: (id: number) => `/supplier-orders/${id}/status`,
   },
 
+  // Supplier POS — the counter till. Distinct from SUPPLIER_ORDERS, which is
+  // the wholesale side (clinics ordering FROM this supplier).
+  SUPPLIER_POS: {
+    ME: '/supplier-pos/me',
+    CATALOG: '/supplier-pos/catalog',
+    CATEGORIES: '/supplier-pos/categories',
+    PRODUCT_STATS: '/supplier-pos/stats/products',
+    SCAN: (code: string) => `/supplier-pos/scan/${encodeURIComponent(code)}`,
+    PREVIEW: '/supplier-pos/sales/preview',
+    SALES: '/supplier-pos/sales',
+    SALE_BY_ID: (id: string) => `/supplier-pos/sales/${id}`,
+    VOID: (id: string) => `/supplier-pos/sales/${id}/void`,
+    SHIFT: '/supplier-pos/shift',
+  },
+
   // Purchase Orders
   PURCHASE_ORDERS: {
     BASE: '/purchase-orders',
