@@ -37,6 +37,14 @@ const KES = (n: number) =>
 const fmtDay = (d: string) =>
   new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
 
+/** Five days back, midnight — the span of "did I already log that?". */
+const RECENT_FROM = () => {
+  const d = new Date();
+  d.setDate(d.getDate() - 5);
+  d.setHours(0, 0, 0, 0);
+  return d.toISOString().slice(0, 10);
+};
+
 const hhmm = (d: Date) =>
   `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
@@ -210,20 +218,28 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
   // DERIVED counts, so its hand-typed editor must not be offered: two ways to
   // set one number is how they end up disagreeing.
   const [namedByGroup, setNamedByGroup] = useState<Record<string, number>>({});
+  /**
+   * ⚠️ RECENT means recent. It was the last 60 entries, which on a dairy
+   * recording two milkings a day is a month of scrolling before you reach
+   * anything you have forgotten (user: *"recently, it's very long"*). Five days
+   * is what "did I already log that?" actually spans. `showAll` widens it to
+   * the plan's own window rather than pretending the rest is gone.
+   */
+  const [showAll, setShowAll] = useState(false);
   const navigate = useNavigate();
 
   const load = useCallback(() => {
     setLoading(true);
     return Promise.all([
       clientPortalAPI.getFarmSummary(farmId),
-      clientPortalAPI.getFarmLedger(farmId, { limit: 60 }),
+      clientPortalAPI.getFarmLedger(farmId, showAll ? { limit: 200 } : { from: RECENT_FROM(), limit: 80 }),
       clientPortalAPI.farmAnimalSummary(farmId),
     ]).then(([s, l, a]: any[]) => {
       if (s.success && s.data) setSummary(s.data);
       if (l.success && l.data) setEntries(l.data.entries);
       if (a?.success && a.data) setNamedByGroup(a.data.byGroup ?? {});
     }).finally(() => setLoading(false));
-  }, [farmId]);
+  }, [farmId, showAll]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -512,7 +528,17 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
 
       {/* ── What has been recorded ───────────────────────────────────────── */}
       <section className="min-w-0 lg:col-start-1 lg:row-start-2">
-        <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Recent</h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">
+            {showAll ? 'All records' : 'Last 5 days'}
+          </h3>
+          <button
+            className="text-[10px] font-black uppercase tracking-widest cp-accent-text"
+            onClick={() => setShowAll((v) => !v)}
+          >
+            {showAll ? 'Show less' : 'Show all'}
+          </button>
+        </div>
         {entries.length === 0 ? (
           <div className="cp-card text-center px-5 py-6 text-xs text-slate-400">
             Nothing recorded yet. Use the buttons above as things happen.

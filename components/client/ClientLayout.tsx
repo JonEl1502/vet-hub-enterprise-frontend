@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus, Sprout, Beef,
+  Stethoscope, UserRound,
   Settings, LogOut, Sun, Moon, Monitor, ChevronDown, Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -37,8 +38,13 @@ const PET_NAV = [
 const FARM_NAV = [
   { to: '/client/farm', end: true, label: 'My Farm', icon: Sprout },
   { to: '/client/farm/animals', label: 'Animals', icon: Beef },
+  { to: '/client/farm/medical', label: 'Medical', icon: Stethoscope },
   { to: '/client/messages', label: 'Messages', icon: MessageCircle },
-  { to: '/client/invoices', label: 'Invoices', icon: Receipt },
+  // ⚠️ Invoices is NOT gone — it moved BEHIND Profile (user, 2026-08-29:
+  // *"instead of invoices we can now have that one as profile"*). A farmer
+  // checks a bill occasionally and their account rarely; neither earns a
+  // permanent slot ahead of the animals, so the last tab holds both.
+  { to: '/client/settings', label: 'Profile', icon: UserRound },
 ];
 
 const ClientLayout: React.FC = () => {

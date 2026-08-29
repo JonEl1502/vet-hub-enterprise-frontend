@@ -250,6 +250,34 @@ export interface PortalLedgerEntry {
   createdAt: string;
 }
 
+/** A contact the farmer has ACTUALLY dealt with — not a directory listing. */
+export interface FarmContact {
+  kind: 'CLINIC' | 'AGROVET';
+  id?: string;
+  name: string;
+  supplierId?: string | null;
+  /** An agrovet VetHub knows. False means the farmer simply typed the name. */
+  onVetHub?: boolean;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  category?: string | null;
+  /** Agrovets only: how many purchases, and what they came to. */
+  times?: number;
+  spent?: number;
+  lastAt?: string | null;
+  /** Clinics only. */
+  linked?: boolean;
+}
+
+export interface FarmMedical {
+  tier: 'NONE' | 'BASIC' | 'FULL';
+  linkedClinicId: string | null;
+  treatments: PortalLedgerEntry[];
+  spentOnHealth: number;
+  contacts: FarmContact[];
+}
+
 /** ⚠️ A farm animal is NOT a pet and must never be called one (user, 2026-08-29). */
 export interface FarmAnimal {
   id: string;
@@ -678,6 +706,10 @@ export const clientPortalAPI = {
   /** Connect a farm to a clinic, or pass null to disconnect. */
   setFarmClinic: (farmId: string, clinicId: string | null, options?: RequestOptions): Promise<ApiResponse<{ linkedClinicId: string | null; clinic: { id: string; name: string; logo: string | null } | null }>> =>
     patch(`/portal/me/farms/${farmId}/clinic`, { clinicId }, { showError: true, ...options }),
+
+  /** Treatments bought, and everyone this farm has actually dealt with. */
+  farmMedical: (farmId: string, options?: RequestOptions): Promise<ApiResponse<FarmMedical>> =>
+    get(`/portal/me/farms/${farmId}/medical`, { cache: false, showError: false, ...options }),
 
   // ── 264: INDIVIDUAL animals (paid) ──────────────────────────────────────
 
