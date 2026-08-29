@@ -215,11 +215,27 @@ export function useStore() {
     }
   }, []);
 
-  // Auto-load handshakes whenever the active clinic changes (X-Clinic-Id header is set from activeClinicIds).
+  /**
+   * Auto-load handshakes whenever the active clinic changes (the X-Clinic-Id
+   * header comes from activeClinicIds).
+   *
+   * ⚠️ CLINIC ROLES ONLY. A handshake is a partnership between two clinics, so
+   * `GET /handshakes` 400s with "Clinic ID is required" for anyone without a
+   * clinic. This effect fired on `isAuthenticated` alone, so every supplier and
+   * every pet owner made that call on login — and while the catch below keeps
+   * the state intact, the axios interceptor still toasts the failure. That is
+   * the "Clinic ID is required" error a supplier saw on their own dashboard
+   * (user, 2026-08-29).
+   *
+   * ⚠️ Do NOT guard on `activeClinicIds.length` instead — it is seeded with a
+   * mock clinic id and is never empty, so that check would pass for everyone.
+   */
   useEffect(() => {
     if (!isAuthenticated) return;
+    const role = String(currentUser?.role ?? '');
+    if (role === 'SUPPLIER' || role === 'CLIENT') return;
     refreshHandshakes();
-  }, [isAuthenticated, activeClinicIds, refreshHandshakes]);
+  }, [isAuthenticated, currentUser?.role, activeClinicIds, refreshHandshakes]);
 
   const addHandshake = async (h: Omit<Handshake, 'id' | 'createdAt'>): Promise<Handshake | null> => {
     try {
