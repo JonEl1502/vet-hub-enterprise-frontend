@@ -263,8 +263,8 @@ const ClientFarms: React.FC = () => {
       )}
 
       {active && (
-        <div className="cp-card">
-          <div className="flex items-start justify-between gap-3">
+        <div className="cp-card relative">
+          <div className="flex items-start justify-between gap-3 sm:pr-56">
             <div className="min-w-0">
               <h2 className="text-base font-black text-slate-800 truncate">{active.name}</h2>
               {(active.county || active.location) && (
@@ -279,10 +279,18 @@ const ClientFarms: React.FC = () => {
               </span>
             )}
           </div>
-          <div className="mt-3 grid grid-cols-3 gap-2 text-center">
-            <div><p className="text-lg font-black text-slate-800">{active.headCount}</p><p className="text-[9px] uppercase tracking-widest text-slate-400">Head</p></div>
-            <div><p className="text-lg font-black text-slate-800">{active.animalGroupCount}</p><p className="text-[9px] uppercase tracking-widest text-slate-400">Groups</p></div>
-            <div><p className="text-lg font-black text-slate-800">{active.cropPlotCount}</p><p className="text-[9px] uppercase tracking-widest text-slate-400">Plots</p></div>
+          {/* ⚠️ These used to be a full-width 3-up grid, which on a desktop put
+              a metre of empty space between "79 HEAD" and "0 PLOTS". They are
+              a strip that sits WITH the farm name from `sm` up, and only
+              spread out on a phone where there is nothing else on the row.
+              `cropPlotCount` is dropped on the free tier — a farmer with no
+              crops module does not need a permanent zero. */}
+          <div className="mt-3 sm:mt-0 sm:absolute sm:right-5 sm:top-5 flex items-center justify-around sm:justify-end gap-5 sm:gap-6">
+            <div className="text-center"><p className="text-lg font-black text-slate-800 dark:text-zinc-100 leading-none">{active.headCount}</p><p className="text-[9px] uppercase tracking-widest text-slate-400 mt-1">Head</p></div>
+            <div className="text-center"><p className="text-lg font-black text-slate-800 dark:text-zinc-100 leading-none">{active.animalGroupCount}</p><p className="text-[9px] uppercase tracking-widest text-slate-400 mt-1">Kinds</p></div>
+            {isFull && (
+              <div className="text-center"><p className="text-lg font-black text-slate-800 dark:text-zinc-100 leading-none">{active.cropPlotCount}</p><p className="text-[9px] uppercase tracking-widest text-slate-400 mt-1">Plots</p></div>
+            )}
           </div>
         </div>
       )}
@@ -434,6 +442,61 @@ const ClientFarms: React.FC = () => {
           </div>
         )}
       </section>
+      )}
+
+      {/* ⚠️ On the FREE tier this is NOT hidden — it is the shop window.
+          (user, 2026-08-29: *"free acc wont have it, or have it and as selling
+          point there make them want to buy it"*.)
+
+          Hiding a feature teaches nobody it exists. A farmer who has just
+          recorded a sick goat's dewormer is exactly the person who wants a vet
+          on the farm, and that is the moment to say what it costs. What must
+          never happen is the third option: a live-looking "Book a visit"
+          button that 403s — that reads as a broken app, not a locked feature. */}
+      {!isFull && (
+        <section>
+          <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
+            <Siren size={13} /> Vet visits
+          </h3>
+          <div className="cp-card overflow-hidden">
+            <div className="p-1 sm:p-2 grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center">
+              <div>
+                <p className="text-sm font-black text-slate-800 dark:text-zinc-100">
+                  Get the vet to come to the farm
+                </p>
+                <p className="mt-1 text-xs text-slate-500 leading-relaxed max-w-md">
+                  Request a visit from your phone and your clinic confirms the time — no calling
+                  round. Sick animals, routine checks, pregnancy diagnosis and vaccination rounds.
+                </p>
+                <ul className="mt-3 grid gap-1.5 sm:grid-cols-2 text-[11px] text-slate-600 dark:text-zinc-300">
+                  {[
+                    'Request a vet visit, tracked to done',
+                    'Feeding plans with named times',
+                    'Crops and produce schedules',
+                    'Your full record history, not 90 days',
+                  ].map((f) => (
+                    <li key={f} className="flex items-start gap-1.5">
+                      <Check size={12} className="mt-0.5 shrink-0 text-emerald-600" />
+                      <span>{f}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+              <div className="sm:text-right shrink-0">
+                <p className="text-[10px] uppercase tracking-widest text-slate-400">Farmer plan</p>
+                <p className="text-xl font-black text-slate-800 dark:text-zinc-100 leading-tight">
+                  KES 1,500<span className="text-xs font-bold text-slate-400">/mo</span>
+                </p>
+                <button className="cp-btn mt-2 w-full sm:w-auto" onClick={() => navigate('/client/plan')}>
+                  See what you get
+                </button>
+                <p className="mt-1.5 text-[10px] text-slate-400">
+                  Your records stay free either way.
+                </p>
+              </div>
+            </div>
+          </div>
+        </section>
       )}
 
       {/* ⚠️ "Herds & flocks" USED to live here as a read-mostly card with a

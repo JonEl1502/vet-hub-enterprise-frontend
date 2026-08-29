@@ -1,7 +1,11 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus, Sprout } from 'lucide-react';
+import {
+  Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus, Sprout,
+  Settings, LogOut, Sun, Moon, Monitor, ChevronDown, Sparkles,
+} from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
+import { useThemeMode, type ThemeMode } from '../../hooks/useThemeMode';
 import { useClientPortal } from '../../contexts/ClientPortalContext';
 import BrandMark from '../shared/common/BrandMark';
 import NotificationBell from './NotificationBell';
@@ -25,10 +29,33 @@ const FARM_NAV = [
 ];
 
 const ClientLayout: React.FC = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { invoices, messages } = useClientPortal();
   const navigate = useNavigate();
-  const { mode, setMode, canSwitch } = usePortalMode();
+  const { mode, setMode, canSwitch, holdings } = usePortalMode();
+  const { mode: theme, setMode: setTheme } = useThemeMode();
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement | null>(null);
+
+  // Close on an outside click or Escape. Both, because a menu that only closes
+  // on Escape is unreachable by mouse and one that only closes on click traps
+  // a keyboard user.
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setMenuOpen(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [menuOpen]);
+
+  /** The free record book — the rail promo sells the upgrade instead of 403ing. */
+  const farmLocked = mode === 'FARM' && holdings?.farmTier !== 'FULL';
   const NAV = mode === 'FARM' ? FARM_NAV : PET_NAV;
 
   const unpaid = invoices.filter((i) => !i.isPaid).length;
@@ -71,16 +98,100 @@ const ClientLayout: React.FC = () => {
           )}
           {/* Live notification center — clinic broadcasts + messages. */}
           <NotificationBell />
-          {/* Account entry point — settings (and sign-out) live behind the
-              avatar, deliberately out of the main chrome. */}
-          <button className="flex items-center gap-3" onClick={() => navigate('/client/settings')} title="Account & settings">
-            <span className="text-sm font-bold hidden sm:block">{displayName}</span>
-            <span className="cp-avatar">{initial}</span>
-          </button>
+          {/* Account menu. Was a bare button that jumped straight to Settings —
+              which gave the theme switch nowhere to live and made "sign out" a
+              two-step hunt. */}
+          <div className="relative" ref={menuRef}>
+            <button
+              className="flex items-center gap-2 sm:gap-2.5 rounded-xl px-1.5 py-1 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              onClick={() => setMenuOpen((o) => !o)}
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              title="Account"
+            >
+              <span className="text-sm font-bold hidden sm:block max-w-[220px] truncate">{displayName}</span>
+              <span className="cp-avatar">{initial}</span>
+              <ChevronDown size={14} className={`hidden sm:block opacity-50 transition-transform ${menuOpen ? 'rotate-180' : ''}`} />
+            </button>
+
+            {menuOpen && (
+              <div
+                role="menu"
+                className="absolute right-0 mt-2 w-64 rounded-2xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl overflow-hidden z-50"
+              >
+                <div className="px-3.5 py-3 border-b border-slate-100 dark:border-zinc-800">
+                  <p className="text-sm font-black text-slate-800 dark:text-zinc-100 truncate">{displayName}</p>
+                  {holdings?.planName && (
+                    <p className="mt-0.5 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                      {holdings.planName} plan
+                    </p>
+                  )}
+                </div>
+
+                {/* Theme. Three states, not a toggle: "system" has to be
+                    reachable or a user who picks dark once can never hand the
+                    choice back to their OS. */}
+                <div className="px-3.5 pt-3 pb-2">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Appearance</p>
+                  <div className="flex bg-slate-100 dark:bg-zinc-800 rounded-xl p-0.5">
+                    {([['light', 'Light', Sun], ['dark', 'Dark', Moon], ['system', 'Auto', Monitor]] as const).map(
+                      ([value, label, Icon]) => (
+                        <button
+                          key={value}
+                          onClick={() => setTheme(value as ThemeMode)}
+                          className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
+                            theme === value
+                              ? 'bg-white dark:bg-zinc-700 shadow text-pine dark:text-zinc-100'
+                              : 'text-slate-500 dark:text-zinc-400'
+                          }`}
+                        >
+                          <Icon size={12} /> {label}
+                        </button>
+                      ),
+                    )}
+                  </div>
+                </div>
+
+                <div className="py-1 border-t border-slate-100 dark:border-zinc-800">
+                  {holdings?.farmTier === 'BASIC' && (
+                    <button
+                      role="menuitem"
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-bold text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                      onClick={() => { setMenuOpen(false); navigate('/client/plan'); }}
+                    >
+                      <Sparkles size={15} className="cp-accent-text" /> Upgrade
+                    </button>
+                  )}
+                  <button
+                    role="menuitem"
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-bold text-slate-700 dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                    onClick={() => { setMenuOpen(false); navigate('/client/settings'); }}
+                  >
+                    <Settings size={15} /> Settings
+                  </button>
+                  <button
+                    role="menuitem"
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-sm font-bold text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-500/10"
+                    onClick={() => { setMenuOpen(false); logout(); }}
+                  >
+                    <LogOut size={15} /> Sign out
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       </header>
 
-      <div className="flex max-w-6xl mx-auto w-full">
+      {/* ⚠️ `max-w-6xl` (1152px) was a PHONE layout centred on a desktop — on a
+          1440px screen it left a dead margin either side and stretched every
+          row until a herd's head count floated half a screen from its name.
+          The portal is a real desktop app for a farmer doing their books, not
+          only a phone companion. 1400px is wide enough for a two-column farm
+          view and still short of the line-length where body text gets hard to
+          track. `mx-auto` is correct HERE (unlike the clinic app, §0d) because
+          this shell has no fixed sidebar to strand space beside. */}
+      <div className="flex max-w-[1400px] mx-auto w-full">
         {/* Desktop side rail */}
         <aside className="hidden md:block w-56 shrink-0 p-4 sticky top-16 self-start">
           <nav className="cp-rail flex flex-col gap-1 p-2.5">
@@ -92,23 +203,36 @@ const ClientLayout: React.FC = () => {
               </NavLink>
             ))}
           </nav>
+          {/* ⚠️ On the free farm tier this promo used to offer a farm visit the
+              account cannot request — a live button leading to a 403. It now
+              sells the plan instead (user, 2026-08-29: *"have it and as selling
+              point there make them want to buy it"*). */}
           <div className="cp-rail-promo mt-3">
             <p className="text-sm font-extrabold">
-              {mode === 'FARM' ? 'Need the vet on the farm?' : 'Time for a check-up?'}
+              {farmLocked ? 'Get the vet to your farm'
+                : mode === 'FARM' ? 'Need the vet on the farm?'
+                : 'Time for a check-up?'}
             </p>
             <p className="text-[11px] text-white/70 mt-0.5 mb-2.5">
-              {mode === 'FARM'
-                ? 'Request a farm visit and your clinic confirms the time.'
-                : 'Request a visit and your clinic confirms the time.'}
+              {farmLocked
+                ? 'Farm visits, feeding plans and your full history are on Farmer — KES 1,500/mo.'
+                : mode === 'FARM'
+                  ? 'Request a farm visit and your clinic confirms the time.'
+                  : 'Request a visit and your clinic confirms the time.'}
             </p>
-            <button className="cp-btn" onClick={() => navigate('/client/appointments')}>
-              <CalendarPlus className="w-4 h-4" /> Book a visit
+            <button
+              className="cp-btn"
+              onClick={() => navigate(farmLocked ? '/client/plan' : '/client/appointments')}
+            >
+              {farmLocked
+                ? <><Sparkles className="w-4 h-4" /> See Farmer</>
+                : <><CalendarPlus className="w-4 h-4" /> Book a visit</>}
             </button>
           </div>
         </aside>
 
         {/* Page content */}
-        <main className="flex-1 min-w-0 p-4 sm:p-6 pb-24 md:pb-6">
+        <main className="flex-1 min-w-0 p-4 sm:p-5 lg:px-6 pb-24 md:pb-6">
           <Outlet />
         </main>
       </div>

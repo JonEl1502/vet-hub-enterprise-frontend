@@ -48,11 +48,20 @@ const SHEETS = [
     hint: 'Medicine, dewormer, spray — and where you bought it' },
 ] as const;
 
+/**
+ * ⚠️ Every tone needs its `dark:` pair (§0d — dark mode is not optional).
+ *
+ * The first cut shipped light-only and it showed: four cream and pale-blue
+ * slabs glowing on the portal's dark canvas, which is what the user
+ * screenshotted. The dark side is a TINT of the same hue (`/10` fill, `/25`
+ * hairline) rather than a different colour, so the four stay distinguishable
+ * from each other without any of them shouting.
+ */
 const TONES: Record<string, string> = {
-  amber: 'bg-amber-50 text-amber-700 border-amber-200',
-  sky: 'bg-sky-50 text-sky-700 border-sky-200',
-  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200',
-  rose: 'bg-rose-50 text-rose-700 border-rose-200',
+  amber: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-400/10 dark:text-amber-300 dark:border-amber-400/25',
+  sky: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-400/10 dark:text-sky-300 dark:border-sky-400/25',
+  emerald: 'bg-emerald-50 text-emerald-700 border-emerald-200 dark:bg-emerald-400/10 dark:text-emerald-300 dark:border-emerald-400/25',
+  rose: 'bg-rose-50 text-rose-700 border-rose-200 dark:bg-rose-400/10 dark:text-rose-300 dark:border-rose-400/25',
 };
 
 const ALL_CATEGORIES = [...LEDGER_CATEGORIES.EXPENSE, ...LEDGER_CATEGORIES.INCOME];
@@ -340,10 +349,25 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
         )}
       </section>
 
+      {/* ── Desktop composition ──────────────────────────────────────────
+          On a phone this stacks in the order a farmer works: record, then
+          what they keep, then what they logged. On `lg` it becomes a real
+          two-column app — the work area (record + history) beside a standing
+          rail of the herd, because "what do I own" is reference you glance at
+          while entering, not a step in the flow.
+
+          The columns are placed explicitly rather than by DOM order so the
+          phone order stays untouched: a `row-span-2` rail would otherwise have
+          to be moved above `Recent` in the markup and would then render in the
+          wrong place on mobile. */}
+      <div className="grid gap-4 lg:gap-5 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
+
       {/* ── The four actions ─────────────────────────────────────────────── */}
-      <section>
+      <section className="lg:col-start-1 lg:row-start-1">
         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Record</h3>
-        <div className="grid grid-cols-2 gap-2">
+        {/* 2-up on a phone, 4-up from `md`. At full width each of these was a
+            ~700px slab for a one-line action. */}
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-2 lg:gap-2.5">
           {SHEETS.map(({ key, label, icon: Icon, tone, hint }) => (
             <button
               key={key}
@@ -358,8 +382,8 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
         </div>
       </section>
 
-      {/* ── The herd ─────────────────────────────────────────────────────── */}
-      <section>
+      {/* ── The herd — the standing rail on desktop ──────────────────────── */}
+      <section className="lg:col-start-2 lg:row-start-1 lg:row-span-2 lg:sticky lg:top-20">
         <div className="flex items-center justify-between mb-2">
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">
             My animals
@@ -387,7 +411,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
             </button>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2">
             {groups.map((g) => {
               const chips = [
                 ['♂', g.males], ['♀', g.females],
@@ -435,7 +459,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
       </section>
 
       {/* ── What has been recorded ───────────────────────────────────────── */}
-      <section>
+      <section className="lg:col-start-1 lg:row-start-2">
         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Recent</h3>
         {entries.length === 0 ? (
           <div className="cp-card text-center py-6 text-xs text-slate-400">
@@ -470,6 +494,8 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
           </div>
         )}
       </section>
+
+      </div>
 
       {/* ── The one record sheet ─────────────────────────────────────────── */}
       {sheet && sheetDef && (
