@@ -71,14 +71,23 @@ const ClientLayout: React.FC = () => {
   return (
     <div className="client-portal min-h-screen">
       {/* Top bar */}
-      <header className="cp-topnav sticky top-0 z-20 flex items-center justify-between px-4 sm:px-6 h-16">
-        <div className="flex items-center gap-2.5 font-black text-lg">
-          <span className="cp-logo-mark w-9 h-9 rounded-xl flex items-center justify-center p-1">
+      {/* ⚠️ `min-w-0` on BOTH halves is load-bearing, for the same reason it is
+          on `<main>` in the clinic app (§0d responsive rule 1): a flex item's
+          default `min-width: auto` means it can never shrink below its content,
+          so `truncate` on the email does nothing and the header simply gets
+          wider than the page. Measured: between 640px (where `sm:` reveals the
+          email and the switcher labels) and ~700px this group wanted 452px
+          inside a 390px parent, and the whole document scrolled sideways —
+          a sticky navbar then spans only the viewport while the body does not,
+          which is exactly what the user screenshotted. */}
+      <header className="cp-topnav sticky top-0 z-20 flex items-center justify-between gap-2 px-4 sm:px-6 h-16">
+        <div className="flex items-center gap-2.5 font-black text-lg min-w-0">
+          <span className="cp-logo-mark w-9 h-9 rounded-xl flex items-center justify-center p-1 shrink-0">
             <BrandMark title="VetHubCore" />
           </span>
-          <span>VetHubCore</span>
+          <span className="truncate">VetHubCore</span>
         </div>
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {/* Pets ⇄ Farm — shown only to an account that holds both, so a
               pet-only owner never sees farm chrome. */}
           {canSwitch && (
@@ -103,7 +112,7 @@ const ClientLayout: React.FC = () => {
               two-step hunt. */}
           <div className="relative" ref={menuRef}>
             <button
-              className="flex items-center gap-2 sm:gap-2.5 rounded-xl px-1.5 py-1 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
+              className="flex items-center gap-2 sm:gap-2.5 rounded-xl px-1.5 py-1 min-w-0 hover:bg-black/5 dark:hover:bg-white/5 transition-colors"
               onClick={() => setMenuOpen((o) => !o)}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
@@ -235,7 +244,13 @@ const ClientLayout: React.FC = () => {
         {/* ⚠️ Gutters, not padding-for-its-own-sake. `.cp-card` ships with NO
             padding of its own, so every card states its own inset — the page
             only needs enough edge to keep cards off the viewport. */}
-        <main className="flex-1 min-w-0 p-3 sm:p-4 lg:py-4 lg:pl-3 lg:pr-4 pb-24 md:pb-6">
+        {/* ⚠️ `overflow-x-clip`, NEVER `-hidden`. `hidden` would make this a
+            scroll container and silently kill every `position: sticky` in the
+            portal — the topnav, the record-page headers and the farm herd rail.
+            This is the same pairing the clinic app uses (§0d rule 2) and it is
+            the guard that makes a sideways-scrolling page impossible rather
+            than merely unlikely. */}
+        <main className="flex-1 min-w-0 overflow-x-clip p-3 sm:p-4 lg:py-4 lg:pl-3 lg:pr-4 pb-24 md:pb-6">
           <Outlet />
         </main>
       </div>
