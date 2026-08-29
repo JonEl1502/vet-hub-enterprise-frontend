@@ -703,10 +703,18 @@ body {
 .supplier-pos .sp-card {
   background: var(--sp-surface);
   border: 1px solid var(--sp-border);
-  border-radius: 1rem;
+  border-radius: 1.1rem;
+  box-shadow:
+    0 1px 2px rgba(16, 21, 28, 0.04),
+    0 10px 24px -18px rgba(16, 21, 28, 0.35);
 }
 .supplier-pos .sp-chrome {
-  background: var(--sp-chrome);
+  /* The accent bled into the corner, the way the client portal's topnav does.
+   * A flat #0e1420 bar is what made this read as a prototype. */
+  background:
+    radial-gradient(28rem 14rem at 100% -60%, color-mix(in srgb, var(--sp-accent) 55%, transparent), transparent 70%),
+    radial-gradient(20rem 12rem at -5% 140%, rgba(255, 255, 255, 0.07), transparent 70%),
+    var(--sp-chrome);
   color: var(--sp-chrome-ink);
 }
 
@@ -718,14 +726,86 @@ body {
   position: relative;
   display: flex;
   flex-direction: column;
-  gap: 0.15rem;
   min-height: 6.5rem;
-  padding: 0.75rem;
+  padding: 0.7rem;
   text-align: left;
   background: var(--sp-surface);
   border: 1px solid var(--sp-border);
-  border-radius: 1rem;
+  border-radius: 1.1rem;
+  /* Two shadows, not one: a 1px contact shadow so the card sits ON the canvas
+   * rather than floating, plus a wide soft one for depth. A single blurred
+   * shadow reads as haze. */
+  box-shadow:
+    0 1px 2px rgba(16, 21, 28, 0.04),
+    0 10px 24px -18px rgba(16, 21, 28, 0.35);
   transition: transform 0.08s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+@media (hover: hover) {
+  .supplier-pos .sp-tile:hover:not(:disabled) {
+    border-color: var(--sp-accent);
+    box-shadow:
+      0 1px 2px rgba(16, 21, 28, 0.05),
+      0 14px 30px -18px rgba(16, 21, 28, 0.45);
+  }
+}
+
+/* The category swatch — the thing that makes the grid scannable. Square uses
+ * product photography here; an agrovet has none, so colour does the work. */
+.supplier-pos .sp-swatch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.6rem;
+  font-size: 1.05rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+/* Corner marker — the cart count, or a best-seller/restock flag. Taken out of
+ * the flow so it cannot squeeze the product name (see PosSellView). */
+.supplier-pos .sp-corner {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  z-index: 1;
+}
+
+.supplier-pos .sp-qty {
+  flex: 0 0 auto;
+  min-width: 1.35rem;
+  height: 1.35rem;
+  padding: 0 0.3rem;
+  border-radius: 999px;
+  background: var(--sp-accent);
+  color: var(--sp-accent-ink);
+  font-size: 0.7rem;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 6px -1px rgba(16, 21, 28, 0.3);
+}
+
+.supplier-pos .sp-badge-inline {
+  flex: 0 0 auto;
+  padding: 0.12rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.58rem;
+  font-weight: 900;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.supplier-pos .sp-stock-pill {
+  padding: 0.15rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.63rem;
+  font-weight: 800;
+  white-space: nowrap;
 }
 .supplier-pos .sp-tile:active:not(:disabled) {
   /* A press must be felt instantly. Anything slower than ~80ms reads as a
@@ -743,7 +823,11 @@ body {
 }
 .supplier-pos .sp-tile-in-cart {
   border-color: var(--sp-accent);
-  box-shadow: inset 0 0 0 1px var(--sp-accent);
+  background: var(--sp-accent-soft);
+  box-shadow:
+    inset 0 0 0 1px var(--sp-accent),
+    0 1px 2px rgba(16, 21, 28, 0.04),
+    0 10px 24px -16px rgba(16, 21, 28, 0.45);
 }
 
 /* The product grid.
@@ -780,6 +864,10 @@ body {
   padding: 0 1.1rem;
   transition: filter 0.15s ease, transform 0.08s ease;
 }
+.supplier-pos .sp-btn {
+  box-shadow: 0 6px 18px -8px color-mix(in srgb, var(--sp-accent) 80%, transparent);
+}
+.supplier-pos .sp-btn-ghost, .supplier-pos .sp-btn-quiet { box-shadow: none; }
 .supplier-pos .sp-btn:active:not(:disabled) { transform: scale(0.98); }
 .supplier-pos .sp-btn:disabled { opacity: 0.4; }
 .supplier-pos .sp-btn-ghost {
@@ -827,6 +915,7 @@ body {
   background: var(--sp-accent);
   border-color: var(--sp-accent);
   color: var(--sp-accent-ink);
+  box-shadow: 0 4px 12px -4px color-mix(in srgb, var(--sp-accent) 65%, transparent);
 }
 
 /* Horizontal chip rail. The scrollbar is hidden because on a touch screen it
@@ -840,6 +929,32 @@ body {
   -webkit-overflow-scrolling: touch;
 }
 .supplier-pos .sp-rail::-webkit-scrollbar { display: none; }
+
+/* A fade at the trailing edge so a clipped chip reads as "there is more, swipe"
+ * rather than as a rendering bug. Removed once the row wraps on a desk. */
+.supplier-pos .sp-rail-wrap { position: relative; }
+.supplier-pos .sp-rail-wrap::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0.625rem;
+  right: 0;
+  width: 2rem;
+  pointer-events: none;
+  background: linear-gradient(to right, transparent, var(--sp-bg));
+}
+@media (min-width: 1024px) {
+  .supplier-pos .sp-rail-wrap::after { display: none; }
+}
+
+/* Two lines, always — see PosSellView. 1.2 line-height x 2 x 13px. */
+.supplier-pos .sp-tile-name {
+  display: -webkit-box;
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.2;
+  min-height: 2.4em;
+}
 
 /* ── Status text ─────────────────────────────────────────────────────── */
 .supplier-pos .sp-good { color: var(--sp-good); }

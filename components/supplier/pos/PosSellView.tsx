@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Search, X, ScanLine } from 'lucide-react';
 import type { PosController } from './usePos';
 import type { PosProduct } from '../../../services';
+import { categoryTheme } from './categoryTheme';
 
 /**
  * The catalogue half of the till: scan bar, chips, product grid.
@@ -18,6 +19,16 @@ const SMART_TABS = [
   { id: 'out', label: 'Sold out' },
   { id: 'never', label: 'Never sold' },
 ] as const;
+
+/**
+ * "1 bottles" is the sort of thing that makes software look unfinished.
+ * The stored unit is already plural ("Bottles", "Bags"), so one is the case
+ * that needs handling, not the other way round.
+ */
+const unitFor = (qty: number, unit: string) => {
+  const u = unit.toLowerCase();
+  return qty === 1 && u.endsWith('s') ? u.slice(0, -1) : u;
+};
 
 const money = (n: number, currency: string) =>
   `${currency} ${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
@@ -156,7 +167,8 @@ const PosSellView: React.FC<Props> = ({ pos }) => {
 
       {/* Categories + the smart filters. Scroll-snapped so a thumb flick lands
           on a chip edge rather than halfway through one. */}
-      <div className="sp-rail lg:flex-wrap px-3 lg:px-5 pb-2.5 shrink-0">
+      <div className="sp-rail-wrap px-3 lg:px-5 pb-2.5 shrink-0">
+        <div className="sp-rail lg:flex-wrap">
         <button
           onClick={() => setTab('all')}
           className={`sp-chip ${tab === 'all' ? 'sp-chip-on' : ''}`}
@@ -182,6 +194,7 @@ const PosSellView: React.FC<Props> = ({ pos }) => {
             {t.label}
           </button>
         ))}
+        </div>
       </div>
 
       {/* The grid. 2 columns on a phone, more as the screen allows. */}
@@ -225,53 +238,93 @@ const Tile: React.FC<{
   // What is LEFT after what is already in the basket — the number that decides
   // whether the next tap is allowed.
   const remaining = p.stock - qtyInCart;
+  const theme = categoryTheme(p.category);
 
   const badge = stat?.starved
     ? { text: 'restock', bg: 'rgba(192,42,37,0.12)', fg: 'var(--sp-bad)' }
     : stat?.bestSeller
-      ? { text: 'top', bg: 'rgba(242,164,28,0.16)', fg: 'var(--sp-warn)' }
+      ? { text: 'top', bg: 'rgba(242,164,28,0.18)', fg: 'var(--sp-warn)' }
       : null;
+
+  /* Colour is a SECOND signal, never the only one — the words are always here. */
+  const stockLabel = soldOut
+    ? 'Sold out'
+    : remaining <= 0
+      ? 'All in cart'
+      : `${remaining} ${unitFor(remaining, p.unit)}`;
+  const stockTone = soldOut
+    ? { bg: 'rgba(192,42,37,0.10)', fg: 'var(--sp-bad)' }
+    : p.isLowStock
+      ? { bg: 'rgba(180,99,12,0.12)', fg: 'var(--sp-warn)' }
+      : { bg: 'var(--sp-surface-2)', fg: 'var(--sp-muted)' };
 
   return (
     <button
       onClick={onAdd}
       disabled={soldOut || remaining <= 0}
-      className={`sp-tile sp-tile-dense ${qtyInCart > 0 ? 'sp-tile-in-cart' : ''}`}
+      className={`sp-tile ${qtyInCart > 0 ? 'sp-tile-in-cart' : ''}`}
     >
+      {/* ⚠️ ABSOLUTE, not a flex sibling. In the flow it competed with the name
+          for a 175px tile's width and left ~70px for it — "Albendazole 10% 1L"
+          rendered as "Albendazo". Out of flow, the name gets the whole column
+          and only pads right when there is actually something to clear. */}
       {qtyInCart > 0 ? (
-        <span
-          className="sp-badge sp-num"
-          style={{ background: 'var(--sp-accent)', color: 'var(--sp-accent-ink)' }}
-        >
-          {qtyInCart}
-        </span>
+        <span className="sp-qty sp-num sp-corner">{qtyInCart}</span>
       ) : (
         badge && (
-          <span className="sp-badge" style={{ background: badge.bg, color: badge.fg }}>
+          <span
+            className="sp-badge-inline sp-corner"
+            style={{ background: badge.bg, color: badge.fg }}
+          >
             {badge.text}
           </span>
         )
       )}
 
-      <p className="text-[13px] font-bold leading-tight pr-9 line-clamp-2">{p.name}</p>
-      {p.manufacturer && (
-        <p className="text-[10px] sp-muted truncate">{p.manufacturer}</p>
-      )}
+      <div className="flex items-start gap-2">
+        {/* The shop's own photo when it has one; the category swatch when it
+            does not — which, for an agrovet that will never photograph 200 bags
+            of feed, is almost always. */}
+        {p.imageUrl ? (
+          <img src={p.imageUrl} alt="" loading="lazy" className="sp-swatch object-cover" />
+        ) : (
+          <span
+            className="sp-swatch"
+            style={{ background: theme.bg, color: theme.fg }}
+            aria-hidden="true"
+            title={p.category}
+          >
+            {theme.glyph}
+          </span>
+        )}
 
-      <p className="text-[15px] font-black mt-auto sp-num">
-        {money(p.price, currency)}
-      </p>
-      <p
-        className={`text-[11px] font-bold sp-num ${
-          soldOut ? 'sp-bad' : p.isLowStock ? 'sp-warn' : 'sp-muted'
-        }`}
-      >
-        {soldOut
-          ? 'Sold out'
-          : remaining <= 0
-            ? 'All in cart'
-            : `${remaining} ${p.unit.toLowerCase()} left`}
-      </p>
+        <span className="min-w-0 flex-1 text-left">
+          {/* Two lines are RESERVED whether the name needs them or not, so every
+              tile in the grid is the same height. Ragged rows read as an
+              unfinished layout, and worse, they move the price — the one number
+              the eye is hunting for — to a different place on every card. */}
+          <span
+            className={`sp-tile-name line-clamp-2 ${qtyInCart > 0 || badge ? 'pr-6' : ''}`}
+          >
+            {p.name}
+          </span>
+          {p.manufacturer && (
+            <span className="block text-[10px] sp-muted truncate mt-0.5">{p.manufacturer}</span>
+          )}
+        </span>
+      </div>
+
+      <div className="flex items-end justify-between gap-2 mt-auto pt-2">
+        <span className="text-[15px] font-black sp-num leading-none">
+          {money(p.price, currency)}
+        </span>
+        <span
+          className="sp-stock-pill sp-num"
+          style={{ background: stockTone.bg, color: stockTone.fg }}
+        >
+          {stockLabel}
+        </span>
+      </div>
     </button>
   );
 };
