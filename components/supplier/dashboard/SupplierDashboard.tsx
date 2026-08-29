@@ -51,6 +51,8 @@ import { supplierSubscriptionAPI, type SupplierSubscription } from '../../../ser
 import { suppliersAPI, CreateSupplierData } from '../../../services/modules/suppliers.api';
 import { toast } from '../../../services/utils/toast';
 import { dialog } from '../../../services';
+import { planLabel } from '../../../services/entitlements';
+import { usePlanAccess } from '../../../contexts/PlanAccessContext';
 import type { PurchaseOrder } from '../../../services/modules/purchaseOrders.api';
 import type { SupplierProduct } from '../../../services/modules/supplierProducts.api';
 import type { Supplier } from '../../../services/modules/suppliers.api';
@@ -87,6 +89,7 @@ interface SupplierDashboardProps {
 
 const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
   const { user } = useAuth();
+  const { access: planAccess } = usePlanAccess();
   const { branches, activeBranchIds } = useSupplierBranch();
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
@@ -689,7 +692,14 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
                 <Boxes size={16} className="text-seafoam" />
                 <div>
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Plan</p>
-                  <p className="text-xs font-black text-pine dark:text-zinc-100">{subscription?.isActive ? (subscription.package?.name || 'Active') : 'No subscription'}</p>
+                  {/* Same words as the sidebar. This said "No subscription"
+                      while the sidebar said "Free plan" — one state, two names,
+                      on the same screen. `planLabel` is the single wording. */}
+                  <p className="text-xs font-black text-pine dark:text-zinc-100">
+                    {subscription?.isActive
+                      ? subscription.package?.name || 'Active'
+                      : planLabel(planAccess).text}
+                  </p>
                 </div>
               </div>
               <div className="h-8 w-px bg-slate-100 dark:bg-zinc-800" />
