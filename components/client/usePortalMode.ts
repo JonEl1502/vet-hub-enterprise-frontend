@@ -20,10 +20,20 @@ export interface Holdings {
   farmCount: number;
   hasPets: boolean;
   hasFarms: boolean;
-  /** 231 — farm mode is a paid rung (Farmer, tier 2+), not just a holding. */
+  /**
+   * 231 — farm mode was a paid rung (Farmer, tier 2+).
+   * 262 — it is not any more. `livestock:basic` is on the FREE rung, so this is
+   * true for anyone who opts in; what the paid rungs buy is the SIZE of it.
+   */
   canUseFarmMode: boolean;
+  /** 262 — 'BASIC' is the free record book, 'FULL' the paid farm product. */
+  farmTier: 'NONE' | 'BASIC' | 'FULL';
+  /** They threw the "I keep livestock" switch, even with no farm yet. */
+  optedIn: boolean;
   /** Farms the plan covers. 0 = unlimited. */
   farmLimit: number;
+  /** Herds the plan covers. 0 = unlimited. 3 on the free tier. */
+  groupLimit: number;
   planName: string | null;
   planTier: number | null;
   suggestedMode: PortalMode;
@@ -60,7 +70,10 @@ export const usePortalMode = () => {
         // 231 adds the plan to that test: FARM now needs the entitlement as
         // well as the farm, and a lapsed farmer lands back in PETS rather than
         // on a wall of 403s.
-        const storedIsValid = stored === 'FARM' ? (h.hasFarms && h.canUseFarmMode)
+        // 262 — `hasFarms` is no longer required to stay in FARM. Someone who
+        // has just opted in has no farm yet, and bouncing them back to PETS
+        // would send them out of the very screen that lets them add one.
+        const storedIsValid = stored === 'FARM' ? ((h.hasFarms || h.optedIn) && h.canUseFarmMode)
           : stored === 'PETS' ? h.hasPets
           : false;
         setModeState(storedIsValid ? (stored as PortalMode) : h.suggestedMode);
@@ -81,13 +94,22 @@ export const usePortalMode = () => {
     holdings,
     loading,
     /**
-     * Only offer the switcher to someone who genuinely has both — and, since
-     * 231, who is actually on a plan that includes farm mode. A farmer whose
-     * plan lapsed keeps their farm data; they just cannot reach it until they
-     * upgrade, and the switcher going quiet is kinder than a switch that 403s.
+     * 262 — the switcher is now driven by the OPT-IN, not by owning a farm.
+     *
+     * The user's framing: *"an opt-in for client to farm which will allow them
+     * to switch views — I don't want to have them as separate accounts."* So the
+     * moment someone says they keep livestock, the switch appears, even though
+     * their farm side is still empty. Requiring `hasFarms` first was the closed
+     * loop that 231 had at the plan level: you needed a farm to reach the screen
+     * that adds a farm.
+     *
+     * Still requires `canUseFarmMode`. A farmer whose PAID rung lapsed keeps
+     * their data and drops to the free record book rather than hitting a wall.
      */
-    canSwitch: !!holdings?.hasPets && !!holdings?.hasFarms && !!holdings?.canUseFarmMode,
-    /** Has farms but not the plan — the portal shows an upgrade prompt. */
+    canSwitch: !!holdings?.canUseFarmMode && (!!holdings?.hasFarms || !!holdings?.optedIn),
+    /** Has farms but no farm entitlement at all — the portal prompts to opt in. */
     farmModeLocked: !!holdings?.hasFarms && !holdings?.canUseFarmMode,
+    /** 262 — the free record book, not the paid farm product. */
+    isBasicFarm: holdings?.farmTier === 'BASIC',
   };
 };

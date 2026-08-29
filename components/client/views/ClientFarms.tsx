@@ -18,10 +18,11 @@ import {
   clientPortalAPI,
   type PortalFarm, type PortalFeedingPlan, type PortalProduceSchedule,
   type PortalProduceRecord, type PortalAnimalGroup, type PortalCropPlot,
-  type PortalFarmVisitRequest,
+  type PortalFarmVisitRequest, type PortalHoldings,
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
+import ClientFarmRecords from './ClientFarmRecords';
 
 const fmtDate = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '—';
@@ -52,6 +53,11 @@ const ClientFarms: React.FC = () => {
   // sees an upgrade prompt, never an error page.
   const [locked, setLocked] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
+  // 262 — which farm product this account is on. 'BASIC' is the free record
+  // book; 'FULL' additionally has feeding plans, crops and the vet link.
+  const [holdings, setHoldings] = useState<PortalHoldings | null>(null);
+  const tier = holdings?.farmTier ?? 'BASIC';
+  const isFull = tier === 'FULL';
   const [newFarmName, setNewFarmName] = useState('');
   const navigate = useNavigate();
 
@@ -73,6 +79,12 @@ const ClientFarms: React.FC = () => {
 
   useEffect(() => { loadFarms(); }, [loadFarms]);
 
+  useEffect(() => {
+    clientPortalAPI.getHoldings({ showError: false })
+      .then((r) => { if (r.success && r.data) setHoldings(r.data); })
+      .catch(() => { /* falls back to BASIC, which shows less, never more */ });
+  }, []);
+
   const addFarm = async () => {
     const name = newFarmName.trim();
     if (!name) return;
@@ -86,21 +98,28 @@ const ClientFarms: React.FC = () => {
     }
   };
 
-  const loadFarm = useCallback(async (farmId: string) => {
+  /**
+   * ⚠️ Feeding plans and visit requests are the PAID product (262), so on the
+   * free tier they are not fetched at all. Calling them anyway would work —
+   * the gate returns a clean 403 — but it would fire two failing requests on
+   * every farm switch and surface an error toast for a feature the farmer was
+   * never offered.
+   */
+  const loadFarm = useCallback(async (farmId: string, full: boolean) => {
     if (!farmId) return;
-    const [d, f, p, v] = await Promise.all([
+    const [d, p, f, v] = await Promise.all([
       clientPortalAPI.getFarmDetail(farmId),
-      clientPortalAPI.getFarmFeeding(farmId),
       clientPortalAPI.getFarmProduce(farmId),
-      clientPortalAPI.listVisitRequests(farmId),
+      full ? clientPortalAPI.getFarmFeeding(farmId) : Promise.resolve(null),
+      full ? clientPortalAPI.listVisitRequests(farmId) : Promise.resolve(null),
     ]);
     if (d.success && d.data) { setGroups(d.data.animalGroups); setPlots(d.data.cropPlots); }
-    if (f.success && f.data) setPlans(f.data.plans);
     if (p.success && p.data) { setSchedules(p.data.schedules); setRecords(p.data.records); }
-    if (v.success && v.data) setVisitRequests(v.data.requests);
+    if (f?.success && f.data) setPlans(f.data.plans);
+    if (v?.success && v.data) setVisitRequests(v.data.requests);
   }, []);
 
-  useEffect(() => { loadFarm(activeId); }, [activeId, loadFarm]);
+  useEffect(() => { loadFarm(activeId, isFull); }, [activeId, isFull, loadFarm]);
 
   const logFeed = async (plan: PortalFeedingPlan) => {
     setFeeding(plan.id);
@@ -127,7 +146,7 @@ const ClientFarms: React.FC = () => {
         toast.success('Recorded');
         setRecording(null);
         setQty('');
-        loadFarm(activeId); // next-due rolled forward server-side
+        loadFarm(activeId, isFull); // next-due rolled forward server-side
       }
     } finally { setSaving(false); }
   };
@@ -268,7 +287,22 @@ const ClientFarms: React.FC = () => {
         </div>
       )}
 
-      {/* Feeding — the daily action, first */}
+      {/* ── 262: the FREE record book ─────────────────────────────────────
+          Renders on BOTH tiers. A paying farmer gains this on top of feeding
+          plans and produce schedules — they do not lose a screen by gaining
+          one. Everything below is the PAID product and is gated. */}
+      {active && (
+        <ClientFarmRecords
+          farmId={active.id}
+          groups={groups}
+          onGroupsChanged={() => loadFarm(activeId, isFull)}
+          tier={tier}
+          groupLimit={holdings?.groupLimit ?? 3}
+        />
+      )}
+
+      {/* Feeding — the daily action, first. PAID (livestock:farms). */}
+      {isFull && (
       <section>
         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
           <Sprout size={13} /> Today's feeding
@@ -317,8 +351,11 @@ const ClientFarms: React.FC = () => {
           </div>
         )}
       </section>
+      )}
 
-      {/* Produce due */}
+      {/* Produce SCHEDULES are the paid product — the free tier records what
+          actually came off the farm instead of what was expected. */}
+      {isFull && (
       <section>
         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
           <CalendarClock size={13} /> Produce
@@ -350,8 +387,12 @@ const ClientFarms: React.FC = () => {
           </div>
         )}
       </section>
+      )}
 
-      {/* Ask the vet out */}
+      {/* Ask the vet out. PAID — the user's call (spec §3.4), and the one
+          limit flagged as most likely worth reversing: it cuts against pulling
+          farmers toward the clinics. */}
+      {isFull && (
       <section>
         <div className="flex items-center justify-between gap-2 mb-2">
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
@@ -393,36 +434,14 @@ const ClientFarms: React.FC = () => {
           </div>
         )}
       </section>
-
-      {/* Herds & plots — the clinic maintains these; head count is the one
-          field the OWNER knows better, so it's editable here. */}
-      {groups.length > 0 && (
-        <section>
-          <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
-            <Milk size={13} /> Herds & flocks
-          </h3>
-          <div className="grid grid-cols-2 gap-2">
-            {groups.map((g) => (
-              <div key={g.id} className="cp-card">
-                <p className="text-sm font-bold text-slate-800 truncate">{g.name}</p>
-                <p className="text-[11px] text-slate-500">{g.species}{g.breed ? ` · ${g.breed}` : ''}</p>
-                <button
-                  type="button"
-                  onClick={() => { setEditHead(g); setHeadVal(String(g.headCount)); }}
-                  className="mt-1 flex items-baseline gap-1.5 group"
-                  title="Update head count"
-                >
-                  <span className="text-lg font-black text-slate-800">{g.headCount}</span>
-                  <span className="text-[9px] font-normal uppercase tracking-widest text-slate-400">head</span>
-                  <Pencil size={10} className="text-slate-300 group-hover:text-pine" />
-                </button>
-              </div>
-            ))}
-          </div>
-        </section>
       )}
 
-      {plots.length > 0 && (
+      {/* ⚠️ "Herds & flocks" USED to live here as a read-mostly card with a
+          head-count pencil. It is gone on purpose — `ClientFarmRecords` now
+          renders the herd with its full composition and an editor, on both
+          tiers, and two herd lists on one page is worse than either. */}
+
+      {isFull && plots.length > 0 && (
         <section>
           <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
             <Wheat size={13} /> Crop plots

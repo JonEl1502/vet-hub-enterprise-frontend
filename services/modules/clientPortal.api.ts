@@ -186,11 +186,97 @@ export interface PortalHoldings {
    * this without `hasFarms` is an invitation to add one. Neither is an error.
    */
   canUseFarmMode: boolean;
+  /**
+   * 262 — farm mode is sold at TWO levels, and the UI needs to know which.
+   *   'BASIC' — the FREE record book on the Free rung. Herds, money, produce.
+   *   'FULL'  — the paid Farmer product. Feeding plans, crops, the vet link.
+   *   'NONE'  — no farm anything.
+   */
+  farmTier: 'NONE' | 'BASIC' | 'FULL';
+  /** They threw the "I keep livestock" switch — even if they have no farm yet. */
+  optedIn: boolean;
   /** Farms this plan covers. 0 = unlimited. */
   farmLimit: number;
+  /** Herds the plan covers. 0 = unlimited. 3 on the free tier. */
+  groupLimit: number;
   planName: string | null;
   planTier: number | null;
   suggestedMode: 'PETS' | 'FARM';
+}
+
+// ── 262: the FREE farm record book ─────────────────────────────────────────
+
+export const LEDGER_CATEGORIES = {
+  EXPENSE: [
+    { key: 'FEED', label: 'Feed', unit: 'KG' },
+    { key: 'MEDICATION', label: 'Medication', unit: 'DOSE' },
+    { key: 'PEST_CONTROL', label: 'Pest control', unit: 'PC' },
+    { key: 'LABOUR', label: 'Labour', unit: '' },
+    { key: 'TRANSPORT', label: 'Transport', unit: '' },
+    { key: 'OTHER_EXPENSE', label: 'Other cost', unit: '' },
+    { key: 'LOSS', label: 'Loss', unit: 'HEAD' },
+  ],
+  INCOME: [
+    { key: 'MILK_SALE', label: 'Milk sold', unit: 'L' },
+    { key: 'EGG_SALE', label: 'Eggs sold', unit: 'TRAY' },
+    { key: 'LIVESTOCK_SALE', label: 'Animals sold', unit: 'HEAD' },
+    { key: 'PRODUCE_SALE', label: 'Other produce', unit: 'KG' },
+    { key: 'OTHER_INCOME', label: 'Other income', unit: '' },
+  ],
+} as const;
+
+/** Categories that take a vendor — the agrovet the farmer bought from. */
+export const VENDOR_CATEGORIES = ['FEED', 'MEDICATION', 'PEST_CONTROL'];
+
+export interface PortalLedgerEntry {
+  id: string;
+  farmId: string;
+  animalGroupId: string | null;
+  animalGroupName: string | null;
+  entryDate: string;
+  direction: 'INCOME' | 'EXPENSE';
+  category: string;
+  item: string;
+  quantity: number | null;
+  unit: string | null;
+  amount: number;
+  currency: string;
+  vendorName: string | null;
+  vendorSupplierId: string | null;
+  vendorSupplierName: string | null;
+  notes: string | null;
+  createdAt: string;
+}
+
+export interface PortalFarmSummary {
+  windowFrom: string | null;
+  /** Null on the paid tier — no window at all. */
+  windowDays: number | null;
+  income: number;
+  expense: number;
+  /**
+   * Money in minus money out over the window. Called `net`, NOT profit — it
+   * carries no stock on hand, no depreciation and no unsold produce.
+   */
+  net: number;
+  currency: string;
+  byCategory: Array<{
+    direction: 'INCOME' | 'EXPENSE';
+    category: string;
+    amount: number;
+    quantity: number | null;
+    count: number;
+  }>;
+  herd: {
+    groups: number; headCount: number; females: number;
+    males: number; pregnant: number; lactating: number;
+  };
+  produceQuantity: number;
+}
+
+export interface PortalVendor {
+  id: string; name: string; category: string | null;
+  address: string | null; phone: string | null;
 }
 
 /** 231 — a rung on the client ladder. Free (tier 0) is real but not buyable. */
@@ -250,6 +336,13 @@ export interface PortalFarm {
 export interface PortalAnimalGroup {
   id: string; name: string; species: string; breed: string | null;
   headCount: number; purpose: string | null; housing: string | null;
+  /**
+   * 262 — herd composition, a SNAPSHOT. Deliberately not reconciled against
+   * `headCount`: a farmer who said 7 head and 2 male + 5 female disagrees with
+   * themselves the week a calf is born. The UI hints; it never refuses.
+   */
+  males: number; females: number; adults: number;
+  young: number; pregnant: number; lactating: number;
 }
 
 export interface PortalCropPlot {
@@ -459,6 +552,76 @@ export const clientPortalAPI = {
 
   recordProduce: (farmId: string, data: { produceScheduleId?: string; quantity: number; unit?: string; recordedOn?: string; notes?: string }, options?: RequestOptions): Promise<ApiResponse<{ record: PortalProduceRecord }>> =>
     post(`/portal/me/farms/${farmId}/produce`, data, { showError: true, ...options }),
+
+  // ── 262: the FREE farm record book ──────────────────────────────────────
+
+  /** The owner declares a herd. Until 262 only a CLINIC could create one. */
+  createAnimalGroup: (
+    farmId: string,
+    data: {
+      name: string; species: string; breed?: string; purpose?: string; housing?: string;
+      headCount?: number; males?: number; females?: number;
+      adults?: number; young?: number; pregnant?: number; lactating?: number;
+    },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ group: PortalAnimalGroup }>> =>
+    post(`/portal/me/farms/${farmId}/animal-groups`, data, { showError: true, ...options }),
+
+  /** Counts and composition. Breed/housing/purpose stay clinic-maintained. */
+  updateAnimalGroup: (
+    groupId: string,
+    data: Partial<Record<'headCount' | 'males' | 'females' | 'adults' | 'young' | 'pregnant' | 'lactating', number>>,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ group: PortalAnimalGroup }>> =>
+    patch(`/portal/me/animal-groups/${groupId}`, data, { showError: true, ...options }),
+
+  getFarmLedger: (
+    farmId: string,
+    params: { from?: string; direction?: string; animalGroupId?: string; limit?: number } = {},
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ entries: PortalLedgerEntry[]; windowFrom: string | null; windowDays: number | null }>> => {
+    const qs = new URLSearchParams(
+      Object.entries(params).filter(([, v]) => v !== undefined && v !== '') as [string, string][],
+    ).toString();
+    return get(`/portal/me/farms/${farmId}/ledger${qs ? `?${qs}` : ''}`, { cache: false, ...options });
+  },
+
+  /**
+   * Record one line — the free tier's entire money model.
+   * ⚠️ Do NOT send `direction`; the server derives it from `category`.
+   */
+  createLedgerEntry: (
+    farmId: string,
+    data: {
+      category: string; item: string; amount: number;
+      quantity?: number | null; unit?: string; entryDate?: string;
+      animalGroupId?: string; vendorName?: string; vendorSupplierId?: string; notes?: string;
+    },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ entry: PortalLedgerEntry }>> =>
+    post(`/portal/me/farms/${farmId}/ledger`, data, { showError: true, ...options }),
+
+  updateLedgerEntry: (
+    entryId: string,
+    data: Partial<{ item: string; amount: number; quantity: number | null; unit: string; entryDate: string; vendorName: string; notes: string }>,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ entry: PortalLedgerEntry }>> =>
+    patch(`/portal/me/farm-ledger/${entryId}`, data, { showError: true, ...options }),
+
+  deleteLedgerEntry: (entryId: string, options?: RequestOptions): Promise<ApiResponse<{ deleted: boolean }>> =>
+    del(`/portal/me/farm-ledger/${entryId}`, { showError: true, ...options }),
+
+  getFarmSummary: (farmId: string, params: { from?: string } = {}, options?: RequestOptions): Promise<ApiResponse<PortalFarmSummary>> => {
+    const qs = params.from ? `?from=${encodeURIComponent(params.from)}` : '';
+    return get(`/portal/me/farms/${farmId}/summary${qs}`, { cache: false, ...options });
+  },
+
+  /**
+   * Type-to-search the agrovet list. READ-ONLY — a name that matches nothing
+   * creates no supplier; it is simply kept as text on the record.
+   */
+  searchFarmVendors: (q: string, options?: RequestOptions): Promise<ApiResponse<{ vendors: PortalVendor[] }>> =>
+    get(`/portal/me/farm-vendors?q=${encodeURIComponent(q)}`, { cache: false, silent: true, ...options }),
 
   /** A farmer adds their own farm — what makes the ladder's farm counts real. */
   createMyFarm: (data: { name: string; farmType?: string; county?: string; location?: string; sizeAcres?: number; notes?: string }, options?: RequestOptions): Promise<ApiResponse<{ farm: PortalFarm }>> =>
