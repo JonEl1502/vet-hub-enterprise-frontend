@@ -12,6 +12,17 @@ export const money = (n: number, currency: string) =>
   })}`;
 
 /**
+ * Grid prices, without the trailing `.00`.
+ *
+ * A tile is scanned, not reconciled: "KES 980" is read in one glance where
+ * "KES 980.00" makes the eye stop for two digits that are always zero. Money
+ * that has to ADD UP — the cart, the tender, the receipt — uses `money()` and
+ * always shows both places.
+ */
+export const priceShort = (n: number, currency: string) =>
+  `${currency} ${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+
+/**
  * "1 bottles" is the sort of thing that makes software look unfinished.
  * The stored unit is already plural ("Bottles", "Bags"), so ONE is the case
  * that needs handling, not the other way round.

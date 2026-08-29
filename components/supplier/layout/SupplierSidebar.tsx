@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { usePlanAccess } from '../../../contexts/PlanAccessContext';
 import { planLabel } from '../../../services/entitlements';
@@ -17,6 +18,7 @@ import {
   CreditCard,
   Settings2,
   Upload,
+  Store,
 } from 'lucide-react';
 
 interface SupplierSidebarProps {
@@ -50,6 +52,13 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
    */
   const { access } = usePlanAccess();
   const plan = planLabel(access);
+  const navigate = useNavigate();
+  /**
+   * The till is a ROUTE, not one of App.tsx's string views, so it cannot go
+   * through `setView` like everything else here. It was reachable only by
+   * typing /pos, which meant the shop staff it was built for could not find it.
+   */
+  const openTill = () => navigate('/pos');
   const [hoveredItemTop, setHoveredItemTop] = useState<number>(0);
   const [activeHoverId, setActiveHoverId] = useState<string | null>(null);
   const [managementOpen, setManagementOpen] = useState(
@@ -183,6 +192,37 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto custom-scrollbar">
+          {/* The till, above everything else and styled as a door rather than a
+              tab — it leaves the portal for a full-screen app, and for a
+              cashier it is the only thing on this list they need. */}
+          <div
+            className="relative group/menuitem mb-3"
+            onMouseEnter={(e) => handleMouseEnter(e, '__till')}
+            onMouseLeave={handleMouseLeave}
+          >
+            <button
+              onClick={openTill}
+              className="w-full flex items-center gap-3 p-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all bg-pine text-white hover:opacity-90 dark:bg-zinc-100 dark:text-pine shadow-lg shadow-pine/20"
+            >
+              <Store size={16} className="shrink-0" />
+              {(!isCollapsed || isMobileOpen) && <span className="flex-1 text-left">Open till</span>}
+            </button>
+            {isCollapsed && !isMobileOpen && activeHoverId === '__till' && (
+              <div
+                className="fixed z-[200] animate-in fade-in slide-in-from-left-2 duration-150 flex items-center"
+                style={{ top: hoveredItemTop + 8, left: 70 }}
+                onMouseEnter={() => { if (hoverTimeoutRef.current) window.clearTimeout(hoverTimeoutRef.current); }}
+                onMouseLeave={handleMouseLeave}
+              >
+                <div className="w-4 h-8" />
+                <div className="px-3 py-2 bg-pine text-white text-[8px] font-black uppercase tracking-[0.2em] rounded-lg shadow-2xl border border-white/10 whitespace-nowrap relative">
+                  <div className="absolute -left-1 w-2 h-2 bg-pine rotate-45 border-l border-b border-white/10"></div>
+                  Open till
+                </div>
+              </div>
+            )}
+          </div>
+
           {/* Main nav items */}
           {mainItems.map(item => <NavItem key={item.id} item={item} />)}
 

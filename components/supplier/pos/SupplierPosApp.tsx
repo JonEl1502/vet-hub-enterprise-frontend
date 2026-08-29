@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ShoppingBag, Receipt, Wallet, LogOut, ChevronDown, ShoppingCart } from 'lucide-react';
+import { ShoppingBag, Receipt, Wallet, LogOut, ChevronDown, ShoppingCart, LayoutGrid } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import BottomSheet from '../../shared/common/mobile/BottomSheet';
 import { usePos, type PosController } from './usePos';
@@ -61,6 +62,7 @@ const initialsOf = (name?: string | null) =>
 const SupplierPosApp: React.FC = () => {
   const pos = usePos();
   const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const isDesktop = useIsDesktop();
   const [tab, setTab] = useState<Tab>('sell');
   const [step, setStep] = useState<Step>('shopping');
@@ -149,8 +151,30 @@ const SupplierPosApp: React.FC = () => {
     );
   }
 
+  /**
+   * The way back to the portal — offered to whoever runs the shop, withheld
+   * from a CASHIER. A till left unattended should not be one tap from the
+   * catalogue, the pricing and the order book; the same reason the Shower to
+   * Shower POS hides its back-office link from cashiers.
+   *
+   * ⚠️ This is presentation only. The portal's own routes do their own
+   * checking — hiding a link is not access control.
+   */
+  const canLeaveTill = pos.till?.supplierRole !== 'CASHIER';
+
   const identity = (
     <>
+      {canLeaveTill && (
+        <button
+          onClick={() => navigate('/')}
+          className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+          style={{ color: 'rgba(242,245,249,0.55)' }}
+          aria-label="Back to the supplier portal"
+          title="Back to the supplier portal"
+        >
+          <LayoutGrid size={16} />
+        </button>
+      )}
       <div
         className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
         style={{ background: 'var(--sp-accent)', color: 'var(--sp-accent-ink)' }}

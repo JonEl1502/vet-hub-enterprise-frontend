@@ -4,7 +4,7 @@ import PosScanner from './PosScanner';
 import type { PosController } from './usePos';
 import type { PosProduct } from '../../../services';
 import { categoryTheme } from './categoryTheme';
-import { money, unitFor } from './format';
+import { priceShort, unitFor } from './format';
 
 /**
  * The catalogue half of the till: scan bar, chips, product grid.
@@ -329,8 +329,13 @@ const Tile: React.FC<{
               tile in the grid is the same height. Ragged rows read as an
               unfinished layout, and worse, they move the price — the one number
               the eye is hunting for — to a different place on every card. */}
+          {/* ⚠️ Reserve the corner badge's ACTUAL width. A cart count is one
+              digit; "restock" is a seven-letter pill, and a single `pr-6` for
+              both let the word sit on top of the product name. */}
           <span
-            className={`sp-tile-name line-clamp-2 ${qtyInCart > 0 || badge ? 'pr-6' : ''}`}
+            className={`sp-tile-name line-clamp-2 ${
+              qtyInCart > 0 ? 'pr-7' : badge ? 'pr-16' : ''
+            }`}
           >
             {p.name}
           </span>
@@ -342,7 +347,7 @@ const Tile: React.FC<{
 
       <div className="flex items-end justify-between gap-2 mt-auto pt-2">
         <span className="text-[15px] font-black sp-num leading-none">
-          {money(p.price, currency)}
+          {priceShort(p.price, currency)}
         </span>
         <span
           className="sp-stock-pill sp-num"
