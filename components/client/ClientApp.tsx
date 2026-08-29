@@ -12,6 +12,7 @@ import ClientAcceptInvite from './auth/ClientAcceptInvite';
 import ClientDashboard from './views/ClientDashboard';
 import ClientPets from './views/ClientPets';
 import ClientFarms from './views/ClientFarms';
+import ClientFarmAnimalsPage from './views/ClientFarmAnimalsPage';
 import ClientPetProfile from './views/ClientPetProfile';
 import ClientVisits from './views/ClientVisits';
 import ClientVisitDetail from './views/ClientVisitDetail';
@@ -72,6 +73,9 @@ const ClientApp: React.FC = () => {
         <Route element={isClient ? <ProtectedShell /> : <Navigate to="/client/login" replace />}>
           <Route index element={<ClientDashboard />} />
           <Route path="farm" element={<ClientFarms />} />
+          {/* 264 — the named-animal register. Its own route so it can be the
+              farm nav's second item, replacing the pet-shaped "Visits". */}
+          <Route path="farm/animals" element={<ClientFarmAnimalsPage />} />
           <Route path="pets" element={<ClientPets />} />
           <Route path="pets/:petId" element={<ClientPetProfile />} />
           <Route path="appointments" element={<ClientVisits />} />

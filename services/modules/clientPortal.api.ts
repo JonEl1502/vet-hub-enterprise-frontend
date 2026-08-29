@@ -250,6 +250,48 @@ export interface PortalLedgerEntry {
   createdAt: string;
 }
 
+/** ⚠️ A farm animal is NOT a pet and must never be called one (user, 2026-08-29). */
+export interface FarmAnimal {
+  id: string;
+  farmId: string;
+  animalGroupId: string | null;
+  animalGroupName: string | null;
+  name: string;
+  species: string;
+  breed: string | null;
+  sex: 'MALE' | 'FEMALE' | null;
+  /** Null = nobody knows. `dobIsApprox` marks one derived from a stated age. */
+  dob: string | null;
+  dobIsApprox: boolean;
+  tagNumber: string | null;
+  rfidNumber: string | null;
+  color: string | null;
+  markings: string | null;
+  weightValue: number | null;
+  weightUnit: string;
+  weighedOn: string | null;
+  isPregnant: boolean;
+  isLactating: boolean;
+  expectedDueOn: string | null;
+  status: 'ACTIVE' | 'SOLD' | 'DIED' | 'CULLED' | 'LOST';
+  exitedOn: string | null;
+  exitNote: string | null;
+  acquiredOn: string | null;
+  acquiredFrom: string | null;
+  avatarUrl: string | null;
+  notes: string | null;
+  weights: FarmAnimalWeight[];
+}
+
+export interface FarmAnimalWeight {
+  id: string; weighedOn: string; weightValue: number; weightUnit: string; notes?: string | null;
+}
+
+/** The species a Kenyan farm actually keeps, in rough order of likelihood. */
+export const FARM_SPECIES = [
+  'Cattle', 'Goat', 'Sheep', 'Poultry', 'Pig', 'Camel', 'Donkey', 'Rabbit',
+];
+
 export interface PortalFarmSummary {
   windowFrom: string | null;
   /** Null on the paid tier — no window at all. */
@@ -636,6 +678,28 @@ export const clientPortalAPI = {
   /** Connect a farm to a clinic, or pass null to disconnect. */
   setFarmClinic: (farmId: string, clinicId: string | null, options?: RequestOptions): Promise<ApiResponse<{ linkedClinicId: string | null; clinic: { id: string; name: string; logo: string | null } | null }>> =>
     patch(`/portal/me/farms/${farmId}/clinic`, { clinicId }, { showError: true, ...options }),
+
+  // ── 264: INDIVIDUAL animals (paid) ──────────────────────────────────────
+
+  listFarmAnimals: (farmId: string, params: { animalGroupId?: string; q?: string; includeExited?: string } = {}, options?: RequestOptions): Promise<ApiResponse<{ animals: FarmAnimal[] }>> => {
+    const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v) as [string, string][]).toString();
+    return get(`/portal/me/farms/${farmId}/animals${qs ? `?${qs}` : ''}`, { cache: false, showError: false, ...options });
+  },
+
+  getFarmAnimal: (animalId: string, options?: RequestOptions): Promise<ApiResponse<{ animal: FarmAnimal }>> =>
+    get(`/portal/me/farm-animals/${animalId}`, { cache: false, ...options }),
+
+  createFarmAnimal: (farmId: string, data: Partial<FarmAnimal> & { name: string; species: string; ageMonths?: number; weightValue?: number }, options?: RequestOptions): Promise<ApiResponse<{ animal: FarmAnimal }>> =>
+    post(`/portal/me/farms/${farmId}/animals`, data, { showError: true, ...options }),
+
+  updateFarmAnimal: (animalId: string, data: Partial<FarmAnimal> & { ageMonths?: number }, options?: RequestOptions): Promise<ApiResponse<{ animal: FarmAnimal }>> =>
+    patch(`/portal/me/farm-animals/${animalId}`, data, { showError: true, ...options }),
+
+  recordAnimalWeight: (animalId: string, data: { weightValue: number; weightUnit?: string; weighedOn?: string; notes?: string }, options?: RequestOptions): Promise<ApiResponse<{ weight: FarmAnimalWeight }>> =>
+    post(`/portal/me/farm-animals/${animalId}/weights`, data, { showError: true, ...options }),
+
+  farmAnimalSummary: (farmId: string, options?: RequestOptions): Promise<ApiResponse<{ named: number; byGroup: Record<string, number> }>> =>
+    get(`/portal/me/farms/${farmId}/animal-summary`, { cache: false, silent: true, ...options }),
 
   /** A farmer adds their own farm — what makes the ladder's farm counts real. */
   createMyFarm: (data: { name: string; farmType?: string; county?: string; location?: string; sizeAcres?: number; notes?: string }, options?: RequestOptions): Promise<ApiResponse<{ farm: PortalFarm }>> =>

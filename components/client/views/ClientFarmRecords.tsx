@@ -29,6 +29,7 @@ import {
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
+import { useNavigate } from 'react-router-dom';
 
 const KES = (n: number) =>
   `KES ${Math.round(n).toLocaleString('en-KE')}`;
@@ -205,15 +206,22 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
   const [herdSpecies, setHerdSpecies] = useState('');
   const [editHerd, setEditHerd] = useState<PortalAnimalGroup | null>(null);
   const [comp, setComp] = useState<Record<string, string>>({});
+  // 264 — how many animals are NAMED, per herd. A herd with named animals has
+  // DERIVED counts, so its hand-typed editor must not be offered: two ways to
+  // set one number is how they end up disagreeing.
+  const [namedByGroup, setNamedByGroup] = useState<Record<string, number>>({});
+  const navigate = useNavigate();
 
   const load = useCallback(() => {
     setLoading(true);
     return Promise.all([
       clientPortalAPI.getFarmSummary(farmId),
       clientPortalAPI.getFarmLedger(farmId, { limit: 60 }),
-    ]).then(([s, l]) => {
+      clientPortalAPI.farmAnimalSummary(farmId),
+    ]).then(([s, l, a]: any[]) => {
       if (s.success && s.data) setSummary(s.data);
       if (l.success && l.data) setEntries(l.data.entries);
+      if (a?.success && a.data) setNamedByGroup(a.data.byGroup ?? {});
     }).finally(() => setLoading(false));
   }, [farmId]);
 
@@ -460,13 +468,25 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
                       </p>
                     </div>
                     <div className="shrink-0 text-right">
-                      <p className="text-xl font-black text-slate-800 leading-none">{g.headCount}</p>
-                      <button
-                        className="mt-1 text-[10px] font-black uppercase tracking-widest cp-accent-text flex items-center gap-1"
-                        onClick={() => openComposition(g)}
-                      >
-                        <Pencil size={10} /> Update
-                      </button>
+                      <p className="text-xl font-black text-slate-800 dark:text-zinc-100 leading-none">{g.headCount}</p>
+                      {/* ⚠️ A herd whose animals are NAMED has DERIVED counts —
+                          offering the hand editor as well would give one number
+                          two owners, which is how they start disagreeing. */}
+                      {namedByGroup[g.id] ? (
+                        <button
+                          className="mt-1 text-[10px] font-black uppercase tracking-widest cp-accent-text flex items-center gap-1"
+                          onClick={() => navigate('/client/farm/animals')}
+                        >
+                          {namedByGroup[g.id]} named →
+                        </button>
+                      ) : (
+                        <button
+                          className="mt-1 text-[10px] font-black uppercase tracking-widest cp-accent-text flex items-center gap-1"
+                          onClick={() => openComposition(g)}
+                        >
+                          <Pencil size={10} /> Update
+                        </button>
+                      )}
                     </div>
                   </div>
                   {chips.length > 0 && (

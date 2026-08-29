@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
-  Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus, Sprout,
+  Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus, Sprout, Beef,
   Settings, LogOut, Sun, Moon, Monitor, ChevronDown, Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -21,9 +21,22 @@ const PET_NAV = [
   { to: '/client/invoices', label: 'Invoices', icon: Receipt },
 ];
 
+/**
+ * ⚠️ FARM nav carries FARM things only (user, 2026-08-29).
+ *
+ * "Visits" was here because the farm side inherited the pet client's nav
+ * wholesale — and it opened "Appointments & Visits", a pet booking screen, for
+ * someone who keeps cattle. The user's call: *"it should not be in the main
+ * menu"*, to be re-sited as a farm-shaped screen later. Requesting a farm visit
+ * still exists where it belongs: on the farm page itself.
+ *
+ * Messages and Invoices stay because a farmer genuinely gets both from their
+ * clinic — but ⚠️ their CONTENT is still pet-shaped in places and is the next
+ * thing to make farm-aware.
+ */
 const FARM_NAV = [
   { to: '/client/farm', end: true, label: 'My Farm', icon: Sprout },
-  { to: '/client/appointments', label: 'Visits', icon: CalendarDays },
+  { to: '/client/farm/animals', label: 'Animals', icon: Beef },
   { to: '/client/messages', label: 'Messages', icon: MessageCircle },
   { to: '/client/invoices', label: 'Invoices', icon: Receipt },
 ];
