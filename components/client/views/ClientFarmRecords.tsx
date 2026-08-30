@@ -347,20 +347,43 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
   };
 
   /**
-   * The hint, not the rule.
+   * Two different things, and the difference matters.
    *
-   * ⚠️ Never blocks the save. A farmer whose sexes do not add up to their total
-   * is mid-calving, not wrong — and the server deliberately accepts it (spec
-   * §3.1). This is a nudge they can ignore forever.
+   * ⚠️ UNDER-counting is a HINT and never blocks: 7 head with 5 sexed is a
+   * farmer who has not finished counting, not an error.
+   *
+   * ⚠️ OVER-counting is an ERROR and blocks the save. It is arithmetic, not
+   * judgement — a 900-bird batch claiming 799 layers AND 900 broilers describes
+   * 1,699 birds that do not exist, and every derived figure downstream (feed
+   * per head, cost per bird, the herd chips) inherits it silently. Mirrors
+   * `assertCompositionSane` on the server, which is the real gate; this one is
+   * only here so the farmer finds out before pressing Save.
    */
-  const compHint = useMemo(() => {
-    const total = Number(comp.headCount || 0);
-    const sexes = Number(comp.males || 0) + Number(comp.females || 0);
-    if (!total || !sexes || sexes === total) return null;
-    return sexes > total
-      ? `Male + female is ${sexes}, more than the ${total} you gave as the total.`
-      : `Male + female is ${sexes} of ${total}. Fine if you have not counted the rest.`;
-  }, [comp]);
+  const compCheck = useMemo(() => {
+    const n = (k: string) => Number(comp[k] || 0);
+    const total = n('headCount');
+    if (!total) return { error: null as string | null, hint: null as string | null };
+
+    const purposeSum = Object.values(purposeComp).reduce((s, v) => s + (Number(v) || 0), 0);
+    const sexes = n('males') + n('females');
+    const ages = n('adults') + n('young');
+
+    const over =
+      sexes > total ? `Male + female comes to ${sexes}, more than the ${total} you have in total.`
+      : ages > total ? `Adult + young comes to ${ages}, more than the ${total} you have in total.`
+      : purposeSum > total ? `What they are kept for comes to ${purposeSum}, more than the ${total} you have in total.`
+      : n('pregnant') > total ? `You cannot have ${n('pregnant')} pregnant out of ${total}.`
+      : n('lactating') > total ? `You cannot have ${n('lactating')} milking out of ${total}.`
+      : n('females') > 0 && n('pregnant') > n('females')
+        ? `You have ${n('pregnant')} pregnant but only ${n('females')} female.`
+      : null;
+    if (over) return { error: over, hint: null };
+
+    const hint = sexes > 0 && sexes < total
+      ? `Male + female is ${sexes} of ${total}. Fine if you have not counted the rest.`
+      : null;
+    return { error: null, hint };
+  }, [comp, purposeComp]);
 
   const atGroupLimit = groupLimit > 0 && groups.length >= groupLimit;
   const wantsVendor = VENDOR_CATEGORIES.includes(category);
@@ -816,12 +839,17 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
                 ))}
               </div>
             </div>
-            {compHint && (
-              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
-                {compHint} Save it anyway if that is right.
+            {compCheck.error && (
+              <p className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/30 dark:text-rose-300 rounded-xl px-3 py-2">
+                {compCheck.error}
               </p>
             )}
-            <button className="cp-btn w-full" onClick={saveComposition} disabled={saving}>
+            {compCheck.hint && (
+              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 dark:bg-amber-400/10 dark:border-amber-400/25 dark:text-amber-300 rounded-xl px-3 py-2">
+                {compCheck.hint} Save it anyway if that is right.
+              </p>
+            )}
+            <button className="cp-btn w-full" onClick={saveComposition} disabled={saving || !!compCheck.error}>
               {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
