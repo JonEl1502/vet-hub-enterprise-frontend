@@ -1829,7 +1829,14 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                             <li>· The visit itself. Nothing else is billed on it.</li>
                           )
                         )}
-                        {deleteChoice === 'RECORD_ONLY' && <li>· The visit stays, with the rest of its bill intact.</li>}
+                        {deleteChoice === 'RECORD_ONLY' && (
+                          // An already-orphaned stay has no visit to keep, and saying
+                          // "the visit stays" about a visit that is not there reads as
+                          // the dialog describing someone else's record.
+                          pv.visitId
+                            ? <li>· The visit stays, with the rest of its bill intact.</li>
+                            : <li>· There is no visit attached — this stay was already orphaned, so nothing else is touched.</li>
+                        )}
                       </ul>
                       <p className="text-[9px] text-slate-400 pt-0.5">This cannot be undone.</p>
                     </>
