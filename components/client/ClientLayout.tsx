@@ -75,12 +75,24 @@ const ClientLayout: React.FC = () => {
    */
   useEffect(() => {
     if (modeLoading) return;
-    if (pathname === '/client' && mode === 'FARM') {
+    // ⚠️ The ROUTE is the single source of truth on a SPECIFIC route. The
+    // switcher only navigates; it must NOT also call setMode.
+    //
+    // It used to do both, and the two fought: `setMode('PETS')` landed a render
+    // before `navigate` had moved `pathname`, so this effect ran with the NEW
+    // mode and the OLD `/client/farm` path and flipped the mode straight back.
+    // Clicking Pets did nothing at all — reproduced on staging as
+    // mode FARM → FARM, path /client/farm → /client/farm.
+    if (pathname.startsWith('/client/farm')) {
+      if (mode !== 'FARM' && holdings?.canUseFarmMode) setMode('FARM');
+    } else if (pathname.startsWith('/client/pets')) {
+      // ⚠️ No `hasPets` guard. An explicit navigation IS the intent, and a
+      // farm-only owner has to be able to reach the screen that adds their
+      // first pet — gating it on already having one is the closed loop 231 had.
+      if (mode !== 'PETS') setMode('PETS');
+    } else if (pathname === '/client' && mode === 'FARM') {
+      // Only the HOME route follows the mode.
       navigate('/client/farm', { replace: true });
-    } else if (pathname.startsWith('/client/pets') && mode === 'FARM' && holdings?.hasPets) {
-      setMode('PETS');
-    } else if (pathname.startsWith('/client/farm') && mode === 'PETS' && holdings?.canUseFarmMode) {
-      setMode('FARM');
     }
   }, [pathname, mode, modeLoading, holdings, navigate, setMode]);
   const { mode: theme, setMode: setTheme } = useThemeMode();
@@ -145,7 +157,11 @@ const ClientLayout: React.FC = () => {
               {([['PETS', 'Pets', PawPrint], ['FARM', 'Farm', Sprout]] as const).map(([m, label, Icon]) => (
                 <button
                   key={m}
-                  onClick={() => { setMode(m); navigate(m === 'FARM' ? '/client/farm' : '/client'); }}
+                  // ⚠️ Navigate ONLY — the effect above owns the mode. And go to
+                  // `/client/pets`, never `/client`: the home route FOLLOWS the
+                  // mode, so sending Pets there would be redirected straight
+                  // back to the farm.
+                  onClick={() => navigate(m === 'FARM' ? '/client/farm' : '/client/pets')}
                   className={`px-2.5 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest flex items-center gap-1 transition-all ${
                     mode === m ? 'bg-white shadow text-pine' : 'text-slate-500'
                   }`}

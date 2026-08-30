@@ -70,11 +70,20 @@ export const usePortalMode = () => {
         // 231 adds the plan to that test: FARM now needs the entitlement as
         // well as the farm, and a lapsed farmer lands back in PETS rather than
         // on a wall of 403s.
-        // 262 — `hasFarms` is no longer required to stay in FARM. Someone who
-        // has just opted in has no farm yet, and bouncing them back to PETS
-        // would send them out of the very screen that lets them add one.
-        const storedIsValid = stored === 'FARM' ? ((h.hasFarms || h.optedIn) && h.canUseFarmMode)
-          : stored === 'PETS' ? h.hasPets
+        /**
+         * A stored mode is valid if the account can BE in it — not if it
+         * currently holds something.
+         *
+         * ⚠️ PETS used to require `hasPets`, so a farmer who deliberately
+         * switched to the pet side (to add their first pet) was thrown back to
+         * FARM on the next load, and the switch looked broken a second time.
+         * PETS is the portal's base product and is always reachable; FARM needs
+         * the entitlement, so a lapsed farmer still lands in PETS rather than
+         * on a wall. `suggestedMode` only ever seeds the FIRST visit.
+         */
+        const storedIsValid =
+          stored === 'FARM' ? !!h.canUseFarmMode
+          : stored === 'PETS' ? true
           : false;
         setModeState(storedIsValid ? (stored as PortalMode) : h.suggestedMode);
       })
