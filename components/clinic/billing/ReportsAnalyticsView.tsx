@@ -106,6 +106,10 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
   const [ap, setAp] = useState<{ total: number; suppliers: any[] } | null>(null);
   const [apInvoices, setApInvoices] = useState<SupplierInvoice[]>([]);
   const [wallets, setWallets] = useState<WalletT[]>([]);
+  // Distinguishes "the clinic holds nothing" from "we could not read the
+  // wallet". Both used to render a confident KES 0.00, which on a finance
+  // dashboard is not a blank — it is a wrong number.
+  const [walletsUnavailable, setWalletsUnavailable] = useState(false);
   const [granularity, setGranularity] = useState<'Daily' | 'Weekly'>('Daily');
   const [cfGranularity, setCfGranularity] = useState<'Daily' | 'Weekly'>('Daily');
   const [quickOpen, setQuickOpen] = useState(false);
@@ -123,7 +127,11 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
         receivablesAPI.arAgeing().catch(() => null),
         supplierApAPI.summary().catch(() => null),
         supplierApAPI.listInvoices({ status: 'OPEN' }).catch(() => null),
-        walletAPI.getByEntity('CLINIC', String(clinicId)).catch(() => null),
+        // `silent` for the same reason as its six siblings above: this is a
+        // background dashboard load, and the `.catch` already says a failure
+        // here is survivable. Without it the global 403 handler popped a
+        // "Permission needed" modal over a page that then rendered in full.
+        walletAPI.getByEntity('CLINIC', String(clinicId), { silent: true }).catch(() => null),
       ]);
       if (s?.success && s.data) setSummary(s.data);
       if (cmp?.success && cmp.data) setCompare(cmp.data);
@@ -131,7 +139,8 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
       if (arRes?.success && arRes.data) setAr(arRes.data);
       if (apRes?.success && apRes.data) setAp(apRes.data);
       if (invRes?.success && invRes.data?.invoices) setApInvoices(invRes.data.invoices);
-      if (wRes?.success && wRes.data?.wallets) setWallets(wRes.data.wallets);
+      if (wRes?.success && wRes.data?.wallets) { setWallets(wRes.data.wallets); setWalletsUnavailable(false); }
+      else setWalletsUnavailable(true);
     } finally { setLoading(false); }
   }, [clinicId, from, to, prevFrom, prevTo]);
   useEffect(() => { load(); }, [load]);
@@ -381,7 +390,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
     { label: 'Total Revenue', value: money(revenue), icon: Landmark, chip: 'bg-emerald-500/10 text-emerald-500', delta: compareOn ? pctDelta(revenue, prevTotals?.revenue ?? 0) : null, prev: compareOn ? prevTotals?.revenue : undefined, cmpValue: money(prevTotals?.revenue ?? 0) },
     { label: 'Total Expenses', value: money(expenses), icon: Receipt, chip: 'bg-rose-500/10 text-rose-500', delta: compareOn ? pctDelta(expenses, prevTotals?.expenses ?? 0) : null, prev: compareOn ? prevTotals?.expenses : undefined, cmpValue: money(prevTotals?.expenses ?? 0), badDeltaUp: true },
     { label: 'Net Profit', value: money(netProfit), icon: CircleDollarSign, chip: 'bg-purple-500/10 text-purple-500', delta: compareOn ? pctDelta(netProfit, prevTotals?.netProfit ?? 0) : null, prev: compareOn ? prevTotals?.netProfit : undefined, cmpValue: money(prevTotals?.netProfit ?? (((prevTotals?.revenue ?? 0) - (prevTotals?.expenses ?? 0)))) },
-    { label: 'Cash Balance', value: money(cashBalance), icon: Wallet, chip: 'bg-sky-500/10 text-sky-500', delta: null, prev: undefined, cmpValue: null, pointInTime: true },
+    { label: 'Cash Balance', value: walletsUnavailable ? '—' : money(cashBalance), icon: Wallet, chip: 'bg-sky-500/10 text-sky-500', delta: null, prev: undefined, cmpValue: null, pointInTime: true },
     { label: 'Outstanding (AR)', value: money(arTotal), icon: FileText, chip: 'bg-amber-500/10 text-amber-600', delta: null, prev: undefined, cmpValue: null, pointInTime: true, badDeltaUp: true },
     { label: 'Payables (AP)', value: money(apTotal), icon: CreditCard, chip: 'bg-indigo-500/10 text-indigo-500', delta: null, prev: undefined, cmpValue: null, pointInTime: true, badDeltaUp: true },
     { label: 'Gross Profit Margin', value: `${margin.toFixed(1)}%`, icon: Percent, chip: 'bg-teal-500/10 text-teal-600', delta: compareOn && prevMargin != null ? Math.round((margin - prevMargin) * 10) / 10 : null, prev: undefined, cmpValue: prevMargin != null ? `${prevMargin.toFixed(1)}%` : null, isPoints: true },

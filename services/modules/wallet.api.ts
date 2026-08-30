@@ -3,7 +3,7 @@
  */
 
 import { get, post, put, del } from '../api/client';
-import { ApiResponse } from '../api/types';
+import { ApiResponse, RequestOptions } from '../api/types';
 
 export type WalletEntityType = 'CLINIC' | 'SUPPLIER' | 'CLIENT';
 /**
@@ -57,9 +57,17 @@ export interface RegenResult extends Wallet {
 }
 
 export const walletAPI = {
-  /** Get all wallets for an entity */
-  getByEntity: (entityType: WalletEntityType, profileId: string): Promise<ApiResponse<{ wallets: Wallet[] }>> =>
-    get(`/wallets/${entityType.toLowerCase()}/${profileId}`),
+  /**
+   * Get all wallets for an entity.
+   *
+   * Takes `options` so a caller loading this in the background can pass
+   * `{ silent: true }`. Without it the dashboard could not suppress the global
+   * 403 handler, and a wallet it had already decided to shrug off
+   * (`.catch(() => null)`) still popped a "Permission needed" modal that
+   * blocked nothing.
+   */
+  getByEntity: (entityType: WalletEntityType, profileId: string, options?: RequestOptions): Promise<ApiResponse<{ wallets: Wallet[] }>> =>
+    get(`/wallets/${entityType.toLowerCase()}/${profileId}`, options),
 
   /** Get a wallet by ID */
   getById: (id: string): Promise<ApiResponse<{ wallet: Wallet }>> =>

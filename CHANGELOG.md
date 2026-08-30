@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### dashboard: no more "Permission needed" modal over a page that then loads  —  no migration
+- **What changed:** the Finance & BI tab fires seven calls. Six pass `{ silent: true }` or
+  swallow failure; the seventh, `walletAPI.getByEntity`, **took no options at all**, so it
+  could not be silenced. When it 403'd, the global interceptor
+  (`services/api/interceptors.ts:367`) popped a **"Permission needed / Insufficient
+  permissions / Got it"** modal — which blocked nothing, because the caller's
+  `.catch(() => null)` had already decided the failure was survivable and the dashboard
+  rendered in full the moment you dismissed it.
+  - `walletAPI.getByEntity` now accepts `options?: RequestOptions`, and
+    `ReportsAnalyticsView` passes `{ silent: true }` like its six siblings.
+  - **`CASH BALANCE` no longer prints `KES 0.00` when the wallet could not be read.** New
+    `walletsUnavailable` state separates "the clinic holds nothing" from "we could not
+    read it"; the tile shows **`—`** for the second. On a finance dashboard a wrong number
+    is worse than a blank one — that zero sat next to a real `KES 196,705.00` revenue.
+- **Record impact:** 🟢 None — read-only presentation.
+- **Data dependency:** Backend `fix(wallet)` — `CLINIC_MANAGER` added to the wallet route
+  allow-list. **That commit is the actual fix**; a manager should never have been refused
+  in the first place. Ship the backend first, or a manager keeps seeing `—` (honest, but
+  still not their balance) instead of the real figure.
+- **Rollback:** revert the commit; the modal comes back.
+
 ### inpatient: a daily-rate change is priced before it saves  —  2026-08-29
 
 - **What changed:** the rate multiplies by every night **already accrued**, so moving 1,200 to 2,000
