@@ -224,6 +224,7 @@ export const ENDPOINTS = {
     REOPEN: (id: string | number) => `/inpatient/${id}/reopen`,
     BACKDATE: (id: string | number) => `/inpatient/${id}/backdate`,
     RATE: (id: string | number) => `/inpatient/${id}/rate`,
+    REMOVE: (id: string | number) => `/inpatient/${id}/remove`,
     VITALS: (id: string | number) => `/inpatient/${id}/vitals`,
     LOGS: (id: string | number) => `/inpatient/${id}/logs`,
     LOG_BY_ID: (logId: string | number) => `/inpatient/logs/${logId}`,

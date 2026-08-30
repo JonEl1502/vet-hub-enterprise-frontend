@@ -91,6 +91,27 @@ export interface InpatientReprice {
   hospitalization?: Hospitalization;
 }
 
+/** What `inpatientAPI.remove(..., preview)` reports before anything is deleted. */
+export interface InpatientRemove {
+  applied: boolean;
+  mode: 'RECORD_ONLY' | 'WITH_VISIT';
+  petName: string | null;
+  status: HospitalizationStatus;
+  visitId: string | null;
+  visitIsPaid: boolean;
+  visitTotalBefore: number | null;
+  /** null when the visit itself is going — there is no "after" to quote. */
+  visitTotalAfter: number | null;
+  stayLines: { name: string; category: string; price: number }[];
+  /** Total coming off the bill: the stay line plus any food-program line. */
+  moneyOff: number;
+  /** Everything on the visit that is NOT this stay. Destroyed only by WITH_VISIT. */
+  otherLineCount: number;
+  otherLineTotal: number;
+  /** Chart content that goes in BOTH modes — it hangs off the admission, not the visit. */
+  counts: { vitals: number; logs: number; planSections: number };
+}
+
 export const inpatientAPI = {
   // ── Treatment plan (132). A PLAN, not a charge: nothing here bills or moves
   // stock — administration goes through the MAR / consumable path.
@@ -173,6 +194,31 @@ export const inpatientAPI = {
 
   reopen: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<any>> =>
     post(ENDPOINTS.INPATIENT.REOPEN(id), {}, { showError: true, ...options }),
+
+  /**
+   * Delete an admission.
+   *
+   * ⚠️ Always call it with `preview: true` first and show what goes. This is
+   * destructive AND it moves money: the stay and food lines come off the
+   * visit's bill, and the stay's vitals, MAR entries, daily-sheet logs and
+   * treatment plan are deleted with it. The server REFUSES outright on a
+   * settled visit, with the amount in the message.
+   *
+   * `deleteVisit: true` takes the visit too — everything else on that visit
+   * (consultation, lab, meds) goes with it, which is why the preview reports
+   * `otherLineCount` / `otherLineTotal`. It needs `visits:delete` on top of
+   * `inpatient:delete`; without it the server returns 403 and says so.
+   *
+   * A `reason` is required on the real call in BOTH modes — nothing survives
+   * to explain itself afterwards.
+   */
+  remove: async (
+    id: string | number,
+    body: { deleteVisit?: boolean; reason?: string },
+    preview = false,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<InpatientRemove>> =>
+    post(`${ENDPOINTS.INPATIENT.REMOVE(id)}${preview ? '?preview=1' : ''}`, body, { showError: !preview, ...options }),
 
   addVital: async (id: string | number, data: Partial<Omit<VitalReading, 'id'>>, options?: RequestOptions): Promise<ApiResponse<{ vital: VitalReading }>> =>
     post(ENDPOINTS.INPATIENT.VITALS(id), data, { showError: true, ...options }),

@@ -24,7 +24,7 @@ export type { Appointment, AppointmentStatus as BookingStatus, AppointmentSource
 export { boardingAPI } from './modules/boarding.api';
 export type { BoardingStay, BoardingDailyLog, BoardingOccupancy, BoardingStatus, CreateBoardingPayload } from './modules/boarding.api';
 export { inpatientAPI } from './modules/inpatient.api';
-export type { Hospitalization, VitalReading, HospLog, HospitalizationStatus, DischargeOutcome, LogKind, InpatientBackdate, InpatientReprice } from './modules/inpatient.api';
+export type { Hospitalization, VitalReading, HospLog, HospitalizationStatus, DischargeOutcome, LogKind, InpatientBackdate, InpatientReprice, InpatientRemove } from './modules/inpatient.api';
 export { remindersAPI, REMINDER_SERVICE_META } from './modules/reminders.api';
 export type { Reminder, ReminderServiceType, ReminderStatus, ReminderScope, CreateReminderPayload } from './modules/reminders.api';
 export { transactionsAPI } from './modules/transactions.api';

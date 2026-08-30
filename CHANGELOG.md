@@ -59,6 +59,42 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### inpatient: a Delete button on the chart, that asks what you actually mean  —  no migration
+- **What changed:** the inpatient chart gains **Delete** in the header, next to Back-date.
+  It opens a three-choice dialog rather than a yes/no confirm, because "delete this
+  admission" means three different things and picking the wrong one is expensive:
+  1. **Back-date it instead** — the stay is real, the dates are wrong. *Listed first and
+     selected by default*, following the "use Void instead" precedent on payments: most
+     reports of "this admission is wrong" are really "it started on the wrong day", and
+     that is fixable without destroying anything. Choosing it just hands over to the
+     existing back-date flow.
+  2. **Delete only the inpatient record** — the visit was a real encounter that should not
+     have been admitted. The visit and the rest of its bill stay.
+  3. **Delete the admission and its visit** — the whole encounter was a mistake.
+- **Both delete branches are priced live before the confirm**, the same way back-date is —
+  it names the vitals, daily-sheet entries and plan sections that go, and the money coming
+  off the bill. For "delete both" it also names **how many other lines on that visit** are
+  destroyed and what they are worth, because "delete the visit as well" reads as harmless
+  until you know it also takes the consultation, the lab work and the medicines. A reason
+  is required, and that branch carries an extra "I understand" tick.
+- **Record impact:** 🔴 **High — this is a delete control.** It is the UI for
+  `POST /inpatient/:id/remove`; the server does the destroying and holds every guard.
+- **Data dependency:** backend `feat(inpatient)` — `POST /inpatient/:id/remove`. Without
+  it the button 404s.
+- **Permissions:** the button is hidden unless the user holds `inpatient:delete`, and the
+  "and its visit" option is shown **locked, with the reason**, unless they also hold
+  `visits:delete`. Hidden rather than left to 403 — the house rule, stated in
+  `ProceduresView`: *"the server enforces the same grants, so a hidden button is the
+  courtesy, not the boundary."* The locked option is named rather than removed so nobody
+  reads a missing choice as the feature being broken.
+- ⚠️ Also hidden once the bill is **SETTLED**, the same rule Back-date uses: the server
+  refuses there ("reopen the bill first"), so the button would be a dead end.
+- ⚠️ **The control is on the CHART, not the ward card.** Each card in `InpatientView` is
+  itself a `<button>` that opens the chart, so a nested delete control would have meant
+  restructuring the card. The chart is one click away and is where every other stay action
+  already lives (back-date, discharge, re-price).
+- **Rollback:** revert the commit; the button disappears.
+
 ### dashboard: no more "Permission needed" modal over a page that then loads  —  no migration
 - **What changed:** the Finance & BI tab fires seven calls. Six pass `{ silent: true }` or
   swallow failure; the seventh, `walletAPI.getByEntity`, **took no options at all**, so it

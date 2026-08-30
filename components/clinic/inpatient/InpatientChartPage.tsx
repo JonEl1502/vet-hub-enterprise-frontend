@@ -1,10 +1,12 @@
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import { dialog } from '../../../services/utils/dialog';
+import { useAuth } from '../../../contexts/AuthContext';
+import { modulePerms, can } from '../../../constants/modulePermissions';
 import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2, Trash2, Receipt, Pencil, X, RotateCcw, CalendarClock, AlertTriangle, Coins} from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import TreatmentPlanPanel from './TreatmentPlanPanel';
-import { inpatientAPI, Hospitalization, InpatientBackdate, InpatientReprice, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
+import { inpatientAPI, Hospitalization, InpatientBackdate, InpatientRemove, InpatientReprice, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import { formatDate, formatTime, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import StayChargeCard from '../shared/StayChargeCard';
@@ -123,6 +125,30 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
   const [backdatePreview, setBackdatePreview] = useState<InpatientBackdate | null>(null);
   const [backdateError, setBackdateError] = useState<string | null>(null);
   const [backdateBusy, setBackdateBusy] = useState(false);
+  // Deleting an admission is gated on `inpatient:delete`, and taking the
+  // VISIT with it additionally on `visits:delete` — the same two grants the
+  // server checks. Hidden rather than left to 403: "the server enforces the
+  // same grants, so a hidden button is the courtesy, not the boundary"
+  // (ProceduresView). No role preset carries `inpatient:delete`, so in
+  // practice this is owners and managers.
+  const { user } = useAuth();
+  const inpatientPerms = modulePerms(user, 'inpatient');
+  const canDeleteVisit = can(user, 'visits:delete');
+  // Delete an admission (user, 2026-08-30) — see `remove` in inpatient.service.
+  // Three outcomes, and the safe one is deliberately offered FIRST: most
+  // "this admission is wrong" reports are really "it started on the wrong
+  // day", which back-date fixes without destroying anything.
+  type DeleteChoice = 'BACKDATE' | 'RECORD_ONLY' | 'WITH_VISIT';
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleteChoice, setDeleteChoice] = useState<DeleteChoice>('BACKDATE');
+  const [deleteReason, setDeleteReason] = useState('');
+  const [deletePreview, setDeletePreview] = useState<InpatientRemove | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
+  // Second gate on the irreversible branch only, matching the subscription
+  // cancel dialog. Deleting the record is recoverable-ish (the visit and its
+  // bill survive); deleting the visit is not.
+  const [deleteAck, setDeleteAck] = useState(false);
   // Daily-rate change (2026-08-29) — see `reprice` in inpatient.service. The
   // rate multiplies by every night ALREADY accrued, so this is priced and
   // confirmed like the back-date rather than saved like a field.
@@ -534,6 +560,67 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
     return () => { cancelled = true; clearTimeout(t); };
   }, [showBackdate, backdateAt, hospId]);
 
+  const openDelete = useCallback(() => {
+    setDeleteChoice('BACKDATE');
+    setDeleteReason('');
+    setDeletePreview(null);
+    setDeleteError(null);
+    setDeleteAck(false);
+    setShowDelete(true);
+  }, []);
+
+  // Price the damage as soon as the dialog opens, and re-price when the mode
+  // changes — "delete the visit too" destroys strictly more, and the figures
+  // have to move with the choice or the confirmation is describing the wrong
+  // one. `preview: true` writes nothing and runs the SAME guards as the real
+  // call, so a settled bill is refused here, with its amount, before anyone
+  // commits.
+  useEffect(() => {
+    if (!showDelete || deleteChoice === 'BACKDATE') { setDeletePreview(null); setDeleteError(null); return; }
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await inpatientAPI.remove(hospId, { deleteVisit: deleteChoice === 'WITH_VISIT' }, true);
+        if (cancelled) return;
+        if (res.success && res.data) { setDeletePreview(res.data); setDeleteError(null); }
+      } catch (e: any) {
+        if (cancelled) return;
+        setDeletePreview(null);
+        setDeleteError(e?.message || 'This admission cannot be deleted');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showDelete, deleteChoice, hospId]);
+
+  const applyDelete = useCallback(async () => {
+    if (deleteChoice === 'BACKDATE') {
+      // Not a delete at all — hand over to the flow that fixes the dates.
+      setShowDelete(false);
+      openBackdate();
+      return;
+    }
+    if (!deleteReason.trim()) return;
+    setDeleteBusy(true);
+    try {
+      const res = await inpatientAPI.remove(hospId, {
+        deleteVisit: deleteChoice === 'WITH_VISIT',
+        reason: deleteReason.trim(),
+      });
+      if (res.success) {
+        toast.success(deleteChoice === 'WITH_VISIT'
+          ? 'Admission and its visit deleted'
+          : 'Inpatient record deleted — the visit is still there');
+        setShowDelete(false);
+        onChanged?.();
+        // The chart it was rendering is gone, so staying here would show a
+        // 404 shell. Back to the ward, which is where the result is visible.
+        onBack();
+      }
+    } catch (e: any) {
+      setDeleteError(e?.message || 'Could not delete this admission');
+    } finally { setDeleteBusy(false); }
+  }, [deleteChoice, deleteReason, hospId, onChanged, onBack, openBackdate]);
+
   const applyBackdate = useCallback(async () => {
     if (!backdateAt || !backdateReason.trim()) return;
     setBackdateBusy(true);
@@ -698,6 +785,16 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
               title="Move this admission to an earlier start date and re-price the stay"
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/15 border border-white/20 text-white text-[9px] font-black uppercase tracking-widest hover:bg-white/25 transition-colors">
               <CalendarClock size={12} /> Back-date
+            </button>
+          )}
+          {/* DELETE (user, 2026-08-30). Hidden once the bill is SETTLED, the
+              same rule Back-date above uses: the server refuses there ("reopen
+              the bill first"), so offering the button would be a dead end. */}
+          {h && !h.billing?.isPaid && inpatientPerms.delete && (
+            <button onClick={openDelete}
+              title="Delete this admission — with or without its visit"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/15 border border-white/20 text-rose-100 text-[9px] font-black uppercase tracking-widest hover:bg-rose-500/30 transition-colors">
+              <Trash2 size={12} /> Delete
             </button>
           )}
           {/* RUNNING TOTAL — stay + food + consumables, every day, in one place.
@@ -1622,6 +1719,156 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                 <button onClick={applyBackdate} disabled={!ready || backdateBusy}
                   className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-seafoam text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95 disabled:opacity-50">
                   {backdateBusy ? <Loader2 size={13} className="animate-spin" /> : <CalendarClock size={13} />} Back-date &amp; re-price
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* DELETE DIALOG (user, 2026-08-30).
+          "Delete this admission" means three different things, and picking the
+          wrong one is expensive, so it asks instead of guessing:
+
+            1. Back-date it        — the stay is real, the dates are wrong.
+            2. Delete the record   — the VISIT was real, the admission was not.
+            3. Delete both         — the whole encounter was a mistake.
+
+          The safe option is listed FIRST and selected by DEFAULT, following the
+          "use Void instead" precedent on payments: most reports of "this
+          admission is wrong" are really "it started on the wrong day", and that
+          is fixable without destroying anything.
+
+          Both delete branches are priced live before the confirm — the same
+          reason back-date is. Deleting the record takes the stay and food lines
+          off the visit's bill; deleting the visit takes everything else on it
+          as well, so the dialog has to say how much that is. */}
+      {showDelete && h && (() => {
+        const money = (n: number) => `KES ${Number(n || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+        const pv = deletePreview;
+        const isDelete = deleteChoice !== 'BACKDATE';
+        const needsAck = deleteChoice === 'WITH_VISIT';
+        const ready = deleteChoice === 'BACKDATE'
+          || (!!deleteReason.trim() && !!pv && !deleteError && (!needsAck || deleteAck));
+
+        const option = (key: typeof deleteChoice, tone: 'safe' | 'warn' | 'danger', title: string, body: string, lockedWhy?: string) => {
+          const on = deleteChoice === key;
+          const locked = !!lockedWhy;
+          const ring = locked
+            ? 'border-slate-200 dark:border-zinc-800 opacity-60'
+            : !on
+            ? 'border-slate-200 dark:border-zinc-800 hover:border-slate-300 dark:hover:border-zinc-700'
+            : tone === 'safe' ? 'border-pine bg-pine/5'
+            : tone === 'warn' ? 'border-amber-400 bg-amber-50/60 dark:bg-amber-500/10'
+            : 'border-rose-400 bg-rose-50/60 dark:bg-rose-500/10';
+          return (
+            <button type="button" disabled={locked}
+              onClick={() => { setDeleteChoice(key); setDeleteAck(false); }}
+              className={`w-full text-left p-3 rounded-xl border-2 transition-colors ${ring} ${locked ? 'cursor-not-allowed' : ''}`}>
+              <div className="flex items-start gap-2.5">
+                <span className={`mt-0.5 h-3.5 w-3.5 shrink-0 rounded-full border-2 ${on && !locked ? 'border-pine bg-pine' : 'border-slate-300 dark:border-zinc-600'}`} />
+                <div>
+                  <p className="text-[11px] font-black text-pine dark:text-zinc-100">{title}</p>
+                  <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5 leading-relaxed">{body}</p>
+                  {/* Named, not hidden. Someone without `visits:delete` still needs
+                      to know the option exists and who can do it — a silently
+                      absent choice reads as the feature being broken. */}
+                  {locked && <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 mt-1">{lockedWhy}</p>}
+                </div>
+              </div>
+            </button>
+          );
+        };
+
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={() => !deleteBusy && setShowDelete(false)}>
+            <div onClick={(e) => e.stopPropagation()}
+              className="w-full max-w-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-5 space-y-4 max-h-[90vh] overflow-y-auto">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest text-rose-500 flex items-center gap-1.5"><Trash2 size={13} /> Delete admission</p>
+                  <p className="text-sm font-black text-pine dark:text-zinc-100 mt-0.5">{h.pet?.name} · {h.inpatientNo || 'No inpatient no.'}</p>
+                </div>
+                <button onClick={() => setShowDelete(false)} disabled={deleteBusy}
+                  className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50"><X size={15} /></button>
+              </div>
+
+              <div className="space-y-2">
+                {option('BACKDATE', 'safe', 'Back-date it instead',
+                  'The stay really happened, it just starts on the wrong day. Moves the admission date and re-prices — nothing is destroyed.')}
+                {option('RECORD_ONLY', 'warn', 'Delete only the inpatient record',
+                  'The visit was a real encounter that should not have been admitted. The visit and the rest of its bill stay; the stay charge comes off it.')}
+                {option('WITH_VISIT', 'danger', 'Delete the admission and its visit',
+                  'The whole encounter was a mistake — a duplicate, or the wrong patient. Everything on the visit goes, not just the stay.',
+                  canDeleteVisit ? undefined : 'Needs permission to delete visits — ask an owner or manager.')}
+              </div>
+
+              {isDelete && (
+                <div className="rounded-xl border border-slate-200 dark:border-zinc-800 p-3 space-y-2">
+                  {deleteError ? (
+                    <p className="text-[11px] font-bold text-rose-600 dark:text-rose-400 flex items-start gap-1.5">
+                      <AlertTriangle size={13} className="mt-0.5 shrink-0" /> {deleteError}
+                    </p>
+                  ) : !pv ? (
+                    <p className="text-[11px] text-slate-400 flex items-center gap-1.5"><Loader2 size={13} className="animate-spin" /> Working out what would go…</p>
+                  ) : (
+                    <>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">What goes</p>
+                      <ul className="text-[11px] text-slate-600 dark:text-zinc-300 space-y-1">
+                        <li>· The admission, with its <strong>{pv.counts.vitals}</strong> vital reading{pv.counts.vitals === 1 ? '' : 's'}, <strong>{pv.counts.logs}</strong> daily-sheet entr{pv.counts.logs === 1 ? 'y' : 'ies'} and <strong>{pv.counts.planSections}</strong> treatment-plan section{pv.counts.planSections === 1 ? '' : 's'}.</li>
+                        {pv.moneyOff > 0 && (
+                          <li>· <strong>{money(pv.moneyOff)}</strong> of stay charges come off {deleteChoice === 'WITH_VISIT' ? 'the bill' : `the visit — leaving ${money(pv.visitTotalAfter ?? 0)}`}.</li>
+                        )}
+                        {deleteChoice === 'WITH_VISIT' && (
+                          pv.otherLineCount > 0 ? (
+                            <li className="text-rose-600 dark:text-rose-400">
+                              · <strong>{pv.otherLineCount}</strong> other line{pv.otherLineCount === 1 ? '' : 's'} on this visit worth <strong>{money(pv.otherLineTotal)}</strong> — consultation, lab, medicines — are destroyed too. Choose “record only” above to keep them.
+                            </li>
+                          ) : (
+                            <li>· The visit itself. Nothing else is billed on it.</li>
+                          )
+                        )}
+                        {deleteChoice === 'RECORD_ONLY' && <li>· The visit stays, with the rest of its bill intact.</li>}
+                      </ul>
+                      <p className="text-[9px] text-slate-400 pt-0.5">This cannot be undone.</p>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {isDelete && (
+                <div>
+                  <label className="field-label">Why is this being deleted? *</label>
+                  <textarea className="field-textarea" rows={2} value={deleteReason}
+                    onChange={(e) => setDeleteReason(e.target.value)}
+                    placeholder="Duplicate — the same patient was admitted twice by mistake" />
+                  <p className="text-[9px] text-slate-400 mt-1">
+                    {deleteChoice === 'RECORD_ONLY'
+                      ? 'Recorded in the activity log with what came off the bill.'
+                      : 'Recorded in the activity log. Nothing on the visit survives to carry it.'}
+                  </p>
+                </div>
+              )}
+
+              {needsAck && (
+                <label className="flex items-start gap-2 text-[11px] font-bold text-pine dark:text-zinc-200 cursor-pointer">
+                  <input type="checkbox" checked={deleteAck} onChange={(e) => setDeleteAck(e.target.checked)}
+                    className="mt-0.5 h-3.5 w-3.5 rounded border-slate-300 text-rose-500 focus:ring-rose-400" />
+                  I understand the visit and everything billed on it are deleted, and this cannot be undone.
+                </label>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-1">
+                <button onClick={() => setShowDelete(false)} disabled={deleteBusy}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-pine dark:text-zinc-200 font-black text-[10px] uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50">Keep it</button>
+                <button onClick={applyDelete} disabled={!ready || deleteBusy}
+                  className={`flex items-center gap-1.5 px-4 py-2.5 rounded-xl text-white font-black text-[10px] uppercase tracking-widest shadow-lg active:scale-95 disabled:opacity-50 ${
+                    deleteChoice === 'BACKDATE' ? 'bg-seafoam shadow-seafoam/20 hover:bg-seafoam/90' : 'bg-rose-500 shadow-rose-500/20 hover:bg-rose-600'}`}>
+                  {deleteBusy ? <Loader2 size={13} className="animate-spin" />
+                    : deleteChoice === 'BACKDATE' ? <CalendarClock size={13} /> : <Trash2 size={13} />}
+                  {deleteChoice === 'BACKDATE' ? 'Back-date instead'
+                    : deleteChoice === 'RECORD_ONLY' ? 'Delete the record' : 'Delete both'}
                 </button>
               </div>
             </div>
