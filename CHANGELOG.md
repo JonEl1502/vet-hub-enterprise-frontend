@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### seo: the app stops competing with the brand's own homepage  —  no migration
+- **What changed:** `index.html` now sends `noindex, follow` and canonicals to
+  `https://vethubcore.com/`. The app-side `sitemap.xml` is deleted and `robots.txt`
+  no longer advertises one.
+- **Why:** `/` routes to `staffOrPortal(<App />)` (`Router.tsx:85`), so the page Google
+  actually indexed here was **a login form**. The keyword-rich `<noscript>` block that was
+  written for crawlers is dead weight — Googlebot runs JS, React boots, and that content is
+  replaced before it is ever indexed. Meanwhile the apex 301'd here, so the brand had no
+  indexable home at all and the app subdomain was the only thing Google could see.
+- The indexable site is now the static marketing site served at the apex
+  (`vethubcore-marketing/`, served by Caddy from `/srv/vethub-marketing`). It has real
+  server-rendered HTML — ~780 words on the homepage with no JS — plus feature, pricing,
+  about, contact and four country pages.
+- **Crawling stays ALLOWED in `robots.txt` on purpose.** A `Disallow` here would be the
+  classic own-goal: Google could never fetch the page, so it would never read the
+  `noindex`, and the URL could linger in the index as a bare link indefinitely.
+- Also dropped the `<meta name="keywords">` list. Google has ignored it since 2009, and 60+
+  stuffed terms is a spam pattern with no upside.
+- Removed the app's JSON-LD graph. It declared a second `Organization` for the same brand
+  under a different `@id` than the apex — competing entity nodes are precisely the
+  disambiguation problem this work exists to fix. The apex owns the entity now.
+- **Record impact:** 🟢 None — static metadata only, no runtime code path touched.
+- **Data dependency:** none.
+
+
 ### inpatient: a Delete button on the chart, that asks what you actually mean  —  no migration
 - **What changed:** the inpatient chart gains **Delete** in the header, next to Back-date.
   It opens a three-choice dialog rather than a yes/no confirm, because "delete this

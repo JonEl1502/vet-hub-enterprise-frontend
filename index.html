@@ -8,13 +8,16 @@
   <!-- ── SEO ───────────────────────────────────────────────────────── -->
   <title>VetHubCore — The Operating System for Veterinary Practice</title>
   <meta name="description" content="The operating system for veterinary practice. Every clinic · Every pet · Every team. Visits, records, inventory, and billing — one connected platform with 24/7 support. Start your 1-month free demo: full access, no card required.">
-  <meta name="keywords" content="VetHub, Vet Hub, VetHub Core, Vet Hub Core, VetHubCore, vethubcore, vethubcore.com, VetHub vet software, VetHub veterinary, VetHub clinic, VetHub app, VetHub login, VetHub Kenya, VetHub Uganda, VetHub Tanzania, VetHub Nigeria, VetHub Ghana, VetHub Rwanda, VetHub South Africa, VetHub East Africa, VetHub Africa, veterinary practice management software, vet clinic software, pet clinic management, vet appointment scheduling, veterinary EMR, pet owner portal, M-Pesa vet payments, veterinary boarding software, pet boarding management, veterinary laboratory software, vet lab results, veterinary surgery management, veterinary imaging software, vet radiology, veterinary inpatient software, animal hospitalization management, emergency vet software, pet grooming software, veterinary vaccination reminders, vaccine package management, veterinary dental records, veterinary pharmacy inventory, vet billing and invoicing, veterinary software Kenya, veterinary software Uganda, veterinary software Tanzania, veterinary software Nigeria, veterinary software Ghana, veterinary software Rwanda, veterinary software South Africa, veterinary software East Africa, veterinary software Africa">
   <meta name="author" content="VetHubCore">
   <meta name="application-name" content="VetHubCore">
   <meta name="apple-mobile-web-app-title" content="VetHubCore">
-  <meta name="robots" content="index, follow, max-image-preview:large">
+  <!-- The app is login-gated: nothing here should rank. The indexable home of
+       the brand is the marketing site at https://vethubcore.com/. Crawling stays
+       allowed in robots.txt on purpose — a Disallow would stop Google reading
+       this noindex at all. -->
+  <meta name="robots" content="noindex, follow">
   <meta name="theme-color" content="#144E35">
-  <link rel="canonical" href="https://app.vethubcore.com/">
+  <link rel="canonical" href="https://vethubcore.com/">
   <link rel="icon" type="image/svg+xml" href="/vethubcore-favicon.svg">
   <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png">
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
@@ -44,76 +47,6 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700;800&family=Hanken+Grotesk:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
 
-  <!-- ── Structured data (helps Google disambiguate the VetHub Core brand) ── -->
-  <script type="application/ld+json">
-  {
-    "@context": "https://schema.org",
-    "@graph": [
-      {
-        "@type": "Organization",
-        "@id": "https://app.vethubcore.com/#organization",
-        "name": "VetHubCore",
-        "alternateName": ["VetHubCore", "VetHub", "Vet Hub", "Vet Hub Core"],
-        "url": "https://app.vethubcore.com/",
-        "logo": "https://app.vethubcore.com/favicon-512.png",
-        "description": "Veterinary practice management software and pet-owner portal for clinics.",
-        "areaServed": [
-          { "@type": "Country", "name": "Kenya" },
-          { "@type": "Country", "name": "Uganda" },
-          { "@type": "Country", "name": "Tanzania" },
-          { "@type": "Country", "name": "Nigeria" },
-          { "@type": "Country", "name": "Ghana" },
-          { "@type": "Country", "name": "Rwanda" },
-          { "@type": "Country", "name": "South Africa" }
-        ],
-        "sameAs": []
-      },
-      {
-        "@type": "WebSite",
-        "@id": "https://app.vethubcore.com/#website",
-        "url": "https://app.vethubcore.com/",
-        "name": "VetHubCore",
-        "publisher": { "@id": "https://app.vethubcore.com/#organization" },
-        "inLanguage": "en"
-      },
-      {
-        "@type": "SoftwareApplication",
-        "name": "VetHubCore",
-        "alternateName": ["VetHubCore", "VetHub", "Vet Hub"],
-        "applicationCategory": "BusinessApplication",
-        "applicationSubCategory": "Veterinary Practice Management Software",
-        "operatingSystem": "Web, iOS, Android",
-        "url": "https://app.vethubcore.com/",
-        "description": "Run your whole veterinary practice in one place: appointments, patient & medical records, inventory, invoicing, M-Pesa & card payments, plus a pet-owner portal for booking and paying online.",
-        "publisher": { "@id": "https://app.vethubcore.com/#organization" },
-        "countriesSupported": ["KE", "UG", "TZ", "NG", "GH", "RW", "ZA"],
-        "offers": {
-          "@type": "Offer",
-          "priceCurrency": "KES",
-          "price": "0",
-          "description": "Free trial available"
-        },
-        "featureList": [
-          "Appointment scheduling & reminders",
-          "Patient & medical records (EMR)",
-          "Consultations & visits",
-          "Boarding management",
-          "Laboratory & lab results",
-          "Surgery management",
-          "Imaging & radiology",
-          "Inpatient / hospitalization",
-          "Emergency care",
-          "Grooming",
-          "Vaccinations & vaccine packages",
-          "Pharmacy & inventory management",
-          "Invoicing & billing",
-          "M-Pesa and card payments",
-          "Pet-owner portal"
-        ]
-      }
-    ]
-  }
-  </script>
 <script type="importmap">
 {
   "imports": {

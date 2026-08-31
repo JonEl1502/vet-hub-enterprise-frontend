@@ -1,10 +1,11 @@
-# VetHub Core — https://app.vethubcore.com
+# VetHub Core — application host (app.vethubcore.com)
+#
+# This host is the login-gated React app. Every page here is marked
+# `noindex, follow` in index.html, so crawling MUST stay allowed — a Disallow
+# would prevent Google from ever reading that noindex.
+#
+# The indexable site, and the sitemap, live on the apex:
+#   https://vethubcore.com/sitemap.xml
+
 User-agent: *
 Allow: /
-
-# Private / auth-only routes (thin, no SEO value)
-Disallow: /reset-password
-Disallow: /forgot-password
-Disallow: /client/
-
-Sitemap: https://app.vethubcore.com/sitemap.xml
