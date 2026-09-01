@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Printer, FileText } from 'lucide-react';
+import { X, FileText } from 'lucide-react';
 import { Pet, Client, Clinic } from '../../../types';
-import { printElementAsPdf } from '../shared/printPdf';
+import DocumentActions from '../shared/DocumentActions';
+import { buildDocumentMessage } from '../shared/documentShare';
 import { useAuth } from '../../../contexts/AuthContext';
 
 /**
@@ -59,10 +60,12 @@ const PetCertificateModal: React.FC<{
             <FileText size={14} className="text-seafoam" /> Certificate of {isDeath ? 'Death' : 'Birth'}
           </span>
           <div className="flex items-center gap-2">
-            <button onClick={() => printElementAsPdf(domId, `Certificate of ${isDeath ? 'Death' : 'Birth'} ${serial}`, false)}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all">
-              <Printer size={12} /> Print / PDF
-            </button>
+            <DocumentActions
+              size="sm"
+              elementId={domId}
+              title={`Certificate of ${isDeath ? 'Death' : 'Birth'} ${serial}`}
+              message={buildDocumentMessage({ docLabel: `certificate of ${isDeath ? 'death' : 'birth'} ${serial}` })}
+            />
             <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"><X size={16} /></button>
           </div>
         </div>

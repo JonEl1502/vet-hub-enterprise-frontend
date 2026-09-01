@@ -16,7 +16,9 @@ import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservatio
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { vaccinationsAPI, visitsAPI, petsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID, remindersAPI, triageAPI, surgeryAPI, dewormingAPI, DewormingRecord } from '../../../services';
 import { notifyTriageChanged } from '../triage/triageEvents';
-import { printElementAsPdf } from '../shared/printPdf';
+import { downloadDocumentPdf, shareDocumentOnWhatsapp, buildDocumentMessage } from '../shared/documentShare';
+import ShareDocButton from '../shared/ShareDocButton';
+import DocumentActions from '../shared/DocumentActions';
 import ReconciliationDocument from '../receipts/ReconciliationDocument';
 import invoicesAPI from '../../../services/modules/invoices.api';
 import type { VisitReconciliation } from '../../../services/modules/clients.api';
@@ -1497,6 +1499,9 @@ const VisitDetailInner: React.FC<Props> = ({
   // API for other staff (it 403s and shows "only clinic owner can manage payment
   // gateways"). Non-owners just get no online-gateway options (cash/wallet still work).
   const { user: currentUser } = useAuth();
+  // Clinic name for share captions — the document header already shows it,
+  // but the WhatsApp message needs it in words.
+  const shareClinicName = currentUser?.userClinics?.[0]?.clinic?.name || null;
   const canManageGateways = !!currentUser && ['SUPER_ADMIN', 'MERCHANT_ADMIN', 'CLINIC_OWNER'].includes(currentUser.role as string);
   // May this user WRITE the clinical record? (user, 2026-08-04) The front desk
   // holds `clinical:view` without `clinical:edit`, so the clinical tabs render
@@ -6106,14 +6111,14 @@ const VisitDetailInner: React.FC<Props> = ({
                         {certPrintMenuOpen && (
                           <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg shadow-lg overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-100">
                             <button
-                              onClick={() => { setCertPrintMenuOpen(false); printElementAsPdf('vaccine-cert-content', 'Vaccination Certificate ' + certSerial, false); }}
+                              onClick={() => { setCertPrintMenuOpen(false); downloadDocumentPdf('vaccine-cert-content', 'Vaccination Certificate ' + certSerial, false); }}
                               className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800"
                             >
                               <span className="w-3 h-3 rounded-full bg-emerald-600 border border-emerald-700/40" />
                               Coloured
                             </button>
                             <button
-                              onClick={() => { setCertPrintMenuOpen(false); printElementAsPdf('vaccine-cert-content', 'Vaccination Certificate ' + certSerial, true); }}
+                              onClick={() => { setCertPrintMenuOpen(false); downloadDocumentPdf('vaccine-cert-content', 'Vaccination Certificate ' + certSerial, true); }}
                               className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 border-t border-slate-100 dark:border-zinc-800"
                             >
                               <span className="w-3 h-3 rounded-full bg-slate-700 border border-slate-300" />
@@ -6447,10 +6452,16 @@ const VisitDetailInner: React.FC<Props> = ({
                    {activeBottomTab === 'report' && (
                      <div className="space-y-3">
                        <div className="flex justify-end">
-                         <button onClick={() => printElementAsPdf('medical-report-content', `Medical Report — ${pet.name} — Visit #${appointment.id}`, false)}
-                           className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all">
-                           <Printer size={12} /> Print / Download
-                         </button>
+                         <DocumentActions
+                           elementId="medical-report-content"
+                           title={`Medical Report — ${pet.name} — Visit #${appointment.id}`}
+                           phone={client?.phone ?? appointment.client?.phone}
+                           message={buildDocumentMessage({
+                             docLabel: `medical report for ${pet.name}`,
+                             clientName: client?.name ?? appointment.client?.name,
+                             clinicName: shareClinicName,
+                           })}
+                         />
                        </div>
                        <div id="medical-report-content" className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">
                          <MedicalReport
@@ -6501,10 +6512,16 @@ const VisitDetailInner: React.FC<Props> = ({
                      return (
                        <div className="space-y-3">
                          <div className="flex justify-end">
-                           <button onClick={() => printElementAsPdf('grooming-report-content', `Grooming Report — ${pet.name} — Visit #${appointment.id}`, false)}
-                             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all">
-                             <Printer size={12} /> Print / Download
-                           </button>
+                           <DocumentActions
+                           elementId="grooming-report-content"
+                           title={`Grooming Report — ${pet.name} — Visit #${appointment.id}`}
+                           phone={client?.phone ?? appointment.client?.phone}
+                           message={buildDocumentMessage({
+                             docLabel: `grooming report for ${pet.name}`,
+                             clientName: client?.name ?? appointment.client?.name,
+                             clinicName: shareClinicName,
+                           })}
+                         />
                          </div>
                          <div id="grooming-report-content" className="border border-slate-200 dark:border-zinc-800 rounded-xl p-6 space-y-4">
                            <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-zinc-800 pb-3">
@@ -6578,10 +6595,16 @@ const VisitDetailInner: React.FC<Props> = ({
                      return (
                        <div className="space-y-3">
                          <div className="flex justify-end">
-                           <button onClick={() => printElementAsPdf('boarding-report-content', `Boarding Report — ${pet.name} — Visit #${appointment.id}`, false)}
-                             className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all">
-                             <Printer size={12} /> Print / Download
-                           </button>
+                           <DocumentActions
+                           elementId="boarding-report-content"
+                           title={`Boarding Report — ${pet.name} — Visit #${appointment.id}`}
+                           phone={client?.phone ?? appointment.client?.phone}
+                           message={buildDocumentMessage({
+                             docLabel: `boarding report for ${pet.name}`,
+                             clientName: client?.name ?? appointment.client?.name,
+                             clinicName: shareClinicName,
+                           })}
+                         />
                          </div>
                          <div id="boarding-report-content" className="border border-slate-200 dark:border-zinc-800 rounded-xl p-6 space-y-4">
                            <div className="flex items-start justify-between gap-4 border-b border-slate-100 dark:border-zinc-800 pb-3">
@@ -7029,6 +7052,17 @@ const VisitDetailInner: React.FC<Props> = ({
                                {isSettlingBill ? 'Settling…' : 'Settle Bill'}
                              </button>
                            )}
+                           <ShareDocButton
+                             elementId="invoice-content"
+                             title={'Invoice #' + appointment.id}
+                             phone={client?.phone ?? appointment.client?.phone}
+                             message={buildDocumentMessage({
+                               docLabel: `invoice #${appointment.id}`,
+                               clientName: client?.name ?? appointment.client?.name,
+                               clinicName: shareClinicName,
+                             })}
+                             label="Share on WhatsApp"
+                           />
                            <div className="relative" ref={printMenuFor === 'invoice' ? printMenuRef : undefined}>
                              <button
                                onClick={() => setPrintMenuFor(printMenuFor === 'invoice' ? null : 'invoice')}
@@ -7043,7 +7077,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                  <button
                                    onClick={() => {
                                      setPrintMenuFor(null);
-                                     printElementAsPdf('invoice-content', 'Invoice #' + appointment.id, false);
+                                     downloadDocumentPdf('invoice-content', 'Invoice #' + appointment.id, false);
                                    }}
                                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800"
                                  >
@@ -7053,7 +7087,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                  <button
                                    onClick={() => {
                                      setPrintMenuFor(null);
-                                     printElementAsPdf('invoice-content', 'Invoice #' + appointment.id, true);
+                                     downloadDocumentPdf('invoice-content', 'Invoice #' + appointment.id, true);
                                    }}
                                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 border-t border-slate-100 dark:border-zinc-800"
                                  >
@@ -7304,8 +7338,19 @@ const VisitDetailInner: React.FC<Props> = ({
                           <div className="mt-4">
                             <div className="flex items-center justify-between gap-2 mb-2 print:hidden">
                               <p className="text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-400">🐾 Consolidated group invoice — {client?.name || 'client'} ({clientGroupVisits.length} animals)</p>
+                              <ShareDocButton
+                                elementId="group-invoice-inline"
+                                title={`Group Invoice — ${client?.name || ''} — ${appointment.groupVisitId}`}
+                                phone={client?.phone ?? appointment.client?.phone}
+                                message={buildDocumentMessage({
+                                  docLabel: 'consolidated group invoice',
+                                  clientName: client?.name ?? appointment.client?.name,
+                                  clinicName: shareClinicName,
+                                })}
+                                label="Share"
+                              />
                               <button
-                                onClick={() => printElementAsPdf('group-invoice-inline', `Group Invoice — ${client?.name || ''} — ${appointment.groupVisitId}`, false)}
+                                onClick={() => downloadDocumentPdf('group-invoice-inline', `Group Invoice — ${client?.name || ''} — ${appointment.groupVisitId}`)}
                                 className="flex items-center gap-1.5 px-3 py-1.5 bg-violet-600 text-white rounded-lg font-bold text-[10px] uppercase tracking-wide shadow-sm hover:bg-violet-700 transition-all active:scale-95"
                               >
                                 <Download size={13} /> Download PDF
@@ -7514,6 +7559,19 @@ const VisitDetailInner: React.FC<Props> = ({
                                ))}
                              </select>
                            </div>
+                           <ShareDocButton
+                             elementId="receipt-content"
+                             title={(reconciliationState && !reconciliationState.settled ? 'Payment Reconciliation #' : 'Receipt #') + appointment.id}
+                             phone={client?.phone ?? appointment.client?.phone}
+                             message={buildDocumentMessage({
+                               docLabel: (reconciliationState && !reconciliationState.settled
+                                 ? `payment reconciliation #${appointment.id}`
+                                 : `receipt #${appointment.id}`),
+                               clientName: client?.name ?? appointment.client?.name,
+                               clinicName: shareClinicName,
+                             })}
+                             label="Share on WhatsApp"
+                           />
                            <div className="relative" ref={printMenuFor === 'receipt' ? printMenuRef : undefined}>
                              <button
                                onClick={() => setPrintMenuFor(printMenuFor === 'receipt' ? null : 'receipt')}
@@ -7528,7 +7586,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                  <button
                                    onClick={() => {
                                      setPrintMenuFor(null);
-                                     printElementAsPdf('receipt-content', (reconciliationState && !reconciliationState.settled ? 'Payment Reconciliation #' : 'Receipt #') + appointment.id, false);
+                                     downloadDocumentPdf('receipt-content', (reconciliationState && !reconciliationState.settled ? 'Payment Reconciliation #' : 'Receipt #') + appointment.id, false);
                                    }}
                                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800"
                                  >
@@ -7538,7 +7596,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                  <button
                                    onClick={() => {
                                      setPrintMenuFor(null);
-                                     printElementAsPdf('receipt-content', (reconciliationState && !reconciliationState.settled ? 'Payment Reconciliation #' : 'Receipt #') + appointment.id, true);
+                                     downloadDocumentPdf('receipt-content', (reconciliationState && !reconciliationState.settled ? 'Payment Reconciliation #' : 'Receipt #') + appointment.id, true);
                                    }}
                                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 border-t border-slate-100 dark:border-zinc-800"
                                  >

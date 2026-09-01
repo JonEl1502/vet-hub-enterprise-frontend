@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
-import { X, Printer, FileText, Plus } from 'lucide-react';
+import { X, FileText, Plus } from 'lucide-react';
 import { Pet, Client, Clinic } from '../../../types';
-import { printElementAsPdf } from '../shared/printPdf';
+import DocumentActions from '../shared/DocumentActions';
+import { buildDocumentMessage } from '../shared/documentShare';
 import { useAuth } from '../../../contexts/AuthContext';
 
 /**
@@ -67,14 +68,18 @@ const CustomCertificateModal: React.FC<{
             <FileText size={14} className="text-seafoam" /> New certificate
           </span>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => printElementAsPdf(domId, `${title || 'Certificate'} ${serial}`, false)}
-              disabled={!title.trim() || !body.trim()}
-              title={!title.trim() || !body.trim() ? 'Give it a title and a statement first' : undefined}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-pine transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-seafoam"
-            >
-              <Printer size={12} /> Print / PDF
-            </button>
+            {title.trim() && body.trim() ? (
+              <DocumentActions
+                size="sm"
+                elementId={domId}
+                title={`${title || 'Certificate'} ${serial}`}
+                message={buildDocumentMessage({ docLabel: `${title || 'certificate'} ${serial}` })}
+              />
+            ) : (
+              <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                Give it a title and a statement first
+              </span>
+            )}
             <button onClick={onClose} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100"><X size={16} /></button>
           </div>
         </div>

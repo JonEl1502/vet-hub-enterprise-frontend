@@ -4,7 +4,8 @@ import toast from 'react-hot-toast';
 import { visitsAPI, walletAPI } from '../../../services';
 import type { Wallet as WalletData } from '../../../services';
 import { Visit } from '../../../types';
-import { printElementAsPdf } from '../shared/printPdf';
+import DocumentActions from '../shared/DocumentActions';
+import { buildDocumentMessage } from '../shared/documentShare';
 
 // Wallet → payment-method mapping, mirrored from the single-bill settle modal
 // (VisitDetailView): each wallet "is" a payment method by where money lands.
@@ -313,13 +314,16 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
                     <CreditCard size={12} /> Settle all ({settleableOf(invoiceFor).length})
                   </button>
                 )}
-                <button
-                  type="button"
-                  onClick={() => printElementAsPdf('group-invoice-content', `Group Invoice ${invoiceFor.clientName} ${visit.groupVisitId}`, false)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine transition-all"
-                >
-                  <Download size={12} /> Download PDF
-                </button>
+                <DocumentActions
+                  size="sm"
+                  elementId="group-invoice-content"
+                  title={`Group Invoice ${invoiceFor.clientName} ${visit.groupVisitId}`}
+                  phone={(invoiceFor as any).clientPhone}
+                  message={buildDocumentMessage({
+                    docLabel: `group invoice for ${invoiceFor.clientName}`,
+                    clientName: invoiceFor.clientName,
+                  })}
+                />
                 <button type="button" onClick={() => setInvoiceFor(null)} className="p-1.5 text-slate-400 hover:text-pine"><X size={16} /></button>
               </div>
             </div>

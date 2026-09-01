@@ -6,7 +6,8 @@ import {
 } from 'lucide-react';
 import { clientsAPI, transactionsAPI, invoicesAPI, dialog, clientDiscountsAPI } from '../../../services';
 import type { InvoiceRow } from '../../../services/modules/invoices.api';
-import { printElementAsPdf } from '../shared/printPdf';
+import DocumentActions from '../shared/DocumentActions';
+import { buildDocumentMessage } from '../shared/documentShare';
 import { ClientBilling } from '../../../services/modules/clients.api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { isSettled } from './ClientAccountHub';
@@ -1296,8 +1297,13 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                     ) : expandedDoc ? (
                       <div>
                         <div className="flex justify-end mb-1.5">
-                          <button onClick={() => printElementAsPdf(`inv-print-${inv.visitId}`, `Invoice ${expandedDoc.number || ''}`, false)}
-                            className="px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-pine">🖨 Print / download</button>
+                          <DocumentActions
+                            size="sm"
+                            elementId={`inv-print-${inv.visitId}`}
+                            title={`Invoice ${expandedDoc.number || ''}`.trim()}
+                            phone={clientPhone}
+                            message={buildDocumentMessage({ docLabel: `invoice ${expandedDoc.number || ''}`.trim(), clientName, clinicName })}
+                          />
                         </div>
                         {/* The invoice AS A DOCUMENT (user, 2026-08-04) — who it
                             is for, what was done, what it settles to. It was a
@@ -1579,11 +1585,12 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                       lines={receiptLines}
                     />
                     <div className="flex flex-wrap gap-2">
-                      <button type="button"
-                        onClick={() => printElementAsPdf(`receipt-doc-${r.id}`, `Receipt ${r.receiptNumber}`, false)}
-                        className="flex items-center gap-2 px-4 py-2 rounded-xl bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 text-[10px] font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
-                        <FileText size={13} /> Print
-                      </button>
+                      <DocumentActions
+                        elementId={`receipt-doc-${r.id}`}
+                        title={`Receipt ${r.receiptNumber}`}
+                        phone={clientPhone}
+                        message={buildDocumentMessage({ docLabel: `receipt ${r.receiptNumber}`, clientName, clinicName })}
+                      />
                       {onViewVisit && (
                         <button type="button" onClick={() => onViewVisit(Number(r.visitId))}
                           className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam transition-all">

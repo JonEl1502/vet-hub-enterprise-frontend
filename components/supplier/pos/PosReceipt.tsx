@@ -1,5 +1,6 @@
 import React from 'react';
-import { Check, Printer, Plus } from 'lucide-react';
+import { Check, Plus } from 'lucide-react';
+import DocumentActions from '../../clinic/shared/DocumentActions';
 
 /**
  * The confirmation.
@@ -23,7 +24,7 @@ interface Props {
 
 const PosReceipt: React.FC<Props> = ({ sale, currency, changeDue, onNewSale }) => (
   <div className="flex flex-col h-full min-h-0" style={{ background: 'var(--sp-bg)' }}>
-    <div className="flex-1 min-h-0 overflow-y-auto px-4 py-6">
+    <div id="pos-receipt-doc" className="flex-1 min-h-0 overflow-y-auto px-4 py-6">
       <div className="flex flex-col items-center text-center">
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center mb-3"
@@ -69,6 +70,17 @@ const PosReceipt: React.FC<Props> = ({ sale, currency, changeDue, onNewSale }) =
       </div>
     </div>
 
+    <div className="shrink-0 px-3 pt-2" data-nopdf>
+      <DocumentActions
+        size="sm"
+        showPrint
+        className="justify-center"
+        elementId="pos-receipt-doc"
+        title={`Receipt ${sale.saleNumber}`}
+        phone={sale.customerPhone ?? sale.customer?.phone}
+        message={`Here is your receipt ${sale.saleNumber} — ${money(sale.total, sale.currency || currency)}. Thank you.`}
+      />
+    </div>
     <div
       className="shrink-0 px-3 pt-2.5 border-t flex gap-2"
       style={{
@@ -77,9 +89,6 @@ const PosReceipt: React.FC<Props> = ({ sale, currency, changeDue, onNewSale }) =
         paddingBottom: 'calc(0.75rem + var(--sp-safe-bottom))',
       }}
     >
-      <button onClick={() => window.print()} className="sp-btn sp-btn-ghost px-4" aria-label="Print">
-        <Printer size={17} />
-      </button>
       <button onClick={onNewSale} className="sp-btn flex-1 text-[15px]">
         <Plus size={18} /> New sale
       </button>

@@ -1,5 +1,6 @@
+import DocumentActions from '../../clinic/shared/DocumentActions';
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Ban, Printer, Phone, User, Clock, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Ban, Phone, User, Clock, AlertTriangle } from 'lucide-react';
 import { supplierPosAPI, toast } from '../../../services';
 import { money, unitFor, qtyText } from './format';
 
@@ -90,7 +91,7 @@ const PosSaleDetail: React.FC<Props> = ({ saleId, currency, canVoid, onBack, onV
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
+      <div id="pos-sale-doc" className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
         {loading && <p className="text-center text-sm sp-muted py-12">Opening…</p>}
 
         {!loading && sale && (
@@ -265,9 +266,14 @@ const PosSaleDetail: React.FC<Props> = ({ saleId, currency, canVoid, onBack, onV
             paddingBottom: 'calc(0.75rem + var(--sp-safe-bottom))',
           }}
         >
-          <button onClick={() => window.print()} className="sp-btn sp-btn-ghost w-full gap-2">
-            <Printer size={16} /> Print receipt
-          </button>
+          <DocumentActions
+            size="sm"
+            className="justify-center"
+            elementId="pos-sale-doc"
+            title={`Receipt ${sale.saleNumber}`}
+            phone={sale.customerPhone ?? sale.customer?.phone}
+            message={`Here is your receipt ${sale.saleNumber}. Thank you.`}
+          />
         </div>
       )}
     </div>

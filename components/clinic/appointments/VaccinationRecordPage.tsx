@@ -8,7 +8,8 @@ import { vaccinationsAPI, visitsAPI, inventoryAPI, dialog, procedureTemplatesAPI
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { InventoryItem } from '../../../services/modules/inventory.api';
 import { useData } from '../../../contexts/DataContext';
-import { printElementAsPdf } from '../shared/printPdf';
+import { downloadDocumentPdf, buildDocumentMessage } from '../shared/documentShare';
+import ShareDocButton from '../shared/ShareDocButton';
 
 interface Props {
   appointment: Visit;
@@ -591,11 +592,11 @@ const VaccinationRecordPage: React.FC<Props> = ({ appointment, staffMembers, act
                     </button>
                     {printMenuOpen && (
                       <div className="absolute right-0 mt-1 w-44 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg shadow-lg overflow-hidden z-20 animate-in fade-in zoom-in-95 duration-100">
-                        <button onClick={() => { setPrintMenuOpen(false); printElementAsPdf('vaccine-cert-page', 'Vaccination Certificate ' + certSerial, false); }}
+                        <button onClick={() => { setPrintMenuOpen(false); downloadDocumentPdf('vaccine-cert-page', 'Vaccination Certificate ' + certSerial, false); }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800">
                           <span className="w-3 h-3 rounded-full bg-emerald-600 border border-emerald-700/40" /> Coloured
                         </button>
-                        <button onClick={() => { setPrintMenuOpen(false); printElementAsPdf('vaccine-cert-page', 'Vaccination Certificate ' + certSerial, true); }}
+                        <button onClick={() => { setPrintMenuOpen(false); downloadDocumentPdf('vaccine-cert-page', 'Vaccination Certificate ' + certSerial, true); }}
                           className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 border-t border-slate-100 dark:border-zinc-800">
                           <span className="w-3 h-3 rounded-full bg-slate-700 border border-slate-300" /> Black &amp; White
                         </button>

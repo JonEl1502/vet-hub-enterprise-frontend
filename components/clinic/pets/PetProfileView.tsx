@@ -1,4 +1,6 @@
 
+import DocumentActions from '../shared/DocumentActions';
+import { buildDocumentMessage } from '../shared/documentShare';
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { dialog } from '../../../services/utils/dialog';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
@@ -18,7 +20,7 @@ import { clientsAPI } from '../../../services';
 import { toast } from '../../../services/utils/toast';
 import { remindersAPI, appointmentsAPI } from '../../../services';
 import type { Reminder, Appointment } from '../../../services';
-import { Heart, Activity, Calendar, CalendarPlus, Syringe, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, Download, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical, Smile, Camera, Loader2, User, Phone, UserPlus, Award } from 'lucide-react';
+import { Heart, Activity, Calendar, CalendarPlus, Syringe, Clipboard, Network, ArrowLeft, ExternalLink, ShieldCheck, BookOpen, BadgeCheck, MapPin, Building2, ChevronRight, ChevronDown, Play, MessageSquare, Receipt, Printer, MessageCircle, BellPlus, Shield, Sparkles, BrainCircuit, Tag, Cpu, Info, CheckCircle2, Clock, FileText, Edit2, Save, X, Plus, TrendingUp, AlertCircle, CreditCard, Eye, MoreVertical, Smile, Camera, Loader2, User, Phone, UserPlus, Award } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -2546,12 +2548,12 @@ const PetProfileView: React.FC<Props> = ({
             <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-5 py-3 bg-white dark:bg-zinc-900 border-b border-slate-100 dark:border-zinc-800">
               <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">🛏️ Boarding Report</h2>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => import('../shared/printPdf').then(({ printElementAsPdf }) => printElementAsPdf('boarding-report-content', `Boarding Report ${pet.name}`, false))}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-pine text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:shadow-md transition-all"
-                >
-                  <Printer size={12} /> Print / PDF
-                </button>
+                <DocumentActions
+                  size="sm"
+                  elementId="boarding-report-content"
+                  title={`Boarding Report ${pet.name}`}
+                  message={buildDocumentMessage({ docLabel: `boarding report for ${pet.name}` })}
+                />
                 <button onClick={() => setReportStay(null)} className="p-1.5 text-slate-400 hover:text-pine"><X size={16} /></button>
               </div>
             </div>
@@ -2618,12 +2620,12 @@ const PetProfileView: React.FC<Props> = ({
             <div className="sticky top-0 z-10 flex items-center justify-between gap-2 px-5 py-3 bg-white dark:bg-zinc-900 border-b border-slate-100 dark:border-zinc-800">
               <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">✂️ Grooming Report</h2>
               <div className="flex items-center gap-2">
-                <button
-                  onClick={() => import('../shared/printPdf').then(({ printElementAsPdf }) => printElementAsPdf('grooming-report-content', `Grooming Report ${pet.name}`, false))}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-pine text-white rounded-lg font-bold text-[9px] uppercase tracking-widest hover:shadow-md transition-all"
-                >
-                  <Printer size={12} /> Print / PDF
-                </button>
+                <DocumentActions
+                  size="sm"
+                  elementId="grooming-report-content"
+                  title={`Grooming Report ${pet.name}`}
+                  message={buildDocumentMessage({ docLabel: `grooming report for ${pet.name}` })}
+                />
                 <button onClick={() => setGroomingReportVisit(null)} className="p-1.5 text-slate-400 hover:text-pine"><X size={16} /></button>
               </div>
             </div>

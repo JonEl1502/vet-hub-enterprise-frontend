@@ -59,6 +59,52 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### documents: Share on WhatsApp, and a Download PDF that actually downloads a PDF  —  no migration
+- **What changed:** every clinic document — invoices, receipts, certificates and
+  medical/boarding/grooming reports — now generates a **real PDF**, and leads with
+  **Share on WhatsApp**.
+- **The bug being fixed:** `printElementAsPdf` never made a PDF. It opened a window and
+  called `window.print()`, so "Download PDF" was a print dialog wearing a costume, and on a
+  phone it was close to useless. There was also no file at the end of it, so there was
+  nothing to send anyone.
+- **New `components/clinic/shared/documentShare.ts`** rasterises the document and lays it
+  into an A4 PDF, giving us an actual `File`. That file is the whole point:
+  - **phone** → `navigator.share({ files })` opens the native sheet; picking WhatsApp
+    attaches the PDF itself.
+  - **desktop** → no browser reliably shares files, so we save the PDF and open WhatsApp
+    Web pre-addressed to the client. The toast says so plainly rather than leaving someone
+    staring at an empty draft wondering where the invoice went.
+- The share caption also links the client to the **pet-owner portal**, derived from
+  `window.location.origin` so a staging clinic links to the staging portal. Attachment and
+  portal do different jobs: the attachment is what sits in their chat, the portal is where
+  they pull the document down again in six months once that chat is buried.
+- **This is not the WhatsApp Cloud API** and deliberately so. It needs no `WHATSAPP_*`
+  credentials (prod has none), no object storage (prod's `STORAGE_*` are empty), no Meta
+  template approval, and it is not subject to the 24-hour customer-service window. Staff
+  taps, WhatsApp opens.
+- **Two traps the renderer has to handle**, both easy to miss:
+  1. **Dark mode.** `dark:` variants key off `.dark` on `<html>` (`App.tsx:855`) and a clone
+     stays inside that root, so a clinic working in dark mode would have exported a black
+     invoice. The class is stripped for the capture and restored in `finally` — including
+     when the render throws, or we would strand the app in light mode.
+  2. **`print:hidden`.** That is this app's existing convention for "chrome, not document",
+     but it is a print-media rule and does not apply to an off-screen clone. Without
+     stripping those nodes the PDF came out with a "Print / Save PDF" button rendered
+     inside it. `data-nopdf` does the same job explicitly.
+- `jspdf` + `html2canvas-pro` are dynamically imported, so they land in their own chunks —
+  the main bundle grew 5.5 kB, not 1 MB. (`html2canvas-pro`, not `html2canvas`: the
+  original is unmaintained since 2022.)
+- Call sites updated: `ClientPaymentsTab`, `ClientProfileView`, `VisitDetailView` (invoice,
+  receipt, group invoice, vaccination certificate, medical/grooming/boarding reports),
+  `GroupVisitPanel`, `VaccinationRecordPage`, `DewormingStep`, `CustomCertificateModal`,
+  `PetCertificates`, `PetProfileView`, `BillingView`, `PosReceipt`, `PosSaleDetail`.
+- **Still on the old print path:** `VaccinePassportModal` and the client portal's
+  `ClientPetProfile` certificate. Both build a standalone HTML document in a new window
+  rather than rendering into the app's DOM, so they need converting separately.
+- **Record impact:** 🟢 None — presentation only, no data written.
+- **Data dependency:** none.
+
+
 ### seo: the app stops competing with the brand's own homepage  —  no migration
 - **What changed:** `index.html` now sends `noindex, follow` and canonicals to
   `https://vethubcore.com/`. The app-side `sitemap.xml` is deleted and `robots.txt`

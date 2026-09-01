@@ -14,6 +14,7 @@ import type { MpesaAttemptStatus } from '../../../services';
 import { clinicSubscriptionAPI, type ClinicUsage } from '../../../services/modules/clinicSubscription.api';
 import ReportPaymentIssueModal from './ReportPaymentIssueModal';
 import { LifeBuoy } from 'lucide-react';
+import DocumentActions from '../shared/DocumentActions';
 import { vethubPaystackAPI } from '../../../services/modules/vethubPaystack.api';
 import { subscriptionPaymentHistoryAPI, type PaymentHistoryRow } from '../../../services/modules/subscriptionPaymentHistory.api';
 import { subscriptionCancelAPI, type CancellationMode } from '../../../services/modules/subscriptionCancel.api';
@@ -1319,9 +1320,6 @@ interface ReceiptModalProps {
 const ReceiptModal: React.FC<ReceiptModalProps> = ({ row, onClose, formatDate }) => {
   const { formatPrice } = useDisplayCurrency();
   const paidAt = row.settledAt || row.createdAt;
-  // Print only the receipt body — give it a stable id so the print stylesheet
-  // (defined inline at the top of the modal) can target it.
-  const handlePrint = () => window.print();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 print:p-0 print:block">
@@ -1366,13 +1364,13 @@ const ReceiptModal: React.FC<ReceiptModalProps> = ({ row, onClose, formatDate })
           >
             Close
           </button>
-          <button
-            onClick={handlePrint}
-            className="flex-1 py-2.5 rounded-xl bg-pine text-white text-xs font-bold hover:opacity-90"
-          >
-            Print / Save PDF
-          </button>
         </div>
+        <DocumentActions
+          className="print:hidden justify-center"
+          elementId="vethub-receipt-printable"
+          title={`VetHubCore receipt ${row.reference || ''}`.trim()}
+          message={`VetHubCore subscription receipt ${row.reference || ''}`.trim()}
+        />
       </div>
 
       {/* Print-only rule: hide everything except the receipt body. Scoped to
@@ -1401,7 +1399,6 @@ interface InvoiceModalProps {
 const InvoiceModal: React.FC<InvoiceModalProps> = ({ row, clinicName, onClose, formatDate, onViewReceipt }) => {
   const { formatPrice } = useDisplayCurrency();
   const paid = row.status === 'SUCCESS';
-  const handlePrint = () => window.print();
 
   return (
     <div className="space-y-4 pb-20 animate-in fade-in duration-200 print:p-0 print:block">
@@ -1481,13 +1478,13 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ row, clinicName, onClose, f
               Receipt
             </button>
           )}
-          <button
-            onClick={handlePrint}
-            className="flex-1 py-2.5 rounded-xl bg-pine text-white text-xs font-bold hover:opacity-90"
-          >
-            Print / Save PDF
-          </button>
         </div>
+        <DocumentActions
+          className="print:hidden justify-center"
+          elementId="vethub-invoice-printable"
+          title={`VetHubCore invoice ${row.reference || ''}`.trim()}
+          message={`VetHubCore subscription invoice ${row.reference || ''}`.trim()}
+        />
       </div>
 
       {/* Print-only rule — mirrors the receipt modal's, scoped to the invoice. */}

@@ -24,7 +24,8 @@ const FINANCE_TABS = [
 const TITLE_OPTIONS = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Hon'];
 import { Transaction } from '../../../services/modules/transactions.api';
 import ReconciliationDocument from '../receipts/ReconciliationDocument';
-import { printElementAsPdf } from '../shared/printPdf';
+import DocumentActions from '../shared/DocumentActions';
+import { buildDocumentMessage } from '../shared/documentShare';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { can } from '../../../constants/modulePermissions';
 import { clientDiscountsAPI, clientsAPI, messagingAPI, toast, PlatformMessage } from '../../../services';
@@ -1992,11 +1993,16 @@ const renderOverview = () => (
                   client={{ name: client.name, phone: client.phone }}
                   lines={docModal.appt.tasks.map(t => ({ id: t.id, name: t.name, amount: t.price ?? null }))}
                 />
-                <button
-                  onClick={() => printElementAsPdf('client-receipt-doc', `Visit ${getVisitNumber(docModal.appt)} payment`, false)}
-                  className="w-full flex items-center justify-center gap-2 py-3 bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all">
-                  <Printer size={14} /> Print
-                </button>
+                <DocumentActions
+                  className="justify-center"
+                  elementId="client-receipt-doc"
+                  title={`Visit ${getVisitNumber(docModal.appt)} payment`}
+                  phone={client.phone}
+                  message={buildDocumentMessage({
+                    docLabel: `payment receipt for visit ${getVisitNumber(docModal.appt)}`,
+                    clientName: client.name,
+                  })}
+                />
               </div>
             )}
 

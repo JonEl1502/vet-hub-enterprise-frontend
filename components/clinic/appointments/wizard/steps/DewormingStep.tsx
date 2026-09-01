@@ -1,10 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Bug, Plus, Loader2, Check, Search, Package, CalendarClock, Printer, Trash2 } from 'lucide-react';
+import { Bug, Plus, Loader2, Check, Search, Package, CalendarClock, Trash2 } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L } from '../fields';
 import { useData } from '../../../../../contexts/DataContext';
 import { dewormingAPI, DewormingRecord, toast, procedureTemplatesAPI } from '../../../../../services';
-import { printElementAsPdf } from '../../../shared/printPdf';
+import DocumentActions from '../../../shared/DocumentActions';
+import { buildDocumentMessage } from '../../../shared/documentShare';
 
 const WORM_TYPES = ['Broad-spectrum', 'Roundworm', 'Tapeworm', 'Hookworm', 'Whipworm', 'Heartworm'];
 const ROUTES = ['PO (oral)', 'Topical (spot-on)', 'SC', 'IM'];
@@ -264,10 +265,13 @@ const DewormingStep: React.FC<StepProps> = ({ visit, pet, emit, refreshVisit }) 
           </div>
         )}
         {administered.length > 0 && (
-          <button type="button" onClick={() => printElementAsPdf('deworming-cert', `Deworming Certificate — ${pet.name}`, false)}
-            className="mt-2 flex items-center gap-1.5 px-3 py-2 rounded-lg bg-pine text-white text-[10px] font-black uppercase tracking-widest hover:bg-pine/90">
-            <Printer size={12} /> Deworming certificate (PDF)
-          </button>
+          <DocumentActions
+            className="mt-2"
+            size="sm"
+            elementId="deworming-cert"
+            title={`Deworming Certificate — ${pet.name}`}
+            message={buildDocumentMessage({ docLabel: `deworming certificate for ${pet.name}` })}
+          />
         )}
       </Section>
 
