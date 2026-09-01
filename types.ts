@@ -501,6 +501,9 @@ export interface ApptTask {
   completedAt?: string;
   price?: number;
   referralId?: number;
+  /** Set when a procedure recipe created this line — see `ApptTask` consumers
+   *  that offer "remove the whole procedure" rather than orphaning its fees. */
+  procedureApplicationId?: string | null;
   notes?: string;
   sentiment?: 'positive' | 'neutral' | 'negative';
   selectedPhrases?: string[];

@@ -381,6 +381,38 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
                               <button type="button"
                                 onClick={async () => {
                                   setRowMenu(null);
+                                  /**
+                                   * A recipe line cannot be removed on its own.
+                                   *
+                                   * Procedures are applied ANCHORLESS, so the
+                                   * procedure's own service line is just one of
+                                   * the tasks the recipe generated. Deleting it
+                                   * alone left the anaesthesia fee, theatre fee
+                                   * and every consumable still billed, with the
+                                   * procedure itself gone — the client pays
+                                   * 4,163 for a surgery that is no longer on the
+                                   * visit (user, 2026-09-01). Take the whole
+                                   * application, which is what "remove the
+                                   * procedure" has always meant.
+                                   */
+                                  const appId = (t as any).procedureApplicationId;
+                                  if (appId) {
+                                    const ok = await dialog.confirmDelete({
+                                      title: 'Remove procedure',
+                                      message: 'This service came from a procedure recipe. Removing it takes the WHOLE procedure off the visit — its fees and consumables too — because those lines make no sense without it.',
+                                      entityName: t.name,
+                                    });
+                                    if (!ok) return;
+                                    try {
+                                      await procedureTemplatesAPI.removeApplication(appId);
+                                      emit(`Removed the ${t.name} procedure and its lines from the visit`, 'billing', true);
+                                      refreshVisit?.();
+                                      loadRecords(true);
+                                    } catch (e: any) {
+                                      toast.error(e?.response?.data?.message || e?.message || 'Could not remove the procedure');
+                                    }
+                                    return;
+                                  }
                                   const ok = await dialog.confirmDelete({ title: 'Remove diagnostic request', message: 'Removes the service from this visit and its bill (the linked record is cleaned up too).', entityName: t.name });
                                   if (!ok) return;
                                   deleteTask(Number(t.id));

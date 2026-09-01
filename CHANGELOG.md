@@ -59,6 +59,35 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### procedures: removing a procedure now takes its fees and consumables with it  —  no migration
+- **The bug:** deleting the procedure's service line left every other line the recipe had
+  created still on the bill. A Neutering removed from the visit still charged anaesthesia
+  fee, theatre fee, ketamine, xylazine, meloxicam, suture, blade, gloves and drape —
+  **KES 4,163 for a surgery that is no longer on the visit** (user, 2026-09-01).
+- **Why:** procedures are applied **anchorless** — `DiagnosticsStep` calls
+  `apply(templateId, { appointmentId })` with **no `taskId`**. So the procedure's own
+  service line is not an anchor; it is just one of the `generatedTasks` hanging off the
+  `ProcedureApplication`, exactly like the fees and consumables. `deleteTask` removed that
+  one row and left the application and its nine siblings behind.
+- Note the schema makes this worse in the anchored case: `anchorTask` is `onDelete: Cascade`
+  while `generatedTasks`/`generatedMeds` are `onDelete: SetNull`. Deleting an anchor task
+  therefore destroys the application row and **orphans** its lines, so they can no longer
+  even be removed as a group.
+- **The fix:** removing a recipe line removes the whole application via
+  `removeApplication`, which already deletes the generated tasks and meds and recomputes
+  `totalCost` in one transaction — and already refuses when the visit is billed or when
+  stock has been deducted. The confirm says plainly that the fees and consumables go too.
+- Backend exposes `procedureApplicationId` on tasks so the UI can tell a recipe line from
+  an ordinary one. Two of the three task queries `include` (scalar already returned); the
+  third selects explicitly and needed the column. It is also mapped in `transformTask`,
+  which is what the write-behind hash caches.
+- **Record impact:** 🟡 Medium — one action now deletes several visit tasks and medication
+  lines instead of one, and rewrites the visit's `totalCost`. All of it inside the existing
+  guarded transaction; a settled or stock-deducted visit is still refused.
+- **Data dependency:** backend `d2301d6` must be live for the UI to see the field. Until
+  then the UI falls back to the old single-line delete.
+
+
 ### diagnostics: adding a service took several clicks — and results upload from the row  —  no migration
 
 **1. The search result needed clicking two or three times.**
