@@ -3243,6 +3243,30 @@ const VisitDetailInner: React.FC<Props> = ({
     }
   };
 
+  /**
+   * Take the user TO the payment panel, not just to the tab.
+   *
+   * `openSettleModal` flips `workflowTab` to 'settle', but the panel mounts
+   * below the bill bar you just clicked, so on a laptop it opened off-screen and
+   * nothing appeared to happen (user, 2026-09-01). Scrolling is done in an
+   * effect rather than at the end of the click handler because the panel does
+   * not exist in the DOM until the state change has rendered.
+   */
+  const settlePanelRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!showSettleModal || workflowTab !== 'settle') return;
+    // One frame so the panel is laid out and has a real box to scroll to.
+    const id = requestAnimationFrame(() => {
+      settlePanelRef.current?.scrollIntoView({
+        // A smooth glide is orienting here — it shows you that you moved down
+        // the page — but honour a user who has asked the OS for less motion.
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [showSettleModal, workflowTab]);
+
   // Arriving from a stay "settle" → pop the settle/payment (wallet) modal once.
   const autoSettleFired = useRef(false);
   useEffect(() => {
@@ -6383,7 +6407,9 @@ const VisitDetailInner: React.FC<Props> = ({
       {/* Tab 2 (cont.) — Record · Meds & Consumables · Invoice · Receipt */}
       {/* The payment panel — its own top-level tab, so the whole width is the
           payment and nothing else competes with it. */}
-      {workflowTab === 'settle' && settlePanel}
+      {workflowTab === 'settle' && (
+        <div ref={settlePanelRef} className="scroll-mt-24">{settlePanel}</div>
+      )}
 
       {(workflowTab === 'records' || workflowTab === 'billing') && (
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-4 items-start animate-in fade-in slide-in-from-bottom-2" data-section="receipt-tabs">

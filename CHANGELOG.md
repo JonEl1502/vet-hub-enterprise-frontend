@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### settle: clicking Settle Invoice now takes you to the payment panel  —  no migration
+- **What changed:** opening settle scrolls the payment panel into view.
+- **Why:** `openSettleModal` flipped `workflowTab` to `'settle'`, but the panel mounts
+  *below* the bill bar you just clicked. On a laptop it opened off-screen, so pressing
+  **Settle Invoice** looked like it did nothing and you had to scroll to find the payment
+  UI that had already opened.
+- The scroll runs in an **effect keyed on `showSettleModal` + `workflowTab`**, not at the
+  end of the click handler: the panel does not exist in the DOM until the state change has
+  rendered, so scrolling inside the handler would target nothing. One `requestAnimationFrame`
+  lets it lay out before we measure.
+- `scroll-mt-24` on the wrapper keeps the panel header clear of the app chrome instead of
+  tucking under it, and `prefers-reduced-motion` downgrades the glide to an instant jump.
+- Every existing caller benefits — the bill bar, **Take Payment Now**, the pay gate, the
+  summary preview and the client-balance row all route through `openSettleModal`.
+- **Record impact:** 🟢 None — navigation only.
+- **Data dependency:** none.
+
+
 ### documents: on desktop, "Share on WhatsApp" now opens WhatsApp  —  no migration
 - **What changed:** the desktop share path goes to **WhatsApp Web**
   (`web.whatsapp.com/send?phone=…&text=…`) instead of the operating system's share sheet.
