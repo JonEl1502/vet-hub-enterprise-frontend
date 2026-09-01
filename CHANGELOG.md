@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### documents: on desktop, "Share on WhatsApp" now opens WhatsApp  —  no migration
+- **What changed:** the desktop share path goes to **WhatsApp Web**
+  (`web.whatsapp.com/send?phone=…&text=…`) instead of the operating system's share sheet.
+- **The bug:** the first cut gated on "can this browser share files?" That is the wrong
+  question on a Mac. Safari and Chrome on macOS **do** support `navigator.share` with
+  files — they open the *system* share sheet, which lists AirDrop, Mail, Messages, Notes
+  and Freeform, and **no WhatsApp**, because WhatsApp is not registered as a share
+  extension. A button labelled "Share on WhatsApp" visibly failed to offer WhatsApp.
+- **The fix** asks about the **device**, not the browser capability (`isMobileDevice`).
+  Handsets get the native sheet, where WhatsApp genuinely is. Desktops get the web link.
+- iPadOS reports itself as `Macintosh` with an otherwise identical user-agent to macOS
+  Safari, so the two are separated by `maxTouchPoints` — a real Mac reports 0. Verified
+  against iPhone, Android, iPad, macOS and Windows user-agents.
+- `web.whatsapp.com/send` is used rather than `wa.me` because `wa.me` bounces through an
+  interstitial page first. With no phone number on file we fall back to `wa.me`, which at
+  least offers a contact picker.
+- **Record impact:** 🟢 None — presentation only.
+- **Data dependency:** none.
+
+
 ### documents: Share on WhatsApp, and a Download PDF that actually downloads a PDF  —  no migration
 - **What changed:** every clinic document — invoices, receipts, certificates and
   medical/boarding/grooming reports — now generates a **real PDF**, and leads with

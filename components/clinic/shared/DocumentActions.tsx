@@ -61,7 +61,7 @@ const DocumentActions: React.FC<DocumentActionsProps> = ({
         // Desktop cannot attach a file for us. Say so plainly rather than
         // leaving the user staring at an empty WhatsApp draft wondering
         // where the invoice went.
-        toast.success('PDF saved — attach it in the WhatsApp tab that just opened', {
+        toast.success('PDF saved — attach it in WhatsApp Web, which just opened', {
           id: t,
           duration: 7000,
         });

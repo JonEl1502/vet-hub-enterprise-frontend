@@ -37,7 +37,7 @@ const ShareDocButton: React.FC<ShareDocButtonProps> = ({
       if (outcome === 'shared') toast.success('Shared', { id: t });
       else if (outcome === 'cancelled') toast.dismiss(t);
       else if (outcome === 'fallback')
-        toast.success('PDF saved — attach it in the WhatsApp tab that just opened', { id: t, duration: 7000 });
+        toast.success('PDF saved — attach it in WhatsApp Web, which just opened', { id: t, duration: 7000 });
       else toast.error('Could not build the PDF', { id: t });
     } catch {
       toast.error('Could not build the PDF', { id: t });

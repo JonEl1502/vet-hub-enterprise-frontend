@@ -150,10 +150,44 @@ export const downloadDocumentPdf = async (
   return true;
 };
 
+/**
+ * Is this a handset?
+ *
+ * It decides whether `navigator.share` is worth using, and the naive check —
+ * "does the browser support sharing files?" — gives the WRONG answer on a Mac.
+ * Safari and Chrome on macOS *do* support it; they just open the system share
+ * sheet, which lists AirDrop, Mail, Messages, Notes… and no WhatsApp, because
+ * WhatsApp is not registered as a share extension. A button that says "Share on
+ * WhatsApp" then visibly fails to offer WhatsApp.
+ *
+ * So we ask about the DEVICE instead. iPadOS reports itself as a Mac, hence the
+ * touch-point check.
+ */
+export const isMobileDevice = (): boolean => {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent || '';
+  if (/Android|iPhone|iPod|Windows Phone|Mobile/i.test(ua)) return true;
+  // iPad on iPadOS 13+ pretends to be macOS; real Macs report maxTouchPoints 0.
+  if (/Macintosh/.test(ua) && (navigator.maxTouchPoints || 0) > 1) return true;
+  return false;
+};
+
 export const whatsappLink = (phone: string | null | undefined, text: string) => {
   const digits = toWhatsappDigits(phone);
   const q = `?text=${encodeURIComponent(text)}`;
   return digits ? `https://wa.me/${digits}${q}` : `https://wa.me/${q}`;
+};
+
+/**
+ * Desktop link. `web.whatsapp.com/send` opens the chat directly; `wa.me` would
+ * bounce through an interstitial first. With no number we cannot address a
+ * chat, so fall back to `wa.me`, which at least offers a contact picker.
+ */
+export const whatsappWebLink = (phone: string | null | undefined, text: string) => {
+  const digits = toWhatsappDigits(phone);
+  return digits
+    ? `https://web.whatsapp.com/send?phone=${digits}&text=${encodeURIComponent(text)}`
+    : `https://wa.me/?text=${encodeURIComponent(text)}`;
 };
 
 export type ShareOutcome =
@@ -193,7 +227,11 @@ export const shareDocumentOnWhatsapp = async (input: {
   const fileName = safeFileName(title);
   const file = new File([blob], fileName, { type: 'application/pdf' });
 
+  // Handsets only — see `isMobileDevice`. On a desktop the system sheet has no
+  // WhatsApp in it, so going through it would be a worse answer than the web
+  // link, however capable the browser claims to be.
   const canShareFile =
+    isMobileDevice() &&
     typeof navigator !== 'undefined' &&
     typeof navigator.share === 'function' &&
     typeof navigator.canShare === 'function' &&
@@ -211,8 +249,11 @@ export const shareDocumentOnWhatsapp = async (input: {
     }
   }
 
+  // Desktop: save the PDF and open WhatsApp Web already addressed. WhatsApp
+  // cannot be handed a file over a URL, so the sender attaches what we saved —
+  // the caller's toast says so.
   saveBlob(blob, fileName);
-  window.open(whatsappLink(phone, message), '_blank', 'noopener');
+  window.open(whatsappWebLink(phone, message), '_blank', 'noopener');
   return 'fallback';
 };
 
