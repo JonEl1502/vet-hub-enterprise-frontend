@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### wizard: Done → Next lands you at the top of the step you moved to  —  no migration
+- **What changed:** changing wizard step scrolls the wizard card into view, so you arrive at
+  the stepper and the new step's heading rather than partway down a form.
+- **Why:** there was never any scroll code in the wizard. `completeAndNext`
+  (`VisitWizard.tsx:354`) just called `next()`. The jump-to-top people saw was the browser
+  clamping `scrollTop` when tall content was replaced by shorter content — so it only
+  happened when the next step happened to be **shorter**, and otherwise dropped you into
+  the middle of a form whose top you had never seen. It looked like a feature; it was a
+  side effect (user, 2026-09-01).
+- Keyed on `currentStep`, so **Back** and clicking a number in the stepper behave the same
+  as Done → Next. Skipped on first render — opening a visit must not yank the page.
+- `scroll-mt-20` clears the 64px fixed header (`<main>` carries `mt-16`), and
+  `prefers-reduced-motion` downgrades the glide to a jump.
+- `<main>` uses `overflow-x-clip` rather than `-hidden` on purpose (`App.tsx:3539`); clip
+  does not create a scroll container, so vertical scrolling stays on the window and
+  `scrollIntoView` targets the right thing.
+- **Record impact:** 🟢 None — navigation only.
+- **Data dependency:** none.
+
+
 ### settle: clicking Settle Invoice now takes you to the payment panel  —  no migration
 - **What changed:** opening settle scrolls the payment panel into view.
 - **Why:** `openSettleModal` flipped `workflowTab` to `'settle'`, but the panel mounts

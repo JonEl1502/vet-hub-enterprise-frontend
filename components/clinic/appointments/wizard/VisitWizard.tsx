@@ -216,6 +216,33 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
     if (ro && rootRef.current) ro.observe(rootRef.current);
     return () => { window.removeEventListener('resize', measure); ro?.disconnect(); };
   }, []);
+  /**
+   * Land at the top of the step you just moved to.
+   *
+   * There was never any scroll code here. Moving on from a long step LOOKED
+   * like it jumped to the top, but that was just the browser clamping
+   * `scrollTop` when tall content was replaced by shorter content — so it only
+   * happened when the next step happened to be shorter, and otherwise dropped
+   * you into the middle of a form you had not seen the top of
+   * (user, 2026-09-01).
+   *
+   * Keyed on `currentStep`, so Back and clicking a number in the stepper behave
+   * the same way as Done → Next.
+   */
+  const stepScrollArmed = useRef(false);
+  useEffect(() => {
+    // Not on first render — opening a visit must not yank the page around.
+    if (!stepScrollArmed.current) { stepScrollArmed.current = true; return; }
+    // One frame so the new step has laid out and the card has its real height.
+    const id = requestAnimationFrame(() => {
+      rootRef.current?.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    });
+    return () => cancelAnimationFrame(id);
+  }, [currentStep]);
+
   // Workflows this clinic can switch the visit onto. Loaded once; a failure
   // just leaves the picker empty rather than blocking the consultation.
   const [pickableWorkflows, setPickableWorkflows] = useState<{ id: string; name: string; ownerType: string }[]>([]);
@@ -368,7 +395,7 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
   };
 
   return (
-    <div ref={rootRef} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm">
+    <div ref={rootRef} className="scroll-mt-20 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm">
       {/* ── Wizard header: entry point, current position, elapsed, bill ── */}
       <div className={`rounded-t-2xl px-4 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-1.5 border-b ${entry.key === 'emergency' ? 'bg-red-50/60 dark:bg-red-950/20 border-red-200 dark:border-red-900' : 'bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800'}`}>
         <span className={`flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest ${entry.key === 'emergency' ? 'text-red-600 dark:text-red-400' : 'text-pine dark:text-zinc-100'}`}>
