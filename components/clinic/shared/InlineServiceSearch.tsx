@@ -126,7 +126,11 @@ const InlineServiceSearch: React.FC<Props> = ({
           value={q}
           onChange={e => { setQ(e.target.value); setOpen(true); }}
           onFocus={() => setOpen(true)}
-          // A click on a result fires after blur, so give it a beat to land.
+          /**
+           * Closing on blur is only safe because the result buttons cancel the
+           * blur outright (`preventDefault` on their mousedown). Clicking away
+           * anywhere else still closes the list after a beat.
+           */
           onBlur={() => { blurTimer.current = setTimeout(() => setOpen(false), 150); }}
           placeholder={placeholder}
           className="w-full pl-8 pr-7 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[11px] font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam/40"
@@ -161,7 +165,25 @@ const InlineServiceSearch: React.FC<Props> = ({
                     key={svc.id}
                     type="button"
                     disabled={already}
-                    onMouseDown={() => { if (blurTimer.current) clearTimeout(blurTimer.current); }}
+                    onMouseDown={e => {
+                      /**
+                       * ⚠️ DO NOT swap this for a clearTimeout.
+                       *
+                       * The event order is mousedown → blur → mouseup → click,
+                       * so clearing the blur timer here ran BEFORE `onBlur` set
+                       * it and cleared nothing at all. The row survived only by
+                       * winning a 150 ms race: hold the button a moment longer
+                       * (or let the app re-render) and the list closed between
+                       * mousedown and mouseup, the button unmounted, and no
+                       * `click` was ever emitted. That is the "takes a few
+                       * clicks to add" report (user, 2026-09-01).
+                       *
+                       * preventDefault stops the input losing focus, so no blur
+                       * fires, no timer starts, and there is no race to lose.
+                       */
+                      e.preventDefault();
+                      if (blurTimer.current) clearTimeout(blurTimer.current);
+                    }}
                     onClick={() => {
                       if (already) return;
                       onAdd(svc as any, cat);
@@ -196,7 +218,25 @@ const InlineServiceSearch: React.FC<Props> = ({
                     key={`proc-${p.id}`}
                     type="button"
                     disabled={already}
-                    onMouseDown={() => { if (blurTimer.current) clearTimeout(blurTimer.current); }}
+                    onMouseDown={e => {
+                      /**
+                       * ⚠️ DO NOT swap this for a clearTimeout.
+                       *
+                       * The event order is mousedown → blur → mouseup → click,
+                       * so clearing the blur timer here ran BEFORE `onBlur` set
+                       * it and cleared nothing at all. The row survived only by
+                       * winning a 150 ms race: hold the button a moment longer
+                       * (or let the app re-render) and the list closed between
+                       * mousedown and mouseup, the button unmounted, and no
+                       * `click` was ever emitted. That is the "takes a few
+                       * clicks to add" report (user, 2026-09-01).
+                       *
+                       * preventDefault stops the input losing focus, so no blur
+                       * fires, no timer starts, and there is no race to lose.
+                       */
+                      e.preventDefault();
+                      if (blurTimer.current) clearTimeout(blurTimer.current);
+                    }}
                     onClick={() => {
                       if (already) return;
                       onAddProcedure!(p);

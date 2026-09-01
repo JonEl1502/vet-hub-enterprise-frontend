@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FlaskConical, FileSearch, Lightbulb, Plus, ExternalLink, FileText, Eye, EyeOff, Loader2, Building2, Trash2, MoreVertical } from 'lucide-react';
+import { FlaskConical, FileSearch, Lightbulb, Plus, ExternalLink, FileText, Eye, EyeOff, Loader2, Building2, Trash2, MoreVertical, Upload } from 'lucide-react';
 import { StepProps } from '../types';
 import InlineServiceSearch from '../../../shared/InlineServiceSearch';
 import { useServiceInject } from '../../../shared/ServiceInjectContext';
@@ -13,6 +13,7 @@ import { OutsourceServiceButton, OutsourcedJobChip } from '../../VisitOutsource'
 import { visitJobsAPI } from '../../../../../services/modules/visitJobs.api';
 import type { VisitJob } from '../../../../../services/modules/visitJobs.api';
 import InlineResultEditor from './InlineResultEditor';
+import { uploadAndAttach, type ResultKind } from './attachResults';
 
 // Diagnostics rides on the visit's REAL service line-items: any lab/imaging/
 // dental service added to the visit shows here as a request. This step is
@@ -168,6 +169,40 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
     return null;
   };
 
+  /** Which row is mid-upload — keyed by task id, so two rows can't share a spinner. */
+  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+
+  /**
+   * Attach a result file straight from the row.
+   *
+   * Resolves the record the same way the inline editor does. If the request has
+   * no record behind it yet there is nothing to hang a file on, so we say that
+   * rather than failing silently.
+   */
+  const uploadResultFor = async (task: any, files: FileList | null) => {
+    if (!files?.length) return;
+    const m = matchFor(task.id, task.name);
+    const kind: ResultKind | null = m?.lab ? 'lab' : m?.img ? 'imaging' : m?.surg ? 'surgery' : null;
+    const record = m?.lab ?? m?.img ?? m?.surg ?? null;
+    if (!kind || !record) {
+      toast.error('No result record for this request yet — open it with View result first.');
+      return;
+    }
+    setUploadingFor(String(task.id));
+    try {
+      const n = await uploadAndAttach(kind, record, Array.from(files));
+      if (n > 0) {
+        toast.success(n === 1 ? 'Result attached' : `${n} files attached`);
+        emit(`Result attached to ${task.name}`, 'action', true);
+        loadRecords(true);
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || 'Upload failed');
+    } finally {
+      setUploadingFor(null);
+    }
+  };
+
   const toggleView = (taskId: number | string) => {
     const k = String(taskId);
     const opening = !viewing[k];
@@ -313,6 +348,29 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
                                 <ExternalLink size={12} className="text-seafoam" /> Full page
                               </button>
                             )}
+                            <label
+                              title="Attach a scan, photo or PDF result to this request"
+                              className={`w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-wider text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 ${uploadingFor === String(t.id) ? 'opacity-60 pointer-events-none' : 'cursor-pointer'}`}
+                            >
+                              {uploadingFor === String(t.id)
+                                ? <Loader2 size={12} className="text-cyan-500 animate-spin" />
+                                : <Upload size={12} className="text-cyan-500" />}
+                              {uploadingFor === String(t.id) ? 'Uploading…' : 'Upload result'}
+                              <input
+                                type="file"
+                                multiple
+                                accept="image/*,application/pdf"
+                                className="hidden"
+                                onChange={async e => {
+                                  const files = e.target.files;
+                                  // Clear the input first: picking the same file
+                                  // twice in a row fires no change event otherwise.
+                                  e.target.value = '';
+                                  setRowMenu(null);
+                                  await uploadResultFor(t, files);
+                                }}
+                              />
+                            </label>
                             {!jobForTask(t.id) && !visit.isPaid && (
                               <div className="px-2 py-1" onClick={() => setRowMenu(null)}>
                                 <OutsourceServiceButton variant="chip" visitId={visit.id} taskId={t.id} category={t.category} serviceName={t.name} currency={currency}

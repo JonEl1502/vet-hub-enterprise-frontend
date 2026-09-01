@@ -59,6 +59,38 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### diagnostics: adding a service took several clicks — and results upload from the row  —  no migration
+
+**1. The search result needed clicking two or three times.**
+- `InlineServiceSearch` closed its list on the input's `blur` after 150 ms, and each result
+  button tried to cancel that with `clearTimeout` in `onMouseDown`. **That guard never did
+  anything.** The event order is `mousedown → blur → mouseup → click`, so the clear ran
+  *before* `onBlur` had set the timer.
+- The row therefore survived only by winning a 150 ms race. Hold the button a moment
+  longer, or let the app re-render, and the list closed between mousedown and mouseup — the
+  button unmounted, and **no `click` event was ever emitted**. Hence "takes a few clicks"
+  (user, 2026-09-01).
+- Fixed with `preventDefault()` on the result's `mousedown`, the canonical fix for this
+  pattern: the input never loses focus, so no blur fires, no timer starts, and there is no
+  race to lose. Applied to both the service list and the procedure-recipe list.
+
+**2. "Upload result" on the request's ⋮ menu.**
+- Attaches a scan, photo or PDF straight from the row. Previously the only route was
+  **View result** → the inline editor → attach → save.
+- It is a `<label>` wrapping a hidden file input, deliberately: a programmatic
+  `input.click()` fired after a React re-render is outside the user gesture and browsers
+  block it silently. A label opens the picker natively.
+- New `attachResults.ts` holds the upload and the attachment shapes, because **the three
+  record types store attachments three different ways** — lab `attachments: {url,name,kind}[]`,
+  imaging `images: {url,description}[]`, surgery `images: string[]` (bare URLs). Spreading
+  an object into surgery's array saves fine and silently attaches nothing. `InlineResultEditor`
+  now shares that logic instead of keeping its own copy.
+- A request with no result record yet says so rather than failing quietly.
+- **Record impact:** 🔵 Low — attaching writes the file onto an existing lab/imaging/surgery
+  record. Existing attachments are preserved, never replaced.
+- **Data dependency:** none. Object storage must be configured (`STORAGE_*`); it is, on prod.
+
+
 ### wizard: Done → Next lands you at the top of the step you moved to  —  no migration
 - **What changed:** changing wizard step scrolls the wizard card into view, so you arrive at
   the stepper and the new step's heading rather than partway down a form.
@@ -137,7 +169,7 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
   portal do different jobs: the attachment is what sits in their chat, the portal is where
   they pull the document down again in six months once that chat is buried.
 - **This is not the WhatsApp Cloud API** and deliberately so. It needs no `WHATSAPP_*`
-  credentials (prod has none), no object storage (prod's `STORAGE_*` are empty), no Meta
+  credentials (prod has none), no Meta
   template approval, and it is not subject to the 24-hour customer-service window. Staff
   taps, WhatsApp opens.
 - **Two traps the renderer has to handle**, both easy to miss:

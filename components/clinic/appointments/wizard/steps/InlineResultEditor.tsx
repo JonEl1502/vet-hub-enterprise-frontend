@@ -1,7 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Loader2, Upload, X, CheckCircle2, Save, ImagePlus, Paperclip } from 'lucide-react';
 import { labAPI, imagingAPI, LabRecord, ImagingRecord } from '../../../../../services/modules/diagnostics.api';
-import { uploadsAPI } from '../../../../../services/modules/uploads.api';
+import { uploadResultFiles, mergeAttachments } from './attachResults';
 import { toast, surgeryAPI } from '../../../../../services';
 
 /**
@@ -44,22 +44,8 @@ const InlineResultEditor: React.FC<Props> = ({ kind, lab, imaging, surgery, onSa
     if (!files?.length || !recordId) return;
     setUploading(true);
     try {
-      for (const file of Array.from(files)) {
-        const signed: any = await uploadsAPI.requestSignedUrl({
-          scope: 'task',
-          contentType: file.type || 'application/octet-stream',
-          filename: file.name,
-          sizeBytes: file.size,
-        });
-        const d = signed?.data ?? signed;
-        if (!d?.uploadUrl || !d?.publicUrl) throw new Error('Could not get an upload URL');
-        await uploadsAPI.putToSignedUrl(d.uploadUrl, file, file.type || 'application/octet-stream');
-        setPending(prev => [...prev, {
-          url: d.publicUrl,
-          name: file.name,
-          isImage: (file.type || '').startsWith('image/'),
-        }]);
-      }
+      const uploaded = await uploadResultFiles(Array.from(files));
+      setPending(prev => [...prev, ...uploaded]);
     } catch (e: any) {
       toast.error(e?.message || 'Upload failed');
     } finally {
@@ -73,27 +59,21 @@ const InlineResultEditor: React.FC<Props> = ({ kind, lab, imaging, surgery, onSa
     setBusy(true);
     try {
       if (kind === 'lab') {
-        const existing = lab?.attachments ?? [];
         await labAPI.update(recordId, {
           notes: text,
-          attachments: [...existing, ...pending.map(p => ({ url: p.url, name: p.name, kind: p.isImage ? 'IMAGE' : 'FILE' }))],
+          ...mergeAttachments('lab', lab, pending),
           ...(markResulted ? { status: 'RESULTED' as any, resultDate: new Date().toISOString() } : {}),
         } as any);
       } else if (kind === 'surgery') {
-        // SurgeryRecord.images is a plain string[], not the {url,…} shape the
-        // other two use — append URLs, do not spread objects into it.
-        const existing: string[] = Array.isArray(surgery?.images) ? surgery.images : [];
         await surgeryAPI.update(recordId, {
           findings: text,
-          images: [...existing, ...pending.map(p => p.url)],
+          ...mergeAttachments('surgery', surgery, pending),
           ...(markResulted ? { status: 'COMPLETED' as any } : {}),
         } as any);
       } else {
-        const existing = (imaging?.images ?? []).map((im: any) => typeof im === 'string' ? { url: im } : im);
         await imagingAPI.update(recordId, {
           findings: text,
-          // Non-images still attach — an external lab's PDF is a result too.
-          images: [...existing, ...pending.map(p => ({ url: p.url, description: p.name }))],
+          ...mergeAttachments('imaging', imaging, pending),
           ...(markResulted ? { status: 'RESULTED' as any, studyDate: imaging?.studyDate || new Date().toISOString() } : {}),
         } as any);
       }
