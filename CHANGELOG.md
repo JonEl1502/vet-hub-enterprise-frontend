@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### inpatient: a procedure's theatre tray no longer becomes ward medication orders  —  no migration
+- **What changed:** admitting a patient after a procedure no longer prefills the chart's
+  **Medication instructions** with the items that procedure consumed.
+- **Why:** the carry-over (`AdmitInpatientModal.tsx`) took **every** medication on the
+  visit. Admit after a neutering and the ward instructions came out as the whole theatre
+  tray — ketamine, xylazine, meloxicam, suture, blade, gloves, drape. A blade and a drape
+  are not drugs to administer, and the anaesthetic was given once on the table; none of it
+  is a standing ward order (user, 2026-09-02: *"inpatient medicines are under the day
+  administered"*). Inpatient dosing is logged per day on the chart as `MEDICATION` entries,
+  so a recipe's items are already accounted for on the visit.
+- Backend: the medication payload is built by an explicit **whitelist mapper** that never
+  carried `procedureApplicationId`, so nothing downstream could tell a theatre consumable
+  from a dispensed drug. It does now.
+- ⚠️ **The payload is cached** under `appointment:<id>:medications`. Adding a field without
+  bumping the key would have served the OLD shape for the whole TTL — the field reads
+  `undefined` and the fix looks shipped while doing nothing, which is precisely what the
+  `auth:user:v2` suffix exists to prevent. **All 7 references across three services were
+  bumped together**; a partial rename would have broken invalidation instead of the shape.
+- **Existing admissions keep the text they were saved with** — this only affects the
+  prefill on new admits. Edit the field on the chart to clear an old one.
+- **Record impact:** 🟢 None — changes what a form is prefilled with, writes nothing extra.
+- **Data dependency:** backend `0ab3bc0` must be live, or every medication reads as
+  non-procedural and the carry-over behaves as before.
+
+
 ### inpatient: the visit now links to the chart instead of describing it  —  no migration
 - **What changed:** once a visit is admitted, the Treatment step shows **Open inpatient
   chart** next to the Inpatient badge, and the badge says whether the stay is admitted or

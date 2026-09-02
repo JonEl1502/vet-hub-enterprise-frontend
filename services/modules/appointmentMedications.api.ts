@@ -20,6 +20,9 @@ export interface AppointmentMedication {
   expiryDate?: string;
   notes?: string;
   isDeducted: boolean;
+  /** Set when a procedure recipe consumed this item — theatre consumables and
+   *  one-off anaesthetics, not standing orders. */
+  procedureApplicationId?: string | null;
   createdAt: string;
   updatedAt: string;
   inventoryItem?: {

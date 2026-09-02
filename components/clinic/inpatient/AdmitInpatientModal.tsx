@@ -95,7 +95,21 @@ const AdmitInpatientModal: React.FC<Props> = ({ isOpen, onClose, pets, onAdmitte
     getMedicationsByAppointment(appointmentId)
       .then(meds => {
         if (!meds?.length) return;
-        const lines = meds.map(m =>
+        /**
+         * Procedure items do NOT belong on the ward chart.
+         *
+         * The carry-over took every medication on the visit, so admitting after
+         * a surgery prefilled the instructions with the whole theatre tray —
+         * ketamine, xylazine, meloxicam, suture, blade, gloves, drape. A blade
+         * and a drape are not drugs to administer, and the anaesthetic was
+         * given once on the table; none of it is a standing ward order
+         * (user, 2026-09-02: "inpatient medicines are under the day
+         * administered"). Inpatient dosing is logged per day on the chart, so
+         * anything a recipe consumed is already accounted for on the visit.
+         */
+        const ward = meds.filter(m => !m.procedureApplicationId);
+        if (!ward.length) return;
+        const lines = ward.map(m =>
           `${m.inventoryItem?.name || 'Medication'} ×${m.quantity}${m.notes ? ` — ${String(m.notes).replace(/^Rx:\s*/i, '')}` : ''}`);
         setMedicationInstructions(prev => prev || lines.join('\n'));
       })
