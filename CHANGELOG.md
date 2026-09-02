@@ -59,6 +59,42 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### boarding: charges in the header, and back-dating  —  no migration
+**1. The running total is in the header.**
+- It was already computed — but inside the **Stay Details disclosure**, so the number
+  staff quote at the desk needed a click to see (user, 2026-09-02: *"because i have to
+  collapse"*). The inpatient chart has carried the same pill in its header all along.
+- One `charges` memo now feeds **both** the header pill and the Stay Details fact, so the
+  two can never print different totals. Nights + food + billable items, with the clinic
+  day-rate fallback (`||`, not `??` — a stored 0 must fall back or the header reads KES 0
+  next to a card reading the real rate).
+
+**2. Back-date a stay.**
+- New `POST /boarding/:id/backdate`, the twin of the inpatient one. A pet dropped off
+  Friday but entered Monday was billed two days short, and the only fix was editing the
+  drop-off silently — no preview, no reason, no trace.
+- Same money contract as inpatient: `?preview=1` computes the delta without writing; the
+  **settled-bill refusal fires on the preview too** (the answer to "may I?" must not change
+  between asking and doing); a reason is required to apply; and a 90-day ceiling catches a
+  mistyped year rather than clamping it. Confirm stays disabled until a priced preview and
+  a reason both exist.
+- ⚠️ **Boarding is not inpatient's flat nightly rate.** A stay can carry per-day overrides
+  in `dailyRates`, so both sides of the preview go through `computeStayNights`. Multiplying
+  nights by `dailyRate` would mis-state a mixed-rate stay, and the dialog would promise one
+  number while `chargeStay` posted another. The response carries `mixedRates` so the UI
+  declines to print a single rate.
+- The audit lands on the **visit journey** as a billing event, not the care log — that
+  sheet is rounds of care, and a system note there would render as a round with nothing
+  ticked. Re-pricing runs outside the transaction; `chargeStay` is idempotent and adjusts
+  by the delta rather than double-charging.
+- `datetime-local` uses a local-time helper, not `toISOString().slice(0,16)` — the latter
+  is wrong by the UTC offset, and in Nairobi a back-date to 09:00 would silently become
+  06:00, crossing a day boundary and changing what is billed.
+- **Record impact:** 🟡 Medium — applying moves `dropOffAt`, may move the visit date, and
+  re-prices the stay and food lines on the bill. Refused outright on a settled visit.
+- **Data dependency:** backend `42d98c2` must be live for the Back-date button to work.
+
+
 ### inpatient: a procedure's theatre tray no longer becomes ward medication orders  —  no migration
 - **What changed:** admitting a patient after a procedure no longer prefills the chart's
   **Medication instructions** with the items that procedure consumed.

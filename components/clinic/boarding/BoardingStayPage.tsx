@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { dialog } from '../../../services/utils/dialog';
-import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2, Receipt, ChevronDown, RotateCcw } from 'lucide-react';
+import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2, Receipt, ChevronDown, RotateCcw, CalendarClock } from 'lucide-react';
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
+import type { BoardingBackdate } from '../../../services/modules/boarding.api';
 import { sellUnitOf } from '../shared/QtyUnitControl';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
@@ -91,6 +92,19 @@ const Disclosure: React.FC<{
       {open && <div className="px-4 sm:px-5 pb-4 sm:pb-5">{children}</div>}
     </div>
   );
+};
+
+
+/**
+ * datetime-local wants LOCAL wall-clock. `toISOString().slice(0,16)` is wrong
+ * by the UTC offset — in Nairobi that reads back three hours earlier, and a
+ * back-date to 09:00 silently becomes 06:00, crossing a day boundary at either
+ * end of the stay and changing what is billed. Same helper as the inpatient
+ * chart, for the same reason.
+ */
+const toLocalInput = (d: Date) => {
+  const p = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`;
 };
 
 const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAppointment, onOpenGrooming, embedded, pane }) => {
@@ -365,6 +379,87 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
   const active = stay?.status === 'ADMITTED';
 
   /**
+   * What this stay has cost so far — nights + food + billable items.
+   *
+   * Lifted out of the Stay Details disclosure (user, 2026-09-02: "because i
+   * have to collapse"). The number staff quote at the desk was behind a
+   * collapsed panel, while the inpatient chart has carried the same figure in
+   * its header all along. One memo feeds both places so the header and the
+   * fact can never print different totals.
+   */
+  const charges = React.useMemo(() => {
+    if (!stay) return null;
+    const days = Math.max(1, calendarDaysBetween(stay.dropOffAt, stay.actualPickupAt ?? undefined));
+    // `||` not `??`: a stored rate of 0 falls back to the clinic default, or
+    // the header reads KES 0 next to a card reading the real rate.
+    const rate = (Number(stay.dailyRate ?? 0) || 0) || (Number(clinicDayRate ?? 0) || 0);
+    const fp: any = (stay as any).foodProgram || {};
+    const foodPerDay = fp.providedByClient === false
+      ? (Number(fp.ratePerMeal) || 0) * (Number(fp.mealsPerDay) || 0) : 0;
+    const items = (consumables || []).reduce((sum: number, c: any) => sum + (c.billable
+      ? Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0))
+      : 0), 0);
+    const stayTotal = days * (rate + foodPerDay);
+    return { days, rate, foodPerDay, stayTotal, items, total: stayTotal + items };
+  }, [stay, clinicDayRate, consumables]);
+
+  // ------------------------------------------------------------- back-date
+  const [showBackdate, setShowBackdate] = useState(false);
+  const [bdAt, setBdAt] = useState('');
+  const [bdReason, setBdReason] = useState('');
+  const [bdPreview, setBdPreview] = useState<BoardingBackdate | null>(null);
+  const [bdError, setBdError] = useState<string | null>(null);
+  const [bdBusy, setBdBusy] = useState(false);
+
+  // Seeds YESTERDAY, not the current drop-off: the field exists to move the
+  // stay earlier, and opening on a value the server will reject teaches
+  // nothing.
+  const openBackdate = useCallback(() => {
+    if (!stay) return;
+    const seed = new Date(stay.dropOffAt);
+    seed.setDate(seed.getDate() - 1);
+    setBdAt(toLocalInput(seed));
+    setBdReason(''); setBdPreview(null); setBdError(null); setShowBackdate(true);
+  }, [stay]);
+
+  // Price it as the date is typed. `preview` writes nothing and runs the SAME
+  // guards as the real call, so a settled bill or an out-of-range date is
+  // refused here — with its reason — before anyone commits.
+  useEffect(() => {
+    if (!showBackdate || !bdAt || !stay) { setBdPreview(null); return; }
+    let cancelled = false;
+    const t = setTimeout(async () => {
+      try {
+        const res = await boardingAPI.backdate(stay.id, { dropOffAt: new Date(bdAt).toISOString() }, true);
+        if (cancelled) return;
+        if (res.success && res.data) { setBdPreview(res.data); setBdError(null); }
+      } catch (e: any) {
+        if (cancelled) return;
+        setBdPreview(null);
+        setBdError(e?.message || 'That date cannot be used');
+      }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(t); };
+  }, [showBackdate, bdAt, stay]);
+
+  const applyBackdate = useCallback(async () => {
+    if (!stay || !bdAt || !bdReason.trim()) return;
+    setBdBusy(true);
+    try {
+      const res = await boardingAPI.backdate(stay.id, {
+        dropOffAt: new Date(bdAt).toISOString(), reason: bdReason.trim(), moveVisitDate: true,
+      });
+      if (res.success && res.data) {
+        toast.success(`Stay back-dated — ${res.data.nightsBefore} → ${res.data.nightsAfter} days`);
+        setShowBackdate(false);
+        await load();
+      }
+    } catch (e: any) {
+      setBdError(e?.message || 'Failed to back-date');
+    } finally { setBdBusy(false); }
+  }, [stay, bdAt, bdReason, load]);
+
+  /**
    * Undo a checkout so the stay can be corrected (2026-08-23). Server refuses
    * once the visit is PAID — void the payment first, deliberately not here.
    */
@@ -428,6 +523,31 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
               .filter(Boolean).join(' · ')
           : undefined}
         right={<>
+          {/* BACK-DATE — the pet was dropped off before anyone opened the
+              page. Hidden once the bill is SETTLED: the server refuses there
+              ("reopen the bill first"), so the button would be a dead end. */}
+          {stay && active && !stay.billing?.isPaid && (
+            <button onClick={openBackdate}
+              title="Move this stay to an earlier drop-off and re-price it"
+              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-white/15 border border-white/20 text-white text-[9px] font-black uppercase tracking-widest hover:bg-white/25 transition-colors">
+              <CalendarClock size={12} /> Back-date
+            </button>
+          )}
+          {/* RUNNING TOTAL in the header, not behind a disclosure — the same
+              pill the inpatient chart carries. */}
+          {stay && charges && charges.total > 0 && (
+            <span className="px-3 py-1.5 rounded-xl bg-white/15 border border-white/20 text-white text-right leading-tight">
+              <span className="block text-[8px] font-black uppercase tracking-widest text-white/70">
+                {active ? 'Charges so far' : 'Stay charges'}
+              </span>
+              <span className="block text-sm font-black font-mono">
+                KES {charges.total.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </span>
+              <span className="block text-[8px] font-bold text-white/70">
+                stay KES {charges.stayTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} + food &amp; items KES {charges.items.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              </span>
+            </span>
+          )}
           {stay && !active && (
             <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
               Checked out{stay.actualPickupAt ? ` ${formatDate(stay.actualPickupAt)}` : ''}
@@ -489,26 +609,12 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                   the pricing editor, so the number staff are asked for at the
                   desk lived three scrolls down. Nights + food, the same maths
                   the accrual line below prints. */}
-              {(() => {
-                const days = Math.max(1, calendarDaysBetween(stay.dropOffAt, stay.actualPickupAt ?? undefined));
-                const r = (Number(stay.dailyRate ?? 0) || 0) || (Number(clinicDayRate ?? 0) || 0);
-                const fp: any = (stay as any).foodProgram || {};
-                const foodPerDay = fp.providedByClient === false
-                  ? (Number(fp.ratePerMeal) || 0) * (Number(fp.mealsPerDay) || 0) : 0;
-                // ⚠️ Items belong in this number too. It counted nights + food
-                // only, so drugs and consumables logged against the stay were
-                // invisible in the one figure staff quote at the desk (user,
-                // 2026-08-13: "including food n consumables").
-                const itemsTotal = (consumables || []).reduce((sum: number, c: any) => sum + (c.billable
-                  ? Number(c.lineTotal ?? (Number(c.unitPrice) || 0) * (Number(c.quantity) || 0))
-                  : 0), 0);
-                const total = days * (r + foodPerDay) + itemsTotal;
-                return (
-                  <Fact
-                    label={active ? 'Charges so far' : 'Stay charges'}
-                    value={total > 0 ? `KES ${total.toLocaleString()}` : '—'} />
-                );
-              })()}
+              {/* Same memo as the header pill — see `charges`. Items are in
+                  this number too (user, 2026-08-13: "including food n
+                  consumables"). */}
+              <Fact
+                label={active ? 'Charges so far' : 'Stay charges'}
+                value={charges && charges.total > 0 ? `KES ${charges.total.toLocaleString()}` : '—'} />
             </div>
           </Disclosure>
 
@@ -1308,6 +1414,94 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
       {showShare && stay && (
         <ShareWithClinics recordType="boarding" recordId={stay.id} allowedClinicIds={stay.allowedClinicIds}
           onClose={() => setShowShare(false)} onSaved={(ids) => setStay(s => s ? { ...s, allowedClinicIds: ids } : s)} />
+      )}
+
+      {/* BACK-DATE DIALOG.
+          Money, so it follows the inpatient rules exactly: preview first, the
+          delta shown before anything is charged, and a reason required — the
+          Confirm stays disabled until both a priced preview and a reason
+          exist, so nobody commits a charge they have not seen. */}
+      {showBackdate && stay && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => !bdBusy && setShowBackdate(false)} />
+          <div className="relative w-full max-w-lg bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-5 space-y-3">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-tight text-pine dark:text-zinc-100">Back-date this stay</h3>
+                <p className="text-[10px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                  Currently dropped off {formatDate(stay.dropOffAt)}. Moving it earlier bills the days it adds.
+                </p>
+              </div>
+              <button onClick={() => setShowBackdate(false)} disabled={bdBusy}
+                className="text-slate-400 hover:text-pine text-xs font-black">✕</button>
+            </div>
+
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">New drop-off</label>
+              <input type="datetime-local" value={bdAt} onChange={e => setBdAt(e.target.value)}
+                className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-xs font-bold text-pine dark:text-zinc-100" />
+            </div>
+
+            {bdError && (
+              <p className="text-[10px] font-bold text-rose-600 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-900 rounded-xl px-3 py-2">
+                {bdError}
+              </p>
+            )}
+
+            {bdPreview && !bdError && (
+              <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-950 p-3 space-y-1 text-[11px]">
+                <div className="flex justify-between"><span className="text-slate-500">Days</span>
+                  <span className="font-black font-mono text-pine dark:text-zinc-100">{bdPreview.nightsBefore} → {bdPreview.nightsAfter} <span className="text-slate-400">({bdPreview.nightsAdded >= 0 ? '+' : ''}{bdPreview.nightsAdded})</span></span></div>
+                <div className="flex justify-between"><span className="text-slate-500">Stay</span>
+                  <span className="font-mono">KES {bdPreview.stayBefore.toLocaleString()} → {bdPreview.stayAfter.toLocaleString()}</span></div>
+                {bdPreview.perDayFood > 0 && (
+                  <div className="flex justify-between"><span className="text-slate-500">Food</span>
+                    <span className="font-mono">KES {bdPreview.foodBefore.toLocaleString()} → {bdPreview.foodAfter.toLocaleString()}</span></div>
+                )}
+                <div className="flex justify-between pt-1 border-t border-slate-200 dark:border-zinc-800">
+                  <span className="font-black text-pine dark:text-zinc-100">Difference</span>
+                  <span className={`font-black font-mono ${bdPreview.difference > 0 ? 'text-amber-600' : 'text-slate-500'}`}>
+                    {bdPreview.difference >= 0 ? '+' : ''}KES {bdPreview.difference.toLocaleString()}
+                  </span>
+                </div>
+                {/* A stay nobody priced back-dates for free — say so rather
+                    than showing a confident "+0". */}
+                {!bdPreview.priced && (
+                  <p className="text-[10px] font-bold text-slate-400 pt-1">
+                    No rate and no food program on this stay, so back-dating moves no money.
+                  </p>
+                )}
+                {/* Mixed per-day rates: printing one rate would misrepresent
+                    what is actually charged. */}
+                {bdPreview.mixedRates && (
+                  <p className="text-[10px] font-bold text-slate-400 pt-1">
+                    This stay uses different rates on different days — the totals above are the real figures.
+                  </p>
+                )}
+              </div>
+            )}
+
+            <div>
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Reason (required)</label>
+              <input value={bdReason} onChange={e => setBdReason(e.target.value)}
+                placeholder="Dropped off Friday evening, entered Monday"
+                className="w-full mt-1 px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-xs text-pine dark:text-zinc-100" />
+              <p className="text-[9px] text-slate-400 mt-1">Recorded on the visit journey — it changes what the client is billed.</p>
+            </div>
+
+            <div className="flex gap-2 pt-1">
+              <button onClick={() => setShowBackdate(false)} disabled={bdBusy}
+                className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-500">
+                Cancel
+              </button>
+              <button onClick={applyBackdate} disabled={bdBusy || !bdPreview || !!bdError || !bdReason.trim()}
+                className="flex-1 py-2.5 rounded-xl bg-pine text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-40 hover:bg-seafoam transition-colors">
+                {bdBusy ? 'Working…' : 'Back-date & re-price'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

@@ -86,6 +86,31 @@ export interface CreateBoardingPayload {
   notes?: string;
 }
 
+
+/** What a boarding back-date will cost, or did cost. Money — every field bills. */
+export interface BoardingBackdate {
+  applied: boolean;
+  from: string;
+  to: string;
+  nightsBefore: number;
+  nightsAfter: number;
+  nightsAdded: number;
+  dailyRate: number;
+  /** Per-day rates differ across the stay, so no single rate can be printed. */
+  mixedRates: boolean;
+  perDayFood: number;
+  stayBefore: number;
+  stayAfter: number;
+  foodBefore: number;
+  foodAfter: number;
+  difference: number;
+  visitTotalBefore: number | null;
+  visitTotalAfter: number | null;
+  /** false = no rate and no food program, so back-dating moves no money. */
+  priced: boolean;
+  stay?: BoardingStay;
+}
+
 export const boardingAPI = {
   occupancy: async (options?: RequestOptions): Promise<ApiResponse<BoardingOccupancy>> =>
     get(ENDPOINTS.BOARDING.OCCUPANCY, { cache: false, ...options }),
@@ -128,4 +153,19 @@ export const boardingAPI = {
     options?: RequestOptions
   ): Promise<ApiResponse<{ log: BoardingDailyLog }>> =>
     patch(ENDPOINTS.BOARDING.LOG_BY_ID(id, logId), data, { showError: true, ...options }),
+
+  /**
+   * Move the drop-off EARLIER and re-price the days it adds.
+   *
+   * ⚠️ Always call with `preview: true` first and show the delta. The server
+   * bills the added days and food, and REFUSES outright on a settled visit
+   * with the amount in the message.
+   */
+  backdate: async (
+    id: string | number,
+    body: { dropOffAt: string; reason?: string; moveVisitDate?: boolean },
+    preview = false,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<BoardingBackdate>> =>
+    post(`/boarding/${id}/backdate${preview ? '?preview=1' : ''}`, body, { showError: !preview, ...options }),
 };
