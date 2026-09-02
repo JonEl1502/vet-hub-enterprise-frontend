@@ -59,6 +59,27 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### inpatient: the visit now links to the chart instead of describing it  —  no migration
+- **What changed:** once a visit is admitted, the Treatment step shows **Open inpatient
+  chart** next to the Inpatient badge, and the badge says whether the stay is admitted or
+  discharged.
+- **Why:** the badge read *"chart runs on the Admission step / linked chart"* — a sentence
+  about a link rather than a link. The patient was in the ward, the visit knew it, and
+  there was still no way through from the visit (user, 2026-09-01). Surgery has had
+  "Open surgery page" in the same position all along.
+- `openModule('inpatient')` resolves through `CATEGORY_TO_MENU_ID` exactly like every other
+  module link. `openModule` was already on `StepProps`; `TreatmentStep` simply never
+  destructured it.
+- **Checked before changing anything:** the backend is correct here. For visit 2826
+  `getAppointmentById` returns `hospitalizationId: "139"`, `hospitalizationStatus:
+  "ADMITTED"`, and the admission row genuinely carries `appointmentId: 2826` — so the link
+  between visit and stay was never broken. A visit page opened *before* the admission holds
+  a stale copy and will not show the badge until it refetches; that is a staleness question,
+  not a missing link.
+- **Record impact:** 🟢 None — navigation only.
+- **Data dependency:** none.
+
+
 ### procedures: removing a procedure now takes its fees and consumables with it  —  no migration
 - **The bug:** deleting the procedure's service line left every other line the recipe had
   created still on the bill. A Neutering removed from the visit still charged anaesthesia

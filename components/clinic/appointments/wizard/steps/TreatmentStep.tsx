@@ -27,7 +27,7 @@ interface MedRow {
 // duration ride along as the prescription note. Gloves/syringes etc. are
 // added the same way with the Rx fields left blank.
 
-const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, refreshVisit, visibleFields, currency = 'KES', onHospitalize, patientWeightKg, onRequestUnlock, canUnlock, billPaid }) => {
+const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, refreshVisit, visibleFields, currency = 'KES', onHospitalize, openModule, patientWeightKg, onRequestUnlock, canUnlock, billPaid }) => {
   const show = showsField(visibleFields);
   /**
    * TABS, not one long column (user, 2026-08-14: "i find this difficult … put
@@ -416,9 +416,29 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
       <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5 bg-white dark:bg-zinc-900 flex flex-wrap items-center gap-2">
         <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 mr-1">Treat as</span>
         {visit.hospitalizationId ? (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
-            🏥 Inpatient — chart runs on the Admission step / linked chart
-          </span>
+          <>
+            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border border-indigo-500/20">
+              🏥 Inpatient{visit.hospitalizationStatus === 'DISCHARGED' ? ' — discharged' : ' — admitted'}
+            </span>
+            {/*
+              A LINK, not a sentence about one.
+              This chip used to read "chart runs on the Admission step / linked
+              chart" and then leave you to find it — the patient was in the ward,
+              the visit knew it, and there was still no way through
+              (user, 2026-09-01). Surgery has "Open surgery page" right here;
+              inpatient had nothing. `openModule` resolves 'inpatient' through
+              CATEGORY_TO_MENU_ID the same way every other module link does.
+            */}
+            {openModule && (
+              <button
+                type="button"
+                onClick={() => openModule('inpatient')}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-indigo-300 dark:border-indigo-900/50 bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/60 transition-all"
+              >
+                <ExternalLink size={11} /> Open inpatient chart
+              </button>
+            )}
+          </>
         ) : (
           <>
             <button type="button"
