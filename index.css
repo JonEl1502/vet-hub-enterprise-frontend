@@ -6,6 +6,42 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── SHORT-VIEWPORT DENSITY ──────────────────────────────────────────────
+ *
+ * Windows laptops ship at 125% display scaling, so a 1920×1080 screen reports
+ * a 1536×864 CSS viewport. A 14" MacBook reports ~1512×982. The WIDTHS are
+ * near identical — what differs is ~120px of HEIGHT, and that is what makes
+ * the app feel cramped on Windows while looking fine on a Mac
+ * (user, 2026-09-03: "in other pcs esp the windows pcs i have to reduce zoom
+ * to 80%"). 80% is not a coincidence: 1 ÷ 1.25 = 0.8, exactly undoing the
+ * scaling.
+ *
+ * The app stacks ~136px of sticky chrome above content (the record rail pins
+ * at `top-[8.5rem]`) plus a bottom action bar, so 864px leaves roughly 656px
+ * of content against ~774px on the Mac.
+ *
+ * Dropping the ROOT font size scales every rem-based Tailwind utility at once
+ * — padding, gaps, type, heights — which is ~76% of the spacing in this app
+ * (21k rem utilities vs 6.5k hard-px values). It reproduces what zooming out
+ * does, automatically, without touching a single component.
+ *
+ * ⚠️ Height-keyed, not width-keyed. Collapsing the sidebar was the obvious
+ * guess and would have been wrong: that buys WIDTH, and width is not the
+ * problem — both machines are ~1520px wide.
+ *
+ * ⚠️ Desktop only (`min-width: 1024px`). Phones are already short and their
+ * layout is designed for it; shrinking type there would hurt.
+ *
+ * The hard-px values do NOT scale, so this closes much of the gap rather than
+ * all of it. Tune these two numbers rather than adding more breakpoints.
+ */
+@media (min-width: 1024px) and (max-height: 900px) {
+  html { font-size: 15px; }
+}
+@media (min-width: 1024px) and (max-height: 800px) {
+  html { font-size: 14px; }
+}
+
 :root {
   /* VetHub Core brand palette (Brand Guidelines v1.0). These two vars drive
      the `pine` (secondary) and `seafoam` (primary) Tailwind tokens used across
