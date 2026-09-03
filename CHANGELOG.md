@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### billing: module record pages can add SERVICES and fees, not just stock  —  no migration
+- **What changed:** the inpatient chart, boarding stay and surgery record each gain the
+  shared `InlineServiceSearch`, next to the `ConsumablePicker` they already had.
+- **The gap, stated properly.** These pages could always add **inventory**. What they could
+  add of the *services* catalogue was either nothing (inpatient — a bespoke grooming-only
+  picker) or a **single category** (`AddCategoryService` with `categoryKeyword` — `groom` on
+  boarding, `surg` on surgery). So a cross-category charge — an **injection fee**, an IV
+  set-up, a nursing charge, an anaesthesia top-up — had no home on any record page and had
+  to be added over on the visit (user, 2026-09-03: *"i also aded injection fee and not
+  here"*).
+- **Why it was fixed this way.** The first instinct was a bespoke fee picker on the
+  inpatient chart. The user pushed back — *"is this most robust way to fill in all gaps"* —
+  and they were right: mapping the two shared pickers showed `ConsumablePicker` mounted on
+  five pages while `InlineServiceSearch` was mounted only inside the visit world. The same
+  half was missing from three pages, so the fix is mounting the component that already
+  exists rather than writing a fourth bespoke picker.
+- Procedure recipes come along for free — `InlineServiceSearch` already offers them.
+- Each mount bills to the record's linked visit via `visitsAPI.addTask` and **deducts no
+  stock**: a fee is not an item.
+- The existing category pickers stay. They are a different job — a one-tap "add grooming
+  service" that also drives the category's record creation — and live in the rail, not the
+  day.
+- **Record impact:** 🔵 Low — adds a task to the linked visit and its bill, on explicit pick.
+- **Data dependency:** none.
+
+
 ### inpatient: adding a drug while EDITING an entry now actually dispenses it  —  no migration
 - **What changed:** picking a drug in the MAR panel while editing an existing daily-sheet
   entry now deducts stock and bills it, exactly as it does on a new entry.

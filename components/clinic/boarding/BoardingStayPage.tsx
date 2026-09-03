@@ -10,6 +10,7 @@ import StayChargeCard from '../shared/StayChargeCard';
 import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import { formatDate, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
+import InlineServiceSearch from '../shared/InlineServiceSearch';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeReminderGate';
 import UpgradeGate from '../../shared/common/UpgradeGate';
@@ -717,6 +718,34 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
                           dayKey={dateKey.split('#')[0]}
                           recordedAt={dayDraft.at ? new Date(dayDraft.at).toISOString() : null}
                           onChanged={() => { load(); setConsRefresh(n => n + 1); onChanged?.(); }} title="Items used this day" />
+                        {/**
+                          * SERVICES AND FEES, not just stock — the same shared
+                          * picker the visit wizard uses, so procedure recipes
+                          * come with it.
+                          *
+                          * Boarding could add inventory and nothing else, so a
+                          * bath fee, a medication-administration charge or a
+                          * nail clip had to be added over on the visit. Same
+                          * missing half the inpatient chart had
+                          * (user, 2026-09-03). Bills to the stay's visit and
+                          * deducts no stock — a fee is not an item.
+                          */}
+                        <div className="mt-2 pt-2 border-t border-slate-100 dark:border-zinc-800">
+                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Service or fee</p>
+                          <InlineServiceSearch
+                            placeholder="Bath, nail clip, medication admin fee…"
+                            onAdd={async (svc, categoryName) => {
+                              try {
+                                await visitsAPI.addTask(Number(stay.billing!.appointmentId), {
+                                  name: svc.name, category: categoryName,
+                                  price: Number(svc.defaultPrice ?? 0), status: 'PENDING', serviceId: svc.id,
+                                } as any);
+                                toast.success(`${svc.name} added to the stay`);
+                                await load(); setConsRefresh(n => n + 1); onChanged?.();
+                              } catch (e: any) { toast.error(e?.message || 'Could not add the service'); }
+                            }}
+                          />
+                        </div>
                       </div>
                     )}
                     <div className="flex gap-2">

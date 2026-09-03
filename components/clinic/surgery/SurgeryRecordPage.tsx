@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Slice, Loader2, X, ExternalLink, ImagePlus, CheckCircle2, Share2, Lock, PencilLine , Receipt} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
-import { surgeryAPI, SurgeryRecord } from '../../../services';
+import { surgeryAPI, SurgeryRecord, visitsAPI } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import ConsumablePicker from '../shared/ConsumablePicker';
+import InlineServiceSearch from '../shared/InlineServiceSearch';
 import AppliedProcedurePanel from '../shared/AppliedProcedurePanel';
 import AddCategoryService from '../shared/AddCategoryService';
 import { renderFormatted } from './SurgeryView';
@@ -259,6 +260,35 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
             {!locked && rec.appointmentId && (
               <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
                 <ConsumablePicker appointmentId={rec.appointmentId} serviceTag={`surgery:${rec.id}`} title="Medications & consumables used" />
+                {/**
+                  * SERVICES AND FEES, not just stock.
+                  *
+                  * "Add procedure" above is category-filtered to `surg`, so it
+                  * offers surgical services only. A cross-category charge — an
+                  * injection fee, an anaesthesia top-up, a nursing charge — had
+                  * no home here and had to be added over on the visit. Same
+                  * missing half as the inpatient chart and boarding
+                  * (user, 2026-09-03).
+                  *
+                  * The shared picker the visit wizard uses, so procedure recipes
+                  * come with it. Bills to the visit; deducts no stock.
+                  */}
+                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Service or fee</p>
+                  <InlineServiceSearch
+                    placeholder="Injection fee, anaesthesia top-up, nursing charge…"
+                    onAdd={async (svc, categoryName) => {
+                      try {
+                        await visitsAPI.addTask(Number(rec.appointmentId), {
+                          name: svc.name, category: categoryName,
+                          price: Number(svc.defaultPrice ?? 0), status: 'PENDING', serviceId: svc.id,
+                        } as any);
+                        toast.success(`${svc.name} added`);
+                        await load();
+                      } catch (e: any) { toast.error(e?.message || 'Could not add the service'); }
+                    }}
+                  />
+                </div>
               </section>
             )}
 
