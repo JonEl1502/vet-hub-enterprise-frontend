@@ -1376,7 +1376,7 @@ const PetProfileView: React.FC<Props> = ({
                   } finally { setAvatarBusy(false); }
                 }}
               />
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 flex flex-col">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tight leading-none truncate">{pet.name}</h1>
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border bg-seafoam/10 text-seafoam border-seafoam/20">
@@ -1456,22 +1456,6 @@ const PetProfileView: React.FC<Props> = ({
                           ⚠️ Both buttons stay `whitespace-nowrap` — on a 390px
                           phone the pair measured 244px inside a 180px column and
                           Book visit was clipped off the screen. */}
-                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                        <button
-                          onClick={() => onOpenMessaging(owner)}
-                          className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam text-seafoam hover:bg-seafoam hover:text-white transition-all active:scale-95 whitespace-nowrap"
-                        >
-                          <MessageSquare size={11} /> Message owner
-                        </button>
-                        {onBookAppointment && (
-                          <button
-                            onClick={() => onBookAppointment(pet.id, owner.id)}
-                            className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:border-seafoam hover:text-seafoam transition-all active:scale-95 whitespace-nowrap"
-                          >
-                            <CalendarPlus size={11} /> Book visit
-                          </button>
-                        )}
-                      </div>
                     </>
                   ) : (
                     /* Clickable: an orphan has nobody to bill, remind or call,
@@ -1493,6 +1477,39 @@ const PetProfileView: React.FC<Props> = ({
                       <span className="inline-flex items-center gap-0.5 pl-1.5 ml-0.5 border-l border-amber-300/70 group-hover:border-white/40">
                         <UserPlus size={10} /> Link
                       </span>
+                    </button>
+                  )}
+                </div>
+                {/**
+                  * ACTIONS AT THE FOOT OF THE SECTION (user, 2026-09-03).
+                  *
+                  * They used to hang off the owner row, so the card had actions
+                  * in three different places — under the owner name on the left,
+                  * as chips on the right, and payment meta under those. `mt-auto`
+                  * pins them to the bottom of this column so they land on the
+                  * same line as the money column's own action row, and the rule
+                  * above them says "everything above is information, this is what
+                  * you can do about it".
+                  *
+                  * ⚠️ Both stay `whitespace-nowrap`: on a 390px phone the pair
+                  * measured 244px inside a 180px column and Book visit was
+                  * clipped off the screen.
+                  */}
+                <div className="flex flex-wrap items-center gap-2 mt-auto pt-3">
+                  {owner && (
+                    <button
+                      onClick={() => onOpenMessaging(owner)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam text-seafoam hover:bg-seafoam hover:text-white transition-all active:scale-95 whitespace-nowrap"
+                    >
+                      <MessageSquare size={11} /> Message owner
+                    </button>
+                  )}
+                  {onBookAppointment && (
+                    <button
+                      onClick={() => onBookAppointment(pet.id, owner?.id)}
+                      className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-300 hover:border-seafoam hover:text-seafoam transition-all active:scale-95 whitespace-nowrap"
+                    >
+                      <CalendarPlus size={11} /> Book visit
                     </button>
                   )}
                 </div>
@@ -1540,12 +1557,21 @@ const PetProfileView: React.FC<Props> = ({
                       }`}>{pet.isAlive !== false ? 'Active' : 'Deceased'}</span>
                     </div>
                   </div>
-                  {/* AT A GLANCE — the band under the money strip used to be
+                  <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-2 gap-y-1 text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                    <span className="inline-flex items-center gap-1.5"><CreditCard size={11} className="text-slate-400" /> Last Payment: <span className="text-pine dark:text-zinc-200 font-black">{lastPetPayment ? formatDate(lastPetPayment.settledAt || lastPetPayment.createdAt) : '—'}</span></span>
+                    <span className="text-slate-200 dark:text-zinc-700">|</span>
+                    <span>Preferred Payment: <span className="text-pine dark:text-zinc-200 font-black">{preferredMethod(petPayments)}</span></span>
+                  </div>
+                  {/* AT A GLANCE — now the FOOT of the money column (user, 2026-09-03).
+                      Information above, the things you can click below, so this row
+                      lands level with "Message owner / Book visit" opposite instead
+                      of scattering actions through three bands.
+                      The band under the money strip used to be
                       empty. These are the three things this page gets opened
                       to check, and none of them were visible without leaving
                       the header: the alerts existed only as a COUNT beside the
                       name, so you had to go hunting for what the alert was. */}
-                  <div className="flex flex-wrap items-center justify-center xl:justify-end gap-1.5">
+                  <div className="flex flex-wrap items-center justify-center xl:justify-end gap-1.5 mt-auto pt-3">
                     {healthAlerts.length > 0 ? (
                       healthAlerts.slice(0, 3).map((a, i) => (
                         <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 max-w-full">
@@ -1578,11 +1604,6 @@ const PetProfileView: React.FC<Props> = ({
                     )}
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-center sm:justify-end gap-x-2 gap-y-1 text-[10px] font-bold text-slate-500 dark:text-zinc-400">
-                    <span className="inline-flex items-center gap-1.5"><CreditCard size={11} className="text-slate-400" /> Last Payment: <span className="text-pine dark:text-zinc-200 font-black">{lastPetPayment ? formatDate(lastPetPayment.settledAt || lastPetPayment.createdAt) : '—'}</span></span>
-                    <span className="text-slate-200 dark:text-zinc-700">|</span>
-                    <span>Preferred Payment: <span className="text-pine dark:text-zinc-200 font-black">{preferredMethod(petPayments)}</span></span>
-                  </div>
                 </>
               ) : (
                 <span className={`self-start xl:self-end inline-flex px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest ${

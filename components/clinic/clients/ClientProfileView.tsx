@@ -1133,7 +1133,7 @@ const renderOverview = () => (
                   </span>
                 )}
               </div>
-              <div className="min-w-0 flex-1">
+              <div className="min-w-0 flex-1 flex flex-col">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-xl sm:text-2xl font-black text-pine dark:text-zinc-100 tracking-tight leading-none truncate">{client.name}</h1>
                   {(() => {
@@ -1159,7 +1159,13 @@ const renderOverview = () => (
                   ID: CL-{String(client.id).padStart(5, '0')}
                 </p>
                 {/* Portal account row — none → invite · dormant → wake · active → ✓ */}
-                <div className="flex flex-wrap items-center gap-2 mt-3">
+                {/* ACTIONS AT THE FOOT OF THE SECTION (user, 2026-09-03) — same rhythm as
+                    the patient header: contact details above, the things you can do
+                    below. `mt-auto` pins the row to the bottom of this column so it
+                    lands level with the money column's own action row instead of
+                    floating under whichever line of contact detail happens to be
+                    last. */}
+                <div className="flex flex-wrap items-center gap-2 mt-auto pt-3">
           {client.portalStatus === 'active' ? (
             <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest bg-emerald-50 dark:bg-emerald-950/40 text-emerald-600 border border-emerald-200 dark:border-emerald-900">
               <CheckCircle2 size={11} /> Portal · Active

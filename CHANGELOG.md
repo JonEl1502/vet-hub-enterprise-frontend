@@ -59,6 +59,26 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### profiles: one place for actions on the patient and client headers  —  no migration
+- **What changed:** on both headers, each column now reads *information above, actions
+  below*, and the two action rows sit on the same line.
+- **Why:** the patient header scattered actions through three bands — **Message owner /
+  Book visit** hanging off the owner name on the left, alert and next-visit chips on the
+  right, and payment meta beneath those. Nothing lined up, and the eye had no single place
+  to look for "what can I do here" (user, 2026-09-03).
+- The identity column is now a flex column with its buttons on `mt-auto`, so they pin to
+  the bottom rather than floating under whichever line of detail happens to be last. The
+  money column was reordered — payment meta (information) moved **above** the clickable
+  chips (actions), which now carry the same `mt-auto` — so both rows land level.
+- Same treatment on the client header, which already grouped its portal actions in one row
+  but let it float.
+- Nothing was added or removed: **same information, same buttons**, only their position.
+- The patient buttons keep `whitespace-nowrap` — on a 390px phone the pair measured 244px
+  inside a 180px column and *Book visit* was clipped off the screen.
+- **Record impact:** 🟢 None — layout only.
+- **Data dependency:** none.
+
+
 ### patients: sex is editable on the patient profile  —  no migration
 - **What changed:** the **Sex** field on the patient profile is now an editable select
   (Unknown / Male / Female) instead of read-only.
