@@ -279,7 +279,11 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
           untouched so older records don't lose data. */}
 
       {/* Photos */}
-      <section className="bg-slate-50/60 dark:bg-zinc-950/30 sm:border border-slate-100 dark:border-zinc-800/60 rounded-xl p-2 sm:p-3 space-y-2.5">
+      {/* FLAT, not a card. This sits inside the wizard card AND the report
+          card, so a bordered box here was the third frame drawn around the
+          same content (user, 2026-09-03: "too many cards in cards"). A
+          heading over a rule separates it just as well. */}
+      <section className="pt-3 mt-1 border-t border-slate-200 dark:border-zinc-800 space-y-2.5">
         <p className="text-[9px] font-black uppercase tracking-widest text-seafoam">Before &amp; after</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <PhotoStrip label="Before photos" urls={beforePhotos} onChange={setBeforePhotos} disabled={locked} />
@@ -293,7 +297,7 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
       </section>
 
       {/* Grooming settings — one record per grooming service (grooming_records). */}
-      <section className="bg-slate-50/60 dark:bg-zinc-950/30 sm:border border-slate-100 dark:border-zinc-800/60 rounded-xl p-2 sm:p-3 space-y-2">
+      <section className="pt-3 mt-1 border-t border-slate-200 dark:border-zinc-800 space-y-2">
         <p className="text-[9px] font-black uppercase tracking-widest text-seafoam">Service details</p>
         <p className="text-[9px] text-slate-400 -mt-1">The grooming services on this visit. Open each to record its details &amp; products.</p>
 
@@ -345,13 +349,6 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
               <summary className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-2 px-2.5 py-2 cursor-pointer list-none">
                 <span className="flex flex-wrap items-center gap-2 min-w-0">
                   <span className="w-full sm:w-auto text-xs font-black text-pine dark:text-zinc-100 uppercase tracking-wide sm:truncate">{r.serviceName}</span>
-                  {/* Per-service status */}
-                  <span className="flex gap-0.5 shrink-0">
-                    {[{ v: 'PENDING', l: 'Pending', on: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' }, { v: 'IN_PROGRESS', l: 'WIP', on: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' }, { v: 'COMPLETED', l: 'Done', on: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' }].map(s => (
-                      <button key={s.v} type="button" disabled={locked} onClick={(ev) => { ev.preventDefault(); setRecordStatus(r.id, s.v); }}
-                        className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider transition-all ${(r.status || 'PENDING') === s.v ? s.on : 'bg-slate-100 dark:bg-zinc-800 text-slate-400 hover:text-slate-600'}`}>{s.l}</button>
-                    ))}
-                  </span>
                 </span>
                 <span className="flex items-center gap-2 shrink-0 self-end sm:self-auto">
                   {price > 0 && <span className="text-[11px] font-bold text-slate-400">KES {price.toLocaleString()}</span>}
@@ -381,6 +378,23 @@ const GroomingPanel: React.FC<Props> = ({ appointment, onSaved, onFinalize, note
                   <PhotoStrip label="After" urls={r.afterPhotos} onChange={urls => patchRecord(r.id, { afterPhotos: urls })} disabled={recLocked} />
                 </div>
                 {!recLocked && <ConsumablePicker flat appointmentId={appointment.id} serviceTag={r.serviceName} serviceTaskId={r.taskId} onChanged={onSaved} title={`Products & consumables — ${r.serviceName}`} />}
+                {/* STATUS at the BOTTOM of the service, and big enough to hit
+                    (user, 2026-09-03). It used to be three 8px chips wedged into
+                    the summary row beside the name, the price, the billable
+                    toggle and the delete — the last thing you noticed on a card
+                    whose whole purpose is moving a service from pending to done,
+                    and a hard tap target on a phone. */}
+                <div className="pt-2.5 mt-1 border-t border-slate-100 dark:border-zinc-800/60">
+                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Status</p>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[{ v: 'PENDING', l: 'Pending', on: 'bg-amber-100 text-amber-700 border-amber-300 dark:bg-amber-900/30 dark:text-amber-300 dark:border-amber-800' }, { v: 'IN_PROGRESS', l: 'WIP', on: 'bg-indigo-100 text-indigo-700 border-indigo-300 dark:bg-indigo-900/30 dark:text-indigo-300 dark:border-indigo-800' }, { v: 'COMPLETED', l: 'Done', on: 'bg-emerald-100 text-emerald-700 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-300 dark:border-emerald-800' }].map(st => (
+                      <button key={st.v} type="button" disabled={locked} onClick={(ev) => { ev.preventDefault(); setRecordStatus(r.id, st.v); }}
+                        className={`py-2 rounded-lg border text-[11px] font-black uppercase tracking-wider transition-all disabled:opacity-50 ${(r.status || 'PENDING') === st.v ? st.on : 'bg-slate-50 dark:bg-zinc-800/60 text-slate-400 border-slate-200 dark:border-zinc-700 hover:text-slate-600 dark:hover:text-zinc-300'}`}>
+                        {st.l}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
             </details>
           );
