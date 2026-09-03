@@ -647,7 +647,21 @@ const PetProfileView: React.FC<Props> = ({
               { label: 'Species', field: 'species', val: isEditing ? editedPet.species : pet.species, editable: true, type: 'select', options: speciesOptions },
               { label: 'Breed', field: 'breed', val: isEditing ? editedPet.breed : pet.breed, editable: true, type: 'select', options: breedOptions },
               { label: 'Date of Birth', field: 'dob', val: isEditing ? (editedPet.dob ? String(editedPet.dob).split('T')[0] : '') : pet.dob ? formatDate(pet.dob) : 'Unknown', editable: true, type: 'date' },
-              { label: 'Sex', field: 'gender', val: isEditing ? editedPet.gender : pet.gender || 'Unknown', editable: false, type: 'text' },
+              /**
+               * Sex is EDITABLE (user, 2026-09-03). It was `editable: false`
+               * here while `EditPetModal` has always allowed it, so the field
+               * could be changed — just not on the page where you were looking
+               * at it. Nothing else blocked it: `updatePet` already accepts
+               * `gender` (pet.service.ts) and the save posts the whole
+               * `editedPet`.
+               *
+               * The blank option is deliberate. Read-only mode prints "Unknown"
+               * for an unset sex, but a `<select>` with no matching option
+               * displays its FIRST one — so a pet with no sex recorded would
+               * have read "Male" the moment you pressed Edit, and saving
+               * anything else on the form would have made that guess true.
+               */
+              { label: 'Sex', field: 'gender', val: isEditing ? (editedPet.gender ?? '') : (pet.gender || 'Unknown'), editable: true, type: 'select', options: ['', 'Male', 'Female'] },
               { label: 'Body Weight', field: 'weight', val: isEditing ? editedPet.weight : pet.weight, editable: true, type: 'text' },
               { label: 'Patient ID', field: 'id', val: `#${pet.id}`, editable: false, type: 'text' },
             ].map(v => (
@@ -666,7 +680,7 @@ const PetProfileView: React.FC<Props> = ({
                       className="w-full text-pine dark:text-zinc-100 font-semibold text-sm leading-tight bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-seafoam"
                     >
                       {v.options?.map(opt => (
-                        <option key={opt} value={opt}>{opt}</option>
+                        <option key={opt} value={opt}>{opt === '' ? 'Unknown' : opt}</option>
                       ))}
                     </select>
                   ) : (

@@ -59,6 +59,24 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### patients: sex is editable on the patient profile  —  no migration
+- **What changed:** the **Sex** field on the patient profile is now an editable select
+  (Unknown / Male / Female) instead of read-only.
+- **Why:** it was the only thing blocking the edit. `EditPetModal` has always allowed sex,
+  `updatePet` already accepts `gender` (`pet.service.ts:928`), and the profile save posts the
+  whole `editedPet` — the field was simply flagged `editable: false` on the page where
+  people actually look at the patient (user, 2026-09-03).
+- The **blank "Unknown" option is deliberate.** Read-only mode prints "Unknown" for an unset
+  sex, but a `<select>` whose value matches no option renders its FIRST one — so a patient
+  with no sex recorded would have read "Male" the moment you pressed Edit, and saving
+  anything else on the form would have quietly made that guess true. It also gives a way
+  back to Unknown after a mistake.
+- **Client gender was already editable** (a select on the client profile: Male / Female /
+  Other, saved with the rest of the record) — checked rather than assumed, and left alone.
+- **Record impact:** 🔵 Low — writes `gender` on the patient record when saved.
+- **Data dependency:** none.
+
+
 ### billing: module record pages can add SERVICES and fees, not just stock  —  no migration
 - **What changed:** the inpatient chart, boarding stay and surgery record each gain the
   shared `InlineServiceSearch`, next to the `ConsumablePicker` they already had.
