@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### inpatient: adding a drug while EDITING an entry now actually dispenses it  —  no migration
+- **What changed:** picking a drug in the MAR panel while editing an existing daily-sheet
+  entry now deducts stock and bills it, exactly as it does on a new entry.
+- **The bug:** the edit branch of `addLog` patched only the entry's `data`. The whole
+  drug block — `consumablesAPI.log`, the stock deduction, the charge — ran **only on
+  create**. So while editing you could search inventory, pick Ketamine, set the vials,
+  toggle **Billable**, watch the panel promise *"deducts stock · KES 880"* — and **Save
+  changes threw all of it away without a word** (user, 2026-09-03: *"how do i add it when
+  editing"*). A form that lies about what it will do.
+- **Why the old guard was wrong.** It skipped the drug for fear of deducting the same stock
+  twice. But `startEditLog` calls `resetDrug()`, so the picker is **always empty when an
+  edit opens** — a `drugItem` present during an edit can only be one the user just chose by
+  hand, never a leftover from the original entry. Dispensing it adds a NEW consumable line,
+  which is the entire reason for reaching for the picker.
+- The dispense is now one helper shared by both paths, so create and edit cannot drift
+  again. The over-stock refusal already sat above the branch and still covers both.
+- **Record impact:** 🔵 Low — an edit can now deduct stock and add a billable line, which it
+  previously (silently) would not. Only when a drug is actively picked; the over-stock
+  guard still refuses.
+- **Data dependency:** none.
+
+
 ### boarding: charges in the header, and back-dating  —  no migration
 **1. The running total is in the header.**
 - It was already computed — but inside the **Stay Details disclosure**, so the number

@@ -357,6 +357,34 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
     finally { setRemoving(null); }
   };
 
+  /**
+   * Dispense the drug currently picked in the MAR panel: deduct stock and put
+   * the line on the bill. No-op unless MEDICATION is the kind and a drug is
+   * actually selected.
+   *
+   * Shared by the create AND edit paths so the two can never drift — the edit
+   * path silently skipping this is the bug it exists to prevent.
+   */
+  const dispenseDrug = async () => {
+    const apptId = h?.billing?.appointmentId;
+    if (logKind !== 'MEDICATION' || !drugItem || !apptId || drugQty <= 0) return;
+    try {
+      await consumablesAPI.log(apptId, {
+        inventoryItemId: drugItem.id,
+        quantity: drugQty,
+        billable: drugBillable,
+        unitPrice: drugBillable ? Number(drugItem.price) : undefined,
+        notes: 'MAR',
+        recordedAt: backfillAt ? new Date(backfillAt).toISOString() : undefined,
+      });
+      updateInventoryOptimistically(String(drugItem.id), (it: any) => ({ ...it, quantity: Number(it.quantity) - drugQty }));
+      setConsRefresh(n => n + 1);
+      toast.success(`${drugItem.name} · ${drugQty} ${drugItem.unit} deducted${drugBillable ? ` · KES ${(Number(drugItem.price) * drugQty).toLocaleString()}` : ''}`);
+    } catch (e: any) {
+      toast.error(e?.message || 'Logged, but stock deduction failed');
+    }
+  };
+
   const addLog = async () => {
     if (logKind === 'MEDICATION' && drugItem && drugQty > Number(drugItem.quantity)) {
       toast.error(`Only ${Number(drugItem.quantity)} ${drugItem.unit} in stock`); return;
@@ -365,12 +393,25 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
     try {
       if (editingLogId) {
         /**
-         * EDITING an existing entry — same panel, same fields. Only the entry's
-         * own data is patched: the drug it dispensed is a separate consumable
-         * line with its own edit control, and re-logging it here would deduct
-         * the stock a second time.
+         * EDITING an existing entry — same panel, same fields.
+         *
+         * The entry's own data is patched, and a drug picked WHILE editing is
+         * dispensed just as it would be on a new entry.
+         *
+         * This used to skip the drug entirely, for fear of deducting the same
+         * stock twice. But `startEditLog` calls `resetDrug()`, so the picker is
+         * always empty when an edit opens — a `drugItem` here can only be one
+         * the user has just chosen by hand, never a leftover from the original
+         * entry. Dispensing it adds a NEW consumable line, which is the whole
+         * point of reaching for the picker.
+         *
+         * What the guard actually produced was a form that lied: you could pick
+         * Ketamine, set the vials, toggle Billable, watch it say "deducts stock
+         * · KES 880" — and Save changes threw all of it away without a word
+         * (user, 2026-09-03: "how do i add it when editing").
          */
         await inpatientAPI.updateLog(editingLogId, { data: { ...logData } });
+        await dispenseDrug();
         toast.success('Entry updated');
         setLogData({});
         resetDrug();
@@ -381,22 +422,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
         return;
       }
       await inpatientAPI.addLog(hospId, { kind: logKind, status: isTask(logKind) ? 'due' : undefined, data: { ...logData }, ...(backfillAt ? { loggedAt: new Date(backfillAt).toISOString() } : {}) } as any);
-      const apptId = h?.billing?.appointmentId;
-      if (logKind === 'MEDICATION' && drugItem && apptId && drugQty > 0) {
-        try {
-          await consumablesAPI.log(apptId, {
-            inventoryItemId: drugItem.id,
-            quantity: drugQty,
-            billable: drugBillable,
-            unitPrice: drugBillable ? Number(drugItem.price) : undefined,
-            notes: 'MAR',
-            recordedAt: backfillAt ? new Date(backfillAt).toISOString() : undefined,
-          });
-          updateInventoryOptimistically(String(drugItem.id), (it: any) => ({ ...it, quantity: Number(it.quantity) - drugQty }));
-          setConsRefresh(n => n + 1);
-          toast.success(`${drugItem.name} · ${drugQty} ${drugItem.unit} deducted${drugBillable ? ` · KES ${(Number(drugItem.price) * drugQty).toLocaleString()}` : ''}`);
-        } catch (e: any) { toast.error(e?.message || 'Logged, but stock deduction failed'); }
-      }
+      await dispenseDrug();
       setLogData({});
       resetDrug();
       // Close the editor — what you just recorded is now shown as a summary
