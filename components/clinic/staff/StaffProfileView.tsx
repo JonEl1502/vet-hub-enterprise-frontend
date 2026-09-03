@@ -333,80 +333,93 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
     );
   };
 
-  const renderProfile = () => (
-    <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-       <div className="lg:col-span-2 space-y-4">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm">
-             <div className="flex items-center gap-3 border-b border-slate-100 dark:border-zinc-800 pb-3 mb-4">
-                <ShieldCheck className="text-seafoam shrink-0" size={18}/>
-                <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Identity Profile</h3>
-             </div>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {[
-                  { label: 'Legal Identity', val: staff.name, icon: UserIcon },
-                  { label: 'Role', val: roleLabel(staff.role), icon: ShieldCheck },
-                  { label: 'ID Number', val: staff.idNumber || 'NOT_PROVIDED', icon: Hash },
-                  { label: 'Email', val: staff.email, icon: Mail },
-                  { label: 'Date of Birth', val: staff.dob || 'Unknown', icon: Calendar },
-                  { label: 'Age', val: staff.age ? `${staff.age} Years` : 'Unknown', icon: Clock },
-                ].map(i => (
-                  <div key={i.label} className="flex items-center gap-3">
-                     <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-xl text-slate-400 shrink-0"><i.icon size={14}/></div>
-                     <div className="min-w-0">
-                        <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest">{i.label}</p>
-                        <p className="text-pine dark:text-zinc-100 font-bold text-xs leading-tight truncate uppercase">{i.val}</p>
-                     </div>
-                  </div>
-                ))}
-             </div>
+  /**
+   * PROFILE — reworked to the reference layout (user, 2026-09-03: "just looks
+   * meh n difficult to use", with a SaloPlus user page as the target).
+   *
+   * What was wrong, and what each change fixes:
+   *
+   *  • THREE cards for one person — Identity, a full-height purple "Operational
+   *    Status" panel whose entire content was the word ACTIVE, and a separate
+   *    Clinic Authorization box. Status is one fact; it is a chip beside the
+   *    name now, not a column.
+   *  • EVERY VALUE WAS UPPERCASED, so real data read as shouting and as
+   *    placeholders: "DR. CYNTHIA NOLARI", "NOT_PROVIDED", "UNKNOWN". Labels
+   *    stay small caps; VALUES are now printed as written.
+   *  • A 2-column grid with a 32px icon tile per row, so six fields filled the
+   *    height of the screen. Three columns, no tiles — the icon is inline and
+   *    quiet.
+   *  • An empty state that was a 2px-dashed 8-row block announcing nothing.
+   *    One quiet line instead.
+   */
+  const renderProfile = () => {
+    const fields = [
+      { label: 'Role', val: roleLabel(staff.role), icon: ShieldCheck },
+      { label: 'Email', val: staff.email || '—', icon: Mail },
+      { label: 'ID number', val: staff.idNumber || '—', icon: Hash },
+      { label: 'Date of birth', val: staff.dob || '—', icon: Calendar },
+      { label: 'Age', val: staff.age ? `${staff.age} years` : '—', icon: Clock },
+      { label: 'Staff ID', val: `STF-${staff.id}`, icon: UserIcon },
+    ];
+    const authorised = staff.clinicIds.map(cid => clinics.find(cl => cl.id === cid)).filter(Boolean) as typeof clinics;
+
+    return (
+      <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm">
+          {/* Identity + status + authorisation on ONE row — the reference puts
+              who this is and what you can do about them on the same line. */}
+          <div className="flex flex-wrap items-start justify-between gap-3 p-4 sm:p-5 border-b border-slate-100 dark:border-zinc-800">
+            <div className="min-w-0">
+              <h3 className="text-base font-black text-pine dark:text-zinc-100 truncate">{staff.name}</h3>
+              <p className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 mt-0.5">{roleLabel(staff.role)}</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Active
+              </span>
+              {authorised.map(c => (
+                <span key={c.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 max-w-[14rem]">
+                  <span className="shrink-0">{c.logo}</span>
+                  <span className="truncate">{c.name}</span>
+                </span>
+              ))}
+            </div>
           </div>
 
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm">
-             <div className="flex items-center gap-2 mb-3">
-                <GraduationCap className="text-seafoam shrink-0" size={16}/>
-                <h3 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Certifications</h3>
-             </div>
-             <div className="flex flex-wrap gap-2">
-                {staff.certifications?.length ? staff.certifications.map((c, i) => (
-                  <div key={i} className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-[9px] font-black uppercase tracking-widest">
-                     <BadgeCheck size={12}/>
-                     {c}
-                  </div>
-                )) : (
-                  <div className="w-full py-8 text-center border-2 border-dashed border-slate-100 dark:border-zinc-800 rounded-xl opacity-30 font-black uppercase text-[10px] tracking-widest">No certifications on file.</div>
-                )}
-             </div>
+          {/* Dense field grid. Values print as stored — no uppercase. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 p-4 sm:p-5">
+            {fields.map(f => (
+              <div key={f.label} className="min-w-0">
+                <p className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 dark:text-zinc-500 mb-0.5">
+                  <f.icon size={12} className="shrink-0" /> {f.label}
+                </p>
+                <p className="text-[13px] font-bold text-pine dark:text-zinc-100 truncate" title={String(f.val)}>{f.val}</p>
+              </div>
+            ))}
           </div>
-       </div>
+        </div>
 
-       <div className="space-y-4">
-          <div className="bg-pine rounded-2xl p-5 text-white shadow-xl relative overflow-hidden group">
-             <div className="absolute top-0 right-0 p-5 opacity-10 group-hover:scale-125 transition-transform duration-1000"><Activity size={72} /></div>
-             <p className="text-white/40 text-[9px] font-black uppercase tracking-[0.3em] mb-3">Operational Status</p>
-             <div className="flex items-center gap-3 mb-4">
-                <div className="w-3 h-3 rounded-full bg-emerald-400 animate-pulse shrink-0"></div>
-                <span className="text-lg font-black uppercase tracking-tighter">Active</span>
-             </div>
-             <p className="text-white/50 text-[9px] font-bold uppercase tracking-widest">Currently Active</p>
-          </div>
-
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
-             <h4 className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3">Clinic Authorization</h4>
-             <div className="flex flex-col gap-2">
-                {staff.clinicIds.map(cid => {
-                  const c = clinics.find(cl => cl.id === cid);
-                  return c ? (
-                    <div key={cid} className="flex items-center gap-2 px-3 py-2 bg-slate-50 dark:bg-zinc-800 border border-slate-100 dark:border-zinc-700 rounded-xl">
-                       <span className="text-base shrink-0">{c.logo}</span>
-                       <span className="text-[10px] font-black text-pine dark:text-zinc-100 uppercase tracking-tight truncate">{c.name}</span>
-                    </div>
-                  ) : null;
-                })}
-             </div>
-          </div>
-       </div>
-    </div>
-  );
+        {/* Certifications — a plain section, not a third card competing with
+            the person above it. */}
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
+          <h3 className="flex items-center gap-2 text-[11px] font-black text-slate-500 dark:text-zinc-400 mb-3">
+            <GraduationCap size={14} className="text-seafoam shrink-0" /> Certifications
+          </h3>
+          {staff.certifications?.length ? (
+            <div className="flex flex-wrap gap-2">
+              {staff.certifications.map((c, i) => (
+                <span key={i} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[11px] font-bold bg-indigo-500/10 border border-indigo-500/20 text-indigo-600 dark:text-indigo-400">
+                  <BadgeCheck size={12} /> {c}
+                </span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[12px] text-slate-400 dark:text-zinc-500">None on file.</p>
+          )}
+        </div>
+      </div>
+    );
+  };
 
   const renderStats = () => (
     <div className="space-y-4 animate-in slide-in-from-right-4 duration-500">

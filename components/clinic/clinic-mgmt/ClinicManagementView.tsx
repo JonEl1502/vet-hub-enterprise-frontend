@@ -646,11 +646,26 @@ const ClinicManagementView: React.FC<Props> = ({
           { id: 'branding', label: 'Identity', icon: Globe },
           { id: 'branches', label: 'Branches', icon: Building2 },
           { id: 'visuals', label: 'Appearance', icon: Palette },
-          { id: 'team', label: 'Personnel', icon: Users },
-          { id: 'categories', label: 'Categories & Services', icon: Briefcase },
-          { id: 'emergency', label: 'Billables', icon: Siren },
-          { id: 'ai', label: 'AI', icon: Sparkles },
-          { id: 'billing', label: 'Billing', icon: CreditCard },
+          /**
+           * HIDDEN (user, 2026-09-03) — five tabs commented out of the bar, not
+           * deleted. Each has a home of its own in the main nav, so carrying
+           * them here too made this the widest tab bar in the app and split
+           * "where do I change this?" across two places:
+           *
+           *   Personnel            → Clinic Management ▸ Staff Directory
+           *   Categories & Services→ Inventory & Billables ▸ Services
+           *   Billables            → Inventory & Billables ▸ Billables
+           *   Billing              → Finance
+           *   AI                   → no second home; parked with the rest
+           *
+           * The panels below still render if `activeTab` is set to one of these
+           * ids, so nothing is lost and restoring a tab is uncommenting a line.
+           */
+          // { id: 'team', label: 'Personnel', icon: Users },
+          // { id: 'categories', label: 'Categories & Services', icon: Briefcase },
+          // { id: 'emergency', label: 'Billables', icon: Siren },
+          // { id: 'ai', label: 'AI', icon: Sparkles },
+          // { id: 'billing', label: 'Billing', icon: CreditCard },
           { id: 'wallet', label: 'Wallet', icon: Wallet },
           { id: 'storage', label: 'Storage', icon: HardDrive },
           { id: 'gateways', label: 'Gateways', icon: Shield },

@@ -59,6 +59,32 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### staff profile: restyled, and five settings tabs hidden  —  no migration
+**1. Staff profile.** Reworked to the reference layout (user, 2026-09-03: *"just looks meh
+n difficult to use"*).
+- **Three cards for one person** became one. A full-height purple "Operational Status"
+  panel whose entire content was the word ACTIVE is now a chip beside the name, next to the
+  clinic-authorisation chips. Status is one fact, not a column.
+- **Every value was uppercased**, so real data read as shouting *and* as placeholders —
+  "DR. CYNTHIA NOLARI", "NOT_PROVIDED", "UNKNOWN". Labels stay small; **values now print as
+  stored**. That single change does most of the readability work.
+- The 2-column grid gave each of six fields a 32px icon tile, so six facts filled the
+  screen. Three columns, inline icons, no tiles.
+- The empty certifications state was a 2px-dashed eight-row block announcing nothing. One
+  quiet line now.
+
+**2. Clinic settings tabs.** Personnel, Categories & Services, Billables, AI and Billing are
+**commented out of the tab bar, not deleted**.
+- Each already has a home in the main nav — Personnel → Staff Directory, Categories &
+  Services and Billables → Inventory & Billables, Billing → Finance — so carrying them here
+  too made this the widest tab bar in the app and split "where do I change this?" across two
+  places.
+- The panels still render if `activeTab` is set to one of those ids, so deep links keep
+  working and restoring a tab is uncommenting one line.
+- **Record impact:** 🟢 None — presentation and navigation only.
+- **Data dependency:** none.
+
+
 ### profiles: one place for actions on the patient and client headers  —  no migration
 - **What changed:** on both headers, each column now reads *information above, actions
   below*, and the two action rows sit on the same line.
