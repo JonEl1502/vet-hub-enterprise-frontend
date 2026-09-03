@@ -291,6 +291,23 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
       if (Object.keys(pro).length) setStepData(fuNsKey, pro);
       if (Object.keys(shared).length) setStepData('followUp', shared);
     },
+    /**
+     * The most recent sibling intake on this visit, if any. Keys are checked
+     * in "most complete first" order; the CURRENT step is excluded so a form
+     * never seeds from itself.
+     */
+    gateSeed: (() => {
+      const keys = ['admission', 'boardingAssessment', 'groomingAssessment'].filter(k => k !== currentStep);
+      for (const k of keys) {
+        const intake = (state.data as any)?.[k]?.intake;
+        const gate = intake?.gate;
+        // Only worth seeding from if somebody actually filled something in.
+        if (gate && (String(gate.intakeWeight ?? '').trim() !== ''
+          || Object.keys(gate.vaccines || {}).length
+          || Object.keys(gate.recommended || {}).length)) return intake;
+      }
+      return undefined;
+    })(),
     emit,
     goServices,
     addService: onAddService,

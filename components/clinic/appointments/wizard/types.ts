@@ -67,6 +67,18 @@ export interface StepProps {
   currency: string;
   data: any; // this step's slice of the wizard data
   setData: (patch: any) => void; // shallow-merges into the slice
+  /**
+   * A sibling encounter's intake on THIS visit, for seeding a blank gate.
+   *
+   * The boarding / grooming / admission gates ask the identical questions
+   * ("exactly the same intake … one form, either door"), but each lives in its
+   * own step namespace, so boarding a patient and then grooming it asked for
+   * the intake weight and vaccination check twice. `AdmissionGate` prefills
+   * from the PET record — a fresh weight and vaccines actually administered —
+   * which cannot help here: what staff verified at this visit's boarding gate
+   * is neither.
+   */
+  gateSeed?: any;
   emit: (label: string, kind?: JourneyKind, auto?: boolean) => void;
   goServices?: () => void; // jump to the bill (was: the Categories & Services tab)
   addService?: () => void; // open the Add Services drawer in place

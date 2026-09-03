@@ -221,9 +221,44 @@ const FORMS: Record<string, EntryFormDef> = {
 // (Register Visit renders it above Date & Time for grooming/boarding/admission).
 // When petId is given, "Vaccines verified" auto-ticks from the patient's
 // ADMINISTERED vaccination records, each showing its date administered.
-export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (patch: any) => void; petId?: number | string | null; pet?: any; addService?: () => void; flat?: boolean; locked?: boolean }> = ({ formKey, data, setData, petId, pet, addService, flat, locked }) => {
+export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (patch: any) => void; petId?: number | string | null; pet?: any; addService?: () => void; flat?: boolean; locked?: boolean; gateSeed?: any }> = ({ formKey, data, setData, petId, pet, addService, flat, locked, gateSeed }) => {
   const form = FORMS[formKey];
   const d = data || {};
+
+  /**
+   * Seed a BLANK gate from a sibling intake on the same visit.
+   *
+   * Boarding, grooming and admission ask the identical questions — the intro
+   * literally says "exactly the same intake … one form, either door" — but each
+   * keeps its own step namespace, so boarding a patient and then grooming it
+   * asked for the intake weight and vaccination check a second time
+   * (user, 2026-09-03: "i filled these so they should be prefilled by now").
+   *
+   * `AdmissionGate` already prefills from the PET record, but only from a FRESH
+   * weight and vaccines actually ADMINISTERED — neither of which is what staff
+   * verified at this visit's boarding gate, so it had nothing to offer.
+   *
+   * Only the shared `gate` is copied: the rest of an intake is service-specific
+   * (coat condition means nothing to a boarding stay). Only when blank, and
+   * only once — a seed must never overwrite what somebody has typed.
+   *
+   * ⚠️ This hook sits ABOVE the `!form` early return. Below it, a formKey with
+   * no FORMS entry would render fewer hooks than the previous pass and React
+   * would throw #300.
+   */
+  const seeded = React.useRef(false);
+  React.useEffect(() => {
+    if (seeded.current || locked || !gateSeed?.gate) return;
+    const mine = d.intake?.gate;
+    const alreadyFilled = mine && (String(mine.intakeWeight ?? '').trim() !== ''
+      || Object.keys(mine.vaccines || {}).length
+      || Object.keys(mine.recommended || {}).length);
+    if (alreadyFilled) { seeded.current = true; return; }
+    seeded.current = true;
+    setData({ intake: { ...(d.intake || {}), gate: { ...(mine || {}), ...gateSeed.gate } } });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gateSeed, locked]);
+
   if (!form) return null;
 
   /**
@@ -363,8 +398,8 @@ export const GateCheckForm: React.FC<{ formKey: string; data: any; setData: (pat
   );
 };
 
-export const GenericEntryStep: React.FC<StepProps & { formKey: string }> = ({ formKey, data, setData, pet, addService }) => (
-  <GateCheckForm formKey={formKey} data={data} setData={setData} petId={pet?.id} pet={pet} addService={addService} />
+export const GenericEntryStep: React.FC<StepProps & { formKey: string }> = ({ formKey, data, setData, pet, addService, gateSeed }) => (
+  <GateCheckForm formKey={formKey} data={data} setData={setData} petId={pet?.id} pet={pet} addService={addService} gateSeed={gateSeed} />
 );
 
 // Grooming attending step — embeds the REAL grooming report card (same
@@ -382,8 +417,8 @@ export const GroomingCareStep: React.FC<StepProps> = ({ visit, refreshVisit, emi
 // Boarding entry step — the shared intake ONLY. The stay itself moved to its
 // own "Boarding Stay" step (user, 2026-08-03): admitting a patient and running
 // its daily care are different jobs and were competing for one screen.
-export const BoardingEntryStep: React.FC<StepProps> = ({ pet, data, setData }) => (
-  <GateCheckForm formKey="boardingAssessment" data={data} setData={setData} petId={pet?.id} pet={pet} />
+export const BoardingEntryStep: React.FC<StepProps> = ({ pet, data, setData, gateSeed }) => (
+  <GateCheckForm formKey="boardingAssessment" data={data} setData={setData} petId={pet?.id} pet={pet} gateSeed={gateSeed} />
 );
 
 // Boarding STAY step — the real boarding page embedded, so care logs, feeding,
@@ -461,7 +496,7 @@ export const BoardingStayStep: React.FC<StepProps> = ({ visit, refreshVisit, emi
  * The chart is now its own step (see InpatientChartStep), so admission is what
  * step 1 says it is.
  */
-export const AdmissionEntryStep: React.FC<StepProps> = ({ pet, data, setData, visit, refreshVisit, emit }) => {
+export const AdmissionEntryStep: React.FC<StepProps> = ({ pet, data, setData, visit, refreshVisit, emit, gateSeed }) => {
   /**
    * TABS, not three stacked sections (user, 2026-08-22: "okay make them tabs").
    *
@@ -597,7 +632,7 @@ export const AdmissionEntryStep: React.FC<StepProps> = ({ pet, data, setData, vi
               Amending — the reason is on the visit journey
             </p>
           )}
-          <GateCheckForm formKey="admission" data={data} setData={setData} petId={pet?.id} pet={pet} locked={locked} />
+          <GateCheckForm formKey="admission" data={data} setData={setData} petId={pet?.id} pet={pet} locked={locked} gateSeed={gateSeed} />
         </>
       )}
 
