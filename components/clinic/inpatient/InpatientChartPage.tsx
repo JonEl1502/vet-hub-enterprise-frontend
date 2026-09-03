@@ -1133,38 +1133,41 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                       recordedAt={backfillAt ? new Date(backfillAt).toISOString() : null}
                                       onChanged={() => { setConsRefresh(n => n + 1); load(); onChanged?.(); }}
                                       title="Given / administered with this entry" />
-                                    {/**
-                                      * SERVICES AND FEES, not just stock.
-                                      *
-                                      * The chart could add inventory (here and in the MAR
-                                      * picker) and grooming services, and nothing else — so
-                                      * an injection fee, an IV set-up or a nursing charge
-                                      * had no home on the chart and had to be added over on
-                                      * the visit (user, 2026-09-03: "i also aded injection
-                                      * fee and not here").
-                                      *
-                                      * This is the SAME shared picker the visit wizard uses,
-                                      * so procedure recipes come with it. It bills to the
-                                      * stay's visit and deducts no stock — a fee is not an
-                                      * item.
-                                      */}
-                                    <div className="mt-2 pt-2 border-t border-seafoam/10">
-                                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Service or fee</p>
-                                      <InlineServiceSearch
-                                        placeholder="Injection fee, IV set-up, nursing charge…"
-                                        onAdd={async (svc, categoryName) => {
-                                          try {
-                                            await visitsAPI.addTask(Number(h.billing!.appointmentId), {
-                                              name: svc.name, category: categoryName,
-                                              price: Number(svc.defaultPrice ?? 0), status: 'PENDING', serviceId: svc.id,
-                                            } as any);
-                                            toast.success(`${svc.name} added to the stay`);
-                                            await load();
-                                            onChanged?.();
-                                          } catch (e: any) { toast.error(e?.message || 'Could not add the service'); }
-                                        }}
-                                      />
-                                    </div>
+                                  </div>
+                                )}
+
+                                {/**
+                                  * SERVICES AND FEES — shown while EDITING too.
+                                  *
+                                  * This lived inside the `!editingLogId` block and was
+                                  * therefore invisible on an edit, which is exactly when
+                                  * someone reaches for it (user, 2026-09-03: "i dont see
+                                  * add so that the medication n injection fee/admin fee
+                                  * apply"). That gate guards the CONSUMABLE picker, whose
+                                  * hazard is a second stock deduction for a dose only being
+                                  * reworded. A fee deducts no stock and carries no such
+                                  * hazard, so it does not belong behind that gate.
+                                  *
+                                  * The shared picker the visit wizard uses, so procedure
+                                  * recipes come with it. Bills to the stay's visit.
+                                  */}
+                                {h.billing?.appointmentId && (
+                                  <div className="mt-3 pt-3 border-t border-seafoam/20">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Service or fee</p>
+                                    <InlineServiceSearch
+                                      placeholder="Injection fee, IV set-up, nursing charge…"
+                                      onAdd={async (svc, categoryName) => {
+                                        try {
+                                          await visitsAPI.addTask(Number(h.billing!.appointmentId), {
+                                            name: svc.name, category: categoryName,
+                                            price: Number(svc.defaultPrice ?? 0), status: 'PENDING', serviceId: svc.id,
+                                          } as any);
+                                          toast.success(`${svc.name} added to the stay`);
+                                          await load();
+                                          onChanged?.();
+                                        } catch (e: any) { toast.error(e?.message || 'Could not add the service'); }
+                                      }}
+                                    />
                                   </div>
                                 )}
 
