@@ -84,8 +84,17 @@ const WhatsappEnquiriesView: React.FC<{ onOpenClient?: (clientId: string) => voi
     } catch { /* handled */ } finally { setBusy(null); }
   };
 
+  /**
+   * Full width, like every sibling page.
+   *
+   * `max-w-5xl mx-auto` capped this one at 1024px and centred it INSIDE the
+   * shared `p-4 md:p-6 w-full` wrapper, so on a desktop the content floated in
+   * the middle with a wide empty gutter either side, while Broadcasts, Staff
+   * and HR beside it ran edge to edge (user, 2026-09-03: "padding"). The
+   * wrapper already supplies the padding; the cap only removed width.
+   */
   return (
-    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4 max-w-5xl mx-auto pb-20">
+    <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-4 pb-20">
       <header className="flex items-center justify-between gap-3 pb-3 border-b border-seafoam/15 dark:border-zinc-800">
         <div className="min-w-0">
           <h1 className="text-lg sm:text-xl font-black text-pine dark:text-zinc-100 tracking-tight flex items-center gap-2">
