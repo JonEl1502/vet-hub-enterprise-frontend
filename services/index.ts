@@ -113,6 +113,11 @@ export { clinicTransfersAPI } from './modules/clinicTransfer.api';
 export type { ClinicTransfer } from './modules/clinicTransfer.api';
 export type { Broadcast, BroadcastAudience, BroadcastAudienceType, SegmentFilter, SegmentBreakdown, SegmentSendResult, BroadcastChannel } from './modules/broadcasts.api';
 export { clientPortalAPI } from './modules/clientPortal.api';
+export { siteConnectAPI } from './modules/siteConnect.api';
+export type {
+  SiteConnection, SiteDelivery, SiteRequest, SiteRequestDetail, SiteRequestStatus,
+  SitePortalStatus, ClientStatus as SiteClientStatus, MatchCandidate, AcceptPayload,
+} from './modules/siteConnect.api';
 export { digestAPI } from './modules/digest.api';
 export type { DigestSettings, DigestData, DigestRow, DigestPerson } from './modules/digest.api';
 export { whatsappAPI } from './modules/whatsapp.api';

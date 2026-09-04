@@ -12,6 +12,7 @@ import LinkPickerModal, { LinkItem } from '../shared/LinkPickerModal';
 import RescheduleModal from '../shared/RescheduleModal';
 import RecordDetailModal from '../shared/RecordDetailModal';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
+import SiteRequestsInbox from './SiteRequestsInbox';
 
 interface Props {
   // Jump to a Visit once an appointment is started/converted.
@@ -31,6 +32,12 @@ const STATUS_TABS: { value: string; label: string }[] = [
   { value: 'CONFIRMED', label: 'Confirmed' },
   { value: 'CONVERTED', label: 'Started' },
   { value: 'CANCELLED', label: 'Cancelled' },
+  /**
+   * Site Connect (269). Not a status like the others — selecting it swaps the
+   * whole list for the website request inbox, because a website request is NOT
+   * a booking yet and must not be mixed in with rows that are.
+   */
+  { value: 'website', label: 'Website' },
 ];
 
 const STATUS_TONE: Record<AppointmentStatus, string> = {
@@ -210,6 +217,7 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
 
       <div className="flex flex-wrap items-center gap-2">
         <div className="flex flex-wrap bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800">{STATUS_TABS.map(t => <button key={t.value} onClick={() => setStatus(t.value)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${status === t.value ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>{t.label}</button>)}</div>
+        {status !== 'website' && <>
         <button
           onClick={() => {
             const start = new Date(); start.setHours(0, 0, 0, 0);
@@ -228,9 +236,13 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
         </button>
         <DateRangePicker value={dateRange} onChange={setDateRange} />
         <div className="relative flex-1 min-w-[180px]"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search patient, client, note" className="w-full pl-9 pr-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" /></div>
+        </>}
       </div>
 
-      {loading ? <div className="flex items-center justify-center py-16"><LoadingSpinner size="md" /></div>
+      {/* Site Connect (269): the website inbox replaces the list wholesale.
+          A request is not a booking, so it never appears as a card among them. */}
+      {status === 'website' ? <SiteRequestsInbox />
+      : loading ? <div className="flex items-center justify-center py-16"><LoadingSpinner size="md" /></div>
       : filtered.length === 0 ? <div className="flex flex-col items-center justify-center text-center py-16"><CalendarClock size={28} className="text-slate-300 dark:text-zinc-700 mb-3" /><p className="text-sm font-bold text-slate-400">No appointments</p><p className="text-[11px] text-slate-400">Bookings made from reminders, front desk, or your website appear here.</p></div>
       : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">

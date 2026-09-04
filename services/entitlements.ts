@@ -352,6 +352,11 @@ export const FEATURE_COPY: Record<string, { label: string; plan: string; blurb?:
     plan: 'Pro',
     blurb: 'Create and customise visit workflows. Without it you can still use the workflows VetHubCore ships.',
   },
+  'capability:website-integration': {
+    label: 'Website integration',
+    plan: 'an add-on',
+    blurb: "Let the clinic's own website send appointment requests straight into VetHub Core, and sell your real stock from your catalogue.",
+  },
   'capability:vaccination-certificates': {
     label: 'Vaccination certificates',
     plan: 'Pro',
