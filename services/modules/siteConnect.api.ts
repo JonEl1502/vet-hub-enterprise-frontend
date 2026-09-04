@@ -138,7 +138,50 @@ export interface PublishedProduct {
   availability: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
 }
 
+export type SiteOrderStatus = 'PENDING' | 'CONFIRMED' | 'REJECTED' | 'FULFILLED' | 'CANCELLED';
+
+export interface SiteOrderLine {
+  id: string; productId: string | null; name: string; sku: string | null;
+  quantity: number; unitPriceQuoted: number; unitPriceConfirmed: number | null; lineTotal: number;
+}
+
+export interface SiteOrder {
+  id: string;
+  reference: string;
+  status: SiteOrderStatus;
+  connectionName: string | null;
+  customer: { name: string; phone: string; phoneE164: string | null; email: string | null };
+  fulfilment: { method: string; address: string | null; notes: string | null };
+  currency: string;
+  quotedTotal: number;
+  subtotal: number;
+  total: number;
+  /** True when the clinic's price moved after the customer was quoted. */
+  priceChanged: boolean;
+  items: SiteOrderLine[];
+  matchedClientId: string | null;
+  receiptNumber: string | null;
+  rejectionReason: string | null;
+  clinicNote: string | null;
+  handledAt: string | null;
+  createdAt: string;
+}
+
+/** What confirming would do. Returned by the detail read and by ?preview=1. */
+export interface OrderStockCheck {
+  ok: boolean;
+  lines: Array<{
+    name: string; want: number; have: number; enough: boolean; gone: boolean;
+    quotedPrice: number; currentPrice: number; priceChanged: boolean;
+  }>;
+  quotedTotal?: number;
+  totalNow?: number;
+  priceChanged?: boolean;
+  reason?: string;
+}
+
 const CONN = '/site-connections';
+const ORDERS = '/site-orders';
 const CATALOG = '/site-catalog';
 const REQ = '/site-requests';
 
@@ -193,6 +236,30 @@ export const siteConnectAPI = {
     options?: RequestOptions,
   ): Promise<ApiResponse<{ item: PublishedProduct }>> =>
     patch(`${CATALOG}/${itemId}`, data, { showError: true, ...options }),
+
+  // ── the order queue ──────────────────────────────────────────────────────
+  listOrders: (params: { status?: string } = {}, options?: RequestOptions):
+    Promise<ApiResponse<{ orders: SiteOrder[]; counts: Record<string, number> }>> => {
+    const q = new URLSearchParams();
+    if (params.status) q.set('status', params.status);
+    const qs = q.toString();
+    return get(`${ORDERS}${qs ? `?${qs}` : ''}`, { cache: false, ...options });
+  },
+
+  getOrder: (id: string, options?: RequestOptions): Promise<ApiResponse<{ order: SiteOrder; stock: OrderStockCheck }>> =>
+    get(`${ORDERS}/${id}`, { cache: false, ...options }),
+
+  /** ⚠️ `preview: true` changes nothing — it says what confirming would do. */
+  confirmOrder: (id: string, data: { paymentMethod?: string; note?: string; preview?: boolean }, options?: RequestOptions):
+    Promise<ApiResponse<{ order: SiteOrder; stock?: OrderStockCheck; preview?: boolean; receiptNumber?: string | null }>> =>
+    post(`${ORDERS}/${id}/confirm${data.preview ? '?preview=1' : ''}`, data, { showError: true, ...options }),
+
+  rejectOrder: (id: string, data: { reason?: string }, options?: RequestOptions):
+    Promise<ApiResponse<{ order: SiteOrder }>> =>
+    post(`${ORDERS}/${id}/reject`, data, { showError: true, ...options }),
+
+  fulfilOrder: (id: string, options?: RequestOptions): Promise<ApiResponse<{ order: SiteOrder }>> =>
+    post(`${ORDERS}/${id}/fulfil`, {}, { showError: true, ...options }),
 
   // ── the request inbox ────────────────────────────────────────────────────
   listRequests: (params: { status?: string; limit?: number } = {}, options?: RequestOptions):

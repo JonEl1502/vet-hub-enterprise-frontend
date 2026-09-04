@@ -1,11 +1,12 @@
 import React from 'react';
 import {
   Globe, Loader2, Copy, Check, Plus, KeyRound, Send, Trash2, RefreshCw,
-  AlertTriangle, ShieldAlert, ExternalLink, Radio, RotateCw, ShoppingBag,
+  AlertTriangle, ShieldAlert, ExternalLink, Radio, RotateCw, ShoppingBag, ShoppingCart,
 } from 'lucide-react';
 import { siteConnectAPI, type SiteConnection, type SiteDelivery } from '../../../services/modules/siteConnect.api';
 import { toast, dialog } from '../../../services';
 import WebsiteCatalogPanel from './WebsiteCatalogPanel';
+import WebsiteOrdersPanel from './WebsiteOrdersPanel';
 
 /**
  * WEBSITE — Site Connect (269). A clinic's own public website sends appointment
@@ -376,14 +377,14 @@ const WebsiteTab: React.FC = () => {
                 // Phase 3 — shown, disabled, and labelled, never hidden.
                 ['appointmentsEnabled', 'Appointment requests', true],
                 ['catalogEnabled', 'Product catalogue', true],
-                ['ordersEnabled', 'Online orders', false],
+                ['ordersEnabled', 'Online orders', true],
               ] as const).map(([key, label, ready]) => (
                 <button
                   key={key}
                   type="button"
                   disabled={busy || !!c.revokedAt || !ready}
                   onClick={() => toggleSurface(c, key)}
-                  title={ready ? undefined : 'Coming soon — online orders are still being built'}
+                  title={undefined}
                   className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all disabled:cursor-not-allowed ${
                     c[key]
                       ? 'bg-pine text-white border-pine'
@@ -447,6 +448,23 @@ const WebsiteTab: React.FC = () => {
             </div>
           </div>
           <WebsiteCatalogPanel enabled={connections.some((c) => c.catalogEnabled && !c.revokedAt)} />
+        </div>
+      )}
+
+      {/* ── what customers have ordered ─────────────────────────────────────── */}
+      {connections.length > 0 && (
+        <div className={`${CARD} space-y-3`}>
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-seafoam/10 text-seafoam shrink-0"><ShoppingCart size={16} /></div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-black text-pine dark:text-zinc-100">Orders from your website</h3>
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed max-w-2xl">
+                Your website never takes money and never moves your stock. An order waits here until
+                you ring it up, which sells it exactly as if you had done it at the counter.
+              </p>
+            </div>
+          </div>
+          <WebsiteOrdersPanel enabled={connections.some((c) => c.ordersEnabled && !c.revokedAt)} />
         </div>
       )}
 
