@@ -73,6 +73,14 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
   }, [focusId, records]);
 
   const load = useCallback(async () => {
+    /**
+     * ⚠️ 'website' is a VIEW, not an AppointmentStatus. Sending it as one made
+     * the bookings endpoint answer "Invalid value for field 'status'" and threw
+     * a red toast over the inbox every time the tab was opened — the inbox
+     * itself was fine, the list behind it was asking for a status that does not
+     * exist. The inbox fetches its own rows; there is nothing to load here.
+     */
+    if (status === 'website') { setLoading(false); return; }
     setLoading(true);
     try { const res = await appointmentsAPI.list(status === 'all' ? {} : { status }); if (res.success && res.data) setRecords(res.data.appointments); }
     catch (e) { console.error(e); } finally { setLoading(false); }
@@ -209,7 +217,9 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
           <div className="w-11 h-11 rounded-2xl bg-indigo-100 dark:bg-indigo-900/20 flex items-center justify-center"><CalendarClock size={22} className="text-indigo-600 dark:text-indigo-400" /></div>
           <div>
             <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight uppercase">Appointments</h1>
-            <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">{filtered.length} booking{filtered.length === 1 ? '' : 's'} · start a visit when the client arrives</p>
+            <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-medium">{status === 'website'
+              ? 'Requests sent from your website — accept one to put it on the schedule'
+              : `${filtered.length} booking${filtered.length === 1 ? '' : 's'} · start a visit when the client arrives`}</p>
           </div>
         </div>
         <button onClick={() => setCreating(true)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New appointment</button>
