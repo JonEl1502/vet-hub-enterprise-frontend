@@ -372,8 +372,10 @@ const WebsiteTab: React.FC = () => {
             <p className={LABEL}>What this website may do</p>
             <div className="flex flex-wrap gap-2 mt-1.5">
               {([
+                // The third value is whether the surface is BUILT. Orders are
+                // Phase 3 — shown, disabled, and labelled, never hidden.
                 ['appointmentsEnabled', 'Appointment requests', true],
-                ['catalogEnabled', 'Product catalogue', false],
+                ['catalogEnabled', 'Product catalogue', true],
                 ['ordersEnabled', 'Online orders', false],
               ] as const).map(([key, label, ready]) => (
                 <button
@@ -381,7 +383,7 @@ const WebsiteTab: React.FC = () => {
                   type="button"
                   disabled={busy || !!c.revokedAt || !ready}
                   onClick={() => toggleSurface(c, key)}
-                  title={ready ? undefined : 'Coming soon — the catalogue and orders are being built'}
+                  title={ready ? undefined : 'Coming soon — online orders are still being built'}
                   className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all disabled:cursor-not-allowed ${
                     c[key]
                       ? 'bg-pine text-white border-pine'
