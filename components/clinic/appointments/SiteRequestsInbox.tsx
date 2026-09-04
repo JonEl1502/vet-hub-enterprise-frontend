@@ -9,6 +9,7 @@ import {
   type SiteRequest, type SiteRequestDetail, type SiteRequestStatus, type ClientStatus,
 } from '../../../services/modules/siteConnect.api';
 import { toast, dialog } from '../../../services';
+import { useData } from '../../../contexts/DataContext';
 
 /**
  * WEBSITE REQUESTS (269) — appointment requests submitted on the clinic's own
@@ -97,7 +98,20 @@ const ageLabel = (months: number | null) => {
   return [y ? `${y}y` : null, m ? `${m}m` : null].filter(Boolean).join(' ') || '0m';
 };
 
-const SiteRequestsInbox: React.FC = () => {
+interface Props {
+  /** Reload the bookings list behind this tab once a request becomes one. */
+  onAccepted?: () => void;
+}
+
+const SiteRequestsInbox: React.FC<Props> = ({ onAccepted }) => {
+  /**
+   * ⚠️ Accepting can CREATE a client and a patient, and the booking cards
+   * behind this tab resolve their names out of DataContext's cached lists. A
+   * row created a second ago is not in them, so without these refreshes the new
+   * booking renders as a nameless "Patient ·" until a full page reload — which
+   * is exactly how it looked the first time this was opened on staging.
+   */
+  const { refreshClients, refreshPets } = useData() as any;
   const [tab, setTab] = React.useState('NEW');
   const [rows, setRows] = React.useState<SiteRequest[]>([]);
   const [counts, setCounts] = React.useState<Record<string, number>>({});
@@ -216,6 +230,9 @@ const SiteRequestsInbox: React.FC = () => {
       }
       setOpenId(null); setDetail(null);
       load();
+      // Order does not matter, but all three must happen: the inbox, the cached
+      // people the cards name, and the bookings list itself.
+      Promise.allSettled([refreshClients?.(), refreshPets?.()]).then(() => onAccepted?.());
     } finally {
       setBusy(false);
     }

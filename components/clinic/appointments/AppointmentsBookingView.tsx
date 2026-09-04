@@ -251,7 +251,7 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
 
       {/* Site Connect (269): the website inbox replaces the list wholesale.
           A request is not a booking, so it never appears as a card among them. */}
-      {status === 'website' ? <SiteRequestsInbox />
+      {status === 'website' ? <SiteRequestsInbox onAccepted={load} />
       : loading ? <div className="flex items-center justify-center py-16"><LoadingSpinner size="md" /></div>
       : filtered.length === 0 ? <div className="flex flex-col items-center justify-center text-center py-16"><CalendarClock size={28} className="text-slate-300 dark:text-zinc-700 mb-3" /><p className="text-sm font-bold text-slate-400">No appointments</p><p className="text-[11px] text-slate-400">Bookings made from reminders, front desk, or your website appear here.</p></div>
       : (
