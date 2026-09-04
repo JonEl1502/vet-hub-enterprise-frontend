@@ -1,10 +1,11 @@
 import React from 'react';
 import {
   Globe, Loader2, Copy, Check, Plus, KeyRound, Send, Trash2, RefreshCw,
-  AlertTriangle, ShieldAlert, ExternalLink, Radio, RotateCw,
+  AlertTriangle, ShieldAlert, ExternalLink, Radio, RotateCw, ShoppingBag,
 } from 'lucide-react';
 import { siteConnectAPI, type SiteConnection, type SiteDelivery } from '../../../services/modules/siteConnect.api';
 import { toast, dialog } from '../../../services';
+import WebsiteCatalogPanel from './WebsiteCatalogPanel';
 
 /**
  * WEBSITE — Site Connect (269). A clinic's own public website sends appointment
@@ -429,6 +430,23 @@ const WebsiteTab: React.FC = () => {
           </div>
         </div>
       ))}
+
+      {/* ── what of the shop is on the website ──────────────────────────────── */}
+      {connections.length > 0 && (
+        <div className={`${CARD} space-y-3`}>
+          <div className="flex items-start gap-3">
+            <div className="p-2 rounded-lg bg-seafoam/10 text-seafoam shrink-0"><ShoppingBag size={16} /></div>
+            <div className="min-w-0">
+              <h3 className="text-sm font-black text-pine dark:text-zinc-100">Products on your website</h3>
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed max-w-2xl">
+                Your stock, managed here as always — pick which of it your website shows. Prices and
+                availability follow whatever you do in Inventory, so there is nothing to keep in step.
+              </p>
+            </div>
+          </div>
+          <WebsiteCatalogPanel enabled={connections.some((c) => c.catalogEnabled && !c.revokedAt)} />
+        </div>
+      )}
 
       {/* ── the one thing an owner must not misread ─────────────────────────── */}
       <div className="flex items-start gap-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/60 p-3">

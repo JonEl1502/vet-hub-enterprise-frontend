@@ -117,6 +117,7 @@ export { siteConnectAPI } from './modules/siteConnect.api';
 export type {
   SiteConnection, SiteDelivery, SiteRequest, SiteRequestDetail, SiteRequestStatus,
   SitePortalStatus, ClientStatus as SiteClientStatus, MatchCandidate, AcceptPayload,
+  PublishedProduct,
 } from './modules/siteConnect.api';
 export { digestAPI } from './modules/digest.api';
 export type { DigestSettings, DigestData, DigestRow, DigestPerson } from './modules/digest.api';

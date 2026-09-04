@@ -124,7 +124,22 @@ export interface AcceptPayload {
   sendPortalInvite?: boolean;
 }
 
+export interface PublishedProduct {
+  id: string;
+  name: string;
+  websiteVisible: boolean;
+  websitePrice: number | null;
+  websiteDescription: string | null;
+  websiteCategory: string | null;
+  websiteHighlights: string[];
+  prescriptionOnly: boolean;
+  price: number;
+  category: string;
+  availability: 'IN_STOCK' | 'LOW_STOCK' | 'OUT_OF_STOCK';
+}
+
 const CONN = '/site-connections';
+const CATALOG = '/site-catalog';
 const REQ = '/site-requests';
 
 export const siteConnectAPI = {
@@ -167,6 +182,17 @@ export const siteConnectAPI = {
 
   resendDelivery: (id: string, deliveryId: string, options?: RequestOptions): Promise<ApiResponse<{ queued: boolean }>> =>
     post(`${CONN}/${id}/deliveries/${deliveryId}/resend`, {}, { showError: true, ...options }),
+
+  // ── the published catalogue ──────────────────────────────────────────────
+  listPublished: (options?: RequestOptions): Promise<ApiResponse<{ items: PublishedProduct[] }>> =>
+    get(CATALOG, { cache: false, ...options }),
+
+  setWebsiteFields: (
+    itemId: string,
+    data: Partial<Pick<PublishedProduct, 'websiteVisible' | 'websitePrice' | 'websiteDescription' | 'websiteCategory' | 'websiteHighlights'>>,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ item: PublishedProduct }>> =>
+    patch(`${CATALOG}/${itemId}`, data, { showError: true, ...options }),
 
   // ── the request inbox ────────────────────────────────────────────────────
   listRequests: (params: { status?: string; limit?: number } = {}, options?: RequestOptions):
