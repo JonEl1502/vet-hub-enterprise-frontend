@@ -1151,9 +1151,17 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                   * The shared picker the visit wizard uses, so procedure
                                   * recipes come with it. Bills to the stay's visit.
                                   */}
+                                {/* ⚠️ AMBER, not the picker's green. The two searches sat
+                                    one above the other in the same colour and read as one
+                                    control, so it was not obvious which one charged a fee
+                                    and which one took stock off the shelf.
+                                    Green = something leaves the store; amber = a charge. */}
                                 {h.billing?.appointmentId && (
-                                  <div className="mt-3 pt-3 border-t border-seafoam/20">
-                                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Service or fee</p>
+                                  <div className="mt-3 pt-3 border-t border-amber-200/60 dark:border-amber-900/40">
+                                    <p className="text-[9px] font-black uppercase tracking-widest text-amber-600/80 dark:text-amber-500/80 mb-1.5">
+                                      Service or fee <span className="text-slate-400 normal-case tracking-normal font-bold">· charge only, no stock moves</span>
+                                    </p>
+                                    <div className="rounded-lg border border-dashed border-amber-300/70 dark:border-amber-800/60 bg-amber-50/40 dark:bg-amber-950/10 p-2">
                                     <InlineServiceSearch
                                       placeholder="Injection fee, IV set-up, nursing charge…"
                                       onAdd={async (svc, categoryName) => {
@@ -1168,6 +1176,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                         } catch (e: any) { toast.error(e?.message || 'Could not add the service'); }
                                       }}
                                     />
+                                    </div>
                                   </div>
                                 )}
 
@@ -1310,18 +1319,39 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                         <p className="px-3 pb-2 pl-[34px] text-[10px] text-slate-400 italic">Nothing recorded on this entry.</p>
                                       ))}
 
+                                      {/* ⚠️ An entry with no reading says so.
+                                          Silence read as "nothing to report";
+                                          on a chart it has to read as "no TPR
+                                          was taken at this time". */}
+                                      {l && g.vitals.length === 0 && (
+                                        <div className="flex items-center gap-2 px-3 py-1.5 border-t border-slate-100 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/40">
+                                          <Thermometer size={11} className="text-slate-300 dark:text-zinc-600 shrink-0" />
+                                          <span className="text-[10px] text-slate-400 italic">No TPR recorded in this entry.</span>
+                                        </div>
+                                      )}
+
                                       {/* Vitals taken with it — inside the card, not
-                                          a separate strip pointing at a table. */}
+                                          a separate strip pointing at a table.
+                                          ⚠️ EVERY column shows, blanks included.
+                                          Filtering to what was filled made a
+                                          reading of temperature-only look like a
+                                          full TPR, and there was no way to tell
+                                          "pulse was normal and not written down"
+                                          from "pulse was never taken". A dash is
+                                          the record saying nothing was entered. */}
                                       {g.vitals.map(v => (
                                         <div key={`v-${v.id}`} className="flex items-center gap-2 px-3 py-1.5 border-t border-slate-100 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/40">
                                           <Thermometer size={11} className="text-seafoam shrink-0" />
                                           <span className="min-w-0 flex-1 flex flex-wrap gap-x-2.5 gap-y-0.5">
-                                            {VITAL_COLS.filter(([, key]) => v[key] != null && String(v[key]).trim() !== '').map(([label, key]) => (
-                                              <span key={key} className="text-[10px] text-pine dark:text-zinc-200">
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{label} </span>
-                                                <strong>{String(v[key])}</strong>
-                                              </span>
-                                            ))}
+                                            {VITAL_COLS.map(([label, key]) => {
+                                              const has = v[key] != null && String(v[key]).trim() !== '';
+                                              return (
+                                                <span key={key} className={`text-[10px] ${has ? 'text-pine dark:text-zinc-200' : 'text-slate-300 dark:text-zinc-600'}`}>
+                                                  <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">{label} </span>
+                                                  {has ? <strong>{String(v[key])}</strong> : <span title="Not recorded in this entry">—</span>}
+                                                </span>
+                                              );
+                                            })}
                                           </span>
                                           <span className="text-[9px] text-slate-400 shrink-0">{formatTime(v.recordedAt)}</span>
                                           {active && (
