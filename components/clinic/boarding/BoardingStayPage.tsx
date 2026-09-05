@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { dialog } from '../../../services/utils/dialog';
-import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2, Receipt, ChevronDown, RotateCcw, CalendarClock } from 'lucide-react';
+import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2, Receipt, RotateCcw, CalendarClock } from 'lucide-react';
 import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
 import type { BoardingBackdate } from '../../../services/modules/boarding.api';
 import { sellUnitOf } from '../shared/QtyUnitControl';
@@ -59,41 +59,41 @@ const ChipPick: React.FC<{ label: string; options: string[]; value?: string; onC
 );
 
 /**
- * Collapsed-by-default disclosure, matching the "More filters" pattern the
- * clients list uses (user, 2026-08-20: "make this info in a collapsible like
- * extra filters for clients that comes from below").
+ * A titled section of the stay page. ALWAYS OPEN — there is nothing to toggle.
  *
- * On mobile the stay page is a long scroll — a week of care log with the facts
- * grid above it and the actions card below — and both of those are things you
- * consult occasionally rather than read every time.
+ * ⚠️ This WAS a collapsed-by-default disclosure (user, 2026-08-20: "make this
+ * info in a collapsible like extra filters for clients that comes from
+ * below"), and that is now reversed (user, 2026-09-05: *"in boarding dont have
+ * any collapsible"*). Both panels it wraps — Stay details and Actions &
+ * charges — held things you check on arriving at the page, so shipping them
+ * shut meant two clicks before the page said anything: the screenshot showed
+ * an empty "Stay details" bar and "ACTIONS & CHARGES KES 9,458" as a closed
+ * header with the whole rail below it blank.
+ *
+ * Kept as a component rather than inlined at both call sites: the header/summary
+ * layout is the thing worth sharing, and `summary` still earns its place — it
+ * is the headline number (day count, accruing total) and reads as the section's
+ * value in the heading row.
+ *
+ * `defaultOpen` is accepted and ignored so no call site had to change; there is
+ * no closed state left for it to mean anything about.
  */
 const Disclosure: React.FC<{
   title: string;
   summary?: React.ReactNode;
   defaultOpen?: boolean;
   children: React.ReactNode;
-}> = ({ title, summary, defaultOpen = false, children }) => {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen(o => !o)}
-        aria-expanded={open}
-        className="w-full flex items-center justify-between gap-3 px-4 sm:px-5 py-3 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors"
-      >
-        <span className="min-w-0 flex items-center gap-2">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">{title}</span>
-          {/* Keep the headline fact readable while collapsed, so closing it
-              never hides the number you opened the page for. */}
-          {!open && summary}
-        </span>
-        <ChevronDown size={14} className={`shrink-0 text-slate-400 transition-transform ${open ? 'rotate-180' : ''}`} />
-      </button>
-      {open && <div className="px-4 sm:px-5 pb-4 sm:pb-5">{children}</div>}
+}> = ({ title, summary, children }) => (
+  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+    <div className="w-full flex items-center justify-between gap-3 px-4 sm:px-5 pt-3 pb-2 text-left">
+      <span className="min-w-0 flex items-center gap-2">
+        <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">{title}</span>
+        {summary}
+      </span>
     </div>
-  );
-};
+    <div className="px-4 sm:px-5 pb-4 sm:pb-5">{children}</div>
+  </div>
+);
 
 
 /**
@@ -1027,12 +1027,13 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
           {/* As a TAB it is a full-width panel, so the sticky rail — which
               exists to keep it beside a long sheet — is dropped. */}
           <div className={pane ? (pane === 'plan' ? 'space-y-4' : 'hidden') : `space-y-4 ${STICKY_RAIL}`}>
-            {/* Collapsed by default (user, 2026-08-20: "this section to go to
-                bottom collapsible"). On mobile the rail stacks under a week of
-                care log, and every one of these — open visit, grooming, pricing,
-                the vaccine gate, the accrual — is consulted occasionally rather
-                than read on every visit to the page. The accruing total stays
-                on the closed header so collapsing never hides the number. */}
+            {/* Open, always (user, 2026-09-05: "in boarding dont have any
+                collapsible") — this was collapsed by default from 2026-08-20
+                ("this section to go to bottom collapsible"). It carries the
+                open visit, grooming, pricing, the vaccine gate and the accruing
+                charge; behind a shut header the whole rail read as empty. The
+                accruing total stays in the heading row as the section's
+                headline number. */}
             <Disclosure
               title="Actions & charges"
               summary={(() => {
