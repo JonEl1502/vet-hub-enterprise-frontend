@@ -1,7 +1,8 @@
 import React from 'react';
-import { Search, Package, Loader2 } from 'lucide-react';
+import { Search, Package, Loader2, Globe } from 'lucide-react';
 import { consumablesAPI, toast } from '../../../services';
 import { useData } from '../../../contexts/DataContext';
+import GlobalCatalogPicker from '../shared/GlobalCatalogPicker';
 
 /**
  * Inline consumable adder for the running-bill rail — the third arm of the
@@ -22,6 +23,8 @@ const InlineConsumableSearch: React.FC<Props> = ({ visitId, currency = 'KES', on
   const { inventory, ensureInventory } = useData() as any;
   const [q, setQ] = React.useState('');
   const [busyId, setBusyId] = React.useState<string | null>(null);
+  /** The catalog fallback (287) — what "no match" offers instead of a full stop. */
+  const [catalogFor, setCatalogFor] = React.useState<string | null>(null);
   React.useEffect(() => { ensureInventory?.(); }, [ensureInventory]);
 
   /**
@@ -93,8 +96,26 @@ const InlineConsumableSearch: React.FC<Props> = ({ visitId, currency = 'KES', on
           ))}
         </div>
       )}
+      {/* NOT a dead end any more (287). "No inventory match" used to be the
+          whole answer, and the only way on was to leave the visit and create the
+          product by hand — so in practice the item went unbilled. */}
       {q.trim().length >= 2 && matches.length === 0 && (
-        <p className="mt-1 text-[10px] font-bold text-slate-400">No inventory match for “{q.trim()}”.</p>
+        <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
+          <p className="text-[10px] font-bold text-slate-400">Not on your shelf.</p>
+          <button type="button" onMouseDown={() => setCatalogFor(q.trim())}
+            className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam hover:text-pine transition-colors">
+            <Globe size={11} /> Search the catalog
+          </button>
+        </div>
+      )}
+      {catalogFor && (
+        <GlobalCatalogPicker
+          initialQuery={catalogFor}
+          visitId={visitId}
+          currency={currency}
+          onAdded={() => { setQ(''); onAdded?.(); }}
+          onClose={() => setCatalogFor(null)}
+        />
       )}
     </div>
   );

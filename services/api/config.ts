@@ -378,6 +378,8 @@ export const ENDPOINTS = {
     REPORTS: '/inventory/reports',
     EXPIRY: '/inventory/expiry',
     ANALYTICS: (id: string | number) => `/inventory/${id}/analytics`,
+    /** Stock a product straight off the global VetHubCore catalog (287). */
+    FROM_CATALOG: '/inventory/from-catalog',
   },
 
   // Referrals

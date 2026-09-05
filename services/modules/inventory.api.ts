@@ -268,6 +268,36 @@ export const inventoryAPI = {
   },
 
   /**
+   * Stock a product straight off the global VetHubCore catalog (287).
+   *
+   * Everything DESCRIBING the product — name, unit, pack size, species, the
+   * whole metadata structure including per-item fees — is inherited server-side
+   * from the catalog row. Send only the numbers that belong to this clinic:
+   * what it cost and what it sells for.
+   *
+   * `reused: true` in the response means the clinic already stocked it and the
+   * existing product came back instead of a duplicate being created. Say so
+   * rather than reporting a create that did not happen.
+   */
+  stockFromCatalog: async (
+    data: {
+      drugId: number | string;
+      quantity: number;
+      costPrice?: number;
+      price?: number;
+      unit?: string;
+      packSize?: number | null;
+      minThreshold?: number;
+      expiryDate?: string;
+      batchNumber?: string;
+      supplierId?: number | string;
+    },
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ item: InventoryItem; reused: boolean }>> => {
+    return post(ENDPOINTS.INVENTORY.FROM_CATALOG, data, { showError: true, ...options });
+  },
+
+  /**
    * Update inventory item
    */
   update: async (

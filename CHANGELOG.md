@@ -59,6 +59,43 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### clinic: the global catalog is the way out of an empty medicine search  —  2026-09-05
+- **What changed:** new `components/clinic/shared/GlobalCatalogPicker.tsx`, wired into all
+  three medicine searches — `wizard/steps/TreatmentStep` (the drug/item box),
+  `InlineConsumableSearch` (the running-bill rail) and `shared/ConsumablePicker`
+  (inpatient / boarding / grooming). "Not on your shelf" now offers the VetHubCore catalog
+  instead of ending the sentence.
+- **Record impact: 🟢 None.**
+- **Data dependency:** backend `POST /inventory/from-catalog` and the widened `GET /drugs`
+  serializer (`packSize`, `metadata`, `suggestedSellPrice`) — same-day backend entry. The
+  picker degrades safely without them: the fields arrive `null` and only the prefill is
+  poorer, nothing breaks.
+- **Prefill is the point.** Unit, pack size, sell/cost units and per-item fees come off the
+  catalog row. Sell price tracks cost through a 1.3 markup **until someone types in the sell
+  box, and then stops for good** — a field that keeps overwriting what you typed is worse
+  than one that never helped, and this one is a price. Dispense defaults to 1 (the only safe
+  default for a drug); the shelf defaults to `packSize` — someone stocking mid-consult has a
+  box in their hand.
+- **⚠️ Two modes, not a lock.** With `view:inventory` the pick stocks and dispenses. Without
+  it there is no shelf, so it charges the bill line directly and shows the upgrade against
+  the stock count it genuinely cannot give — never a control that 403s.
+- **⚠️ `refreshInventory()` after stocking** so the new product appears in the ORDINARY
+  search next time; without it the same drug sends you back through the catalog forever.
+
+### boarding: the stay page has no collapsibles left  —  2026-09-05
+- **What changed:** `BoardingStayPage`'s `Disclosure` renders as a plain titled card —
+  always open, no chevron, no toggle. Both panels it wraps (Stay details, Actions & charges)
+  now show their content on arrival.
+- **Record impact: 🟢 None.** Presentation only.
+- **⚠️ This reverses 2026-08-20** ("make this info in a collapsible…", "this section to go to
+  bottom collapsible"), on the user's instruction 2026-09-05: *"in boarding dont have any
+  collapsible"*. Shipped shut, the page said nothing until you clicked twice — the rail
+  carrying the open visit, grooming, pricing, the vaccine gate and the accruing charge read
+  as empty. `summary` is kept and now renders beside the title, so the headline number (day
+  count, accruing total) still leads.
+- `defaultOpen` is accepted and ignored so no call site had to change.
+
+
 ### staff profile: restyled, and five settings tabs hidden  —  no migration
 **1. Staff profile.** Reworked to the reference layout (user, 2026-09-03: *"just looks meh
 n difficult to use"*).

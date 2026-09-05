@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Package, Search, Plus, Loader2, Trash2, Tag, TagsIcon, AlertCircle, Pencil } from 'lucide-react';
+import { Package, Search, Plus, Loader2, Trash2, Tag, TagsIcon, AlertCircle, Pencil, Globe } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { dialog } from '../../../services/utils/dialog';
 import { useData } from '../../../contexts/DataContext';
 import { consumablesAPI, AppointmentConsumable, vaccinePackagesAPI, VaccinePackage, billsAPI } from '../../../services';
 import { sellUnitOf, stockPerSellUnit, isSplitUnit } from './QtyUnitControl';
+import GlobalCatalogPicker from './GlobalCatalogPicker';
 
 interface Props {
   appointmentId: string | number;
@@ -99,6 +100,8 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
   const [qty, setQty] = useState<number>(1);
   const [billable, setBillable] = useState(true);
   const [unitPrice, setUnitPrice] = useState<number>(0);
+  /** Catalog fallback (287) — the way on when the shelf has nothing. */
+  const [catalogFor, setCatalogFor] = useState<string | null>(null);
 
   /**
    * Per-item service charges (`metadata.fees` — injection, administration,
@@ -333,6 +336,31 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
             </div>
           )}
         </div>
+
+        {/* Nothing on the shelf is not the end of the road any more (287): the
+            catalog stocks the product and logs it against this stay/chart in
+            one pass, instead of sending you to Inventory mid-round. */}
+        {!selected && search.trim().length >= 2 && matches.length === 0 && (
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-0.5">
+            <span className="text-[10px] font-bold text-slate-400">Not on your shelf.</span>
+            <button type="button" onClick={() => setCatalogFor(search.trim())}
+              className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-seafoam hover:text-pine transition-colors">
+              <Globe size={11} /> Search the catalog
+            </button>
+          </div>
+        )}
+
+        {catalogFor !== null && (
+          <GlobalCatalogPicker
+            initialQuery={catalogFor}
+            visitId={appointmentId}
+            serviceTaskId={serviceTaskId}
+            notes={serviceTag}
+            recordedAt={recordedAt}
+            onAdded={() => { reset(); load(); onChanged?.(); }}
+            onClose={() => setCatalogFor(null)}
+          />
+        )}
 
         {selected && (
           <div className="flex flex-wrap items-end gap-2 p-2.5 bg-slate-50 dark:bg-zinc-950/40 rounded-xl">

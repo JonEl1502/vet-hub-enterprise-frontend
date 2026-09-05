@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Pill, Scissors, ClipboardList, Package, Loader2, Plus, ExternalLink, Search, Syringe } from 'lucide-react';
+import { Pill, Scissors, ClipboardList, Package, Loader2, Plus, ExternalLink, Search, Syringe, Globe } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L, showsField } from '../fields';
 import AppliedProcedurePanel from '../../../shared/AppliedProcedurePanel';
@@ -7,6 +7,7 @@ import VaccinationPanel from '../../VaccinationPanel';
 import TreatmentPlanPanel from '../../../inpatient/TreatmentPlanPanel';
 import QtyUnitControl, { sellUnitOf, stockPerSellUnit, defaultSellQty } from '../../../shared/QtyUnitControl';
 import VisitFeeLines from '../../VisitFeeLines';
+import GlobalCatalogPicker from '../../../shared/GlobalCatalogPicker';
 import { billsAPI } from '../../../../../services';
 import { useData } from '../../../../../contexts/DataContext';
 import { consumablesAPI, toast, procedureTemplatesAPI, ProcedureTemplate, vaccinationsAPI, vaccinePackagesAPI, VaccinePackage } from '../../../../../services';
@@ -92,6 +93,14 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
       .filter((it: any) => `${it.name} ${it.category ?? ''} ${it.sku ?? ''}`.toLowerCase().includes(q))
       .slice(0, 6);
   }, [inventory, draft.drug]);
+
+  /**
+   * The catalog fallback (287). `drugMatches` is inventory-only, so a drug the
+   * clinic has never stocked produced an empty dropdown and nothing else —
+   * Add stayed disabled ("Pick a product from inventory") with no way to get a
+   * product to pick without abandoning the visit.
+   */
+  const [catalogFor, setCatalogFor] = useState<string | null>(null);
 
   const pickItem = (it: any) => setDraft(prev => ({
     ...prev, drug: it.name, itemId: String(it.id), unit: it.unit,
@@ -570,7 +579,7 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
                 onChange={e => setDraft({ ...draft, drug: e.target.value, itemId: undefined, unit: undefined, price: undefined, stock: undefined })}
                 onFocus={() => setDrugFocus(true)}
                 onBlur={() => setTimeout(() => setDrugFocus(false), 150)} />
-              {drugFocus && drugMatches.length > 0 && (
+              {drugFocus && (drugMatches.length > 0 || draft.drug.trim().length >= 2) && (
                 <div className="absolute z-20 mt-1 w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg overflow-hidden">
                   {drugMatches.map((it: any) => (
                     <button key={it.id} type="button"
@@ -581,6 +590,17 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
                       <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">{it.quantity} {it.unit} in stock</span>
                     </button>
                   ))}
+                  {/* THE WAY OUT (287). Offered whenever there is a query — not
+                      only on an empty shelf: searching "amoxil" can match one
+                      old 250mg pack while the drug you actually want to stock
+                      is a click away in the catalog. */}
+                  <button type="button" onMouseDown={() => setCatalogFor(draft.drug.trim())}
+                    className={`w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-seafoam/5 transition-all ${drugMatches.length ? 'border-t border-slate-100 dark:border-zinc-800' : ''}`}>
+                    <Globe size={11} className="text-seafoam shrink-0" />
+                    <span className="flex-1 text-[11px] font-bold text-seafoam truncate">
+                      {drugMatches.length ? 'Not what you meant? Search the catalog' : `Not on your shelf — search the catalog`}
+                    </span>
+                  </button>
                 </div>
               )}
               {/* What it costs and what it leaves behind (user, 2026-08-02):
@@ -693,8 +713,33 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
         )}
 
         <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">
-          Adding dispenses from inventory: stock deducts and the charge lands on this visit's bill. Dose/route/frequency/duration are saved as the prescription note. Non-drug items (gloves, syringes…) go through the same search.
+          Adding dispenses from inventory: stock deducts and the charge lands on this visit's bill. Dose/route/frequency/duration are saved as the prescription note. Non-drug items (gloves, syringes…) go through the same search. Nothing on the shelf? The catalog stocks it for you without leaving the visit.
         </p>
+
+        {/* Catalog fallback (287). The dose/route/frequency already typed ride
+            along as the prescription note — they describe the drug, not the
+            product row, so losing them because the pick came from the catalog
+            rather than the shelf would be gratuitous. */}
+        {catalogFor !== null && (
+          <GlobalCatalogPicker
+            initialQuery={catalogFor}
+            visitId={visit.id}
+            currency={currency}
+            notes={rxNote(draft) ? `Rx: ${rxNote(draft)}` : undefined}
+            onAdded={info => {
+              setData({ medications: [...meds, {
+                drug: info.name, dose: draft.dose, route: draft.route,
+                frequency: draft.frequency, duration: draft.duration,
+                qty: info.quantity, unit: info.unit, lineTotal: info.lineTotal,
+              }] });
+              emit(`Medication dispensed — ${info.name} ×${info.quantity} (from catalog)`, 'billing', true);
+              setDraft({ drug: '', dose: '', route: 'PO', frequency: '', duration: '', qty: 1 });
+              setFeeRefresh(n => n + 1);
+              refreshVisit?.();
+            }}
+            onClose={() => setCatalogFor(null)}
+          />
+        )}
       </Section>
       )}
 

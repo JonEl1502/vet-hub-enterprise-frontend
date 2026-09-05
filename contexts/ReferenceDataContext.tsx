@@ -40,13 +40,32 @@ interface Service {
   isGlobal?: boolean;
 }
 
-interface Drug {
+export interface Drug {
   id: number;
   name: string;
   genericName?: string;
   category: string;
   species: string[];
   unit: string;
+  /**
+   * ── The prefill fields (287) ──
+   *
+   * All three have been on the catalog since 155 (the shared product structure
+   * that flows reference catalog → supplier listing → clinic inventory) and
+   * none of them used to survive the trip: the API's serializer dropped them
+   * and this mapper never asked for them. So the only consumer that could
+   * prefill from the catalog — the inventory Add-product form — could copy
+   * across a name and a unit, and a vet retyped the pack size, the fees and the
+   * price that the catalog already knew.
+   */
+  /** The pack the `unit` describes — "1 box of 100 tablets". */
+  packSize?: number | null;
+  /** Same contract as `InventoryItem.metadata`: mainCategory, subcategories,
+   *  fees, injectionUnitMl, sellUnit, costUnit. */
+  metadata?: any;
+  /** Advisory only, never a price of record — a figure to inherit on first
+   *  stocking. `null` when the catalog has no opinion. */
+  suggestedSellPrice?: number | null;
 }
 
 interface PaymentMethod {
@@ -250,6 +269,9 @@ export const ReferenceDataProvider: React.FC<ReferenceDataProviderProps> = ({ ch
           category: drug.category,
           species: drug.species || [],
           unit: drug.unit,
+          packSize: drug.packSize ?? null,
+          metadata: drug.metadata ?? null,
+          suggestedSellPrice: drug.suggestedSellPrice ?? null,
         }));
       }
     } catch {
