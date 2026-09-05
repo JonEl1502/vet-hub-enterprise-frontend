@@ -693,6 +693,19 @@ const VisitDetailInner: React.FC<Props> = ({
     return () => { alive = false; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [appointment.id, appointment.tasks.length, workflowTab]);
+  /**
+   * Picking a gate tab focuses the wizard on that gate's step.
+   *
+   * ⚠️ Runs on the TAB, not on mount: the reader asked for the gate, so land
+   * them on it rather than wherever the wizard was left. It deliberately does
+   * not run for 'clinical', which should resume where the user was.
+   */
+  useEffect(() => {
+    if (workflowTab === 'admission') wiz.goTo('admission');
+    else if (workflowTab === 'boardingGate') wiz.goTo('boardingAssessment');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workflowTab]);
+
   // Journey navigation: clicking an event jumps to where it happened.
   //
   // The server now tags every derived event with an `anchor` ('tab:billing',
@@ -4963,7 +4976,20 @@ const VisitDetailInner: React.FC<Props> = ({
       {/* Tab 0 — Dynamic clinical wizard (entry-point-driven). On an active
           emergency the wizard stays locked behind an overlay until triage
           stabilizes the patient. */}
-      {workflowTab === 'clinical' && (
+      {/**
+        * ⚠️ The gate tabs render THIS panel too.
+        *
+        * 'admission' and 'boardingGate' were added to the tab bar (2026-08-22)
+        * so the gate — the first thing that happens to an in-patient or a
+        * boarder — would stop being buried as step 1 inside Clinical Workflow.
+        * The labels shipped; the render block never did, so both tabs opened a
+        * completely blank page. Reported on a live boarding visit.
+        *
+        * They are the same workflow focused on a different step, so they share
+        * the panel rather than duplicating it; the effect above moves the
+        * wizard to the right step when one is picked.
+        */}
+      {(workflowTab === 'clinical' || workflowTab === 'admission' || workflowTab === 'boardingGate') && (
       /* Clinical tabs stay VISIBLE and go read-only for anyone without
          `clinical:edit` (user, 2026-08-04) — the front desk answers questions
          about the record all day, they just may not write it. The same grant is
