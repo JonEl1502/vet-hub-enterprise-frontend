@@ -13,6 +13,7 @@ import { toast } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
 import { UserRole } from '../../../types';
 import StatusToggle from '../common/StatusToggle';
+import { SEARCH_MIN_CHARS } from '../../../constants/search';
 
 interface Props {
   onViewSupplier: (supplierId: number) => void;
@@ -208,7 +209,7 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
   // Filter suppliers
   const filteredSuppliers = useMemo(() => {
     // Only apply search filter if query has 3 or more characters
-    const effectiveSearch = searchQuery.length >= 3 ? searchQuery.toLowerCase() : '';
+    const effectiveSearch = searchQuery.length >= SEARCH_MIN_CHARS ? searchQuery.toLowerCase() : '';
 
     return suppliers
       .filter(s => categoryFilter === 'ALL' || s.category === categoryFilter)

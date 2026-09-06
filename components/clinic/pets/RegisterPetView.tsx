@@ -11,6 +11,7 @@ import { useData } from '../../../contexts/DataContext';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { useTour } from '../../../contexts/TourContext';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import { SEARCH_MIN_CHARS } from '../../../constants/search';
 
 // While the "Register a patient" tour runs, nobody actually picks a real owner,
 // so the patient-details form (gated on a selected client) never mounts and the
@@ -126,13 +127,13 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
   const [isSearchingApi, setIsSearchingApi] = useState(false);
 
   const localFilteredClients = useMemo(() => {
-    if (searchQuery.length < 3) return [];
+    if (searchQuery.length < SEARCH_MIN_CHARS) return [];
     return clients.filter(c => c.name.toLowerCase().includes(searchQuery.toLowerCase()) || c.phone.includes(searchQuery));
   }, [clients, searchQuery]);
 
   // API fallback when local search returns nothing
   useEffect(() => {
-    if (searchQuery.length < 3 || localFilteredClients.length > 0) {
+    if (searchQuery.length < SEARCH_MIN_CHARS || localFilteredClients.length > 0) {
       setApiClientResults([]);
       setIsSearchingApi(false);
       return;
@@ -381,7 +382,7 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
                         <ArrowRight size={12} className="text-slate-200 group-hover:text-seafoam shrink-0" />
                       </button>
                     ))
-                  ) : searchQuery.length >= 3 ? (
+                  ) : searchQuery.length >= SEARCH_MIN_CHARS ? (
                     <p className="text-center text-[9px] font-black text-slate-400 uppercase tracking-widest py-6">No clients found</p>
                   ) : null}
                 </div>

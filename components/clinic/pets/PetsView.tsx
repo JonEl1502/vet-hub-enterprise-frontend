@@ -19,6 +19,7 @@ import Pagination from '../../shared/common/Pagination';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
 import ScopeClinicBadge from '../../shared/common/ScopeClinicBadge';
 import PetAvatar from '../shared/PetAvatar';
+import { SEARCH_MIN_CHARS } from '../../../constants/search';
 
 interface Props {
   clinics: Clinic[];
@@ -148,7 +149,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   const [isSearchingApi, setIsSearchingApi] = useState(false);
 
   const localFiltered = useMemo(() => {
-    if (searchQuery.length < 3) return pets;
+    if (searchQuery.length < SEARCH_MIN_CHARS) return pets;
     const q = searchQuery.toLowerCase();
     return pets.filter(p => {
       // The OWNER counts as a match too (user, 2026-08-24). Staff often know the
@@ -169,7 +170,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
 
   // API fallback when local search returns nothing
   useEffect(() => {
-    if (searchQuery.length < 3 || localFiltered.length > 0) {
+    if (searchQuery.length < SEARCH_MIN_CHARS || localFiltered.length > 0) {
       setApiPetResults([]);
       setIsSearchingApi(false);
       return;
@@ -289,7 +290,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   const [remotePage, setRemotePage] = useState<{ page: number; rows: Pet[] } | null>(null);
   const [loadingRemotePage, setLoadingRemotePage] = useState(false);
   const sliceStart = (currentPage - 1) * itemsPerPage;
-  const isUnfilteredForPaging = searchQuery.length < 3 && !dateRange && petFilter === 'all' && !letterFilter;
+  const isUnfilteredForPaging = searchQuery.length < SEARCH_MIN_CHARS && !dateRange && petFilter === 'all' && !letterFilter;
   const beyondCache = isUnfilteredForPaging && sliceStart >= filtered.length && filtered.length > 0;
 
   useEffect(() => {
@@ -327,7 +328,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   // pagination footer shows e.g. "1-100/200" honestly) AND let totalPages
   // reflect that total so page 2 is reachable. With local filters active,
   // pagination tracks the filtered subset since the server total is irrelevant.
-  const isUnfiltered = searchQuery.length < 3 && !dateRange;
+  const isUnfiltered = searchQuery.length < SEARCH_MIN_CHARS && !dateRange;
   const dbTotal = isUnfiltered && typeof totals.pets === 'number' ? totals.pets : filtered.length;
   const effectiveTotal = Math.max(filtered.length, dbTotal);
   const totalPages = Math.max(1, Math.ceil(effectiveTotal / itemsPerPage));

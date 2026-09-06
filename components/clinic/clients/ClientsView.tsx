@@ -22,6 +22,7 @@ import { PaginationMeta } from '../../../services/types/pagination';
 import Pagination from '../../shared/common/Pagination';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
 import ScopeClinicBadge from '../../shared/common/ScopeClinicBadge';
+import { SEARCH_MIN_CHARS } from '../../../constants/search';
 
 interface ClientsViewProps {
   transactions: Transaction[];
@@ -169,7 +170,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const advActive = advOutstanding || advMinSpent > 0 || !!advClientType || !!letterFilter || !!dateRange;
 
   const localFiltered = useMemo(() => {
-    if (searchQuery.length < 3) return clients;
+    if (searchQuery.length < SEARCH_MIN_CHARS) return clients;
     const q = searchQuery.toLowerCase();
     return clients.filter(c =>
       c.name.toLowerCase().includes(q) ||
@@ -180,7 +181,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
 
   // API fallback when local search returns nothing
   useEffect(() => {
-    if (searchQuery.length < 3 || localFiltered.length > 0) {
+    if (searchQuery.length < SEARCH_MIN_CHARS || localFiltered.length > 0) {
       setApiClientResults([]);
       setIsSearchingApi(false);
       return;
@@ -306,7 +307,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   // Declared here, not below with the pagination maths — the fetches above need
   // it, and a const used before its declaration is a runtime TDZ crash that
   // tsc does not catch in this position.
-  const isUnfiltered = searchQuery.length < 3 && !dateRange && clientFilter === 'all' && !letterFilter;
+  const isUnfiltered = searchQuery.length < SEARCH_MIN_CHARS && !dateRange && clientFilter === 'all' && !letterFilter;
 
   /**
    * The A–Z filter runs on the SERVER when it is the only filter (user,
@@ -317,7 +318,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
    * With another filter also active it stays local, because those filters run
    * over cached rows and the server cannot reproduce them.
    */
-  const letterOnly = !!letterFilter && searchQuery.length < 3 && !dateRange
+  const letterOnly = !!letterFilter && searchQuery.length < SEARCH_MIN_CHARS && !dateRange
     && clientFilter === 'all' && !advOutstanding && advMinSpent <= 0 && !advClientType;
 
   const sliceStart = (currentPage - 1) * itemsPerPage;

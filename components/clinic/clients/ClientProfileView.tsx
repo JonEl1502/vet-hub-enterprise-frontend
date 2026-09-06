@@ -366,6 +366,25 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
 
   // Filter transactions from local data (props)
   const clientTransactions = transactions.filter(tx => tx.fromId === client.id || tx.toId === client.id);
+  /**
+   * Spend so far this calendar year.
+   *
+   * The patient profile has shown this for a while; the client profile only
+   * ever showed the lifetime figure, so the owner's card and their pet's card
+   * answered different questions (user, 2026-09-06: "client doesnt even have
+   * YTD, do we?"). We do — it is the same settled transactions already on this
+   * page, filtered by date.
+   *
+   * ⚠️ Counts SETTLED money only, to match `client.totalSpent`. Including a
+   * pending charge would make the year read higher than the lifetime it sits
+   * inside, which is the kind of arithmetic that destroys trust in a figure.
+   */
+  const clientSpendYtd = React.useMemo(() => {
+    const yearStart = new Date(new Date().getFullYear(), 0, 1).getTime();
+    return clientTransactions
+      .filter(tx => String(tx.status) === 'SETTLED' && new Date((tx as any).settledAt ?? tx.createdAt).getTime() >= yearStart)
+      .reduce((sum, tx) => sum + Number(tx.amount || 0), 0);
+  }, [clientTransactions]);
 
   // Calculate statistics - use COMPLETED appointments for accurate metrics
   const totalAppointments = appointments.length;
@@ -1207,9 +1226,15 @@ const renderOverview = () => (
               {canSeeMoney ? (
                 <>
                   <div className={`grid grid-cols-2 ${legacyBalance > 0 ? 'sm:grid-cols-5' : 'sm:grid-cols-4'} rounded-xl border border-slate-100 dark:border-zinc-800 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-zinc-800 overflow-hidden`}>
+                    {/* One spend cell — lifetime as the headline, this year
+                        under it. Matches the patient profile, which used to
+                        show the pair as two separate cards. */}
                     <div className="px-4 py-3 text-center">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Spend (Lifetime)</p>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Total Spend</p>
                       <p className="text-sm font-black font-mono text-pine dark:text-zinc-100 whitespace-nowrap">{money2(client.totalSpent || 0)}</p>
+                      <p className="text-[8px] font-bold text-slate-400 whitespace-nowrap mt-0.5">
+                        <span className="font-black uppercase tracking-widest">YTD</span> {money2(clientSpendYtd)}
+                      </p>
                     </div>
                     {/* The number you owe is the number you click (user,
                         2026-08-04) — straight to the invoices you can settle. */}

@@ -1550,14 +1550,21 @@ const PetProfileView: React.FC<Props> = ({
             <div className="shrink-0 w-full xl:w-auto flex flex-col justify-between gap-3">
               {hasFullAccess ? (
                 <>
-                  <div className="grid grid-cols-2 sm:grid-cols-5 rounded-xl border border-slate-100 dark:border-zinc-800 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-zinc-800 overflow-hidden">
+                  {/**
+                    * ⚠️ ONE spend cell, not two. Lifetime and year-to-date are
+                    * the same measure over two windows, and giving each its own
+                    * card made them read as unrelated figures — and on a new
+                    * patient, as two identical zeros side by side. Lifetime is
+                    * the headline because that is what the client profile
+                    * leads with; the year sits under it as context.
+                    */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 rounded-xl border border-slate-100 dark:border-zinc-800 divide-y sm:divide-y-0 sm:divide-x divide-slate-100 dark:divide-zinc-800 overflow-hidden">
                     <div className="px-4 py-3 text-center">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Spend (YTD)</p>
-                      <p className="text-sm font-black font-mono text-pine dark:text-zinc-100 whitespace-nowrap">{money2(petSpendYtd)}</p>
-                    </div>
-                    <div className="px-4 py-3 text-center">
-                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Spend (Lifetime)</p>
+                      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Spend</p>
                       <p className="text-sm font-black font-mono text-pine dark:text-zinc-100 whitespace-nowrap">{money2(petSpend)}</p>
+                      <p className="text-[8px] font-bold text-slate-400 whitespace-nowrap mt-0.5">
+                        <span className="font-black uppercase tracking-widest">YTD</span> {money2(petSpendYtd)}
+                      </p>
                     </div>
                     <button
                       type="button"

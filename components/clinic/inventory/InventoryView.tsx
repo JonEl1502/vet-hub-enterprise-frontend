@@ -18,6 +18,7 @@ import { useData } from '../../../contexts/DataContext';
 import { defaultItemFees } from '../shared/serviceCharges';
 import { modulePerms } from '../../../constants/modulePermissions';
 import { useAuth } from '../../../contexts/AuthContext';
+import { SEARCH_MIN_CHARS } from '../../../constants/search';
 
 
 interface InventoryViewProps {
@@ -636,7 +637,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
 
   const filteredInventory = useMemo(() => {
     // Only apply search filter if query has 3 or more characters
-    const effectiveSearch = searchQuery.length >= 3 ? searchQuery.toLowerCase() : '';
+    const effectiveSearch = searchQuery.length >= SEARCH_MIN_CHARS ? searchQuery.toLowerCase() : '';
 
     return inventory
       .filter(item => item.clinicId === clinic.id)
