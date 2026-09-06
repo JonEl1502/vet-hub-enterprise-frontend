@@ -95,7 +95,7 @@ const SubPackagesAdminPage: React.FC = () => {
     const inAudience = packages.filter((p) => {
       // 113: supplier plans are ordinary audiences=['SUPPLIER'] rows — the
       // tab is a plain filter now, like every other audience.
-      if (isSupplier) return (p.audiences || []).includes('SUPPLIER' as any) && Number(p.tier) !== 0 && !p.isAddon;
+      if (isSupplier) return (p.audiences || []).includes('SUPPLIER' as any) && !p.isAddon && (Number(p.tier) !== 0 || !!p.shell);
       // An ADD-ON is tier 0: it layers over any plan rather than sitting at a
       // position in the ladder, which is exactly why it does not belong in the
       // Clinic Plans list next to Manager / Pro / Enterprise.
@@ -113,8 +113,16 @@ const SubPackagesAdminPage: React.FC = () => {
       // it. A free base plan is the one shape that is legitimately tier 0
       // without being an add-on.
       const isFreeBaseRung = Number(p.tier) === 0 && !p.isAddon && Number(p.price) === 0;
-      if (audience === 'addon') return !isFreeBaseRung && (Number(p.tier) === 0 || !!p.isAddon);
-      if (!isFreeBaseRung && (Number(p.tier) === 0 || p.isAddon)) return false;
+      /**
+       * 286 — tier 0 is now a BAND, not just the add-on marker. Practitioner,
+       * Boarding, Grooming and Counter are real tier-0 BASE plans, priced, and
+       * they are told apart by carrying a `shell`. Without this they'd be filed
+       * under Add-ons — visible, but in the wrong list and described wrongly.
+       */
+      const isBandPlan = Number(p.tier) === 0 && !p.isAddon && !!p.shell;
+      const isTier0Base = isFreeBaseRung || isBandPlan;
+      if (audience === 'addon') return !isTier0Base && (Number(p.tier) === 0 || !!p.isAddon);
+      if (!isTier0Base && (Number(p.tier) === 0 || p.isAddon)) return false;
       const tags = (p.audiences && p.audiences.length > 0) ? p.audiences : (['CLINIC'] as PackageAudience[]);
       return tags.includes(audienceTag);
     });
@@ -204,6 +212,7 @@ const SubPackagesAdminPage: React.FC = () => {
       maxDevices: selected.maxDevices ?? 0,
       isAddon: selected.isAddon ?? false,
       isTrial: selected.isTrial ?? false,
+      shell: selected.shell ?? null,
       trialDays: selected.trialDays ?? 0,
       storageGb: selected.storageGb,
       price: selected.price,
@@ -811,6 +820,27 @@ const SubPackagesAdminPage: React.FC = () => {
                         </p>
                       </Field>
                     )}
+                    {/* 286 — a tier-0 band plan sets the org's SHELL when bought:
+                        same records, different app. Blank leaves it alone, which
+                        is what every ladder plan does. */}
+                    <Field label="Sets app shell on purchase">
+                      <select
+                        value={(selected.shell ?? '') as string}
+                        onChange={e => updateSelectedField('shell', (e.target.value || null) as any)}
+                        className={inputCls}
+                      >
+                        <option value="">Leave unchanged</option>
+                        <option value="CLINIC">Clinic</option>
+                        <option value="FARM">Farm (farm-first nav)</option>
+                        <option value="BOARDING">Boarding / grooming</option>
+                        <option value="COUNTER">Counter / agrovet</option>
+                      </select>
+                      {selected.shell && (
+                        <p className="mt-1 text-[10px] text-slate-400">
+                          Buying this moves the account onto the {String(selected.shell).toLowerCase()} navigation.
+                        </p>
+                      )}
+                    </Field>
                     <Field label="Active">
                       <select value={selected.isActive ? 'true' : 'false'} onChange={e => updateSelectedField('isActive', e.target.value === 'true')} className={inputCls}>
                         <option value="true">Active</option>

@@ -59,6 +59,20 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### admin: tier-0 band plans, and a shell selector on the plan editor  —  2026-09-06
+- **What changed:** migration 286 makes tier 0 a **band** (Practitioner / Boarding /
+  Grooming / Counter), so tier 0 no longer means "add-on". The plan editor's tab filter now
+  tells a band plan apart by its **`shell`** — without that they file under Add-ons, visible
+  but in the wrong list and described wrongly. Anything else tier-0 and not an add-on is
+  still the CLIENT free rung.
+- **New control: "Sets app shell on purchase"** — `Leave unchanged` (every ladder plan) or
+  Clinic / Farm / Boarding / Counter. Choosing one means buying the plan moves the account
+  onto that navigation, which is what makes Practitioner different from Basic beyond its
+  key list.
+- **Record impact:** 🟢 None — UI and types only.
+- **Data dependency:** backend migration **286** (`clinic_subscription_packages.shell`).
+- **Rollback:** revert the commit.
+
 ### admin: Grants & Bundles — a screen for entitlements outside any plan  —  2026-09-06
 - **What changed:** new page under **Billing & Plans → Grants & Bundles**
   (`grants-bundles`). Migrations 284 and 285 shipped API-only, which meant in practice only

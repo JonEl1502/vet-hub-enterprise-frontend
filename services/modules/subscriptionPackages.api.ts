@@ -39,6 +39,8 @@ export interface SubscriptionPackagePlan {
   isTrial?: boolean;
   /** 282 — trial length in days. 0 = the built-in default for that audience. */
   trialDays?: number;
+  /** 286 — the shell this plan puts its org into. null = leave it alone. */
+  shell?: 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER' | null;
   isActive: boolean;
   discountPercentage?: number;
   stripePriceId?: string | null;
@@ -93,6 +95,8 @@ export interface CreatePackagePayload {
   isTrial?: boolean;
   /** 282 — trial length in days. 0 = the built-in default for that audience. */
   trialDays?: number;
+  /** 286 — the shell this plan puts its org into. null = leave it alone. */
+  shell?: 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER' | null;
   isActive?: boolean;
   discountPercentage?: number;
   stripePriceId?: string | null;
