@@ -35,6 +35,10 @@ export interface SubscriptionPackagePlan {
   maxDevices?: number;
   /** Add-ons layer OVER a base plan instead of replacing it (AI Assist). */
   isAddon?: boolean;
+  /** 282 — this row DEFINES the free trial for its audiences. Never for sale. */
+  isTrial?: boolean;
+  /** 282 — trial length in days. 0 = the built-in default for that audience. */
+  trialDays?: number;
   isActive: boolean;
   discountPercentage?: number;
   stripePriceId?: string | null;
@@ -85,6 +89,10 @@ export interface CreatePackagePayload {
   maxFarms?: number;
   maxDevices?: number;
   isAddon?: boolean;
+  /** 282 — this row DEFINES the free trial for its audiences. Never for sale. */
+  isTrial?: boolean;
+  /** 282 — trial length in days. 0 = the built-in default for that audience. */
+  trialDays?: number;
   isActive?: boolean;
   discountPercentage?: number;
   stripePriceId?: string | null;

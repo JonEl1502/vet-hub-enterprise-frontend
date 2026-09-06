@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### admin: configure what the free trial includes, per persona  —  2026-09-06
+- **What changed:** the plan editor gains a **Free trial** control and a **Trial length in
+  days** field. Marking a package as the trial makes it define what new sign-ups on its
+  audiences get while trialling — instead of the old hardcoded "everything for 35 days".
+  Selecting it clears `isAddon`, because a trial is resolved, never bought.
+- **Per persona:** the trial is an ordinary package row, so its `audiences` do the work —
+  one trial for clinics, another for suppliers, another for farms, each with its own
+  feature grid. No new screen.
+- **Record impact:** 🟢 None — UI and types only.
+- **Data dependency:** backend migration **282** (`is_trial`, `trial_days`). Without it the
+  fields are ignored and trials keep granting everything.
+- ⚠️ **Watch out:** give the trial MORE than the entry plan but not everything — a trial
+  that includes the top tier leaves nothing to sell. Leaving trial days at 0 keeps the
+  built-in default (35 clinic / farm, 40 supplier).
+- **Rollback:** revert the commit.
+
 ### admin: the Region selector is gone from both package editors  —  2026-09-06
 - **What changed:** the `Region` type and every region control were removed from
   `SubPackagesAdminPage`, `SupplierPackagesAdminPage` and both package API modules.

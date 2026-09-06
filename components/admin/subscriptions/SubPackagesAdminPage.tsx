@@ -203,6 +203,8 @@ const SubPackagesAdminPage: React.FC = () => {
       maxFarms: selected.maxFarms ?? 0,
       maxDevices: selected.maxDevices ?? 0,
       isAddon: selected.isAddon ?? false,
+      isTrial: selected.isTrial ?? false,
+      trialDays: selected.trialDays ?? 0,
       storageGb: selected.storageGb,
       price: selected.price,
       currency: selected.currency,
@@ -769,6 +771,46 @@ const SubPackagesAdminPage: React.FC = () => {
                         </p>
                       )}
                     </Field>
+                    {/* 282 — the FREE TRIAL is a package like any other, so it is
+                        configured here rather than hardcoded. It is resolved, never
+                        sold: a trial row is hidden from every customer catalogue. */}
+                    <Field label="Free trial">
+                      <select
+                        value={selected.isTrial ? 'true' : 'false'}
+                        onChange={e => {
+                          const trial = e.target.value === 'true';
+                          updateSelectedField('isTrial', trial);
+                          // A trial cannot also be an add-on — it is resolved, not bought.
+                          if (trial) updateSelectedField('isAddon', false);
+                        }}
+                        className={inputCls}
+                      >
+                        <option value="false">Normal package</option>
+                        <option value="true">This is the free trial</option>
+                      </select>
+                      {selected.isTrial && (
+                        <p className="mt-1 text-[10px] text-slate-400">
+                          New sign-ups on the audiences below get THESE keys while trialling.
+                          One trial per audience. Give it more than the entry plan &mdash; but
+                          leave the top tier something to sell.
+                        </p>
+                      )}
+                    </Field>
+                    {selected.isTrial && (
+                      <Field label="Trial length in days (0 = default)">
+                        <input
+                          type="number"
+                          min={0}
+                          value={selected.trialDays ?? 0}
+                          onChange={e => updateSelectedField('trialDays', Number(e.target.value))}
+                          className={inputCls}
+                        />
+                        <p className="mt-1 text-[10px] text-slate-400">
+                          0 keeps the built-in default &mdash; 35 days for clinics and farms,
+                          40 for suppliers.
+                        </p>
+                      </Field>
+                    )}
                     <Field label="Active">
                       <select value={selected.isActive ? 'true' : 'false'} onChange={e => updateSelectedField('isActive', e.target.value === 'true')} className={inputCls}>
                         <option value="true">Active</option>
