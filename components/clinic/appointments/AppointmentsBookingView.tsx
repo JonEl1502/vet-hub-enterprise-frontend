@@ -226,7 +226,33 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800">{STATUS_TABS.map(t => <button key={t.value} onClick={() => setStatus(t.value)} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${status === t.value ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>{t.label}</button>)}</div>
+        {/**
+          * ⚠️ These are the page's primary control and were the smallest thing
+          * on it — 10px labels in a thin strip, with the selected one marked
+          * only by a slightly lighter grey. Now they are cards you can hit:
+          * bigger type, real padding, and the selected one LIFTS while the
+          * others sit flat, so which list you are looking at reads at a glance
+          * rather than by comparing two greys.
+          */}
+        <div className="flex flex-wrap gap-1.5 bg-slate-100 dark:bg-zinc-900 p-1.5 rounded-2xl border border-slate-200 dark:border-zinc-800">
+          {STATUS_TABS.map(t => {
+            const on = status === t.value;
+            return (
+              <button
+                key={t.value}
+                onClick={() => setStatus(t.value)}
+                aria-pressed={on}
+                className={`px-4 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-widest transition-all duration-150 ${
+                  on
+                    ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-md -translate-y-px ring-1 ring-black/5 dark:ring-white/10'
+                    : 'text-slate-400 hover:text-pine dark:hover:text-zinc-200 hover:bg-white/60 dark:hover:bg-zinc-800/50 active:translate-y-px'
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
         {status !== 'website' && <>
         <button
           onClick={() => {

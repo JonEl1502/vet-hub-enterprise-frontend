@@ -4,6 +4,7 @@ import { buildDocumentMessage } from '../shared/documentShare';
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { dialog } from '../../../services/utils/dialog';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import SearchableDropdown from '../../shared/common/SearchableDropdown';
 import { Pet, Visit, ApptStatus, Client, Clinic, Message, FULL_ACCESS_ROLES, UserRole } from '../../../types';
 import VaccinePassportModal from './VaccinePassportModal';
 import PetCertificateModal from './PetCertificates';
@@ -668,7 +669,34 @@ const PetProfileView: React.FC<Props> = ({
               <div key={v.label}>
                 <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest mb-0.5">{v.label}</p>
                 {isEditing && v.editable ? (
-                  v.type === 'select' ? (
+                  /**
+                   * ⚠️ Species and breed are SEARCHABLE, not a native select.
+                   * The breed list is several hundred long, and a native
+                   * dropdown renders the lot — it spilled off the top and
+                   * bottom of the screen, so finding "Rottweiler" meant
+                   * scrolling a list the height of the monitor. Registration
+                   * already used this control; the profile had never been
+                   * switched over. `allowCreate` matters here for the same
+                   * reason it does there: a cross nobody has named must still
+                   * be recordable.
+                   *
+                   * Sex stays a plain select — three options, and a search box
+                   * over three options is friction, not help.
+                   */
+                  v.type === 'select' && (v.options?.length ?? 0) > 12 ? (
+                    <SearchableDropdown
+                      label=""
+                      options={(v.options ?? []).filter(Boolean)}
+                      value={v.val || ''}
+                      allowCreate
+                      createLabel={v.label.toLowerCase()}
+                      onChange={(val) => {
+                        const update: Partial<typeof editedPet> = { [v.field]: val };
+                        if (v.field === 'species') update.breed = '';
+                        setEditedPet({ ...editedPet, ...update });
+                      }}
+                    />
+                  ) : v.type === 'select' ? (
                     <select
                       value={v.val || ''}
                       onChange={(e) => {
