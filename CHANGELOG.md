@@ -59,6 +59,28 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### entitlements: module names now come from the server  —  2026-09-06
+- **What changed:** module metadata — name, blurb, and the route each key gates — moved to
+  the backend `modules` table (migration 280). `services/modules/moduleCatalog.api.ts`
+  fetches `GET /modules`, and `hydrateModuleCatalog()` in `services/entitlements.ts`
+  overlays it onto `FEATURE_COPY`, `KEY_LABEL`, `VIEW_KEY` and `BASELINE_KEYS`.
+  - Fetched once per signed-in user from `PlanAccessProvider`, **admins included** —
+    platform staff bypass plan gating but still need module names to render the admin
+    plan editor, which is exactly where missing labels showed up as raw key suffixes.
+  - The hardcoded maps are **kept as the fallback floor**. A module the server knows wins;
+    a module only the maps know still works; an unreachable API changes nothing.
+  - ⚠️ It MUTATES the exported map objects rather than replacing them, because `App.tsx`
+    and `PlanFeaturesPanel.tsx` import them by reference — rebinding would leave those
+    consumers holding the old object.
+- **What this fixes:** 65 of the 91 keys had no `FEATURE_COPY` entry and fell through to a
+  derived title. Three — `view:community`, `community:participate`, `livestock:basic` —
+  are granted by nine prod packages and appear in no frontend catalog at all, so the admin
+  plan editor could not display or toggle them. All now carry real names.
+- **Record impact:** 🟢 None — reads only.
+- **Data dependency:** backend migration **280** must be live, and `GET /modules` served.
+  Without them the app silently keeps the old hardcoded behaviour.
+- **Rollback:** revert the commit; the maps are untouched and still complete.
+
 ### clinic: the global catalog is the way out of an empty medicine search  —  2026-09-05
 - **What changed:** new `components/clinic/shared/GlobalCatalogPicker.tsx`, wired into all
   three medicine searches — `wizard/steps/TreatmentStep` (the drug/item box),

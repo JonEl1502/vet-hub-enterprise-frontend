@@ -13,7 +13,8 @@ import { useClinic } from './ClinicContext';
 import { useSupplier } from './SupplierContext';
 import { clinicSubscriptionAPI } from '../services/modules/clinicSubscription.api';
 import { supplierSubscriptionAPI } from '../services/modules/supplierSubscription.api';
-import { allowsView, hasFeature, type PlanAccess } from '../services/entitlements';
+import { allowsView, hasFeature, hydrateModuleCatalog, type PlanAccess } from '../services/entitlements';
+import { moduleCatalogAPI } from '../services/modules/moduleCatalog.api';
 
 /** Roles that bypass plan gating entirely (platform staff). */
 const FULL_ACCESS_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT'];
@@ -59,6 +60,27 @@ export const PlanAccessProvider: React.FC<{ children: React.ReactNode }> = ({ ch
     const active = clinics.filter((c) => (c as any).isActive !== false);
     return String(active[0]?.id ?? selectedClinicIds[0] ?? '') || null;
   }, [clinics, selectedClinicIds]);
+
+  /**
+   * 280 — fill the entitlement label maps from the server's module catalog.
+   *
+   * Runs ONCE for every signed-in user, admins included: platform staff bypass
+   * plan gating but still need module names to render the admin plan editor,
+   * which is exactly where the missing `livestock:*` labels showed up as raw
+   * key suffixes. Failure is silent on purpose — the hardcoded maps in
+   * `entitlements.ts` remain the fallback floor.
+   */
+  useEffect(() => {
+    if (!user) return;
+    let alive = true;
+    moduleCatalogAPI.list()
+      .then((r) => {
+        if (!alive) return;
+        if (r.success && r.data?.modules) hydrateModuleCatalog(r.data.modules);
+      })
+      .catch(() => { /* keep the hardcoded maps */ });
+    return () => { alive = false; };
+  }, [user?.id]);
 
   useEffect(() => {
     if (isAdminRole) { setAccess(null); return; }

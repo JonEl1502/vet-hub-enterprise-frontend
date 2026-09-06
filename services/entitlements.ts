@@ -480,6 +480,56 @@ export function featureCopy(featureKey: string): { label: string; plan: string; 
 }
 
 /**
+ * Migration 280 — fill the maps above from the SERVER's module catalog.
+ *
+ * Every map in this file used to be the only place a module's name, blurb and
+ * gated route existed, which meant adding a module took an edit here plus a
+ * deploy, and the two repos drifted. Twice, visibly: the seven `livestock:*`
+ * keys never reached `FEATURE_COPY` and the admin plan editor listed them as
+ * the raw suffixes "farms" / "crops" / "produce"; and `view:community`,
+ * `community:participate` and `livestock:basic` are granted by nine prod
+ * packages while appearing in no catalog here at all.
+ *
+ * The maps are KEPT as the fallback floor. This overlays onto them, so:
+ *   - a module the server knows about wins, and needs no code here;
+ *   - a module only this file knows about still works;
+ *   - an unreachable API changes nothing at all.
+ *
+ * ⚠️ It mutates the exported objects rather than replacing them, because
+ * `VIEW_KEY` and `FEATURE_COPY` are imported by reference across the app
+ * (`App.tsx`, `PlanFeaturesPanel.tsx`). Rebinding them would leave those
+ * consumers holding the old object. Safe to call more than once.
+ */
+export function hydrateModuleCatalog(
+  modules: Array<{
+    key: string;
+    name: string;
+    blurb: string | null;
+    routes: string[];
+    isBaseline: boolean;
+  }>,
+): void {
+  if (!modules?.length) return;
+
+  for (const m of modules) {
+    // `plan` is the upsell phrase ("is on the Pro plan"). The server does not
+    // model it — which tier grants a key is a property of the PACKAGE, not the
+    // module — so keep whatever this file already said, and fall back to the
+    // same vague phrase `featureCopy` uses when it knows nothing.
+    const existing = FEATURE_COPY[m.key];
+    FEATURE_COPY[m.key] = {
+      label: m.name,
+      plan: existing?.plan ?? 'a higher',
+      ...(m.blurb ? { blurb: m.blurb } : existing?.blurb ? { blurb: existing.blurb } : {}),
+    };
+
+    if (!KEY_LABEL[m.key]) KEY_LABEL[m.key] = m.name;
+    for (const route of m.routes ?? []) VIEW_KEY[route] = m.key;
+    if (m.isBaseline) BASELINE_KEYS.add(m.key);
+  }
+}
+
+/**
  * Is this "trial" actually open-ended complimentary access?
  *
  * Three prod clinics carry `trial_ends_at = 2099-12-31` — a sentinel someone
