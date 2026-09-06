@@ -59,6 +59,30 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### admin: Grants & Bundles — a screen for entitlements outside any plan  —  2026-09-06
+- **What changed:** new page under **Billing & Plans → Grants & Bundles**
+  (`grants-bundles`). Migrations 284 and 285 shipped API-only, which meant in practice only
+  an engineer could issue a grant or author a rule. Two panels, because they are two
+  different jobs:
+  - **Grant to one account** — pick account type + id, look up what it already holds, then
+    issue one or more keys with a source, an optional day count and a **required reason**.
+    Live grants list with their reason and end date; expired/revoked ones collapse into a
+    disclosure, because a revoke is soft and the audit trail is the point. Revoke is one
+    click.
+  - **Bundle rules** — list, activate/deactivate, and author "when the account holds ALL of
+    X, grant Y" with an audience, a tier floor and a duration. **Run reconcile** applies
+    rules immediately instead of waiting for the hourly sweep — waiting an hour to learn
+    whether a rule works is a bad way to author one.
+- **Feature keys render through `featureCopy()`**, so the picker shows *Boarding* rather
+  than `view:boarding` — the module catalogue (280) paying off.
+- **The unconditional guard is mirrored client-side**: a rule with no condition and no tier
+  floor fires for every account in its audience, so the page asks for confirmation *before*
+  the request rather than surfacing a 400 the admin has to interpret.
+- **Record impact:** 🟢 None — UI only.
+- **Data dependency:** backend migrations **284** and **285**, and the
+  `/entitlement-grants` + `/bundle-rules` routes (SUPER_ADMIN / MERCHANT_ADMIN).
+- **Rollback:** revert the commit; both APIs stay usable directly.
+
 ### app: the sidebar picks its audience from `shell`, not a boolean  —  2026-09-06
 - **What changed:** `Clinic.shell` (`CLINIC | FARM | BOARDING | COUNTER`) is carried through
   the app and drives `audiencesForRole` / `defaultAudienceForRole` in place of

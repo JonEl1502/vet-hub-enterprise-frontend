@@ -114,6 +114,7 @@ import ClinicsManagementView from './components/admin/clinics/ClinicsManagementV
 import PurchaseOrdersView from './components/shared/marketplace/PurchaseOrdersView';
 import SubscriptionManagement from './components/clinic/billing/SubscriptionManagement';
 import SubPackagesAdminPage from './components/admin/subscriptions/SubPackagesAdminPage';
+import GrantsAndBundlesAdminPage from './components/admin/subscriptions/GrantsAndBundlesAdminPage';
 import SupplierPackagesAdminPage from './components/admin/subscriptions/SupplierPackagesAdminPage';
 import SubscriptionPaymentsAdminPage from './components/admin/subscriptions/SubscriptionPaymentsAdminPage';
 import SupportTicketsAdminPage from './components/admin/support/SupportTicketsAdminPage';
@@ -3257,6 +3258,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <InternalManualPage />;
       case 'sub-packages':
         return <SubPackagesAdminPage />;
+      case 'grants-bundles':
+        return <GrantsAndBundlesAdminPage />;
       case 'supplier-plans':
         return <SupplierPackagesAdminPage />;
       case 'sub-payments':

@@ -52,8 +52,7 @@ import {
   Pill,
   ArrowRightLeft,
   type LucideIcon,
-  MessageCircle,
-} from 'lucide-react';
+  MessageCircle, Gift } from 'lucide-react';
 
 export type AudienceId = 'admin' | 'clinic' | 'supplier' | 'freelancer' | 'livestock';
 
@@ -134,6 +133,8 @@ const ADMIN_ITEMS: MenuItem[] = [
     id: 'admin_billing_menu', label: 'Billing & Plans', icon: CreditCard,
     subItems: [
       { id: 'sub-packages',       label: 'Plans',                 icon: Layers },
+      // 284 + 285 — entitlements that did not come from a plan.
+      { id: 'grants-bundles',     label: 'Grants & Bundles',      icon: Gift },
       { id: 'sub-payments',       label: 'Subscription Payments', icon: CircleDollarSign },
       { id: 'payment-processing', label: 'Platform Billing',      icon: CreditCard },
     ],
