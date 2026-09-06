@@ -59,6 +59,25 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### app: the sidebar picks its audience from `shell`, not a boolean  —  2026-09-06
+- **What changed:** `Clinic.shell` (`CLINIC | FARM | BOARDING | COUNTER`) is carried through
+  the app and drives `audiencesForRole` / `defaultAudienceForRole` in place of
+  `org.isLivestock`. `menus.ts` gains `shellOf()`, and `Sidebar.tsx` passes the shell down.
+- **All FIVE mappers updated** — this is the field-by-field trap that migration 160's one
+  boolean already walked into: `types.ts` `Clinic`, `ClinicContext` interface,
+  `ClinicContext.transformApiClinic`, `AuthContext.extractAndCacheClinicData`, and
+  `clinics.api.ts` `Clinic`. Miss one and a farm org renders the clinical sidebar after a
+  refresh while the API returns the right value.
+- **Record impact:** 🟢 None — reads only.
+- **Data dependency:** backend migration **283**. **Every read falls back to
+  `isLivestock ? 'FARM' : 'CLINIC'`**, so a session cached before 283 — which has no `shell`
+  field at all — still lands on the right navigation. That fallback is load-bearing on the
+  `AuthContext` path specifically, which reads from `localStorage`.
+- ⚠️ **BOARDING and COUNTER resolve to the CLINIC nav for now, on purpose.** Their own
+  navigations are phase D, and routing them somewhere that does not exist would render an
+  empty sidebar. No org can hold either shell yet, so the branch is unreachable today.
+- **Rollback:** revert the commit; the boolean path is untouched underneath.
+
 ### admin: configure what the free trial includes, per persona  —  2026-09-06
 - **What changed:** the plan editor gains a **Free trial** control and a **Trial length in
   days** field. Marking a package as the trial makes it define what new sign-ups on its

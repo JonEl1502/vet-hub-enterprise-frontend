@@ -384,6 +384,23 @@ export const getAudience = (id: AudienceId): Audience =>
  */
 export interface OrgContext {
   isLivestock?: boolean;
+  /**
+   * 283 — the SHELL, which supersedes the boolean above:
+   * `CLINIC | FARM | BOARDING | COUNTER`.
+   *
+   * ⚠️ BOARDING and COUNTER deliberately resolve to the CLINIC nav for now.
+   * Their own navigations are phase D; routing them somewhere that does not
+   * exist yet would render an empty sidebar. No org can hold either shell until
+   * that phase adds their signup paths, so this is unreachable today — it is
+   * here so the mapping is stated rather than assumed.
+   */
+  shell?: 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER';
+}
+
+/** The org's shell, tolerating a payload cached before 283 (no shell field). */
+function shellOf(org?: OrgContext): 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER' {
+  if (org?.shell) return org.shell;
+  return org?.isLivestock ? 'FARM' : 'CLINIC';
 }
 
 /**
@@ -396,7 +413,7 @@ export interface OrgContext {
 export function audiencesForRole(role: string, org?: OrgContext): AudienceId[] {
   // A farm org has no clinical side at all — no patients, no consultations —
   // so it gets the livestock nav INSTEAD of the clinic one, not alongside it.
-  if (org?.isLivestock && !isPlatformRole(role)) return ['livestock'];
+  if (shellOf(org) === 'FARM' && !isPlatformRole(role)) return ['livestock'];
   switch (role) {
     case 'SUPER_ADMIN':    return ['admin', 'clinic', 'supplier', 'freelancer', 'livestock'];
     case 'MERCHANT_ADMIN': return ['admin', 'clinic', 'supplier', 'freelancer', 'livestock'];
@@ -420,7 +437,7 @@ function isPlatformRole(role: string): boolean {
  * livestock. `org` is optional — omitting it is the pre-160 behaviour.
  */
 export function defaultAudienceForRole(role: string, org?: OrgContext): AudienceId {
-  if (org?.isLivestock && !isPlatformRole(role)) return 'livestock';
+  if (shellOf(org) === 'FARM' && !isPlatformRole(role)) return 'livestock';
   switch (role) {
     case 'SUPER_ADMIN':    return 'admin';
     case 'MERCHANT_ADMIN': return 'admin';

@@ -45,6 +45,10 @@ export interface Clinic {
   prodTest?: boolean;
   /** FARM org (160) — drives the plan catalogue and the app audience. */
   isLivestock?: boolean;
+  /** 283 — the SHELL: which navigation, home screen and vocabulary this org
+   *  gets. `CLINIC | FARM | BOARDING | COUNTER`. Supersedes the isLivestock
+   *  boolean, which stays as a lockstep mirror of `shell === 'FARM'`. */
+  shell?: 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER';
   createdAt?: string;
   updatedAt?: string;
   // Sales-rep attribution (SUPER_ADMIN clinics list only).

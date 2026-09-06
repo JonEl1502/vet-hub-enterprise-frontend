@@ -200,6 +200,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // picks its whole audience from this flag, so a farm org would come
           // back from a refresh looking like a clinic.
           isLivestock: c.isLivestock ?? false,
+          // 283 — the shell, for the same reason and with the same trap. The
+          // fallback matters most HERE: this is the cached path, so a payload
+          // stored before 283 has no shell at all.
+          shell: c.shell ?? (c.isLivestock ? 'FARM' : 'CLINIC'),
         };
       });
 

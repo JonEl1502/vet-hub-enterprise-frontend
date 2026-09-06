@@ -81,7 +81,13 @@ const Sidebar: React.FC<SidebarProps> = ({
   // A farm business (migration 160) is the same org row as a clinic and signs in
   // with the same role, so the audience has to come from the ORG, not the role
   // alone — otherwise a farmer lands on the clinical nav.
-  const org = useMemo(() => ({ isLivestock: !!clinic?.isLivestock }), [clinic?.isLivestock]);
+  // 283 — pass the SHELL through, not just the boolean. `menus.ts` falls back to
+  // isLivestock when shell is absent, so a session cached before 283 still lands
+  // on the right navigation.
+  const org = useMemo(
+    () => ({ isLivestock: !!clinic?.isLivestock, shell: clinic?.shell }),
+    [clinic?.isLivestock, clinic?.shell],
+  );
   const allowed = useMemo(() => audiencesForRole(role, org), [role, org]);
 
   // Epic C: category-scoped staff only see their assigned module pages. Fetch the

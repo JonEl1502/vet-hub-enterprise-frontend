@@ -47,6 +47,10 @@ interface Clinic {
   prodTest?: boolean;
   /** FARM org (160) — drives the app audience. */
   isLivestock?: boolean;
+  /** 283 — the SHELL: which navigation, home screen and vocabulary this org
+   *  gets. `CLINIC | FARM | BOARDING | COUNTER`. Supersedes the isLivestock
+   *  boolean, which stays as a lockstep mirror of `shell === 'FARM'`. */
+  shell?: 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER';
   catalogScope?: 'ALL' | 'GENERAL' | 'CUSTOM';
   // Per-weekday opening hours { mon: {open,close,closed}, ... } — drives
   // auto after-hours detection at visit registration.
@@ -103,6 +107,10 @@ const transformApiClinic = (clinic: any): Clinic => ({
   // FARM org (160) — the sidebar picks its audience from this. Field-by-field
   // mapper: omit it and a farm org reads as a clinic no matter what the API says.
   isLivestock: clinic.isLivestock === true,
+  // 283 — same field-by-field trap as isLivestock above: omit it here and a
+  // farm org renders the clinical sidebar no matter what the API returned.
+  // Falls back to the mirror so a pre-283 cached payload still resolves.
+  shell: clinic.shell ?? (clinic.isLivestock === true ? 'FARM' : 'CLINIC'),
   catalogScope: clinic.catalogScope ?? 'ALL',
   workingHours: clinic.workingHours ?? null,
 });
