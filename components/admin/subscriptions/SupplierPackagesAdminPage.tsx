@@ -7,17 +7,14 @@ import {
   supplierSubscriptionPackagesAPI as api,
   type SupplierPackage,
   type CreateSupplierPackagePayload,
-  type Region,
 } from '../../../services/modules/supplierSubscriptionPackages.api';
 import { toast } from '../../../services/utils/toast';
 import AdminPageHeader from '../shared/AdminPageHeader';
 
-const REGIONS: Region[] = ['AFRICA', 'ASIA', 'LATAM', 'MIDDLE_EAST', 'EUROPE', 'OCEANIA', 'NORTH_AMERICA'];
 const CURRENCIES = ['USD', 'KES', 'EUR', 'GBP', 'NGN', 'ZAR', 'TZS', 'UGX', 'RWF', 'GHS', 'INR', 'AED'];
 
 type FormState = {
   name: string;
-  region: Region;
   currency: string;
   price: string;
   billingCycle: 'MONTHLY' | 'YEARLY';
@@ -30,7 +27,6 @@ type FormState = {
 
 const emptyForm = (): FormState => ({
   name: '',
-  region: 'NORTH_AMERICA',
   currency: 'USD',
   price: '',
   billingCycle: 'MONTHLY',
@@ -43,7 +39,6 @@ const emptyForm = (): FormState => ({
 
 const fromPackage = (p: SupplierPackage): FormState => ({
   name: p.name,
-  region: p.region,
   currency: p.currency,
   price: String(p.price ?? ''),
   billingCycle: p.billingCycle,
@@ -127,7 +122,6 @@ const SupplierPackagesAdminPage: React.FC<Props> = ({ embedded }) => {
 
     const payload: CreateSupplierPackagePayload = {
       name: form.name.trim(),
-      region: form.region,
       currency: form.currency,
       price,
       billingCycle: form.billingCycle,
@@ -253,7 +247,7 @@ const SupplierPackagesAdminPage: React.FC<Props> = ({ embedded }) => {
                       <h3 className="font-black text-pine dark:text-zinc-100 truncate">{p.name}</h3>
                       <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded">T{p.tier}</span>
                     </div>
-                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">{p.region.replace('_', ' ')} · {p.billingCycle.toLowerCase()}</p>
+                    <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">{p.currency} · {p.billingCycle.toLowerCase()}</p>
                   </div>
                   <span className={`shrink-0 text-[9px] font-black uppercase px-2 py-0.5 rounded-full ${p.isActive ? 'bg-emerald-500/10 text-emerald-500' : 'bg-slate-200 dark:bg-zinc-700 text-slate-500'}`}>
                     {p.isActive ? 'Live' : 'Hidden'}
@@ -357,12 +351,6 @@ const SupplierPackagesAdminPage: React.FC<Props> = ({ embedded }) => {
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1">
-                  <label className="field-label">Region</label>
-                  <select className="field-select" value={form.region} onChange={e => setForm(s => ({ ...s, region: e.target.value as Region }))}>
-                    {REGIONS.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
-                  </select>
-                </div>
                 <div className="space-y-1">
                   <label className="field-label">Max staff</label>
                   <input className="field-input" type="number" value={form.maxStaff} onChange={e => setForm(s => ({ ...s, maxStaff: e.target.value }))} />

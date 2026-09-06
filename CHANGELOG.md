@@ -59,6 +59,21 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### admin: the Region selector is gone from both package editors  —  2026-09-06
+- **What changed:** the `Region` type and every region control were removed from
+  `SubPackagesAdminPage`, `SupplierPackagesAdminPage` and both package API modules.
+  Creating a package no longer asks for a region, and the supplier plan card now shows the
+  **currency** where it used to show the region.
+- **Why:** region never did anything. The backend's region filter was commented out in
+  migration 008 and never re-enabled, so the selector made admins choose a value that
+  changed nothing — while the API still rejected a create without it. Backend migration
+  **281** drops the column.
+- **Record impact:** 🟢 None — UI and types only.
+- **Data dependency:** backend migration **281** must be live. Sending `region` to the new
+  backend is harmless (it is ignored), but reading `p.region` off a package would now be
+  `undefined` — hence the supplier card change.
+- **Rollback:** revert the commit; the backend ignores an extra `region` field either way.
+
 ### entitlements: module names now come from the server  —  2026-09-06
 - **What changed:** module metadata — name, blurb, and the route each key gates — moved to
   the backend `modules` table (migration 280). `services/modules/moduleCatalog.api.ts`

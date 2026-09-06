@@ -7,16 +7,17 @@
 import { get, post, put, del } from '../api/client';
 import { RequestOptions, ApiResponse } from '../api/types';
 
-export type Region =
-  | 'AFRICA' | 'ASIA' | 'LATAM' | 'MIDDLE_EAST'
-  | 'EUROPE' | 'OCEANIA' | 'NORTH_AMERICA';
+/**
+ * 281 — the `Region` type is GONE. Regional pricing was modelled in migration 007,
+ * disabled in 008, and never returned; the column has now been dropped. A package
+ * is one (plan, currency) row and every account sees the same catalogue.
+ */
 
 export interface SupplierPackage {
   id: string;
   name: string;
   price: number;        // `amount` column, surfaced as price
   currency: string;     // ISO-4217
-  region: Region;
   billingCycle: 'MONTHLY' | 'YEARLY';
   features: string[];         // human-readable card bullets
   /** Gating keys — what `getAccessState` actually reads (migration 108). */
@@ -33,7 +34,6 @@ export interface SupplierPackage {
 
 export interface CreateSupplierPackagePayload {
   name: string;
-  region: Region;
   currency: string;
   price?: number;
   amount?: number;

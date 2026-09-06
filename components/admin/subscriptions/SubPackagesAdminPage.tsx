@@ -13,7 +13,6 @@ import {
   type BillingOption,
   type BillingOptionCycle,
   type PackageAudience,
-  type Region,
 } from '../../../services/modules/subscriptionPackages.api';
 import { featureCopy } from '../../../services/entitlements';
 import { dialog } from '../../../services';
@@ -23,18 +22,15 @@ import FarmPlansAccessPanel from './FarmPlansAccessPanel';
 
 type Tab = 'features' | 'limits';
 
-const REGION_OPTIONS: Region[] = ['AFRICA', 'ASIA', 'LATAM', 'MIDDLE_EAST', 'EUROPE', 'OCEANIA', 'NORTH_AMERICA'];
-
 const emptyDraft: Partial<SubscriptionPackagePlan> = {
   name: '',
   price: 0,
   billingCycle: 'MONTHLY',
-  // REQUIRED by the API — it rejects a create without them ("name, region,
-  // currency, amount (or price) and billingCycle are required"). They were
-  // never in the create payload, so creating a package from this page always
-  // 400'd; it only surfaced once every tab got a New button. They are also
-  // half of the uniqueness key (name, region, currency).
-  region: 'AFRICA',
+  // REQUIRED by the API — it rejects a create without them ("name, currency,
+  // amount (or price) and billingCycle are required"). They were never in the
+  // create payload, so creating a package from this page always 400'd; it only
+  // surfaced once every tab got a New button. 281 dropped `region` from both
+  // the payload and the uniqueness key, which is now (name, currency).
   currency: 'KES',
   tier: 1,
   maxPatients: 500,
@@ -233,7 +229,6 @@ const SubPackagesAdminPage: React.FC = () => {
       const base = {
         name: draft.name!,
         price: Number(draft.price),
-        region: (draft.region || 'AFRICA') as Region,
         currency: draft.currency || (isSupplier ? 'USD' : 'KES'),
         billingCycle: (draft.billingCycle as any) || 'MONTHLY',
         // An add-on has no rung on the ladder, so it sits at tier 0 — but tier is
@@ -367,11 +362,6 @@ const SubPackagesAdminPage: React.FC = () => {
             </Field>
             <Field label="Price">
               <input type="number" value={Number(draft.price ?? 0)} onChange={e => setDraft(d => ({ ...d, price: Number(e.target.value) }))} className={inputCls}/>
-            </Field>
-            <Field label="Region">
-              <select value={draft.region || 'AFRICA'} onChange={e => setDraft(d => ({ ...d, region: e.target.value as Region }))} className={inputCls}>
-                {REGION_OPTIONS.map(r => <option key={r} value={r}>{r.replace('_', ' ')}</option>)}
-              </select>
             </Field>
             <Field label="Currency">
               {/* Supplier plans have always been priced in USD — default to it. */}

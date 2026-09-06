@@ -5,17 +5,18 @@
 import { get, post, put, del } from '../api/client';
 import { RequestOptions, ApiResponse } from '../api/types';
 
-export type Region =
-  | 'AFRICA' | 'ASIA' | 'LATAM' | 'MIDDLE_EAST'
-  | 'EUROPE' | 'OCEANIA' | 'NORTH_AMERICA';
+/**
+ * 281 — the `Region` type is GONE. Regional pricing was modelled in migration 007,
+ * disabled in 008, and never returned; the column has now been dropped. A package
+ * is one (plan, currency) row and every account sees the same catalogue.
+ */
 
-// Each row is a (plan, region, currency) variant after migration 007.
+// Each row is a (plan, currency) variant.
 export interface SubscriptionPackagePlan {
   id: string;
   name: string;
   price: number;        // amount column on the server, surfaced as `price` for compat
   currency: string;     // ISO-4217 — USD, KES, EUR…
-  region: Region;
   billingCycle: 'MONTHLY' | 'YEARLY';
   features: string[];        // human-readable card bullets
   featureKeys?: string[];    // machine gating keys (view:* / service:*) — the access gate reads this
@@ -69,7 +70,6 @@ export interface BillingOptionInput {
 
 export interface CreatePackagePayload {
   name: string;
-  region: Region;
   currency: string;
   amount?: number;      // backend column — sent verbatim on create/update
   price?: number;       // alias accepted by the backend
