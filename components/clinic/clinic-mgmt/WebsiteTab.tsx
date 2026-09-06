@@ -2,6 +2,7 @@ import React from 'react';
 import {
   Globe, Loader2, Copy, Check, Plus, KeyRound, Send, Trash2, RefreshCw,
   AlertTriangle, ShieldAlert, ExternalLink, Radio, RotateCw, ShoppingBag, ShoppingCart,
+  SlidersHorizontal, Webhook,
 } from 'lucide-react';
 import { siteConnectAPI, type SiteConnection, type SiteDelivery } from '../../../services/modules/siteConnect.api';
 import { toast, dialog } from '../../../services';
@@ -69,6 +70,17 @@ const WebsiteTab: React.FC = () => {
   /** Set once, right after create/rotate. The only time these strings exist. */
   const [reveal, setReveal] = React.useState<{ name: string; secretKey: string; webhookSecret?: string | null } | null>(null);
 
+  /**
+   * Which connection is being edited, and the draft.
+   *
+   * ⚠️ This screen could ISSUE a webhook URL but never CHANGE one. The API had
+   * supported it since day one; the card only ever offered Test / New keys /
+   * Disconnect, so a clinic that connected a site and then wanted webhooks had
+   * to disconnect and start over — losing its keys to add a URL.
+   */
+  const [editingId, setEditingId] = React.useState<string | null>(null);
+  const [edit, setEdit] = React.useState({ name: '', siteUrl: '', origins: '', webhookUrl: '' });
+
   const [expanded, setExpanded] = React.useState<string | null>(null);
   const [deliveries, setDeliveries] = React.useState<Record<string, SiteDelivery[]>>({});
 
@@ -117,6 +129,44 @@ const WebsiteTab: React.FC = () => {
       setConnections((list) => list.map((x) => (x.id === c.id ? { ...x, [key]: !c[key] } : x)));
     } catch {
       /* the API layer has already surfaced it */
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const openEdit = (c: SiteConnection) => {
+    if (editingId === c.id) { setEditingId(null); return; }
+    setEditingId(c.id);
+    setEdit({
+      name: c.name,
+      siteUrl: c.siteUrl,
+      origins: (c.allowedOrigins ?? []).join(', '),
+      webhookUrl: c.webhookUrl ?? '',
+    });
+  };
+
+  const saveEdit = async (c: SiteConnection) => {
+    setBusy(true);
+    try {
+      const r = await siteConnectAPI.updateConnection(c.id, {
+        name: edit.name.trim(),
+        siteUrl: edit.siteUrl.trim(),
+        allowedOrigins: edit.origins.split(',').map((x) => x.trim()).filter(Boolean),
+        webhookUrl: edit.webhookUrl.trim() || null,
+      });
+      /**
+       * ⚠️ A NEW webhook address gets a NEW signing secret, and this is the
+       * only moment it exists in readable form. Surface it in the same reveal
+       * panel as a fresh key, or the clinic saves the URL and has nothing to
+       * verify the webhooks with.
+       */
+      if (r?.data?.webhookSecret) {
+        setReveal({ name: c.name, secretKey: '', webhookSecret: r.data.webhookSecret });
+      } else {
+        toast.success('Website settings saved');
+      }
+      setEditingId(null);
+      load();
     } finally {
       setBusy(false);
     }
@@ -227,15 +277,26 @@ const WebsiteTab: React.FC = () => {
           <div className="flex items-center gap-2">
             <AlertTriangle size={15} className="text-amber-600 shrink-0" />
             <h4 className="text-xs font-black text-amber-800 dark:text-amber-300 uppercase tracking-widest">
-              Copy these now — they are not shown again
+              {reveal.secretKey ? 'Copy these now — they are not shown again' : 'Copy this now — it is not shown again'}
             </h4>
           </div>
+          {/* ⚠️ The wording follows what is actually on screen. Saving a webhook
+              address reveals only a signing secret, and telling someone to
+              "issue new keys" there would have them rotate a working API key
+              they never lost. */}
           <p className="text-[11px] text-amber-800/80 dark:text-amber-300/80 leading-relaxed">
-            VetHub Core stores only a fingerprint of the secret key, so there is no way to look
-            it up later. Send it to whoever builds <strong>{reveal.name}</strong> through a
-            password manager — not email or WhatsApp. If you lose it, issue new keys.
+            {reveal.secretKey ? (
+              <>VetHub Core stores only a fingerprint of the secret key, so there is no way to look
+              it up later. Send it to whoever builds <strong>{reveal.name}</strong> through a
+              password manager — not email or WhatsApp. If you lose it, issue new keys.</>
+            ) : (
+              <>This signs the events we send <strong>{reveal.name}</strong>, so the site can prove
+              they came from us. It is stored encrypted and cannot be read back. Send it through a
+              password manager — not email or WhatsApp. If you lose it, save the webhook address
+              again to issue a new one.</>
+            )}
           </p>
-          <CopyRow label="Secret key (server-side only)" value={reveal.secretKey} />
+          {reveal.secretKey && <CopyRow label="Secret key (server-side only)" value={reveal.secretKey} />}
           {reveal.webhookSecret && <CopyRow label="Webhook signing secret" value={reveal.webhookSecret} />}
           <button
             type="button"
@@ -339,6 +400,15 @@ const WebsiteTab: React.FC = () => {
             </div>
             {!c.revokedAt && (
               <div className="flex gap-1.5 flex-wrap">
+                <button type="button" onClick={() => openEdit(c)} disabled={busy}
+                  title="Change the address, origins or webhook"
+                  className={`px-2.5 py-1.5 rounded-lg border text-[9px] font-black uppercase tracking-widest disabled:opacity-40 flex items-center gap-1.5 ${
+                    editingId === c.id
+                      ? 'bg-pine text-white border-pine'
+                      : 'border-slate-200 dark:border-zinc-700 text-pine dark:text-zinc-200'
+                  }`}>
+                  <SlidersHorizontal size={11} /> {editingId === c.id ? 'Close' : 'Settings'}
+                </button>
                 <button type="button" onClick={() => test(c)} disabled={busy || !c.webhookEnabled}
                   title={c.webhookEnabled ? 'Send a test event' : 'Add a webhook address first'}
                   className="px-2.5 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-seafoam text-[9px] font-black uppercase tracking-widest disabled:opacity-40 flex items-center gap-1.5">
@@ -355,6 +425,54 @@ const WebsiteTab: React.FC = () => {
               </div>
             )}
           </div>
+
+          {editingId === c.id && (
+            <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/40 p-3 space-y-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <p className={LABEL}>Name</p>
+                  <input className={FIELD} value={edit.name}
+                    onChange={(e) => setEdit((f) => ({ ...f, name: e.target.value }))} />
+                </div>
+                <div>
+                  <p className={LABEL}>Website address</p>
+                  <input className={FIELD} value={edit.siteUrl}
+                    onChange={(e) => setEdit((f) => ({ ...f, siteUrl: e.target.value }))} />
+                </div>
+              </div>
+              <div>
+                <p className={LABEL}>Allowed origins (comma separated)</p>
+                <input className={FIELD} value={edit.origins} placeholder="https://yourclinic.co.ke"
+                  onChange={(e) => setEdit((f) => ({ ...f, origins: e.target.value }))} />
+                <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                  Only needed if the site calls us from the visitor's browser. Leave empty when it
+                  calls from its own server, which is the safer way.
+                </p>
+              </div>
+              <div>
+                <p className={`${LABEL} flex items-center gap-1.5`}><Webhook size={11} /> Webhook address</p>
+                <input className={FIELD} value={edit.webhookUrl}
+                  placeholder="https://yourclinic.co.ke/api/vethub/webhook"
+                  onChange={(e) => setEdit((f) => ({ ...f, webhookUrl: e.target.value }))} />
+                <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
+                  Where we tell the site you accepted, declined or moved a request, so it can let the
+                  visitor know. Must be https.
+                  {' '}<strong className="text-amber-600">Saving a new address issues a new signing
+                  secret, shown once</strong> — the site needs it to verify what we send.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <button type="button" onClick={() => saveEdit(c)} disabled={busy}
+                  className="px-4 py-2 rounded-lg bg-pine text-white text-[10px] font-black uppercase tracking-widest disabled:opacity-50 flex items-center gap-1.5">
+                  {busy ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Save
+                </button>
+                <button type="button" onClick={() => setEditingId(null)}
+                  className="px-4 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <CopyRow label="Publishable key (safe in a browser)" value={c.publishableKey} />
