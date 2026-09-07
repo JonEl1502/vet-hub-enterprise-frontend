@@ -13,8 +13,70 @@ interface DemoRequestModalProps {
    * prompt. The lead still arrives, but the visitor is told the product is not
    * for them, and the team cannot tell the two apart afterwards.
    */
-  audience?: 'clinic' | 'supplier';
+  audience?: Audience;
 }
+
+/**
+ * The personas a visitor can say they are. Matches the shells the app actually
+ * supports (283/286) plus suppliers, who are a separate account type.
+ */
+export type Audience = 'clinic' | 'practitioner' | 'boarding' | 'counter' | 'supplier';
+
+const AUDIENCE_COPY: Record<Audience, {
+  pick: string; heading: string; sub: string; orgLabel: string;
+  orgPlaceholder: string; emailPlaceholder: string; messagePlaceholder: string; doneSub: string;
+}> = {
+  clinic: {
+    pick: 'A veterinary clinic',
+    heading: 'Contact us for a demo',
+    sub: 'Tell us about your clinic and we\u2019ll set you up with a guided demo and an account.',
+    orgLabel: 'Clinic name',
+    orgPlaceholder: 'Westlands Paws Vet Clinic',
+    emailPlaceholder: 'you@clinic.com',
+    messagePlaceholder: 'Number of branches, what you\u2019re looking for\u2026',
+    doneSub: 'Our team will reach out shortly to schedule your demo and get your clinic set up.',
+  },
+  practitioner: {
+    pick: 'A vet working on the farms',
+    heading: 'Contact us for a demo',
+    sub: 'Tell us about your practice and we\u2019ll set you up with a guided demo and an account.',
+    orgLabel: 'Practice name',
+    orgPlaceholder: 'Rift Valley Mobile Vet',
+    emailPlaceholder: 'you@practice.com',
+    messagePlaceholder: 'The farms you cover, what you\u2019re looking for\u2026',
+    doneSub: 'Our team will reach out shortly to schedule your demo and get your practice set up.',
+  },
+  boarding: {
+    pick: 'Boarding, day-care or grooming',
+    heading: 'Contact us for a demo',
+    sub: 'Tell us about your business and we\u2019ll set you up with a guided demo and an account.',
+    orgLabel: 'Business name',
+    orgPlaceholder: 'Karen Pet Retreat',
+    emailPlaceholder: 'you@business.com',
+    messagePlaceholder: 'How many runs or kennels, what you\u2019re looking for\u2026',
+    doneSub: 'Our team will reach out shortly to schedule your demo and get your business set up.',
+  },
+  counter: {
+    pick: 'An agrovet counter',
+    heading: 'Contact us for a demo',
+    sub: 'Tell us about your counter and we\u2019ll set you up with a guided demo and an account.',
+    orgLabel: 'Business name',
+    orgPlaceholder: 'Kitengela Agrovet',
+    emailPlaceholder: 'you@business.com',
+    messagePlaceholder: 'What you stock, how many branches\u2026',
+    doneSub: 'Our team will reach out shortly to schedule your demo and get your counter set up.',
+  },
+  supplier: {
+    pick: 'A supplier or distributor',
+    heading: 'Talk to us about supplying',
+    sub: 'Tell us about your business and we\u2019ll set you up with a guided demo and an account.',
+    orgLabel: 'Company name',
+    orgPlaceholder: 'ABC Pharmaceuticals Ltd',
+    emailPlaceholder: 'you@company.com',
+    messagePlaceholder: 'What you supply, where you deliver\u2026',
+    doneSub: 'Our team will reach out shortly to schedule your demo and get your company set up.',
+  },
+};
 
 /**
  * "Contact us for a demo" lead form, shown in place of self-serve signup when
@@ -26,28 +88,16 @@ interface DemoRequestModalProps {
  * — a public form must not be able to write into that axis directly.
  */
 const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ onClose, audience = 'clinic' }) => {
-  const isSupplier = audience === 'supplier';
-  const copy = isSupplier
-    ? {
-        heading: 'Talk to us about supplying',
-        sub: 'Tell us about your business and we’ll set you up with a guided demo and an account.',
-        orgLabel: 'Company name',
-        orgPlaceholder: 'ABC Pharmaceuticals Ltd',
-        emailPlaceholder: 'you@company.com',
-        messagePlaceholder: 'What you supply, where you deliver…',
-        cta: 'Request a demo',
-        doneSub: 'Our team will reach out shortly to schedule your demo and get your company set up.',
-      }
-    : {
-        heading: 'Contact us for a demo',
-        sub: 'Tell us about your clinic and we’ll set you up with a guided demo and an account.',
-        orgLabel: 'Clinic name',
-        orgPlaceholder: 'Westlands Paws Vet Clinic',
-        emailPlaceholder: 'you@clinic.com',
-        messagePlaceholder: 'Number of branches, what you’re looking for…',
-        cta: 'Request a demo',
-        doneSub: 'Our team will reach out shortly to schedule your demo and get your clinic set up.',
-      };
+  /**
+   * The visitor picks who they are; the prop is only the STARTING point.
+   *
+   * The form used to assume everyone was a clinic — a boarding kennel or an
+   * agrovet was asked for its "Clinic name" against the placeholder "Westlands
+   * Paws Vet Clinic", and the team could not tell the two apart afterwards
+   * either. Now the answer comes from the person who actually knows it.
+   */
+  const [picked, setPicked] = useState<Audience>(audience);
+  const copy = AUDIENCE_COPY[picked];
   const [form, setForm] = useState({ name: '', clinicName: '', email: '', phone: '', message: '' });
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
@@ -71,7 +121,7 @@ const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ onClose, audience =
         clinicName: form.clinicName.trim() || undefined,
         phone: form.phone.trim() || undefined,
         message: form.message.trim() || undefined,
-        audience,
+        audience: picked,
       }, { showError: false });
       if (res.success) setDone(true);
       else setError(res.message || 'Something went wrong. Please try again.');
@@ -115,6 +165,21 @@ const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ onClose, audience =
         ) : (
           <form onSubmit={submit} className="px-6 pb-6 overflow-y-auto">
             <div className="space-y-4">
+              {/* First question, because every label under it depends on the
+                  answer. A select rather than five cards: this is a modal, and
+                  the visitor came here to leave a phone number, not to browse. */}
+              <div>
+                <label className="field-label">What are you?</label>
+                <select
+                  className="field-select"
+                  value={picked}
+                  onChange={(e) => setPicked(e.target.value as Audience)}
+                >
+                  {(Object.keys(AUDIENCE_COPY) as Audience[]).map((a) => (
+                    <option key={a} value={a}>{AUDIENCE_COPY[a].pick}</option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="field-label">Your name<span className="text-red-500"> *</span></label>
                 <input className="field-input" value={form.name} onChange={set('name')} placeholder="Dr. Jane Doe" autoFocus />
@@ -147,7 +212,7 @@ const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ onClose, audience =
               disabled={!canSubmit}
               className="mt-6 w-full inline-flex items-center justify-center gap-2 h-12 rounded-full bg-[#144E35] text-white font-bold text-[15px] hover:bg-[#0d2a27] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {submitting ? 'Sending…' : <>{copy.cta} <ArrowRight size={16} /></>}
+              {submitting ? 'Sending…' : <>Request a demo <ArrowRight size={16} /></>}
             </button>
           </form>
         )}

@@ -21,7 +21,12 @@ export interface DemoRequestPayload {
    * because that column is the axis the admin lead queues split on and a
    * public form must not be able to write into it.
    */
-  audience?: 'clinic' | 'supplier';
+  /**
+   * WHO is asking, said by the visitor rather than assumed by the caller. The
+   * server maps this to `segment`; it deliberately cannot write `source`, which
+   * is the axis the lead queues split on.
+   */
+  audience?: 'clinic' | 'practitioner' | 'boarding' | 'counter' | 'supplier';
 }
 
 export const publicAPI = {
