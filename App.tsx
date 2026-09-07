@@ -547,6 +547,16 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const [showSupplierBranchModal, setShowSupplierBranchModal] = useState(false);
   // Staff add / edit are routed pages now ('staff-new' / 'staff-edit'),
   // not a modal. Old toggles removed.
+  /**
+   * 286 — persona carried in from the marketing site's picker
+   * (`/signup?type=CLINIC|FARM|BOARDING|COUNTER`). Read once; anything
+   * unrecognised is ignored and the wizard opens on its default.
+   */
+  const signupShellFromUrl = useMemo(() => {
+    const t = new URLSearchParams(window.location.search).get('type')?.toUpperCase();
+    return (['CLINIC', 'FARM', 'BOARDING', 'COUNTER'] as const).find((v) => v === t);
+  }, []);
+
   const [authView, setAuthView] = useState<'landing' | 'login' | 'forgot-password' | 'otp-verify' | 'reset-password' | 'signup' | 'demo-signup' | 'supplier-signup' | 'pricing' | 'terms' | 'privacy' | 'security'>(initialAuthView);
   // Keep the browser URL in sync when moving between pre-auth screens, so the
   // landing page reads '/' instead of a stale '/login' (and vice-versa).
@@ -1541,6 +1551,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       return (
         <SignupWizard
           isDemo={authView === 'demo-signup'}
+          /* 286 — the marketing site's persona picker lands here as
+             /signup?type=BOARDING, so the visitor does not have to re-answer a
+             question they already answered on the way in. */
+          initialShell={signupShellFromUrl}
           onBackToLogin={() => { setIsDemoSignup(false); setAuthView('login'); }}
           onSignupSuccess={async (data) => {
             // Use the signup method from AuthContext

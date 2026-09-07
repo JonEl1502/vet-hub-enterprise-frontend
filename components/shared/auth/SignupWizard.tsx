@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload, ChevronDown, Eye, EyeOff, Tag, Sprout } from 'lucide-react';
+import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload, ChevronDown, Eye, EyeOff, Tag, Sprout, Home, Store } from 'lucide-react';
 import { authAPI } from '../../../services';
 import { salesRepAPI } from '../../../services/modules/salesRep.api';
 import CountrySelect from '../common/CountrySelect';
@@ -11,7 +11,17 @@ interface SignupWizardProps {
   onBackToLogin: () => void;
   onSignupSuccess: (data: any) => void;
   isDemo?: boolean;
+  /**
+   * 286 — the persona the visitor picked before they got here, from
+   * `/signup?type=…`. The marketing site's persona picker is the caller: a
+   * boarding kennel that clicked "Boarding" should not land on a screen that
+   * only offers "Veterinary clinic" or "Farm business".
+   */
+  initialShell?: OrgShell;
 }
+
+/** 283 — the shells an org can land on. */
+export type OrgShell = 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER';
 
 const TITLES = ['', 'Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Eng', 'Hon', 'Sir'];
 
@@ -31,6 +41,8 @@ interface ClinicData {
   // (migration 160) — the difference is which plan catalogue it buys from and
   // which app it lands in. FARM => `clinics.is_livestock`, LIVESTOCK packages.
   accountType: 'CLINIC' | 'FARM';
+  /** 286 — which app this org lands in. FARM also sets `is_livestock`. */
+  shell: OrgShell;
   name: string;
   address: string;
   city: string;
@@ -46,7 +58,7 @@ interface ClinicData {
   longitude: string;
 }
 
-export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = false }: SignupWizardProps) {
+export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = false, initialShell }: SignupWizardProps) {
   const [currentStep, setCurrentStep] = useState(1);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState('');
@@ -90,7 +102,8 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
   });
 
   const [clinicData, setClinicData] = useState<ClinicData>({
-    accountType: 'CLINIC',
+    accountType: initialShell === 'FARM' ? 'FARM' : 'CLINIC',
+    shell: initialShell ?? 'CLINIC',
     name: '',
     address: '',
     city: '',
@@ -227,6 +240,7 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
         },
         {
           accountType: clinicData.accountType,
+          shell: clinicData.shell,
           name: clinicData.name,
           address: clinicData.address,
           city: clinicData.city,
@@ -486,15 +500,23 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               {([
                 { id: 'CLINIC' as const, icon: Building2, title: 'Veterinary clinic', blurb: 'Patients, consultations, pharmacy and billing.' },
-                { id: 'FARM' as const, icon: Sprout, title: 'Farm business', blurb: 'Herds, flocks, feeding, crops and produce.' },
+                { id: 'FARM' as const, icon: Sprout, title: 'Farm or field practice', blurb: 'Herds, flocks, feeding, crops and produce.' },
+                { id: 'BOARDING' as const, icon: Home, title: 'Boarding or grooming', blurb: 'Stays, day-care and grooming, with real animal records.' },
+                { id: 'COUNTER' as const, icon: Store, title: 'Agrovet counter', blurb: 'A till, stock and suppliers. No patients.' },
               ]).map((opt) => {
                 const Icon = opt.icon;
-                const selected = clinicData.accountType === opt.id;
+                const selected = clinicData.shell === opt.id;
                 return (
                   <button
                     key={opt.id}
                     type="button"
-                    onClick={() => setClinicData({ ...clinicData, accountType: opt.id })}
+                    onClick={() => setClinicData({
+                      ...clinicData,
+                      shell: opt.id,
+                      // The backend still keys the farm flag off accountType for
+                      // older clients, so keep the two in lockstep here.
+                      accountType: opt.id === 'FARM' ? 'FARM' : 'CLINIC',
+                    })}
                     className={`text-left rounded-2xl border p-4 transition-all ${
                       selected
                         ? 'border-[#1C7A5B] bg-[#1C7A5B]/5 ring-2 ring-[#1C7A5B]/20'

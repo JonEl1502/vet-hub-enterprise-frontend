@@ -28,23 +28,48 @@ export interface LoginResponse {
 /**
  * Signup request data
  */
+/**
+ * ⚠️ This type had drifted badly from what `SignupWizard` actually sends — no
+ * `title`, no `firstName`/`surname`, no `accountType`, no country/dial codes,
+ * no referral. Brought back in line with the real payload rather than widened
+ * with `any`, since this is the contract the backend validates.
+ */
 export interface SignupRequest {
   user: {
-    name: string;
+    title?: string;
+    firstName?: string;
+    secondName?: string;
+    surname?: string;
+    /** Legacy single-field name; the backend composes one from the parts above. */
+    name?: string;
     email: string;
     password: string;
     phone?: string;
   };
   clinic: {
     name: string;
+    /** FARM sets `clinics.is_livestock` and the LIVESTOCK plan catalogue. */
+    accountType?: 'CLINIC' | 'FARM';
+    /**
+     * 286 — which app the new org lands in:
+     * `CLINIC | FARM | BOARDING | COUNTER`. Carried in from the marketing
+     * site's persona picker via `/signup?type=…`.
+     */
+    shell?: 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER';
     address?: string;
     city?: string;
     country?: string;
+    countryCode?: string;
+    dialCode?: string;
+    region?: string;
+    currency?: string;
     phone?: string;
     email?: string;
+    slogan?: string;
     logo?: string | null;
-    latitude?: number;
-    longitude?: number;
+    latitude?: number | null;
+    longitude?: number | null;
+    referralCode?: string;
     isDemo?: boolean;
   };
 }
