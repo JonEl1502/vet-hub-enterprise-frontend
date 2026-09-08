@@ -74,10 +74,17 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
     scroll-margin, so one mechanism covers both paths.
   - `prefers-reduced-motion` falls back to an instant jump — smooth scrolling is a known
     migraine and vestibular trigger.
-  - **Correction to the first pass:** it added `scroll-behavior: smooth` on `<html>` and I
-    reported the anchor clicks as not firing at all. That conclusion came from a faulty
-    test (a synthetic ref-click that never reached React); a real click always worked. The
-    CSS was removed in favour of the JS path so there is one mechanism, not two.
+  - ⚠️ **A NOTE FOR THE NEXT DEBUGGER.** Measured from an automated/background tab, smooth
+    scrolling looks completely broken — `scrollY` never moves. **A hidden tab gets no
+    animation frames**, so `behavior: 'smooth'` (and any rAF tween) is a no-op there, while
+    a plain `window.scrollTo(x, y)` still works because it is synchronous. Check
+    `document.visibilityState` before concluding anything about scroll code.
+  - **Two corrections to earlier passes of this change**, both from bad measurement rather
+    than bad code: (1) a first pass set `scroll-behavior: smooth` on `<html>` and reported
+    the anchor clicks as never firing — that came from a synthetic ref-click that never
+    reached React; (2) a second pass replaced native smooth with a hand-rolled rAF tween on
+    the belief that native smooth was a no-op on this page — that was the hidden-tab effect
+    above. Native smooth works. The tween was reverted; the page keeps the simpler code.
 - **SQV moved to the top bar (user: "SQV btn to be b4 tour btn").** It sat in the
   Appointments toolbar; it now sits in the global Navbar, immediately **before** the tour
   button. A walk-in does not arrive while you happen to be on the bookings page, so the

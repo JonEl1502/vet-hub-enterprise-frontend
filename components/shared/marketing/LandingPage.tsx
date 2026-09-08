@@ -159,62 +159,25 @@ const REDUCED_MOTION = () =>
   window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
 /**
- * ⚠️ We animate the scroll ourselves instead of using
- * `scrollIntoView({ behavior: 'smooth' })`.
+ * Scroll to an in-page section, smoothly.
  *
- * Native smooth scrolling is a NO-OP on this page. Measured on prod: with
- * `behavior: 'auto'` the page jumps to 6367px and stays there; with
- * `behavior: 'smooth'` it sits at 0 and never moves, and
- * `prefers-reduced-motion` is false. Something on this page — most likely one
- * of the scroll-driven hero/nav effects reacting to the first animation frame —
- * cancels the browser's smooth scroll before it travels. A hand-rolled rAF
- * tween cannot be cancelled that way.
+ * ⚠️ Offset is computed here rather than left to `scroll-mt-*`, because the nav
+ * is `fixed` (~76px) and a raw `scrollTo` ignores scroll-margin.
  *
- * Keep this unless you have re-measured and found native smooth actually moves
- * the page. It is more code than a one-liner for a reason.
+ * ⚠️ A NOTE FOR WHOEVER DEBUGS THIS NEXT: if you measure smooth scrolling from
+ * an automated/background tab it will look completely broken — `scrollY` never
+ * moves. That is not this code. A hidden tab gets no animation frames, so
+ * `behavior: 'smooth'` (and any rAF tween) is a no-op there while a plain
+ * `window.scrollTo(x, y)` still works, because it is synchronous. Check
+ * `document.visibilityState` before concluding anything.
  */
 const NAV_OFFSET = 96; // the fixed pill nav (~76px) plus a little breathing room
-
-const easeInOutCubic = (t: number) =>
-  t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-
-let cancelActiveScroll: (() => void) | null = null;
-
-const smoothScrollTo = (targetY: number, duration = 650) => {
-  cancelActiveScroll?.();
-  const startY = window.scrollY;
-  const distance = targetY - startY;
-  if (Math.abs(distance) < 2) return;
-
-  // A user scrolling mid-animation should win — anything else feels like the
-  // page fighting you.
-  let cancelled = false;
-  const onUserScroll = (e: Event) => { if ((e as any).isTrusted) cancelled = true; };
-  window.addEventListener('wheel', onUserScroll, { passive: true });
-  window.addEventListener('touchstart', onUserScroll, { passive: true });
-  cancelActiveScroll = () => { cancelled = true; };
-
-  const start = performance.now();
-  const step = (now: number) => {
-    if (cancelled) { cleanup(); return; }
-    const t = Math.min(1, (now - start) / duration);
-    window.scrollTo(0, startY + distance * easeInOutCubic(t));
-    if (t < 1) requestAnimationFrame(step); else cleanup();
-  };
-  const cleanup = () => {
-    window.removeEventListener('wheel', onUserScroll);
-    window.removeEventListener('touchstart', onUserScroll);
-    cancelActiveScroll = null;
-  };
-  requestAnimationFrame(step);
-};
 
 const scrollToSection = (id: string) => {
   const el = document.getElementById(id);
   if (!el) return false;
-  const y = el.getBoundingClientRect().top + window.scrollY - NAV_OFFSET;
-  if (REDUCED_MOTION()) window.scrollTo(0, y);
-  else smoothScrollTo(y);
+  const top = el.getBoundingClientRect().top + window.scrollY - NAV_OFFSET;
+  window.scrollTo({ top, behavior: REDUCED_MOTION() ? 'auto' : 'smooth' });
   // Keep the URL shareable without letting the browser jump us there itself.
   try { window.history.replaceState(null, '', `#${id}`); } catch { /* non-fatal */ }
   return true;
