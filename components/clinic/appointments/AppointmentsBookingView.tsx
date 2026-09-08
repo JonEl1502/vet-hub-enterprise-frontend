@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
-import { CalendarClock, Plus, Loader2, Trash2, Search, Clock, ArrowRight, BellRing, ExternalLink, Link2, MoreVertical, Zap } from 'lucide-react';
+import { CalendarClock, Plus, Loader2, Trash2, Search, Clock, ArrowRight, BellRing, ExternalLink, Link2, MoreVertical } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { appointmentsAPI, remindersAPI, Appointment, dialog } from '../../../services';
@@ -222,23 +222,10 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
               : `${filtered.length} booking${filtered.length === 1 ? '' : 's'} · start a visit when the client arrives`}</p>
           </div>
         </div>
-        {/**
-          * SQV — start a quick visit. A booking is for someone coming LATER;
-          * a walk-in is already at the counter and needs a visit now, which
-          * meant leaving this page to find one. Small and secondary on purpose:
-          * booking is still the common act here.
-          *
-          * Navigates by event rather than a prop so this view does not need
-          * threading through App.tsx — the same channel UpgradeGate uses.
-          */}
-        <button
-          type="button"
-          title="Start a quick visit — for someone already at the counter"
-          onClick={() => window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'new-appointment' } }))}
-          className="flex items-center gap-1.5 px-3 py-2.5 rounded-xl border border-seafoam/40 text-seafoam font-black text-[10px] uppercase tracking-widest hover:bg-seafoam/10 active:scale-95"
-        >
-          <Zap size={13} /> SQV
-        </button>
+        {/* SQV moved to the top bar (2026-09-08) — a walk-in does not arrive
+            while you happen to be on the bookings page, so the action lives in
+            the bar that is always there. Not duplicated here: two SQV buttons
+            on one screen is worse than one in the right place. */}
         <button onClick={() => setCreating(true)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New appointment</button>
       </div>
 

@@ -69,6 +69,37 @@ const TourLauncherButton: React.FC = () => {
     </button>
   );
 };
+/**
+ * SQV — start a quick visit, for someone already at the counter.
+ *
+ * Moved up from the Appointments toolbar (user, 2026-09-08: "SQV btn to be b4
+ * tour btn"). A walk-in does not arrive while you happen to be looking at the
+ * bookings page, so the action belongs in the bar that is always there.
+ *
+ * ⚠️ Clinic-side roles only. The same Navbar renders for suppliers, freelancers
+ * and platform staff, and "start a visit" means nothing to a seller — it would
+ * navigate them to a view their sidebar does not even carry.
+ *
+ * Navigates by event rather than a prop, the same channel the page-level button
+ * used, so this needs no threading through App.tsx.
+ */
+const CLINIC_SIDE_ROLES = ['CLINIC_OWNER', 'VET', 'STAFF', 'CLINIC_MANAGER', 'RECEPTIONIST', 'NURSE'];
+
+const QuickVisitButton: React.FC<{ role: UserRole }> = ({ role }) => {
+  if (!CLINIC_SIDE_ROLES.includes(String(role))) return null;
+  return (
+    <button
+      type="button"
+      onClick={() => window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'new-appointment' } }))}
+      className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border border-seafoam/40 text-seafoam font-black text-[10px] uppercase tracking-widest hover:bg-seafoam/10 active:scale-95 transition-all"
+      title="Start a quick visit — for someone already at the counter"
+      aria-label="Start a quick visit"
+    >
+      <Zap size={13} /> SQV
+    </button>
+  );
+};
+
 const Navbar: React.FC<NavbarProps> = ({
   activeView,
   clinic,
@@ -328,6 +359,9 @@ const Navbar: React.FC<NavbarProps> = ({
 
       {/* Right */}
       <div className="flex items-center gap-2 md:gap-4 shrink-0">
+
+        {/* ── Start a quick visit ── deliberately BEFORE the tour button. */}
+        <QuickVisitButton role={role} />
 
         {/* ── Take a tour ── */}
         <TourLauncherButton />

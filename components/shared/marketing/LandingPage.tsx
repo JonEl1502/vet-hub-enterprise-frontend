@@ -603,7 +603,7 @@ const Modules: React.FC = () => {
     { icon: ShieldCheck, title: 'Security',         desc: 'Enterprise-grade access control with role-based permissions.' },
   ];
   return (
-    <section id="modules" className="relative py-24 md:py-32 bg-white overflow-hidden">
+    <section id="modules" className="scroll-mt-24 md:scroll-mt-28 relative py-24 md:py-32 bg-white overflow-hidden">
       <ParallaxSectionBg src={WARM_MODULES_BG} tone="light" />
       <div className="relative z-10 max-w-[1280px] mx-auto px-6">
         <SectionHeading
@@ -948,7 +948,7 @@ const Testimonials: React.FC = () => {
   const active = ((pos % len) + len) % len;
   const SLIDE = 64; // % of the container each slide occupies — leaves ~18% peek per side
   return (
-    <section id="testimonials" className="py-24 md:py-32 bg-white">
+    <section id="testimonials" className="scroll-mt-24 md:scroll-mt-28 py-24 md:py-32 bg-white">
       <div className="max-w-[1280px] mx-auto px-6">
         <SectionHeading
           eyebrow="Customers"
@@ -1059,7 +1059,7 @@ const FAQ: React.FC = () => {
   ];
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <section id="faq" className="py-24 md:py-32 bg-white">
+    <section id="faq" className="scroll-mt-24 md:scroll-mt-28 py-24 md:py-32 bg-white">
       <div className="max-w-[960px] mx-auto px-6">
         <SectionHeading eyebrow="FAQ" title={<>Straight answers.</>} />
         <div className="mt-12 divide-y divide-[#ebecef] border-t border-b border-[#ebecef]">
@@ -1273,6 +1273,21 @@ const Partners: React.FC = () => {
 
 // ── PAGE ─────────────────────────────────────────────────────────────────────
 export default function LandingPage({ onLogin, onRegister, onDemo, onPricing, onSupplierSignup, onContact, onLegal }: LandingPageProps) {
+  /**
+   * Smooth-scroll the in-page nav anchors (#modules, #testimonials, #faq).
+   *
+   * ⚠️ Applied to <html> and ONLY while this page is mounted. `scroll-behavior`
+   * has to sit on the scrolling element, so setting it globally would also
+   * animate every route change and programmatic scroll inside the app — which
+   * reads as sluggish, not polished. The class comes off on unmount.
+   *
+   * `prefers-reduced-motion` disables it in CSS; nothing to do here.
+   */
+  useEffect(() => {
+    document.documentElement.classList.add('landing-smooth-scroll');
+    return () => document.documentElement.classList.remove('landing-smooth-scroll');
+  }, []);
+
   return (
     <div className="min-h-screen bg-white text-[#144E35] antialiased">
       <Nav onLogin={onLogin} onRegister={onRegister} onPricing={onPricing} />

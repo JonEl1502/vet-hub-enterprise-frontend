@@ -59,6 +59,31 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### app: smooth scroll on the landing nav, and SQV moves to the top bar  —  2026-09-08
+- **Smooth scroll (user: "lets have smooth scroll ... when user clicks a menu").** The
+  landing page's nav anchors (`#modules`, `#testimonials`, `#faq`) jumped instantly. They
+  now glide.
+  - ⚠️ **Scoped, not global.** `scroll-behavior` applies to the scrolling element, so a
+    blanket rule on `html` would also animate every route change and programmatic scroll
+    inside the app — which reads as sluggish, not polished. `LandingPage` adds
+    `.landing-smooth-scroll` to `<html>` on mount and removes it on unmount.
+  - ⚠️ **`prefers-reduced-motion` turns it back off.** Smooth scrolling is a known migraine
+    and vestibular trigger; this is exactly the decorative motion that setting exists for.
+  - The nav is `fixed` (~76px), so the three targets gained `scroll-mt-24 md:scroll-mt-28`
+    — without it the section boundary lands underneath the bar.
+- **SQV moved to the top bar (user: "SQV btn to be b4 tour btn").** It sat in the
+  Appointments toolbar; it now sits in the global Navbar, immediately **before** the tour
+  button. A walk-in does not arrive while you happen to be on the bookings page, so the
+  action belongs in the bar that is always there.
+  - ⚠️ **Clinic-side roles only.** The same Navbar renders for suppliers, freelancers and
+    platform staff, and "start a visit" means nothing to a seller — it would navigate them
+    to a view their sidebar does not carry.
+  - **Removed from the Appointments toolbar**, not duplicated: two SQV buttons on one
+    screen is worse than one in the right place. Dead `Zap` import dropped with it.
+  - Still navigates by `vethub:navigate` event, so it needs no threading through `App.tsx`.
+- **Record impact:** 🟢 None — UI only.
+- **Rollback:** revert the commit.
+
 ### admin: tier-0 band plans, and a shell selector on the plan editor  —  2026-09-06
 - **What changed:** migration 286 makes tier 0 a **band** (Practitioner / Boarding /
   Grooming / Counter), so tier 0 no longer means "add-on". The plan editor's tab filter now
