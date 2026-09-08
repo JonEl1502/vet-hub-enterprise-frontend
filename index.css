@@ -6,25 +6,6 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── LANDING-PAGE SMOOTH SCROLL ──────────────────────────────────────────
- *
- * The public landing page's nav is a set of in-page anchors (#modules,
- * #testimonials, #faq), and they jumped instantly.
- *
- * ⚠️ SCOPED TO THE LANDING PAGE, not set globally on `html`. `scroll-behavior`
- * applies to the scrolling element, so a global rule would also animate every
- * route change and every programmatic `scrollTo` inside the app — which makes
- * navigating a record feel sluggish rather than polished. `LandingPage` adds
- * this class to <html> on mount and removes it on unmount.
- *
- * ⚠️ `prefers-reduced-motion` turns it back off. Smooth scrolling is a common
- * migraine and vestibular trigger, and this is exactly the kind of decorative
- * motion that setting exists to suppress.
- */
-html.landing-smooth-scroll { scroll-behavior: smooth; }
-@media (prefers-reduced-motion: reduce) {
-  html.landing-smooth-scroll { scroll-behavior: auto; }
-}
 
 /* ── SHORT-VIEWPORT DENSITY ──────────────────────────────────────────────
  *

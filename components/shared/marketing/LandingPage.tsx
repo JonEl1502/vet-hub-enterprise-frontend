@@ -141,6 +141,39 @@ const Pill = ({
 };
 
 // ── NAV ── Floating pill nav, centered; translucent over hero, solid white on scroll.
+/**
+ * Smooth-scroll to an in-page section.
+ *
+ * ⚠️ Done in JS, not by `scroll-behavior: smooth` alone. This is a SPA: a bare
+ * `<a href="#faq">` was not scrolling at all here, and a `/#faq` deep link
+ * resolves before React has rendered the section — the browser looks for the
+ * target, does not find it, and never retries. Verified on staging: the FAQ
+ * section is in the DOM and the page scrolls programmatically, but neither the
+ * anchor click nor the deep link moved it.
+ *
+ * `scroll-mt-*` on the targets still does the work of clearing the fixed nav —
+ * `scrollIntoView` honours scroll-margin.
+ */
+const REDUCED_MOTION = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+
+const scrollToSection = (id: string) => {
+  const el = document.getElementById(id);
+  if (!el) return false;
+  el.scrollIntoView({ behavior: REDUCED_MOTION() ? 'auto' : 'smooth', block: 'start' });
+  // Keep the URL shareable without letting the browser jump us there itself.
+  try { window.history.replaceState(null, '', `#${id}`); } catch { /* non-fatal */ }
+  return true;
+};
+
+/** Click handler for the in-page nav anchors. */
+const onSectionLink = (id: string, after?: () => void) => (e: React.MouseEvent) => {
+  e.preventDefault();
+  scrollToSection(id);
+  after?.();
+};
+
 const Nav: React.FC<{ onLogin: () => void; onRegister: () => void; onPricing: () => void }> = ({
   onLogin, onRegister, onPricing,
 }) => {
@@ -173,12 +206,12 @@ const Nav: React.FC<{ onLogin: () => void; onRegister: () => void; onPricing: ()
           </a>
 
           <div className={`hidden lg:flex items-center gap-7 text-[13px] font-semibold transition-colors ${onDark ? 'text-white/90' : 'text-[#144E35]'}`}>
-            <a href="#modules" className="hover:text-[#1C7A5B] transition-colors">Platform</a>
+            <a href="#modules" onClick={onSectionLink('modules')} className="hover:text-[#1C7A5B] transition-colors">Platform</a>
             {/* Clinics / Suppliers nav hidden until we have real data to show */}
             {/* <a href="#clinics" className="hover:text-[#1C7A5B] transition-colors">Clinics</a> */}
             {/* <a href="#suppliers" className="hover:text-[#1C7A5B] transition-colors">Suppliers</a> */}
-            <a href="#testimonials" className="hover:text-[#1C7A5B] transition-colors">Customers</a>
-            <a href="#faq" className="hover:text-[#1C7A5B] transition-colors">FAQ</a>
+            <a href="#testimonials" onClick={onSectionLink('testimonials')} className="hover:text-[#1C7A5B] transition-colors">Customers</a>
+            <a href="#faq" onClick={onSectionLink('faq')} className="hover:text-[#1C7A5B] transition-colors">FAQ</a>
             <button onClick={onPricing} className="hover:text-[#1C7A5B] transition-colors">Pricing</button>
           </div>
 
@@ -205,12 +238,12 @@ const Nav: React.FC<{ onLogin: () => void; onRegister: () => void; onPricing: ()
 
         {open && (
           <div className="lg:hidden bg-white rounded-b-3xl px-4 pb-4 pt-2 flex flex-col gap-1 border-t border-[#ebecef]">
-            <a href="#modules" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#144E35]">Platform</a>
+            <a href="#modules" onClick={onSectionLink('modules', () => setOpen(false))} className="py-2 text-[15px] font-semibold text-[#144E35]">Platform</a>
             {/* Clinics / Suppliers nav hidden until we have real data to show */}
             {/* <a href="#clinics" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#144E35]">Clinics</a> */}
             {/* <a href="#suppliers" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#144E35]">Suppliers</a> */}
-            <a href="#testimonials" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#144E35]">Customers</a>
-            <a href="#faq" onClick={() => setOpen(false)} className="py-2 text-[15px] font-semibold text-[#144E35]">FAQ</a>
+            <a href="#testimonials" onClick={onSectionLink('testimonials', () => setOpen(false))} className="py-2 text-[15px] font-semibold text-[#144E35]">Customers</a>
+            <a href="#faq" onClick={onSectionLink('faq', () => setOpen(false))} className="py-2 text-[15px] font-semibold text-[#144E35]">FAQ</a>
             <button onClick={() => { onPricing(); setOpen(false); }} className="py-2 text-[15px] font-semibold text-[#144E35] text-left">Pricing</button>
             <div className="flex gap-2 pt-3 border-t border-[#ebecef]">
               <Pill onClick={onLogin} variant="secondary" className="flex-1">Log in</Pill>
@@ -1274,18 +1307,22 @@ const Partners: React.FC = () => {
 // ── PAGE ─────────────────────────────────────────────────────────────────────
 export default function LandingPage({ onLogin, onRegister, onDemo, onPricing, onSupplierSignup, onContact, onLegal }: LandingPageProps) {
   /**
-   * Smooth-scroll the in-page nav anchors (#modules, #testimonials, #faq).
+   * Honour a `/#faq` deep link once the page has actually rendered.
    *
-   * ⚠️ Applied to <html> and ONLY while this page is mounted. `scroll-behavior`
-   * has to sit on the scrolling element, so setting it globally would also
-   * animate every route change and programmatic scroll inside the app — which
-   * reads as sluggish, not polished. The class comes off on unmount.
-   *
-   * `prefers-reduced-motion` disables it in CSS; nothing to do here.
+   * ⚠️ The browser resolves the hash before React has painted these sections,
+   * finds nothing, and never looks again — so a shared link landed at the top.
+   * Retry briefly rather than once: the hero image and the section animations
+   * settle over the first frames.
    */
   useEffect(() => {
-    document.documentElement.classList.add('landing-smooth-scroll');
-    return () => document.documentElement.classList.remove('landing-smooth-scroll');
+    const id = window.location.hash.replace('#', '');
+    if (!id) return;
+    let tries = 0;
+    const tick = () => {
+      if (scrollToSection(id) || tries++ > 20) return;
+      requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }, []);
 
   return (
