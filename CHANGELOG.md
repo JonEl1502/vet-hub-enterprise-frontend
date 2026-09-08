@@ -61,16 +61,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ### app: smooth scroll on the landing nav, and SQV moves to the top bar  —  2026-09-08
 - **Smooth scroll (user: "lets have smooth scroll ... when user clicks a menu").** The
-  landing page's nav anchors (`#modules`, `#testimonials`, `#faq`) jumped instantly. They
-  now glide.
-  - ⚠️ **Scoped, not global.** `scroll-behavior` applies to the scrolling element, so a
-    blanket rule on `html` would also animate every route change and programmatic scroll
-    inside the app — which reads as sluggish, not polished. `LandingPage` adds
-    `.landing-smooth-scroll` to `<html>` on mount and removes it on unmount.
-  - ⚠️ **`prefers-reduced-motion` turns it back off.** Smooth scrolling is a known migraine
-    and vestibular trigger; this is exactly the decorative motion that setting exists for.
-  - The nav is `fixed` (~76px), so the three targets gained `scroll-mt-24 md:scroll-mt-28`
-    — without it the section boundary lands underneath the bar.
+  landing nav's in-page links (`#modules`, `#testimonials`, `#faq`) now glide, and a
+  `/#faq` deep link lands on the section instead of the top of the page.
+  - Handled in JS — `preventDefault` + `scrollIntoView`, with `replaceState` keeping the
+    URL shareable without letting the browser jump there itself.
+  - ⚠️ **The deep-link case was genuinely broken and is the real fix.** The browser
+    resolves the hash before React has painted these sections, finds nothing, and never
+    looks again — so a shared `/#faq` link silently landed at the top. It now retries
+    across a few frames until the target exists.
+  - ⚠️ The three targets carry `scroll-mt-24 md:scroll-mt-28`; the nav is `fixed` (~76px)
+    and without it the section boundary lands underneath the bar. `scrollIntoView` honours
+    scroll-margin, so one mechanism covers both paths.
+  - `prefers-reduced-motion` falls back to an instant jump — smooth scrolling is a known
+    migraine and vestibular trigger.
+  - **Correction to the first pass:** it added `scroll-behavior: smooth` on `<html>` and I
+    reported the anchor clicks as not firing at all. That conclusion came from a faulty
+    test (a synthetic ref-click that never reached React); a real click always worked. The
+    CSS was removed in favour of the JS path so there is one mechanism, not two.
 - **SQV moved to the top bar (user: "SQV btn to be b4 tour btn").** It sat in the
   Appointments toolbar; it now sits in the global Navbar, immediately **before** the tour
   button. A walk-in does not arrive while you happen to be on the bookings page, so the
