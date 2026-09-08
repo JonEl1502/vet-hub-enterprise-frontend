@@ -60,7 +60,13 @@ const PlanFeaturesPanel: React.FC<Props> = ({ onGoToPlans, groups = GROUPS }) =>
     groups.some(g => k.startsWith(g.prefix)) && !BASELINE_KEYS.has(k),
   );
 
-  const everything = !access || access.state === 'TRIAL' || access.featureKeys.includes('*');
+  /**
+   * 287 — TRIAL is no longer "everything". A trial now carries its persona's own
+   * key set, and showing it honestly is the point of this panel: the included
+   * half is what they are using, the locked half is what they would buy. Only
+   * `'*'` (the long-commitment grace window) still means everything.
+   */
+  const everything = !access || access.featureKeys.includes('*');
   const included = everything ? catalogKeys : catalogKeys.filter(k => hasFeature(access, k));
   // The locked half sticks to FEATURE_COPY keys — those carry an accurate
   // "needs the X plan" line; guessing tiers for the rest would misquote pricing.

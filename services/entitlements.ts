@@ -9,8 +9,11 @@
  * backend migration 107.
  *
  * Three access states:
- *   TRIAL  → featureKeys is ['*'] (everything)
- *   ACTIVE → the package's own featureKeys
+ *   TRIAL  → the trial package's own featureKeys for this persona (audience +
+ *            shell). ⭐ 287: NO LONGER ['*'] — a trial is a real, narrower key
+ *            set and is enforced here exactly like a paid plan.
+ *   ACTIVE → the package's own featureKeys (['*'] only in the long-commitment
+ *            grace window, which is a paid perk, not a trial)
  *   LOCKED → [] (only ALWAYS_VIEWS, so the clinic can still reach Billing)
  */
 
@@ -434,8 +437,17 @@ export const FEATURE_COPY: Record<string, { label: string; plan: string; blurb?:
  */
 export function hasFeature(access: PlanAccess | null, featureKey: string): boolean {
   if (!access) return true;
-  if (access.state === 'TRIAL') return true;
   if (access.state === 'LOCKED') return false;
+  /**
+   * 287 — TRIAL falls through to the key check like every other state.
+   *
+   * It used to `return true` here, which meant a trialling org saw the whole
+   * app no matter what the backend said. Once trials became per-persona
+   * (audience + shell) that short-circuit was the ONLY thing still handing a
+   * boarding kennel a veterinary clinic — the narrowed key set arrived over the
+   * wire and was then ignored. `'*'` is still honoured below because the
+   * long-commitment grace window legitimately grants it to a PAYING account.
+   */
   return access.featureKeys.includes('*') || access.featureKeys.includes(featureKey);
 }
 
@@ -445,7 +457,8 @@ export function allowsView(access: PlanAccess | null, view: string): boolean {
   // View ids are unique across audiences (clinic `inventory` vs supplier
   // `supplier-inventory`), so one union of the always-allowed sets is safe.
   if (ALWAYS_VIEWS.has(view) || ALWAYS_SUPPLIER_VIEWS.has(view) || ALWAYS_LIVESTOCK_VIEWS.has(view)) return true;
-  if (access.state === 'TRIAL') return true;
+  // 287 — no TRIAL short-circuit; see hasFeature. A trial navigates exactly
+  // what its persona's trial package grants.
   if (access.state === 'LOCKED') return false;
   const key = VIEW_KEY[view];
   if (!key) return true; // unmapped view needs no entitlement
