@@ -201,6 +201,24 @@ export interface PortalHoldings {
   groupLimit: number;
   planName: string | null;
   planTier: number | null;
+  /**
+   * 290 — THE TWO SIDES OF ONE ACCOUNT.
+   *
+   * `active` is what the account HAS (a side holding records is active whether
+   * or not it was ever explicitly switched on); `optedIn` is what it CHOSE.
+   * Settings needs both — it may only switch OFF a side that holds nothing, and
+   * must not offer to "activate" one already in use.
+   */
+  sides?: {
+    pets: { active: boolean; optedIn: boolean; count: number; available: boolean };
+    farm: { active: boolean; optedIn: boolean; count: number; available: boolean };
+  };
+  /** Which side this account OPENS on — stored on the account, so it survives
+   *  a new device and a fresh login. */
+  defaultSide?: 'PETS' | 'FARM';
+  /** True only when the answer isn't already settled: nothing chosen yet AND
+   *  either both sides are live or neither is. One live side is not a question. */
+  needsSideChoice?: boolean;
   suggestedMode: 'PETS' | 'FARM';
 }
 
@@ -840,6 +858,21 @@ export const clientPortalAPI = {
    * 233 — declare that this account keeps livestock, revealing the FARMER
    * rungs. Free and reversible; the rungs themselves are what is paid for.
    */
+  /**
+   * 290 — activate a side, move the account to one, or pick which one opens.
+   *  · ACTIVATE — turn a side on, keeping the other.
+   *  · MOVE     — this account was created on the wrong side. Refused by the
+   *               server if the side being left still holds records.
+   *  · DEFAULT  — which side to land on. Activates it too, so answering the
+   *               first-run question can't point at a side the nav won't show.
+   */
+  setPortalSide: (
+    side: 'PETS' | 'FARM',
+    action: 'ACTIVATE' | 'MOVE' | 'DEFAULT' = 'DEFAULT',
+    options?: RequestOptions,
+  ): Promise<ApiResponse<PortalHoldings>> =>
+    post('/portal/me/portal-side', { side, action }, { showError: true, ...options }),
+
   setFarmAccount: (isFarmer: boolean, options?: RequestOptions): Promise<ApiResponse<PortalPlanList>> =>
     post('/portal/me/farm-account', { isFarmer }, { showError: true, ...options }),
 

@@ -11,6 +11,7 @@ import { useClientPortal } from '../../contexts/ClientPortalContext';
 import BrandMark from '../shared/common/BrandMark';
 import NotificationBell from './NotificationBell';
 import { usePortalMode } from './usePortalMode';
+import PortalSideChooser from './PortalSideChooser';
 
 // Nav follows the portal MODE, not the account type — one login covers pets
 // and farms, and a client with both switches between them (see usePortalMode).
@@ -51,7 +52,7 @@ const ClientLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { invoices, messages } = useClientPortal();
   const navigate = useNavigate();
-  const { mode, setMode, canSwitch, holdings, loading: modeLoading } = usePortalMode();
+  const { mode, setMode, chooseSide, canSwitch, holdings, loading: modeLoading, needsSideChoice } = usePortalMode();
   const { pathname } = useLocation();
 
   /**
@@ -75,6 +76,15 @@ const ClientLayout: React.FC = () => {
    */
   useEffect(() => {
     if (modeLoading) return;
+    /**
+     * 290 — while the side question is open, the route must not answer it.
+     *
+     * `/client` redirects to `/client/farm` when the mode is FARM, and the mode
+     * seeds from `suggestedMode` before anyone has chosen. Letting that run
+     * behind the chooser would move the user to a side they are still being
+     * asked about, and their answer would then look like it did nothing.
+     */
+    if (needsSideChoice) return;
     // ⚠️ The ROUTE is the single source of truth on a SPECIFIC route. The
     // switcher only navigates; it must NOT also call setMode.
     //
@@ -94,7 +104,7 @@ const ClientLayout: React.FC = () => {
       // Only the HOME route follows the mode.
       navigate('/client/farm', { replace: true });
     }
-  }, [pathname, mode, modeLoading, holdings, navigate, setMode]);
+  }, [pathname, mode, modeLoading, needsSideChoice, holdings, navigate, setMode]);
   const { mode: theme, setMode: setTheme } = useThemeMode();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement | null>(null);
@@ -132,6 +142,15 @@ const ClientLayout: React.FC = () => {
 
   return (
     <div className="client-portal min-h-screen">
+      {/* 290 — the one-time side question. Rendered OVER the portal rather than
+          instead of it: the layout behind stays mounted, so answering does not
+          remount the app and lose whatever was already fetched. */}
+      {needsSideChoice && (
+        <PortalSideChooser
+          farmAvailable={holdings?.sides?.farm.available ?? !!holdings?.canUseFarmMode}
+          onChoose={(side) => chooseSide(side, 'DEFAULT')}
+        />
+      )}
       {/* Top bar */}
       {/* ⚠️ `min-w-0` on BOTH halves is load-bearing, for the same reason it is
           on `<main>` in the clinic app (§0d responsive rule 1): a flex item's

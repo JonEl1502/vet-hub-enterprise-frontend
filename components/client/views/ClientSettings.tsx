@@ -6,6 +6,7 @@ import { useClientPortal } from '../../../contexts/ClientPortalContext';
 import { PortalClinic, clientPortalAPI } from '../../../services';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
 import ClinicFinder from '../ClinicFinder';
+import PortalSidesPanel from './PortalSidesPanel';
 
 // Clinic logo tile with a graceful fallback: some logos are emoji strings and
 // some are storage URLs that may 404 — either way we fall back to the icon
@@ -139,6 +140,11 @@ const ClientSettings: React.FC = () => {
           <ShieldQuestion className="w-3.5 h-3.5" /> Your pets and records are managed by your clinic — contact them for changes.
         </p>
       </div>
+
+      {/* 290 — the two sides of the account. Above the plan and well above
+          Advanced: turning on the farm side is something an owner deliberately
+          goes looking for, and burying it is what made it invisible before. */}
+      <PortalSidesPanel />
 
       {/* Your plan (231). Above Advanced, not inside it: an upgrade is
           something an owner may go looking for, not a power-user tool. */}

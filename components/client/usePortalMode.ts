@@ -37,6 +37,15 @@ export interface Holdings {
   planName: string | null;
   planTier: number | null;
   suggestedMode: PortalMode;
+  /** 290 — the two sides as facts. See `PortalHoldings` in clientPortal.api. */
+  sides?: {
+    pets: { active: boolean; optedIn: boolean; count: number; available: boolean };
+    farm: { active: boolean; optedIn: boolean; count: number; available: boolean };
+  };
+  /** 290 — which side this account opens on, stored on the ACCOUNT. */
+  defaultSide?: PortalMode;
+  /** 290 — the account has never been asked and the answer isn't obvious. */
+  needsSideChoice?: boolean;
 }
 
 const STORAGE_KEY = 'vethub:portalMode';
@@ -85,23 +94,69 @@ export const usePortalMode = () => {
           stored === 'FARM' ? !!h.canUseFarmMode
           : stored === 'PETS' ? true
           : false;
-        setModeState(storedIsValid ? (stored as PortalMode) : h.suggestedMode);
+        /**
+         * ⚠️ 290 — THE ACCOUNT'S OWN CHOICE OUTRANKS THIS DEVICE'S MEMORY.
+         *
+         * `localStorage` was the only record of which side someone used, so
+         * *"every time they log in it will be going to farm without asking
+         * again"* held on one browser and nowhere else — a new phone, a private
+         * window or a cleared cache asked all over again. `defaultSide` is
+         * stored on the account, so it is checked FIRST and the device memory
+         * is only the fallback for accounts that predate the column.
+         *
+         * A stored FARM is still validated against the entitlement: a farmer
+         * whose paid rung lapsed lands in PETS rather than on a wall of 403s.
+         */
+        const accountSide =
+          h.defaultSide === 'FARM' && h.canUseFarmMode ? 'FARM'
+          : h.defaultSide === 'PETS' ? 'PETS'
+          : null;
+        setModeState(
+          accountSide
+          ?? (storedIsValid ? (stored as PortalMode) : h.suggestedMode),
+        );
       })
       .catch(() => { /* fail soft — stays in PETS, the historical behaviour */ })
       .finally(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, []);
 
+  /**
+   * 290 — switching sides is now REMEMBERED ON THE ACCOUNT, not just here.
+   *
+   * The local write stays and happens first: the nav must flip instantly, and
+   * a failed network call must not undo a switch the user can plainly see. The
+   * server write is fire-and-forget for the same reason — worst case the
+   * account keeps its previous landing side and this device keeps the new one,
+   * which is exactly the pre-290 behaviour.
+   */
   const setMode = useCallback((m: PortalMode) => {
     setModeState(m);
     storeMode(m);
+    setHoldings((h) => (h ? { ...h, defaultSide: m } : h));
+    clientPortalAPI.setPortalSide(m, 'DEFAULT', { silent: true }).catch(() => { /* device memory still holds */ });
+  }, []);
+
+  /** 290 — answer the first-run question, or activate the other side. */
+  const chooseSide = useCallback(async (m: PortalMode, action: 'ACTIVATE' | 'MOVE' | 'DEFAULT' = 'DEFAULT') => {
+    const res = await clientPortalAPI.setPortalSide(m, action);
+    if (res.success && res.data) setHoldings(res.data as Holdings);
+    if (action !== 'ACTIVATE') { setModeState(m); storeMode(m); }
+    return res;
   }, []);
 
   return {
     mode,
     setMode,
+    chooseSide,
     holdings,
     loading,
+    /**
+     * 290 — ask ONCE, and only when there is a real question. Resolved
+     * server-side: nothing chosen yet AND either both sides are live or
+     * neither is. A single live side is answered silently.
+     */
+    needsSideChoice: !loading && !!holdings?.needsSideChoice,
     /**
      * 262 — the switcher is now driven by the OPT-IN, not by owning a farm.
      *
@@ -115,7 +170,14 @@ export const usePortalMode = () => {
      * Still requires `canUseFarmMode`. A farmer whose PAID rung lapsed keeps
      * their data and drops to the free record book rather than hitting a wall.
      */
-    canSwitch: !!holdings?.canUseFarmMode && (!!holdings?.hasFarms || !!holdings?.optedIn),
+    /**
+     * 290 — the switcher appears once BOTH sides are live, which is now a
+     * property the account records rather than a guess from what it holds.
+     * Falls back to the 262 rule for accounts that predate the columns.
+     */
+    canSwitch: holdings?.sides
+      ? (holdings.sides.pets.active && holdings.sides.farm.active && holdings.sides.farm.available)
+      : (!!holdings?.canUseFarmMode && (!!holdings?.hasFarms || !!holdings?.optedIn)),
     /** Has farms but no farm entitlement at all — the portal prompts to opt in. */
     farmModeLocked: !!holdings?.hasFarms && !holdings?.canUseFarmMode,
     /** 262 — the free record book, not the paid farm product. */
