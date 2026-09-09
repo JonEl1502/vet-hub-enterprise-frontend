@@ -3155,7 +3155,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       // universal and the subscription gates writes, so a lapsed clinic must
       // still reach it.
       case 'community':
-        return <CommunityView />;
+        return <CommunityView
+          /* 288 — the billing page has a different view id per audience, so
+             the router picks it rather than the shared view guessing. */
+          onGoToBilling={() => navigateTo(
+            String(user?.role) === 'SUPPLIER' ? 'supplier-billing' : 'billing',
+          )}
+        />;
       case 'suppliers':
         return <SuppliersHubView onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} />;
       case 'supplier-detail':

@@ -3,6 +3,7 @@ import { Users, Star, Megaphone, Calendar, Tag, Plus, X, Loader2, MapPin, Eye, T
 import PageHeader from '../common/PageHeader';
 import { communityAPI, CommunityPost, CommunityKind, toast, dialog } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
+import { usePlanAccess } from '../../../contexts/PlanAccessContext';
 import { formatDate } from '../../../services/utils/dateFormatter';
 
 /**
@@ -32,8 +33,56 @@ const KIND_META: Record<CommunityKind, { label: string; className: string }> = {
   MEET: { label: 'Meet-up', className: 'bg-violet-500/10 text-violet-600 border-violet-500/20' },
 };
 
-const CommunityView: React.FC = () => {
+/**
+ * 288 — WHAT THE UNSOLD VISITOR SEES.
+ *
+ * User, 2026-09-09: *"I would like to have a community available to everyone
+ * even though they have not bought it. So only go to that page, it tells them
+ * about how accessing the community is helpful for them, and then they can buy
+ * the subscription to community."*
+ *
+ * So the page is reachable by everyone (the nav entry is in every audience and
+ * `ALWAYS_VIEWS` keeps it alive on a locked account), the feed reads normally,
+ * and this panel is what turns "you can't post" into an offer. It states the
+ * value in the reader's own terms and points at the purchase — the opposite of
+ * a hidden control that 403s.
+ */
+const WHY_COMMUNITY: Array<{ icon: any; title: string; body: string }> = [
+  {
+    icon: Users,
+    title: 'One room, every side of the trade',
+    body: 'Clinics, suppliers, practitioners, pet owners and farmers are all already here. Reaching them is one post, not five channels.',
+  },
+  {
+    icon: Megaphone,
+    title: 'Say what you actually do',
+    body: 'Publish articles and case notes under your own name. It is how a practice becomes the one people think of first.',
+  },
+  {
+    icon: Tag,
+    title: 'Put deals in front of buyers',
+    body: 'List an offer with real products attached, so an interested clinic orders from the post instead of asking you to email a price list.',
+  },
+  {
+    icon: Calendar,
+    title: 'Fill your meet-ups and clinics',
+    body: 'Announce a farm day, a vaccination drive or a CPD evening to people who keep animals, near where you are.',
+  },
+];
+
+interface CommunityViewProps {
+  /**
+   * 288 — where "Get Community Access" goes. Supplied by the router because
+   * the billing page has a different view id per audience (`billing` for a
+   * clinic or farm, `supplier-billing` for a supplier). Optional: without it
+   * the button explains where to find the add-on rather than doing nothing.
+   */
+  onGoToBilling?: () => void;
+}
+
+const CommunityView: React.FC<CommunityViewProps> = ({ onGoToBilling }) => {
   const { user } = useAuth();
+  const { access } = usePlanAccess();
   const [tab, setTab] = useState<'ALL' | CommunityKind>('ALL');
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,6 +94,35 @@ const CommunityView: React.FC = () => {
   // server decides entitlement — this only picks the right default form.
   const isPractitioner = role === 'FREELANCER';
   const canOpenComposer = role !== 'CLIENT';
+
+  /**
+   * Does this account hold Community Access?
+   *
+   * ⚠️ The SERVER is the authority — `community.controller` refuses a post
+   * without the add-on regardless of what this says, and it checks three
+   * different entitlements depending on who is posting. This is only deciding
+   * whether to show the offer, so it fails OPEN: an account we can't read an
+   * answer for is not nagged.
+   *
+   * A PRACTITIONER needs nothing (organising a meet-up is not advertising), so
+   * they are never shown the upsell.
+   */
+  const holdsCommunity =
+    !access
+    || isPractitioner
+    || access.featureKeys?.includes('*')
+    || access.featureKeys?.includes('community:participate')
+    || (((access as any).addOns ?? []) as Array<{ name: string }>).some((a) => /community/i.test(a.name));
+  const showUpsell = !holdsCommunity;
+
+  const onGetAccess = () => {
+    if (onGoToBilling) { onGoToBilling(); return; }
+    dialog.alert({
+      title: 'Community Access',
+      message: 'Open Account → Billing. Community Access is under "Add-ons", and it can also be ticked onto your next plan purchase so both are paid for together.',
+      variant: 'info',
+    });
+  };
 
   const [form, setForm] = useState({
     kind: (isPractitioner ? 'MEET' : 'ARTICLE') as CommunityKind,
@@ -180,6 +258,53 @@ const CommunityView: React.FC = () => {
           </button>
         ))}
       </div>
+
+      {/* 288 — the offer, not a wall. The feed below still reads normally. */}
+      {showUpsell && (
+        <section className="rounded-2xl border border-pine/25 dark:border-seafoam/25 bg-gradient-to-br from-pine/[0.06] to-seafoam/[0.06] dark:from-pine/15 dark:to-seafoam/10 p-5 sm:p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="min-w-0 max-w-2xl">
+              <p className="text-[9px] font-black uppercase tracking-widest text-pine dark:text-seafoam">
+                Reading is free · posting is the add-on
+              </p>
+              <h2 className="mt-1.5 text-lg sm:text-xl font-black text-slate-900 dark:text-zinc-100 leading-tight">
+                You can read everything here. Community Access lets you be heard.
+              </h2>
+              <p className="mt-2 text-xs sm:text-[13px] text-slate-600 dark:text-zinc-400 leading-relaxed">
+                Browse the whole feed for nothing, for as long as you like. Community Access
+                is what adds your own voice to it — articles, deals and meet-ups published
+                under your name, to everyone in the room.
+              </p>
+            </div>
+            <button
+              onClick={onGetAccess}
+              className="shrink-0 px-5 py-3 rounded-xl bg-gradient-to-r from-pine to-seafoam text-white text-xs font-black uppercase tracking-wider shadow-lg shadow-pine/25 hover:opacity-95 transition-opacity"
+            >
+              Get Community Access
+            </button>
+          </div>
+
+          <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {WHY_COMMUNITY.map((w) => (
+              <div key={w.title} className="flex items-start gap-3 rounded-xl bg-white/70 dark:bg-zinc-900/60 border border-white/60 dark:border-zinc-800 p-3.5">
+                <span className="w-8 h-8 rounded-lg bg-pine/10 dark:bg-seafoam/15 grid place-items-center shrink-0">
+                  <w.icon size={15} className="text-pine dark:text-seafoam" />
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-[12px] font-black text-slate-800 dark:text-zinc-100">{w.title}</span>
+                  <span className="block mt-0.5 text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">{w.body}</span>
+                </span>
+              </div>
+            ))}
+          </div>
+
+          <p className="mt-4 text-[10px] text-slate-500 dark:text-zinc-500 leading-relaxed">
+            It works alongside whatever plan you're on — buying it doesn't change your
+            subscription. You can also tick it onto your next plan purchase from the
+            billing page, and pay for both together.
+          </p>
+        </section>
+      )}
 
       {loading && (
         <div className="py-20 text-center text-[11px] font-bold text-slate-400">Loading the feed…</div>

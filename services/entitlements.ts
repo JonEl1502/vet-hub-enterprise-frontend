@@ -94,6 +94,20 @@ export const ALWAYS_VIEWS = new Set([
   'import-data',
   'billing',
   'emergency',
+  /**
+   * 288 — READING THE COMMUNITY IS FREE, EVEN WHEN LOCKED.
+   *
+   * `allowsView` returns false for EVERY unmapped view once the state is
+   * LOCKED, so a clinic past its trial with no plan lost the Community entry
+   * entirely — the one page that explains what Community Access is and sells
+   * it. The server has never gated the read (`community.controller`: *"Reads
+   * are NOT gated at all"*), and the user's ask was explicit: *"a community
+   * available to everyone even though they have not bought it."*
+   *
+   * Posting is still refused server-side without the add-on; the page shows
+   * that refusal as an offer rather than hiding the button.
+   */
+  'community',
 ]);
 
 /**

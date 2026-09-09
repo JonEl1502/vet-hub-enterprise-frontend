@@ -33,6 +33,29 @@ interface PlanCardProps {
   /** The next tier DOWN, so this card can list only what it adds on top
    *  ("Everything in Manager, plus: …"). Null on the entry-level plan. */
   inheritsFrom?: Pick<SubscriptionPackage, 'name' | 'featureKeys' | 'maxBranches'> | null;
+  /**
+   * 288 — an add-on offered ON the plan card, bought in the SAME charge.
+   *
+   * User, 2026-09-09: *"in each of these cards can we have a checkbox or a
+   * check circle for add community and have it checked on and have the amount
+   * applied to it."* Community Access is the one this ships for.
+   *
+   * The tick is ON by default and its price is added to the button — but ONLY
+   * the package IDs go to the server, which prices both lines from the
+   * catalogue and sums them. The figure shown here is the same catalogue price
+   * rendered locally so the button doesn't lie; it is never what gets charged.
+   */
+  bundleAddOn?: SubscriptionPackage | null;
+  /** Already on this account — the tick renders as a settled fact, not an offer. */
+  bundleAddOnOwned?: boolean;
+  /**
+   * Lifted state. The Add-ons section lower down the page mirrors this tick, so
+   * the two can never disagree about whether Community Access is going in the
+   * basket (user: *"when the card is selected, the bottom card will also show
+   * auto selected also. So it should be consistent."*).
+   */
+  bundleChecked?: boolean;
+  onBundleCheckedChange?: (checked: boolean) => void;
 }
 
 const CYCLE_LABEL: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL', string> = {
@@ -55,7 +78,7 @@ const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | '
   TRIENNIAL: '3yr',
 };
 
-export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithPaystack, paystackLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget, inheritsFrom }) => {
+export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithPaystack, paystackLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget, inheritsFrom, bundleAddOn, bundleAddOnOwned, bundleChecked, onBundleCheckedChange }) => {
   const Icon = getPlanIcon(pkg.name);
   const { formatPrice } = useDisplayCurrency();
   // "What's included" list — collapsed to the first few, expandable in place.
@@ -96,10 +119,31 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
   // On the user's CURRENT plan, preselect their ACTUAL cycle (so a Pro/6-Months
   // user isn't shown Monthly by default). Otherwise use the admin-featured
   // cycle, falling back to the first available option.
+  /**
+   * ⚠️ 288 — A RETIRED CYCLE IS STILL SOMEBODY'S CURRENT CYCLE.
+   *
+   * QUARTERLY stopped being sold, so it is no longer in `cycleOptions` — but
+   * two live clinics are mid-term on one. For them the old fallback landed on
+   * the featured cycle (MONTHLY), which is SHORTER than what they hold: the
+   * card offered a "Pay" button the server correctly refuses as a downgrade.
+   *
+   * So when the current cycle is gone, seed with the shortest option that is
+   * still an upgrade. They see the real next step instead of a button that
+   * fails.
+   */
+  const currentCycleRetired =
+    isCurrent && !!currentSubBillingCycle && !cycleOptions.some((o) => o.cycle === currentSubBillingCycle);
+  const shortestUpgradeCycle = currentCycleRetired
+    ? [...cycleOptions]
+        .filter((o) => CYCLE_DAYS_FE[o.cycle] > currentCycleDays)
+        .sort((a, b) => CYCLE_DAYS_FE[a.cycle] - CYCLE_DAYS_FE[b.cycle])[0]?.cycle ?? null
+    : null;
   const initialCycle =
     isCurrent && currentSubBillingCycle && cycleOptions.some((o) => o.cycle === currentSubBillingCycle)
       ? currentSubBillingCycle
-      : (cycleOptions.find((o) => o.cycle === featured)?.cycle ?? cycleOptions[0].cycle);
+      : (shortestUpgradeCycle
+        ?? cycleOptions.find((o) => o.cycle === featured)?.cycle
+        ?? cycleOptions[0].cycle);
   const [selectedCycle, setSelectedCycle] = useState<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL'>(initialCycle);
   // "On current cycle" = the user is on this package AND has the same
   // cycle selected. Drives whether we show the 'Current Plan' chip vs an
@@ -120,6 +164,66 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
   const CHARGEABLE = ['KES', 'USD'];
   const payCurrency = String((selectedOption?.currency ?? pkg.currency) || 'KES').toUpperCase();
   const currencyUnsupported = !CHARGEABLE.includes(payCurrency);
+
+  /**
+   * 288 — the bundled add-on, priced on THIS card's selected cycle.
+   *
+   * It follows the plan's cycle so a two-year plan and its Community Access
+   * expire together; when the add-on has no option for that cycle it falls back
+   * to its own base price and runs on its own clock — which is exactly what
+   * `priceAddOns` does server-side, so the button and the charge agree.
+   */
+  const bundleOption = bundleAddOn
+    ? (bundleAddOn.billingOptions ?? []).find((o) => o.cycle === selectedCycle) ?? null
+    : null;
+  const bundlePrice = bundleAddOn
+    ? Number(bundleOption?.price ?? bundleAddOn.price ?? 0)
+    : 0;
+  const bundleCycleSuffix = CYCLE_SUFFIX[(bundleOption?.cycle as keyof typeof CYCLE_SUFFIX) ?? selectedCycle] ?? 'mo';
+  // An add-on already on the account is never re-charged — the server refuses
+  // it outright, so the tick must not add to the total either.
+  const bundleActive = !!bundleAddOn && !bundleAddOnOwned && !!bundleChecked && bundlePrice > 0;
+  const payTotal = Number(selectedOption.price) + (bundleActive ? bundlePrice : 0);
+
+  /** The tick, shared by the Pay CTA and the cycle-upgrade CTA. */
+  const BundleTick = !bundleAddOn ? null : (
+    <button
+      type="button"
+      onClick={() => { if (!bundleAddOnOwned) onBundleCheckedChange?.(!bundleChecked); }}
+      disabled={bundleAddOnOwned}
+      aria-pressed={bundleAddOnOwned ? true : !!bundleChecked}
+      className={`w-full flex items-start gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors ${
+        bundleAddOnOwned
+          ? 'border-emerald-300 dark:border-emerald-700/60 bg-emerald-50 dark:bg-emerald-900/20 cursor-default'
+          : bundleChecked
+          ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/15'
+          : 'border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 hover:border-pine/50'
+      }`}
+    >
+      <span
+        aria-hidden
+        className={`mt-0.5 w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-colors ${
+          bundleAddOnOwned
+            ? 'bg-emerald-500 border-emerald-500 text-white'
+            : bundleChecked
+            ? 'bg-pine border-pine text-white'
+            : 'border-slate-300 dark:border-zinc-600'
+        }`}
+      >
+        {(bundleAddOnOwned || bundleChecked) && <Check size={10} strokeWidth={4} />}
+      </span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-xs font-bold text-slate-700 dark:text-zinc-200">
+          {bundleAddOnOwned ? `${bundleAddOn.name} — already yours` : `Add ${bundleAddOn.name}`}
+        </span>
+        <span className="block text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+          {bundleAddOnOwned
+            ? 'Active on this account — it is not charged again.'
+            : `+${formatPrice(bundlePrice, bundleOption?.currency || bundleAddOn.currency || 'KES')} /${bundleCycleSuffix} · reach clinics, suppliers and owners in one place`}
+        </span>
+      </span>
+    </button>
+  );
 
   // The next LONGER cycle within THIS package (a cycle upgrade, e.g. 6mo→Yearly).
   // On the current plan we offer this before any cross-tier upsell.
@@ -358,6 +462,10 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
           <div className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold bg-pine/10 dark:bg-pine/20 text-pine dark:text-seafoam">
             <Check size={13} /> Current Plan
           </div>
+          {/* 288 — the tick belongs on the CURRENT plan card too: someone on
+              their final cycle still wants to know Community Access exists, and
+              it rides along on the cycle upgrade below. */}
+          {BundleTick}
           {/* Offer an in-plan cycle upgrade (e.g. 6 Months → Yearly) first —
               picking it selects that cycle and reveals the pay options below.
               Only fall back to the next-tier upsell once on the longest cycle. */}
@@ -413,6 +521,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
           exited Kenya. */}
       {!onCurrentCycle && !isTierDowngrade && onPayWithPaystack && (
         <div className="mt-auto w-full space-y-2">
+          {BundleTick}
           <button
             onClick={() => onPayWithPaystack(selectedOption.id || null, selectedCycle)}
             disabled={paystackLoading || currencyUnsupported || !(Number(selectedOption.price) > 0)}
@@ -428,9 +537,15 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
             {paystackLoading ? (
               <><RefreshCw size={14} className="animate-spin" /> Redirecting…</>
             ) : (
-              <>💳 Card or Mobile — {formatPrice(selectedOption.price, selectedOption.currency)}</>
+              <>💳 Card or Mobile — {formatPrice(payTotal, selectedOption.currency)}</>
             )}
           </button>
+          {bundleActive && (
+            <p className="text-[10px] text-slate-400 dark:text-zinc-500 text-center leading-tight">
+              {formatPrice(selectedOption.price, selectedOption.currency)} plan
+              {' + '}{formatPrice(bundlePrice, bundleOption?.currency || 'KES')} {bundleAddOn!.name}
+            </p>
+          )}
           {currencyUnsupported && (
             <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 leading-tight text-center">
               This plan is priced in {payCurrency}. Payments settle in KES or USD — ask support to re-price it.

@@ -16,7 +16,7 @@ import ReportPaymentIssueModal from './ReportPaymentIssueModal';
 import { LifeBuoy } from 'lucide-react';
 import DocumentActions from '../shared/DocumentActions';
 import { vethubPaystackAPI } from '../../../services/modules/vethubPaystack.api';
-import { subscriptionPaymentHistoryAPI, type PaymentHistoryRow } from '../../../services/modules/subscriptionPaymentHistory.api';
+import { subscriptionPaymentHistoryAPI, type PaymentHistoryRow, type PaymentLineItem } from '../../../services/modules/subscriptionPaymentHistory.api';
 import { subscriptionCancelAPI, type CancellationMode } from '../../../services/modules/subscriptionCancel.api';
 import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
 import { useManagementScope } from '../../../contexts/ManagementScopeContext';
@@ -91,6 +91,21 @@ const BillingView: React.FC = () => {
       setCancelSubmitting(false);
     }
   };
+
+  /**
+   * 288 — is Community Access going in the basket with the next plan purchase?
+   *
+   * ⭐ ONE boolean for the WHOLE PAGE, deliberately. The tick lives on every
+   * plan card AND is mirrored by the Community Access card in the Add-ons
+   * section below, and the user's requirement was that those never disagree:
+   * *"when the card is selected, the bottom card will also show auto selected
+   * also. So it should be consistent."* Per-card state would have let three
+   * cards hold three different answers to one question.
+   *
+   * Defaults to ON (user: *"have it checked on"*). Flipped off automatically
+   * once the account owns it — see the effect below.
+   */
+  const [bundleCommunity, setBundleCommunity] = useState(true);
 
   const [info, setInfo] = useState<BillingInfo | null>(null);
   const [showReportIssue, setShowReportIssue] = useState(false);
@@ -328,6 +343,44 @@ const BillingView: React.FC = () => {
   // also actively polls the attempt status for a snappier confirmation.
   const [paystackPlanId, setPaystackPlanId] = useState<string | null>(null);
 
+  /**
+   * 288 — the add-on the plan cards offer as a tick.
+   *
+   * Found by the `isAddon` flag plus its name, not a hardcoded id: package ids
+   * differ between prod and staging, and an id baked into the bundle would sell
+   * AI Assist on one env and Community Access on the other.
+   */
+  const communityAddOn = (info?.packages ?? []).find(
+    (p) => p.isAddon && /community/i.test(p.name),
+  ) ?? null;
+
+  /** Add-ons this clinic already holds, by name — from the access endpoint the
+   *  gating itself uses, so billing and the gate cannot disagree. */
+  const ownedAddOnNameSet = new Set((planAccess?.addOns ?? []).map((a) => a.name));
+  const communityOwned = !!communityAddOn && ownedAddOnNameSet.has(communityAddOn.name);
+
+  /**
+   * Which add-on IDs ride along with a purchase of `pkg`.
+   *
+   * Empty when the account already holds it (the server refuses a double
+   * charge, and offering one would be a button that fails), and empty when the
+   * purchase IS that add-on — nothing bundles onto itself.
+   */
+  const bundleAddOnIdsFor = (pkg: SubscriptionPackage): string[] => {
+    if (!communityAddOn || communityOwned || !bundleCommunity) return [];
+    if (pkg.id === communityAddOn.id) return [];
+    return [communityAddOn.id];
+  };
+
+  /**
+   * Once the account owns it, the tick stops being a choice. Clearing the flag
+   * (rather than only hiding the tick) keeps `bundleAddOnIdsFor` honest for
+   * every caller, including the ones added later.
+   */
+  useEffect(() => {
+    if (communityOwned) setBundleCommunity(false);
+  }, [communityOwned]);
+
   const handlePaystackPay = async (
     pkg: SubscriptionPackage,
     optionId: string | null,
@@ -346,6 +399,16 @@ const BillingView: React.FC = () => {
         billingOptionId: optionId ?? undefined,
         cycle,
         email,
+        /**
+         * 288 — the ticked add-ons, as IDS. The server prices both lines from
+         * the catalogue and sums them; nothing here says what anything costs
+         * (user: *"we're not passing the amount from front end. That is
+         * wrong."*).
+         *
+         * Skipped when THIS purchase already IS the add-on — buying Community
+         * Access from the Add-ons card must not try to bundle it onto itself.
+         */
+        addOnPackageIds: bundleAddOnIdsFor(pkg),
       });
       if (res.success && res.data?.authorizationUrl) {
         // Remember the ref so we can confirm the payment when the user
@@ -463,7 +526,7 @@ const BillingView: React.FC = () => {
   const packages = allPackages.filter((p) => !p.isAddon);
   const addOnPackages = allPackages.filter((p) => p.isAddon);
   // Which add-ons this clinic already holds (names, from the access endpoint).
-  const ownedAddOnNames = new Set((planAccess?.addOns ?? []).map((a) => a.name));
+  const ownedAddOnNames = ownedAddOnNameSet;
 
   // Featured/display billing option for a package (admin's featuredCycle, else
   // first option, else a synthetic from the legacy columns). Mirrors PlanCard.
@@ -822,6 +885,12 @@ const BillingView: React.FC = () => {
                     .sort((a, b) => (b.tier as number) - (a.tier as number))[0] ?? null
                 }
                 delay={i * 0.05}
+                /* 288 — the Community Access tick. One shared boolean for the
+                   page, so this card and the Add-ons card below always agree. */
+                bundleAddOn={communityAddOn}
+                bundleAddOnOwned={communityOwned}
+                bundleChecked={bundleCommunity}
+                onBundleCheckedChange={setBundleCommunity}
               />
             ))}
           </div>
@@ -848,25 +917,59 @@ const BillingView: React.FC = () => {
             {addOnPackages.map((pkg) => {
               const owned = ownedAddOnNames.has(pkg.name);
               const opt = featuredOptionFor(pkg);
+              /**
+               * 288 — THE MIRROR. This card and the tick on every plan card are
+               * two views of one fact, and the user asked for them to move
+               * together: *"even when the card is selected, the bottom card will
+               * also show auto selected also. So it should be consistent."*
+               *
+               * `owned` wins over `selected`: once it is bought, there is no
+               * selection left to make.
+               */
+              const isCommunity = communityAddOn?.id === pkg.id;
+              const selected = isCommunity && !owned && bundleCommunity;
               return (
                 <div key={pkg.id}
-                  className={`rounded-2xl border p-5 flex flex-col ${
+                  className={`rounded-2xl border p-5 flex flex-col transition-colors ${
                     owned ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10'
+                          : selected ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10 ring-1 ring-pine/30'
                           : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
                   }`}>
                   <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <p className="text-sm font-black text-slate-800 dark:text-white">{pkg.name}</p>
-                      <p className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-1">
-                        {formatPrice(opt.price, opt.currency)}
-                        <span className="text-[11px] font-normal text-slate-400"> /{CYCLE_SUFFIX_MAP[opt.cycle] ?? 'mo'}</span>
-                      </p>
+                    <div className="flex items-start gap-2.5">
+                      {isCommunity && (
+                        <button
+                          type="button"
+                          onClick={() => { if (!owned) setBundleCommunity((v) => !v); }}
+                          disabled={owned}
+                          aria-pressed={owned ? true : selected}
+                          aria-label={owned ? `${pkg.name} is active` : `Add ${pkg.name} to your next plan purchase`}
+                          className={`mt-0.5 w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-colors ${
+                            owned ? 'bg-emerald-500 border-emerald-500 text-white cursor-default'
+                                  : selected ? 'bg-pine border-pine text-white'
+                                  : 'border-slate-300 dark:border-zinc-600 hover:border-pine'
+                          }`}
+                        >
+                          {(owned || selected) && <Check size={10} strokeWidth={4} />}
+                        </button>
+                      )}
+                      <div>
+                        <p className="text-sm font-black text-slate-800 dark:text-white">{pkg.name}</p>
+                        <p className="text-lg font-black text-slate-900 dark:text-zinc-100 mt-1">
+                          {formatPrice(opt.price, opt.currency)}
+                          <span className="text-[11px] font-normal text-slate-400"> /{CYCLE_SUFFIX_MAP[opt.cycle] ?? 'mo'}</span>
+                        </p>
+                      </div>
                     </div>
-                    {owned && (
+                    {owned ? (
                       <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
-                        Active
+                        Bought
                       </span>
-                    )}
+                    ) : selected ? (
+                      <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-pine/15 dark:bg-pine/25 text-pine dark:text-seafoam whitespace-nowrap">
+                        In basket
+                      </span>
+                    ) : null}
                   </div>
 
                   {pkg.features?.length > 0 && (
@@ -882,17 +985,25 @@ const BillingView: React.FC = () => {
 
                   {owned ? (
                     <p className="mt-4 text-[11px] text-slate-500 dark:text-zinc-400">
-                      Included on this clinic. Cancel from Support if you no longer need it.
+                      Bought — active on this clinic. Cancel from Support if you no longer need it.
                     </p>
                   ) : (
-                    <button
-                      onClick={() => handlePaystackPay(pkg, opt.id || null, opt.cycle as any)}
-                      disabled={!sub}
-                      title={!sub ? 'Choose a plan first — add-ons work alongside a subscription' : undefined}
-                      className="mt-4 w-full py-2.5 rounded-xl bg-pine text-white text-xs font-bold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed"
-                    >
-                      {sub ? `Add ${pkg.name}` : 'Choose a plan first'}
-                    </button>
+                    <>
+                      {selected && (
+                        <p className="mt-4 text-[11px] text-pine dark:text-seafoam font-semibold leading-snug">
+                          Ticked on your plan cards — it will be bought together with your next plan,
+                          on one payment and one receipt. Buy it on its own below if you'd rather not wait.
+                        </p>
+                      )}
+                      <button
+                        onClick={() => handlePaystackPay(pkg, opt.id || null, opt.cycle as any)}
+                        disabled={!sub}
+                        title={!sub ? 'Choose a plan first — add-ons work alongside a subscription' : undefined}
+                        className={`w-full py-2.5 rounded-xl bg-pine text-white text-xs font-bold hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed ${selected ? 'mt-2' : 'mt-4'}`}
+                      >
+                        {sub ? `Buy ${pkg.name} on its own` : 'Choose a plan first'}
+                      </button>
+                    </>
                   )}
                 </div>
               );
@@ -1343,8 +1454,19 @@ const ReceiptModal: React.FC<ReceiptModalProps> = ({ row, onClose, formatDate })
         </div>
 
         <div className="rounded-xl bg-slate-50 dark:bg-zinc-800/60 p-4 space-y-2 text-sm">
-          <Row label="Plan" value={row.packageName} />
-          <Row label="Amount" value={formatPrice(row.amount, row.currency)} mono />
+          {/* 288 — a charge can buy a plan AND the add-ons ticked with it, so
+              the receipt names every package rather than just the plan (user:
+              *"in the receipt … it should also show both packages bought or all
+              the packages that have been bought"*). Falls back to the single
+              Plan row for every ordinary purchase and every pre-288 payment. */}
+          {row.lineItems && row.lineItems.length > 0 ? (
+            <LineItems items={row.lineItems} total={row.amount} currency={row.currency} formatPrice={formatPrice} />
+          ) : (
+            <>
+              <Row label="Plan" value={row.packageName} />
+              <Row label="Amount" value={formatPrice(row.amount, row.currency)} mono />
+            </>
+          )}
           <Row label="Channel" value={row.channel} />
           <Row label="Paid at" value={formatDate(paidAt)} />
           <Row label="Reference" value={row.reference} mono small />
@@ -1440,7 +1562,12 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ row, clinicName, onClose, f
 
         <div className="rounded-xl bg-slate-50 dark:bg-zinc-800/60 p-4 space-y-2 text-sm">
           <Row label="Issued" value={formatDate(row.createdAt)} />
-          <Row label="Item" value={`${row.packageName} subscription`} />
+          {/* 288 — see the receipt: one charge, every package it bought. */}
+          {row.lineItems && row.lineItems.length > 0 ? (
+            <LineItems items={row.lineItems} total={row.amount} currency={row.currency} formatPrice={formatPrice} />
+          ) : (
+            <Row label="Item" value={`${row.packageName} subscription`} />
+          )}
           <Row label="Channel" value={row.channel} />
           <Row label="Reference" value={row.reference} mono small />
           {row.settledAt && <Row label="Paid at" value={formatDate(row.settledAt)} />}
@@ -1498,6 +1625,52 @@ const InvoiceModal: React.FC<InvoiceModalProps> = ({ row, clinicName, onClose, f
     </div>
   );
 };
+
+/**
+ * 288 — WHAT ONE CHARGE BOUGHT.
+ *
+ * A plan card can tick Community Access into the same payment, so a receipt or
+ * invoice may cover several packages. The lines come from the attempt row,
+ * priced server-side at initiate — this renders what was charged, it never
+ * recomputes it.
+ *
+ * The total is `row.amount` (what actually settled), NOT the sum of the lines.
+ * If those two ever disagree, the document must show the money that moved.
+ */
+const CYCLE_WORD: Record<string, string> = {
+  MONTHLY: '1 month', QUARTERLY: '3 months', SEMIANNUAL: '6 months',
+  YEARLY: '1 year', BIENNIAL: '2 years', TRIENNIAL: '3 years',
+};
+
+const LineItems: React.FC<{
+  items: PaymentLineItem[];
+  total: number;
+  currency: string;
+  formatPrice: (n: number, c?: string) => string;
+}> = ({ items, total, currency, formatPrice }) => (
+  <div className="space-y-1.5">
+    <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">
+      Packages bought ({items.length})
+    </p>
+    {items.map((li, i) => (
+      <div key={`${li.packageId}-${i}`} className="flex justify-between items-baseline gap-3">
+        <span className="text-[13px] font-semibold text-slate-700 dark:text-zinc-200 min-w-0">
+          {li.name}
+          <span className="ml-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500">
+            {li.kind === 'ADDON' ? 'add-on' : 'plan'} · {CYCLE_WORD[li.cycle] ?? li.cycle.toLowerCase()}
+          </span>
+        </span>
+        <span className="font-mono text-[13px] text-slate-700 dark:text-zinc-200 whitespace-nowrap">
+          {formatPrice(li.amount, li.currency || currency)}
+        </span>
+      </div>
+    ))}
+    <div className="flex justify-between items-baseline gap-3 pt-1.5 border-t border-slate-200 dark:border-zinc-700">
+      <span className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">Total</span>
+      <span className="font-mono text-sm font-black text-slate-900 dark:text-zinc-100">{formatPrice(total, currency)}</span>
+    </div>
+  </div>
+);
 
 const Row: React.FC<{ label: string; value: string; mono?: boolean; small?: boolean }> = ({ label, value, mono, small }) => (
   <div className="flex justify-between items-baseline gap-3">

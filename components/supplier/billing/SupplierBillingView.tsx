@@ -45,6 +45,16 @@ const SupplierBillingView: React.FC = () => {
   const [loading, setLoading]           = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError]               = useState<string | null>(null);
+  /**
+   * 288 — Community Access on the supplier's plan cards.
+   *
+   * One boolean for the page, ON by default, exactly as on the clinic rail.
+   * The supplier's feature keys tell us whether they already hold it: Phase A
+   * unions add-on keys into the supplier resolver, so `community:participate`
+   * present means the add-on is live and the tick becomes a settled fact.
+   */
+  const [bundleCommunity, setBundleCommunity] = useState(true);
+  const [featureKeys, setFeatureKeys]   = useState<string[] | null>(null);
 
   const SUB_CACHE_KEY  = `/supplier-subscription/${supplierId}`;
   const PKG_CACHE_KEY  = `/supplier-packages/${supplierId}`;
@@ -75,10 +85,15 @@ const SupplierBillingView: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const [subRes, pkgRes] = await Promise.all([
+      const [subRes, pkgRes, accessRes] = await Promise.all([
         supplierSubscriptionAPI.getActive(supplierId),
         supplierSubscriptionAPI.getPackages(supplierId),
+        // 288 — never fatal: a failed access read must not stop the plans from
+        // rendering, so it resolves to null and the tick simply offers the
+        // add-on (which the server would refuse anyway if already held).
+        supplierSubscriptionAPI.getAccess(supplierId).catch(() => null),
       ]);
+      if (accessRes?.success) setFeatureKeys(accessRes.data.featureKeys ?? []);
       if (subRes.success) {
         setSubscription(subRes.data.subscription);
         cache.set(SUB_CACHE_KEY, subRes.data.subscription);
@@ -178,6 +193,11 @@ const SupplierBillingView: React.FC = () => {
         billingOptionId: optionId ?? undefined,
         cycle,
         email,
+        // 288 — IDS ONLY; the server prices both lines from the catalogue.
+        addOnPackageIds:
+          communityAddOn && !communityOwned && bundleCommunity && pkg.id !== communityAddOn.id
+            ? [communityAddOn.id]
+            : [],
       });
       const url = (res as any)?.data?.authorizationUrl;
       if (res.success && url) {
@@ -205,6 +225,18 @@ const SupplierBillingView: React.FC = () => {
     () => packages.filter((p) => !p.isAddon).sort((a, b) => a.tier - b.tier),
     [packages],
   );
+
+  /**
+   * 288 — the add-on offered as a tick on every plan card. Found by flag +
+   * name rather than a hardcoded id, which differs between prod and staging.
+   */
+  const communityAddOn = React.useMemo(
+    () => packages.find((p) => p.isAddon && /community/i.test(p.name)) ?? null,
+    [packages],
+  );
+  const communityOwned = !!featureKeys
+    && (featureKeys.includes('*') || featureKeys.includes('community:participate'));
+  useEffect(() => { if (communityOwned) setBundleCommunity(false); }, [communityOwned]);
 
   if (loading) {
     return (
@@ -377,6 +409,11 @@ const SupplierBillingView: React.FC = () => {
                  stayed invisible for 1, 2 and 3 MINUTES and the page looked
                  like it only offered Starter (user, 2026-08-23). */
               delay={i * 0.05}
+              /* 288 — same tick as the clinic rail, same shared boolean. */
+              bundleAddOn={communityAddOn}
+              bundleAddOnOwned={communityOwned}
+              bundleChecked={bundleCommunity}
+              onBundleCheckedChange={setBundleCommunity}
               inheritsFrom={
                 [...basePackages]
                   .filter((o) => o.tier < pkg.tier)

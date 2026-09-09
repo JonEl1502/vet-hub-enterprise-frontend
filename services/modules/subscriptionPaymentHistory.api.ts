@@ -29,8 +29,25 @@ export interface PaymentHistoryRow {
   packageName: string;
   packageCurrency: string;
   packagePrice: number;
+  /**
+   * 288 — every package this ONE charge bought, when it bought more than one.
+   * A plan card can bundle Community Access into the same payment, so the
+   * receipt and the invoice itemise rather than naming the plan alone.
+   * NULL for an ordinary single-package purchase — the documents fall back to
+   * their one-line rendering.
+   */
+  lineItems: PaymentLineItem[] | null;
   createdAt: string;
   settledAt: string | null;
+}
+
+export interface PaymentLineItem {
+  packageId: string;
+  name: string;
+  kind: 'PLAN' | 'ADDON';
+  cycle: string;
+  amount: number;
+  currency: string;
 }
 
 export const subscriptionPaymentHistoryAPI = {

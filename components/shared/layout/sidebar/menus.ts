@@ -97,8 +97,25 @@ export interface Audience {
 // Grouped into collapsible sections so the platform surface reads as a few
 // clear areas instead of one long scattered list. Internal view ids are
 // unchanged — only grouping/labels differ, so deep links keep working.
+/**
+ * 288 — COMMUNITY IS FOR EVERYONE, AND IT SITS UNDER DASHBOARD.
+ *
+ * User, 2026-09-09: *"they are visible for all the users … let it be below
+ * dashboard. So dashboard then community then, let's say, for this user, it
+ * will be farms, and then etc etc."*
+ *
+ * ⭐ It is in EVERY audience deliberately, and it is NOT permission-gated.
+ * READING the community is free to every signed-in user — the server gates
+ * writes only. Hiding the entry from someone who hasn't bought Community
+ * Access would hide the one page that explains what Community Access is, which
+ * is the mistake the "sell the lock, never hide it" rule exists to prevent.
+ * The page itself carries the upsell.
+ */
+const COMMUNITY_ITEM: MenuItem = { id: 'community', label: 'Community', icon: MessageCircle };
+
 const ADMIN_ITEMS: MenuItem[] = [
   { id: 'dashboard', label: 'Platform Dashboard', icon: LayoutDashboard },
+  COMMUNITY_ITEM,
   {
     id: 'admin_tenants_menu', label: 'Tenants', icon: Building2,
     subItems: [
@@ -154,6 +171,7 @@ const ADMIN_ITEMS: MenuItem[] = [
 // ─── Clinic: vet/staff/owner clinical day-to-day ───────────────────────────
 const CLINIC_ITEMS: MenuItem[] = [
   { id: 'dashboard',    label: 'Dashboard',    icon: LayoutDashboard, requiredPerm: 'VIEW_DASHBOARD' },
+  COMMUNITY_ITEM,
   // Patients & Clients sits directly under Dashboard: the records staff open
   // most often, ahead of the day's scheduling lists.
   {
@@ -270,6 +288,7 @@ const CLINIC_ITEMS: MenuItem[] = [
 // would just be a second route to the same data.
 const SUPPLIER_ITEMS: MenuItem[] = [
   { id: 'supplier-dashboard',  label: 'Dashboard',  icon: LayoutDashboard },
+  COMMUNITY_ITEM,
   { id: 'supplier-products',   label: 'Products',   icon: Package },
   { id: 'supplier-inventory',  label: 'Inventory',  icon: ShoppingCart },
   { id: 'supplier-orders',     label: 'Orders',     icon: Receipt },
@@ -291,6 +310,7 @@ const SUPPLIER_ITEMS: MenuItem[] = [
 // admin page is `admin-freelancers`, which they don't manage themselves.
 const FREELANCER_ITEMS: MenuItem[] = [
   { id: 'dashboard',    label: 'Dashboard',    icon: LayoutDashboard },
+  COMMUNITY_ITEM,
   { id: 'appointments', label: 'My Schedule',  icon: CalendarClock },
   { id: 'patients',     label: 'Patients',     icon: Dog },
   { id: 'transactions', label: 'My Earnings',  icon: Receipt },
@@ -349,6 +369,7 @@ export const applyBillableItemsLayout = (items: MenuItem[], prodTest: boolean): 
 // clinic, to an independent vet officer (county vet), or to neither.
 const LIVESTOCK_ITEMS: MenuItem[] = [
   { id: 'livestock-dashboard', label: 'Dashboard',       icon: LayoutDashboard },
+  COMMUNITY_ITEM,
   { id: 'farms',               label: 'Farms',           icon: Warehouse },
   { id: 'animal-groups',       label: 'Herds & Flocks',  icon: Milk },
   { id: 'crop-plots',          label: 'Crop Plots',      icon: Wheat },

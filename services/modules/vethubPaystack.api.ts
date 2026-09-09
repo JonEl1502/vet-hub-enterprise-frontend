@@ -61,6 +61,14 @@ export const vethubPaystackAPI = {
       cycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL';
       email: string;
       phone?: string;
+      /**
+       * 288 — add-ons ticked on the plan card, bought in the same charge.
+       *
+       * ⚠️ IDS ONLY, never an amount. The server prices every line from the
+       * catalogue and sums them; there is deliberately no way for this client
+       * to influence what gets charged.
+       */
+      addOnPackageIds?: Array<string | number>;
     }
   ): Promise<ApiResponse<PaystackInitiateResult>> =>
     post('/subscriptions/paystack/initiate', args, { headers: { 'x-clinic-id': clinicId } }),
@@ -77,6 +85,8 @@ export const vethubPaystackAPI = {
       cycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL';
       email: string;
       phone?: string;
+      /** 288 — add-ons ticked on the plan card. IDs only; priced server-side. */
+      addOnPackageIds?: Array<string | number>;
     }
   ): Promise<ApiResponse<PaystackInitiateResult>> =>
     post('/subscriptions/paystack/initiate', args, { headers: { 'x-supplier-id': supplierId } }),
