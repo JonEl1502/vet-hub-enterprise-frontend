@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Loader2, Eye, EyeOff, ArrowRight } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { clientPortalAPI, toast, PortalClinic } from '../../../services';
@@ -12,6 +12,23 @@ import ClinicFinder from '../ClinicFinder';
 const ClientSignup: React.FC = () => {
   const { signup } = useAuth();
   const navigate = useNavigate();
+  /**
+   * 297 — AUTO-ATTACH, BUT ONLY ON SIGNUP (user, 2026-09-10).
+   *
+   * Someone arriving with `?clinic=…` scanned that practice's QR code, which
+   * means they are standing in it. Making them search a directory for the
+   * clinic they are physically inside is the closed loop this landing exists to
+   * remove — so step 2 is skipped and the join happens for them.
+   *
+   * ⚠️ Deliberately NOT done on LOGIN. A QR gets photographed, forwarded and
+   * reposted; silently attaching an EXISTING account to a clinic because
+   * someone opened a link would quietly hand that practice a stranger's
+   * records. A new account has nothing to expose yet and is making the choice
+   * by signing up here.
+   */
+  const [searchParams] = useSearchParams();
+  const fromClinicId = searchParams.get('clinic');
+  const fromClinicName = searchParams.get('clinicName');
   const [step, setStep] = useState<1 | 2>(1);
   const [form, setForm] = useState({ firstName: '', surname: '', email: '', phone: '', password: '' });
   const [showPw, setShowPw] = useState(false);
@@ -36,6 +53,19 @@ const ClientSignup: React.FC = () => {
         phone: form.phone.trim() || undefined,
       });
       await signup(res.data); // sets session
+      // Scanned in at a clinic — join it and go, no directory search.
+      if (fromClinicId) {
+        try {
+          await clientPortalAPI.joinClinic(fromClinicId);
+          toast.success(fromClinicName ? `You're connected to ${fromClinicName}` : "You're connected to your clinic");
+          navigate('/client', { replace: true });
+          return;
+        } catch {
+          // The clinic went away, or the link was stale. Fall through to the
+          // picker rather than stranding a brand-new account with no clinic.
+          toast('Pick your clinic to finish setting up.');
+        }
+      }
       setStep(2);
     } catch (err: any) {
       setError(err?.response?.data?.message || 'Could not create your account. Try again.');

@@ -29,10 +29,36 @@ export interface DemoRequestPayload {
   audience?: 'clinic' | 'practitioner' | 'boarding' | 'counter' | 'supplier';
 }
 
+/** 297 — the narrow projection behind a QR scan. Nothing here that is not
+ *  already on the clinic's own signage. */
+export interface PublicClinic {
+  id: string;
+  name: string;
+  slogan: string | null;
+  logo: string | null;
+  city: string | null;
+  countryCode: string | null;
+  subdomain: string;
+  primaryColor: string | null;
+  secondaryColor: string | null;
+}
+
 export const publicAPI = {
   // Bootstrap config read on app load (drives the signup-vs-demo switch).
   getConfig: (options?: RequestOptions): Promise<ApiResponse<PublicConfig>> =>
     get('/public/config', { cache: false, ...options }),
+
+  /**
+   * 297 — resolve the clinic behind a QR code, for the client landing at
+   * `/c/:slug`. Unauthenticated: whoever scanned it has no account yet.
+   * `silent` because a 404 here is a normal outcome (a stale poster), and the
+   * landing renders its own "we couldn't find that clinic" rather than a toast.
+   */
+  clinicBySlug: (
+    slug: string,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ clinic: PublicClinic }>> =>
+    get(`/public/clinic/${encodeURIComponent(slug)}`, { cache: false, silent: true, ...options }),
 
   // "Contact us for a demo" lead submission.
   requestDemo: (data: DemoRequestPayload, options?: RequestOptions): Promise<ApiResponse<{ received: boolean }>> =>

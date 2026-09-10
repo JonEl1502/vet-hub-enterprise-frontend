@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import App from './App';
 import ClientApp from './components/client/ClientApp';
+import ClinicLanding from './components/client/ClinicLanding';
 import PosRoute from './components/supplier/pos/PosRoute';
 import { storeMode } from './components/client/usePortalMode';
 import LegalPage, { type LegalKind } from './components/shared/marketing/LegalPage';
@@ -72,6 +73,11 @@ const RoutedApp: React.FC = () => {
     <Routes>
       {/* Pet-owner portal (own auth + views) */}
       <Route path="/client/*" element={<ClientApp />} />
+      {/* 297 — the client landing behind a clinic's QR code. PUBLIC and
+          outside `/client/*` on purpose: that subtree is the signed-in portal,
+          and this is read by someone who has no account yet. Short path because
+          it gets printed on posters and collar tags. */}
+      <Route path="/c/:slug" element={<ClinicLanding />} />
 
       {/* The supplier till. Its own full-bleed route, not a view inside App:
           a cashier signs in here and never sees the supplier portal, and the

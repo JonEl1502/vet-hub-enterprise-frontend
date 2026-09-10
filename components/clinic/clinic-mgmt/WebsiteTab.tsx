@@ -1,11 +1,12 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   Globe, Loader2, Copy, Check, Plus, KeyRound, Send, Trash2, RefreshCw,
   AlertTriangle, ShieldAlert, ExternalLink, Radio, RotateCw, ShoppingBag, ShoppingCart,
-  SlidersHorizontal, Webhook,
+  SlidersHorizontal, Webhook, Link2,
 } from 'lucide-react';
 import { siteConnectAPI, type SiteConnection, type SiteDelivery } from '../../../services/modules/siteConnect.api';
 import { toast, dialog } from '../../../services';
+import { useClinic } from '../../../contexts/ClinicContext';
 import WebsiteCatalogPanel from './WebsiteCatalogPanel';
 import WebsiteOrdersPanel from './WebsiteOrdersPanel';
 
@@ -55,6 +56,71 @@ const CopyRow: React.FC<{ label: string; value: string; mono?: boolean }> = ({ l
         >
           {copied ? <Check size={13} className="text-emerald-500" /> : <Copy size={13} />}
         </button>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * 297 — THE LINK BEHIND THE CLINIC'S QR CODE.
+ *
+ * `/c/<subdomain>` is a public landing that confirms whose code was scanned,
+ * says what a client account is for, and offers both doors — signing up there
+ * attaches the owner to this clinic automatically, with no directory search.
+ *
+ * The URL is what gets printed, so it is shown plainly and copyably rather than
+ * hidden behind a generated image. Rendering the QR itself needs a library the
+ * app does not carry yet — deliberately not added here without asking, because
+ * a new dependency means a full `npm ci` on a build box that is already the
+ * slowest part of shipping.
+ */
+const ClientLinkPanel: React.FC = () => {
+  const { clinics, selectedClinicIds } = useClinic();
+  const clinic = clinics.find((c) => String(c.id) === String(selectedClinicIds[0])) ?? clinics[0];
+  const slug = (clinic as any)?.subdomain;
+  const [copied, setCopied] = useState(false);
+  if (!slug) return null;
+
+  const url = `${window.location.origin}/c/${slug}`;
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      toast.error('Could not copy — select the link and copy it manually.');
+    }
+  };
+
+  return (
+    <div className={CARD}>
+      <div className="flex items-start gap-3">
+        <div className="p-2 rounded-lg bg-pine/10 text-pine dark:text-seafoam shrink-0"><Link2 size={16} /></div>
+        <div className="min-w-0 flex-1">
+          <h3 className="text-sm font-black text-pine dark:text-zinc-100">Your client link</h3>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1 leading-relaxed max-w-2xl">
+            Print this on a poster, a receipt or a collar tag — or turn it into a QR code.
+            It opens a page naming {clinic?.name || 'this clinic'}, and anyone who signs up
+            from it is connected to you automatically.
+          </p>
+          <div className="mt-2.5 flex flex-wrap items-center gap-2">
+            <code className="px-3 py-2 rounded-lg bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-[11px] font-mono text-pine dark:text-zinc-200 break-all">
+              {url}
+            </code>
+            <button
+              onClick={copy}
+              className="px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300 hover:border-pine/40 transition-colors"
+            >
+              {copied ? 'Copied' : 'Copy link'}
+            </button>
+            <a
+              href={url} target="_blank" rel="noreferrer"
+              className="px-3 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300 hover:border-pine/40 transition-colors"
+            >
+              Preview
+            </a>
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -256,6 +322,9 @@ const WebsiteTab: React.FC = () => {
 
   return (
     <div className="space-y-4">
+      {/* ── 297 — the link a QR code points at ────────────────────────────── */}
+      <ClientLinkPanel />
+
       {/* ── what this is, in the clinic's own terms ───────────────────────── */}
       <div className={CARD}>
         <div className="flex items-start gap-3">
