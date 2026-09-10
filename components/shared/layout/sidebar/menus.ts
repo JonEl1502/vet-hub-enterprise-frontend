@@ -249,16 +249,15 @@ const CLINIC_ITEMS: MenuItem[] = [
       { id: 'financial-core',     label: 'Clinic Finance',      icon: CircleDollarSign },
     ],
   },
-  {
-    // Community sits directly above Clinic Management (user, 2026-08-15).
-    // ⚠️ A top-level item with no subItems, because Community is ONE surface
-    // every user reaches — staff here, clients/farm owners from the portal.
-    // Read access is universal; the subscription gates WRITES, so this entry
-    // must NOT carry a plan gate or a lapsed clinic loses sight of the space.
-    id: 'community',
-    label: 'Community',
-    icon: Users,
-  },
+  /*
+   * ⚠️ Community USED to sit here, directly above Clinic Management
+   * (user, 2026-08-15). It moved to directly under Dashboard on 2026-09-10
+   * ("dashboard then community then … farms") — and for a while it was in BOTH
+   * places, because COMMUNITY_ITEM was added to every audience without checking
+   * whether this list already had one. The clinic sidebar rendered Community
+   * twice. Removed here, kept there; this note stays so the next move looks for
+   * an existing entry first.
+   */
   {
     id: 'clinic_mgmt',
     label: 'Clinic Management',

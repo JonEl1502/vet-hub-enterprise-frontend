@@ -106,6 +106,8 @@ const BillingView: React.FC = () => {
    * once the account owns it — see the effect below.
    */
   const [bundleCommunity, setBundleCommunity] = useState(true);
+  /** 293 — a payment is settling right now; see the poll effect below. */
+  const [confirmingPayment, setConfirmingPayment] = useState(false);
 
   const [info, setInfo] = useState<BillingInfo | null>(null);
   const [showReportIssue, setShowReportIssue] = useState(false);
@@ -450,7 +452,18 @@ const BillingView: React.FC = () => {
 
     let cancelled = false;
     const startedAt = Date.now();
-    toast('Confirming your card payment…');
+    /**
+     * 293 — TELL THEM SOMETHING IS HAPPENING.
+     *
+     * Settlement is not instant: Paystack's webhook races a poll that self-heals
+     * only after 20s. Until now the page said nothing for that whole window —
+     * it just showed "No active subscription found. Choose a plan below", which
+     * reads as *the payment failed* to someone who has just paid (user,
+     * 2026-09-10). A banner, not only a toast: a toast is gone in five seconds
+     * and this wait can outlast it.
+     */
+    setConfirmingPayment(true);
+    toast.info('Confirming your payment — this takes a few seconds.');
     const tick = async () => {
       if (cancelled || !ref) return;
       try {
@@ -459,6 +472,7 @@ const BillingView: React.FC = () => {
           const st = res.data.status;
           if (st === 'SUCCESS') {
             cancelled = true;
+            setConfirmingPayment(false);
             toast.success('Payment received — your subscription is active.');
             await fetchInfo();
             await fetchHistory();
@@ -466,6 +480,7 @@ const BillingView: React.FC = () => {
           }
           if (st === 'FAILED' || st === 'CANCELLED' || st === 'EXPIRED') {
             cancelled = true;
+            setConfirmingPayment(false);
             toast.error(`Card payment ${st.toLowerCase()}: ${res.data.resultDesc || 'no further detail'}`);
             await fetchInfo();
             return;
@@ -474,10 +489,14 @@ const BillingView: React.FC = () => {
       } catch { /* keep polling */ }
       if (!cancelled && Date.now() - startedAt < 90 * 1000) {
         setTimeout(tick, 2500);
+      } else if (!cancelled) {
+        // Gave up waiting. The money is not lost — the reconciler cron settles
+        // it — but the page must stop claiming to be working on it.
+        setConfirmingPayment(false);
       }
     };
     tick();
-    return () => { cancelled = true; };
+    return () => { cancelled = true; setConfirmingPayment(false); };
   }, [clinicId, fetchInfo, fetchHistory]);
 
   const handlePortal = async () => {
@@ -749,7 +768,30 @@ const BillingView: React.FC = () => {
           // Pass the full package row so the card can look up the
           // billing_option matching the sub's actual cycle.
           fullPackage={info?.packages?.find((p) => p.id === sub.package?.id) ?? null}
+          /* 293 — the add-ons this plan carries, and the Community offer when
+             it does not carry that one yet. */
+          addOnNames={[...ownedAddOnNameSet]}
+          communityOffer={communityAddOn && !communityOwned
+            ? { price: Number(featuredOptionFor(communityAddOn).price), currency: featuredOptionFor(communityAddOn).currency || 'KES' }
+            : null}
+          onGetCommunity={() => {
+            if (!communityAddOn) return;
+            const opt = featuredOptionFor(communityAddOn);
+            handlePaystackPay(communityAddOn, opt.id || null, opt.cycle as any);
+          }}
         />
+      ) : confirmingPayment ? (
+        /* 293 — someone who has just paid must not be told they have no
+           subscription. Settlement races a webhook and a 20s self-heal poll;
+           until it lands, say what is actually happening. */
+        <div className="flex items-center gap-3 px-5 py-4 rounded-2xl border border-sky-200 dark:border-sky-800 bg-sky-50 dark:bg-sky-900/20 text-sky-800 dark:text-sky-300 text-sm">
+          <RefreshCw size={15} className="animate-spin shrink-0" />
+          <span>
+            <span className="font-bold">Confirming your payment…</span>{' '}
+            This usually takes a few seconds. You can stay on this page — your plan
+            appears here as soon as it clears, and nothing is lost if you navigate away.
+          </span>
+        </div>
       ) : (
         <div className="flex items-center gap-3 px-5 py-4 rounded-2xl border border-amber-200 dark:border-amber-800 bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 text-sm">
           <AlertTriangle size={15} />
@@ -1263,10 +1305,26 @@ interface CurrentPlanCardProps {
    *  per-cycle billingOptions. We look up the option matching
    *  sub.billingCycle to show the correct price + cycle label. */
   fullPackage?: SubscriptionPackage | null;
+  /**
+   * 293 — the add-ons riding on this plan, and the offer when there are none.
+   *
+   * User, 2026-09-10: *"card should show the pkg purchased n + community, if
+   * not then in the card have 'view and find more clients' which is call to
+   * action for community access."*
+   *
+   * A plan and its add-ons are one subscription in the customer's head — they
+   * paid for them together, on one receipt. Naming only the plan made the
+   * add-on invisible the moment it was bought.
+   */
+  addOnNames?: string[];
+  /** Null once the account holds it, or when the catalogue has no such row. */
+  communityOffer?: { price: number; currency: string } | null;
+  onGetCommunity?: () => void;
 }
 
 const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
   sub, formatDate, daysUntilExpiry, getPlanIcon, onCancel, subscriptionDaysLeft, fullPackage,
+  addOnNames = [], communityOffer, onGetCommunity,
 }) => {
   const { formatPrice } = useDisplayCurrency();
   const cancelled = !!sub.cancellationMode;
@@ -1303,6 +1361,11 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
               <div className="flex items-center gap-2 mb-0.5">
                 <h3 className="text-base font-bold text-slate-800 dark:text-white">
                   {sub.package?.name ?? 'Current Plan'}
+                  {/* 293 — the add-ons bought alongside it. One subscription in
+                      the customer's head, so one line here. */}
+                  {addOnNames.map((n) => (
+                    <span key={n} className="font-bold text-slate-400 dark:text-zinc-500"> + {n}</span>
+                  ))}
                 </h3>
                 {/* A cancelled END_OF_CYCLE sub stays isActive until expiry —
                     show "Cancelled" (not "Active") so the cancel visibly took. */}
@@ -1381,6 +1444,33 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
               </div>
             ))}
           </div>
+        )}
+
+        {/* 293 — THE OFFER, ON THE PLAN CARD.
+            User: *"if not then in the card have 'view and find more clients'
+            which is call to action for community access."* It sits on the
+            current-plan card because that is where someone looks after paying
+            — and it is framed as what they GET (reach), not as a locked
+            feature. Disappears the moment they hold it; the title then reads
+            "Boarding + Community Access" instead. */}
+        {communityOffer && onGetCommunity && !cancelled && (
+          <button
+            onClick={onGetCommunity}
+            className="mt-4 w-full flex items-center justify-between gap-3 px-4 py-3 rounded-xl border border-pine/30 dark:border-seafoam/30 bg-gradient-to-r from-pine/[0.06] to-seafoam/[0.06] dark:from-pine/15 dark:to-seafoam/10 text-left hover:border-pine/60 transition-colors group"
+          >
+            <span className="min-w-0">
+              <span className="block text-xs font-black text-slate-800 dark:text-zinc-100">
+                View and find more clients
+              </span>
+              <span className="block text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                Community Access puts you in front of clinics, suppliers and pet owners
+                — post, be found, and reply to enquiries.
+              </span>
+            </span>
+            <span className="shrink-0 px-3 py-2 rounded-lg bg-pine text-white text-[10px] font-black uppercase tracking-widest group-hover:opacity-90">
+              Add · {communityOffer.currency} {communityOffer.price.toLocaleString()}
+            </span>
+          </button>
         )}
 
         {/* Cancellation badge + cancel CTA */}
