@@ -23,6 +23,7 @@ import {
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
 import ClientFarmRecords from './ClientFarmRecords';
+import { useFarmerPlan } from '../useFarmerPlan';
 
 const fmtDate = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '—';
@@ -30,6 +31,7 @@ const fmtWhen = (d?: string | null) =>
   d ? new Date(d).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'Never';
 
 const ClientFarms: React.FC = () => {
+  const farmerPlan = useFarmerPlan();
   const [farms, setFarms] = useState<PortalFarm[]>([]);
   const [activeId, setActiveId] = useState<string>('');
   const [groups, setGroups] = useState<PortalAnimalGroup[]>([]);
@@ -503,10 +505,19 @@ const ClientFarms: React.FC = () => {
                 </ul>
               </div>
               <div className="sm:text-right shrink-0">
-                <p className="text-[10px] uppercase tracking-widest text-slate-400">Farmer plan</p>
-                <p className="text-xl font-black text-slate-800 dark:text-zinc-100 leading-tight">
-                  KES 1,500<span className="text-xs font-bold text-slate-400">/mo</span>
+                {/* 288 — the price comes from the CATALOGUE. It was hardcoded
+                    "KES 1,500" and went stale the moment plans were repriced,
+                    quoting a farmer 100x what checkout would charge. Renders
+                    nothing until it resolves: no price beats a wrong one. */}
+                <p className="text-[10px] uppercase tracking-widest text-slate-400">
+                  {farmerPlan?.name ?? 'Farmer'} plan
                 </p>
+                {farmerPlan && (
+                  <p className="text-xl font-black text-slate-800 dark:text-zinc-100 leading-tight">
+                    {farmerPlan.currency} {farmerPlan.price.toLocaleString()}
+                    <span className="text-xs font-bold text-slate-400">/mo</span>
+                  </p>
+                )}
                 <button className="cp-btn mt-2 w-full sm:w-auto" onClick={() => navigate('/client/plan')}>
                   See what you get
                 </button>

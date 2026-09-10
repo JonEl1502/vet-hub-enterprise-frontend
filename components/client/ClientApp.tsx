@@ -21,6 +21,7 @@ import ClientMessages from './views/ClientMessages';
 import ClientInvoices from './views/ClientInvoices';
 import ClientSettings from './views/ClientSettings';
 import ClientPlan from './views/ClientPlan';
+import CommunityView from '../shared/community/CommunityView';
 
 // The pet-owner portal — a self-contained app tree mounted at /client/*.
 // Shares AuthContext with the staff app but renders an entirely separate,
@@ -86,6 +87,10 @@ const ClientApp: React.FC = () => {
           <Route path="appointments/:appointmentId" element={<ClientVisitDetail />} />
           <Route path="messages" element={<ClientMessages />} />
           <Route path="invoices" element={<ClientInvoices />} />
+          {/* 288 — free to read for every signed-in user, so no gate on the
+              route. A CLIENT cannot post as a business, so the page shows the
+              feed and nothing to upsell. */}
+          <Route path="community" element={<CommunityView />} />
           <Route path="settings" element={<ClientSettings />} />
           <Route path="plan" element={<ClientPlan />} />
           <Route path="*" element={<Navigate to="/client" replace />} />

@@ -658,7 +658,7 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId,
               width because it is the act that ends the triage, and the long
               label shortens on small screens. */}
           <div className="h-12 sm:h-16" aria-hidden />
-          <div className="fixed bottom-0 right-0 left-0 md:left-[var(--vh-sidebar-w,16rem)] z-40 px-3 sm:px-4 py-1.5 sm:py-2 border-t border-slate-200 dark:border-zinc-800 bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-sm shadow-[0_-4px_16px_rgba(0,0,0,0.10)] flex flex-row items-center gap-2">
+          <div className="fixed bottom-0 right-0 left-0 md:left-[var(--vh-sidebar-w,16rem)] z-40 px-4 md:px-6 py-1.5 sm:py-2 border-t border-slate-200 dark:border-zinc-800 bg-slate-50/95 dark:bg-zinc-950/95 backdrop-blur-sm shadow-[0_-4px_16px_rgba(0,0,0,0.10)] flex flex-row items-center gap-2">
             <button onClick={save} disabled={saving} className="shrink-0 px-3 sm:px-4 py-2 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-lg font-black text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50">
               {saving ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Save
             </button>

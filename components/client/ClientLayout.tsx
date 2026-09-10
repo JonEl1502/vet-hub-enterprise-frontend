@@ -3,7 +3,8 @@ import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus, Sprout, Beef,
   Stethoscope, UserRound,
-  Settings, LogOut, Sun, Moon, Monitor, ChevronDown, Sparkles,
+  Settings, LogOut, Sun, Moon, Monitor, ChevronDown, Sparkles, Users,
+  type LucideIcon,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useThemeMode, type ThemeMode } from '../../hooks/useThemeMode';
@@ -12,14 +13,33 @@ import BrandMark from '../shared/common/BrandMark';
 import NotificationBell from './NotificationBell';
 import { usePortalMode } from './usePortalMode';
 import PortalSideChooser from './PortalSideChooser';
+import { useFarmerPlan } from './useFarmerPlan';
+
+/**
+ * 288 — COMMUNITY IS FREE TO READ, SO IT IS IN BOTH NAVS.
+ *
+ * User, 2026-09-10, looking at the farm portal: *"i think we need to have
+ * community here since all client have free access to it."* Right — the org
+ * app got the entry, the portal didn't, and the portal is where the pet owners
+ * and farmers are. They are the reason the space is worth reaching at all.
+ *
+ * ⚠️ NOT gated, on either side. Reading is open to every signed-in user
+ * (`community.controller`: *"Reads are NOT gated at all"*), and a CLIENT can
+ * never post as a business, so there is nothing here to withhold. Same entry,
+ * same page, both modes.
+ */
+interface NavTab { to: string; label: string; icon: LucideIcon; end?: boolean }
+
+const COMMUNITY_TAB: NavTab = { to: '/client/community', label: 'Community', icon: Users };
 
 // Nav follows the portal MODE, not the account type — one login covers pets
 // and farms, and a client with both switches between them (see usePortalMode).
-const PET_NAV = [
+const PET_NAV: NavTab[] = [
   { to: '/client', end: true, label: 'Home', icon: Home },
   { to: '/client/pets', label: 'Pets', icon: PawPrint },
   { to: '/client/appointments', label: 'Visits', icon: CalendarDays },
   { to: '/client/messages', label: 'Messages', icon: MessageCircle },
+  COMMUNITY_TAB,
   { to: '/client/invoices', label: 'Invoices', icon: Receipt },
 ];
 
@@ -36,11 +56,12 @@ const PET_NAV = [
  * clinic — but ⚠️ their CONTENT is still pet-shaped in places and is the next
  * thing to make farm-aware.
  */
-const FARM_NAV = [
+const FARM_NAV: NavTab[] = [
   { to: '/client/farm', end: true, label: 'My Farm', icon: Sprout },
   { to: '/client/farm/animals', label: 'Animals', icon: Beef },
   { to: '/client/farm/medical', label: 'Medical', icon: Stethoscope },
   { to: '/client/messages', label: 'Messages', icon: MessageCircle },
+  COMMUNITY_TAB,
   // ⚠️ Invoices is NOT gone — it moved BEHIND Profile (user, 2026-08-29:
   // *"instead of invoices we can now have that one as profile"*). A farmer
   // checks a bill occasionally and their account rarely; neither earns a
@@ -53,6 +74,7 @@ const ClientLayout: React.FC = () => {
   const { invoices, messages } = useClientPortal();
   const navigate = useNavigate();
   const { mode, setMode, chooseSide, canSwitch, holdings, loading: modeLoading, needsSideChoice } = usePortalMode();
+  const farmerPlan = useFarmerPlan();
   const { pathname } = useLocation();
 
   /**
@@ -309,7 +331,9 @@ const ClientLayout: React.FC = () => {
             </p>
             <p className="text-[11px] text-white/70 mt-0.5 mb-2.5">
               {farmLocked
-                ? 'Farm visits, feeding plans and your full history are on Farmer — KES 1,500/mo.'
+                /* 288 — catalogue price, not a hardcoded one. Drops the price
+                   clause entirely rather than quoting a stale figure. */
+                ? `Farm visits, feeding plans and your full history are on ${farmerPlan?.name ?? 'Farmer'}${farmerPlan ? ` — ${farmerPlan.currency} ${farmerPlan.price.toLocaleString()}/mo` : ''}.`
                 : mode === 'FARM'
                   ? 'Request a farm visit and your clinic confirms the time.'
                   : 'Request a visit and your clinic confirms the time.'}

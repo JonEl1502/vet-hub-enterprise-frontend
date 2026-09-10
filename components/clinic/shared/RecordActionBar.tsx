@@ -30,6 +30,13 @@ import { MoreHorizontal, ChevronUp } from 'lucide-react';
  * ⚠️ Offset by `--vh-sidebar-w` so it doesn't sit under the nav — same as the
  * triage panel's bar. Render `<RecordActionBarSpacer />` at the end of the page
  * or the bar covers the last of the content.
+ *
+ * ⚠️ HORIZONTAL PADDING MUST MATCH THE PAGE GUTTER: `px-4 md:px-6`, the same as
+ * App's content wrapper (`p-4 md:p-6`). It was `px-3 sm:px-4`, so on desktop the
+ * bar's buttons sat 16px from the edge while every card above them sat at 24px —
+ * the last button visibly overhung the content column and the bar read as
+ * having no margin at all (user, 2026-09-10). A pinned bar is read as part of
+ * the page, so it has to share the page's gutter.
  */
 
 export interface BarAction {
@@ -149,7 +156,7 @@ const RecordActionBar: React.FC<Props> = ({ actions, status, hint, inlineLimit =
   const hasSheetContent = !!status || !!slot || rest.length > 0 || !!hint;
 
   return (
-    <div className="fixed bottom-0 right-0 left-0 md:left-[var(--vh-sidebar-w,16rem)] z-40 px-3 sm:px-4 pt-1 sm:pt-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm shadow-[0_-4px_16px_rgba(0,0,0,0.10)]">
+    <div className="fixed bottom-0 right-0 left-0 md:left-[var(--vh-sidebar-w,16rem)] z-40 px-4 md:px-6 pt-1 sm:pt-2.5 pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-slate-200 dark:border-zinc-800 bg-white/95 dark:bg-zinc-950/95 backdrop-blur-sm shadow-[0_-4px_16px_rgba(0,0,0,0.10)]">
       {/* Grab handle — phone only, and only when there is something to reveal. */}
       {hasSheetContent && (
         <div

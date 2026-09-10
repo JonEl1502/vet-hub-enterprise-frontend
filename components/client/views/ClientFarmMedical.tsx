@@ -27,12 +27,14 @@ import {
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
+import { useFarmerPlan } from '../useFarmerPlan';
 
 const KES = (n: number) => `KES ${Math.round(n).toLocaleString('en-KE')}`;
 const day = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
 
 const ClientFarmMedical: React.FC = () => {
+  const farmerPlan = useFarmerPlan();
   const [farms, setFarms] = useState<PortalFarm[]>([]);
   const [activeId, setActiveId] = useState('');
   const [data, setData] = useState<FarmMedical | null>(null);
@@ -617,10 +619,16 @@ const ClientFarmMedical: React.FC = () => {
             </ul>
             <div className="cp-card p-3 flex items-center justify-between gap-3">
               <div>
-                <p className="text-[10px] uppercase tracking-widest text-slate-400">Farmer plan</p>
-                <p className="text-lg font-black text-slate-800 dark:text-zinc-100 leading-tight">
-                  KES 1,500<span className="text-xs font-bold text-slate-400">/mo</span>
+                {/* 288 — catalogue price, not a hardcoded one. See ClientFarms. */}
+                <p className="text-[10px] uppercase tracking-widest text-slate-400">
+                  {farmerPlan?.name ?? 'Farmer'} plan
                 </p>
+                {farmerPlan && (
+                  <p className="text-lg font-black text-slate-800 dark:text-zinc-100 leading-tight">
+                    {farmerPlan.currency} {farmerPlan.price.toLocaleString()}
+                    <span className="text-xs font-bold text-slate-400">/mo</span>
+                  </p>
+                )}
               </div>
               <button className="cp-btn shrink-0" onClick={() => { setPitchOpen(false); navigate('/client/plan'); }}>
                 Subscribe
