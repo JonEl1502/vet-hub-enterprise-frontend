@@ -108,6 +108,24 @@ export const ALWAYS_VIEWS = new Set([
    * that refusal as an offer rather than hiding the button.
    */
   'community',
+  /**
+   * 296 — SCHEDULING IS SPINE (user, 2026-09-10: *"can we make reminders n
+   * appointments available to all"*).
+   *
+   * Any business that keeps an animal has to book it in and be reminded about
+   * it. The old split was inconsistent on its own terms: `view:reminders` was
+   * on 6 plans of 20 and `view:appointment-bookings` on only 3, so a BOARDING
+   * kennel could open Reminders and then have that page's own booking call
+   * refused — the screen loaded, then threw "Online appointment booking is on
+   * a higher plan" over itself.
+   *
+   * Both route gates are gone server-side, and 296 puts the keys on every plan
+   * so the catalogue stops selling them. Listed here as well so a LOCKED
+   * account still reaches them — `allowsView` refuses every unmapped view once
+   * a plan lapses.
+   */
+  'reminders',
+  'appointment-bookings',
 ]);
 
 /**
@@ -119,8 +137,9 @@ export const ALWAYS_VIEWS = new Set([
 export const VIEW_KEY: Record<string, string> = {
   // Core
   dashboard: 'view:dashboard',
-  reminders: 'view:reminders',
-  'appointment-bookings': 'view:appointment-bookings',
+  // 296 — `reminders` and `appointment-bookings` moved to ALWAYS_VIEWS above.
+  // Deliberately NOT mapped here any more: a key left in this map would start
+  // gating them again the moment ALWAYS_VIEWS is edited.
   appointments: 'view:appointments',
   'new-appointment': 'view:appointments',
   'appointment-detail': 'view:appointments',
