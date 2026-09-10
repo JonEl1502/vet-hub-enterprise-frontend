@@ -28,6 +28,19 @@ export interface AdminUserRow extends User {
   clinicIds?: string[];
   /** Email-verification gate state (migration 110). */
   emailVerified?: boolean;
+  /**
+   * Name PARTS, as the server stores them.
+   *
+   * ⚠️ `name` is COMPOSED (`title firstName secondName surname`) and is not a
+   * column — writing it back does nothing. An edit form has to post the parts,
+   * which is why they are listed here explicitly rather than left to `any`.
+   * `formatUser` already returns all of them, so an editor can prefill from a
+   * list row without a second fetch.
+   */
+  title?: string | null;
+  firstName?: string;
+  secondName?: string | null;
+  surname?: string;
 }
 
 export interface AdminUserFilters {

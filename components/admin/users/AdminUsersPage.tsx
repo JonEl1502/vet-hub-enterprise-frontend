@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MailCheck, Loader2, RefreshCw, Search, Mail, Building2, Shield, KeyRound, X, Eye, EyeOff, Users } from 'lucide-react';
+import { MailCheck, Loader2, RefreshCw, Search, Mail, Building2, Shield, KeyRound, X, Eye, EyeOff, Users, Pencil } from 'lucide-react';
 import { usersAPI, clinicsAPI, toast, dialog } from '../../../services';
 import type { AdminUserRow as ApiUser } from '../../../services/modules/users.api';
 import { useAuth } from '../../../contexts/AuthContext';
 import StatusToggle from '../../shared/common/StatusToggle';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import AdminPageHeader from '../shared/AdminPageHeader';
+import EditUserDialog from '../shared/EditUserDialog';
 
 const ROLE_OPTIONS = [
   'ALL', 'SUPER_ADMIN', 'MERCHANT_ADMIN', 'CLINIC_OWNER', 'CLINIC_MANAGER',
@@ -42,6 +43,7 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all');
 
   // Set-password modal state
+  const [editUser, setEditUser] = useState<ApiUser | null>(null);
   const [pwUser, setPwUser] = useState<ApiUser | null>(null);
   const [pwValue, setPwValue] = useState('');
   const [pwShow, setPwShow] = useState(false);
@@ -221,6 +223,13 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
                   <MailCheck size={14} />
                 </button>
                 <button
+                  onClick={() => setEditUser(u)}
+                  title="Edit account"
+                  className="p-2 rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 hover:border-pine/40 transition-colors"
+                >
+                  <Pencil size={14} />
+                </button>
+                <button
                   onClick={() => { setPwUser(u); setPwValue(''); setPwShow(false); }}
                   title="Set password"
                   className="p-2 rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 hover:border-pine/40 transition-colors"
@@ -244,6 +253,20 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
             </div>
           ))}
         </div>
+      )}
+
+      {/* 294 — the shared editor. Same component the clinic's Users tab mounts. */}
+      {editUser && (
+        <EditUserDialog
+          user={editUser}
+          clinics={clinics}
+          currentUserId={currentUserId}
+          onClose={() => setEditUser(null)}
+          // Refetch rather than patching the row in place: a role or clinic
+          // change moves the account between the active FILTERS, and a locally
+          // merged row would sit in a list it no longer belongs to.
+          onSaved={() => load()}
+        />
       )}
 
       {/* Set-password modal */}

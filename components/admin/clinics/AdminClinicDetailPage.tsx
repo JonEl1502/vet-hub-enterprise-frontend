@@ -5,6 +5,7 @@ import { clinicsAPI, Clinic, toast, cache } from '../../../services';
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { useAuth } from '../../../contexts/AuthContext';
 import ClinicEmailVerify from './ClinicEmailVerify';
+import EditUserDialog from '../shared/EditUserDialog';
 
 // Full-page admin clinic detail — converted from the tabbed modal on the
 // Clinics management page so the drill-down is a real navigable page
@@ -29,6 +30,8 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
   const [confirmStatus, setConfirmStatus] = useState(false);
   const [statusScope, setStatusScope] = useState<'this' | 'with-branches'>('this');
   const [statusBusy, setStatusBusy] = useState(false);
+  /** 294 — the account being edited in the shared dialog. */
+  const [editUser, setEditUser] = useState<any | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -165,7 +168,7 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
               <div className="overflow-x-auto">
                 <table className="w-full text-xs">
                   <thead><tr className="text-left text-slate-400 uppercase tracking-wider text-[9px] font-black border-b border-slate-100 dark:border-zinc-800">
-                    <th className="py-2 pr-3">Name</th><th className="py-2 px-3">Email</th><th className="py-2 px-3">Role</th><th className="py-2 px-3">Status</th><th className="py-2 pl-3">Joined</th>
+                    <th className="py-2 pr-3">Name</th><th className="py-2 px-3">Email</th><th className="py-2 px-3">Role</th><th className="py-2 px-3">Status</th><th className="py-2 px-3">Joined</th><th className="py-2 pl-3 text-right">Edit</th>
                   </tr></thead>
                   <tbody>
                     {details.users.map((u: any) => (
@@ -174,7 +177,21 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
                         <td className="py-2 px-3 text-slate-500 dark:text-zinc-400">{u.email}</td>
                         <td className="py-2 px-3"><span className="px-2 py-0.5 rounded bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-wider">{String(u.role).replace('_', ' ')}</span></td>
                         <td className="py-2 px-3">{u.isActive ? <span className="text-green-600 font-bold">Active</span> : <span className="text-red-500 font-bold">Inactive</span>}</td>
-                        <td className="py-2 pl-3 text-slate-400">{u.joinedAt ? new Date(u.joinedAt).toLocaleDateString('en-GB') : '—'}</td>
+                        <td className="py-2 px-3 text-slate-400">{u.joinedAt ? new Date(u.joinedAt).toLocaleDateString('en-GB') : '—'}</td>
+                        <td className="py-2 pl-3 text-right">
+                          {/* 294 — the SAME dialog the Users directory opens.
+                              `lockedClinicId` keeps this clinic selected: detaching
+                              someone from the org you are currently looking at, on a
+                              screen that then stops listing them, is a confusing way
+                              to lose a member of staff. Do that from the directory. */}
+                          <button
+                            onClick={() => setEditUser(u)}
+                            title="Edit account"
+                            className="p-1.5 rounded-lg border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 hover:border-pine/40 transition-colors"
+                          >
+                            <Edit size={12} />
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -269,6 +286,28 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
           </div>
         )}
       </div>
+
+      {/* 294 — shared with the Admin → Users directory; see EditUserDialog. */}
+      {editUser && (
+        <EditUserDialog
+          user={editUser}
+          /* No clinic picker here on purpose: these rows are scoped to THIS
+             org, so they cannot describe a user's full membership — and
+             `clinicIds` replaces the whole list. Reassign from Admin → Users,
+             where the list is authoritative. */
+          clinics={[]}
+          currentUserId={user ? Number(user.id) : undefined}
+          onClose={() => setEditUser(null)}
+          onSaved={() => {
+            setEditUser(null);
+            // Refetch the org's people rather than patching one row: a role
+            // change here can move somebody out of this clinic entirely.
+            clinicsAPI.adminDetails(Number(clinicId))
+              .then((r) => { if (r.success && r.data) setDetails(r.data as any); })
+              .catch(() => {});
+          }}
+        />
+      )}
     </div>
   );
 };
