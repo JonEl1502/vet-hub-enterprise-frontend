@@ -142,6 +142,19 @@ const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChang
         condensedMeta={pet?.species ?? ''}
         subtitle={`${pet?.breed ? `${pet.breed} · ` : ''}${pet?.species ?? ''}${owner?.name ? ` · Owner: ${owner.name}` : ''}`}
         right={<>
+          {/* 294 — WHAT THIS PAGE COMES TO, IN THE HEADER (user, 2026-09-10:
+              *"header to show total for the services in that page"*).
+              Money first because that is the question being asked, with the
+              progress behind it as a note — a total with no count reads the
+              same whether one service is done or none of them are. */}
+          {groomLines.length > 0 && (
+            <span className="px-2.5 py-1 rounded-lg bg-white/10 text-white text-[10px] font-black tracking-wide whitespace-nowrap">
+              {ccy} {groomTotal.toLocaleString()}
+              <span className="ml-1.5 font-bold text-white/60">
+                · {groomLines.filter(l => l.status === 'COMPLETED').length} of {groomLines.length} done
+              </span>
+            </span>
+          )}
           {(() => {
             const o = originOf(appointment);
             return (
@@ -243,7 +256,14 @@ const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChang
           bar belongs to this page (user, 2026-08-04). */}
       <RecordActionBarSpacer />
       <RecordActionBar
-        status={gRec ? { value: gRec.status || 'PENDING', options: ['PENDING', 'IN_PROGRESS', 'COMPLETED'], onChange: setAllStatus, disabled: locked } : undefined}
+        /* 294 — NO STATUS HERE ANY MORE (user, 2026-09-10: *"status to be on
+           each service not the bar"*). Every service card already carries its
+           own PENDING / WIP / DONE, and the bar's copy set them ALL at once —
+           two controls for one thing, where the coarser one silently overwrote
+           per-service progress. The bar was also the most crowded surface in
+           the app because of it (status ×3 + hint + 4 actions + primary).
+           The roll-up moved to the header instead, where it reads rather than
+           writes. `setAllStatus` is kept — the panel still uses it. */
         hint={panelActions.find(a => a.note)?.note || 'Finalize & settle live on the visit workflow'}
         slot={!locked ? (
           <AddCategoryService

@@ -558,15 +558,47 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // configured hours fall back to the system default 8am–6pm (inside
   // computeAfterHours), so detection works out of the box.
   const clinicWorkingHours = selectedClinics[0]?.workingHours as WorkingHours | null | undefined;
-  useEffect(() => {
-    if (!formData.apptDate || !formData.apptTime) return;
+  /**
+   * ⚠️ THE SURCHARGE FOLLOWS WHEN THE WORK HAPPENS, NOT WHEN IT WAS BOOKED.
+   *
+   * Deriving from the SCHEDULED slot is already right for an ordinary booking:
+   * reception taking a call at 19:00 for tomorrow at 10:00 must not add an
+   * after-hours fee (user, 2026-09-10: *"if after working hrs auto is on make
+   * sure to check against schedule time to not charge wrongly"*).
+   *
+   * But "Start now" breaks that equivalence. It opens the workflow immediately,
+   * so the visit BEGINS now while the slot may say something else — and the
+   * mismatch runs both ways: an 09:00 slot started at 21:00 would skip a
+   * surcharge that is owed, and a 22:00 slot started at 14:00 would add one
+   * that is not. So when the visit starts now, `now` is the moment to judge.
+   */
+  const afterHoursMoment = React.useMemo(() => {
+    if (startNowPref) return new Date();
+    if (!formData.apptDate || !formData.apptTime) return null;
     const when = new Date(`${formData.apptDate}T${formData.apptTime}`);
-    if (isNaN(when.getTime())) return;
-    const derived = computeAfterHours(clinicWorkingHours, when);
+    return isNaN(when.getTime()) ? null : when;
+  }, [startNowPref, formData.apptDate, formData.apptTime]);
+
+  useEffect(() => {
+    if (!afterHoursMoment) return;
+    const derived = computeAfterHours(clinicWorkingHours, afterHoursMoment);
     if (derived == null) return;
     setIsAfterHours(derived);
     setAfterHoursAuto(true);
-  }, [formData.apptDate, formData.apptTime, clinicWorkingHours]);
+  }, [afterHoursMoment, clinicWorkingHours]);
+
+  /**
+   * Say so when the two diverge. Silently swapping the basis of a CHARGE is
+   * worse than the wrong charge — the number moves and nothing explains it.
+   */
+  const afterHoursBasisDiffers = React.useMemo(() => {
+    if (!startNowPref || !formData.apptDate || !formData.apptTime) return false;
+    const scheduled = new Date(`${formData.apptDate}T${formData.apptTime}`);
+    if (isNaN(scheduled.getTime())) return false;
+    const scheduledCall = computeAfterHours(clinicWorkingHours, scheduled);
+    const nowCall = computeAfterHours(clinicWorkingHours, new Date());
+    return scheduledCall != null && nowCall != null && scheduledCall !== nowCall;
+  }, [startNowPref, formData.apptDate, formData.apptTime, clinicWorkingHours]);
 
   const filteredClients = useMemo(() => {
     if (searchQuery.length < 2) return [];
@@ -1669,6 +1701,15 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
             }`}>
             {isAfterHours ? '🌙 After-hours' : '☀️ Working hours'} · auto
           </span>
+          {/* The charge is being judged on a different moment than the slot
+              shows — say which, and why. */}
+          {afterHoursBasisDiffers && (
+            <span className="order-last w-full text-[10px] font-semibold text-amber-600 dark:text-amber-400 leading-snug">
+              Judged on <strong>now</strong>, not the {formData.apptTime} slot — this visit starts
+              immediately, so the after-hours fee follows when the work actually happens.
+              Turn off “Start now” to bill against the booked time instead.
+            </span>
+          )}
           <button
             type="button"
             onClick={() => setIsHouseCall(h => {

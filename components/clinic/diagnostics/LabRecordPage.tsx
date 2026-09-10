@@ -295,11 +295,15 @@ const LabRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppoi
             overflow (a long rail would otherwise run past the viewport). */}
         <div className={`lg:col-span-4 space-y-4 ${STICKY_RAIL}`}>
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-4 shadow-sm sticky top-4">
+            {/* 294 — THE PANEL SAYS WHAT THIS RECORD IS; THE BAR SAYS WHAT YOU DO.
+                `Linked appointment` and `Share` used to render here AND in the
+                pinned bar below, both visible at once, doing the same thing
+                (user, 2026-09-10: *"see the repetitions in page"*). The bar owns
+                actions because it is reachable at any scroll position; the panel
+                keeps status and metadata. Passing no action props leaves the
+                row unrendered — other callers (the drawer, which has no bar)
+                still pass them and still get it. */}
             <StandardRecordControls
-              appointmentId={current.appointmentId}
-              onOpenAppointment={onOpenAppointment}
-              onShare={() => setSharing(true)}
-              shareCount={current.allowedClinicIds?.length}
               status={{ value: current.status || 'RESULTED', options: ['ORDERED', 'IN_PROGRESS', 'RESULTED'], onChange: (v) => patch({ status: v as any }), disabled: billLocked }}
             />
             {!current.appointmentId && <p className="text-[11px] text-slate-400 dark:text-zinc-500">No linked visit — create a walk-in visit on the result to bill it.</p>}
