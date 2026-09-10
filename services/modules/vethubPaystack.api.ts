@@ -71,7 +71,19 @@ export const vethubPaystackAPI = {
       addOnPackageIds?: Array<string | number>;
     }
   ): Promise<ApiResponse<PaystackInitiateResult>> =>
-    post('/subscriptions/paystack/initiate', args, { headers: { 'x-clinic-id': clinicId } }),
+    /**
+     * 292 — ⚠️ `ownerKind` IS LOAD-BEARING, not decoration.
+     *
+     * The request interceptor attaches `X-Supplier-Id` AMBIENTLY from
+     * localStorage to every non-auth request, so a clinic owner who also has a
+     * supplier in scope sends BOTH headers. The server used to let the supplier
+     * header win, and they got `404 Subscription package not found for
+     * suppliers` — unable to buy a clinic plan at all.
+     *
+     * The header cannot express intent because the caller does not control it.
+     * The body can. Do not remove this.
+     */
+    post('/subscriptions/paystack/initiate', { ...args, ownerKind: 'CLINIC' }, { headers: { 'x-clinic-id': clinicId } }),
 
   /**
    * 220 — the SUPPLIER rail. Same endpoint, addressed with `x-supplier-id`
@@ -89,13 +101,15 @@ export const vethubPaystackAPI = {
       addOnPackageIds?: Array<string | number>;
     }
   ): Promise<ApiResponse<PaystackInitiateResult>> =>
-    post('/subscriptions/paystack/initiate', args, { headers: { 'x-supplier-id': supplierId } }),
+    /** 292 — declare the rail; see the clinic initiate above. */
+    post('/subscriptions/paystack/initiate', { ...args, ownerKind: 'SUPPLIER' }, { headers: { 'x-supplier-id': supplierId } }),
 
   getSupplierStatus: (
     supplierId: string,
     reference: string
   ): Promise<ApiResponse<PaystackStatus>> =>
-    get(`/subscriptions/paystack/status/${encodeURIComponent(reference)}`, {
+    /** 292 — a GET has no body, so the rail rides on the query string. */
+    get(`/subscriptions/paystack/status/${encodeURIComponent(reference)}?ownerKind=SUPPLIER`, {
       headers: { 'x-supplier-id': supplierId },
       cache: false,
     }),
@@ -104,7 +118,13 @@ export const vethubPaystackAPI = {
     clinicId: string,
     reference: string
   ): Promise<ApiResponse<PaystackStatus>> =>
-    get(`/subscriptions/paystack/status/${encodeURIComponent(reference)}`, {
+    /**
+     * 292 — same declaration on the poll. Without it a clinic whose purchase
+     * routes correctly would still poll as a supplier, never match the
+     * attempt's owner, and see "Attempt not found" for 90s while the payment
+     * quietly succeeded.
+     */
+    get(`/subscriptions/paystack/status/${encodeURIComponent(reference)}?ownerKind=CLINIC`, {
       headers: { 'x-clinic-id': clinicId },
       cache: false,
     }),
