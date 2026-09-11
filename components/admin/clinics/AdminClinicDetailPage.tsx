@@ -17,13 +17,13 @@ interface Props {
   onNavigate?: (view: string, params?: any) => void;
 }
 
-type Tab = 'overview' | 'users' | 'branches' | 'partners';
+type Tab = 'overview' | 'billing' | 'users' | 'branches' | 'partners';
 
 const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }) => {
   const { user } = useAuth();
   const isAdmin = user?.role === 'SUPER_ADMIN' || user?.role === 'MERCHANT_ADMIN';
   const [clinic, setClinic] = useState<Clinic | null>(null);
-  const [details, setDetails] = useState<{ users: any[]; branches: any[]; partners: any[] } | null>(null);
+  const [details, setDetails] = useState<{ users: any[]; branches: any[]; partners: any[]; billing?: any } | null>(null);
   const [tab, setTab] = useState<Tab>('overview');
   // Status flow — inline confirm card with a branch-scope choice when the
   // clinic has branches (mirrors the list page's chooser).
@@ -130,7 +130,7 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
         {/* Main — tabbed detail */}
         <div className="lg:col-span-8 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm">
           <div className="px-5 pt-4 flex flex-wrap gap-1.5 border-b border-slate-100 dark:border-zinc-800 pb-3">
-            {([['overview', 'Overview'], ['users', `Users${details ? ` · ${details.users.length}` : ''}`], ['branches', `Branches${details ? ` · ${details.branches.length}` : ''}`], ['partners', `Partners${details ? ` · ${details.partners.length}` : ''}`]] as const).map(([id, label]) => (
+            {([['overview', 'Overview'], ['billing', 'Billing'], ['users', `Users${details ? ` · ${details.users.length}` : ''}`], ['branches', `Branches${details ? ` · ${details.branches.length}` : ''}`], ['partners', `Partners${details ? ` · ${details.partners.length}` : ''}`]] as const).map(([id, label]) => (
               <button key={id} onClick={() => setTab(id)}
                 className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${tab === id ? 'bg-pine text-white dark:bg-zinc-100 dark:text-pine' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-pine'}`}>
                 {label}
@@ -163,6 +163,103 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
             {tab !== 'overview' && !details && (
               <div className="py-10 flex justify-center"><LoadingSpinner contentArea message="Loading…" /></div>
             )}
+            {/* 299 — WHAT THIS CLINIC IS PAYING FOR.
+                An admin had no way to see this: answering "what do they
+                actually hold" meant SSHing to the box and querying three tables
+                by hand (2026-09-10). The plan and its add-ons are listed
+                separately because they ARE separate — 293 fixed five lookups
+                that conflated them. */}
+            {tab === 'billing' && details && (() => {
+              const b = details.billing;
+              if (!b) return <p className="text-sm text-slate-400 text-center py-8">No billing information.</p>;
+              const money = (n: number) => `KES ${Number(n || 0).toLocaleString()}`;
+              const day = (d: any) => (d ? new Date(d).toLocaleDateString('en-GB') : '—');
+              const CYCLE: Record<string, string> = {
+                MONTHLY: '1 month', QUARTERLY: '3 months', SEMIANNUAL: '6 months',
+                YEARLY: '1 year', BIENNIAL: '2 years', TRIENNIAL: '3 years',
+              };
+              return (
+                <div className="space-y-4">
+                  <div className="flex flex-wrap items-start gap-3">
+                    <div className="flex-1 min-w-[240px] rounded-xl border border-slate-200 dark:border-zinc-800 p-4">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Current plan</p>
+                      {b.plan ? (
+                        <>
+                          <p className="text-base font-black text-pine dark:text-zinc-100 mt-1">{b.plan.name}</p>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
+                            {CYCLE[b.plan.billingCycle] ?? b.plan.billingCycle} · started {day(b.plan.startedAt)} · renews {day(b.plan.expiresAt)}
+                          </p>
+                          {b.plan.cancellationMode && (
+                            <p className="mt-1 text-[11px] font-bold text-amber-600">Cancellation scheduled ({b.plan.cancellationMode})</p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="text-sm font-bold text-slate-400 mt-1">
+                          No active plan{b.trialEndsAt ? ` — on trial to ${day(b.trialEndsAt)}` : ''}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-[240px] rounded-xl border border-slate-200 dark:border-zinc-800 p-4">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Add-ons · {b.addOns.length}</p>
+                      {b.addOns.length === 0 ? (
+                        <p className="text-sm font-bold text-slate-400 mt-1">None</p>
+                      ) : (
+                        <ul className="mt-1.5 space-y-1">
+                          {b.addOns.map((a: any) => (
+                            <li key={a.id} className="text-[12px] text-slate-700 dark:text-zinc-200 flex justify-between gap-3">
+                              <span className="font-bold">{a.name}</span>
+                              <span className="text-slate-400 whitespace-nowrap">to {day(a.expiresAt)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      {b.prodTest && (
+                        <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-slate-400">Demo / test org</p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Recent payments</p>
+                    {b.payments.length === 0 ? (
+                      <p className="text-sm text-slate-400 py-4">No payment attempts recorded.</p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-xs">
+                          <thead><tr className="text-left text-slate-400 uppercase tracking-wider text-[9px] font-black border-b border-slate-100 dark:border-zinc-800">
+                            <th className="py-2 pr-3">Date</th><th className="py-2 px-3">Package</th><th className="py-2 px-3">Channel</th><th className="py-2 px-3">Amount</th><th className="py-2 pl-3">Status</th>
+                          </tr></thead>
+                          <tbody>
+                            {b.payments.map((p: any) => (
+                              <tr key={`${p.channel}-${p.id}`} className="border-b border-slate-50 dark:border-zinc-800/60">
+                                <td className="py-2 pr-3 text-slate-400">{day(p.createdAt)}</td>
+                                <td className="py-2 px-3 font-bold text-pine dark:text-zinc-100">
+                                  {p.packageName}
+                                  {/* 288 — a bundled charge bought more than the plan it names. */}
+                                  {p.lineItems && p.lineItems.length > 1 && (
+                                    <span className="ml-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400">+{p.lineItems.length - 1} more</span>
+                                  )}
+                                </td>
+                                <td className="py-2 px-3 text-slate-500">{p.channel}</td>
+                                <td className="py-2 px-3 font-mono">{money(p.amount)}</td>
+                                <td className="py-2 pl-3">
+                                  <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase tracking-wider ${
+                                    p.status === 'SUCCESS' ? 'bg-emerald-500/10 text-emerald-600'
+                                    : p.status === 'PENDING' ? 'bg-amber-500/10 text-amber-600'
+                                    : 'bg-red-500/10 text-red-500'
+                                  }`}>{p.status}</span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })()}
+
             {tab === 'users' && details && (
               details.users.length === 0 ? <p className="text-sm text-slate-400 text-center py-8">No users attached to this clinic.</p> : (
               <div className="overflow-x-auto">
