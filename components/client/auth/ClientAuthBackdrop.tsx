@@ -98,10 +98,23 @@ const ClientAuthBackdrop: React.FC = () => {
         />
       </AnimatePresence>
 
-      {/* The warm wash. Heavy enough that the cream card keeps its contrast on
-          a bright photo, light enough that the animal is still legible. */}
-      <div className="absolute inset-0 bg-[#faf7f2]/82 backdrop-blur-[2px]" />
-      <div className="absolute inset-0 bg-gradient-to-b from-[#faf7f2]/70 via-[#faf7f2]/40 to-[#faf7f2]/90" />
+      {/*
+        ⚠️ THE WASH WAS 95% AND HID THE PHOTO COMPLETELY.
+        It shipped as `bg-[#faf7f2]/82` PLUS a `/70 → /40 → /90` gradient on top.
+        Those compose — roughly 0.95 opacity at the top of the page and more at
+        the bottom — so the carousel loaded, crossfaded, and was invisible. The
+        page looked like plain sand because it effectively was (user, 2026-09-11:
+        *"just bg images"*).
+
+        One layer now, and a light one. The card is solid white and carries its
+        own contrast, so the backdrop does not have to be bleached to keep the
+        form readable — it only has to stop a busy photo fighting the text
+        immediately around the card.
+      */}
+      <div className="absolute inset-0 bg-[#faf7f2]/35" />
+      {/* A soft vertical vignette so the top-of-page copy stays legible over a
+          bright sky, fading out across the middle where the photo should show. */}
+      <div className="absolute inset-0 bg-gradient-to-b from-[#faf7f2]/45 via-transparent to-[#faf7f2]/55" />
     </div>
   );
 };
