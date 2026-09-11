@@ -21,7 +21,7 @@ const ScannedClinicStrip: React.FC = () => {
   const name = params.get('clinicName');
   if (!name) return null;
   return (
-    <div className="w-full max-w-md mb-4">
+    <div className="relative z-10 w-full max-w-md mb-4">
       <div className="flex items-center gap-2.5 px-4 py-3 rounded-2xl border"
            style={{ borderColor: 'var(--cp-accent)', background: 'var(--cp-accent-soft)' }}>
         <span className="w-8 h-8 rounded-xl grid place-items-center shrink-0 bg-white/70">
@@ -41,12 +41,34 @@ const ScannedClinicStrip: React.FC = () => {
 const ClientAuthShell: React.FC<{ title: string; subtitle?: string; children: ReactNode; footer?: ReactNode }> = ({
   title, subtitle, children, footer,
 }) => (
-  <div className="client-portal min-h-screen flex flex-col items-center justify-center px-4 py-10">
-    {/* 298 — crossfading cats/dogs/livestock behind a warm wash. Sits at -z-10
-        so every control above it stays clickable. */}
+  <div
+    className="client-portal min-h-screen flex flex-col items-center justify-center px-4 py-10"
+    /**
+     * 🔴 300 — `background: transparent` IS LOAD-BEARING, AND INLINE ON PURPOSE.
+     *
+     * `.client-portal` sets `background: var(--cp-bg)` — an OPAQUE sand fill.
+     * The backdrop is a child of this element, so at `-z-10` it painted behind
+     * that fill and was invisible no matter what: the carousel loaded, decoded
+     * and crossfaded against a wall. Lightening the scrim (300) changed
+     * nothing, because the scrim was never what was covering it.
+     *
+     * Inline rather than a `bg-transparent` class because both selectors have
+     * the same specificity (0,1,0) and which one wins would come down to
+     * stylesheet order — a coin-flip that breaks on any Tailwind reshuffle.
+     * Inline always wins.
+     *
+     * The backdrop is `fixed inset-0` and fills the viewport itself, so nothing
+     * shows through where the sand used to be.
+     */
+    style={{ background: 'transparent' }}
+  >
+    {/* 298 — crossfading cats/dogs/livestock behind a warm wash. */}
     <ClientAuthBackdrop />
     <ScannedClinicStrip />
-    <div className="w-full max-w-md">
+    {/* 300 — `relative z-10` puts the card above the z-0 backdrop. Without a
+        position the z-index would be inert and the photo would paint over the
+        form. */}
+    <div className="relative z-10 w-full max-w-md">
       <div className="flex flex-col items-center mb-6">
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3"
              style={{ background: 'var(--cp-accent)' }}>

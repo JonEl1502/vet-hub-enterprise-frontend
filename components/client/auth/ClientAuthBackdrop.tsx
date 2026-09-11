@@ -81,7 +81,10 @@ const ClientAuthBackdrop: React.FC = () => {
   if (images.length === 0) return null;
 
   return (
-    <div className="fixed inset-0 -z-10 overflow-hidden pointer-events-none" aria-hidden>
+    /* z-0, NOT -z-10. A negative z-index put this behind `.client-portal`'s own
+       opaque background (see ClientAuthShell). `pointer-events-none` is what
+       keeps the form clickable above it, not the stacking order. */
+    <div className="fixed inset-0 z-0 overflow-hidden pointer-events-none" aria-hidden>
       <AnimatePresence>
         <motion.div
           key={index}
