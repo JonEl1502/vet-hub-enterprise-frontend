@@ -6,6 +6,7 @@ import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { useAuth } from '../../../contexts/AuthContext';
 import ClinicEmailVerify from './ClinicEmailVerify';
 import EditUserDialog from '../shared/EditUserDialog';
+import RecordPaidSubscriptionDialog from '../subscriptions/RecordPaidSubscriptionDialog';
 
 // Full-page admin clinic detail — converted from the tabbed modal on the
 // Clinics management page so the drill-down is a real navigable page
@@ -32,6 +33,8 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
   const [statusBusy, setStatusBusy] = useState(false);
   /** 294 — the account being edited in the shared dialog. */
   const [editUser, setEditUser] = useState<any | null>(null);
+  /** 302 — recording a subscription paid for outside the gateways. */
+  const [grantOpen, setGrantOpen] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -220,7 +223,18 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
                   </div>
 
                   <div>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Recent payments</p>
+                    <div className="flex items-center justify-between gap-3 mb-2">
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Recent payments</p>
+                      {/* 302 — the fault-tolerant path: money that arrived with no
+                          attempt behind it. The dialog itself steers to Reconcile
+                          first, because that one asks the gateway. */}
+                      <button
+                        onClick={() => setGrantOpen(true)}
+                        className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300 hover:border-pine/40 transition-colors"
+                      >
+                        Record a paid subscription
+                      </button>
+                    </div>
                     {b.payments.length === 0 ? (
                       <p className="text-sm text-slate-400 py-4">No payment attempts recorded.</p>
                     ) : (
@@ -383,6 +397,22 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
           </div>
         )}
       </div>
+
+      {/* 302 — SUPER_ADMIN only on the server; the button is simply absent for
+          anyone else because the endpoint would refuse them anyway. */}
+      {grantOpen && clinic && (
+        <RecordPaidSubscriptionDialog
+          ownerKind="CLINIC"
+          ownerId={String(clinic.id)}
+          ownerName={clinic.name}
+          onClose={() => setGrantOpen(false)}
+          onGranted={() => {
+            clinicsAPI.adminDetails(Number(clinicId))
+              .then((r) => { if (r.success && r.data) setDetails(r.data as any); })
+              .catch(() => {});
+          }}
+        />
+      )}
 
       {/* 294 — shared with the Admin → Users directory; see EditUserDialog. */}
       {editUser && (

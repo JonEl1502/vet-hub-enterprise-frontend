@@ -87,6 +87,29 @@ export const adminSubscriptionReportAPI = {
   manualActivate: (channel: AdminChannel, reference: string, reason?: string): Promise<ApiResponse<{ status: AdminStatus }>> =>
     post(`/admin/subscriptions/attempts/${channel}/${encodeURIComponent(reference)}/manual-activate`, { reason }, { showError: true }),
 
+  /**
+   * 302 — record a subscription paid for OUTSIDE the gateways, where there is
+   * no attempt to reconcile: cash at the counter, a bank transfer, M-Pesa to a
+   * till, or a checkout that died before `initiate` ran.
+   *
+   * ⚠️ Try `reconcile` first whenever a reference exists — it asks the gateway
+   * and cannot invent a payment. This one believes the caller, which is why the
+   * server demands a reason and a proof reference and stamps both on the row.
+   */
+  grant: (data: {
+    ownerKind: 'CLINIC' | 'SUPPLIER' | 'CLIENT';
+    ownerId: string;
+    packageId: string;
+    cycle?: string;
+    amount: number;
+    currency?: string;
+    channel: string;
+    reference: string;
+    paidAt?: string;
+    reason: string;
+  }): Promise<ApiResponse<{ granted: boolean; attemptId: string; reference: string }>> =>
+    post('/admin/subscriptions/grant', data, { showError: true }),
+
   // Close an attempt that will never settle. The clinic's billing page shows a
   // "raise a ticket" prompt for anything PENDING over 4h; cancelling clears it.
   // Refused on SUCCESS by the API — that would orphan a paid subscription.
