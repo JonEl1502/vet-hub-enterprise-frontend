@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { LifeBuoy, RefreshCw, ExternalLink, CheckCircle2, Clock, Inbox, Wand2, X, Loader2, BadgeCheck } from 'lucide-react';
+import { LifeBuoy, RefreshCw, ExternalLink, CheckCircle2, Clock, Inbox, Wand2, X, Loader2, BadgeCheck, ReceiptText } from 'lucide-react';
 import {
   supportTicketsAPI,
   type SubscriptionTicket,
@@ -11,6 +11,7 @@ import {
 } from '../../../services/modules/adminSubscriptionReport.api';
 import { toast, dialog } from '../../../services';
 import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
+import RecordPaidSubscriptionDialog from '../subscriptions/RecordPaidSubscriptionDialog';
 
 const STATUSES: (TicketStatus | '')[] = ['', 'OPEN', 'IN_PROGRESS', 'RESOLVED'];
 
@@ -19,6 +20,8 @@ const SupportTicketsAdminPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<TicketStatus | ''>('');
   const [actingId, setActingId] = useState<string | null>(null);
+  /** 303 — the ticket whose payment is being recorded by hand, if any. */
+  const [grantTicket, setGrantTicket] = useState<SubscriptionTicket | null>(null);
   // Resolve flow uses a custom modal (not window.prompt) to capture the note.
   const [resolving, setResolving] = useState<SubscriptionTicket | null>(null);
   const [resolveNote, setResolveNote] = useState('');
@@ -197,6 +200,23 @@ const SupportTicketsAdminPage: React.FC = () => {
                     <BadgeCheck size={12}/> Mark paid
                   </button>
                 )}
+                {/* 303 — THE TICKET WITH NO ATTEMPT BEHIND IT.
+                    "Mark paid" above needs `provider && attemptReference`, so a
+                    clinic who paid M-Pesa straight to the till, or whose
+                    checkout died before `initiate` ran, raised a ticket that had
+                    NO settling action at all — an admin could only Resolve it,
+                    which closes the ticket and leaves them with no subscription.
+                    This records the payment properly and resolves in one go. */}
+                {!t.attemptReference && (
+                  <button
+                    onClick={() => setGrantTicket(t)}
+                    disabled={actingId === t.id}
+                    title="No gateway attempt behind this ticket — record the payment from their evidence and activate"
+                    className="px-3 py-1.5 rounded-lg border border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400 text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-amber-500/20 disabled:opacity-50"
+                  >
+                    <ReceiptText size={12}/> Record payment
+                  </button>
+                )}
                 {t.status !== 'IN_PROGRESS' && t.status !== 'RESOLVED' && (
                   <button
                     onClick={() => update(t, 'IN_PROGRESS')}
@@ -269,6 +289,38 @@ const SupportTicketsAdminPage: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+      {/* 303 — prefilled from the ticket, because the ticket IS the evidence:
+          the amount, the reference they quoted and usually a screenshot of
+          their own receipt. Retyping that is how a digit gets dropped into a
+          revenue figure. Resolving is chained to a SUCCESSFUL record, so a
+          refused grant (a duplicate reference, say) leaves the ticket open
+          rather than closing it over a payment that was never recorded. */}
+      {grantTicket && (
+        <RecordPaidSubscriptionDialog
+          ownerKind="CLINIC"
+          ownerId={grantTicket.clinicId}
+          ownerName={grantTicket.clinicName || `Clinic ${grantTicket.clinicId}`}
+          prefill={{
+            amount: grantTicket.amount,
+            currency: grantTicket.currency,
+            channel: grantTicket.provider,
+            reference: grantTicket.attemptReference,
+            reason: `Support ticket #${grantTicket.id}: ${grantTicket.message}`.slice(0, 400),
+          }}
+          onClose={() => setGrantTicket(null)}
+          onGranted={async () => {
+            const t = grantTicket;
+            if (!t) return;
+            await supportTicketsAPI.adminUpdate(t.id, {
+              status: 'RESOLVED',
+              adminNotes: (t.adminNotes ? `${t.adminNotes}\n` : '')
+                + 'Payment recorded by hand from the evidence on this ticket — subscription activated.',
+            });
+            toast.success('Payment recorded and ticket resolved.');
+            await load();
+          }}
+        />
       )}
     </AdminPage>
   );

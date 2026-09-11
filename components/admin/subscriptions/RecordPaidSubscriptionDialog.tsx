@@ -32,6 +32,23 @@ interface Props {
   ownerKind: 'CLINIC' | 'SUPPLIER' | 'CLIENT';
   ownerId: string;
   ownerName: string;
+  /**
+   * 303 — opened from a support ticket, prefilled from what the customer
+   * already told us.
+   *
+   * A ticket IS the evidence: it carries the amount, the provider, the
+   * reference they quoted and usually a screenshot of their own receipt.
+   * Making an admin retype that into this form is how a digit gets dropped
+   * into a revenue figure — and re-entering a reference by hand is the one
+   * mistake that would slip past the duplicate check.
+   */
+  prefill?: {
+    amount?: number | null;
+    currency?: string | null;
+    channel?: string | null;
+    reference?: string | null;
+    reason?: string;
+  };
   onClose: () => void;
   onGranted: () => void;
 }
@@ -42,11 +59,23 @@ const CHANNELS = ['CASH', 'BANK', 'MPESA', 'CARD', 'OTHER'];
 const label = 'block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5';
 const field = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
 
-const RecordPaidSubscriptionDialog: React.FC<Props> = ({ ownerKind, ownerId, ownerName, onClose, onGranted }) => {
+const RecordPaidSubscriptionDialog: React.FC<Props> = ({ ownerKind, ownerId, ownerName, prefill, onClose, onGranted }) => {
   const [packages, setPackages] = useState<any[]>([]);
   const [form, setForm] = useState({
-    packageId: '', cycle: 'MONTHLY', amount: '', currency: 'KES',
-    channel: 'CASH', reference: '', paidAt: new Date().toISOString().slice(0, 10), reason: '',
+    packageId: '',
+    cycle: 'MONTHLY',
+    amount: prefill?.amount != null ? String(prefill.amount) : '',
+    currency: prefill?.currency || 'KES',
+    // A ticket's `provider` is a gateway name (PAYSTACK/MPESA/…); only MPESA
+    // overlaps this list, so anything else lands on OTHER rather than being
+    // silently mislabelled as cash.
+    channel: (() => {
+      const c = String(prefill?.channel || '').toUpperCase();
+      return CHANNELS.includes(c) ? c : (prefill?.channel ? 'OTHER' : 'CASH');
+    })(),
+    reference: prefill?.reference || '',
+    paidAt: new Date().toISOString().slice(0, 10),
+    reason: prefill?.reason || '',
   });
   const [saving, setSaving] = useState(false);
 
