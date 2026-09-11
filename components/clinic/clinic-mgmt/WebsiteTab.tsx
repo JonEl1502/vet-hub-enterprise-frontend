@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Globe, Loader2, Copy, Check, Plus, KeyRound, Send, Trash2, RefreshCw,
   AlertTriangle, ShieldAlert, ExternalLink, Radio, RotateCw, ShoppingBag, ShoppingCart,
@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { siteConnectAPI, type SiteConnection, type SiteDelivery } from '../../../services/modules/siteConnect.api';
 import { toast, dialog } from '../../../services';
+import QRCode from 'qrcode';
 import { useClinic } from '../../../contexts/ClinicContext';
 import WebsiteCatalogPanel from './WebsiteCatalogPanel';
 import WebsiteOrdersPanel from './WebsiteOrdersPanel';
@@ -82,6 +83,28 @@ const ClientLinkPanel: React.FC = () => {
   if (!slug) return null;
 
   const url = `${window.location.origin}/c/${slug}`;
+
+  /**
+   * 298 — the QR itself, rendered to a data URI in the browser.
+   *
+   * Client-side on purpose: the URL is not a secret, so a round trip would buy
+   * nothing, and a data URI is directly right-clickable and directly
+   * downloadable without a blob or an object URL to revoke.
+   *
+   * Sized and error-corrected for PRINT, not for screen — `level: 'H'` survives
+   * a logo sticker, a fold or a scuffed receipt, and 512px gives a poster
+   * something to scale from. A QR that only scans on a clean monitor is not
+   * the artefact being asked for.
+   */
+  const [qr, setQr] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    QRCode.toDataURL(url, { errorCorrectionLevel: 'H', width: 512, margin: 2 })
+      .then((d) => { if (alive) setQr(d); })
+      .catch(() => { if (alive) setQr(null); });
+    return () => { alive = false; };
+  }, [url]);
+
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(url);
@@ -121,6 +144,25 @@ const ClientLinkPanel: React.FC = () => {
             </a>
           </div>
         </div>
+
+        {/* The printable artefact. Shown small but generated at 512px, so the
+            download is worth putting on a poster. */}
+        {qr && (
+          <div className="shrink-0 flex flex-col items-center gap-2">
+            <img
+              src={qr}
+              alt={`QR code linking to ${clinic?.name || 'this clinic'}'s client page`}
+              className="w-28 h-28 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white p-1.5"
+            />
+            <a
+              href={qr}
+              download={`${slug}-client-qr.png`}
+              className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300 hover:border-pine/40 transition-colors"
+            >
+              Download PNG
+            </a>
+          </div>
+        )}
       </div>
     </div>
   );

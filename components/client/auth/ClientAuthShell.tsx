@@ -1,5 +1,40 @@
 import React, { ReactNode } from 'react';
-import { PawPrint } from 'lucide-react';
+import { PawPrint, Building2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import ClientAuthBackdrop from './ClientAuthBackdrop';
+
+/**
+ * 298 — THE SCAN HAS TO SURVIVE THE CLICK.
+ *
+ * The QR landing (`/c/:slug`) carries `?clinic=&clinicName=` through to both
+ * auth screens, but they rendered a bare "Welcome back" — so someone who had
+ * just scanned Riverside's poster and tapped "I already have an account" lost
+ * every sign they were in the right place (user, 2026-09-11). A context strip
+ * is the difference between "this is the clinic's page" and "this is some app
+ * that wants my password".
+ *
+ * Absent params render nothing at all, so the ordinary /client/login is
+ * unchanged.
+ */
+const ScannedClinicStrip: React.FC = () => {
+  const [params] = useSearchParams();
+  const name = params.get('clinicName');
+  if (!name) return null;
+  return (
+    <div className="w-full max-w-md mb-4">
+      <div className="flex items-center gap-2.5 px-4 py-3 rounded-2xl border"
+           style={{ borderColor: 'var(--cp-accent)', background: 'var(--cp-accent-soft)' }}>
+        <span className="w-8 h-8 rounded-xl grid place-items-center shrink-0 bg-white/70">
+          <Building2 className="w-4 h-4 cp-accent-text" />
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[9px] font-black uppercase tracking-widest cp-accent-text">Continuing with</span>
+          <span className="block text-sm font-black truncate" style={{ color: 'var(--cp-ink)' }}>{name}</span>
+        </span>
+      </div>
+    </div>
+  );
+};
 
 // Warm, friendly auth shell for the pet-owner portal. Centered card on the
 // sand canvas — deliberately softer and rounder than the staff AuthShell.
@@ -7,6 +42,10 @@ const ClientAuthShell: React.FC<{ title: string; subtitle?: string; children: Re
   title, subtitle, children, footer,
 }) => (
   <div className="client-portal min-h-screen flex flex-col items-center justify-center px-4 py-10">
+    {/* 298 — crossfading cats/dogs/livestock behind a warm wash. Sits at -z-10
+        so every control above it stays clickable. */}
+    <ClientAuthBackdrop />
+    <ScannedClinicStrip />
     <div className="w-full max-w-md">
       <div className="flex flex-col items-center mb-6">
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center mb-3"

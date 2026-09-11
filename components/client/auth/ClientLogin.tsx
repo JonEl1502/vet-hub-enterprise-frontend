@@ -31,7 +31,9 @@ const ClientLogin: React.FC = () => {
     <ClientAuthShell
       title="Welcome back"
       subtitle="Sign in to manage your pets, appointments and invoices."
-      footer={<>New here? <Link to="/client/signup" className="cp-accent-text font-bold">Create an account</Link></>}
+      /* 298 — carry the scanned clinic across. Bouncing login→signup must not
+         drop the QR context, or the auto-attach silently stops happening. */
+      footer={<>New here? <Link to={`/client/signup${window.location.search}`} className="cp-accent-text font-bold">Create an account</Link></>}
     >
       <form onSubmit={submit} className="space-y-4">
         <div>

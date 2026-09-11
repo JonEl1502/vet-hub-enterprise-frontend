@@ -101,7 +101,8 @@ const ClientSignup: React.FC = () => {
     <ClientAuthShell
       title="Create your account"
       subtitle="Manage your pets, appointments and invoices in one place."
-      footer={<>Already have an account? <Link to="/client/login" className="cp-accent-text font-bold">Sign in</Link></>}
+      /* 298 — see ClientLogin: the scan context survives the bounce. */
+      footer={<>Already have an account? <Link to={`/client/login${window.location.search}`} className="cp-accent-text font-bold">Sign in</Link></>}
     >
       <form onSubmit={createAccount} className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
