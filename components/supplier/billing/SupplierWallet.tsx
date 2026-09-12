@@ -531,7 +531,14 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
     const now = Date.now();
     const daysTotal = 30;
     const daysElapsed = sub ? Math.min((now - new Date(sub.startedAt).getTime()) / 86400000, daysTotal) : 0;
-    const daysLeft = sub ? Math.max(0, Math.ceil((new Date(sub.expiresAt).getTime() - now) / 86400000)) : 0;
+    /**
+     * NEGATIVE once expiry has passed — the third `Math.max(0, …)` clamp on a
+     * subscription counter (user, 2026-09-12: *"and negative sub pkg days"*).
+     * "0 days remaining" on a plan that ended three weeks ago is the one
+     * sentence on this card that had to be true and was not.
+     */
+    const daysLeft = sub ? Math.ceil((new Date(sub.expiresAt).getTime() - now) / 86400000) : 0;
+    const subLapsed = !!sub && daysLeft < 0;
     const progressPct = Math.min(100, (daysElapsed / daysTotal) * 100);
     const tierIcons = [null, Zap, Crown, Rocket];
     const TierIcon = pkg?.tier && pkg.tier <= 3 ? tierIcons[pkg.tier] : Package;
@@ -589,7 +596,12 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
         <div className="mt-6 space-y-2">
           <div className="flex justify-between text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">
             <span className="flex items-center gap-1.5"><Calendar size={10} /> Started {new Date(sub.startedAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
-            <span>{daysLeft} days remaining · {sub.autoRenew ? 'Renews' : 'Expires'} {new Date(sub.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+            <span className={subLapsed ? 'text-red-500 font-bold' : undefined}>
+              {subLapsed
+                ? `Expired ${Math.abs(daysLeft)} day${Math.abs(daysLeft) === 1 ? '' : 's'} ago`
+                : `${daysLeft} days remaining`}
+              {' · '}{subLapsed ? 'Ended' : sub.autoRenew ? 'Renews' : 'Expires'} {new Date(sub.expiresAt).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+            </span>
           </div>
           <div className="h-2 w-full bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
             <div className="h-full bg-seafoam rounded-full transition-all duration-1000" style={{ width: `${progressPct}%` }} />
