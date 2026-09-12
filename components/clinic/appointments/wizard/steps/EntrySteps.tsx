@@ -108,8 +108,24 @@ interface EntryFormDef { title: string; intro?: string; fields: FieldDef[] }
 const FORMS: Record<string, EntryFormDef> = {
   vaccinationAssessment: {
     title: 'Vaccination Assessment',
-    intro: 'Confirm the patient is fit to vaccinate before administering.',
+    intro: 'Confirm the patient is fit to vaccinate — the gate check shows what is already verified and what is due.',
     fields: [
+      /**
+       * THE SHARED GATE, on the one flow that is entirely ABOUT vaccines
+       * (user, 2026-09-12: *"since gate check exist can we copy it"*).
+       *
+       * `AdmissionGate` already backs boarding, grooming and inpatient admit,
+       * and it is pet-keyed — so what a groomer verified last month is on
+       * screen here rather than re-asked. It also carries the client-agreement
+       * tick and "add the vaccination to this visit", which the segmented
+       * "Current vaccine status" below cannot: that control records ONE
+       * adjective about the whole animal, where the gate records which vaccine,
+       * verified when.
+       *
+       * Both are kept. The gate is the RECORD (what this patient has); the
+       * checklist further down is the PLAN (what is going in today).
+       */
+      { kind: 'gate', key: 'gate', label: 'Vaccination gate', span: 2 },
       { kind: 'seg', key: 'healthyToday', label: 'Healthy today', options: ['Yes', 'No', 'Unsure'] },
       { kind: 'input', key: 'temperature', label: 'Temperature (°C)', type: 'number', placeholder: '38.5' },
       { kind: 'input', key: 'weight', label: 'Weight (kg)', type: 'number' },
