@@ -2339,47 +2339,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   };
 
   // Returns true if the current user can access the given view
-  /**
-   * What is piling up while someone reads Community (297).
-   *
-   * Community is the one screen where twenty minutes disappear with a patient
-   * still in the waiting room, so the way out carries the number rather than
-   * making them go and look.
-   */
-  const communityWaitingCount = React.useMemo(() => {
-    const today = new Date().toDateString();
-    return appointments.filter((a: any) => {
-      const st = String(a?.status || '').toUpperCase();
-      if (st !== 'WAITING' && st !== 'CHECKED_IN' && st !== 'ARRIVED') return false;
-      const when = a?.scheduledAt || a?.startTime || a?.date;
-      return when ? new Date(when).toDateString() === today : true;
-    }).length;
-  }, [appointments]);
-
-  /**
-   * The "Your clinic" rows inside Community's rail.
-   *
-   * ⚠️ Built from the SAME menu and the SAME `canAccess` the sidebar uses, not
-   * a hand-written list. A second list would drift, and the first anyone would
-   * know is a staff member clicking through to a 403 from a room that had no
-   * business offering them the link.
-   */
-  const communityWorkLinks = React.useMemo(() => {
-    const audience = defaultAudienceForRole(String(user?.role || ''), {
-      isLivestock: (firstActiveClinic as any)?.isLivestock,
-      shell: (firstActiveClinic as any)?.shell,
-    });
-    return getAudience(audience).items
-      .filter((m) => m.id !== 'community' && canAccess(m.id) && planAllows(m.id))
-      .slice(0, 8)
-      .map((m) => ({
-        id: m.id,
-        label: m.label,
-        badge: m.id === 'appointments' ? communityWaitingCount || undefined : undefined,
-      }));
-    /* eslint-disable-next-line react-hooks/exhaustive-deps */
-  }, [user?.role, firstActiveClinic, communityWaitingCount]);
-
   const canAccess = (view: string): boolean => {
     const role = user?.role as UserRole;
     const perms = user?.customPermissions ?? [];
@@ -2454,6 +2413,56 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     // Everything else (platform-admin views, etc.) — full-access roles only
     return hasFullAccess;
   };
+
+  /**
+   * What is piling up while someone reads Community (297).
+   *
+   * Community is the one screen where twenty minutes disappear with a patient
+   * still in the waiting room, so the way out carries the number rather than
+   * making them go and look.
+   *
+   * ⚠️ NOT a hook, and NOT memoised. This sits ~2,300 lines into the component,
+   * well past the early returns for `authLoading`, the unauthenticated views
+   * and the OTP gate — so a `useMemo` here is called on some renders and not
+   * others, which is React error #310 ("rendered more hooks than during the
+   * previous render") and took down the whole app. A plain filter over an array
+   * that is already in memory costs nothing and cannot change the hook order.
+   */
+  const communityWaitingCount = (() => {
+    const today = new Date().toDateString();
+    return appointments.filter((a: any) => {
+      const st = String(a?.status || '').toUpperCase();
+      if (st !== 'WAITING' && st !== 'CHECKED_IN' && st !== 'ARRIVED') return false;
+      const when = a?.scheduledAt || a?.startTime || a?.date;
+      return when ? new Date(when).toDateString() === today : true;
+    }).length;
+  })();
+
+  /**
+   * The "Your clinic" rows inside Community's rail.
+   *
+   * ⚠️ Built from the SAME menu and the SAME `canAccess` the sidebar uses, not
+   * a hand-written list. A second list would drift, and the first anyone would
+   * know is a staff member clicking through to a 403 from a room that had no
+   * business offering them the link.
+   *
+   * ⚠️ Declared AFTER `canAccess`, deliberately. `canAccess` is a `const` arrow,
+   * so anything evaluated during render before this point sees it in the
+   * temporal dead zone — which is what the first version of this did.
+   */
+  const communityWorkLinks = activeView === 'community'
+    ? getAudience(defaultAudienceForRole(String(user?.role || ''), {
+        isLivestock: (firstActiveClinic as any)?.isLivestock,
+        shell: (firstActiveClinic as any)?.shell,
+      })).items
+        .filter((m) => m.id !== 'community' && canAccess(m.id) && planAllows(m.id))
+        .slice(0, 8)
+        .map((m) => ({
+          id: m.id,
+          label: m.label,
+          badge: m.id === 'appointments' ? communityWaitingCount || undefined : undefined,
+        }))
+    : [];
 
   const renderContent = () => {
     // Supplier-specific views — open to SUPPLIER's normal nav AND to admin
