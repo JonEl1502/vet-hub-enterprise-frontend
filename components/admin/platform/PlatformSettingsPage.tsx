@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags, ArrowLeft, CreditCard, Sparkles, KeyRound, Check, X, Eye, EyeOff, UserPlus, Settings } from 'lucide-react';
+import { Loader2, Save, Smartphone, DollarSign, AlertCircle, ExternalLink, Tags, ArrowLeft, CreditCard, Sparkles, KeyRound, Check, X, Eye, EyeOff, UserPlus, Settings, AlertTriangle } from 'lucide-react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
 import {
@@ -69,6 +69,9 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     usdToKesRate: string;
     displayCurrency: string;
     signupsEnabled: boolean;
+    pastDueGraceDays: string;
+    pastDueSnoozeMinutes: string;
+    pastDueAllowEmergency: boolean;
   }>({
     mpesaConsumerKey: '',
     mpesaConsumerSecret: '',
@@ -86,11 +89,38 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
     usdToKesRate: '130',
     displayCurrency: 'KES',
     signupsEnabled: true,
+    pastDueGraceDays: '7',
+    pastDueSnoozeMinutes: '5',
+    pastDueAllowEmergency: true,
   });
 
   const [packages, setPackages] = useState<SubscriptionPackagePlan[]>([]);
   const [savingPkgId, setSavingPkgId] = useState<string | null>(null);
   const [pkgError, setPkgError] = useState<string | null>(null);
+
+  const [savingPastDue, setSavingPastDue] = useState(false);
+  const [pastDueSavedAt, setPastDueSavedAt] = useState<number | null>(null);
+  const [pastDueError, setPastDueError] = useState<string | null>(null);
+
+  const savePastDue = async () => {
+    setSavingPastDue(true);
+    setPastDueError(null);
+    try {
+      const res = await platformSettingsAPI.update({
+        pastDueGraceDays: Number(draft.pastDueGraceDays),
+        pastDueSnoozeMinutes: Number(draft.pastDueSnoozeMinutes),
+        pastDueAllowEmergency: draft.pastDueAllowEmergency,
+      });
+      if (res.success) setPastDueSavedAt(Date.now());
+      else setPastDueError(res.message || 'Could not save');
+    } catch (e: any) {
+      // The server bounds these (1–90 days, 1–1440 minutes) and its message
+      // names the bound — surfacing it verbatim beats inventing our own.
+      setPastDueError(e?.response?.data?.message || e?.message || 'Could not save');
+    } finally {
+      setSavingPastDue(false);
+    }
+  };
 
   const loadSettings = async () => {
     setLoadingSettings(true);
@@ -111,6 +141,9 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
           usdToKesRate: String(res.data.usdToKesRate),
           displayCurrency: res.data.displayCurrency || 'KES',
           signupsEnabled: res.data.signupsEnabled !== false,
+          pastDueGraceDays: String(res.data.pastDueGraceDays ?? 7),
+          pastDueSnoozeMinutes: String(res.data.pastDueSnoozeMinutes ?? 5),
+          pastDueAllowEmergency: res.data.pastDueAllowEmergency !== false,
         }));
         setAiDraft({
           provider: res.data.aiProvider ?? 'auto',
@@ -414,6 +447,86 @@ const PlatformSettingsPage: React.FC<Props> = ({ onBack }) => {
         icon={Settings}
         onBack={onBack}
       />
+
+      {/* ── Past-due policy ───────────────────────────────────────────────
+          Collections behaviour, editable because it is a business decision
+          that changes and should not need a deploy. */}
+      <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
+        <header className="flex items-center justify-between gap-3 px-4 py-3 border-b border-slate-100 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-800/30">
+          <div className="flex items-center gap-2">
+            <div className="p-1.5 bg-amber-600 text-white rounded-lg"><AlertTriangle size={14} /></div>
+            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-wider">Past-due policy</h2>
+          </div>
+          {pastDueSavedAt && (
+            <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600 flex items-center gap-1"><Check size={12} /> Saved</span>
+          )}
+        </header>
+        <div className="p-4 space-y-4">
+          <p className="text-[13px] text-slate-500 dark:text-zinc-400 max-w-2xl leading-relaxed">
+            What happens to an account once its plan expires. Until the grace window closes it keeps
+            whatever its plan granted and sees a reminder on every page; after it, the account is
+            limited to <b>Billing</b> and <b>Settings</b> until it is renewed.
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-xl">
+            <div className="space-y-1">
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Grace period (days)</label>
+              <input
+                type="number" min={1} max={90}
+                value={draft.pastDueGraceDays}
+                onChange={(e) => setDraft((d) => ({ ...d, pastDueGraceDays: e.target.value }))}
+                className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+              />
+              <p className="text-[10px] text-slate-400">Days after expiry before the account is cut back. 1–90.</p>
+            </div>
+            <div className="space-y-1">
+              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400">Reminder snooze (minutes)</label>
+              <input
+                type="number" min={1} max={1440}
+                value={draft.pastDueSnoozeMinutes}
+                onChange={(e) => setDraft((d) => ({ ...d, pastDueSnoozeMinutes: e.target.value }))}
+                className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-3 py-2.5 text-sm font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20"
+              />
+              <p className="text-[10px] text-slate-400">How long “Remind me later” lasts. 1–1440.</p>
+            </div>
+          </div>
+
+          {/* ⚠️ The one switch here with a clinical consequence. */}
+          <div className="flex items-start justify-between gap-4 px-3 py-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-slate-50/60 dark:bg-zinc-800/40">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-pine dark:text-zinc-100">Keep Emergency open during a lock</p>
+              <p className="mt-1 text-[13px] text-slate-500 dark:text-zinc-400 max-w-xl leading-relaxed">
+                A clinic that has not paid can still have a crashing animal in the room, and the records
+                it needs are here. With this <b>ON</b>, Emergency and triage stay reachable through the
+                lock. Turning it <b>OFF</b> is a deliberate choice with a clinical consequence.
+              </p>
+            </div>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={draft.pastDueAllowEmergency}
+              onClick={() => setDraft((d) => ({ ...d, pastDueAllowEmergency: !d.pastDueAllowEmergency }))}
+              className={`shrink-0 relative inline-flex h-7 w-12 items-center rounded-full transition-colors ${draft.pastDueAllowEmergency ? 'bg-emerald-500' : 'bg-red-500'}`}
+              title={draft.pastDueAllowEmergency ? 'Emergency stays open' : 'Emergency is locked too'}
+            >
+              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${draft.pastDueAllowEmergency ? 'translate-x-6' : 'translate-x-1'}`} />
+            </button>
+          </div>
+
+          {pastDueError && (
+            <p className="text-[11px] font-bold text-red-600 dark:text-red-400">{pastDueError}</p>
+          )}
+          <div className="flex justify-end">
+            <button
+              onClick={savePastDue}
+              disabled={savingPastDue}
+              className="px-5 py-2.5 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[11px] font-black uppercase tracking-widest hover:opacity-90 disabled:opacity-50"
+            >
+              {savingPastDue ? 'Saving…' : 'Save past-due policy'}
+            </button>
+          </div>
+        </div>
+      </section>
 
       {/* Public signups — platform-wide access switch (not provider-specific) */}
       <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">

@@ -20,6 +20,12 @@ export interface PlatformSettings {
   // Public self-serve signup switch. When false the marketing site routes
   // signup CTAs to the "Contact us for a demo" form instead of the wizard.
   signupsEnabled: boolean;
+  /** Days past expiry before an account is cut back to Billing only. */
+  pastDueGraceDays: number;
+  /** How long "Remind me later" silences the past-due reminder. */
+  pastDueSnoozeMinutes: number;
+  /** Whether Emergency survives the past-due hard lock. */
+  pastDueAllowEmergency: boolean;
   /**
    * 233 — who is offered the FARMER rungs on the CLIENT plan ladder.
    * 'FARM_ACCOUNTS' (default) = accounts detected as farms, 'ALL' = every
@@ -70,6 +76,9 @@ export interface PlatformSettingsUpdate {
   usdToKesRate?: number;
   displayCurrency?: string;
   signupsEnabled?: boolean;
+  pastDueGraceDays?: number;
+  pastDueSnoozeMinutes?: number;
+  pastDueAllowEmergency?: boolean;
   clientFarmPlansMode?: ClientFarmPlansMode;
   aiProvider?: AiProvider;
   anthropicApiKey?: string | null;
