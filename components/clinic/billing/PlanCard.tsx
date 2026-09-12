@@ -34,6 +34,12 @@ interface PlanCardProps {
    *  ("Everything in Manager, plus: …"). Null on the entry-level plan. */
   inheritsFrom?: Pick<SubscriptionPackage, 'name' | 'featureKeys' | 'maxBranches'> | null;
   /**
+   * Whose billing page this card is on. Scopes the feature bullets to the
+   * capabilities that audience can actually use — see `planHighlights`.
+   * Omitted on the clinic page, which keeps today's behaviour.
+   */
+  audience?: 'CLINIC' | 'SUPPLIER' | 'LIVESTOCK' | 'CLIENT';
+  /**
    * 288 — an add-on offered ON the plan card, bought in the SAME charge.
    *
    * User, 2026-09-09: *"in each of these cards can we have a checkbox or a
@@ -78,7 +84,7 @@ const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | '
   TRIENNIAL: '3yr',
 };
 
-export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithPaystack, paystackLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget, inheritsFrom, bundleAddOn, bundleAddOnOwned, bundleChecked, onBundleCheckedChange }) => {
+export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithPaystack, paystackLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget, inheritsFrom, bundleAddOn, bundleAddOnOwned, bundleChecked, onBundleCheckedChange, audience }) => {
   const Icon = getPlanIcon(pkg.name);
   const { formatPrice } = useDisplayCurrency();
   // "What's included" list — collapsed to the first few, expandable in place.
@@ -384,7 +390,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
           back to the legacy free-text `features` column for any package whose
           featureKeys haven't been configured yet. */}
       {(() => {
-        const highlights = planHighlights(pkg.featureKeys);
+        const highlights = planHighlights(pkg.featureKeys, audience);
 
         // '*' — full access, nothing useful to enumerate.
         if (highlights === null) {
@@ -411,7 +417,9 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
         // all three cards makes them read identically and hides what you're
         // actually paying more for. Lead with the DELTA instead.
         const lowerKeys = inheritsFrom?.featureKeys;
-        const lowerSet = new Set(planHighlights(lowerKeys) ?? []);
+        // Same scoping on the tier below, or the delta compares two different
+        // universes and every shared capability reappears as "new".
+        const lowerSet = new Set(planHighlights(lowerKeys, audience) ?? []);
         const lowerBranch =
           (inheritsFrom?.maxBranches ?? 0) >= 9999 ? 'Unlimited branches'
           : (inheritsFrom?.maxBranches ?? 0) > 0 ? `Up to ${inheritsFrom?.maxBranches} branches`

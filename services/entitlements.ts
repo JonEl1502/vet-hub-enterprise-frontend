@@ -371,11 +371,43 @@ export const BASELINE_KEYS = new Set([
  * the catalog order above (so cards read consistently). `['*']` yields null —
  * the caller should show an "everything included" line instead.
  */
-export function planHighlights(featureKeys: string[] | undefined | null): string[] | null {
+/**
+ * Which namespace a feature key belongs to. Keys are namespaced by audience
+ * (`supplier:` / `livestock:` / `client:`), and everything else is clinic.
+ */
+const keyAudience = (k: string): 'SUPPLIER' | 'LIVESTOCK' | 'CLIENT' | 'CLINIC' =>
+  k.startsWith('supplier:') ? 'SUPPLIER'
+    : k.startsWith('livestock:') ? 'LIVESTOCK'
+      : k.startsWith('client:') ? 'CLIENT'
+        : 'CLINIC';
+
+/**
+ * @param audience Show only the capabilities that MEAN something to this
+ *   audience. Enterprise legitimately carries the clinic set AND the supplier
+ *   set — "enterprise carries full system" — so on a supplier's billing page
+ *   its card led with "Patient records · Visits & consultations · Emergency
+ *   intake", reading as though an agrovet were buying a veterinary practice
+ *   (user, 2026-09-12). The plan is right; the sales copy was answering the
+ *   wrong question. Omit to keep every key, which is what every existing
+ *   caller does.
+ */
+export function planHighlights(
+  featureKeys: string[] | undefined | null,
+  audience?: 'CLINIC' | 'SUPPLIER' | 'LIVESTOCK' | 'CLIENT',
+): string[] | null {
   if (!featureKeys || featureKeys.length === 0) return [];
   if (featureKeys.includes('*')) return null;
   const order = Object.keys(KEY_LABEL);
-  return featureKeys
+  const scoped = audience
+    ? featureKeys.filter((k) => keyAudience(k) === audience)
+    : featureKeys;
+  /**
+   * ⚠️ Never return an EMPTY list where an unfiltered one had content — a plan
+   * card with no bullets reads as a plan that does nothing. A package with no
+   * keys in this audience falls back to the full set rather than going blank.
+   */
+  const source = audience && scoped.length === 0 ? featureKeys : scoped;
+  return source
     .filter((k) => !BASELINE_KEYS.has(k) && KEY_LABEL[k])
     .sort((a, b) => order.indexOf(a) - order.indexOf(b))
     .map((k) => KEY_LABEL[k]);

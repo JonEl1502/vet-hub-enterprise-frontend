@@ -415,6 +415,11 @@ const SupplierBillingView: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {basePackages.map((pkg, i) => (
             <PlanCard
+              /* This is the SUPPLIER's billing page — scope the bullets to
+                 what a supplier can use. Enterprise legitimately carries the
+                 clinic set too, and without this its card led with "Patient
+                 records · Visits & consultations · Emergency intake". */
+              audience="SUPPLIER"
               key={pkg.id}
               pkg={pkg}
               isCurrent={subscription?.packageId === pkg.id && !!subscription?.isActive}
