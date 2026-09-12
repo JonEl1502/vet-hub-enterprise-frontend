@@ -20,6 +20,8 @@ import SupplierSearchDropdown from './SupplierSearchDropdown';
 import { useClinic } from '../../../../contexts/ClinicContext';
 import { staffScopeAPI, resolveCategoryMenuId, CATEGORY_GATED_MENU_IDS } from '../../../../services';
 import { useSupplier } from '../../../../contexts/SupplierContext';
+import { usePlanAccess } from '../../../../contexts/PlanAccessContext';
+import { planLabel } from '../../../../services/entitlements';
 
 /** Same emoji-or-URL detector the appearance tab uses — keeps the sidebar
  *  in lockstep with how the supplier saved their logo. */
@@ -170,15 +172,34 @@ const Sidebar: React.FC<SidebarProps> = ({
       ? `All clinics (${selectedClinicIds.length})`
       : primaryClinicName;
 
+  // Resolved plan wording, shared with the supplier sidebar.
+  const { access: planAccess } = usePlanAccess();
+  const resolvedPlan = planLabel(planAccess);
+  const planText = planAccess ? resolvedPlan.text : '';
+  const planTone = resolvedPlan.tone;
+
   const headerSubtitle = isSupplierBranding && activeSupplier
     ? (activeSupplier.category || 'Supplier Portal')
     : isMultiClinic
       ? `${primaryClinicName} + ${selectedClinicIds.length - 1} more`
-      : (subscription?.package?.name
-          ? `${subscription.package.name} Plan`
-          : clinic?.isDemo
-            ? 'Demo Account'
-            : 'Active Clinic');
+      /**
+       * ⚠️ THE RESOLVED ACCESS, NOT THE SUBSCRIPTION ROW.
+       *
+       * This read `subscription.package.name`, which is the last plan that was
+       * BOUGHT — it keeps naming Enterprise long after the row expired, while
+       * entitlements have already fallen back to the trial package. Prod clinic
+       * 3 showed "ENTERPRISE PLAN" over a sidebar with no Surgery and no
+       * Inpatient, because its Enterprise sub lapsed on 2026-08-22 and the
+       * Clinic Trial grants neither (user, 2026-09-12).
+       *
+       * `planLabel(access)` is the same resolver the whole app gates on — and
+       * the one the supplier sidebar has always used — so the label can no
+       * longer promise a plan the app is not honouring. It says "Free trial"
+       * on a trial and "Enterprise — expired" on a lapsed plan, which is the
+       * sentence that actually explains a missing page.
+       */
+      : (planText
+          || (clinic?.isDemo ? 'Demo Account' : 'Active Clinic'));
 
   return (
     <>
