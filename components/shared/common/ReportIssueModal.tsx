@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   X, Upload, LifeBuoy, Loader2, Bug, CreditCard, Database, KeyRound,
   Lightbulb, MessageSquare, Search, Check, Camera,
@@ -276,10 +277,31 @@ const ReportIssueModal: React.FC<Props> = ({
     }
   };
 
-  return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4" onClick={onClose}>
+  /**
+   * ⚠️ PORTALLED TO <body>, and not negotiable.
+   *
+   * The nav that opens this is `backdrop-blur-xl`, and `backdrop-filter` makes
+   * an element a CONTAINING BLOCK for `position: fixed` descendants. Rendered
+   * in place, `inset-0` resolved against the 64px-tall navbar instead of the
+   * viewport: the panel was centred inside a 64px box, so its top half hung
+   * above the screen and was clipped, and it sat off-centre horizontally
+   * because the nav starts at `left-64` (user, 2026-09-12: *"its opening
+   * outside the screen"*). `max-h-[90vh]` never helped — the bug is the
+   * ORIGIN, not the height.
+   *
+   * The same trap `InlineServiceSearch` documents for its dropdown.
+   *
+   * The backdrop also scrolls (`overflow-y-auto` + `items-start`), so a form
+   * taller than the window scrolls the page rather than clipping at both ends
+   * the way a centred flex child does.
+   */
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[120] flex items-start justify-center overflow-y-auto bg-black/40 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
       <div
-        className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto custom-scrollbar p-6"
+        className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-lg my-auto p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -483,7 +505,8 @@ const ReportIssueModal: React.FC<Props> = ({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 };
 
