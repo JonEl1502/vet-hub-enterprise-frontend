@@ -13,7 +13,8 @@ import { useClinic } from './ClinicContext';
 import { useSupplier } from './SupplierContext';
 import { clinicSubscriptionAPI } from '../services/modules/clinicSubscription.api';
 import { supplierSubscriptionAPI } from '../services/modules/supplierSubscription.api';
-import { allowsView, hasFeature, hydrateModuleCatalog, type PlanAccess } from '../services/entitlements';
+import { allowsView, hasFeature, hydrateModuleCatalog, daysOverdue, type PlanAccess } from '../services/entitlements';
+import { usePublicConfig } from './PublicConfigContext';
 import { moduleCatalogAPI } from '../services/modules/moduleCatalog.api';
 
 /** Roles that bypass plan gating entirely (platform staff). */
@@ -49,6 +50,8 @@ export const PlanAccessProvider: React.FC<{ children: React.ReactNode }> = ({ ch
   const { user } = useAuth();
   const { clinics, selectedClinicIds } = useClinic();
   const { mySupplier } = useSupplier();
+  // Collections policy — admin-editable, safe defaults if it has not resolved.
+  const { pastDue } = usePublicConfig();
   const [access, setAccess] = useState<PlanAccess | null>(null);
   const [loading, setLoading] = useState(false);
   const [nonce, setNonce] = useState(0);
@@ -125,7 +128,23 @@ export const PlanAccessProvider: React.FC<{ children: React.ReactNode }> = ({ ch
 
   const refresh = useCallback(() => setNonce((n) => n + 1), []);
   const can = useCallback((key: string) => (isAdminRole ? true : hasFeature(access, key)), [access, isAdminRole]);
-  const allows = useCallback((view: string) => (isAdminRole ? true : allowsView(access, view)), [access, isAdminRole]);
+  /**
+   * PAST-GRACE LOCKDOWN. Computed here so every `allows()` caller — the
+   * sidebar's pruning, App.tsx's lock screen, any future gate — enforces the
+   * same rule without each one having to remember the policy.
+   *
+   * ⚠️ Admins are exempt, as they already were: they act on behalf of an
+   * account, and locking a support agent out of a past-due clinic is how a
+   * past-due clinic stays past due.
+   */
+  const overdue = daysOverdue(access);
+  const hardLocked = overdue != null && overdue >= pastDue.graceDays;
+  const allows = useCallback(
+    (view: string) => (isAdminRole
+      ? true
+      : allowsView(access, view, { hardLocked, allowEmergency: pastDue.allowEmergency })),
+    [access, isAdminRole, hardLocked, pastDue.allowEmergency],
+  );
 
   const value = useMemo(
     () => ({ access: isAdminRole ? null : access, loading, can, allows, refresh }),

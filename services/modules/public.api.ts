@@ -5,7 +5,25 @@ import { ApiResponse, RequestOptions } from '../api/types';
 
 export interface PublicConfig {
   signupsEnabled: boolean;
+  /**
+   * Collections policy, admin-editable at /admin/platform-settings. Served
+   * here rather than on the access payload because it is POLICY, not
+   * entitlement — the same three numbers apply to every clinic, supplier and
+   * client, and threading them through three resolvers would have meant three
+   * copies of one decision.
+   */
+  pastDue?: {
+    /** Days past expiry before an account is cut back to Billing only. */
+    graceDays: number;
+    /** How long "Remind me later" silences the reminder. */
+    snoozeMinutes: number;
+    /** Whether Emergency stays reachable through the hard lock. */
+    allowEmergency: boolean;
+  };
 }
+
+/** The defaults the app runs on before /public/config answers, or if it fails. */
+export const PAST_DUE_FALLBACK = { graceDays: 7, snoozeMinutes: 5, allowEmergency: true };
 
 export interface DemoRequestPayload {
   name: string;

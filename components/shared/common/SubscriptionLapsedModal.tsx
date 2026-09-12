@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { AlertTriangle, ArrowUpRight, Clock } from 'lucide-react';
 import { usePlanAccess } from '../../../contexts/PlanAccessContext';
+import { usePublicConfig } from '../../../contexts/PublicConfigContext';
 import { daysOverdue, planLabel } from '../../../services/entitlements';
 
 /**
@@ -21,16 +22,19 @@ import { daysOverdue, planLabel } from '../../../services/entitlements';
  *     self-defeating.
  *   SETTINGS — where the owner fixes a dead card.
  *
- * "Remind me later" suppresses it for 15 minutes rather than for the session:
- * a nag with no snooze gets dismissed reflexively and stops being read, and a
- * nag that is gone for a whole session is not a reminder. It is deliberately
- * NOT permanently dismissible.
+ * "Remind me later" suppresses it for `pastDue.snoozeMinutes` (5 by default,
+ * admin-editable) rather than for the session: a nag with no snooze gets
+ * dismissed reflexively and stops being read, and one gone for a whole session
+ * is not a reminder. It is deliberately NOT permanently dismissible.
+ *
+ * PAST THE GRACE WINDOW the account is cut to Billing only — see `allowsView`,
+ * which is where the lock is enforced. This modal then stops offering "Remind
+ * me later", because there is nothing left to postpone.
  */
 
 /** Views this must never cover. */
 const NEVER_OVER = new Set(['emergency', 'triage', 'billing', 'settings', 'subscription-management']);
 
-const SNOOZE_MS = 15 * 60 * 1000;
 const SNOOZE_KEY = 'vethub.subLapsedSnoozeUntil';
 
 interface Props {
@@ -41,8 +45,10 @@ interface Props {
 
 const SubscriptionLapsedModal: React.FC<Props> = ({ activeView, onGoToBilling }) => {
   const { access } = usePlanAccess();
+  const { pastDue } = usePublicConfig();
   const overdue = daysOverdue(access);
   const lapsed = overdue != null;
+  const hardLocked = overdue != null && overdue >= pastDue.graceDays;
 
   const [snoozedUntil, setSnoozedUntil] = React.useState<number>(() => {
     try { return Number(localStorage.getItem(SNOOZE_KEY) || 0); } catch { return 0; }
@@ -59,10 +65,12 @@ const SubscriptionLapsedModal: React.FC<Props> = ({ activeView, onGoToBilling })
   if (!lapsed) return null;
   if (NEVER_OVER.has(activeView)) return null;
   if (shownFor === activeView) return null;
-  if (snoozedUntil > Date.now()) return null;
+  // Past the grace window there is nothing to postpone — the account is
+  // already cut to Billing, and a snooze that hides that is a lie.
+  if (!hardLocked && snoozedUntil > Date.now()) return null;
 
   const snooze = () => {
-    const until = Date.now() + SNOOZE_MS;
+    const until = Date.now() + pastDue.snoozeMinutes * 60 * 1000;
     try { localStorage.setItem(SNOOZE_KEY, String(until)); } catch { /* private window */ }
     setSnoozedUntil(until);
     setShownFor(activeView);
@@ -90,26 +98,35 @@ const SubscriptionLapsedModal: React.FC<Props> = ({ activeView, onGoToBilling })
             {overdue === 0 ? 'today' : `${overdue} day${overdue === 1 ? '' : 's'} ago`}.
           </p>
           <p className="text-[12px] text-slate-500 dark:text-zinc-400 leading-relaxed">
-            Parts of VetHubCore are switched off until it is renewed. Nothing has been deleted —
-            your patients, records and history are exactly where you left them, and everything
-            comes back the moment payment lands.
+            {hardLocked
+              ? 'The account is now limited to Billing until it is renewed.'
+              : `Parts of VetHubCore are switched off until it is renewed.${
+                  pastDue.graceDays - (overdue ?? 0) > 0
+                    ? ` In ${pastDue.graceDays - (overdue ?? 0)} day${pastDue.graceDays - (overdue ?? 0) === 1 ? '' : 's'} the account is limited to Billing only.`
+                    : ''
+                }`}
+            {' '}Nothing has been deleted — your patients, records and history are exactly where
+            you left them, and everything comes back the moment payment lands.
           </p>
           <div className="flex items-start gap-2 px-3 py-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700">
             <Clock size={13} className="text-slate-400 shrink-0 mt-0.5" />
             <p className="text-[11px] font-bold text-slate-500 dark:text-zinc-400 leading-relaxed">
-              Emergency stays open on every plan, paid or not. You will never be locked out of a
-              patient who needs you now.
+              {pastDue.allowEmergency
+                ? 'Emergency stays open on every plan, paid or not. You will never be locked out of a patient who needs you now.'
+                : 'Emergency access is switched off for past-due accounts on this platform. Renew to restore it.'}
             </p>
           </div>
         </div>
 
         <div className="px-5 pb-5 flex items-center justify-end gap-2">
-          <button
-            onClick={snooze}
-            className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
-          >
-            Remind me later
-          </button>
+          {!hardLocked && (
+            <button
+              onClick={snooze}
+              className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
+            >
+              Remind me later
+            </button>
+          )}
           <button
             onClick={() => { setShownFor(activeView); onGoToBilling(); }}
             className="px-4 py-2 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 hover:opacity-90"

@@ -506,8 +506,51 @@ export function hasFeature(access: PlanAccess | null, featureKey: string): boole
 }
 
 /** Does this access state allow navigating to `view`? */
-export function allowsView(access: PlanAccess | null, view: string): boolean {
+/**
+ * WHAT A HARD-LOCKED (past-grace) ACCOUNT MAY STILL REACH.
+ *
+ * "After a week lock to billing only" (user, 2026-09-12). Billing per
+ * audience, because a supplier's billing page is a different view id from a
+ * clinic's and sending either to the other's is sending them nowhere.
+ *
+ * `settings` is kept deliberately: it is where an owner fixes the dead card
+ * that caused this, and a lockout that hides the fix is a lockout nobody can
+ * escape.
+ *
+ * Emergency is added at call time, from the platform's own switch — see
+ * `pastDueAllowEmergency`.
+ */
+export const PAST_DUE_VIEWS = new Set([
+  'billing',
+  'subscription-management',
+  'supplier-billing',
+  'settings',
+  'supplier-management',
+  'client-plan',
+]);
+
+export function allowsView(
+  access: PlanAccess | null,
+  view: string,
+  /**
+   * Past-due lockdown. Omitted = no lockdown, which keeps every existing
+   * caller behaving exactly as before.
+   */
+  pastDue?: { hardLocked: boolean; allowEmergency: boolean },
+): boolean {
   if (!access) return true;
+  /**
+   * ⚠️ THE HARD LOCK OUTRANKS `ALWAYS_VIEWS`.
+   *
+   * It has to: `ALWAYS_VIEWS` is the set a LOCKED account keeps, and the whole
+   * point of the past-grace state is that it keeps LESS. Checked before the
+   * always-sets rather than after, or `staff`, `import-data` and `community`
+   * would sail straight through the lock.
+   */
+  if (pastDue?.hardLocked) {
+    if (view === 'emergency' || view === 'triage') return pastDue.allowEmergency;
+    return PAST_DUE_VIEWS.has(view);
+  }
   // View ids are unique across audiences (clinic `inventory` vs supplier
   // `supplier-inventory`), so one union of the always-allowed sets is safe.
   if (ALWAYS_VIEWS.has(view) || ALWAYS_SUPPLIER_VIEWS.has(view) || ALWAYS_LIVESTOCK_VIEWS.has(view)) return true;
