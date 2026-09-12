@@ -1,5 +1,6 @@
 
 import React, { useEffect, useRef } from 'react';
+import { petSexLabel } from '../../../utils/pet';
 import { Visit, Pet, Clinic, MedicalRecord, TaskStatus } from '../../../types';
 import { ArrowLeft, Calendar, DollarSign, CheckCircle2, FileText, Receipt, Stethoscope, User, Phone, Mail, MapPin, Pill, Workflow } from 'lucide-react';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
@@ -87,7 +88,11 @@ const VisitReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, client, 
           <span className="text-2xl shrink-0">{pet.species === 'Dog' ? '🐶' : '🐱'}</span>
           <div className="flex-1 min-w-0">
             <h2 className="text-base font-black text-white tracking-tight uppercase truncate leading-tight">{pet.name}</h2>
-            <p className="text-white/70 text-[10px] font-medium">{pet.species} · {pet.breed}{pet.age ? ` · ${pet.age}Y` : ''}</p>
+            {/* Same shape as the live visit header — sex included, and no "Y"
+                suffix on an age string that already carries its unit. */}
+            <p className="text-white/70 text-[10px] font-medium">
+              {[pet.species, pet.breed, petSexLabel(pet), pet.age].filter(Boolean).join(' · ')}
+            </p>
           </div>
           <div className="text-right shrink-0">
             <span className={`px-2 py-0.5 rounded text-[8px] font-black uppercase tracking-widest inline-block ${

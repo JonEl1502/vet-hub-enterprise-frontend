@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { petSexLabel } from '../../../utils/pet';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { createPortal } from 'react-dom';
 import ReactMarkdown from 'react-markdown';
@@ -4644,7 +4645,17 @@ const VisitDetailInner: React.FC<Props> = ({
               <div className="min-w-0">
                 <p className="text-white/60 text-[8px] font-black uppercase tracking-widest leading-none mb-0.5">Patient</p>
                 <h2 className="text-sm font-black tracking-tight uppercase truncate leading-tight">{pet.name}</h2>
-                <p className="text-seafoam text-[9px] font-bold truncate">{pet.breed} • {pet.species}{pet.age ? ` • ${pet.age}Y` : ''}</p>
+                {/* Breed · species · SEX · age (user, 2026-09-12: "add gender
+                    of patient"). Sex is clinical, not decorative — dose,
+                    pregnancy risk and half the differentials turn on it, and a
+                    vet should not have to open the profile to find it.
+                    ⚠️ NO "Y" SUFFIX. `pet.age` arrives from the API already
+                    formatted ("4 years", "7 months" — see
+                    pet.service.calculateAge), so appending Y rendered "4 yearsY"
+                    and, on a puppy, the flatly wrong "7 monthsY". */}
+                <p className="text-seafoam text-[9px] font-bold truncate">
+                  {[pet.breed, pet.species, petSexLabel(pet), pet.age].filter(Boolean).join(' • ')}
+                </p>
                 {onNavigateToPet && (
                   <button onClick={() => onNavigateToPet(pet.id)} className="mt-0.5 flex items-center gap-1 text-[8px] font-black uppercase tracking-wider text-white/60 hover:text-white transition-all">
                     <ExternalLink size={8} /> Profile

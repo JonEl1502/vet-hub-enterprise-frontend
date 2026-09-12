@@ -404,6 +404,19 @@ export interface Pet {
   species: string;
   breed: string;
   gender: 'Male' | 'Female';
+  /**
+   * ⚠️ AT RUNTIME THIS IS A PRE-FORMATTED STRING — "4 years", "7 months", or
+   * null when the DOB is unknown. `pet.service.calculateAge` builds it
+   * server-side and IT ALREADY CARRIES ITS UNIT.
+   *
+   * The `number` below is a lie the API never tells; it is kept only because a
+   * handful of local mock literals still build a Pet with one, and widening it
+   * pushes errors into files that have nothing to do with pets.
+   *
+   * RENDER IT AS-IS. Trusting the `number` is how three screens came to append
+   * a "Y" and ship "4 yearsY" — and "7 monthsY" on a puppy, which is not ugly,
+   * it is wrong (user, 2026-09-12). Use `dob` if you need to compute anything.
+   */
   age: number;
   dob: string;
   weight: string;

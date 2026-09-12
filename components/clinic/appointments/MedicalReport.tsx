@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { petSexLabel } from '../../../utils/pet';
 import { Visit, Pet, Client, Clinic } from '../../../types';
 import { DewormingRecord, FormField, LayoutStage, labAPI, imagingAPI } from '../../../services';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
@@ -283,7 +284,13 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
       {/* Patient & owner */}
       <div className="grid grid-cols-2 gap-x-8 pt-3">
         <div className="space-y-1">
-          <Row label="Patient" value={`${pet.name} — ${pet.breed || ''} ${pet.species || ''}${pet.age ? `, ${pet.age}y` : ''}`} />
+          {/* `pet.age` is already "4 years" / "7 months"; the old `y` suffix
+              made it "4 yearsy" on a printed clinical document. */}
+          <Row label="Patient" value={[
+            `${pet.name} — ${[pet.breed, pet.species].filter(Boolean).join(' ')}`.trim(),
+            petSexLabel(pet),
+            pet.age || '',
+          ].filter(Boolean).join(', ')} />
           <Row label="Visit type" value={`${(visit.encounterType || 'VET_VISIT').replace('_', ' ')}${visit.visitType ? ` · ${visit.visitType.replace('_', ' ')}` : ''}${visit.isHouseCall ? ' · House call' : ''}`} />
         </div>
         <div className="space-y-1">
