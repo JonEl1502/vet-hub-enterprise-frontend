@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
+import SupplierBranchDropdown from './SupplierBranchDropdown';
 import { usePlanAccess } from '../../../contexts/PlanAccessContext';
 import { planLabel } from '../../../services/entitlements';
 import {
@@ -214,6 +215,15 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
             </div>
           )}
         </div>
+
+        {/* BRANCH SCOPE — between the header and the nav, exactly where the
+            clinic and admin sidebars put their own scope picker.
+            ⚠️ A SUPPLIER-role user renders THIS sidebar, never the shared one
+            (see the note on `mainItems` above), so the shared
+            `SupplierSearchDropdown` mounted in `sidebar/Sidebar.tsx` never
+            reached an actual supplier — they had only the full-screen "Switch
+            Branch" takeover off the top nav. */}
+        <SupplierBranchDropdown isCollapsed={isCollapsed && !isMobileOpen} />
 
         {/* Navigation */}
         <nav className="flex-1 px-3 py-6 space-y-1 overflow-y-auto custom-scrollbar">
