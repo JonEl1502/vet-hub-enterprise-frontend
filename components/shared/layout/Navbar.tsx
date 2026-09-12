@@ -1,7 +1,8 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { LogOut, Bell, Shield, Calculator, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network, Zap, ArrowUpRight, Compass, MessageSquare } from 'lucide-react';
+import { LogOut, Bell, Shield, Calculator, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network, Zap, ArrowUpRight, Compass, MessageSquare, LifeBuoy } from 'lucide-react';
 import PopCalculator from '../common/PopCalculator';
+import ReportIssueModal from '../common/ReportIssueModal';
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { useOptionalTour } from '../../../contexts/TourContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -119,6 +120,7 @@ const Navbar: React.FC<NavbarProps> = ({
   onUpgrade,
 }) => {
   const [showUserDropdown, setShowUserDropdown]     = useState(false);
+  const [showReportIssue, setShowReportIssue]       = useState(false);
   const [showNotifications, setShowNotifications]   = useState(false);
   const [showCalc, setShowCalc]                     = useState(false);
   const calcBtnRef                                  = useRef<HTMLButtonElement>(null);
@@ -827,6 +829,20 @@ const Navbar: React.FC<NavbarProps> = ({
                       <p className="text-[8px] opacity-60 uppercase text-pine dark:text-zinc-100">Switch appearance</p>
                     </div>
                   </button>
+                  {/* REPORT AN ISSUE — in the profile menu because that is
+                      where people look when something is wrong and they do not
+                      know which page owns it. Files into the SAME support-ticket
+                      channel admins already triage (user, 2026-09-12). */}
+                  <button
+                    onClick={() => { setShowUserDropdown(false); setShowReportIssue(true); }}
+                    className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left hover:bg-slate-50 dark:hover:bg-zinc-800"
+                  >
+                    <LifeBuoy size={16} className="text-seafoam" />
+                    <div>
+                      <p className="text-[10px] font-bold uppercase text-pine dark:text-zinc-100">Report an issue</p>
+                      <p className="text-[8px] opacity-60 uppercase text-pine dark:text-zinc-100">Bug, payment, data or access</p>
+                    </div>
+                  </button>
                   <button
                     onClick={() => { setShowUserDropdown(false); onLogout?.(); }}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left hover:bg-slate-50 dark:hover:bg-zinc-800 text-red-500"
@@ -843,6 +859,13 @@ const Navbar: React.FC<NavbarProps> = ({
           )}
         </div>
       </div>
+
+      {/* Rendered at the nav's root, outside the dropdown that opened it — the
+          dropdown unmounts on click and would take the modal with it. */}
+      <ReportIssueModal
+        isOpen={showReportIssue}
+        onClose={() => setShowReportIssue(false)}
+      />
     </nav>
   );
 };

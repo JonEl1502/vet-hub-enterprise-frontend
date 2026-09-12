@@ -4,6 +4,7 @@ import {
   supportTicketsAPI,
   type SubscriptionTicket,
   type TicketStatus,
+  type TicketKind,
 } from '../../../services/modules/supportTickets.api';
 import {
   adminSubscriptionReportAPI,
@@ -15,10 +16,31 @@ import RecordPaidSubscriptionDialog from '../subscriptions/RecordPaidSubscriptio
 
 const STATUSES: (TicketStatus | '')[] = ['', 'OPEN', 'IN_PROGRESS', 'RESOLVED'];
 
+/**
+ * The kinds this console can filter (226). Colours match the reporter's own
+ * chips, so a bug looks like a bug on both sides of the wall.
+ */
+const KINDS: (TicketKind | '')[] = ['', 'BUG', 'PAYMENT', 'DATA', 'ACCESS', 'FEATURE', 'OTHER'];
+
+const KIND_PILL: Record<string, string> = {
+  BUG: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300',
+  PAYMENT: 'bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300',
+  DATA: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300',
+  ACCESS: 'bg-sky-100 dark:bg-sky-900/30 text-sky-700 dark:text-sky-300',
+  FEATURE: 'bg-violet-100 dark:bg-violet-900/30 text-violet-700 dark:text-violet-300',
+  OTHER: 'bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300',
+};
+
+/** Human labels for the context keys the reporter attaches. */
+const CONTEXT_LABEL: Record<string, string> = {
+  route: 'Page', viewport: 'Screen', userAgent: 'Browser', reportedAt: 'Reported',
+};
+
 const SupportTicketsAdminPage: React.FC = () => {
   const [tickets, setTickets] = useState<SubscriptionTicket[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<TicketStatus | ''>('');
+  const [kindFilter, setKindFilter] = useState<TicketKind | ''>('');
   const [actingId, setActingId] = useState<string | null>(null);
   /** 303 — the ticket whose payment is being recorded by hand, if any. */
   const [grantTicket, setGrantTicket] = useState<SubscriptionTicket | null>(null);
@@ -29,7 +51,7 @@ const SupportTicketsAdminPage: React.FC = () => {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await supportTicketsAPI.adminList(filter || undefined);
+      const res = await supportTicketsAPI.adminList(filter || undefined, kindFilter || undefined);
       if (res.success && res.data) setTickets(res.data.rows);
     } finally {
       setLoading(false);
@@ -39,7 +61,7 @@ const SupportTicketsAdminPage: React.FC = () => {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [filter]);
+  }, [filter, kindFilter]);
 
   const update = async (t: SubscriptionTicket, status: TicketStatus, adminNotes?: string) => {
     setActingId(t.id);
@@ -140,10 +162,17 @@ const SupportTicketsAdminPage: React.FC = () => {
     <AdminPage className="pb-20">
       <AdminPageHeader
         title="Support Tickets"
-        subtitle="Subscription & payment issues raised by clinics"
+        subtitle="Bugs, payments, data and access issues raised by clinics and suppliers"
         icon={LifeBuoy}
         actions={
           <>
+            <select
+              value={kindFilter}
+              onChange={(e) => setKindFilter(e.target.value as TicketKind | '')}
+              className="h-10 px-3 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-[11px] font-bold text-pine dark:text-zinc-100 outline-none"
+            >
+              {KINDS.map((k) => <option key={k || 'all'} value={k}>{k || 'All kinds'}</option>)}
+            </select>
             <select
               value={filter}
               onChange={(e) => setFilter(e.target.value as TicketStatus | '')}
@@ -172,6 +201,12 @@ const SupportTicketsAdminPage: React.FC = () => {
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="font-black text-pine dark:text-zinc-100">{t.clinicName ?? `Clinic ${t.clinicId}`}</span>
+                  {/* KIND FIRST — an admin scanning the queue needs to know
+                      whether this is money or a broken screen before reading a
+                      word of it. */}
+                  <span className={`px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${KIND_PILL[t.kind ?? 'PAYMENT'] ?? KIND_PILL.OTHER}`}>
+                    {t.kind ?? 'PAYMENT'}
+                  </span>
                   <StatusPill status={t.status}/>
                   {t.provider && <Tag>{t.provider}</Tag>}
                 </div>
@@ -207,7 +242,11 @@ const SupportTicketsAdminPage: React.FC = () => {
                     NO settling action at all — an admin could only Resolve it,
                     which closes the ticket and leaves them with no subscription.
                     This records the payment properly and resolves in one go. */}
-                {!t.attemptReference && (
+                {/* ⚠️ PAYMENT TICKETS ONLY (226). "Record payment" only needed
+                    `!attemptReference`, which is true of every bug report ever
+                    filed — it would have offered to grant a subscription on a
+                    ticket about a broken button. */}
+                {!t.attemptReference && (t.kind ?? 'PAYMENT') === 'PAYMENT' && (
                   <button
                     onClick={() => setGrantTicket(t)}
                     disabled={actingId === t.id}
@@ -245,10 +284,39 @@ const SupportTicketsAdminPage: React.FC = () => {
               {t.amount != null && <span>Amount: {t.currency ?? ''} {t.amount}</span>}
               {t.screenshotUrl && (
                 <a href={t.screenshotUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-seafoam hover:text-pine font-bold">
-                  <ExternalLink size={12}/> Payment screenshot
+                  <ExternalLink size={12}/> {(t.kind ?? 'PAYMENT') === 'PAYMENT' ? 'Payment screenshot' : 'Screenshot'}
                 </a>
               )}
             </div>
+
+            {/* ── What they tagged, and where they were standing ─────────────
+                Captured by the reporter rather than typed, so it is accurate:
+                the exact route, the viewport and the browser. This is the half
+                of a bug report that usually costs an email round-trip. */}
+            {t.context && Object.keys(t.context).length > 0 && (
+              <div className="mt-3 rounded-xl bg-slate-50 dark:bg-zinc-950 border border-slate-100 dark:border-zinc-800 px-3 py-2 space-y-1">
+                {Array.isArray((t.context as any).invoices) && (t.context as any).invoices.length > 0 && (
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Tagged</span>
+                    {(t.context as any).invoices.map((inv: any, i: number) => (
+                      <span key={i} className="px-2 py-0.5 rounded-md bg-seafoam/10 text-seafoam text-[10px] font-black">
+                        {inv.number || `#${inv.id}`}
+                        {inv.total != null && <span className="font-mono font-bold"> · {Number(inv.total).toLocaleString()}</span>}
+                        {inv.status && <span className="opacity-70"> · {inv.status}</span>}
+                      </span>
+                    ))}
+                  </div>
+                )}
+                {Object.entries(t.context as Record<string, any>)
+                  .filter(([k, v]) => k !== 'invoices' && v != null && v !== '')
+                  .map(([k, v]) => (
+                    <p key={k} className="text-[10px] text-slate-500 dark:text-zinc-500 break-all">
+                      <span className="font-black uppercase tracking-widest text-slate-400">{CONTEXT_LABEL[k] ?? k}:</span>{' '}
+                      <span className="font-mono">{typeof v === 'object' ? JSON.stringify(v) : String(v)}</span>
+                    </p>
+                  ))}
+              </div>
+            )}
 
             {t.adminNotes && (
               <p className="mt-2 text-xs text-slate-500 dark:text-zinc-500"><span className="font-bold">Note:</span> {t.adminNotes}</p>
