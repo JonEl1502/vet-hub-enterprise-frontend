@@ -666,6 +666,13 @@ const VisitDetailInner: React.FC<Props> = ({
   const [highlightTaskIds, setHighlightTaskIds] = useState<Set<number>>(new Set());
   // Per-service "⋯" options menu (Share to partner · Delete) — last chip on the row.
   const [taskMenuId, setTaskMenuId] = useState<number | null>(null);
+  /**
+   * Which receipt copy is on screen — and therefore which one prints, since
+   * the PDF is taken from `#receipt-content`. Defaults to SUMMARY: the common
+   * act at the counter is confirming the balance, not auditing the lines.
+   */
+  const [receiptVariant, setReceiptVariant] = useState<'itemised' | 'summary'>('summary');
+
   // The line whose ITEM is being swapped (Bordetella → Rabies), if any.
   const [swapTask, setSwapTask] = useState<{ id: number; name: string; category: string } | null>(null);
   // Menu renders through a portal (fixed, anchored to the ⋯ button) — the
@@ -7686,8 +7693,42 @@ const VisitDetailInner: React.FC<Props> = ({
                             its face value via a discount or write-off. When the
                             balance is not zero this renders the RECONCILIATION
                             SLIP instead, which states it is not a receipt. */}
+                        {/* TWO COPIES, ONE SET OF FIGURES (user, 2026-09-12:
+                            *"can we have 2 receipts … n one with total amt,
+                            amt paid n bal"*). Itemised is what the clinic files
+                            and what a client queries a charge against; Summary
+                            is the counter copy — on Max's 19-line surgery the
+                            itemised sheet runs past a page and buries the
+                            balance at the bottom of it.
+                            The toggle also drives the PDF, because whichever
+                            is on screen is the one `#receipt-content` holds. */}
+                        <div className="flex items-center gap-1.5 mb-2">
+                          {([
+                            { id: 'summary', label: 'Summary' },
+                            { id: 'itemised', label: 'Itemised' },
+                          ] as const).map(v => (
+                            <button
+                              key={v.id}
+                              type="button"
+                              onClick={() => setReceiptVariant(v.id)}
+                              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
+                                receiptVariant === v.id
+                                  ? 'bg-pine text-white dark:bg-zinc-100 dark:text-pine shadow-sm'
+                                  : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-pine dark:hover:text-zinc-100'
+                              }`}
+                            >
+                              {v.label}
+                            </button>
+                          ))}
+                          <span className="text-[9px] font-bold text-slate-400 ml-1">
+                            {receiptVariant === 'summary'
+                              ? 'Total, paid and balance only'
+                              : 'Every line on the visit'}
+                          </span>
+                        </div>
                         <ReconciliationDocument
                           visitId={appointment.id}
+                          variant={receiptVariant}
                           data={reconciliationState}
                           clinicName={activeClinic.name}
                           sourceCurrency={sourceCurrency}

@@ -51,12 +51,28 @@ interface Props {
    * from it) — otherwise both would request the same thing on every open.
    */
   data?: VisitReconciliation | null;
+  /**
+   * WHICH RECEIPT — two documents off one set of figures (user, 2026-09-12).
+   *
+   * `itemised` (default) is the existing full document: every line the visit
+   * produced, then the totals. It is the one a client queries a charge against
+   * and the one the clinic files.
+   *
+   * `summary` drops the lines and leads with the three numbers that answer
+   * "are we square?" — total, paid, balance. On a 20-line surgery the itemised
+   * copy runs to a second page and buries the balance at the bottom of it;
+   * the counter copy a client actually wants is one glance.
+   *
+   * ⚠️ Same figures, same server rows — a summary is never a different sum, it
+   * is the same document with the detail folded away.
+   */
+  variant?: 'itemised' | 'summary';
 }
 
 const ReconciliationDocument: React.FC<Props> = ({
   visitId, clinicName, sourceCurrency, targetCurrency,
   patient, client, visitRef, visitDate, lines = [], domId = 'receipt-content', onLoaded,
-  data: provided,
+  data: provided, variant = 'itemised',
 }) => {
   const [fetched, setFetched] = React.useState<VisitReconciliation | null>(null);
   const [loading, setLoading] = React.useState(!provided);
@@ -226,8 +242,8 @@ const ReconciliationDocument: React.FC<Props> = ({
         </div>
       )}
 
-      {/* What was billed */}
-      {lines.length > 0 && (
+      {/* What was billed — the itemised copy only. */}
+      {variant === 'itemised' && lines.length > 0 && (
         <div className="p-4 space-y-1.5">
           {lines.map((l) => (
             <div key={l.id} className="flex justify-between items-baseline gap-3 py-1 border-b border-slate-100 dark:border-zinc-800 last:border-0">
@@ -245,7 +261,15 @@ const ReconciliationDocument: React.FC<Props> = ({
 
       {/* The three figures. All present on both documents, so a discount or a
           write-off is visible rather than implied by a single number. */}
-      <div className={`px-4 py-3 border-t ${panel} space-y-1`}>
+      <div className={`px-4 ${variant === 'summary' ? 'py-5 space-y-2.5' : 'py-3 space-y-1'} border-t ${panel}`}>
+        {/* On the summary copy the lines are gone, so this IS the document —
+            it gets room to breathe and a count of what it is standing in for,
+            or the reader cannot tell a one-line visit from a twenty-line one. */}
+        {variant === 'summary' && lines.length > 0 && (
+          <p className="text-[9px] font-bold text-slate-400 pb-1">
+            {lines.length} item{lines.length === 1 ? '' : 's'} on this visit — the itemised copy lists them.
+          </p>
+        )}
         {Number((data as any).discount) > 0 && (
           <div className="flex justify-between items-center">
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Amount</span>
@@ -259,14 +283,16 @@ const ReconciliationDocument: React.FC<Props> = ({
           </div>
         )}
         <div className="flex justify-between items-center">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Final amount</span>
-          {amount(data.finalAmount, 'text-sm font-black text-pine dark:text-zinc-100 font-mono tabular-nums')}
+          <span className={`font-black uppercase tracking-widest text-slate-400 ${variant === 'summary' ? 'text-[11px]' : 'text-[10px]'}`}>
+            Total amount
+          </span>
+          {amount(data.finalAmount, `font-black text-pine dark:text-zinc-100 font-mono tabular-nums ${variant === 'summary' ? 'text-lg' : 'text-sm'}`)}
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-            {isReceipt ? 'Paid' : 'Paid so far'}
+          <span className={`font-black uppercase tracking-widest text-slate-400 ${variant === 'summary' ? 'text-[11px]' : 'text-[10px]'}`}>
+            {isReceipt ? 'Amount paid' : 'Amount paid so far'}
           </span>
-          {amount(data.paidSoFar, 'text-sm font-black text-pine dark:text-zinc-100 font-mono tabular-nums')}
+          {amount(data.paidSoFar, `font-black text-pine dark:text-zinc-100 font-mono tabular-nums ${variant === 'summary' ? 'text-lg' : 'text-sm'}`)}
         </div>
       </div>
 
