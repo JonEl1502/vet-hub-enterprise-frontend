@@ -21,6 +21,7 @@ import { downloadDocumentPdf, shareDocumentOnWhatsapp, buildDocumentMessage } fr
 import ShareDocButton from '../shared/ShareDocButton';
 import DocumentActions from '../shared/DocumentActions';
 import ReconciliationDocument from '../receipts/ReconciliationDocument';
+import DocumentBrand from '../../shared/common/DocumentBrand';
 import invoicesAPI from '../../../services/modules/invoices.api';
 import type { VisitReconciliation } from '../../../services/modules/clients.api';
 import { subscribePendingRequests } from '../../../services/api/client';
@@ -7211,10 +7212,16 @@ const VisitDetailInner: React.FC<Props> = ({
                                <p className="text-2xl font-black uppercase tracking-tighter">INVOICE</p>
                                <p className="text-[9px] font-bold text-white/50 mt-0.5">REF #{appointment.id} • {formatDate(appointment.date)}</p>
                              </div>
-                             <div className="text-right">
-                               <p className="text-sm font-black uppercase">{activeClinic.name}</p>
-                               {activeClinic.slogan && <p className="text-[9px] text-white/60 mt-0.5">{activeClinic.slogan}</p>}
-                             </div>
+                             {/* The clinic's own mark, not just its name — this
+                                 document leaves the building. */}
+                             <DocumentBrand
+                               name={activeClinic.name}
+                               logo={(activeClinic as any).logo}
+                               slogan={activeClinic.slogan}
+                               contact={[(activeClinic as any).phone, (activeClinic as any).email]}
+                               tone="light"
+                               align="right"
+                             />
                            </div>
                            {/* Patient & Client Info */}
                            <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-zinc-700 border-b border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/50">
@@ -7758,6 +7765,7 @@ const VisitDetailInner: React.FC<Props> = ({
                           variant={receiptVariant}
                           data={reconciliationState}
                           clinicName={activeClinic.name}
+                          clinicLogo={(activeClinic as any)?.logo}
                           sourceCurrency={sourceCurrency}
                           targetCurrency={printCurrency}
                           visitRef={String(appointment.id)}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Check, Plus } from 'lucide-react';
 import DocumentActions from '../../clinic/shared/DocumentActions';
+import DocumentBrand from '../../shared/common/DocumentBrand';
 
 /**
  * The confirmation.
@@ -20,11 +21,24 @@ interface Props {
   currency: string;
   changeDue?: number;
   onNewSale: () => void;
+  /** The shop this receipt is from. */
+  shopName?: string;
+  shopLogo?: string | null;
 }
 
-const PosReceipt: React.FC<Props> = ({ sale, currency, changeDue, onNewSale }) => (
+const PosReceipt: React.FC<Props> = ({ sale, currency, changeDue, onNewSale, shopName, shopLogo }) => (
   <div className="flex flex-col h-full min-h-0" style={{ background: 'var(--sp-bg)' }}>
     <div id="pos-receipt-doc" className="flex-1 min-h-0 overflow-y-auto px-4 py-6">
+      {/* ⚠️ WHO WAS PAID. The downloaded PDF said "SALE COMPLETE · KES 2,260"
+          and never named the shop — a receipt that cannot identify the seller
+          is not a receipt to anyone holding it a month later (user,
+          2026-09-12). On screen it is redundant chrome; on the PDF it is the
+          whole point, and the PDF is taken from this element. */}
+      {shopName && (
+        <div className="flex justify-center pb-4 mb-2 border-b" style={{ borderColor: 'var(--sp-border)' }}>
+          <DocumentBrand name={shopName} logo={shopLogo} />
+        </div>
+      )}
       <div className="flex flex-col items-center text-center">
         <div
           className="w-16 h-16 rounded-full flex items-center justify-center mb-3"

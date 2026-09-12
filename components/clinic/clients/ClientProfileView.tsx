@@ -106,6 +106,8 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   // right answer here — the client is being viewed within that scope.
   const { selectedClinics } = useClinic();
   const receiptClinicName = selectedClinics[0]?.name ?? '';
+  // The same clinic's mark — receipts carry branding wherever they render.
+  const receiptClinicLogo = (selectedClinics[0] as any)?.logo ?? null;
   const [activeTab, setActiveTab] = useState(initialTab);
   /**
    * Cross-tab jump: a payment's INV link asks for "invoices:<visitId>". The tab
@@ -2017,6 +2019,7 @@ const renderOverview = () => (
                   domId="client-receipt-doc"
                   visitId={docModal.appt.id}
                   clinicName={receiptClinicName}
+                  clinicLogo={receiptClinicLogo}
                   sourceCurrency={client.currency}
                   targetCurrency={client.currency}
                   visitRef={String(getVisitNumber(docModal.appt))}

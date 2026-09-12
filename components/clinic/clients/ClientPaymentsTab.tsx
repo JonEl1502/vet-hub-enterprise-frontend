@@ -129,6 +129,8 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   const [receiptLines, setReceiptLines] = React.useState<{ id: string; name: string; amount: number | null }[]>([]);
   const { selectedClinics } = useClinic();
   const clinicName = selectedClinics[0]?.name ?? '';
+  // The same clinic's mark — receipts carry branding wherever they render.
+  const receiptClinicLogo = (selectedClinics[0] as any)?.logo ?? null;
   // One fetched document per visit, kept so re-opening is instant and so two
   // open invoices cannot overwrite each other's contents.
   const [docsByVisit, setDocsByVisit] = React.useState<Record<string, any>>({});
@@ -1577,6 +1579,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
                       domId={`receipt-doc-${r.id}`}
                       visitId={r.visitId}
                       clinicName={clinicName}
+                      clinicLogo={receiptClinicLogo}
                       sourceCurrency={currency}
                       targetCurrency={currency}
                       visitRef={String(r.visitId)}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { CheckCircle2, FileClock, AlertTriangle, Ban, Receipt as ReceiptIcon } from 'lucide-react';
 import Money from '../../shared/common/Money';
+import DocumentBrand from '../../shared/common/DocumentBrand';
 import invoicesAPI from '../../../services/modules/invoices.api';
 import type { VisitReconciliation } from '../../../services/modules/clients.api';
 
@@ -33,6 +34,8 @@ interface Line {
 interface Props {
   visitId: string | number;
   clinicName: string;
+  /** The org's mark — emoji or URL. Receipts leave the building. */
+  clinicLogo?: string | null;
   /** Currency the amounts are stored in. */
   sourceCurrency: string;
   /** Currency to display, for the per-document FX override. */
@@ -70,7 +73,7 @@ interface Props {
 }
 
 const ReconciliationDocument: React.FC<Props> = ({
-  visitId, clinicName, sourceCurrency, targetCurrency,
+  visitId, clinicName, clinicLogo, sourceCurrency, targetCurrency,
   patient, client, visitRef, visitDate, lines = [], domId = 'receipt-content', onLoaded,
   data: provided, variant = 'itemised',
 }) => {
@@ -217,8 +220,8 @@ const ReconciliationDocument: React.FC<Props> = ({
           </p>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-sm font-black uppercase tracking-tight">{clinicName}</p>
-          <p className="text-[9px] text-white/70 mt-0.5 uppercase tracking-wider">
+          <DocumentBrand name={clinicName} logo={clinicLogo} tone="light" align="right" />
+          <p className="text-[9px] text-white/70 mt-1 uppercase tracking-wider">
             {isReceipt ? 'Settled in full' : settledNoReceipt ? 'Paid in full · receipt pending' : 'Balance outstanding'}
           </p>
         </div>

@@ -62,6 +62,11 @@ const initialsOf = (name?: string | null) =>
 const SupplierPosApp: React.FC = () => {
   const pos = usePos();
   const { user, logout } = useAuth();
+  // Who the receipt is FROM. `user.supplier` is the till's own shop — the POS
+  // route is outside SupplierBranchProvider, so there is no branch object here
+  // and the head office is the right name on a receipt anyway.
+  const shopName = (user?.supplier as any)?.name || '';
+  const shopLogo = (user?.supplier as any)?.logoUrl ?? null;
   const navigate = useNavigate();
   const isDesktop = useIsDesktop();
   const [tab, setTab] = useState<Tab>('sell');
@@ -146,7 +151,8 @@ const SupplierPosApp: React.FC = () => {
   if (!isDesktop && step === 'receipt' && lastSale) {
     return (
       <div className="supplier-pos sp-root" style={{ height: '100dvh' }}>
-        <PosReceipt sale={lastSale} currency={pos.currency} changeDue={changeDue} onNewSale={newSale} />
+        <PosReceipt sale={lastSale} currency={pos.currency} changeDue={changeDue} onNewSale={newSale}
+          shopName={shopName} shopLogo={shopLogo} />
       </div>
     );
   }
@@ -320,6 +326,8 @@ const SupplierPosApp: React.FC = () => {
                 currency={pos.currency}
                 changeDue={changeDue}
                 onNewSale={newSale}
+                shopName={shopName}
+                shopLogo={shopLogo}
               />
             ) : step === 'tender' ? (
               <PosTender pos={pos} onDone={onSaleDone} onBack={() => setStep('shopping')} />
