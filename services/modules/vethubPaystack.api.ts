@@ -25,8 +25,14 @@ export type PaystackAttemptStatus =
 export interface PaystackInitiateResult {
   attemptId: string;
   reference: string;
-  authorizationUrl: string;
-  accessCode: string;
+  /** Null on the mobile-money path — there is no hosted page to send them to. */
+  authorizationUrl: string | null;
+  /** Null on mobile money; on `hosted` it is what Paystack Inline resumes. */
+  accessCode: string | null;
+  /** `pk_…` — publishable by design, needed to open the inline overlay. */
+  publicKey?: string | null;
+  /** Paystack's own sentence on the mobile-money path ("check your phone…"). */
+  mobilePrompt?: string | null;
   amount: number;
   currency: string;
   quote?: {
@@ -61,6 +67,16 @@ export const vethubPaystackAPI = {
       cycle?: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL';
       email: string;
       phone?: string;
+      /**
+       * WHICH CANVAS.
+       * `mobile_money` — our own form; the server fires the STK push and there
+       *   is no redirect and no hosted page.
+       * `hosted` (default) — a transaction is initialised and we open
+       *   Paystack's INLINE overlay on this page with the returned access
+       *   code. Cards never touch our DOM, so we stay in PCI SAQ A.
+       */
+      method?: 'hosted' | 'mobile_money';
+      mobileProvider?: 'mpesa' | 'airtel';
       /**
        * 288 — add-ons ticked on the plan card, bought in the same charge.
        *

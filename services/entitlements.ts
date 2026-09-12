@@ -553,11 +553,29 @@ export function hasFeature(access: PlanAccess | null, featureKey: string): boole
  * `pastDueAllowEmergency`.
  */
 export const PAST_DUE_VIEWS = new Set([
+  /**
+   * SETTINGS AND BILLING. Nothing else (user, 2026-09-12, narrowing from
+   * "billing only" → "or full clinic mngt menu" → "just setting n billing").
+   *
+   * Billing is where they pay. Settings is where the account and its details
+   * are fixed — an owner who cannot reach it cannot correct the thing that
+   * caused the lapse, and a lock with no way out is a trap rather than a
+   * prompt.
+   *
+   * ⚠️ This is checked BEFORE `ALWAYS_VIEWS`, so Staff, Import Data,
+   * Broadcasts, WhatsApp Enquiries and Community all go dark here even though
+   * a merely-LOCKED account keeps them. That is the point of the past-grace
+   * state: it keeps strictly less.
+   */
+  'settings',
   'billing',
   'subscription-management',
-  'supplier-billing',
-  'settings',
+  // The supplier's equivalents — Account IS their settings page, and their
+  // billing is a different view id from a clinic's. Sending either audience to
+  // the other's page is sending them nowhere.
   'supplier-management',
+  'supplier-billing',
+  // The client portal's plan page, for the same reason.
   'client-plan',
 ]);
 
