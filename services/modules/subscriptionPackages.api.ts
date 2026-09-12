@@ -33,6 +33,14 @@ export interface SubscriptionPackagePlan {
    * session; the new sign-in always wins, so nobody is ever locked out.
    */
   maxDevices?: number;
+  /**
+   * Add-on packages this plan HANDS OUT for free — Enterprise "includes Farms".
+   *
+   * Stored as a reference, not a copy: the access gate unions the referenced
+   * add-on's featureKeys at read time, so editing Farms updates every plan that
+   * includes it. Before this existed the keys were pasted inline and drifted.
+   */
+  includedAddOnIds?: string[];
   /** Add-ons layer OVER a base plan instead of replacing it (AI Assist). */
   isAddon?: boolean;
   /** 282 — this row DEFINES the free trial for its audiences. Never for sale. */
@@ -90,6 +98,8 @@ export interface CreatePackagePayload {
   maxBranches?: number;
   maxFarms?: number;
   maxDevices?: number;
+  /** Add-on ids this plan hands out free. Server rejects non-add-ons and self. */
+  includedAddOnIds?: string[];
   isAddon?: boolean;
   /** 282 — this row DEFINES the free trial for its audiences. Never for sale. */
   isTrial?: boolean;

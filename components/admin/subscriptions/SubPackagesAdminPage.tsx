@@ -147,6 +147,75 @@ const SubPackagesAdminPage: React.FC = () => {
   }, [filteredPackages, selectedId, audience]);
   useEffect(() => { if (audience === 'addon') setSelectedId(null); }, [audience]);
 
+  /**
+   * ── Included add-ons ──────────────────────────────────────────────────────
+   *
+   * Enterprise "includes Farms". Before this existed, the way to express that
+   * was to paste Farms' nine keys into Enterprise's own featureKeys — which
+   * works until someone edits Farms, and then the two silently disagree
+   * forever with nothing on screen admitting it.
+   *
+   * A token stores the add-on's ID and the access gate unions its keys at read
+   * time, ONE hop deep. Deliberately one hop: an add-on that includes an add-on
+   * would need cycle detection to be safe, so the picker below hides itself on
+   * add-on rows rather than offering a nesting the resolver won't follow.
+   */
+  const [savingIncluded, setSavingIncluded] = useState(false);
+
+  const addOnPool = useMemo(
+    () => packages.filter((p) => p.isAddon && p.id !== selected?.id),
+    [packages, selected?.id],
+  );
+  const includedIds = useMemo(
+    () => (selected?.includedAddOnIds || []).map(String),
+    [selected?.includedAddOnIds],
+  );
+  const includedAddOns = useMemo(
+    // Resolve through the pool so a token pointing at a DELETED package simply
+    // vanishes from the UI instead of rendering a blank chip nobody can remove.
+    () => includedIds.map((id) => addOnPool.find((a) => a.id === id)).filter(Boolean) as SubscriptionPackagePlan[],
+    [includedIds, addOnPool],
+  );
+  const addableAddOns = useMemo(
+    () => addOnPool.filter((a) => !includedIds.includes(a.id)),
+    [addOnPool, includedIds],
+  );
+  // Keys the plan only has BECAUSE of a token — the ones that disappear if the
+  // token is dropped. Worth naming: it is the whole reason to hesitate.
+  const includedKeysNotOwned = useMemo(() => {
+    const own = new Set(selected?.featureKeys || []);
+    const fromTokens = new Set(includedAddOns.flatMap((a) => a.featureKeys || []));
+    return [...fromTokens].filter((k) => !own.has(k)).sort();
+  }, [selected?.featureKeys, includedAddOns]);
+  // The legacy shape: keys pasted inline that a token now also supplies.
+  const duplicatedInlineKeys = useMemo(() => {
+    const own = new Set(selected?.featureKeys || []);
+    const fromTokens = new Set(includedAddOns.flatMap((a) => a.featureKeys || []));
+    return [...fromTokens].filter((k) => own.has(k)).sort();
+  }, [selected?.featureKeys, includedAddOns]);
+
+  /**
+   * Add or drop one token, saved on the spot.
+   *
+   * NOT folded into Save Changes: that button sends the limits form, and an
+   * admin who added a token then navigated away would have silently changed
+   * nothing. This grants or revokes real access, so it commits when clicked.
+   */
+  const toggleIncludedAddOn = async (addOnId: string) => {
+    if (!selected) return;
+    const has = includedIds.includes(addOnId);
+    const next = has ? includedIds.filter((id) => id !== addOnId) : [...includedIds, addOnId];
+    setSavingIncluded(true);
+    try {
+      const res = await api.update(selected.id, { includedAddOnIds: next } as any);
+      if (res.success && res.data?.package) {
+        setPackages((prev) => prev.map((p) => (p.id === selected.id ? res.data!.package : p)));
+      }
+    } finally {
+      setSavingIncluded(false);
+    }
+  };
+
   // Persist a partial change straight from an add-on card (audiences, active).
   const patchPackage = async (id: string, patch: any) => {
     try {
@@ -473,6 +542,13 @@ const SubPackagesAdminPage: React.FC = () => {
                     </button>
                   </div>
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">{(pkg.featureKeys || []).length} feature key{(pkg.featureKeys || []).length === 1 ? '' : 's'}</p>
+                  {/* An included add-on grants keys this row does NOT list, so the
+                      count above understates the plan. Say so on the card. */}
+                  {(pkg.includedAddOnIds || []).length > 0 && (
+                    <p className="mt-0.5 inline-flex items-center gap-1 text-[9px] font-black text-violet-600 dark:text-violet-400 uppercase tracking-widest">
+                      <Layers size={9}/> + {(pkg.includedAddOnIds || []).length} included add-on{(pkg.includedAddOnIds || []).length === 1 ? '' : 's'}
+                    </p>
+                  )}
                   <div>
                     <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1.5">Offer to</p>
                     <div className="flex flex-wrap gap-1.5">
@@ -868,6 +944,101 @@ const SubPackagesAdminPage: React.FC = () => {
                       <Save size={12}/> Save Changes
                     </button>
                   </div>
+
+                  {/* ── Included add-ons (Farms-as-a-token) ─────────────── */}
+                  {!selected.isAddon && (
+                    <div className="pt-6 mt-2 border-t border-slate-200 dark:border-zinc-800 space-y-3">
+                      <div>
+                        <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Included Add-ons</p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mt-0.5">
+                          Handed out free with this plan — Enterprise includes Farms
+                        </p>
+                      </div>
+                      <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
+                        A token here is a <strong>reference</strong>, not a copy. The access gate
+                        unions the add-on&rsquo;s feature keys at read time, so editing the add-on
+                        updates every plan that includes it. Pasting the keys in by hand looks the
+                        same on day one and quietly drifts apart on day thirty.
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {includedAddOns.length === 0 && (
+                          <p className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 italic">
+                            Nothing included — this plan grants only its own keys.
+                          </p>
+                        )}
+                        {includedAddOns.map((a) => (
+                          <span
+                            key={a.id}
+                            className="inline-flex items-center gap-2 pl-3 pr-1.5 py-1.5 rounded-xl bg-violet-100 dark:bg-violet-500/15 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-500/30"
+                          >
+                            <Layers size={11} className="shrink-0"/>
+                            <span className="text-[11px] font-black tracking-tight">{a.name}</span>
+                            <span className="text-[9px] font-bold uppercase tracking-widest opacity-60">
+                              {(a.featureKeys || []).length} key{(a.featureKeys || []).length === 1 ? '' : 's'}
+                            </span>
+                            <button
+                              onClick={() => toggleIncludedAddOn(a.id)}
+                              disabled={savingIncluded}
+                              title={`Stop including ${a.name}`}
+                              className="p-1 rounded-lg hover:bg-violet-200 dark:hover:bg-violet-500/25 active:scale-90 disabled:opacity-40"
+                            >
+                              <X size={11}/>
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                      {addableAddOns.length > 0 ? (
+                        <div className="flex items-center gap-2">
+                          <select
+                            value=""
+                            disabled={savingIncluded}
+                            onChange={(e) => { if (e.target.value) toggleIncludedAddOn(e.target.value); }}
+                            className={inputCls + ' max-w-xs'}
+                          >
+                            <option value="">{savingIncluded ? 'Saving…' : 'Include an add-on…'}</option>
+                            {addableAddOns.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.name} · {(a.featureKeys || []).length} keys{a.isActive ? '' : ' (inactive)'}
+                              </option>
+                            ))}
+                          </select>
+                          {savingIncluded && <Loader2 size={13} className="animate-spin text-slate-400"/>}
+                        </div>
+                      ) : (
+                        <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">
+                          {includedAddOns.length > 0 ? 'Every add-on is already included' : 'No add-on packages exist yet'}
+                        </p>
+                      )}
+                      {includedKeysNotOwned.length > 0 && (
+                        <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25">
+                          <p className="text-[10px] font-black text-amber-700 dark:text-amber-300 uppercase tracking-widest">
+                            {includedKeysNotOwned.length} key{includedKeysNotOwned.length === 1 ? '' : 's'} granted by inclusion only
+                          </p>
+                          <p className="mt-1 text-[10px] text-amber-700/80 dark:text-amber-300/70 leading-relaxed break-words">
+                            {includedKeysNotOwned.join(', ')}
+                          </p>
+                          <p className="mt-1.5 text-[10px] text-amber-700/70 dark:text-amber-300/60">
+                            These are NOT in this plan&rsquo;s own feature list. They arrive through the
+                            token above, so dropping it takes them away.
+                          </p>
+                        </div>
+                      )}
+                      {duplicatedInlineKeys.length > 0 && (
+                        <div className="p-3 rounded-xl bg-slate-100 dark:bg-zinc-800/60 border border-slate-200 dark:border-zinc-700">
+                          <p className="text-[10px] font-black text-slate-600 dark:text-zinc-300 uppercase tracking-widest">
+                            {duplicatedInlineKeys.length} key{duplicatedInlineKeys.length === 1 ? '' : 's'} pasted in AND included
+                          </p>
+                          <p className="mt-1 text-[10px] text-slate-500 dark:text-zinc-400 leading-relaxed break-words">
+                            {duplicatedInlineKeys.join(', ')}
+                          </p>
+                          <p className="mt-1.5 text-[10px] text-slate-500 dark:text-zinc-400">
+                            Harmless — the gate unions them — but the inline copies are the ones that
+                            drift. Clearing them from Features leaves the token as the single source.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
 
                   {/* ── Billing Options (per-cycle pricing) ─────────────── */}
                   <div className="pt-6 mt-2 border-t border-slate-200 dark:border-zinc-800 space-y-3">
