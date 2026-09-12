@@ -6,6 +6,7 @@ import { useServiceInject } from '../../../shared/ServiceInjectContext';
 import { Section, L, showsField } from '../fields';
 import { surgeryAPI } from '../../../../../services';
 import { labAPI, imagingAPI, LabRecord, ImagingRecord, dialog, visitsAPI, toast, procedureTemplatesAPI, ProcedureTemplate } from '../../../../../services';
+import { serviceBundlesAPI, type ServiceBundle } from '../../../../../services/modules/serviceBundles.api';
 import { formatDate } from '../../../../../services/utils/dateFormatter';
 import { useAuth } from '../../../../../contexts/AuthContext';
 // Direct module import (not the services barrel) — same reason as VisitOutsource itself.
@@ -230,6 +231,34 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
     finally { setApplyingProc(false); }
   };
 
+  /**
+   * Service BUNDLES in the same search (user, 2026-09-12). A bundle is the
+   * third thing this box can add — several services at one set price — and it
+   * gets its own chip and its own colour so it is never mistaken for the single
+   * service it contains.
+   *
+   * Applying is a server call, exactly like a procedure recipe: the bundle's
+   * services land on the visit and its pricing lands on the bill.
+   */
+  const [bundles, setBundles] = useState<ServiceBundle[]>([]);
+  const [applyingBundle, setApplyingBundle] = useState(false);
+  useEffect(() => {
+    serviceBundlesAPI.list(false, { silent: true } as any)
+      .then(r => { if (r.success && r.data?.bundles) setBundles(r.data.bundles.filter(b => b.isActive !== false)); })
+      .catch(() => { /* no bundles configured — the chip simply never appears */ });
+  }, []);
+  const applyBundle = async (b: { id: string; name: string }) => {
+    setApplyingBundle(true);
+    try {
+      const res = await serviceBundlesAPI.apply(b.id, visit.id);
+      if (res.success) {
+        emit(`Bundle applied — ${b.name}${res.data?.total != null ? ` (${currency} ${Number(res.data.total).toLocaleString()})` : ''}`, 'billing', true);
+        refreshVisit?.();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Failed to apply bundle'); }
+    finally { setApplyingBundle(false); }
+  };
+
   // A small inline search, not the right-side drawer (user, 2026-07-29):
   // adding one lab test shouldn't be a full-screen trip through a category
   // catalogue. Whatever is picked lands in ITS OWN category — imaging adds
@@ -244,8 +273,16 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
         placeholder="Search a diagnostic service or procedure to add…"
         procedures={procTemplates.map(t => ({ id: t.id, name: t.name, type: t.type, estimatedTotal: t.estimatedTotal }))}
         onAddProcedure={applyProcedure}
+        bundles={bundles.map(b => ({
+          id: b.id,
+          name: b.name,
+          itemCount: b.items?.length,
+          price: b.pricing?.sellAfterDiscount ?? b.batchPrice ?? null,
+        }))}
+        onAddBundle={applyBundle}
       />
       {applyingProc && <p className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><Loader2 size={11} className="animate-spin" /> Applying recipe — fees & products landing on the bill…</p>}
+      {applyingBundle && <p className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400"><Loader2 size={11} className="animate-spin" /> Applying bundle — its services landing on the visit…</p>}
     </div>
   ) : (addService || goServices) && (
     <button type="button" onClick={addService ?? goServices}

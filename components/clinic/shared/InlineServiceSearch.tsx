@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Search, Plus, X, ClipboardList } from 'lucide-react';
+import { Search, Plus, X, ClipboardList, Layers, Stethoscope } from 'lucide-react';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 
 /** The slice of a procedure template the search needs (full type in procedureTemplates.api). */
@@ -10,6 +10,65 @@ export interface SearchableProcedure {
   type?: string | null;
   estimatedTotal?: number;
 }
+
+/** The slice of a service bundle the search needs (full type in serviceBundles.api). */
+export interface SearchableBundle {
+  id: string;
+  name: string;
+  itemCount?: number;
+  price?: number | null;
+}
+
+/**
+ * WHAT KIND OF THING IS THIS ROW?
+ *
+ * One search box was returning three different things that behave differently
+ * once picked — a service adds one line, a procedure applies a whole recipe
+ * (fees and products land on the bill), a bundle adds several services at a set
+ * price. They read identically in a flat list, so the only way to know what a
+ * click was about to do was to recognise the name.
+ *
+ * A chip per kind, each in its own bright colour, filters the list AND colours
+ * the rows, so the colour carries the meaning in both places (user, 2026-09-12:
+ * *"put each search as tab … a chip, each different bright colours for
+ * procedure, service, service bundle"*).
+ */
+type Kind = 'service' | 'procedure' | 'bundle';
+
+const KIND_META: Record<Kind, {
+  label: string;
+  icon: React.FC<any>;
+  /** Chip when selected — bright, filled. */
+  on: string;
+  /** Chip when not selected — the same hue, quiet. */
+  off: string;
+  /** Row accent: icon colour, hover wash, and the badge. */
+  text: string;
+  hover: string;
+  badge: string;
+}> = {
+  service: {
+    label: 'Services', icon: Stethoscope,
+    on: 'bg-seafoam text-white border-seafoam shadow-md shadow-seafoam/25',
+    off: 'bg-seafoam/10 text-seafoam border-seafoam/20 hover:bg-seafoam/20',
+    text: 'text-seafoam', hover: 'hover:bg-seafoam/10',
+    badge: 'bg-seafoam/15 text-seafoam',
+  },
+  procedure: {
+    label: 'Procedures', icon: ClipboardList,
+    on: 'bg-violet-500 text-white border-violet-500 shadow-md shadow-violet-500/25',
+    off: 'bg-violet-500/10 text-violet-600 dark:text-violet-400 border-violet-500/20 hover:bg-violet-500/20',
+    text: 'text-violet-500', hover: 'hover:bg-violet-50 dark:hover:bg-violet-950/20',
+    badge: 'bg-violet-100 dark:bg-violet-900/40 text-violet-700 dark:text-violet-300',
+  },
+  bundle: {
+    label: 'Bundles', icon: Layers,
+    on: 'bg-amber-500 text-white border-amber-500 shadow-md shadow-amber-500/25',
+    off: 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20 hover:bg-amber-500/20',
+    text: 'text-amber-500', hover: 'hover:bg-amber-50 dark:hover:bg-amber-950/20',
+    badge: 'bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300',
+  },
+};
 
 interface Props {
   /** Called with the picked service and the category it belongs to. */
@@ -30,6 +89,13 @@ interface Props {
    */
   procedures?: SearchableProcedure[];
   onAddProcedure?: (p: SearchableProcedure) => void;
+  /**
+   * Service BUNDLES to offer alongside services and procedures. Picking one
+   * calls onAddBundle — the caller applies it, which adds every service in the
+   * bundle at the bundle's price.
+   */
+  bundles?: SearchableBundle[];
+  onAddBundle?: (b: SearchableBundle) => void;
   disabled?: boolean;
   /** Restrict results to categories matching this pattern — e.g. /groom/i on
    * the grooming report card, where only grooming services make sense. */
@@ -49,11 +115,17 @@ const MAX_RESULTS = 8;
  * still exists for browsing the whole catalogue by category.
  */
 const InlineServiceSearch: React.FC<Props> = ({
-  onAdd, addedNames, currency = 'KES', placeholder = 'Search a service to add…', procedures, onAddProcedure, disabled, categoryFilter,
+  onAdd, addedNames, currency = 'KES', placeholder = 'Search a service to add…', procedures, onAddProcedure, bundles, onAddBundle, disabled, categoryFilter,
 }) => {
   const { categories, services } = useReferenceData();
   const [q, setQ] = useState('');
   const [open, setOpen] = useState(false);
+  /**
+   * null = every kind. The chips are a FILTER, not a mode: the default shows
+   * all three together so someone who does not yet know which kind they want
+   * still finds it by typing, and the colours tell them what they found.
+   */
+  const [kind, setKind] = useState<Kind | null>(null);
   const blurTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const catName = (categoryId: number) => categories.find(c => c.id === categoryId)?.name || 'General';
@@ -62,19 +134,41 @@ const InlineServiceSearch: React.FC<Props> = ({
 
   const results = useMemo(() => {
     if (!query) return []; // no list before typing (user, 2026-08-02)
+    if (kind && kind !== 'service') return [];
     return services
       .filter(s => !categoryFilter || categoryFilter.test(catName(s.categoryId)))
       .filter(s => s.name.toLowerCase().includes(query) || catName(s.categoryId).toLowerCase().includes(query))
       .slice(0, MAX_RESULTS);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [query, services, categories, categoryFilter]);
+  }, [query, services, categories, categoryFilter, kind]);
 
   const procResults = useMemo(() => {
     if (!query || !procedures?.length || !onAddProcedure) return [];
+    if (kind && kind !== 'procedure') return [];
     return procedures
       .filter(p => p.name.toLowerCase().includes(query) || (p.type || '').toLowerCase().includes(query))
       .slice(0, MAX_RESULTS);
-  }, [query, procedures, onAddProcedure]);
+  }, [query, procedures, onAddProcedure, kind]);
+
+  const bundleResults = useMemo(() => {
+    if (!query || !bundles?.length || !onAddBundle) return [];
+    if (kind && kind !== 'bundle') return [];
+    return bundles
+      .filter(b => b.name.toLowerCase().includes(query))
+      .slice(0, MAX_RESULTS);
+  }, [query, bundles, onAddBundle, kind]);
+
+  /**
+   * Which chips to offer. A kind with nothing behind it is not shown at all —
+   * a Bundles chip that always comes back empty teaches people to ignore the
+   * chips. `All` only earns its place when there are two or more kinds.
+   */
+  const availableKinds = useMemo(() => {
+    const ks: Kind[] = ['service'];
+    if (procedures?.length && onAddProcedure) ks.push('procedure');
+    if (bundles?.length && onAddBundle) ks.push('bundle');
+    return ks;
+  }, [procedures, onAddProcedure, bundles, onAddBundle]);
 
   /**
    * ⚠️ The dropdown is rendered in a PORTAL, not inline.
@@ -120,6 +214,45 @@ const InlineServiceSearch: React.FC<Props> = ({
 
   return (
     <div className="relative" ref={anchorRef}>
+      {/* Kind chips — only when there is more than one kind to choose between. */}
+      {availableKinds.length > 1 && (
+        <div className="flex flex-wrap items-center gap-1.5 mb-1.5">
+          <button
+            type="button"
+            // ⚠️ preventDefault, same reason as the result rows: without it the
+            // input blurs, the 150ms close timer starts, and the dropdown can
+            // vanish between mousedown and click.
+            onMouseDown={e => { e.preventDefault(); if (blurTimer.current) clearTimeout(blurTimer.current); }}
+            onClick={() => setKind(null)}
+            className={`px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all ${
+              kind === null
+                ? 'bg-pine text-white border-pine shadow-md dark:bg-zinc-100 dark:text-pine dark:border-zinc-100'
+                : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:bg-slate-200 dark:hover:bg-zinc-700'
+            }`}
+          >
+            All
+          </button>
+          {availableKinds.map(k => {
+            const meta = KIND_META[k];
+            const active = kind === k;
+            return (
+              <button
+                key={k}
+                type="button"
+                onMouseDown={e => { e.preventDefault(); if (blurTimer.current) clearTimeout(blurTimer.current); }}
+                // Clicking the chip you are already on goes back to All, so the
+                // filter is never a trap you have to hunt for the way out of.
+                onClick={() => setKind(active ? null : k)}
+                className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest transition-all ${
+                  active ? meta.on : meta.off
+                }`}
+              >
+                <meta.icon size={10} /> {meta.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
       <div className="relative">
         <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
         <input
@@ -153,8 +286,13 @@ const InlineServiceSearch: React.FC<Props> = ({
           }}
           // z-[60] clears the wizard's sticky bottom bar (z-40) and the rail.
           className="z-[60] max-h-64 overflow-y-auto custom-scrollbar bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-xl">
-          {results.length === 0 && procResults.length === 0 ? (
-            <p className="text-[10px] font-bold text-slate-400 text-center py-3">Nothing matches “{q.trim()}”.</p>
+          {results.length === 0 && procResults.length === 0 && bundleResults.length === 0 ? (
+            <p className="text-[10px] font-bold text-slate-400 text-center py-3">
+              Nothing matches “{q.trim()}”{kind ? ` in ${KIND_META[kind].label.toLowerCase()}` : ''}.
+              {/* Say WHERE we looked. A filtered search that finds nothing reads
+                  as "we don't stock it" unless it admits it was filtered. */}
+              {kind && <><br /><span className="text-[9px] text-slate-400">Try “All”.</span></>}
+            </p>
           ) : (
             <>
               {results.map(svc => {
@@ -191,12 +329,17 @@ const InlineServiceSearch: React.FC<Props> = ({
                       setOpen(false);
                     }}
                     className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left transition-all border-b border-slate-50 dark:border-zinc-800 last:border-0 ${
-                      already ? 'opacity-50 cursor-default' : 'hover:bg-seafoam/10'
+                      already ? 'opacity-50 cursor-default' : KIND_META.service.hover
                     }`}
                   >
-                    <span className="min-w-0">
-                      <span className="block text-[11px] font-black text-pine dark:text-zinc-100 truncate uppercase tracking-tight">{svc.name}</span>
-                      <span className="block text-[9px] font-bold text-slate-400 truncate">{cat}</span>
+                    {/* A left colour rail per kind — the list stays scannable by
+                        colour once three kinds share it. */}
+                    <span className="min-w-0 flex items-center gap-2">
+                      <Stethoscope size={12} className={`${KIND_META.service.text} shrink-0`} />
+                      <span className="min-w-0">
+                        <span className="block text-[11px] font-black text-pine dark:text-zinc-100 truncate uppercase tracking-tight">{svc.name}</span>
+                        <span className="block text-[9px] font-bold text-slate-400 truncate">{cat}</span>
+                      </span>
                     </span>
                     <span className="shrink-0 flex items-center gap-1.5">
                       <span className="text-seafoam font-black font-mono text-[10px]">
@@ -264,6 +407,50 @@ const InlineServiceSearch: React.FC<Props> = ({
                       {already
                         ? <span className="text-[8px] font-black uppercase text-emerald-600">On visit</span>
                         : <Plus size={12} className="text-violet-500" />}
+                    </span>
+                  </button>
+                );
+              })}
+              {/* Service bundles — several services at one set price. Amber, so
+                  a bundle is never mistaken for the single service it contains. */}
+              {bundleResults.map(b => {
+                const already = addedNames?.has(b.name.trim().toLowerCase());
+                return (
+                  <button
+                    key={`bundle-${b.id}`}
+                    type="button"
+                    disabled={already}
+                    // preventDefault — see the note on the service rows above.
+                    onMouseDown={e => { e.preventDefault(); if (blurTimer.current) clearTimeout(blurTimer.current); }}
+                    onClick={() => {
+                      if (already) return;
+                      onAddBundle!(b);
+                      setQ('');
+                      setOpen(false);
+                    }}
+                    className={`w-full flex items-center justify-between gap-2 px-3 py-2 text-left transition-all border-b border-slate-50 dark:border-zinc-800 last:border-0 ${
+                      already ? 'opacity-50 cursor-default' : KIND_META.bundle.hover
+                    }`}
+                  >
+                    <span className="min-w-0 flex items-center gap-2">
+                      <Layers size={12} className={`${KIND_META.bundle.text} shrink-0`} />
+                      <span className="min-w-0">
+                        <span className="block text-[11px] font-black text-pine dark:text-zinc-100 truncate uppercase tracking-tight">{b.name}</span>
+                        <span className="block text-[9px] font-bold text-slate-400 truncate">
+                          Adds {b.itemCount ?? 'every'} service{b.itemCount === 1 ? '' : 's'} at the bundle price
+                        </span>
+                      </span>
+                    </span>
+                    <span className="shrink-0 flex items-center gap-1.5">
+                      <span className={`inline-flex px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-wider ${KIND_META.bundle.badge}`}>
+                        Bundle
+                      </span>
+                      {b.price != null && (
+                        <span className="text-slate-400 font-black font-mono text-[10px]">{currency} {Number(b.price).toLocaleString()}</span>
+                      )}
+                      {already
+                        ? <span className="text-[8px] font-black uppercase text-emerald-600">On visit</span>
+                        : <Plus size={12} className={KIND_META.bundle.text} />}
                     </span>
                   </button>
                 );
