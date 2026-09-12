@@ -691,9 +691,24 @@ body {
   --sp-ink: #10151c;          /* near-black: sunlight legibility */
   --sp-ink-2: #3d4655;
   --sp-muted: #7c8698;
-  --sp-accent: #1C7A5B;       /* overridden per supplier at runtime */
-  --sp-accent-ink: #ffffff;   /* text ON the accent */
-  --sp-accent-soft: #e7f2ed;
+  /* ⚠️ THE SUPPLIER'S OWN BRAND, not a hardcoded teal.
+   *
+   * The comment above has always SAID "injected at runtime from
+   * Supplier.primaryColor" — and nothing ever injected it. `--sp-accent` was
+   * the literal Enterprise Teal, so a shop that picked Agrovet Green or
+   * Warehouse Steel on Account → Appearance still opened a teal till (user,
+   * 2026-09-12).
+   *
+   * Deriving it in CSS rather than wiring another runtime write: `SupplierProvider`
+   * already stamps `--primary-color` on <html> (see its theme effect) and it is
+   * mounted ABOVE the router in index.tsx, so it is set on /pos too. The literal
+   * stays as the fallback for the moment before the supplier resolves, and for
+   * an admin opening the till with no single supplier in scope. */
+  --sp-accent: var(--primary-color, #1C7A5B);
+  --sp-accent-ink: #ffffff;   /* text ON the accent — every brand preset is dark enough */
+  /* A 12% wash of the brand on paper, instead of a fixed mint that clashed with
+     every accent that was not teal. */
+  --sp-accent-soft: color-mix(in srgb, var(--sp-accent) 12%, #ffffff);
   --sp-good: #12805c;
   --sp-warn: #b4630c;
   --sp-bad: #c02a25;
@@ -729,7 +744,8 @@ body {
   --sp-ink: #f2f5f9;
   --sp-ink-2: #c3ccd9;
   --sp-muted: #7f8b9d;
-  --sp-accent-soft: #14261f;
+  /* Same wash against the dark canvas rather than the light one. */
+  --sp-accent-soft: color-mix(in srgb, var(--sp-accent) 18%, #0b0f16);
   --sp-good: #3fbf90;
   --sp-warn: #e0a458;
   --sp-bad: #f0655f;
