@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LogOut, Bell, Shield, Calculator, ChevronRight, Sun, Moon, Building2, Menu, CalendarClock, Clock, User, CheckCircle2, XCircle, AlertCircle, Loader2, ShoppingCart, Network, Zap, ArrowUpRight, Compass, MessageSquare, LifeBuoy } from 'lucide-react';
 import PopCalculator from '../common/PopCalculator';
+import SupplierNotifications from './SupplierNotifications';
+import ClientNotifications from './ClientNotifications';
 import ReportIssueModal from '../common/ReportIssueModal';
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { useOptionalTour } from '../../../contexts/TourContext';
@@ -33,14 +35,27 @@ interface NavbarProps {
 }
 
 const TITLES = ['Dr', 'Dr.', 'Mr', 'Mr.', 'Mrs', 'Mrs.', 'Ms', 'Ms.', 'Prof', 'Prof.'];
-// Return "Dr. Otieno" for "Dr. Amina Otieno", or just "Otieno" for "Kevin Otieno".
+/**
+ * TITLE + TWO NAMES — "Dr. Amina Otieno", "Kevin Otieno" (user, 2026-09-12:
+ * *"add 2 names n title"*).
+ *
+ * It used to return the SURNAME ALONE for anyone without a title, so Peter
+ * Kimani signed in and the profile menu simply said "Kimani" — which reads as
+ * a username, not a person, and is ambiguous the moment two staff share a
+ * surname. Middle names are still dropped: three names do not fit the nav pill
+ * and the first and last are what identify someone.
+ */
 const shortName = (full: string): string => {
   const parts = (full || '').trim().split(/\s+/).filter(Boolean);
   if (parts.length === 0) return '';
   if (parts.length === 1) return parts[0];
-  const [first, ...rest] = parts;
-  const last = rest[rest.length - 1];
-  return TITLES.includes(first) ? `${first} ${last}` : last;
+  const hasTitle = TITLES.includes(parts[0]);
+  const title = hasTitle ? parts[0] : '';
+  const names = hasTitle ? parts.slice(1) : parts;
+  if (names.length === 0) return title;
+  const first = names[0];
+  const last = names.length > 1 ? names[names.length - 1] : '';
+  return [title, first, last].filter(Boolean).join(' ');
 };
 
 const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; color: string }> = {
@@ -149,6 +164,14 @@ const Navbar: React.FC<NavbarProps> = ({
   //   - FREELANCER never sees the trigger — they only ever scope to
   //     themselves and don't pick a clinic.
   //   - SUPPLIER role uses the supplier branch switcher path instead.
+  /**
+   * WHICH NOTIFICATION PANEL THIS ACCOUNT GETS.
+   *
+   * Admins keep the clinic panel — they act on behalf of clinics and the
+   * clinic header is set for them, so the clinic-scoped calls succeed.
+   */
+  const notifAudience: 'clinic' | 'supplier' | 'client' =
+    role === 'SUPPLIER' ? 'supplier' : role === 'CLIENT' ? 'client' : 'clinic';
   const isAdmin = role === 'SUPER_ADMIN' || role === 'MERCHANT_ADMIN';
   const isFreelancer = role === 'FREELANCER';
   const canSwitchClinic = !isFreelancer && (isAdmin || role === 'CLINIC_OWNER' || role === 'CLINIC_MANAGER' || role === 'VET' || role === 'STAFF');
@@ -157,9 +180,23 @@ const Navbar: React.FC<NavbarProps> = ({
   // the role string alone ("CLINIC MANAGER") doesn't tell them which branch
   // they're scoped to. Owners already see their clinic name in the sidebar,
   // and admins jump between clinics so a global role label is fine.
+  // Hoisted above `roleLabel`, which needs it — it used to be declared 80
+  // lines further down, after the notification effect.
+  const { user } = useAuth();
+  /**
+   * ⚠️ A SUPPLIER'S JOB TITLE IS `supplierRole`, NOT `role`.
+   *
+   * Every supplier employee — owner, manager, cashier, driver — carries the
+   * SUPPLIER account role, so the menu said "SUPPLIER" for all of them and
+   * told a cashier nothing about what they are. The narrower title is the
+   * useful one, and it is exactly what the API gates on.
+   */
+  const supplierRole = (user as any)?.supplierRole as string | undefined;
   const roleLabel = role === 'CLINIC_MANAGER' && clinic?.name
     ? `Manager · ${clinic.name}`
-    : role.replace('_', ' ');
+    : role === 'SUPPLIER' && supplierRole
+      ? `Supplier · ${supplierRole.replace(/_/g, ' ').toLowerCase()}`
+      : role.replace('_', ' ');
 
   // Close panels on outside click
   useEffect(() => {
@@ -178,6 +215,17 @@ const Navbar: React.FC<NavbarProps> = ({
   // Fetch today's appointments + pending-payment + pending POs when panel opens
   useEffect(() => {
     if (!showNotifications) return;
+    /**
+     * ⚠️ CLINIC AUDIENCES ONLY — every call below is clinic-scoped.
+     *
+     * On a SUPPLIER or CLIENT account all five 400 with "Clinic ID is
+     * required", so opening the bell produced a stack of red toasts and a
+     * "Permission needed" dialog and no notifications at all (user,
+     * 2026-09-12). Those audiences render their own panel (see
+     * `SupplierNotifications` / `ClientNotifications` below), which asks only
+     * endpoints they own. Same rule as the Amber Alert bar in App.tsx.
+     */
+    if (notifAudience !== 'clinic') return;
 
     const today = new Date();
     const start = today.toISOString().split('T')[0];
@@ -226,7 +274,6 @@ const Navbar: React.FC<NavbarProps> = ({
       .finally(() => setPoLoading(false));
   }, [showNotifications]);
 
-  const { user } = useAuth();
   // Reminders a doctor assigned to THIS user (via the follow-up plan) — their
   // "please set / action this reminder" notifications.
   const assignedToMe = (r: Reminder) => !!user && String((r.meta as any)?.assignedToId) === String(user.id);
@@ -441,13 +488,30 @@ const Navbar: React.FC<NavbarProps> = ({
                     <Bell size={14} className="text-seafoam" />
                     <p className="text-pine dark:text-zinc-100 font-black text-xs">Notifications</p>
                   </div>
-                  {unreadCount > 0 && (
+                  {notifAudience === 'clinic' && unreadCount > 0 && (
                     <span className="text-[9px] font-black uppercase text-white bg-cyan px-2 py-0.5 rounded-full">
                       {unreadCount} pending
                     </span>
                   )}
                 </div>
 
+                {/* ── Supplier + client get their OWN panel ──────────────────
+                    Not a filtered view of the clinic one: a depot and a pet
+                    owner have different open questions, and none of the tabs
+                    below (Visits, Messaging, B2B) mean anything to either. */}
+                {notifAudience === 'supplier' ? (
+                  <SupplierNotifications
+                    currency={(user?.supplier as any)?.currency || 'KES'}
+                    onClose={() => setShowNotifications(false)}
+                    onNavigate={onNavigate}
+                  />
+                ) : notifAudience === 'client' ? (
+                  <ClientNotifications
+                    onClose={() => setShowNotifications(false)}
+                    onNavigate={onNavigate}
+                  />
+                ) : (
+                <>
                 {/* Filter tabs */}
                 <div className="flex border-b border-slate-100 dark:border-zinc-800 px-1 pt-1 gap-0.5 overflow-x-auto no-scrollbar">
                   {[
@@ -675,9 +739,12 @@ const Navbar: React.FC<NavbarProps> = ({
                     </div>
                   )}
                 </div>
+                </>
+                )}
 
-                {/* Footer */}
-                {unreadCount > 0 && (
+                {/* Footer — the clinic panel's own tally; the supplier and
+                    client panels carry their counts inline. */}
+                {notifAudience === 'clinic' && unreadCount > 0 && (
                   <div className="px-5 py-3 border-t border-slate-100 dark:border-zinc-800 text-center">
                     <p className="text-[9px] font-black text-seafoam uppercase tracking-wider">
                       {unreadCount} notification{unreadCount !== 1 ? 's' : ''} pending

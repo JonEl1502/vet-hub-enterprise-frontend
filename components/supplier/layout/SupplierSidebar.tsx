@@ -4,6 +4,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import SupplierBranchDropdown from './SupplierBranchDropdown';
 import { usePlanAccess } from '../../../contexts/PlanAccessContext';
 import { planLabel } from '../../../services/entitlements';
+import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
+import { useSupplier } from '../../../contexts/SupplierContext';
 import {
   LayoutDashboard,
   Package,
@@ -57,7 +59,18 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
   toggleDarkMode
 }) => {
   const { user } = useAuth();
-  const supplierName = user?.supplier?.name || 'Supplier Portal';
+  /**
+   * ⚠️ `SupplierContext.mySupplier` FIRST, `user.supplier` only as the floor.
+   *
+   * Saving Appearance calls `applySupplierUpdate`, which refreshes
+   * `mySupplier` — it does NOT touch the AuthContext user, whose `supplier`
+   * blob is whatever the login payload carried. Reading auth alone is why the
+   * picked icon never reached this sidebar (user, 2026-09-12), and the name
+   * had the same staleness after any rename.
+   */
+  const { mySupplier } = useSupplier();
+  const liveSupplier: any = mySupplier ?? (user?.supplier as any);
+  const supplierName = liveSupplier?.name || 'Supplier Portal';
   /**
    * The plan, under the shop name — the same place the clinic sidebar puts it
    * (`headerSubtitle` in sidebar/Sidebar.tsx). A supplier could previously only
@@ -103,10 +116,29 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
    * with `initialTab`, so nothing new is needed server-side — they were simply
    * never listed here (user, 2026-09-12).
    */
+  /**
+   * ⚠️ PRUNED BY SUPPLIER ROLE, not just listed.
+   *
+   * `GET /supplier-employees` is `requireSupplierRole(['MANAGER'])` — OWNER
+   * passes, MANAGER passes, a CASHIER or DRIVER gets a 403. Listing Personnel
+   * unconditionally put a nav item in front of staff that answers "Permission
+   * needed · Insufficient permissions" (user, 2026-09-12, on the demo cashier).
+   * A permission the account does not have is not something to sell — it is
+   * something to leave out; that is the difference between this and a PLAN
+   * lock, which we always show and price (`UpgradeGate`).
+   *
+   * Branches is deliberately NOT pruned: only the WRITES on that router carry
+   * `manage`, so a cashier can legitimately read the branch list.
+   */
+  // `supplierRole` is not on the `User` type yet (App.tsx casts the same way
+  // for SupplierInventoryView's `canManage`); the value is on the payload.
+  const supplierRole = (user as any)?.supplierRole as string | undefined;
+  const canManageStaff = !supplierRole || ['OWNER', 'MANAGER'].includes(String(supplierRole));
+
   const managementSubItems = [
     { id: 'supplier-management', label: 'Account', icon: Building2 },
     { id: 'supplier-branches', label: 'Branches', icon: GitBranch },
-    { id: 'supplier-employees', label: 'Personnel', icon: Users },
+    ...(canManageStaff ? [{ id: 'supplier-employees', label: 'Personnel', icon: Users }] : []),
     { id: 'supplier-billing', label: 'Billing', icon: CreditCard },
   ];
 
@@ -192,10 +224,18 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
           {isCollapsed ? <ChevronRight size={12} /> : <ChevronLeft size={12} />}
         </button>
 
-        {/* Logo */}
+        {/* Logo — THE SUPPLIER'S OWN, not a hardcoded factory.
+            The Quick Icon picker on Account → Appearance writes `logoUrl`, and
+            the profile preview beside it updated while this stayed 🏭 forever
+            (user, 2026-09-12: *"sidebar didnt update the logo avatar"*). It is
+            read from `user.supplier` — which `applySupplierUpdate` refreshes on
+            save — so the pick lands here without a reload.
+            `ClinicLogo` is misnamed for this use but is exactly the right
+            renderer: it decides emoji-vs-<img> from the value and falls back on
+            a broken image. */}
         <div className="p-5 flex items-center gap-3 border-b border-seafoam/10 dark:border-zinc-800 h-20 shrink-0">
-          <div className="w-8 h-8 rounded-xl bg-white dark:bg-zinc-900 flex items-center justify-center text-lg shadow-lg shrink-0">
-            🏭
+          <div className="w-8 h-8 rounded-xl bg-white dark:bg-zinc-900 flex items-center justify-center text-lg shadow-lg shrink-0 overflow-hidden">
+            <ClinicLogo logo={liveSupplier?.logoUrl} fallback="🏭" />
           </div>
           {(!isCollapsed || isMobileOpen) && (
             <div className="animate-in fade-in slide-in-from-left-2 overflow-hidden min-w-0">

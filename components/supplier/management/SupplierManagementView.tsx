@@ -785,7 +785,9 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                 />
               </div>
 
-              <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 flex justify-end">
+              {/* Mobile / narrow fallback — the floating card below is
+                  desktop-only, exactly as on the clinic side. */}
+              <div className="lg:hidden pt-2 border-t border-slate-100 dark:border-zinc-800 flex justify-end">
                 <button
                   type="submit"
                   disabled={appearanceSaving}
@@ -796,6 +798,47 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
                 </button>
               </div>
             </div>
+          </div>
+
+          {/* ── FLOATING SAVE — the clinic's treatment ──────────────────────
+              A live brand preview plus Save, parked bottom-right and faded
+              until you approach it (user, 2026-09-12: *"add same floating save
+              button as clinic"*).
+
+              Why it matters more here than a button at the end of the form:
+              this tab is long — 24 colour presets, ~40 icons, logo URL, slogan,
+              website — so picking a colour at the top meant scrolling past
+              everything to commit it, with no sight of what you had chosen.
+
+              ⚠️ `z-50`, UNDER the navbar's z-60, so the profile dropdown still
+              paints on top. Copied from ClinicManagementView, where it sat
+              top-right until it started eating clicks on the tab strip; the
+              page carries `pb-20`, so nothing lives underneath it down here. */}
+          <div className="hidden lg:block fixed bottom-6 right-6 z-50 w-60 bg-white/70 dark:bg-zinc-900/70 backdrop-blur-md border border-slate-200/70 dark:border-zinc-800/70 rounded-xl p-3 shadow-xl space-y-3 opacity-55 hover:opacity-100 hover:bg-white/95 dark:hover:bg-zinc-900/95 transition-all">
+            <div className="p-3 rounded-xl border shadow relative overflow-hidden" style={{ backgroundColor: primaryColor }}>
+              <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
+              <div className="relative z-10 flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-xl flex items-center justify-center text-xl shadow border border-white/20 overflow-hidden shrink-0">
+                  {isImageSrc(logoUrl)
+                    ? <img src={logoUrl} alt="" className="w-full h-full object-cover" />
+                    : <span>{logoUrl || '🏭'}</span>}
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-white text-[11px] font-black uppercase tracking-tight leading-tight truncate">
+                    {supplier?.name || 'Your business'}
+                  </h4>
+                  <p className="text-white/60 text-[7px] font-bold uppercase tracking-widest truncate">{slogan}</p>
+                </div>
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={appearanceSaving}
+              className="w-full bg-pine dark:bg-zinc-100 text-white dark:text-pine py-2.5 rounded-xl font-black text-[9px] uppercase tracking-[0.2em] shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              {appearanceSaving ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+              {appearanceSaving ? 'SAVING…' : 'SAVE APPEARANCE'}
+            </button>
           </div>
 
           {/* Preview Card */}
