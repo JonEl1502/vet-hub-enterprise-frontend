@@ -108,7 +108,8 @@ import StaffProfileView from './components/clinic/staff/StaffProfileView';
 import StaffRegistrationView from './components/clinic/staff/StaffRegistrationView';
 import SupplierDetailView from './components/shared/marketplace/SupplierDetailView';
 import SuppliersHubView from './components/shared/marketplace/SuppliersHubView';
-import CommunityView from './components/shared/community/CommunityView';
+import CommunityApp from './components/shared/community/CommunityApp';
+import { defaultAudienceForRole, getAudience } from './components/shared/layout/sidebar/menus';
 import PayablesView from './components/clinic/inventory/PayablesView';
 import ClinicsManagementView from './components/admin/clinics/ClinicsManagementView';
 import PurchaseOrdersView from './components/shared/marketplace/PurchaseOrdersView';
@@ -2338,6 +2339,47 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   };
 
   // Returns true if the current user can access the given view
+  /**
+   * What is piling up while someone reads Community (297).
+   *
+   * Community is the one screen where twenty minutes disappear with a patient
+   * still in the waiting room, so the way out carries the number rather than
+   * making them go and look.
+   */
+  const communityWaitingCount = React.useMemo(() => {
+    const today = new Date().toDateString();
+    return appointments.filter((a: any) => {
+      const st = String(a?.status || '').toUpperCase();
+      if (st !== 'WAITING' && st !== 'CHECKED_IN' && st !== 'ARRIVED') return false;
+      const when = a?.scheduledAt || a?.startTime || a?.date;
+      return when ? new Date(when).toDateString() === today : true;
+    }).length;
+  }, [appointments]);
+
+  /**
+   * The "Your clinic" rows inside Community's rail.
+   *
+   * ⚠️ Built from the SAME menu and the SAME `canAccess` the sidebar uses, not
+   * a hand-written list. A second list would drift, and the first anyone would
+   * know is a staff member clicking through to a 403 from a room that had no
+   * business offering them the link.
+   */
+  const communityWorkLinks = React.useMemo(() => {
+    const audience = defaultAudienceForRole(String(user?.role || ''), {
+      isLivestock: (firstActiveClinic as any)?.isLivestock,
+      shell: (firstActiveClinic as any)?.shell,
+    });
+    return getAudience(audience).items
+      .filter((m) => m.id !== 'community' && canAccess(m.id) && planAllows(m.id))
+      .slice(0, 8)
+      .map((m) => ({
+        id: m.id,
+        label: m.label,
+        badge: m.id === 'appointments' ? communityWaitingCount || undefined : undefined,
+      }));
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [user?.role, firstActiveClinic, communityWaitingCount]);
+
   const canAccess = (view: string): boolean => {
     const role = user?.role as UserRole;
     const perms = user?.customPermissions ?? [];
@@ -3152,17 +3194,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <FreelancerCategoriesPage onNavigate={navigateTo} />;
       case 'payables':
         return <PayablesView currency={firstActiveClinic?.currency ?? 'KES'} />;
-      // Community (2026-08-15). ⚠️ No plan gate on the ROUTE: read access is
-      // universal and the subscription gates writes, so a lapsed clinic must
-      // still reach it.
-      case 'community':
-        return <CommunityView
-          /* 288 — the billing page has a different view id per audience, so
-             the router picks it rather than the shared view guessing. */
-          onGoToBilling={() => navigateTo(
-            String(user?.role) === 'SUPPLIER' ? 'supplier-billing' : 'billing',
-          )}
-        />;
+      // Community (297) is NOT rendered here: it owns the whole screen and is
+      // branched on before the clinic shell. Reaching this case would mean the
+      // branch above was bypassed.
       case 'suppliers':
         return <SuppliersHubView onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} />;
       case 'supplier-detail':
@@ -3499,6 +3533,57 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   return (
     <>
       <ToastContainer />
+      {/* ══ COMMUNITY OWNS THE WHOLE SCREEN (297) ══════════════════════════
+          Community is a different mode of attention from running a clinic, so
+          it renders OUTSIDE the clinic shell — its own header, wordmark, nav
+          and ground. Framing a social feed with "Appointments · Inventory ·
+          Billing" keeps the reader at work while they read it.
+
+          ⚠️ NOT a separate app: same bundle, same token, same session. The
+          router swaps the shell, so "Back to work" is instant with no reload
+          and returns to the exact view the user left (`goBack`, falling back
+          to the dashboard when Community was entered by deep link).
+
+          ⚠️ NO PLAN GATE. Reading and replying are free to every signed-in
+          user; the server gates originating a post. A lapsed clinic must still
+          reach this. ══════════════════════════════════════════════════════ */}
+      {activeView === 'community' ? (
+        <CommunityApp
+          onBackToWork={() => (navStack.length > 1 ? goBack() : navigateTo('dashboard'))}
+          onGoToWorkView={(v) => navigateTo(v)}
+          onGoToBilling={() => navigateTo(
+            String(user?.role) === 'SUPPLIER' ? 'supplier-billing' : 'billing',
+          )}
+          onOrder={(post, items) => {
+            // The OFFER price travels, never the list price — advertising a
+            // discount and then pre-filling at list quietly bills the buyer a
+            // number they did not click on.
+            const supplierId = post.authorSupplierId || items.find(i => i.supplierId)?.supplierId;
+            if (!supplierId) { toast.error('This deal has no supplier attached'); return; }
+            navigateTo('purchase-order-form', {
+              initialSupplierId: supplierId,
+              initialProducts: items.map(i => ({
+                id: i.supplierProductId,
+                supplierId,
+                name: i.name,
+                sku: i.sku || '',
+                unit: i.unit || 'Units',
+                unitPrice: i.dealPrice ?? i.listPrice ?? 0,
+                currency: i.currency || post.currency || 'KES',
+                minOrderQty: i.quantity || 1,
+                category: '',
+                buyPrice: 0,
+                stockQty: 0,
+                isAvailable: true,
+              })),
+            });
+          }}
+          workspaceName={firstActiveClinic?.name}
+          waitingCount={communityWaitingCount}
+          workLinks={communityWorkLinks}
+        />
+      ) : (
+      <>
       {/* Ask-AI floating button parked for now — it overlaps content on most
           pages (esp. mobile). Re-enable once it has a collision-free home. */}
       {/* <GlobalAIAssistant context={aiContext} /> */}
@@ -3772,6 +3857,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       </TourProvider>
       </DisplayCurrencyProvider>
       </SupplierBranchProvider>
+      </>
+      )}
     </>
   );
 };

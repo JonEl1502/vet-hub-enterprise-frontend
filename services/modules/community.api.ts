@@ -44,6 +44,24 @@ export interface CommunityPost {
   audienceRegions: string[];
   audienceCountries: string[];
   audienceCities: string[];
+  /**
+   * 297 — the social counts.
+   *
+   * ⚠️ `helpfulCount` is the EARNED signal and is what a profile totals and a
+   * feed may sort on. `reactionCount` is the animal pack — warmth — and never
+   * feeds ranking. Merging the two sorts the feed on cuteness.
+   */
+  helpfulCount: number;
+  thanksCount: number;
+  reactionCount: number;
+  commentCount: number;
+  /** [{ emoji: '🐕', count: 41 }], busiest first. */
+  emojis: Array<{ emoji: string; count: number }>;
+  /** What THIS reader already pressed. False for a reader we can't identify. */
+  viewerHelpful: boolean;
+  viewerThanks: boolean;
+  viewerEmojis: string[];
+  viewerSaved: boolean;
   /** Paid placement. ALWAYS shown as "Promoted" — never a silent boost. */
   isPromoted: boolean;
   boost: { id: string; status: string; endsAt: string } | null;
@@ -90,9 +108,73 @@ export interface CreateCommunityPost {
   items?: Array<{ supplierProductId: string | number; quantity?: number; dealPrice?: number }>;
 }
 
+
+/**
+ * A reply (297).
+ *
+ * `body` is null when `hidden` — a comment taken down is TOMBSTONED, not
+ * dropped, so the reply that answers it does not float alone and the thread
+ * does not silently lose a message.
+ */
+export interface CommunityComment {
+  id: string;
+  postId: string;
+  parentId: string | null;
+  authorUserId: string;
+  authorName: string;
+  authorAvatar: string | null;
+  /** What they are, in their own words — "Pet owner", never "CLIENT". */
+  authorRole: string;
+  body: string | null;
+  hidden: boolean;
+  helpfulCount: number;
+  viewerFoundHelpful: boolean;
+  mine: boolean;
+  createdAt: string;
+}
+
+export interface CommunityProfile {
+  kind: CommunityAuthorKind;
+  name: string;
+  logo: string | null;
+  subtitle: string | null;
+  clinicId: string | null;
+  supplierId: string | null;
+  userId: string | null;
+  helpfulTotal: number;
+  viewTotal: number;
+  commentTotal: number;
+  postCount: number;
+  followers: number;
+  viewerFollows: boolean;
+}
+
+export interface CommunityFollowing {
+  clinics: Array<{ id: string; name: string; logo: string | null; city: string | null }>;
+  suppliers: Array<{ id: string; name: string; logo: string | null }>;
+  people: Array<{ id: string; name: string; logo: string | null }>;
+  tags: string[];
+}
+
+/** Who or what is being followed. Exactly one, matching the CHECK in 297. */
+export type FollowSubject =
+  | { clinicId: string }
+  | { supplierId: string }
+  | { userId: string }
+  | { tag: string };
+
 export const communityAPI = {
   feed: (
-    params: { kind?: string; tag?: string; page?: number; limit?: number } = {},
+    params: {
+      kind?: string; tag?: string; page?: number; limit?: number;
+      /** Only people and topics this reader follows. */
+      following?: boolean;
+      /** Only posts this reader saved. Private to them. */
+      saved?: boolean;
+      /** 'recent' (default) or 'helpful'. */
+      sort?: string;
+      clinicId?: string; supplierId?: string; userId?: string;
+    } = {},
     options?: RequestOptions,
   ): Promise<ApiResponse<{ posts: CommunityPost[]; total: number; page: number; limit: number }>> => {
     const qs = new URLSearchParams(
@@ -119,4 +201,65 @@ export const communityAPI = {
   /** Creates a PENDING boost — it promotes nothing until payment confirms. */
   boost: (id: string | number, data: { days?: number; amount?: number; currency?: string }, options?: RequestOptions) =>
     post(`/community/posts/${id}/boost`, data, { showError: true, ...options }),
+
+  // ──────────────────────────────────────────────────────────────────────
+  // 297 — THE SOCIAL LAYER
+  //
+  // ⚠️ NONE of these need the add-on. The add-on gates BROADCASTING — writing
+  // a post that reaches the room. Answering one, agreeing with one, following
+  // its author or saving it are free to every signed-in user, clients and farm
+  // owners included. They are the reason the room is worth paying to reach.
+  // ──────────────────────────────────────────────────────────────────────
+
+  comments: (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ comments: CommunityComment[] }>> =>
+    get(`/community/posts/${id}/comments`, { cache: false, ...options }),
+
+  addComment: (id: string | number, data: { body: string; parentId?: string | null }, options?: RequestOptions) =>
+    post(`/community/posts/${id}/comments`, data, { showError: true, ...options }),
+
+  removeComment: (commentId: string | number, options?: RequestOptions) =>
+    del(`/community/comments/${commentId}`, { showError: true, ...options }),
+
+  commentHelpful: (commentId: string | number, options?: RequestOptions): Promise<ApiResponse<{ on: boolean; helpfulCount: number }>> =>
+    post(`/community/comments/${commentId}/helpful`, {}, { ...options }),
+
+  /**
+   * React to a post. TOGGLES — pressing Helpful twice removes it.
+   * `emoji` is required for kind 'EMOJI' and refused on the others.
+   */
+  react: (
+    id: string | number,
+    data: { kind: 'HELPFUL' | 'THANKS' | 'EMOJI'; emoji?: string },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{
+    on: boolean; kind: string; emoji: string | null;
+    helpfulCount: number; thanksCount: number; reactionCount: number;
+    emojis: Array<{ emoji: string; count: number }>;
+  }>> => post(`/community/posts/${id}/react`, data, { ...options }),
+
+  /** Save / unsave. PRIVATE — no count is shown to anyone, author included. */
+  save: (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ saved: boolean }>> =>
+    post(`/community/posts/${id}/save`, {}, { ...options }),
+
+  follow: (subject: FollowSubject, options?: RequestOptions): Promise<ApiResponse<{ following: boolean }>> =>
+    post('/community/follow', subject, { showError: true, ...options }),
+
+  following: (options?: RequestOptions): Promise<ApiResponse<CommunityFollowing>> =>
+    get('/community/following', { cache: false, ...options }),
+
+  report: (data: { postId?: string; commentId?: string; reason?: string; detail?: string }, options?: RequestOptions) =>
+    post('/community/report', data, { showError: true, ...options }),
+
+  profile: (
+    subject: { clinicId?: string | null; supplierId?: string | null; userId?: string | null },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ profile: CommunityProfile }>> => {
+    const qs = new URLSearchParams(
+      Object.entries(subject).filter(([, v]) => v != null && v !== '') as [string, string][],
+    ).toString();
+    return get(`/community/profile?${qs}`, { cache: false, ...options });
+  },
+
+  topics: (options?: RequestOptions): Promise<ApiResponse<{ topics: Array<{ tag: string; posts: number }> }>> =>
+    get('/community/topics', { cache: false, ...options }),
 };
