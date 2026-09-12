@@ -1,4 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { usePublicConfig } from '../../../contexts/PublicConfigContext';
 import {
   CreditCard, Calendar, CheckCircle2, Zap, Crown, Building2, Rocket,
   RefreshCw, AlertTriangle, Package, ArrowUpRight, Check, Loader2,
@@ -14,6 +15,8 @@ import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { PlanCard } from '../../clinic/billing/PlanCard';
 
 const SupplierBillingView: React.FC = () => {
+  // Collections policy — when a lapsed account is cut back to Billing.
+  const { pastDue } = usePublicConfig();
   const { user } = useAuth();
   const { mySupplier, selectedSupplierIds } = useSupplier();
 
@@ -156,8 +159,14 @@ const SupplierBillingView: React.FC = () => {
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
+  /**
+   * NEGATIVE once expiry has passed — the clinic card had the same
+   * `Math.max(0, …)` clamp and rendered "(0d left)" over a three-week-dead
+   * subscription (user, 2026-09-12). The overdue figure is the one number on
+   * this card worth reading.
+   */
   const daysLeft = (expiresAt: string) =>
-    Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000));
+    Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000);
 
   const currentTier = subscription?.package?.tier ?? -1;
 
@@ -312,15 +321,33 @@ const SupplierBillingView: React.FC = () => {
                   <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Started</p>
                   <p className="font-bold text-pine dark:text-zinc-100">{formatDate(subscription.startedAt)}</p>
                 </div>
-                <div className={`rounded-xl p-3 ${daysLeft(subscription.expiresAt) <= 7 ? 'bg-amber-50 dark:bg-amber-950/30' : 'bg-slate-50 dark:bg-zinc-800'}`}>
-                  <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Expires</p>
-                  <p className={`font-bold ${daysLeft(subscription.expiresAt) <= 7 ? 'text-amber-600 dark:text-amber-400' : 'text-pine dark:text-zinc-100'}`}>
-                    {formatDate(subscription.expiresAt)}
-                    {daysLeft(subscription.expiresAt) <= 7 && (
-                      <span className="ml-1 text-[9px]">({daysLeft(subscription.expiresAt)}d left)</span>
-                    )}
-                  </p>
-                </div>
+                {(() => {
+                  const dl = daysLeft(subscription.expiresAt);
+                  const lapsed = dl < 0;
+                  const over = Math.abs(dl);
+                  const lockAt = new Date(new Date(subscription.expiresAt).getTime() + pastDue.graceDays * 86400000);
+                  const toLock = Math.ceil((lockAt.getTime() - Date.now()) / 86400000);
+                  return (
+                    <div className={`rounded-xl p-3 ${lapsed ? 'bg-red-50 dark:bg-red-950/30' : dl <= 7 ? 'bg-amber-50 dark:bg-amber-950/30' : 'bg-slate-50 dark:bg-zinc-800'}`}>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">
+                        {lapsed ? 'Expired' : 'Expires'}
+                      </p>
+                      <p className={`font-bold ${lapsed ? 'text-red-600 dark:text-red-400' : dl <= 7 ? 'text-amber-600 dark:text-amber-400' : 'text-pine dark:text-zinc-100'}`}>
+                        {formatDate(subscription.expiresAt)}
+                        {lapsed
+                          ? <span className="ml-1 text-[9px]">({over} day{over === 1 ? '' : 's'} ago)</span>
+                          : dl <= 7 && <span className="ml-1 text-[9px]">({dl}d left)</span>}
+                      </p>
+                      {lapsed && (
+                        <p className="text-[9px] font-bold text-red-600/80 dark:text-red-400/80 mt-0.5">
+                          {toLock <= 0
+                            ? `Limited to Billing since ${formatDate(lockAt.toISOString())}`
+                            : `Limited to Billing on ${formatDate(lockAt.toISOString())} · ${toLock} day${toLock === 1 ? '' : 's'} left`}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 

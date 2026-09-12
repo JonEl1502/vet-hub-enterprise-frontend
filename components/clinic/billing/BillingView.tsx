@@ -27,6 +27,7 @@ import PlanFeaturesPanel from './PlanFeaturesPanel';
 import SupportTicketsPanel from './SupportTicketsPanel';
 import BillingDocumentsPanel from './BillingDocumentsPanel';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import { usePublicConfig } from '../../../contexts/PublicConfigContext';
 
 // formatPrice now comes from useDisplayCurrency() so every render honors
 // the platform-wide display currency the admin chose.
@@ -525,9 +526,18 @@ const BillingView: React.FC = () => {
   const formatDate = (date: string) =>
     new Date(date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
+  /**
+   * Days until expiry — NEGATIVE once it has passed.
+   *
+   * ⚠️ This was `Math.max(0, …)`, so a subscription that ended three weeks ago
+   * rendered "(0d left)" — a number that is not merely imprecise, it is the
+   * one figure that would have told the owner they had a problem (user,
+   * 2026-09-12: *"so here can show negative days"*). Clamping hid the overdue
+   * state on the very card whose job is to report it.
+   */
   const daysUntilExpiry = (expiresAt: string) => {
     const diff = new Date(expiresAt).getTime() - Date.now();
-    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+    return Math.ceil(diff / (1000 * 60 * 60 * 24));
   };
 
   if (loading) {
@@ -1326,6 +1336,8 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
   sub, formatDate, daysUntilExpiry, getPlanIcon, onCancel, subscriptionDaysLeft, fullPackage,
   addOnNames = [], communityOffer, onGetCommunity,
 }) => {
+  // Collections policy — how long after expiry the account is cut to Billing.
+  const { pastDue } = usePublicConfig();
   const { formatPrice } = useDisplayCurrency();
   const cancelled = !!sub.cancellationMode;
   const cancelScheduled = sub.cancellationMode === 'END_OF_CYCLE' && sub.cancellationScheduledFor;
@@ -1343,7 +1355,17 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
   };
   const cycleLabel = CYCLE_LABEL_LOCAL[subCycle] ?? 'cycle';
   const days = daysLeft;
-  const expiringSoon = days <= 7;
+  const lapsed = days < 0;
+  const overdueDays = lapsed ? Math.abs(days) : 0;
+  const expiringSoon = !lapsed && days <= 7;
+  /**
+   * WHEN THE LOCK BITES — "and when lock happened" (user, 2026-09-12).
+   * Expiry + the platform's grace window. Stated as a date because "in 4 days"
+   * is something an owner has to convert before they can act on it.
+   */
+  const lockAt = new Date(new Date(sub.expiresAt).getTime() + pastDue.graceDays * 86_400_000);
+  const daysToLock = Math.ceil((lockAt.getTime() - Date.now()) / 86_400_000);
+  const hardLocked = lapsed && daysToLock <= 0;
   const Icon = sub.package ? getPlanIcon(sub.package.name) : CreditCard;
 
   return (
@@ -1369,14 +1391,22 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
                 </h3>
                 {/* A cancelled END_OF_CYCLE sub stays isActive until expiry —
                     show "Cancelled" (not "Active") so the cancel visibly took. */}
+                {/* ⚠️ EXPIRY OUTRANKS `isActive`. That column stays true on a
+                    lapsed row — nothing sweeps it — so this card called a
+                    three-week-dead subscription "ACTIVE" in green, directly
+                    above the date proving otherwise. */}
                 <span className={`px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest border ${
-                  cancelled
-                    ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
-                    : sub.isActive
-                      ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
-                      : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
+                  lapsed
+                    ? 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
+                    : cancelled
+                      ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20'
+                      : sub.isActive
+                        ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                        : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'
                 }`}>
-                  {cancelled ? 'Cancelled' : sub.isActive ? 'Active' : 'Inactive'}
+                  {lapsed
+                    ? (hardLocked ? 'Locked' : 'Past due')
+                    : cancelled ? 'Cancelled' : sub.isActive ? 'Active' : 'Inactive'}
                 </span>
               </div>
               {sub.package && (
@@ -1401,16 +1431,27 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
               <p className="text-slate-700 dark:text-zinc-300 font-medium">{formatDate(sub.startedAt)}</p>
             </div>
           </div>
-          <div className={`flex items-center gap-2.5 text-sm ${expiringSoon ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-zinc-400'}`}>
-            <Calendar size={13} className={expiringSoon ? 'text-amber-500' : 'text-slate-400 dark:text-zinc-500'} />
+          <div className={`flex items-center gap-2.5 text-sm ${lapsed ? 'text-red-600 dark:text-red-400' : expiringSoon ? 'text-amber-600 dark:text-amber-400' : 'text-slate-500 dark:text-zinc-400'}`}>
+            <Calendar size={13} className={lapsed ? 'text-red-500' : expiringSoon ? 'text-amber-500' : 'text-slate-400 dark:text-zinc-500'} />
             <div>
               <p className="text-[10px] uppercase tracking-wider font-semibold text-slate-400 dark:text-zinc-500">
-                {sub.autoRenew ? 'Renews' : 'Expires'}
+                {lapsed ? 'Expired' : sub.autoRenew ? 'Renews' : 'Expires'}
               </p>
               <p className="font-medium">
                 {formatDate(sub.expiresAt)}
-                {expiringSoon && <span className="ml-1 text-[10px]">({days}d left)</span>}
+                {lapsed
+                  ? <span className="ml-1 text-[10px]">({overdueDays} day{overdueDays === 1 ? '' : 's'} ago)</span>
+                  : expiringSoon && <span className="ml-1 text-[10px]">({days}d left)</span>}
               </p>
+              {/* WHEN THE LOCK BITES — a date, not a countdown they have to
+                  convert. Only shown once it is actually relevant. */}
+              {lapsed && (
+                <p className="text-[10px] font-bold mt-0.5">
+                  {hardLocked
+                    ? `Limited to Billing since ${formatDate(lockAt.toISOString())}`
+                    : `Limited to Billing on ${formatDate(lockAt.toISOString())} · ${daysToLock} day${daysToLock === 1 ? '' : 's'} left`}
+                </p>
+              )}
             </div>
           </div>
         </div>
