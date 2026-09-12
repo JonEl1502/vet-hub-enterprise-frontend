@@ -275,13 +275,44 @@ const Navbar: React.FC<NavbarProps> = ({
       'services-catalog': 'Services',
       'vaccine-packages': 'Vaccine Packages',
       'service-bundles': 'Service Bundles',
+      /**
+       * ⚠️ EVERY supplier view needs a line here.
+       *
+       * A SUPPLIER-role user's whole app lives under these ids, and an id with
+       * no entry fell through to the raw slug — the breadcrumb on Import read
+       * "SUPPLIER-IMPORT" (user, 2026-09-12). The fallback below now
+       * de-kebabs and drops a leading "supplier", so a future addition reads
+       * "Import" rather than a route name, but a real label still belongs here.
+       */
       'supplier-products': 'Products',
       'supplier-product-new': 'Add Product',
       'supplier-product-edit': 'Edit Product',
       'supplier-orders': 'Orders',
+      'supplier-order-detail': 'Order Detail',
       'supplier-dashboard': 'Dashboard',
+      'supplier-inventory': 'Inventory',
+      'supplier-import': 'Import Products',
+      'supplier-analytics': 'Analytics',
+      'supplier-management': 'Account',
+      'supplier-settings': 'Account',
+      'supplier-branches': 'Branches',
+      'supplier-employees': 'Personnel',
+      'supplier-employee-profile': 'Personnel',
+      'supplier-billing': 'Billing',
     };
-    const label = map[activeView] || (activeView ? activeView.charAt(0).toUpperCase() + activeView.slice(1) : '');
+    /**
+     * Fallback: turn `supplier-import` into "Import", `procedure-editor` into
+     * "Procedure Editor" — a readable phrase, never a route slug. The leading
+     * "supplier" is dropped because the sidebar and the account header already
+     * say whose portal this is; repeating it in the crumb is noise.
+     */
+    const humanise = (id: string) => id
+      .replace(/^supplier-/, '')
+      .split('-')
+      .filter(Boolean)
+      .map(w => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+    const label = map[activeView] || (activeView ? humanise(activeView) : '');
     return label ? [base, { label }] : [base];
   };
 

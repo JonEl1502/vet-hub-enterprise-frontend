@@ -19,7 +19,20 @@ import {
   Settings2,
   Upload,
   Store,
+  GitBranch,
+  Users,
 } from 'lucide-react';
+
+/**
+ * Every view that lives UNDER Management. One list so the group's highlight,
+ * its open-by-default state and its children can never disagree — they used to
+ * be three separate inline arrays, and `supplier-billing` was missing from the
+ * one that decided whether the group starts open.
+ */
+const MANAGEMENT_VIEWS = [
+  'supplier-management', 'supplier-settings', 'supplier-billing',
+  'supplier-branches', 'supplier-employees', 'supplier-employee-profile',
+];
 
 interface SupplierSidebarProps {
   activeView: string;
@@ -62,7 +75,7 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
   const [hoveredItemTop, setHoveredItemTop] = useState<number>(0);
   const [activeHoverId, setActiveHoverId] = useState<string | null>(null);
   const [managementOpen, setManagementOpen] = useState(
-    ['supplier-management', 'supplier-settings'].includes(activeView)
+    MANAGEMENT_VIEWS.includes(activeView)
   );
   const hoverTimeoutRef = useRef<number | null>(null);
 
@@ -79,12 +92,24 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
     { id: 'supplier-import', label: 'Import Products', icon: Upload },
   ];
 
+  /**
+   * Management children — the same shape the clinic and admin sidebars use:
+   * every section of the account is its own sidebar entry, not a tab you can
+   * only reach by landing on Account first.
+   *
+   * Branches and Personnel ARE tabs of `SupplierManagementView`; App.tsx
+   * already routes `supplier-branches` / `supplier-employees` straight to them
+   * with `initialTab`, so nothing new is needed server-side — they were simply
+   * never listed here (user, 2026-09-12).
+   */
   const managementSubItems = [
     { id: 'supplier-management', label: 'Account', icon: Building2 },
+    { id: 'supplier-branches', label: 'Branches', icon: GitBranch },
+    { id: 'supplier-employees', label: 'Personnel', icon: Users },
     { id: 'supplier-billing', label: 'Billing', icon: CreditCard },
   ];
 
-  const isManagementActive = ['supplier-management', 'supplier-settings', 'supplier-billing'].includes(activeView);
+  const isManagementActive = MANAGEMENT_VIEWS.includes(activeView);
 
   const handleMouseEnter = (e: React.MouseEvent, itemId: string) => {
     if (!isCollapsed || isMobileOpen) return;

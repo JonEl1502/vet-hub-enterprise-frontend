@@ -9,6 +9,7 @@ import {
 } from '../../../services';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import PageHeader from '../../shared/common/PageHeader';
 import ReceiveStockModal from './ReceiveStockModal';
 import TransferStockModal from './TransferStockModal';
 import AdjustStockModal from './AdjustStockModal';
@@ -163,16 +164,14 @@ const SupplierInventoryView: React.FC<Props> = ({ setView, canManage = true }) =
 
   return (
     <div className="space-y-5">
-      {/* Header + branch */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="min-w-0">
-          <h1 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">Stockroom</h1>
-          <p className="text-[11px] text-slate-400 dark:text-zinc-500 font-semibold">
-            What is on the shelf, per branch — and where it came from.
-          </p>
-        </div>
-
-        <div className="ml-auto flex items-center gap-2 flex-wrap">
+      {/* Header + branch — the shared PageHeader, so the title treatment matches
+          Products, Orders and every clinic page instead of being a one-off
+          `text-xl` invented here (user, 2026-09-12). */}
+      <PageHeader
+        title="Stockroom"
+        subtitle="What is on the shelf, per branch — and where it came from."
+        icon={Package}
+        actions={<>
           {branches && branches.length > 1 && (
             <select
               value={branchId}
@@ -205,8 +204,8 @@ const SupplierInventoryView: React.FC<Props> = ({ setView, canManage = true }) =
               </button>
             </>
           )}
-        </div>
-      </div>
+        </>}
+      />
 
       {/* The four numbers */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

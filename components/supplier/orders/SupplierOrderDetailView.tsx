@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  ArrowLeft,
+  Receipt,
   Building2,
   Package,
   Calendar,
@@ -17,6 +17,7 @@ import {
 import { supplierOrdersAPI } from '../../../services/modules/supplierOrders.api';
 import type { PurchaseOrder } from '../../../services/modules/purchaseOrders.api';
 import { toast } from '../../../services/utils/toast';
+import PageHeader from '../../shared/common/PageHeader';
 
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: '#94a3b8',
@@ -148,53 +149,37 @@ const SupplierOrderDetailView: React.FC<SupplierOrderDetailViewProps> = ({ order
 
   return (
     <div className="space-y-4">
-      {/* Header / Breadcrumb */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
-        <div className="flex items-center justify-between flex-wrap gap-3">
-          <div className="flex items-center gap-3">
+      {/* Header — the shared PageHeader. This was a card with its own border and
+          padding pretending to be a page header, which is why the title sat at
+          a different size and inset from every other detail page. */}
+      <PageHeader
+        title={`PO #${order.orderNumber}`}
+        subtitle={`Created ${new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`}
+        icon={Receipt}
+        onBack={() => setView?.('supplier-orders')}
+        actions={<>
+          {/* The status pill reads as an attribute of the order, so it rides
+              with the actions rather than hanging off the title. */}
+          <span
+            className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase"
+            style={{ backgroundColor: statusColor + '20', color: statusColor }}
+          >
+            <StatusIcon status={order.status} />
+            {STATUS_LABELS[order.status] || order.status}
+          </span>
+          {nextActions.map(action => (
             <button
-              onClick={() => setView?.('supplier-orders')}
-              className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all"
+              key={action.status}
+              onClick={() => updateStatus(action.status)}
+              disabled={updatingStatus}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-wider transition-all disabled:opacity-60 ${action.color}`}
             >
-              <ArrowLeft size={16} className="text-slate-500 dark:text-zinc-400" />
+              {updatingStatus ? <RefreshCw size={12} className="animate-spin" /> : null}
+              {action.label}
             </button>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg font-black text-pine dark:text-zinc-100 uppercase tracking-tight">
-                  PO #{order.orderNumber}
-                </h1>
-                <span
-                  className="flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black uppercase"
-                  style={{ backgroundColor: statusColor + '20', color: statusColor }}
-                >
-                  <StatusIcon status={order.status} />
-                  {STATUS_LABELS[order.status] || order.status}
-                </span>
-              </div>
-              <p className="text-xs text-slate-400 dark:text-zinc-500 mt-0.5">
-                Created {new Date(order.createdAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
-              </p>
-            </div>
-          </div>
-
-          {/* Status Actions */}
-          {nextActions.length > 0 && (
-            <div className="flex items-center gap-2 flex-wrap">
-              {nextActions.map(action => (
-                <button
-                  key={action.status}
-                  onClick={() => updateStatus(action.status)}
-                  disabled={updatingStatus}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl font-black text-xs uppercase tracking-wider transition-all disabled:opacity-60 ${action.color}`}
-                >
-                  {updatingStatus ? <RefreshCw size={12} className="animate-spin" /> : null}
-                  {action.label}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+          ))}
+        </>}
+      />
 
       {/* Details Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  Search, Pill, ChevronDown, ChevronUp, RefreshCw, X, Check, ArrowLeft,
+  Search, Pill, ChevronDown, ChevronUp, RefreshCw, X, Check, Package,
 } from 'lucide-react';
 import ProductStructureFields, { type MainCategory } from '../../shared/common/ProductStructureFields';
+import PageHeader from '../../shared/common/PageHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { supplierProductsAPI } from '../../../services/modules/supplierProducts.api';
@@ -300,7 +301,7 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
 
   if (loading) {
     return (
-      <div className="space-y-4 max-w-3xl mx-auto">
+      <div className="space-y-4">
         <div className="h-12 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl animate-pulse" />
         <div className="h-96 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl animate-pulse" />
       </div>
@@ -308,25 +309,29 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
   }
 
   return (
-    <div className="space-y-4 max-w-6xl mx-auto pb-20">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setView?.('supplier-products')}
-            className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors"
-            aria-label="Back to products"
-          >
-            <ArrowLeft size={16} className="text-slate-500 dark:text-zinc-400" />
-          </button>
-          <div>
-            <p className="text-[10px] font-black text-seafoam uppercase tracking-[0.3em]">Catalogue</p>
-            <h1 className="text-lg sm:text-xl font-black text-pine dark:text-zinc-100 tracking-tight">
-              {editingProduct ? 'Edit Product' : 'Add New Product'}
-            </h1>
-          </div>
-        </div>
-      </div>
+    /**
+     * FULL WIDTH, LEFT-ALIGNED — the app shell's rule, not this page's choice.
+     *
+     * `<main>` already pads the content area (`p-4 md:p-6 w-full`) and is
+     * deliberately NOT centred: centring inside the space left of a fixed
+     * sidebar leaves dead air exactly where the nav ends. `max-w-6xl mx-auto`
+     * here pushed the form ~110px right of the breadcrumb above it, so the page
+     * read as though it had two different left margins (user, 2026-09-12).
+     * The two-column grid below already stops the form sprawling on a wide
+     * monitor; a second cap is what broke the alignment.
+     */
+    <div className="space-y-4 pb-20">
+      {/* Header — the shared PageHeader. "CATALOGUE" above the title was this
+          page's own eyebrow, and it duplicated the breadcrumb two lines above
+          it; the subtitle says something the user cannot already read. */}
+      <PageHeader
+        title={editingProduct ? 'Edit product' : 'Add new product'}
+        subtitle={editingProduct
+          ? 'Changes take effect on your catalogue as soon as you save.'
+          : 'It appears in your catalogue once In catalogue is on and a sell price is set.'}
+        icon={Package}
+        onBack={() => setView?.('supplier-products')}
+      />
 
       {/* Medical Products picker */}
       <div className="rounded-2xl border border-seafoam/30 dark:border-seafoam/20 overflow-hidden bg-white dark:bg-zinc-900">

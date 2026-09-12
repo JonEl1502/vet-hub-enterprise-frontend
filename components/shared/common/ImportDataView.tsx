@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Upload, Download, FileSpreadsheet, CheckCircle2, AlertTriangle,
-  X, Loader2, ArrowLeft, Users, PawPrint, Package, UserCog, RefreshCw,
+  X, Loader2, Users, PawPrint, Package, UserCog, RefreshCw,
   ClipboardPaste, Wand2, ArrowRight, Pencil, Trash2, CreditCard,
 } from 'lucide-react';
 import {
@@ -21,6 +21,7 @@ import {
 import { COUNTRIES } from '../../../utils/countries';
 import { importsAPI, ImportResult } from '../../../services/modules/imports.api';
 import ManagingSwitcher from './ManagingSwitcher';
+import PageHeader from './PageHeader';
 import LegacyDebtsPanel from './LegacyDebtsPanel';
 
 /**
@@ -65,60 +66,60 @@ const ImportDataView: React.FC<ImportDataViewProps> = ({ onBack, initialEntity, 
   // real importer.
   const schema = isLegacy ? null : getSchema(active as ImportEntity);
 
+  /**
+   * ⚠️ A PAGE, NOT AN APP.
+   *
+   * This used to render `min-h-screen` with its own background, its own
+   * full-bleed header bar and a `max-w-6xl mx-auto px-6` inset INSIDE App.tsx's
+   * content wrapper, which already pads every page. The result was a second,
+   * narrower, centred column sitting inside the first one — a header that
+   * floated, and a left margin that matched nothing else in the app (user,
+   * 2026-09-12). It now uses the shared `PageHeader` like every other page and
+   * lets the shell own the inset.
+   */
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-zinc-950">
-      {/* Header */}
-      <div className="bg-white dark:bg-zinc-900 border-b border-slate-200 dark:border-zinc-800">
-        <div className="max-w-6xl mx-auto px-6 py-6">
-          <div className="mb-4"><ManagingSwitcher kind="clinic" /></div>
-          <div className="flex items-center gap-3 mb-4">
-            {onBack && (
-              <button
-                onClick={onBack}
-                className="p-2 -ml-2 rounded-lg hover:bg-slate-100 dark:hover:bg-zinc-800 text-slate-500"
-              >
-                <ArrowLeft size={18} />
-              </button>
-            )}
-            <div>
-              <h1 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tight">Import data</h1>
-              <p className="text-sm text-slate-500 dark:text-zinc-400 mt-1">
-                {audience === 'supplier'
-                  ? 'Bring your product catalogue into VetHubCore from a CSV or Excel file, or paste it straight in. Image, manufacturer, pack size and the subcategory path all flow to a clinic when they receive a purchase order.'
-                  : 'Bring existing clients, pets, inventory, and staff into VetHubCore — upload a CSV or Excel file, or paste rows straight out of your old system and we will match them to the template.'}
-              </p>
-            </div>
-          </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Import data"
+        subtitle={audience === 'supplier'
+          ? 'Bring your product catalogue into VetHubCore from a CSV or Excel file, or paste it straight in. Image, manufacturer, pack size and the subcategory path all flow to a clinic when they receive a purchase order.'
+          : 'Bring existing clients, pets, inventory, and staff into VetHubCore — upload a CSV or Excel file, or paste rows straight out of your old system and we will match them to the template.'}
+        icon={Upload}
+        onBack={onBack}
+      />
 
-          {/* Tabs */}
-          <div className="flex gap-1 overflow-x-auto -mx-1 px-1 pb-1">
-            {TABS.map((t) => {
-              const Icon = t.icon;
-              const isActive = t.entity === active;
-              return (
-                <button
-                  key={t.entity}
-                  onClick={() => setActive(t.entity)}
-                  className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-black whitespace-nowrap transition-colors
-                    ${isActive
-                      ? 'bg-seafoam text-white shadow-sm'
-                      : 'bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700'}`}
-                >
-                  <Icon size={15} />
-                  {t.label}
-                </button>
-              );
-            })}
-          </div>
+      {/* The clinic scope picker is meaningless on a SUPPLIER account — there is
+          no clinic to manage on their behalf, and it rendered a dead control. */}
+      {audience !== 'supplier' && <ManagingSwitcher kind="clinic" />}
+
+      {/* Tabs — hidden when there is only one importer (the supplier case): a
+          lone tab that cannot be switched away from is chrome, not navigation. */}
+      {TABS.length > 1 && (
+        <div className="flex gap-1 overflow-x-auto -mx-1 px-1 pb-1">
+          {TABS.map((t) => {
+            const Icon = t.icon;
+            const isActive = t.entity === active;
+            return (
+              <button
+                key={t.entity}
+                onClick={() => setActive(t.entity)}
+                className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-xl text-[13px] font-black whitespace-nowrap transition-colors
+                  ${isActive
+                    ? 'bg-seafoam text-white shadow-sm'
+                    : 'bg-slate-100 dark:bg-zinc-800 text-pine dark:text-zinc-200 hover:bg-slate-200 dark:hover:bg-zinc-700'}`}
+              >
+                <Icon size={15} />
+                {t.label}
+              </button>
+            );
+          })}
         </div>
-      </div>
+      )}
 
       {/* Panel — re-keys on tab switch so local state resets */}
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        {isLegacy
-          ? <LegacyDebtsPanel />
-          : <EntityImportPanel key={schema!.entity} schema={schema!} />}
-      </div>
+      {isLegacy
+        ? <LegacyDebtsPanel />
+        : <EntityImportPanel key={schema!.entity} schema={schema!} />}
     </div>
   );
 };

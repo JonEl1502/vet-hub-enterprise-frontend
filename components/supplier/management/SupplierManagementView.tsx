@@ -39,11 +39,33 @@ import type { Supplier } from '../../../services/modules/suppliers.api';
 import { toast } from '../../../services/utils/toast';
 import { cache } from '../../../services/utils/cache';
 
+/**
+ * Brand palettes, supplier-first.
+ *
+ * The first block is drawn from the trade these accounts are actually in —
+ * agrovet green, warehouse steel, feed-sack kraft, harvest gold — because an
+ * agrovet picking a brand colour was being offered "Soft Petal" and "Rose Gold"
+ * before anything that looked like a depot (user, 2026-09-12). The clinic
+ * palette follows it unchanged, so nobody loses the colour they already chose;
+ * every preset here is matched by `p`+`s`, never by position.
+ *
+ * `p` is the primary (buttons, highlights), `s` the deep secondary the header
+ * banner gradients into. Both must stay dark enough to carry white text.
+ */
 const COLOR_PRESETS: { p: string; s: string; label: string }[] = [
+  // ── Supply trade ─────────────────────────────────────────────────────────
+  { p: '#1C7A5B', s: '#144E35', label: 'Enterprise Teal' },
+  { p: '#4D7C0F', s: '#1A2E05', label: 'Agrovet Green' },
+  { p: '#B45309', s: '#451A03', label: 'Feed Sack' },
+  { p: '#0F766E', s: '#042F2E', label: 'Depot Teal' },
+  { p: '#57534E', s: '#1C1917', label: 'Warehouse Steel' },
+  { p: '#CA8A04', s: '#422006', label: 'Harvest Gold' },
+  { p: '#7C2D12', s: '#2B1006', label: 'Barn Red' },
+  { p: '#1D4ED8', s: '#172554', label: 'Cargo Blue' },
+  // ── Clinical / general ───────────────────────────────────────────────────
   { p: '#6366f1', s: '#1e1b4b', label: 'Classic Indigo' },
   { p: '#10b981', s: '#064e3b', label: 'Healing Emerald' },
   { p: '#f59e0b', s: '#451a03', label: 'Vital Amber' },
-  { p: '#1C7A5B', s: '#144E35', label: 'Enterprise Teal' },
   { p: '#2EA1B8', s: '#144E35', label: 'Ocean Cyan' },
   { p: '#ec4899', s: '#500724', label: 'Soft Petal' },
   { p: '#ef4444', s: '#450a0a', label: 'Urgent Red' },
@@ -52,15 +74,35 @@ const COLOR_PRESETS: { p: string; s: string; label: string }[] = [
   { p: '#f43f5e', s: '#4c0519', label: 'Rose Gold' },
   { p: '#16a34a', s: '#052e16', label: 'Forest' },
   { p: '#475569', s: '#1e293b', label: 'Slate Pro' },
+  { p: '#334155', s: '#020617', label: 'Midnight' },
+  { p: '#9333EA', s: '#3B0764', label: 'Orchid' },
+  { p: '#E11D48', s: '#4C0519', label: 'Crimson' },
+  { p: '#0891B2', s: '#083344', label: 'Lagoon' },
+  { p: '#65A30D', s: '#1A2E05', label: 'Lime Field' },
 ];
 
-// Generic supplier-themed glyphs for one-click logo selection. Mirrors the
-// clinic's logoPresets pattern. Stored in the same `logoUrl` field as URL
-// uploads — the renderer (isImageSrc helper below) decides how to display.
+/**
+ * One-click logo glyphs, ordered the way a supplier thinks.
+ *
+ * Trade first — depot, truck, crate, scales — then the veterinary and
+ * medicine glyphs, because the mix is the point: most of these accounts are
+ * agrovets that both stock drugs and sell farm inputs, and the old list opened
+ * with pets (user, 2026-09-12: *"the icons to also look more like suppliers …
+ * a combination of icons for supplier and medicine stuff"*).
+ *
+ * Stored in the same `logoUrl` column as an uploaded URL; `isImageSrc` below
+ * decides whether to render it as an <img> or as text.
+ */
 const LOGO_PRESETS = [
-  '🚚', '📦', '💊', '💉', '🧪', '🩺', '🏥',
-  '🦴', '🐾', '🐕', '🐈', '🌡️', '🥼', '🧬',
-  '🔬', '🌿', '🏷️', '⚗️', '🩹', '🧴',
+  // Supply, storage and distribution
+  '🏭', '🏬', '🏪', '🚚', '🚛', '📦', '🗃️', '🧺',
+  '⚖️', '🏷️', '🧾', '📋', '🔖', '🛒', '🛍️', '🚜',
+  // Medicine, veterinary and lab
+  '💊', '💉', '🧪', '⚗️', '🔬', '🩺', '🏥', '🥼',
+  '🩹', '🧴', '🧬', '🌡️', '🦠', '🧫',
+  // Animals and agriculture
+  '🐾', '🐕', '🐈', '🐄', '🐓', '🐖', '🐐', '🦴',
+  '🌿', '🌾', '🥬', '🪴',
 ];
 
 /** Treat an `logoUrl` value as a URL only if it looks like one — otherwise
@@ -149,6 +191,19 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
   }, [role, user?.supplier, isAdmin, managedSupplierId, supplierCtx.mySupplier, supplierCtx.selectedSuppliers, supplierCtx.selectedSupplierIds, supplierCtx.suppliers]);
 
   const [activeTab, setActiveTab] = useState<Tab>(initialTab);
+  /**
+   * FOLLOW THE ROUTE, not just the first mount.
+   *
+   * Account / Branches / Personnel / Billing are four sidebar entries that all
+   * render THIS component with a different `initialTab`. `useState(initialTab)`
+   * only reads it once, so clicking Branches while already on Account changed
+   * the URL and the sidebar highlight and left the page on Identity — the
+   * classic "the nav moved, the page didn't" (user, 2026-09-12).
+   *
+   * Keyed on `initialTab` alone: switching tabs BY HAND inside the page must
+   * still stick, and it does, because this only fires when the route changes.
+   */
+  React.useEffect(() => { setActiveTab(initialTab); }, [initialTab]);
   const [saving, setSaving] = useState(false);
   const [savedFeedback, setSavedFeedback] = useState(false);
 
@@ -269,7 +324,10 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
   ];
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-700 pb-20 max-w-7xl mx-auto">
+    // Full width, left-aligned — same shell rule as every other supplier page;
+    // `max-w-7xl mx-auto` here set this page a different left margin from the
+    // breadcrumb and from Products/Orders/Inventory beside it.
+    <div className="space-y-6 animate-in fade-in duration-700 pb-20">
 
       <ManagingSwitcher kind="supplier" />
 
@@ -553,7 +611,9 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
               <div className="space-y-4">
                 <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.2em] px-1">Theme Colors</p>
 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {/* Six across on a wide screen: the list grew to 24 presets and
+                    four columns turned the picker into six rows of scrolling. */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
                   {COLOR_PRESETS.map(preset => {
                     const isActive = primaryColor === preset.p && secondaryColor === preset.s;
                     return (
