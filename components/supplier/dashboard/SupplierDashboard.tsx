@@ -77,6 +77,9 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
 
   const role = user?.role;
   const isAdmin = role === 'SUPER_ADMIN' || role === 'MERCHANT_ADMIN';
+  // Setup is an owner/manager job — see the onboarding card below.
+  const supplierRole = (user as any)?.supplierRole as string | undefined;
+  const canSetUp = !supplierRole || ['OWNER', 'MANAGER'].includes(String(supplierRole));
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [creating, setCreating] = useState(false);
   const [createForm, setCreateForm] = useState<CreateSupplierData>({
@@ -404,11 +407,19 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
    * banner above now owns that decision, and having both meant "subscribe"
    * shouted twice on one screen for a single action.
    *
-   * ⚠️ "Receive your first order" is a MILESTONE, not an action — nothing the
-   * supplier clicks makes it happen. It used to carry a "View products" button,
-   * a CTA that had nothing to do with its own sentence. It now states what it
-   * is waiting for, in the same footer slot the action card uses, so the row
-   * keeps one baseline.
+   * ⚠️ EVERY STEP MUST BE ONE THE VIEWER CAN DO.
+   *
+   * "Receive your first order" was here and is now gone (user, 2026-09-12:
+   * *"do we need this?"*). It is a MILESTONE, not an action — nothing the
+   * supplier clicks makes it happen, which a previous pass already noticed and
+   * patched by removing its CTA. But it stayed in the DENOMINATOR, so a shop
+   * that had finished everything it could possibly do still read "1 of 2 done"
+   * and carried a setup card forever, waiting on a stranger. A checklist you
+   * cannot finish is not a checklist, it is a nag.
+   *
+   * What replaced it is the setup that actually stops a listing from selling
+   * well, and that the supplier CAN act on: stock behind the catalogue, and a
+   * brand on the documents the clinic receives.
    */
   const onboarding = useMemo(() => {
     const steps = [
@@ -423,15 +434,24 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
         altView: 'supplier-import',
       },
       {
-        key: 'order',
-        label: 'Receive your first order',
-        desc: 'Clinics order from your catalogue. Nothing to do here — this ticks itself.',
-        done: orders.length > 0,
-        waitingFor: 'Waiting for your first order',
+        key: 'brand',
+        label: 'Add your logo and colours',
+        desc: 'They go on every order, invoice and receipt a clinic gets from you.',
+        done: !!(user?.supplier as any)?.logoUrl,
+        cta: 'Set up branding',
+        view: 'supplier-management',
+      },
+      {
+        key: 'stock',
+        label: 'Put stock behind your listings',
+        desc: 'A clinic that orders what you cannot ship does not order twice.',
+        done: branches.length > 0,
+        cta: 'Open stockroom',
+        view: 'supplier-inventory',
       },
     ];
     return { steps, complete: steps.every(s => s.done), doneCount: steps.filter(s => s.done).length };
-  }, [products.length, orders.length]);
+  }, [products.length, branches.length, (user?.supplier as any)?.logoUrl]);
 
   if (loading) {
     return (
@@ -656,7 +676,11 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
               uses, and the ONLY place "choose plan" is offered on this screen. */}
           {!isAdmin && <SupplierPlanBanner onChoosePlan={() => setView?.('supplier-billing')} />}
 
-          {!isAdmin && !onboarding.complete && (
+          {/* ⚠️ NOT FOR A CASHIER. Every step here is an owner/manager job —
+              listing products, branding the business, stocking a branch. A till
+              operator cannot do any of it, so the card would be a permanent
+              reproach for work that is not theirs. */}
+          {!isAdmin && canSetUp && !onboarding.complete && (
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-1">
                 <ListChecks size={16} className="text-seafoam" />
@@ -710,7 +734,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
                         <p className="text-[10px] font-black uppercase tracking-wider text-emerald-600/70 dark:text-emerald-500/70">
                           Done
                         </p>
-                      ) : s.view ? (
+                      ) : (
                         <>
                           <button
                             onClick={() => setView?.(s.view!)}
@@ -727,10 +751,6 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
                             </button>
                           )}
                         </>
-                      ) : (
-                        <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 italic">
-                          {s.waitingFor}
-                        </p>
                       )}
                     </div>
                   </div>
