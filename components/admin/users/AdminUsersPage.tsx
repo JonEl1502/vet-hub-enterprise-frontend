@@ -1,7 +1,11 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { MailCheck, Loader2, RefreshCw, Search, Mail, Building2, Shield, KeyRound, X, Eye, EyeOff, Users, Pencil } from 'lucide-react';
 import { usersAPI, clinicsAPI, toast, dialog } from '../../../services';
-import type { AdminUserRow as ApiUser } from '../../../services/modules/users.api';
+import type {
+  AdminUserRow as ApiUser,
+  AdminUserType,
+  AdminUserCounts,
+} from '../../../services/modules/users.api';
 import { useAuth } from '../../../contexts/AuthContext';
 import StatusToggle from '../../shared/common/StatusToggle';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
@@ -9,8 +13,32 @@ import AdminPageHeader from '../shared/AdminPageHeader';
 import EditUserDialog from '../shared/EditUserDialog';
 
 const ROLE_OPTIONS = [
-  'ALL', 'SUPER_ADMIN', 'MERCHANT_ADMIN', 'CLINIC_OWNER', 'CLINIC_MANAGER',
-  'CLINIC_VIEWER', 'VET', 'STAFF', 'FREELANCER', 'SUPPLIER',
+  'ALL', 'SUPER_ADMIN', 'MERCHANT_ADMIN', 'SALES_REP', 'CLINIC_OWNER', 'CLINIC_MANAGER',
+  'CLINIC_VIEWER', 'VET', 'STAFF', 'VET_NURSE', 'FRONT_OFFICE', 'RECEPTIONIST',
+  'CASHIER', 'PHARMACIST', 'LAB_TECH', 'GROOMER', 'KENNEL_ATTENDANT', 'DRIVER',
+  'ACCOUNTANT', 'FREELANCER', 'SUPPLIER', 'CLIENT',
+];
+
+/**
+ * User-type groups.
+ *
+ * `staff` — everyone who works ON the system — is the DEFAULT, because this page
+ * is where an admin goes to find a vet or a receptionist, and pet owners
+ * outnumber them by an order of magnitude. The list is capped at 500 rows, so
+ * with clients mixed in the staff are not merely buried, they are off the end of
+ * the query entirely.
+ *
+ * Hiding rows by default is a real cost, so it is paid openly: every tab carries
+ * its live count, straight from the database, and Clients is one click away.
+ */
+const USER_TYPES: Array<{ key: AdminUserType; label: string }> = [
+  { key: 'staff', label: 'Staff & partners' },
+  { key: 'platform', label: 'Platform' },
+  { key: 'clinic', label: 'Clinic' },
+  { key: 'supplier', label: 'Supplier' },
+  { key: 'freelancer', label: 'Freelancer' },
+  { key: 'client', label: 'Clients' },
+  { key: 'all', label: 'Everyone' },
 ];
 
 const roleBadge = (role: string) => {
@@ -40,6 +68,9 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
   const [search, setSearch] = useState('');
   const [clinicId, setClinicId] = useState<string>('');
   const [role, setRole] = useState<string>('ALL');
+  const [userType, setUserType] = useState<AdminUserType>('staff');
+  const [counts, setCounts] = useState<AdminUserCounts | null>(null);
+  const [truncated, setTruncated] = useState(false);
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all');
 
   // Set-password modal state
@@ -74,10 +105,14 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
         search: search.trim() || undefined,
         clinicId: clinicId || undefined,
         role: role !== 'ALL' ? role : undefined,
+        userType,
         status: status !== 'all' ? status : undefined,
       });
-      if (res.success && res.data?.users) setUsers(res.data.users);
-      else setError('Could not load users.');
+      if (res.success && res.data?.users) {
+        setUsers(res.data.users);
+        setCounts(res.data.counts ?? null);
+        setTruncated(!!res.data.truncated);
+      } else setError('Could not load users.');
     } catch (e: any) {
       setError(e?.message || 'Could not load users.');
     } finally {
@@ -90,7 +125,7 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
     const t = setTimeout(load, 300);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [search, clinicId, role, status]);
+  }, [search, clinicId, role, userType, status]);
 
   useEffect(() => {
     clinicsAPI.getAll()
@@ -138,6 +173,36 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
         />
       </div>
 
+      {/* User-type tabs — the filter that makes this page usable at all */}
+      <div className="flex flex-wrap items-center gap-1.5 mb-3">
+        {USER_TYPES.map(t => {
+          const n = counts ? counts[t.key] : undefined;
+          const on = userType === t.key;
+          return (
+            <button
+              key={t.key}
+              onClick={() => setUserType(t.key)}
+              className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest border transition-all ${
+                on
+                  ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine border-transparent shadow-md'
+                  : 'bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:text-pine dark:hover:text-zinc-100'
+              }`}
+            >
+              {t.label}
+              {n !== undefined && (
+                <span className={`ml-1.5 tabular-nums ${on ? 'opacity-70' : 'opacity-50'}`}>{n}</span>
+              )}
+            </button>
+          );
+        })}
+      </div>
+      {userType !== 'all' && counts && (
+        <p className="mb-3 text-[10px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-widest">
+          Showing {USER_TYPES.find(t => t.key === userType)?.label} &middot;{' '}
+          {counts.all - counts[userType]} other user{counts.all - counts[userType] === 1 ? '' : 's'} hidden by this filter
+        </p>
+      )}
+
       {/* Filters */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-2 mb-4">
         <div className="relative md:col-span-2">
@@ -173,10 +238,28 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
 
       {error && <div className="p-3 mb-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-semibold">{error}</div>}
 
+      {/* The row cap bit. Say so — a full-looking page that silently dropped
+          rows is worse than a shorter one that admits it. */}
+      {truncated && (
+        <div className="p-3 mb-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 rounded-xl text-[11px] font-bold text-amber-700 dark:text-amber-300">
+          Showing the 500 most recent matches only. Narrow the type, clinic or search to see the rest.
+        </div>
+      )}
+
       {loading && users.length === 0 ? (
         <LoadingSpinner contentArea message="Loading..." />
       ) : users.length === 0 ? (
-        <div className="py-16 text-center text-sm font-bold text-slate-500">No users match these filters.</div>
+        <div className="py-16 text-center space-y-2">
+          <p className="text-sm font-bold text-slate-500">No users match these filters.</p>
+          {counts && userType !== 'all' && counts.all > 0 && (
+            <button
+              onClick={() => setUserType('all')}
+              className="text-[10px] font-black uppercase tracking-widest text-seafoam hover:underline"
+            >
+              Search all {counts.all} users instead
+            </button>
+          )}
+        </div>
       ) : (
         <div className="space-y-2">
           {users.map(u => (

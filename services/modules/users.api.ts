@@ -43,11 +43,30 @@ export interface AdminUserRow extends User {
   surname?: string;
 }
 
+export type AdminUserType = 'all' | 'staff' | 'platform' | 'clinic' | 'supplier' | 'freelancer' | 'client';
+
 export interface AdminUserFilters {
   search?: string;
   clinicId?: string | number;
   role?: string;
+  /**
+   * Role GROUP. Applied server-side — the list is capped at 500 rows and pet
+   * owners outnumber staff heavily, so without this the staff are truncated
+   * away before any browser-side filter could find them.
+   */
+  userType?: AdminUserType;
   status?: 'active' | 'inactive' | 'all';
+}
+
+/** How many users exist per group — from the DB, so the row cap can't skew it. */
+export interface AdminUserCounts {
+  all: number;
+  staff: number;
+  platform: number;
+  clinic: number;
+  supplier: number;
+  freelancer: number;
+  client: number;
 }
 
 /**
@@ -72,11 +91,12 @@ export const usersAPI = {
   adminList: async (
     filters?: AdminUserFilters,
     options?: RequestOptions
-  ): Promise<ApiResponse<{ users: AdminUserRow[] }>> => {
+  ): Promise<ApiResponse<{ users: AdminUserRow[]; counts?: AdminUserCounts; truncated?: boolean; limit?: number }>> => {
     const qs = new URLSearchParams();
     if (filters?.search) qs.set('search', filters.search);
     if (filters?.clinicId) qs.set('clinicId', String(filters.clinicId));
     if (filters?.role) qs.set('role', filters.role);
+    if (filters?.userType && filters.userType !== 'all') qs.set('userType', filters.userType);
     if (filters?.status) qs.set('status', filters.status);
     const q = qs.toString();
     return get(`/users/admin/all${q ? `?${q}` : ''}`, { cache: false, ...options });
