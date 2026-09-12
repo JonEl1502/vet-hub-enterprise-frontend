@@ -17,6 +17,8 @@
 import React from 'react';
 import { Lock, ArrowUpRight } from 'lucide-react';
 import { usePlanAccess } from '../../../contexts/PlanAccessContext';
+import { useAuth } from '../../../contexts/AuthContext';
+import { UserRole } from '../../../types';
 import { featureCopy } from '../../../services/entitlements';
 import { upgradeSentence } from '../../../services/entitlements';
 
@@ -39,9 +41,18 @@ interface UpgradeGateProps {
   className?: string;
 }
 
-/** Navigate to Billing without coupling this component to the router. */
-const goToBilling = () => {
-  window.dispatchEvent(new CustomEvent('vethub:navigate', { detail: { view: 'billing' } }));
+/**
+ * Navigate to Billing without coupling this component to the router.
+ *
+ * ⚠️ A SUPPLIER'S BILLING IS A DIFFERENT VIEW. `billing` is the clinic page; a
+ * SUPPLIER-role user never reaches the clinic switch in App.tsx, so the event
+ * fell through to their dashboard and "Upgrade plan" quietly did nothing —
+ * the one button on a locked panel that has to work.
+ */
+const goToBilling = (isSupplier: boolean) => {
+  window.dispatchEvent(new CustomEvent('vethub:navigate', {
+    detail: { view: isSupplier ? 'supplier-billing' : 'billing' },
+  }));
 };
 
 const UpgradeGate: React.FC<UpgradeGateProps> = ({
@@ -54,6 +65,8 @@ const UpgradeGate: React.FC<UpgradeGateProps> = ({
   className = '',
 }) => {
   const { can } = usePlanAccess();
+  const { user } = useAuth();
+  const isSupplier = user?.role === UserRole.SUPPLIER;
 
   if (can(feature)) return <>{children}</>;
   if (hideWhenLocked) return null;
@@ -67,7 +80,7 @@ const UpgradeGate: React.FC<UpgradeGateProps> = ({
     return (
       <button
         type="button"
-        onClick={goToBilling}
+        onClick={() => goToBilling(isSupplier)}
         title={`${heading} — click to upgrade`}
         className={`inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-slate-300 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-900/60 text-[11px] font-bold text-slate-500 dark:text-zinc-400 hover:border-pine hover:text-pine dark:hover:text-seafoam transition-all ${className}`}
       >
@@ -91,7 +104,7 @@ const UpgradeGate: React.FC<UpgradeGateProps> = ({
       )}
       <button
         type="button"
-        onClick={goToBilling}
+        onClick={() => goToBilling(isSupplier)}
         className="mt-4 inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-pine text-white text-[11px] font-black uppercase tracking-widest hover:opacity-90 transition-all"
       >
         <ArrowUpRight size={12} /> Upgrade plan

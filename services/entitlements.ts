@@ -302,6 +302,7 @@ export const KEY_LABEL: Record<string, string> = {
   'supplier:bulk-import': 'Bulk order import / export',
   'supplier:clinic-directory': 'Clinic customer directory',
   'supplier:branches': 'Multiple branch locations',
+  'supplier:inventory-insights': 'Stockroom dashboard',
   'supplier:api-access': 'API access',
   'supplier:priority-support': 'Priority support',
   'supplier:dedicated-am': 'Dedicated account manager',
@@ -428,6 +429,13 @@ export const FEATURE_COPY: Record<string, { label: string; plan: string; blurb?:
     label: 'Client portal',
     plan: 'Pro',
     blurb: 'Let pet owners view records and book online.',
+  },
+
+  // Supplier
+  'supplier:inventory-insights': {
+    label: 'Stockroom dashboard',
+    plan: 'Pro',
+    blurb: 'Stock value at cost and at sell, the margin held on the shelf, expiry and reorder alerts, and what has moved — across every branch.',
   },
 
   // Add-on

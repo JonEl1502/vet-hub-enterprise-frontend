@@ -8,8 +8,11 @@ import {
   type SupplierStockRow, type SupplierMovement, type SupplierBatch, type SupplierSource,
 } from '../../../services';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
+import { useAuth } from '../../../contexts/AuthContext';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import PageHeader from '../../shared/common/PageHeader';
+import UpgradeGate from '../../shared/common/UpgradeGate';
+import SupplierInventoryDashboard from './SupplierInventoryDashboard';
 import ReceiveStockModal from './ReceiveStockModal';
 import TransferStockModal from './TransferStockModal';
 import AdjustStockModal from './AdjustStockModal';
@@ -66,6 +69,10 @@ interface Props {
 
 const SupplierInventoryView: React.FC<Props> = ({ setView, canManage = true }) => {
   const { branches } = useSupplierBranch();
+  const { user } = useAuth();
+  // The supplier's own currency — `money()` below defaults to KES, which is
+  // right for most of these accounts and wrong for the rest.
+  const currency = (user?.supplier as any)?.currency || 'KES';
   const [tab, setTab] = useState<Tab>('stock');
 
   /**
@@ -94,6 +101,13 @@ const SupplierInventoryView: React.FC<Props> = ({ setView, canManage = true }) =
   const [status, setStatus] = useState<StatusFilter>('ALL');
   const [category, setCategory] = useState('ALL');
 
+  /**
+   * Bumped whenever this page reloads, so the dashboard above refetches with
+   * it. A receive or a count changes both, and two panels on one screen
+   * disagreeing about the shelf is worse than either being stale alone.
+   */
+  const [dashNonce, setDashNonce] = useState(0);
+
   const [receiving, setReceiving] = useState(false);
   const [transferring, setTransferring] = useState(false);
   const [adjusting, setAdjusting] = useState<SupplierStockRow | null>(null);
@@ -113,6 +127,7 @@ const SupplierInventoryView: React.FC<Props> = ({ setView, canManage = true }) =
       setMovements(m.data.movements);
       setBatches(b.data.batches);
       setSources(src.data.sources);
+      setDashNonce((n) => n + 1);
     } catch (e: any) {
       toast.error(e?.message || 'Could not load the stockroom');
     } finally {
@@ -206,6 +221,20 @@ const SupplierInventoryView: React.FC<Props> = ({ setView, canManage = true }) =
           )}
         </>}
       />
+
+      {/* ── The stockroom dashboard (Pro) ───────────────────────────────
+          Gated, not hidden: a Starter or Growth supplier sees the panel, what
+          it does and what unlocks it, rather than a feature they never learn
+          exists. `UpgradeGate` renders the upsell in place. */}
+      {branchId && (
+        <UpgradeGate feature="supplier:inventory-insights">
+          <SupplierInventoryDashboard
+            branchId={branchId}
+            currency={currency}
+            refreshKey={dashNonce}
+          />
+        </UpgradeGate>
+      )}
 
       {/* The four numbers */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
