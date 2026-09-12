@@ -13,10 +13,22 @@ import { vethubPaystackAPI } from '../../../services/modules/vethubPaystack.api'
 import { cache } from '../../../services/utils/cache';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { PlanCard } from '../../clinic/billing/PlanCard';
+import { planHighlights } from '../../../services/entitlements';
+import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
 
 const SupplierBillingView: React.FC = () => {
   // Collections policy — when a lapsed account is cut back to Billing.
   const { pastDue } = usePublicConfig();
+  const { formatPrice } = useDisplayCurrency();
+
+  /** The cycle a card quotes — the package's featured one, else the first. */
+  const featuredOptionFor = (p: SubscriptionPackage) => {
+    const opts = (p.billingOptions && p.billingOptions.length > 0)
+      ? p.billingOptions
+      : [{ id: '', cycle: (p.billingCycle as any) || 'MONTHLY', price: p.price, currency: p.currency || 'KES', discountPct: 0 }];
+    const featured = (p.featuredCycle as any) || 'MONTHLY';
+    return opts.find((o) => o.cycle === featured) ?? opts[0];
+  };
   const { user } = useAuth();
   const { mySupplier, selectedSupplierIds } = useSupplier();
 
@@ -243,8 +255,35 @@ const SupplierBillingView: React.FC = () => {
     () => packages.find((p) => p.isAddon && /community/i.test(p.name)) ?? null,
     [packages],
   );
+  /**
+   * EVERY add-on this audience can buy — not just Community (user,
+   * 2026-09-12: *"show community as separate pkg too, add all adons
+   * applicables like this"*, pointing at the clinic page's Add-ons row).
+   *
+   * The catalogue is already filtered to SUPPLIER audience upstream, so
+   * whatever comes back flagged `isAddon` is by definition applicable here —
+   * today AI Assist, Community Access and Farms.
+   */
+  const addOnPackages = React.useMemo(
+    () => packages.filter((p) => p.isAddon).sort((a, b) => a.name.localeCompare(b.name)),
+    [packages],
+  );
+
   const communityOwned = !!featureKeys
     && (featureKeys.includes('*') || featureKeys.includes('community:participate'));
+
+  /**
+   * Which add-ons are already held. `'*'` is full access, so everything counts
+   * as owned — offering to sell an add-on to an account that already has
+   * everything is the kind of thing customers screenshot.
+   */
+  const ownsAddOn = React.useCallback((pkg: SubscriptionPackage) => {
+    if (!featureKeys) return false;
+    if (featureKeys.includes('*')) return true;
+    const keys = (pkg as any).featureKeys as string[] | undefined;
+    if (!keys || keys.length === 0) return false;
+    return keys.every((k) => featureKeys.includes(k));
+  }, [featureKeys]);
   useEffect(() => { if (communityOwned) setBundleCommunity(false); }, [communityOwned]);
 
   if (loading) {
@@ -454,6 +493,84 @@ const SupplierBillingView: React.FC = () => {
             />
           ))}
         </div>
+
+        {/* ── Add-ons ──────────────────────────────────────────────────────
+            Sold ON TOP of whatever plan you hold, so they get their own row
+            rather than competing with the tiers above — the same shape the
+            clinic page uses.
+
+            ⚠️ Community Access appears TWICE on purpose: as the tick on every
+            plan card (bought in the same charge) and as a card here (bought on
+            its own). They are two ways to buy one thing, not two things, which
+            is why the tick's state is a single page-level boolean. */}
+        {addOnPackages.length > 0 && (
+          <section className="mt-10">
+            <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-wider mb-1 flex items-center gap-2">
+              <Zap size={15} className="text-seafoam" /> Add-ons
+            </h2>
+            <p className="text-xs text-slate-400 dark:text-zinc-500 mb-4">
+              Extras that work with any plan. Buying one doesn't change your subscription.
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {addOnPackages.map((pkg) => {
+                const owned = ownsAddOn(pkg);
+                const isCommunity = communityAddOn?.id === pkg.id;
+                // The tick above and this card are one fact; `owned` wins,
+                // because once it is bought there is no selection left to make.
+                const selected = isCommunity && !owned && bundleCommunity;
+                return (
+                  <div
+                    key={pkg.id}
+                    className={`rounded-2xl border p-5 flex flex-col transition-colors ${
+                      owned || selected
+                        ? 'border-seafoam bg-seafoam/5 dark:bg-seafoam/10'
+                        : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-black text-pine dark:text-zinc-100">{pkg.name}</p>
+                        <p className="text-lg font-black text-pine dark:text-zinc-100 mt-1">
+                          {formatPrice(featuredOptionFor(pkg).price, featuredOptionFor(pkg).currency)}
+                          <span className="text-[11px] font-normal text-slate-400"> /mo</span>
+                        </p>
+                      </div>
+                      {owned && (
+                        <span className="shrink-0 px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-widest">
+                          Bought
+                        </span>
+                      )}
+                    </div>
+
+                    {planHighlights((pkg as any).featureKeys, 'SUPPLIER')?.length ? (
+                      <ul className="mt-3 space-y-1.5 flex-1">
+                        {planHighlights((pkg as any).featureKeys, 'SUPPLIER')!.slice(0, 4).map((f) => (
+                          <li key={f} className="flex items-start gap-2 text-xs text-slate-600 dark:text-zinc-400">
+                            <CheckCircle2 size={11} className="text-seafoam shrink-0 mt-0.5" /> {f}
+                          </li>
+                        ))}
+                      </ul>
+                    ) : <div className="flex-1" />}
+
+                    {owned ? (
+                      <p className="mt-4 text-[11px] font-bold text-slate-400">
+                        Active on this account — it is not charged again.
+                      </p>
+                    ) : (
+                      <button
+                        onClick={() => handlePaystackPay(pkg, undefined, undefined)}
+                        disabled={paystackPkgId === pkg.id}
+                        className="mt-4 w-full py-2.5 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[11px] font-black uppercase tracking-widest hover:opacity-90 disabled:opacity-50"
+                      >
+                        {paystackPkgId === pkg.id ? 'Starting…' : `Buy ${pkg.name} on its own`}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+        )}
 
         {packages.length === 0 && !loading && (
           <div className="text-center py-16 text-slate-400">

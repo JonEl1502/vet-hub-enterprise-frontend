@@ -553,6 +553,31 @@ const BillingView: React.FC = () => {
   // Plan grid — an add-on is tier 0 and would read as a downgrade to nothing.
   const allPackages = info?.packages ?? [];
   const packages = allPackages.filter((p) => !p.isAddon);
+
+  /**
+   * ⚠️ TIER 0 IS A BAND, NOT THE BOTTOM OF THE LADDER.
+   *
+   * Practitioner / Boarding / Grooming / Counter are PERSONA plans: same
+   * records, different app, all at tier 0. The rungs (Basic → Pro →
+   * Enterprise, or Smallholder → Farm → Estate) start at tier 1.
+   *
+   * Rendering both in one grid sorted by price put Practitioner — KES 5 with
+   * TWENTY feature keys — at the head of a farm ladder whose top rung, Estate,
+   * is KES 20 with sixteen. The cheapest card read as the biggest, which is
+   * exactly what it looked like (user, 2026-09-12: *"Practitioner is offering
+   * everything"* / *"thats bad"*).
+   *
+   * Splitting them is the honest presentation: a band plan is a STARTING
+   * POINT you pick by what kind of business you are, a rung is a SIZE you pick
+   * by how much you need. They were never comparable, and the grid was
+   * inviting the comparison.
+   *
+   * ⚠️ This is the DISPLAY half only. Practitioner genuinely granting more
+   * keys than Estate for a quarter of the price is a pricing decision, not a
+   * layout one, and is left alone deliberately.
+   */
+  const bandPackages = packages.filter((p) => (p.tier ?? 0) === 0);
+  const rungPackages = packages.filter((p) => (p.tier ?? 0) > 0);
   const addOnPackages = allPackages.filter((p) => p.isAddon);
   // Which add-ons this clinic already holds (names, from the access endpoint).
   const ownedAddOnNames = ownedAddOnNameSet;
@@ -897,12 +922,18 @@ const BillingView: React.FC = () => {
       {/* Available Plans */}
       {packages.length > 0 && (
         <section>
-          <h2 className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-4 flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-1 flex items-center gap-2">
             <Package size={15} />
             {sub ? 'Change Plan' : 'Choose a Plan'}
           </h2>
+          {bandPackages.length > 0 && (
+            <p className="text-xs text-slate-400 dark:text-zinc-500 mb-4">
+              Sized plans. If you run one kind of work rather than a whole practice, see the
+              focused plans below.
+            </p>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {packages.map((pkg, i) => (
+            {(bandPackages.length > 0 ? rungPackages : packages).map((pkg, i) => (
               <PlanCard
                 key={pkg.id}
                 pkg={pkg}
@@ -951,6 +982,46 @@ const BillingView: React.FC = () => {
             Each plan is billed on the cycle shown on its card — use "Change cycle" to
             pick another. You can change your plan at any time.
           </p>
+
+          {/* ── Focused plans (the tier-0 BAND) ────────────────────────────
+              One kind of work rather than a whole practice. Given their own
+              row because they are not a rung: you pick one by WHAT YOU DO, not
+              by how big you are, and putting them in the ladder made the
+              cheapest card look like the most generous. */}
+          {bandPackages.length > 0 && (
+            <div className="mt-10">
+              <h3 className="text-sm font-semibold text-slate-700 dark:text-zinc-300 mb-1 flex items-center gap-2">
+                <Zap size={15} /> Focused plans
+              </h3>
+              <p className="text-xs text-slate-400 dark:text-zinc-500 mb-4">
+                For a single line of work — a mobile practice, a groomer, a boarding kennel, a
+                counter. Same records underneath; the app is arranged around that job.
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {bandPackages.map((pkg, i) => (
+                  <PlanCard
+                    key={pkg.id}
+                    pkg={pkg}
+                    isCurrent={sub?.package?.id === pkg.id}
+                    isLoading={actionLoading === (pkg.stripePriceId ?? pkg.id)}
+                    onSelect={() => { if (pkg.stripePriceId) handleCheckout(pkg.stripePriceId, pkg.id); }}
+                    onPayWithPaystack={(optionId, cycle) => handlePaystackPay(pkg, optionId, cycle)}
+                    paystackLoading={paystackPlanId === pkg.id}
+                    currentSubBillingCycle={(sub?.billingCycle as any) ?? null}
+                    currentSubTier={sub?.package?.tier ?? null}
+                    getPlanIcon={getPlanIcon}
+                    delay={i * 0.05}
+                    bundleAddOn={communityAddOn}
+                    bundleAddOnOwned={communityOwned}
+                    bundleChecked={bundleCommunity}
+                    onBundleCheckedChange={setBundleCommunity}
+                    /* No `inheritsFrom`: a band plan sits beside its siblings,
+                       not above one. "Everything in X, plus" would be a lie. */
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </section>
       )}
 
