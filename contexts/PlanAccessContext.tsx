@@ -108,6 +108,10 @@ export const PlanAccessProvider: React.FC<{ children: React.ReactNode }> = ({ ch
             // a trial could never be shown as a trial with a countdown.
             trialEndsAt: (r.data as any).trialEndsAt ?? null,
             graceFullAccessUntil: (r.data as any).graceFullAccessUntil ?? null,
+            // Dropped here too, for the same reason `trialEndsAt` was: nothing
+            // downstream could say WHEN a plan lapsed, so a past-due account
+            // could only be described as "no plan".
+            expiresAt: (r.data as any).expiresAt ?? null,
             addOns: (r.data as any).addOns ?? [],
           });
         } else {

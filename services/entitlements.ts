@@ -34,6 +34,19 @@ export interface PlanAccess {
   trialEndsAt?: string | null;
   /** Active add-ons layering over the base plan (e.g. AI Assist). */
   addOns?: Array<{ name: string | null; expiresAt: string }>;
+  /**
+   * When the BASE plan runs out — or ran out. The server has always sent it;
+   * the client dropped it, so nothing could say how overdue an account was.
+   */
+  expiresAt?: string | null;
+}
+
+/** Days since the plan lapsed. Null when it has not, or is unknown. */
+export function daysOverdue(access: PlanAccess | null): number | null {
+  if (!access?.expiresAt) return null;
+  const end = new Date(access.expiresAt).getTime();
+  if (!Number.isFinite(end) || end > Date.now()) return null;
+  return Math.floor((Date.now() - end) / 86_400_000);
 }
 
 /**

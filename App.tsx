@@ -138,6 +138,7 @@ import SubscriptionUpgrade from './components/clinic/billing/SubscriptionUpgrade
 import SupplierOnboarding from './components/supplier/onboarding/SupplierOnboarding';
 import SupplierVerification from './components/supplier/onboarding/SupplierVerification';
 import SupplierProfileManagement from './components/supplier/profile/SupplierProfileManagement';
+import SubscriptionLapsedModal from './components/shared/common/SubscriptionLapsedModal';
 import PurchaseOrderDetailView from './components/shared/marketplace/PurchaseOrderDetailView';
 import B2BJobsStats from './components/clinic/partnerships/B2BJobsStats';
 import DateRangePicker from './components/shared/common/DateRangePicker';
@@ -3633,6 +3634,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               <ErrorBoundary key={activeView} label={activeView}>
                 {renderContent()}
               </ErrorBoundary>
+              {/* Past-due nag. Renders nothing unless the plan has actually
+                  lapsed, and never over Emergency — see the component. */}
+              <SubscriptionLapsedModal
+                activeView={activeView}
+                onGoToBilling={() => navigateTo('billing')}
+              />
             </div>
           )}
         </main>
