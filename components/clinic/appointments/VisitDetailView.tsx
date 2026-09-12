@@ -805,8 +805,28 @@ const VisitDetailInner: React.FC<Props> = ({
     });
     if (!ok) return;
     try {
+      /**
+       * ⚠️ A TASK THAT IS ALREADY GONE IS A SUCCESS, NOT A FAILURE.
+       *
+       * `doomed` is filtered from the appointment in memory, and that list goes
+       * stale the moment the same service is removed from the Bill tab (the
+       * bill-line delete takes its visit task with it) or a procedure recipe is
+       * un-applied. Deleting it again 404s, the loop threw, and the whole
+       * removal aborted BEFORE the encounter row was touched — so the chip
+       * stayed put behind "Task not found · Request failed with status code
+       * 404" (user, 2026-09-12, Goofy's vaccination encounter).
+       *
+       * Only a 404 is swallowed: anything else (a settled bill, a permission
+       * refusal) is a real reason not to carry on, and still stops the loop.
+       */
       for (const t of doomed) {
-        await visitsAPI.deleteTask(appointment.id, t.id);
+        try {
+          await visitsAPI.deleteTask(appointment.id, t.id, { showError: false });
+        } catch (err: any) {
+          const code = err?.status ?? err?.response?.status;
+          const gone = code === 404 || /task not found/i.test(err?.response?.data?.message || err?.message || '');
+          if (!gone) throw err;
+        }
       }
       // A visitType-driven chip (vaccination, deworming…) re-derives from the
       // VISIT TYPE, so deleting its services alone leaves the chip standing —
@@ -6529,17 +6549,6 @@ const VisitDetailInner: React.FC<Props> = ({
                      </div>
                    )}
 
-                   {swapTask && (
-        <SwapServiceDialog
-          visitId={appointment.id}
-          taskId={swapTask.id}
-          currentName={swapTask.name}
-          category={swapTask.category}
-          onClose={() => setSwapTask(null)}
-          onSwapped={() => { setSwapTask(null); onRefreshDashboard?.(); }}
-        />
-      )}
-
       {/* Grooming Report — per-workflow report for this visit's
                        grooming work (077). Renders with placeholders when the
                        report card hasn't been filled yet. */}
@@ -9084,6 +9093,30 @@ const VisitDetailInner: React.FC<Props> = ({
             </div>
           </div>
         </>
+      )}
+
+      {/**
+        * CHANGE SERVICE — TOP LEVEL, not inside a tab.
+        *
+        * This used to render inside the `records | billing` block, so the two
+        * places that OPEN it — the task menu and the wizard's running-bill rail,
+        * both on the clinical workflow — set the state and rendered nothing.
+        * The click looked like it did nothing, and the dialog then "spawned by
+        * itself" the next time the user opened Bill & Invoice, naming a service
+        * they had stopped thinking about (user, 2026-09-12: "this dialog spawns
+        * after i do another action").
+        *
+        * A modal belongs beside the other modals: it is not part of any tab.
+        */}
+      {swapTask && (
+        <SwapServiceDialog
+          visitId={appointment.id}
+          taskId={swapTask.id}
+          currentName={swapTask.name}
+          category={swapTask.category}
+          onClose={() => setSwapTask(null)}
+          onSwapped={() => { setSwapTask(null); onRefreshDashboard?.(); }}
+        />
       )}
     </div>
   );

@@ -239,6 +239,34 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
    * certificate and totalling 1,717.50.
    */
   const autoSyncRef = React.useRef(0);
+
+  /**
+   * Re-evaluate the visit's procedure recipes, then bring the bill back in
+   * line. The shared body behind both the `syncNonce` effect below and the
+   * delete paths — "after deleting services always rebuild n recalculate"
+   * (user, 2026-09-12).
+   *
+   * Returns nothing and never throws: it is a reconciliation, not the action
+   * the user pressed, and a failed sync must not undo a successful delete.
+   */
+  const reevaluateAndSync = React.useCallback(async (opts: { announce?: boolean } = {}) => {
+    try {
+      const r = await procedureTemplatesAPI.listApplications(visit.id, { showError: false } as any);
+      for (const app of (r.success ? r.data?.applications ?? [] : [])) {
+        await procedureTemplatesAPI.reevaluate(app.id, {
+          weightKg: app.weightKg != null ? Number(app.weightKg) : undefined,
+          flags: (app.flags ?? undefined) as any,
+        }, { showError: false } as any).catch(() => {});
+      }
+    } catch { /* no recipes on this visit — the sync below still matters */ }
+    const res = await billsAPI.sync(visit.id, encounterId).catch(() => null);
+    if (!res?.success) return null;
+    apply(res);
+    if (opts.announce && res.data?.changed) toast.success('Bill brought in line with the visit');
+    return res;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [visit.id, encounterId]);
+
   React.useEffect(() => {
     if (!syncNonce || syncNonce === autoSyncRef.current) return;
     autoSyncRef.current = syncNonce;
@@ -247,18 +275,8 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
     if (!bill?.editable) return;
     let alive = true;
     (async () => {
-      try {
-        const r = await procedureTemplatesAPI.listApplications(visit.id, { showError: false } as any);
-        for (const app of (r.success ? r.data?.applications ?? [] : [])) {
-          await procedureTemplatesAPI.reevaluate(app.id, {
-            weightKg: app.weightKg != null ? Number(app.weightKg) : undefined,
-            flags: (app.flags ?? undefined) as any,
-          }, { showError: false } as any).catch(() => {});
-        }
-      } catch { /* no recipes on this visit — the sync below still matters */ }
-      const res = await billsAPI.sync(visit.id, encounterId).catch(() => null);
-      if (!alive || !res?.success) return;
-      apply(res);
+      const res = await reevaluateAndSync({ announce: false });
+      if (!alive || !res) return;
       if (res.data?.changed) toast.success('Bill brought in line with the visit');
     })();
     return () => { alive = false; };
@@ -311,10 +329,27 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
    */
   const removeLine = async (l: BillLine) => {
     setBusy(true);
+    /**
+     * ⚠️ EVERY DELETE ENDS IN A RECALCULATION.
+     *
+     * Removing a line also removes its visit task, which can strand a procedure
+     * recipe that was priced off it and leave a sibling line the visit no
+     * longer backs. Doing the delete and stopping is how the bill ended up
+     * reading 0 while the visit still claimed 1,200 (user, 2026-09-12: "after
+     * deleting services always rebuild n recalculate").
+     *
+     * `sync`, never `refresh` — see the auto-sync note above. Refresh would
+     * re-snapshot from scratch and destroy anything typed in by hand at bill
+     * review.
+     */
+    const settle = async () => {
+      await reevaluateAndSync({ announce: false });
+      onChanged?.();
+    };
     try {
       apply(await billsAPI.removeLine(visit.id, l.id, undefined, encounterId));
       toast.success('Line removed');
-      onChanged?.();
+      await settle();
     } catch (e: any) {
       const msg: string = e?.message || '';
       const needsConfirm = e?.status === 409 || /already has work recorded/i.test(msg);
@@ -329,7 +364,7 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
       try {
         apply(await billsAPI.removeLine(visit.id, l.id, true, encounterId));
         toast.success('Line removed');
-        onChanged?.();
+        await settle();
       } catch (e2: any) {
         toast.error(e2?.message || 'Something went wrong');
       }
@@ -443,8 +478,16 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
    *
    * The tasks are the truth. `totalCost` is only the fallback for a visit
    * whose tasks were not included in the payload.
+   *
+   * ⚠️ AN EMPTY ARRAY IS AN ANSWER, NOT A MISSING PAYLOAD.
+   *
+   * `&& visit.tasks.length` made "no tasks left" fall through to the drifting
+   * column, so deleting the LAST service left the badge advertising the old
+   * figure over an empty bill — prod visit 2829 read "· +1,200" with zero tasks
+   * and zero lines (user, 2026-09-12). Present-and-empty means zero; only an
+   * absent array falls back.
    */
-  const visitWorkTotal = Array.isArray(visit.tasks) && visit.tasks.length
+  const visitWorkTotal = Array.isArray(visit.tasks)
     ? (visit.tasks as any[]).reduce((sum, t) => sum + (Number(t.price) || 0), 0)
     : Number(visit.totalCost || 0);
   const billBehindBy = Math.max(0, visitWorkTotal - Number(bill.total || 0));
