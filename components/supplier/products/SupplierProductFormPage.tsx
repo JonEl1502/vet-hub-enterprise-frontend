@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import ProductStructureFields, { type MainCategory } from '../../shared/common/ProductStructureFields';
 import PageHeader from '../../shared/common/PageHeader';
+import { unitMath } from '../../../utils/pricing';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
 import { supplierProductsAPI } from '../../../services/modules/supplierProducts.api';
@@ -88,6 +89,18 @@ interface ProductFormData {
   packSize: string;
   /** What the SUPPLIER suggests clinics resell at. Advisory — they may inherit it. */
   suggestedSellPrice: string;
+  /**
+   * The three fields that let buy and sell be quoted in DIFFERENT units — the
+   * same contract the clinic's inventory form uses, carried in `metadata` so it
+   * rides onto clinic stock on PO receive.
+   *
+   * `unit` is the STOCK unit (what a Box is). `sellUnit` is what the sell price
+   * is quoted in (a Tablet), `costUnit` what the buy price is quoted in, and
+   * `sellQty` how many sell units one quoted price covers ("980 per 1 Bottle").
+   */
+  sellUnit: string;
+  costUnit: string;
+  sellQty: string;
 }
 
 const emptyForm = (defaultCurrency = 'KES'): ProductFormData => ({
@@ -108,6 +121,9 @@ const emptyForm = (defaultCurrency = 'KES'): ProductFormData => ({
   subcategories: [] as string[],
   packSize: '',
   suggestedSellPrice: '',
+  sellUnit: '',
+  costUnit: '',
+  sellQty: '1',
   countryOfOrigin: '',
   imageUrl: '',
 });
@@ -183,6 +199,11 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
           subcategories: (p as any).metadata?.subcategories ?? [],
           packSize: (p as any).packSize != null ? String((p as any).packSize) : '',
           suggestedSellPrice: (p as any).suggestedSellPrice != null ? String((p as any).suggestedSellPrice) : '',
+          // Blank means "same as the stock unit" — never invent a split that
+          // the product does not have.
+          sellUnit: (p as any).metadata?.sellUnit ?? '',
+          costUnit: (p as any).metadata?.costUnit ?? '',
+          sellQty: (p as any).metadata?.sellQty != null ? String((p as any).metadata.sellQty) : '1',
           countryOfOrigin: p.countryOfOrigin ?? '',
           imageUrl: p.imageUrl ?? '',
         });
@@ -271,13 +292,15 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
         manufacturer: form.manufacturer.trim() || undefined,
         countryOfOrigin: form.countryOfOrigin.trim() || undefined,
         imageUrl: form.imageUrl || undefined,
-        // The shared structure (155). `sellUnit`/`costUnit` mirror the listing's
-        // unit so the sell/stock bridge starts consistent rather than empty.
+        // The shared structure (155). An empty sell/cost unit falls back to the
+        // listing's own unit, so an untouched product keeps the 1:1 shape it
+        // always had rather than acquiring a split nobody asked for.
         metadata: {
           mainCategory: form.mainCategory,
           subcategories: form.subcategories,
-          sellUnit: form.unit,
-          costUnit: form.unit,
+          sellUnit: form.sellUnit || form.unit,
+          costUnit: form.costUnit || form.unit,
+          sellQty: Number(form.sellQty) || 1,
         },
         packSize: form.packSize ? Number(form.packSize) : undefined,
         suggestedSellPrice: form.suggestedSellPrice ? Number(form.suggestedSellPrice) : undefined,
@@ -500,38 +523,77 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
           </div>
         </div>
 
-        {/* Buy + Sell + Currency */}
+        {/* ── Buy + Sell + Currency ────────────────────────────────────────
+            The clinic's inventory treatment, on the supplier's catalogue (user,
+            2026-09-12: *"the same UI … because it just works, and show the
+            profit margins too"*).
+
+            Each price carries ITS OWN unit, because buying a Box and selling a
+            Tablet out of it is the normal case in this trade. `unitMath` (the
+            shared helper both forms now import) bridges them through the pack
+            size and refuses to guess when it cannot — a wrong margin is worse
+            than no margin. */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Buy Price — what you paid</label>
+            <div className="flex gap-2">
+              <div className="relative flex-1 min-w-0">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">{getCurrencySymbol(form.currency)}</span>
+                <input
+                  type="number"
+                  value={form.buyPrice}
+                  onChange={e => setForm({ ...form, buyPrice: e.target.value })}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-9 pr-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
+                />
+              </div>
+              <select
+                className="w-28 shrink-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-2 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-xs"
+                value={form.costUnit || form.unit}
+                onChange={e => setForm({ ...form, costUnit: e.target.value })}
+                title="The buy price is per this unit"
+              >
+                {Array.from(new Set([form.unit, ...UNITS])).map(u => <option key={u} value={u}>per {u}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="space-y-1">
+            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Sell Price — what the clinic pays *</label>
+            <div className="flex gap-2 items-center">
+              <div className="relative flex-1 min-w-0">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">{getCurrencySymbol(form.currency)}</span>
+                <input
+                  type="number"
+                  value={form.unitPrice}
+                  onChange={e => setForm({ ...form, unitPrice: e.target.value })}
+                  placeholder="0.00"
+                  step="0.01"
+                  min="0"
+                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-9 pr-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
+                />
+              </div>
+              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 shrink-0">per</span>
+              <input
+                type="number" min="0.01" step="any"
+                title="The sell price covers this many sell units"
+                value={form.sellQty}
+                onChange={e => setForm({ ...form, sellQty: e.target.value })}
+                className="w-14 shrink-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-2 py-3 text-pine dark:text-zinc-100 font-black text-center outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
+              />
+              <select
+                className="w-24 shrink-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-2 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-xs"
+                value={form.sellUnit || form.unit}
+                onChange={e => setForm({ ...form, sellUnit: e.target.value })}
+                title="The unit the clinic buys in"
+              >
+                {Array.from(new Set([form.unit, ...UNITS])).map(u => <option key={u} value={u}>{u}</option>)}
+              </select>
+            </div>
+          </div>
+        </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Buy Price</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">{getCurrencySymbol(form.currency)}</span>
-              <input
-                type="number"
-                value={form.buyPrice}
-                onChange={e => setForm({ ...form, buyPrice: e.target.value })}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-9 pr-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
-              />
-            </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Sell Price *</label>
-            <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">{getCurrencySymbol(form.currency)}</span>
-              <input
-                type="number"
-                value={form.unitPrice}
-                onChange={e => setForm({ ...form, unitPrice: e.target.value })}
-                placeholder="0.00"
-                step="0.01"
-                min="0"
-                className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-9 pr-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
-              />
-            </div>
-          </div>
           <div className="space-y-1">
             <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Currency</label>
             <select
@@ -543,11 +605,98 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
             </select>
           </div>
         </div>
+
+        {/* ── Margin readout ───────────────────────────────────────────────
+            What this listing actually makes, live, while it is being priced —
+            per unit, as markup, as margin of sale, and across the whole stock
+            quantity. Word for word the clinic's treatment; the only difference
+            is whose money it is. */}
         {(() => {
-          const b = parseFloat(form.buyPrice); const s = parseFloat(form.unitPrice);
-          if (!b || !s || b <= 0) return null;
-          const m = Math.round(((s - b) / b) * 100);
-          return <p className={`text-[10px] font-black ${m >= 0 ? 'text-emerald-600' : 'text-rose-500'}`}>Margin: {m > 0 ? '+' : ''}{m}% per {form.unit}</p>;
+          const mm = unitMath({
+            unit: form.unit,
+            sellUnit: form.sellUnit || form.unit,
+            costUnit: form.costUnit || form.unit,
+            packSize: Number(form.packSize) || 0,
+            quantity: form.stockQty,
+            price: form.unitPrice,
+            costPrice: form.buyPrice,
+            sellQty: form.sellQty,
+          });
+          const sale = mm.salePerSell;
+          if (sale <= 0) return null;
+          const cur = form.currency;
+          const n = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+          if (mm.cost <= 0) {
+            return (
+              <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 px-1">
+                Add a buy price to see what you make on this listing.
+              </p>
+            );
+          }
+          // ⚠️ NO NUMBER rather than a confident wrong one. If cost is quoted in
+          // a unit that is neither the stock nor the sell unit, or a split has
+          // no pack size to bridge it, the subtraction is meaningless.
+          if (mm.costPerSell === null || !mm.resolvable) {
+            return (
+              <div className="px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900">
+                <p className="text-[10px] font-bold text-amber-800 dark:text-amber-300">
+                  {mm.split && mm.sellPerStock === 0
+                    ? <>Set <strong>Units per pack</strong> above — without it there is no way to work out a per-{mm.sellU} margin from a price quoted per {mm.stockU}.</>
+                    : <>The buy price is quoted per <strong>{mm.costU}</strong>, which is neither the stock unit ({mm.stockU}) nor the sell unit ({mm.sellU}) — no margin shown.</>}
+                </p>
+              </div>
+            );
+          }
+
+          const profit = sale - mm.costPerSell;
+          const markup = mm.costPerSell > 0 ? (profit / mm.costPerSell) * 100 : 0;
+          const marginPct = (profit / sale) * 100;
+          const stockProfit = profit * mm.qtyInSell;
+          const loss = profit < 0;
+
+          return (
+            <div className={`px-3 py-2.5 rounded-xl border ${loss
+              ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900'
+              : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900'}`}>
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">
+                  {loss ? 'Selling at a loss' : 'Profit'}
+                </span>
+                <span className={`text-sm font-black font-mono ${loss ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                  {cur} {n(profit)}<span className="text-[10px] font-bold text-slate-400"> / {mm.sellU}</span>
+                </span>
+                <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                  Markup <strong className={loss ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}>{n(markup)}%</strong>
+                  {' · '}Margin <strong className={loss ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}>{n(marginPct)}%</strong> of sale
+                </span>
+                {mm.qty > 0 && (
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                    On {n(mm.qty)} {mm.stockU}
+                    {mm.qtyInSell !== mm.qty ? ` (${n(mm.qtyInSell)} ${mm.sellU})` : ''}
+                    : <strong className={loss ? 'text-red-600' : 'text-pine dark:text-zinc-100'}>{cur} {n(stockProfit)}</strong>
+                  </span>
+                )}
+              </div>
+              {mm.split && (
+                <p className="text-[9px] font-bold text-slate-400 mt-1">
+                  1 {mm.stockU} = {n(mm.sellPerStock)} {mm.sellU}
+                  {mm.costIsStock && <> · buy {cur} {n(mm.cost)} per {mm.costU} ÷ {n(mm.pack)} = {cur} {n(mm.costPerSell)} per {mm.sellU}</>}
+                  {mm.costIsSell && <> · buy {cur} {n(mm.cost)} per {mm.sellU}</>}
+                </p>
+              )}
+              {/* The supplier's own margin is not the clinic's. Say so, or the
+                  suggested resale price reads as part of this sum. */}
+              {Number(form.suggestedSellPrice) > 0 && (
+                <p className="text-[9px] font-bold text-slate-400 mt-0.5">
+                  Your suggested resale of {cur} {n(Number(form.suggestedSellPrice))} would leave the clinic{' '}
+                  <strong className="text-pine dark:text-zinc-100">
+                    {cur} {n(Number(form.suggestedSellPrice) - sale)}
+                  </strong>{' '} per {mm.sellU} — their margin, not yours.
+                </p>
+              )}
+            </div>
+          );
         })()}
       </div>
 
