@@ -967,10 +967,32 @@ const VisitDetailInner: React.FC<Props> = ({
     }
     const want = type === 'VET_VISIT' ? 'consult' : type === 'GROOMING' ? 'groom' : type === 'BOARDING' ? 'board' : type === 'VACCINATION' ? 'vaccin' : 'inpatient';
     const cat = refCategories.find(c => c.name.toLowerCase().includes(want));
-    const svc = cat ? refServices.find(s => s.categoryId === cat.id) : undefined;
+    /**
+     * ⚠️ NEVER AUTO-PICK A GROOMING SERVICE.
+     *
+     * `refServices.find(categoryId === cat.id)` takes whatever sorts FIRST in
+     * the category — which is arbitrary, and it is a real charge. Adding a
+     * Grooming encounter silently billed "Anal Gland Expression" at one clinic
+     * and "Bath Only" at another, purely on list order (user, 2026-09-12:
+     * *"stop adding anal gland in grooming automatically leave blank"*).
+     *
+     * Exactly the bug VACCINATION was fixed for on 2026-08-02, where the same
+     * line picked Bordetella. The groomer chooses the service in the workflow
+     * step, the same way the vet chooses the vaccine — a consultation FEE is
+     * different, because there is only one of it and every visit has one.
+     */
+    const svc = cat && type !== 'GROOMING'
+      ? refServices.find(s => s.categoryId === cat.id)
+      : undefined;
     // Vet-visit consultation prefers the configured consultation fee.
-    const price = entryFeeFor(loadVisitFees(), type, type === 'VET_VISIT' ? 'CONSULTATION' : undefined) ?? Number(svc?.defaultPrice ?? 0);
-    onInjectTask(appointment.id, {
+    const configuredFee = entryFeeFor(loadVisitFees(), type, type === 'VET_VISIT' ? 'CONSULTATION' : undefined);
+    // Blank, not zero-priced-guess: with no service picked and no configured
+    // entry fee there is nothing to charge yet, and the groomer prices it when
+    // they pick the actual service.
+    const price = configuredFee ?? Number(svc?.defaultPrice ?? 0);
+    // Nothing to bill yet on a grooming encounter with no configured entry fee
+    // — the chip and its workflow step are the whole point of adding it.
+    if (!(type === 'GROOMING' && configuredFee == null)) onInjectTask(appointment.id, {
       id: Math.floor(Math.random() * 1000000),
       name: svc?.name || labels[type],
       category: cat?.name || labels[type],
@@ -988,6 +1010,11 @@ const VisitDetailInner: React.FC<Props> = ({
       serviceId: svc?.id,
     } as any);
     wiz.emit(`Added ${labels[type]} — ${reason}`, 'billing', true);
+    // Say WHY the bill did not move, or an empty running bill reads as a
+    // failed add — the same sentence the vaccination path gives.
+    if (type === 'GROOMING' && configuredFee == null) {
+      toast.success('Grooming added — pick the services in its workflow step');
+    }
     // 172: the encounter ROW is what makes the chip real — the wizard resolves
     // its steps from it, and its × deletes it. Best-effort; the task/fee above
     // already landed either way.
