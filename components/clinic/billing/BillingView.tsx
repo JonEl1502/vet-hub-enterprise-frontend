@@ -13,6 +13,7 @@ import { vethubMpesaAPI, toast, dialog } from '../../../services';
 import type { MpesaAttemptStatus } from '../../../services';
 import { clinicSubscriptionAPI, type ClinicUsage } from '../../../services/modules/clinicSubscription.api';
 import ReportPaymentIssueModal from './ReportPaymentIssueModal';
+import PayCanvas from './PayCanvas';
 import { LifeBuoy } from 'lucide-react';
 import DocumentActions from '../shared/DocumentActions';
 import { vethubPaystackAPI } from '../../../services/modules/vethubPaystack.api';
@@ -338,13 +339,34 @@ const BillingView: React.FC = () => {
   // (card + mobile money) is now the only subscription rail. Historical
   // Lipana payments still render in the payment-history table below.
 
-  // ── Paystack subscription payment flow ──────────────────────
-  // Paystack hosts the checkout (card + mobile money + bank), so this is a
-  // redirect, not an in-app modal. We initiate, stash the reference, and
-  // send the user to Paystack's authorization URL. On return the
-  // visibility/focus refetch picks up the activated sub; the effect below
-  // also actively polls the attempt status for a snappier confirmation.
+  // ── Subscription payment flow ───────────────────────────────
+  /**
+   * Pressing a plan button opens OUR canvas, not checkout.paystack.com.
+   *
+   * The redirect still exists as the card fallback INSIDE PayCanvas — if this
+   * Paystack account has no public key configured there is no Inline overlay to
+   * open, and a hosted page that works beats a modal that can't. But the default
+   * path no longer leaves the app: mobile money is ours end to end, and cards
+   * open Paystack's Inline iframe over this page.
+   *
+   * The initiate call moved INTO the canvas along with the method choice — the
+   * server needs to know mobile-money-vs-hosted before it can create the
+   * transaction, so there is nothing to initiate until the payer has chosen.
+   * That also means a server policy refusal (a downgrade, a wrong cycle) now
+   * surfaces inside the canvas rather than as a toast over a page that already
+   * navigated away.
+   *
+   * The return-from-Paystack effect below is kept as-is: the hosted fallback,
+   * and any half-finished older attempt, still come back through the callback
+   * URL and must still self-heal.
+   */
   const [paystackPlanId, setPaystackPlanId] = useState<string | null>(null);
+  const [payTarget, setPayTarget] = useState<{
+    pkg: SubscriptionPackage;
+    optionId: string | null;
+    cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL';
+    addOnPackageIds: string[];
+  } | null>(null);
 
   /**
    * 288 — the add-on the plan cards offer as a tick.
@@ -384,55 +406,33 @@ const BillingView: React.FC = () => {
     if (communityOwned) setBundleCommunity(false);
   }, [communityOwned]);
 
-  const handlePaystackPay = async (
+  const handlePaystackPay = (
     pkg: SubscriptionPackage,
     optionId: string | null,
     cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL',
   ) => {
     if (!clinicId) return;
-    const email = user?.email?.trim();
-    if (!email) {
-      toast.error('Add an email to your account to pay by card.');
+    // Checked HERE rather than in the canvas: an account with no email cannot
+    // pay by any method, so the honest thing is to never open the canvas.
+    if (!user?.email?.trim()) {
+      toast.error('Add an email to your account before paying.');
       return;
     }
     setPaystackPlanId(pkg.id);
-    try {
-      const res = await vethubPaystackAPI.initiate(clinicId, {
-        packageId: pkg.id,
-        billingOptionId: optionId ?? undefined,
-        cycle,
-        email,
-        /**
-         * 288 — the ticked add-ons, as IDS. The server prices both lines from
-         * the catalogue and sums them; nothing here says what anything costs
-         * (user: *"we're not passing the amount from front end. That is
-         * wrong."*).
-         *
-         * Skipped when THIS purchase already IS the add-on — buying Community
-         * Access from the Add-ons card must not try to bundle it onto itself.
-         */
-        addOnPackageIds: bundleAddOnIdsFor(pkg),
-      });
-      if (res.success && res.data?.authorizationUrl) {
-        // Remember the ref so we can confirm the payment when the user
-        // returns from Paystack (in case the query param is stripped).
-        try { sessionStorage.setItem('vethub_paystack_ref', res.data.reference); } catch { /* ignore */ }
-        window.location.href = res.data.authorizationUrl;
-      } else {
-        toast.error('Failed to start card payment.');
-        setPaystackPlanId(null);
-      }
-    } catch (e: any) {
-      const msg = e?.message || 'Failed to start card payment.';
-      const isPolicy = /downgrade|already on the|cycle|configured/i.test(msg);
-      if (isPolicy) {
-        dialog.alert({ title: 'We can’t proceed with this change', message: msg, variant: 'info' });
-      } else {
-        toast.error(msg);
-      }
-      setPaystackPlanId(null);
-    }
+    setPayTarget({
+      pkg,
+      optionId,
+      cycle,
+      /**
+       * 288 — the ticked add-ons, as IDS. The server prices every line from the
+       * catalogue and sums them; nothing here says what anything costs (user:
+       * *"we're not passing the amount from front end. That is wrong."*).
+       */
+      addOnPackageIds: bundleAddOnIdsFor(pkg),
+    });
   };
+
+  const closePayCanvas = () => { setPayTarget(null); setPaystackPlanId(null); };
 
   // On return from Paystack — the callback URL carries ?provider=paystack&ref=…
   // (we also stash the ref in sessionStorage as a fallback). Poll the attempt
@@ -592,6 +592,23 @@ const BillingView: React.FC = () => {
     return opts.find((o) => o.cycle === featured) ?? opts[0];
   };
 
+  // Declared down here, not beside handlePaystackPay: it reads
+  // featuredOptionFor, and a render-time read of a const declared further down
+  // the component is a ReferenceError, not a warning.
+  /** The price the canvas shows — looked up from the option actually chosen. */
+  const payAmountLabel = (() => {
+    if (!payTarget) return '';
+    const opt = (payTarget.pkg.billingOptions ?? []).find((o) => String(o.id) === String(payTarget.optionId))
+      ?? featuredOptionFor(payTarget.pkg);
+    const base = formatPrice(opt?.price ?? payTarget.pkg.price, opt?.currency || payTarget.pkg.currency);
+    // Name the bundled add-on instead of showing a total we did not compute —
+    // the server sums the lines, so any total written here could disagree.
+    return payTarget.addOnPackageIds.length && communityAddOn
+      ? `${base} + ${communityAddOn.name}`
+      : base;
+  })();
+
+
   // The next package up from the active subscription's tier — the natural
   // upgrade target surfaced as a CTA on the current plan card.
   const currentTier = sub?.package?.tier ?? null;
@@ -709,6 +726,30 @@ const BillingView: React.FC = () => {
         prefill={reportPrefill}
         transactions={history}
       />
+
+      {/* The payment canvas — ours for mobile money, Paystack Inline for cards. */}
+      {payTarget && (
+        <PayCanvas
+          open
+          onClose={closePayCanvas}
+          clinicId={String(clinicId)}
+          email={user?.email?.trim() || ''}
+          defaultPhone={ownerPhone}
+          packageId={payTarget.pkg.id}
+          billingOptionId={payTarget.optionId ?? undefined}
+          cycle={payTarget.cycle}
+          addOnPackageIds={payTarget.addOnPackageIds}
+          planName={payTarget.pkg.name}
+          amountLabel={payAmountLabel}
+          onPaid={() => {
+            // Refetch rather than assume: the sub the server activated is the
+            // one that matters, including any add-on line that rode along.
+            fetchInfo();
+            fetchHistory();
+            setTimeout(closePayCanvas, 1600);
+          }}
+        />
+      )}
 
       {/* Stuck-payment prompt — a payment PENDING for 4h+ */}
       {stalePending && (
