@@ -35,19 +35,25 @@ const DiscoverRail: React.FC<Props> = ({ onOpenTag, onOpenPost, reach }) => {
   const [suggested, setSuggested] = useState<CommunityPost[]>([]);
   const [following, setFollowing] = useState<CommunityFollowing | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [active, setActive] = useState<{
+    people: Array<{ id: string; name: string; role: string; avatar: string | null; did: string; minutesAgo: number }>;
+    total: number; windowMinutes: number;
+  } | null>(null);
 
   useEffect(() => {
     let live = true;
     (async () => {
       // Failures here must never take the column down — it is all secondary to
       // the feed, and an empty card is better than a thrown render.
-      const [t, m, s, f] = await Promise.allSettled([
+      const [t, m, s, f, a] = await Promise.allSettled([
         communityAPI.topics(),
         communityAPI.feed({ kind: 'MEET', limit: 4 }),
         communityAPI.feed({ limit: 12, sort: 'helpful' }),
         communityAPI.following(),
+        communityAPI.activeRecently(),
       ]);
       if (!live) return;
+      if (a.status === 'fulfilled') setActive(a.value.data ?? null);
       if (t.status === 'fulfilled') setTopics(t.value.data?.topics ?? []);
       if (m.status === 'fulfilled') setMeets(m.value.data?.posts ?? []);
       if (f.status === 'fulfilled') setFollowing(f.value.data ?? null);
@@ -127,6 +133,45 @@ const DiscoverRail: React.FC<Props> = ({ onOpenTag, onOpenPost, reach }) => {
               <span className="text-[10.5px] font-semibold text-slate-400 tabular-nums whitespace-nowrap">{t.posts} posts</span>
             </button>
           ))}
+        </Card>
+      )}
+
+      {/* ⚠️ "Recently active", NOT "who's online". There is no presence signal
+          in this platform, so a green dot claiming someone is here right now
+          would be a guess dressed as a fact. Who WROTE something, and when, is
+          real — and it answers the question the block exists for better than
+          presence would: ask now and somebody will reply. */}
+      {active && active.people.length > 0 && (
+        <Card
+          title="Recently active"
+          extra={
+            <span className="inline-flex items-center gap-1.5 text-[8.5px] font-display font-extrabold tracking-wide text-seafoam normal-case">
+              <i className="w-1.5 h-1.5 rounded-full bg-seafoam ring-4 ring-seafoam/15" />
+              {active.total} in the last hour
+            </span>
+          }
+        >
+          {active.people.map(p => (
+            <div key={p.id} className="flex items-center gap-2.5 py-2 border-b border-slate-100 dark:border-zinc-800 last:border-0">
+              <span className="relative w-7 h-7 rounded-lg bg-seafoam/10 grid place-items-center text-[10px] font-black text-pine dark:text-seafoam shrink-0">
+                {p.avatar && p.avatar.startsWith('http')
+                  ? <img src={p.avatar} alt="" className="w-full h-full object-cover rounded-lg" />
+                  : p.name.charAt(0)}
+                <i className={`absolute -right-0.5 -bottom-0.5 w-2.5 h-2.5 rounded-full border-2 border-white dark:border-zinc-900 ${
+                  p.minutesAgo <= 10 ? 'bg-emerald-500' : 'bg-slate-300 dark:bg-zinc-600'
+                }`} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[12px] font-bold text-pine dark:text-zinc-100 truncate">{p.name}</span>
+                <span className="block text-[10.5px] font-semibold text-slate-400 truncate">
+                  {p.role} · {p.did} {p.minutesAgo < 1 ? 'just now' : `${p.minutesAgo}m ago`}
+                </span>
+              </span>
+            </div>
+          ))}
+          <p className="mt-2.5 text-[10.5px] font-semibold text-slate-400 leading-relaxed">
+            A question asked while people are writing gets answered today, not next week.
+          </p>
         </Card>
       )}
 

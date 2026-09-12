@@ -260,6 +260,18 @@ export const communityAPI = {
     return get(`/community/profile?${qs}`, { cache: false, ...options });
   },
 
+  /**
+   * Who has written here lately.
+   *
+   * ⚠️ "Recently active", NOT "online" — there is no presence signal in the
+   * platform, so a live dot would be a guess dressed as a fact. This is derived
+   * from what people actually wrote and when.
+   */
+  activeRecently: (options?: RequestOptions): Promise<ApiResponse<{
+    people: Array<{ id: string; name: string; role: string; avatar: string | null; did: string; minutesAgo: number }>;
+    total: number; windowMinutes: number;
+  }>> => get('/community/active', { cache: false, ...options }),
+
   topics: (options?: RequestOptions): Promise<ApiResponse<{ topics: Array<{ tag: string; posts: number }> }>> =>
     get('/community/topics', { cache: false, ...options }),
 };

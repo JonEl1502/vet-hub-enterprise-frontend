@@ -247,15 +247,24 @@ const CommunityApp: React.FC<Props> = ({
               </span>
             )}
           </button>
+
+          {/* Who you are posting AS. The clinic shell carries this and its
+              absence here made Community read like a different login. */}
+          <span
+            title={user?.name || 'You'}
+            className="grid h-8 w-8 shrink-0 place-items-center rounded-[10px] bg-gradient-to-br from-pine to-seafoam font-display text-xs font-extrabold text-white"
+          >
+            {(user?.name || 'V').charAt(0).toUpperCase()}
+          </span>
         </header>
 
         {/* Four columns counting the fixed rail: nav · feed · marketplace ·
             discovery. They shed in order of what each is carrying — discovery
             first, then the marketplace. The feed never goes. */}
-        <div className="grid items-start gap-4 xl:gap-[18px] px-4 sm:px-5 pt-5 pb-16 max-w-[1520px]
+        <div className="grid items-start gap-4 min-[1120px]:gap-[18px] px-4 sm:px-5 pt-5 pb-16 max-w-[1520px]
                         grid-cols-1
-                        xl:grid-cols-[minmax(0,1fr)_288px]
-                        2xl:grid-cols-[minmax(0,1fr)_288px_268px]">
+                        min-[1120px]:grid-cols-[minmax(0,1fr)_288px]
+                        min-[1400px]:grid-cols-[minmax(0,1fr)_288px_268px]">
           <main className="min-w-0">
             {screen.name === 'FEED' && (
               <CommunityFeed
@@ -304,7 +313,7 @@ const CommunityApp: React.FC<Props> = ({
             )}
           </main>
 
-          <div className="hidden xl:block min-w-0">
+          <div className="hidden min-[1120px]:block min-w-0">
             <MarketplaceRail
               onOpenListing={l => setScreen({ name: 'LISTING', listing: l })}
               onBrowseAll={() => setScreen({ name: 'LISTING', listing: {
@@ -315,7 +324,7 @@ const CommunityApp: React.FC<Props> = ({
             />
           </div>
 
-          <div className="hidden 2xl:block min-w-0">
+          <div className="hidden min-[1400px]:block min-w-0">
             <DiscoverRail
               onOpenTag={t => { setView(`tag:${t}`); setScreen({ name: 'FEED' }); }}
               onOpenPost={p => setScreen({ name: 'POST', post: p })}
