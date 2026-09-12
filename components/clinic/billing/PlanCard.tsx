@@ -376,7 +376,10 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
         {[
           { label: 'Patients', value: pkg.maxPatients >= 99999 ? '∞' : pkg.maxPatients.toLocaleString() },
           { label: 'Staff', value: pkg.maxStaff >= 9999 ? '∞' : pkg.maxStaff.toLocaleString() },
-          { label: 'Storage', value: `${pkg.storageGb}GB` },
+          // Same unlimited sentinel as the two above it, which storage was
+          // missing — Enterprise advertised "999999GB", a number that reads as
+          // a bug rather than as "all you want".
+          { label: 'Storage', value: pkg.storageGb >= 99999 ? '∞' : `${pkg.storageGb}GB` },
         ].map(({ label, value }) => (
           <div key={label} className="p-2 rounded-lg bg-slate-50 dark:bg-zinc-800/60">
             <p className="text-xs font-bold text-slate-700 dark:text-zinc-200">{value}</p>
