@@ -297,6 +297,7 @@ export const KEY_LABEL: Record<string, string> = {
   // Clinic management (on every plan — hidden from plan cards as baseline)
   'view:staff': 'Staff directory',
   'view:hr': 'HR & payroll',
+  'partners:listed': 'Listed in the partner network',
   'view:broadcasts': 'Broadcasts',
   'view:wa-enquiries': 'WhatsApp enquiries',
   'view:settings': 'Clinic settings',

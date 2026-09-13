@@ -200,6 +200,7 @@ export const FEATURE_CATALOG = {
     'view:hr',
     'view:broadcasts',
     'view:wa-enquiries',
+    'partners:listed',
     'view:settings',
     'view:import-data',
     'view:billing',
