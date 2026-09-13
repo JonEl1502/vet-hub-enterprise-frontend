@@ -946,7 +946,11 @@ const SubPackagesAdminPage: React.FC = () => {
                   </div>
 
                   {/* ── Included add-ons (Farms-as-a-token) ─────────────── */}
-                  {!selected.isAddon && (
+                  {/* Add-on rows get this too: an add-on may bundle add-ons —
+                      "Website Build + Integration" includes Site Integration.
+                      Resolution is ONE HOP on both sides, so a bundle grants
+                      what it names, not what those name in turn. */}
+                  {true && (
                     <div className="pt-6 mt-2 border-t border-slate-200 dark:border-zinc-800 space-y-3">
                       <div>
                         <p className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Included Add-ons</p>
@@ -960,6 +964,15 @@ const SubPackagesAdminPage: React.FC = () => {
                         updates every plan that includes it. Pasting the keys in by hand looks the
                         same on day one and quietly drifts apart on day thirty.
                       </p>
+                      {selected.isAddon && (
+                        <p className="text-[11px] text-slate-500 dark:text-zinc-400 leading-relaxed">
+                          This row is itself an add-on, so this is how you build a
+                          <strong> bundle</strong> &mdash; price the bundle here and let it include
+                          the parts. Resolution is <strong>one hop</strong>: a bundle grants what it
+                          names, but not what those in turn name, so bundle the leaf add-ons rather
+                          than chaining bundles together.
+                        </p>
+                      )}
                       <div className="flex flex-wrap gap-2">
                         {includedAddOns.length === 0 && (
                           <p className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 italic">
