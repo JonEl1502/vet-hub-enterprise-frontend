@@ -70,6 +70,14 @@ const SupplierBillingView: React.FC = () => {
    */
   const [bundleCommunity, setBundleCommunity] = useState(true);
   const [featureKeys, setFeatureKeys]   = useState<string[] | null>(null);
+  /**
+   * Add-ons the supplier actually holds, by name. The access endpoint already
+   * returned these and the page was throwing them away — so a supplier who had
+   * bought Community Access saw it marked BOUGHT in the add-ons grid while the
+   * Current Plan card above said only "Starter", as though the two purchases
+   * were unrelated. One subscription in the customer's head, one line here.
+   */
+  const [ownedAddOnNames, setOwnedAddOnNames] = useState<string[]>([]);
 
   const SUB_CACHE_KEY  = `/supplier-subscription/${supplierId}`;
   const PKG_CACHE_KEY  = `/supplier-packages/${supplierId}`;
@@ -108,7 +116,14 @@ const SupplierBillingView: React.FC = () => {
         // add-on (which the server would refuse anyway if already held).
         supplierSubscriptionAPI.getAccess(supplierId).catch(() => null),
       ]);
-      if (accessRes?.success) setFeatureKeys(accessRes.data.featureKeys ?? []);
+      if (accessRes?.success) {
+        setFeatureKeys(accessRes.data.featureKeys ?? []);
+        setOwnedAddOnNames(
+          ((accessRes.data as any).addOns ?? [])
+            .map((a: any) => a?.name)
+            .filter((n: any): n is string => !!n),
+        );
+      }
       if (subRes.success) {
         setSubscription(subRes.data.subscription);
         cache.set(SUB_CACHE_KEY, subRes.data.subscription);
@@ -354,6 +369,10 @@ const SupplierBillingView: React.FC = () => {
                   <div className="flex items-center gap-2 mb-1">
                     <h3 className="text-xl font-black text-pine dark:text-zinc-100">
                       {subscription.package?.name ?? 'Active Plan'}
+                      {/* The add-ons bought alongside it — mirrors the clinic card. */}
+                      {ownedAddOnNames.map((n) => (
+                        <span key={n} className="font-bold text-slate-400 dark:text-zinc-500"> + {n}</span>
+                      ))}
                     </h3>
                     <span className="px-2 py-0.5 rounded-full bg-green-50 dark:bg-green-950/40 text-green-600 dark:text-green-400 text-[9px] font-black uppercase tracking-widest border border-green-200 dark:border-green-800">
                       Active

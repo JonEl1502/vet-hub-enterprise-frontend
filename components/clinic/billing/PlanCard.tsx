@@ -109,6 +109,14 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
   // viewing a lower-tier one. We don't offer downgrades, so the whole
   // card is dimmed and the Pay button hidden.
   const isTierDowngrade = !isCurrent && typeof currentSubTier === 'number' && pkg.tier < currentSubTier;
+  /**
+   * A rung ABOVE the one they hold. The pay button then says what pressing it
+   * does — "Upgrade to Pro" — and wears the upgrade treatment already used on
+   * the current card's cycle CTA, instead of the neutral "Card or Mobile"
+   * every card wore regardless of direction. Only for someone who HAS a plan:
+   * with nothing held there is no upgrade, just a purchase.
+   */
+  const isTierUpgrade = !isCurrent && typeof currentSubTier === 'number' && currentSubTier > 0 && pkg.tier > currentSubTier;
   // Tier 2 is the featured/recommended plan (Growth in the current catalog).
   // Highlighted with a glowing border, scale-up on desktop, and a "Most
   // Popular" ribbon. The current-plan styling still wins when both apply.
@@ -555,7 +563,11 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
           <button
             onClick={() => onPayWithPaystack(selectedOption.id || null, selectedCycle)}
             disabled={paystackLoading || currencyUnsupported || !(Number(selectedOption.price) > 0)}
-            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed bg-sky-600 hover:bg-sky-700"
+            className={`w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold text-white shadow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
+              isTierUpgrade
+                ? 'bg-gradient-to-r from-pine to-seafoam hover:opacity-95'
+                : 'bg-sky-600 hover:bg-sky-700'
+            }`}
             title={
               currencyUnsupported
                 ? `Priced in ${payCurrency} — payments settle in KES or USD only`
@@ -567,7 +579,9 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
             {paystackLoading ? (
               <><RefreshCw size={14} className="animate-spin" /> Redirecting…</>
             ) : (
-              <>💳 Card or Mobile — {formatPrice(payTotal, selectedOption.currency)}</>
+              isTierUpgrade
+                ? <>⬆ Upgrade to {pkg.name} — {formatPrice(payTotal, selectedOption.currency)}</>
+                : <>💳 Card or Mobile — {formatPrice(payTotal, selectedOption.currency)}</>
             )}
           </button>
           {bundleActive && (
