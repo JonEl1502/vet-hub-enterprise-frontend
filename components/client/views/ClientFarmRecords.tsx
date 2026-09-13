@@ -677,7 +677,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
 
       {/* ── The one record sheet ─────────────────────────────────────────── */}
       {sheet && sheetDef && (
-        <CpModal onClose={() => setSheet(null)} title={sheetDef.label}>
+        <CpModal page onClose={() => setSheet(null)} title={sheetDef.label}>
           <div className="space-y-3">
             {/* The kind, as chips. A dropdown here reads as paperwork. */}
             <div className="flex flex-wrap gap-1.5">
@@ -810,7 +810,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
         // Already loaded for the ledger below — no second request to open a herd.
         const mine = entries.filter((e) => e.animalGroupId === g.id);
         return (
-          <CpModal onClose={() => setDetailGroup(null)} title={g.name} maxWidth="46rem">
+          <CpModal page onClose={() => setDetailGroup(null)} title={g.name} maxWidth="46rem">
             <div className="space-y-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
@@ -942,7 +942,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
 
       {/* ── Composition ──────────────────────────────────────────────────── */}
       {editHerd && (
-        <CpModal onClose={() => setEditHerd(null)} title={editHerd.name}>
+        <CpModal page onClose={() => setEditHerd(null)} title={editHerd.name}>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2">
               {compositionFields(editHerd.species).map((f) => (

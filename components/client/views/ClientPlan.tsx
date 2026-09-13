@@ -127,7 +127,9 @@ const ClientPlan: React.FC = () => {
   }
 
   return (
-    <div className="space-y-5 fade-in max-w-3xl">
+    // The layout already allows 1400px; this view capped itself at 768 and
+    // left half the desktop empty beside four plan cards.
+    <div className="space-y-5 fade-in">
       <button className="text-xs font-bold cp-accent-text flex items-center gap-1" onClick={() => navigate('/client')}>
         <ArrowLeft className="w-3.5 h-3.5" /> Home
       </button>
@@ -142,7 +144,7 @@ const ClientPlan: React.FC = () => {
         </p>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {ordered.map((p) => {
           const isCurrent = p.tier === currentTier;
           const isDown = p.tier < currentTier;

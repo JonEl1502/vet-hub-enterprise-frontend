@@ -55,7 +55,9 @@ const ClientSettings: React.FC = () => {
   };
 
   return (
-    <div className="space-y-5 fade-in max-w-2xl">
+    // Was capped at 672px inside a 1400px layout. Widened — but not to the
+    // full width: a paragraph running 1400px is harder to read, not easier.
+    <div className="space-y-5 fade-in xl:max-w-none max-w-3xl">
       <button className="text-xs font-bold cp-accent-text flex items-center gap-1" onClick={() => navigate('/client')}>
         <ArrowLeft className="w-3.5 h-3.5" /> Home
       </button>

@@ -435,7 +435,7 @@ const ClientFarmMedical: React.FC = () => {
 
       {/* ── Record a treatment ───────────────────────────────────────────── */}
       {txOpen && (
-        <CpModal title="Record a treatment" onClose={() => setTxOpen(false)}>
+        <CpModal page title="Record a treatment" onClose={() => setTxOpen(false)}>
           <div className="space-y-3">
             {/* ⚠️ SCOPE FIRST, and chosen rather than inferred. "I dosed the
                 whole flock" and "I injected this cow" are different facts, and
