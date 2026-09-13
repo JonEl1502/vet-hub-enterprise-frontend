@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Ban, Phone, User, Clock, AlertTriangle } from 'lucide-react';
 import { supplierPosAPI, toast } from '../../../services';
 import { money, unitFor, qtyText } from './format';
+import DocumentBrand from '../../shared/common/DocumentBrand';
 
 /**
  * One sale, opened.
@@ -25,9 +26,16 @@ interface Props {
   onBack: () => void;
   /** Fired after a successful void so the list and the grid can refresh. */
   onVoided: () => void;
+  /**
+   * Who the receipt is FROM. This document leaves the building — a customer
+   * keeps it, an auditor reads it a year later — and it went out naming
+   * nobody: three line items, a total, and no clue who was paid.
+   */
+  shopName?: string;
+  shopLogo?: string | null;
 }
 
-const PosSaleDetail: React.FC<Props> = ({ saleId, currency, canVoid, onBack, onVoided }) => {
+const PosSaleDetail: React.FC<Props> = ({ saleId, currency, canVoid, onBack, onVoided, shopName, shopLogo }) => {
   const [sale, setSale] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [voiding, setVoiding] = useState(false);
@@ -92,6 +100,24 @@ const PosSaleDetail: React.FC<Props> = ({ saleId, currency, canVoid, onBack, onV
       </div>
 
       <div id="pos-sale-doc" className="flex-1 min-h-0 overflow-y-auto px-3 py-3 space-y-3">
+        {/* LETTERHEAD. On screen it is a quiet line; on the PDF it is the only
+            thing naming the business that took the money. */}
+        {shopName && sale && (
+          <div className="flex items-start justify-between gap-3 pb-3 border-b border-slate-200 dark:border-zinc-800">
+            <DocumentBrand
+              name={shopName}
+              logo={shopLogo}
+              contact={[sale.branch?.name]}
+            />
+            <div className="text-right shrink-0">
+              <p className="text-[10px] font-black uppercase tracking-widest sp-muted">Receipt</p>
+              <p className="text-[12px] font-black font-mono">{sale.saleNumber}</p>
+              <p className="text-[10px] sp-muted font-semibold">
+                {new Date(sale.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+        )}
         {loading && <p className="text-center text-sm sp-muted py-12">Opening…</p>}
 
         {!loading && sale && (
@@ -209,7 +235,11 @@ const PosSaleDetail: React.FC<Props> = ({ saleId, currency, canVoid, onBack, onV
             {/* Void — behind a reason, always. An unexplained void is the one
                 that causes an argument at close of day. */}
             {canVoid && !voided && (
-              <div className="sp-card p-3.5">
+              /* Chrome, not document — this printed INSIDE the customer's PDF,
+                 which ended with the words "Void this sale" under the total.
+                 `print:hidden` covers the print path, `data-nopdf` the
+                 html2canvas download path; both are this app's conventions. */
+              <div className="sp-card p-3.5 print:hidden" data-nopdf>
                 {confirming ? (
                   <>
                     <p className="text-[12px] font-bold mb-2">

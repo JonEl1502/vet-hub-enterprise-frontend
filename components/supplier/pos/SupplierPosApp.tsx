@@ -130,6 +130,8 @@ const SupplierPosApp: React.FC = () => {
       canVoid={canVoid}
       onBack={() => setOpenSaleId(null)}
       onVoided={afterVoid}
+      shopName={shopName}
+      shopLogo={shopLogo}
     />
   ) : null;
 
