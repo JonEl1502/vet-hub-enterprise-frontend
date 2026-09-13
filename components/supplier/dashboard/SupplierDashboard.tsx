@@ -676,88 +676,15 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
               uses, and the ONLY place "choose plan" is offered on this screen. */}
           {!isAdmin && <SupplierPlanBanner onChoosePlan={() => setView?.('supplier-billing')} />}
 
-          {/* ⚠️ NOT FOR A CASHIER. Every step here is an owner/manager job —
-              listing products, branding the business, stocking a branch. A till
-              operator cannot do any of it, so the card would be a permanent
-              reproach for work that is not theirs. */}
-          {!isAdmin && canSetUp && !onboarding.complete && (
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-1">
-                <ListChecks size={16} className="text-seafoam" />
-                <h2 className="text-sm font-black uppercase tracking-wider text-pine dark:text-zinc-100">Get set up</h2>
-                <span className="text-[10px] font-black text-slate-400 dark:text-zinc-500 ml-auto tabular-nums">
-                  {onboarding.doneCount} of {onboarding.steps.length} done
-                </span>
-              </div>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-400 mb-4">Finish these to start selling to clinics on VetHubCore.</p>
+          {/* GET SET UP — removed 2026-09-13 at the user's request.
+              A three-step onboarding card that hid itself once complete, so it
+              only ever showed to a supplier who had NOT finished setting up —
+              which is exactly the moment it was unwelcome.
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {onboarding.steps.map((s) => (
-                  <div
-                    key={s.key}
-                    /* ⚠️ A DONE step recedes. It used to get a green tint, a
-                       green border and a strikethrough heading, which made the
-                       finished step the loudest thing in the row — the opposite
-                       of what a checklist is for. */
-                    className={`rounded-xl border p-3.5 flex flex-col gap-2 transition-colors ${
-                      s.done
-                        ? 'border-slate-100 dark:border-zinc-800/60 bg-slate-50/60 dark:bg-zinc-900/40'
-                        : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2">
-                      {s.done ? (
-                        <Check size={13} className="text-emerald-500 shrink-0" strokeWidth={3} />
-                      ) : (
-                        /* A hollow dot, not a number. Numbered circles next to
-                           a tick read as a broken sequence the moment any step
-                           but the first is the one that is done. */
-                        <span className="w-[13px] h-[13px] rounded-full border-2 border-slate-300 dark:border-zinc-600 shrink-0" />
-                      )}
-                      <p
-                        className={`text-xs font-black ${
-                          s.done
-                            ? 'text-slate-400 dark:text-zinc-500'
-                            : 'text-pine dark:text-zinc-100'
-                        }`}
-                      >
-                        {s.label}
-                      </p>
-                    </div>
-
-                    <p className="text-[10px] text-slate-400 dark:text-zinc-500 leading-snug flex-1">{s.desc}</p>
-
-                    {/* One footer slot per card, always occupied, so the row
-                        keeps a single baseline whatever each step's state is. */}
-                    <div className="min-h-[1.9rem] flex flex-col justify-end">
-                      {s.done ? (
-                        <p className="text-[10px] font-black uppercase tracking-wider text-emerald-600/70 dark:text-emerald-500/70">
-                          Done
-                        </p>
-                      ) : (
-                        <>
-                          <button
-                            onClick={() => setView?.(s.view!)}
-                            className="flex items-center justify-center gap-1 text-[10px] font-black uppercase tracking-wider text-white bg-pine dark:bg-zinc-100 dark:text-pine rounded-lg py-1.5 hover:opacity-90 transition-all"
-                          >
-                            {s.cta} <ArrowRight size={11} />
-                          </button>
-                          {s.altCta && (
-                            <button
-                              onClick={() => setView?.(s.altView!)}
-                              className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 hover:text-seafoam mt-1.5 self-center"
-                            >
-                              {s.altCta}
-                            </button>
-                          )}
-                        </>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
+              The `onboarding` derivation above is deliberately kept: it is
+              cheap, nothing else depends on dropping it, and restoring the card
+              is then a matter of putting the JSX back rather than rebuilding
+              the logic. Original markup: git log -S "Get set up" */}
 
           {/* Listing quota — the plan itself is stated in the banner above, so
               this reports how much of it is used, not what it is. */}
