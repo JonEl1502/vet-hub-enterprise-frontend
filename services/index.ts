@@ -113,6 +113,7 @@ export { clinicTransfersAPI } from './modules/clinicTransfer.api';
 export type { ClinicTransfer } from './modules/clinicTransfer.api';
 export type { Broadcast, BroadcastAudience, BroadcastAudienceType, SegmentFilter, SegmentBreakdown, SegmentSendResult, BroadcastChannel } from './modules/broadcasts.api';
 export { clientPortalAPI } from './modules/clientPortal.api';
+export { marketplaceAPI } from './modules/marketplace.api';
 export { siteConnectAPI } from './modules/siteConnect.api';
 export type {
   SiteConnection, SiteDelivery, SiteRequest, SiteRequestDetail, SiteRequestStatus,
@@ -133,6 +134,7 @@ export type { HrPerson, HrEmploymentRecord, HrLeaveType, HrLeaveRequest, HrBalan
   HrShift, HrRota, HrAttendanceRow, HrTimesheetRow, HrOverview, HrContractType, HrEmploymentStatus,
   HrLeaveStatus, HrShiftStatus, HrAttendanceStatus } from './modules/hr.api';
 export type { PortalClinic, PortalPet, PortalAppointment, PortalMessage, PortalInvoice, PortalMyClinic, PortalVisitDetail, PortalReminder, PortalMemory, PortalMemoriesResult, PortalPetTransfer, VisitRating, PortalPlan, PortalPlanState, PortalHoldings } from './modules/clientPortal.api';
+export type { MarketListing, MarketOrder, MarketListingInput } from './modules/marketplace.api';
 export { petTransfersAPI } from './modules/petTransfers.api';
 export type { StaffPetTransfer } from './modules/petTransfers.api';
 export { stayRatesAPI } from './modules/stayRates.api';

@@ -4,7 +4,7 @@ import {
   Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus, Sprout, Beef,
   Stethoscope, UserRound,
   Settings, LogOut, Sun, Moon, Monitor, ChevronDown, Sparkles, Users,
-  type LucideIcon,
+  type LucideIcon, Store,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useThemeMode, type ThemeMode } from '../../hooks/useThemeMode';
@@ -60,6 +60,8 @@ const FARM_NAV: NavTab[] = [
   { to: '/client/farm', end: true, label: 'My Farm', icon: Sprout },
   { to: '/client/farm/animals', label: 'Animals', icon: Beef },
   { to: '/client/farm/medical', label: 'Medical', icon: Stethoscope },
+  // 296 — animals and produce, farmer to farmer.
+  { to: '/client/market', label: 'Market', icon: Store },
   { to: '/client/messages', label: 'Messages', icon: MessageCircle },
   COMMUNITY_TAB,
   // ⚠️ Invoices is NOT gone — it moved BEHIND Profile (user, 2026-08-29:
