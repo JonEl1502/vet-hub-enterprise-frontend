@@ -6,7 +6,7 @@ import {
 import { communityAPI, CommunityPost } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
 import { usePlanAccess } from '../../../contexts/PlanAccessContext';
-import CommunityLockup from './CommunityLockup';
+import CommunityWordmark from './CommunityWordmark';
 import CommunityFeed from './CommunityFeed';
 import PostDetail from './PostDetail';
 import AuthorProfile, { ProfileSubject } from './AuthorProfile';
@@ -146,15 +146,15 @@ const CommunityApp: React.FC<Props> = ({
 
       {/* ══ ONE FIXED RAIL — never scrolls away, never moves between worlds ══ */}
       <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-[214px] z-40 flex-col gap-0.5 overflow-y-auto border-r border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#1A1814] px-3 py-4">
-        <div className="flex items-start gap-2.5 px-2 pt-0.5 pb-4">
-          <span className="w-[30px] h-[30px] rounded-[10px] bg-gradient-to-br from-seafoam to-pine grid place-items-center shrink-0">
-            <svg viewBox="0 0 24 24" fill="currentColor" className="w-[17px] h-[17px] text-white dark:text-[#12100C]">
-              <ellipse cx="6" cy="9" rx="2.3" ry="3" /><ellipse cx="11.4" cy="6.4" rx="2.3" ry="3.1" />
-              <ellipse cx="17" cy="8.4" rx="2.2" ry="2.9" />
-              <path d="M12 12c2.6 0 4.6 1.8 5.6 3.7.9 1.7.2 3.8-1.7 4.2-1.3.3-2.6-.2-3.9-.2s-2.6.5-3.9.2c-1.9-.4-2.6-2.5-1.7-4.2C7.4 13.8 9.4 12 12 12Z" />
-            </svg>
-          </span>
-          <CommunityLockup />
+        {/* ⚠️ THE WORDMARK IS THE LOGO — no separate tile beside it. The mark
+            already carries its own symbol in the C and the o, and a paw tile
+            next to two letters full of paws says the same thing twice.
+
+            currentColor on the text means one component serves the white rail
+            and the near-black one; the amber is literal, being the brand
+            colour in both. */}
+        <div className="px-1.5 pt-1 pb-5">
+          <CommunityWordmark className="w-full max-w-[178px] h-auto text-pine dark:text-zinc-100" />
         </div>
 
         <p className="px-3 pt-1 pb-1.5 text-[9px] font-display font-extrabold uppercase tracking-[0.14em] text-slate-400">Community</p>
