@@ -102,8 +102,13 @@ export const ALWAYS_VIEWS = new Set([
   'settings',
   'staff',
   'staff-profile',
-  'broadcasts',
-  'wa-enquiries',
+  /**
+   * `broadcasts` and `wa-enquiries` used to sit here, which made them
+   * unreachable by the plan gate — ALWAYS_VIEWS is checked BEFORE the key, so
+   * a Basic clinic got both no matter what the catalogue said. They are
+   * outbound messaging, not a way out of a locked account, so they now carry
+   * their own keys and gate like everything else.
+   */
   'import-data',
   'billing',
   'emergency',
@@ -195,6 +200,12 @@ export const VIEW_KEY: Record<string, string> = {
   'financial-overview': 'view:financial-overview',
   // BI dashboard rides the same entitlement as the finance overview.
   'reports-analytics': 'view:financial-overview',
+  // Pro+ operations. These three had no key at all, so nothing could gate
+  // them: HR was simply missing from the map, and broadcasts / wa-enquiries
+  // sat in ALWAYS_VIEWS, which bypasses the plan check by design.
+  hr: 'view:hr',
+  broadcasts: 'view:broadcasts',
+  'wa-enquiries': 'view:wa-enquiries',
   receivables: 'view:financial-overview',
   expenses: 'view:financial-overview',
   'b2b-stats': 'view:b2b-stats',
@@ -285,6 +296,9 @@ export const KEY_LABEL: Record<string, string> = {
   'view:financial-core': 'Clinic finance',
   // Clinic management (on every plan — hidden from plan cards as baseline)
   'view:staff': 'Staff directory',
+  'view:hr': 'HR & payroll',
+  'view:broadcasts': 'Broadcasts',
+  'view:wa-enquiries': 'WhatsApp enquiries',
   'view:settings': 'Clinic settings',
   'view:import-data': 'Data import',
   'view:billing': 'Billing & subscription',

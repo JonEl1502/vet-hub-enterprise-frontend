@@ -197,6 +197,9 @@ export const FEATURE_CATALOG = {
     'view:financial-core',
     // ── Clinic management (always granted — see ALWAYS_VIEWS) ───
     'view:staff',
+    'view:hr',
+    'view:broadcasts',
+    'view:wa-enquiries',
     'view:settings',
     'view:import-data',
     'view:billing',
