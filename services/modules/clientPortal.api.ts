@@ -407,7 +407,7 @@ export interface FarmAnimalWeight {
 
 /** The species a Kenyan farm actually keeps, in rough order of likelihood. */
 export const FARM_SPECIES = [
-  'Cattle', 'Goat', 'Sheep', 'Poultry', 'Pig', 'Camel', 'Donkey', 'Rabbit',
+  'Cattle', 'Goat', 'Sheep', 'Poultry', 'Pig', 'Camel', 'Donkey', 'Rabbit', 'Fish', 'Bees',
 ];
 
 export interface PortalFarmSummary {

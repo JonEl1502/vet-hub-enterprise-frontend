@@ -28,6 +28,7 @@ import {
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
 import CpPage from '../CpPage';
+import { speciesConfig } from './farmSpecies';
 import { useFarmerPlan } from '../useFarmerPlan';
 
 const KES = (n: number) => `KES ${Math.round(n).toLocaleString('en-KE')}`;
@@ -264,7 +265,11 @@ const ClientFarmMedical: React.FC = () => {
               </select>
             </div>
             <div>
-              <label className="cp-label">How many head</label>
+              {/* "How many head" over a flock of layers is the cattle-shaped
+                  question again — ask in the species' own counting noun. */}
+              <label className="cp-label">
+                How many {speciesConfig(groups.find((g) => g.id === tx.animalGroupId)?.species).headNoun}
+              </label>
               <input className="cp-input w-full" type="number" min="1" placeholder="—"
                 value={tx.treatedCount} onChange={(e) => setTx({ ...tx, treatedCount: e.target.value })} />
             </div>

@@ -181,8 +181,10 @@ const compositionFields = (species?: string | null) => {
   const cfg = speciesConfig(species);
   return [
     { key: 'headCount', label: 'Total' },
-    { key: 'males', label: 'Male' },
-    { key: 'females', label: 'Female' },
+    // Hens and cocks, sows and boars — "Male / Female" is a database column,
+    // not what anyone calls the animals in the shed.
+    { key: 'males', label: cfg.maleLabel },
+    { key: 'females', label: cfg.femaleLabel },
     { key: 'adults', label: 'Adult' },
     { key: 'young', label: cfg.youngLabel },
     ...(cfg.pregnancy ? [{ key: 'pregnant', label: cfg.pregnantLabel }] : []),
@@ -316,7 +318,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
         name: herdName.trim(), species: herdSpecies.trim(),
       });
       if (r.success) {
-        toast.success('Herd added');
+        toast.success(`${speciesConfig(herdSpecies).groupNoun.replace(/^./, (c) => c.toUpperCase())} added`);
         setAddHerd(false); setHerdName(''); setHerdSpecies('');
         onGroupsChanged();
       }
@@ -348,7 +350,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
         Object.entries(purposeComp).map(([k, v]) => [k, Number(v || 0)]),
       );
       const r = await clientPortalAPI.updateAnimalGroup(editHerd.id, payload);
-      if (r.success) { toast.success('Herd updated'); setEditHerd(null); onGroupsChanged(); }
+      if (r.success) { toast.success('Updated'); setEditHerd(null); onGroupsChanged(); }
     } finally { setSaving(false); }
   };
 
@@ -578,7 +580,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
       // Composition, as named rows rather than a chip soup — this is the one
       // place a farmer reads the numbers rather than glancing at them.
       const rows: Array<[string, number]> = ([
-        ['Male', g.males], ['Female', g.females],
+        [cfg.maleLabel, g.males], [cfg.femaleLabel, g.females],
         ['Adult', g.adults], [cfg.youngLabel, g.young],
         ...(cfg.pregnancy ? [[cfg.pregnantLabel, g.pregnant] as [string, number]] : []),
         ...(cfg.lactation ? [[cfg.lactatingLabel, g.lactating] as [string, number]] : []),
@@ -677,7 +679,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
                 {g.headCount > named && (
                   <p className="mt-1.5 text-[11px] cp-muted text-center">
                     {named} of {g.headCount} named — {g.headCount - named} still to go.
-                    The make-up above stays as you entered it until every head has a name.
+                    The make-up above stays as you entered it until every {speciesConfig(g.species).headNoun === 'head' ? 'head' : 'one'} has a name.
                   </p>
                 )}
               </>

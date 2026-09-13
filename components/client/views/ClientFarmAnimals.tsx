@@ -76,6 +76,8 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
   const [weighing, setWeighing] = useState<FarmAnimal | null>(null);
   const [weightVal, setWeightVal] = useState('');
 
+  /** Batch species only — the flock's own facts, not an animal's. */
+  const [batch, setBatch] = useState({ count: '', name: '', housing: '' });
   const [form, setForm] = useState<any>({ name: '', species: 'Cattle', breed: '', sex: '', ageMonths: '', tagNumber: '', animalGroupId: '', weightValue: '', purpose: '' });
   // ⚠️ Everything species-specific comes from ONE config, shared with the free
   // tier's herd breakdown — so "layers" means the same thing on both sides of
@@ -96,6 +98,47 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
     return () => clearTimeout(id);
   }, [load, q]);
 
+  /**
+   * ⚠️ COUNTED, NOT NAMED. A batch species (poultry, fish, bees) has no
+   * per-animal row to create — the group IS the record. So this writes a head
+   * count, either onto the flock the farmer picked or onto a new one.
+   *
+   * User, 2026-09-14: *"for chicken we wont have [name / tag / weight] …
+   * because its flock."*
+   */
+  const addBirds = async () => {
+    const cfg = speciesConfig(form.species);
+    const n = Number(batch.count);
+    if (!Number.isFinite(n) || n <= 0) { toast.error(`How many ${cfg.headNoun}?`); return; }
+    setSaving(true);
+    try {
+      let r;
+      if (form.animalGroupId) {
+        // Topping up an existing flock ADDS — a farmer typing 200 after buying
+        // 200 chicks means 200 more, not a flock that is suddenly only 200.
+        const g = groups.find((x) => x.id === form.animalGroupId);
+        r = await clientPortalAPI.updateAnimalGroup(form.animalGroupId, {
+          headCount: (g?.headCount ?? 0) + n,
+        });
+      } else {
+        if (!batch.name.trim()) { toast.error(`Give the ${cfg.groupNoun} a name`); setSaving(false); return; }
+        r = await clientPortalAPI.createAnimalGroup(farmId, {
+          name: batch.name.trim(), species: form.species.trim(),
+          breed: form.breed.trim() || undefined,
+          purpose: form.purpose || undefined,
+          housing: batch.housing || undefined,
+          headCount: n,
+        });
+      }
+      if (r.success) {
+        toast.success(`${n} ${cfg.headNoun} added`);
+        setAddOpen(false);
+        setBatch({ count: '', name: '', housing: '' });
+        await load(); onChanged?.();
+      }
+    } finally { setSaving(false); }
+  };
+
   const add = async () => {
     if (!form.name.trim() || !form.species.trim()) { toast.error('A name and what it is — that is all that is required'); return; }
     setSaving(true);
@@ -104,7 +147,15 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
         name: form.name.trim(), species: form.species.trim(),
         breed: form.breed.trim() || undefined,
         sex: form.sex || undefined,
-        ageMonths: form.ageMonths === '' ? undefined : Number(form.ageMonths),
+        /* ⚠️ The column is MONTHS; the box may have asked for weeks. A pullet
+           at 18 weeks is 4.1 months, and rounding that to 4 loses the week
+           either side of point of lay — which is the number the farmer came
+           here for. Send the fraction and let the display round. */
+        ageMonths: form.ageMonths === ''
+          ? undefined
+          : (speciesConfig(form.species).ageUnit === 'weeks'
+              ? Number((Number(form.ageMonths) / 4.345).toFixed(2))
+              : Number(form.ageMonths)),
         tagNumber: form.tagNumber.trim() || undefined,
         animalGroupId: form.animalGroupId || undefined,
         purpose: form.purpose || undefined,
@@ -338,6 +389,87 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
     );
   }
 
+  /* ⚠️ COUNTED, NOT NAMED — the form changes SHAPE with the species, it does
+     not merely relabel. A flock has no name box, no tag number and no weight,
+     because a farmer with 900 birds has no answer to any of the three. What
+     they do have is a number, a breed, a house and a hatch date. */
+  if (addOpen && cfg.identity === 'BATCH') {
+    const flocks = groups.filter((g) => speciesConfig(g.species).identity === 'BATCH');
+    return (
+      <CpPage title={`Add ${cfg.headNoun}`} onBack={() => setAddOpen(false)}>
+        <div className="space-y-3">
+          <div>
+            <label className="cp-label">What is it?</label>
+            <select className="cp-input w-full" value={form.species}
+              onChange={(e) => setForm({ ...form, species: e.target.value })}>
+              {FARM_SPECIES.map((sp) => <option key={sp} value={sp}>{sp}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="cp-label">How many {cfg.headNoun}</label>
+              <input className="cp-input w-full" type="number" min="1" placeholder="200" autoFocus
+                value={batch.count} onChange={(e) => setBatch({ ...batch, count: e.target.value })} />
+            </div>
+            <div>
+              <label className="cp-label">Breed</label>
+              <input className="cp-input w-full" list="cp-breeds" placeholder={cfg.breeds[0] ?? ''}
+                value={form.breed} onChange={(e) => setForm({ ...form, breed: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <label className="cp-label">Kept for</label>
+            <select className="cp-input w-full" value={form.purpose}
+              onChange={(e) => setForm({ ...form, purpose: e.target.value })}>
+              <option value="">Not sure</option>
+              {cfg.purposes.map((pp) => <option key={pp.key} value={pp.key}>{pp.label}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="cp-label">
+              Which {cfg.groupNoun} <span className="cp-muted font-normal normal-case tracking-normal">— or start a new one</span>
+            </label>
+            <select className="cp-input w-full" value={form.animalGroupId}
+              onChange={(e) => setForm({ ...form, animalGroupId: e.target.value })}>
+              <option value="">Start a new {cfg.groupNoun}</option>
+              {flocks.map((g) => (
+                <option key={g.id} value={g.id}>{g.name} — {g.headCount} {speciesConfig(g.species).headNoun}</option>
+              ))}
+            </select>
+          </div>
+          {!form.animalGroupId && (
+            <>
+              <div>
+                <label className="cp-label">Call this {cfg.groupNoun}</label>
+                <input className="cp-input w-full" placeholder="March layers"
+                  value={batch.name} onChange={(e) => setBatch({ ...batch, name: e.target.value })} />
+              </div>
+              {cfg.housing.length > 0 && (
+                <div>
+                  <label className="cp-label">Housing</label>
+                  <select className="cp-input w-full" value={batch.housing}
+                    onChange={(e) => setBatch({ ...batch, housing: e.target.value })}>
+                    <option value="">Not sure</option>
+                    {cfg.housing.map((h) => <option key={h} value={h}>{h}</option>)}
+                  </select>
+                </div>
+              )}
+            </>
+          )}
+          <p className="text-[10px] cp-muted">
+            {cfg.headNoun.charAt(0).toUpperCase() + cfg.headNoun.slice(1)} are counted, not named — the {cfg.groupNoun} is the record.
+          </p>
+          <datalist id="cp-breeds">
+            {cfg.breeds.map((b) => <option key={b} value={b} />)}
+          </datalist>
+          <button className="cp-btn w-full" onClick={addBirds} disabled={saving || !batch.count.trim()}>
+            {saving ? 'Adding…' : `Add ${batch.count || ''} ${cfg.headNoun}`.trim()}
+          </button>
+        </div>
+      </CpPage>
+    );
+  }
+
   /* ⚠️ A PAGE, NOT A SHEET (CpPage). Eight fields never fitted a sheet
      capped at 92dvh: it opened already scrolled, with the title and the
      Add button never on screen together. */
@@ -472,7 +604,13 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
           )}
         </div>
       ) : (
-        sections.map(({ group, list }) => (
+        sections.map(({ group, list }) => {
+        /* ⚠️ Speak the species' own language. "Herd · 7 head" over a chicken
+           house is the single clearest sign a form was written for cattle and
+           pointed at everything else. */
+        const gcfg = speciesConfig(group?.species);
+        const batch = gcfg.identity === 'BATCH';
+        return (
           <section key={group?.id ?? 'loose'}>
             <div className="flex items-end justify-between gap-2 mb-1.5 mt-1">
               <div className="min-w-0">
@@ -483,8 +621,11 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
                   {group
                     ? [
                         group.species,
-                        `${group.headCount} head`,
-                        list.length ? `${list.length} named` : 'none named yet',
+                        `${group.headCount} ${gcfg.headNoun}`,
+                        // A batch is not missing its names — it was never
+                        // going to have any. "none named yet" reads as a chore
+                        // outstanding; for 900 birds it is just wrong.
+                        batch ? null : (list.length ? `${list.length} named` : 'none named yet'),
                       ].filter(Boolean).join(' · ')
                     : `${list.length} animal${list.length === 1 ? '' : 's'}`}
                 </p>
@@ -494,7 +635,7 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
                   className="shrink-0 text-[10px] font-black uppercase tracking-widest cp-accent-text flex items-center gap-1"
                   onClick={() => { setForm({ ...form, animalGroupId: group.id, species: group.species || form.species }); setAddOpen(true); }}
                 >
-                  <Plus size={11} /> Add
+                  <Plus size={11} /> {batch ? gcfg.headNoun : 'Add'}
                 </button>
               )}
             </div>
@@ -504,7 +645,7 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
                  yet — that gap is the thing they need to act on. */
               <div className="cp-card px-4 py-3 text-[11px] text-slate-400">
                 {group?.headCount
-                  ? `${group.headCount} counted here, none named individually.`
+                  ? `${group.headCount} ${gcfg.headNoun} counted here${batch ? '.' : ', none named individually.'}`
                   : 'Nothing here yet.'}
               </div>
             ) : (
@@ -546,7 +687,8 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
             </div>
             )}
           </section>
-        ))
+        );
+        })
       )}
 
       {/* ── A unit: a house, a batch, a herd ──────────────────────────────── */}
