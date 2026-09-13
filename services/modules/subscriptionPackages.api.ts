@@ -280,13 +280,41 @@ export const SUPPLIER_FEATURE_CATALOG = {
  * vaccination plan, priority booking, and so on. The keys therefore describe
  * entitlements a clinic honours for that client, plus what the owner can reach
  * in the portal.
+ *
+ * ⚠️ ONE CLIENT ACCOUNT, TWO SIDES — so this catalog carries BOTH vocabularies.
+ * Farmer and Farmer Pro are CLIENT-audience rows (230: a farmer IS a client),
+ * which meant the plan editor could only offer a farm plan the pet-owner keys.
+ * Admin was choosing "Telehealth consults" for a plan whose entire point is
+ * herds and feeding, and the portal's plan card then listed what the editor
+ * had been able to tick rather than what the plan grants.
+ *
+ * User, 2026-09-14: *"ensure features in pkgs and in card fetched from the
+ * [plan editor] so they need expansion of features or access to select."*
+ *
+ * ⚠️ Every key below gates something that EXISTS. Adding a key with no surface
+ * behind it would sell a feature that cannot be delivered, which is the exact
+ * inverse of the lock rule — and worse, because a lock can at least be bought.
  */
 export const CLIENT_FEATURE_CATALOG = {
   views: [
+    // Pet side
     'client:portal',
     'client:records',
     'client:book-online',
     'client:invoices',
+    'client:messages',
+    'client:community',
+    // Farm side — the same rows a LIVESTOCK plan uses, because a Farmer plan
+    // is a CLIENT row and has nowhere else to get them.
+    'livestock:dashboard',
+    'livestock:farms',
+    'livestock:animal-groups',
+    'livestock:animal-register',
+    'livestock:records',
+    'livestock:treatments',
+    'livestock:crops',
+    'livestock:feeding',
+    'livestock:produce',
   ],
   capabilities: [
     'client:multi-pet',
@@ -294,6 +322,11 @@ export const CLIENT_FEATURE_CATALOG = {
     'client:telehealth',
     'client:home-visit',
     'client:reminders',
+    'livestock:vet-link',
+    'capability:attachments',
+    // User, 2026-09-13: export belongs on every basic package. It is still
+    // listed so a plan card can SAY so rather than leaving it to be discovered.
+    'capability:exports',
   ],
   services: [
     'client:wellness-plan',
@@ -302,6 +335,9 @@ export const CLIENT_FEATURE_CATALOG = {
     'client:grooming-plan',
     'client:annual-checkup',
     'client:discount-tier',
+    'client:marketplace',
+    'livestock:agronomy-advice',
+    'livestock:herd-health-plan',
   ],
 };
 
@@ -315,9 +351,13 @@ export const LIVESTOCK_FEATURE_CATALOG = {
     'livestock:dashboard',
     'livestock:farms',
     'livestock:animal-groups',
+    'livestock:animal-register',
+    'livestock:records',
+    'livestock:treatments',
     'livestock:crops',
     'livestock:feeding',
     'livestock:produce',
+    'client:community',
   ],
   capabilities: [
     'livestock:vet-link',
@@ -327,6 +367,7 @@ export const LIVESTOCK_FEATURE_CATALOG = {
   services: [
     'livestock:agronomy-advice',
     'livestock:herd-health-plan',
+    'client:marketplace',
     'service:priority-support',
   ],
 };

@@ -622,6 +622,16 @@ body {
   box-shadow: 0 0 0 1px var(--cp-border);
 }
 
+/* The segmented tab strip the billing page uses — the clinic and supplier
+   shape, painted in portal tokens. The active pill is filled rather than
+   underlined, which is what distinguishes it from `.cp-tab` above (that one is
+   the bottom tab bar, where an underline is the right signal). */
+.client-portal .cp-tab-on {
+  background: var(--cp-accent);
+  color: #fff;
+  box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.35);
+}
+
 .client-portal .cp-tab { position: relative; color: var(--cp-muted); }
 .client-portal .cp-tab.cp-tab-active { color: var(--cp-accent-dark); }
 .client-portal .cp-tab.cp-tab-active::before {

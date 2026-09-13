@@ -1,7 +1,11 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Check, Loader2, Sprout, ExternalLink } from 'lucide-react';
+import {
+  ArrowLeft, Check, Loader2, Sprout, ExternalLink, CreditCard, Layers, Lock,
+} from 'lucide-react';
 import { clientPortalAPI, PortalPlan, PortalPlanState } from '../../../services';
+import { CLIENT_FEATURE_CATALOG } from '../../../services/modules/subscriptionPackages.api';
+import { KEY_LABEL, BASELINE_KEYS } from '../../../services/entitlements';
 
 /**
  * 231 — the client's own plan.
@@ -29,6 +33,29 @@ import { clientPortalAPI, PortalPlan, PortalPlanState } from '../../../services'
 const money = (n: number, currency: string) =>
   `${currency} ${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
+/**
+ * ⚠️ THE CARD READS THE PLAN, NOT A HAND-WRITTEN BLURB.
+ *
+ * `features` is prose stored on the package row; `featureKeys` is what the
+ * gates actually run on. They drift — a plan grants `livestock:feeding` while
+ * its blurb still says "priority booking" — and the blurb is the half the
+ * customer sees. User, 2026-09-14: *"ensure features in pkgs and in card
+ * fetched from the [plan editor]."* So the keys win, and prose is only a
+ * fallback for a row nobody has ticked anything on yet.
+ */
+const BUCKETS: { title: string; keys: string[] }[] = [
+  { title: 'Modules', keys: CLIENT_FEATURE_CATALOG.views },
+  { title: 'Capabilities', keys: CLIENT_FEATURE_CATALOG.capabilities },
+  { title: 'Services', keys: CLIENT_FEATURE_CATALOG.services },
+];
+
+/** Every key admin can put on a client plan, in the editor's own order. */
+const CATALOG_ORDER = BUCKETS.flatMap((b) => b.keys);
+
+const labelsFor = (keys: string[]) =>
+  CATALOG_ORDER.filter((k) => keys.includes(k) && !BASELINE_KEYS.has(k))
+    .map((k) => KEY_LABEL[k] ?? k);
+
 const farmLine = (p: PortalPlan) => {
   if (!p.featureKeys.includes('livestock:farms')) return null;
   return p.maxFarms <= 0 ? 'Unlimited farms' : `${p.maxFarms} farm${p.maxFarms === 1 ? '' : 's'}`;
@@ -44,6 +71,10 @@ const ClientPlan: React.FC = () => {
   const [busyId, setBusyId] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [switchingFarm, setSwitchingFarm] = useState(false);
+  /* The clinic and supplier billing screens split the same two questions —
+     "what do I pay" and "what do I get" — and the portal asked only the
+     first. Same structure here, portal colours. */
+  const [tab, setTab] = useState<'plans' | 'features'>('plans');
 
   const load = useCallback(async () => {
     const [p, c] = await Promise.all([
@@ -118,6 +149,24 @@ const ClientPlan: React.FC = () => {
 
   const ordered = useMemo(() => [...plans].sort((a, b) => a.tier - b.tier), [plans]);
 
+  /**
+   * ⚠️ LOCKED means "on a rung above you", not "exists somewhere in the
+   * product". Listing a key no plan on this ladder sells would advertise an
+   * upgrade the client cannot buy — the lock rule inverted.
+   */
+  const reachable = useMemo(() => {
+    const all = new Set<string>();
+    ordered.forEach((p) => p.featureKeys.forEach((k) => all.add(k)));
+    return CATALOG_ORDER.filter((k) => all.has(k) && !BASELINE_KEYS.has(k));
+  }, [ordered]);
+
+  const mine = useMemo(() => new Set(current?.featureKeys ?? []), [current]);
+
+  /** The cheapest rung that would unlock a key — what the upsell must name. */
+  const unlockedBy = useCallback((key: string) => (
+    ordered.find((p) => p.featureKeys.includes(key) && p.tier > currentTier)?.name ?? null
+  ), [ordered, currentTier]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
@@ -144,6 +193,36 @@ const ClientPlan: React.FC = () => {
         </p>
       </div>
 
+      {/* ── Tabs ─────────────────────────────────────────────────────────
+          The clinic and supplier billing pages' own strip, in portal tokens
+          rather than the clinic palette — user: "exactly … just keep colors
+          for here." */}
+      <div className="overflow-x-auto -mx-1 px-1">
+        <div
+          className="inline-flex min-w-max p-1 rounded-2xl border"
+          style={{ background: 'var(--cp-surface-2)', borderColor: 'var(--cp-border)' }}
+        >
+          {([
+            { id: 'plans' as const, label: 'Plans', icon: CreditCard },
+            { id: 'features' as const, label: 'What you get', icon: Layers },
+          ]).map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`px-4 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                  active ? 'cp-tab-on' : 'cp-muted'
+                }`}
+              >
+                <t.icon size={12} /> {t.label}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {tab === 'plans' && (
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {ordered.map((p) => {
           const isCurrent = p.tier === currentTier;
@@ -173,8 +252,9 @@ const ClientPlan: React.FC = () => {
                 </div>
               )}
 
+              {/* ⚠️ Keys first, prose only as a fallback. See labelsFor. */}
               <ul className="space-y-1.5">
-                {p.features.map((f, i) => (
+                {(labelsFor(p.featureKeys).length ? labelsFor(p.featureKeys) : p.features).map((f, i) => (
                   <li key={i} className="flex items-start gap-2 text-sm" style={{ color: 'var(--cp-ink-soft)' }}>
                     <Check className="w-3.5 h-3.5 mt-0.5 shrink-0 cp-accent-text" />
                     <span>{f}</span>
@@ -212,6 +292,63 @@ const ClientPlan: React.FC = () => {
           );
         })}
       </div>
+      )}
+
+      {/* ══ What you get ═══════════════════════════════════════════════════
+          The same included/locked split the clinic and supplier pages show,
+          read from the keys the gates run on. A locked row names the rung
+          that unlocks it — sell the lock, never hide it. */}
+      {tab === 'features' && (
+        <div className="space-y-4">
+          {BUCKETS.map((b) => {
+            const rows = b.keys.filter((k) => reachable.includes(k));
+            if (rows.length === 0) return null;
+            return (
+              <div key={b.title} className="cp-card p-4 sm:p-5">
+                <h3 className="text-[10px] font-black uppercase tracking-widest cp-muted mb-3">
+                  {b.title}
+                  <span className="ml-2 cp-accent-text">
+                    {rows.filter((k) => mine.has(k)).length} of {rows.length}
+                  </span>
+                </h3>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {rows.map((k) => {
+                    const has = mine.has(k);
+                    const rung = has ? null : unlockedBy(k);
+                    return (
+                      <div
+                        key={k}
+                        className="flex items-start gap-2.5 px-3 py-2.5 rounded-xl border"
+                        style={{
+                          borderColor: has ? 'var(--cp-accent)' : 'var(--cp-border)',
+                          background: has ? 'transparent' : 'var(--cp-surface-2)',
+                        }}
+                      >
+                        {has
+                          ? <Check className="w-3.5 h-3.5 mt-0.5 shrink-0 cp-accent-text" />
+                          : <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0 cp-muted" />}
+                        <div className="min-w-0">
+                          <div className="text-sm font-bold truncate" style={{ color: has ? 'var(--cp-ink)' : 'var(--cp-ink-soft)' }}>
+                            {KEY_LABEL[k] ?? k}
+                          </div>
+                          {rung && (
+                            <button
+                              onClick={() => setTab('plans')}
+                              className="text-[10px] font-black uppercase tracking-widest cp-accent-text"
+                            >
+                              On {rung} →
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
 
       {/*
         The way IN and the way OUT of the farmer ladder.
