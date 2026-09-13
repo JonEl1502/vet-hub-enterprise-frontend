@@ -229,7 +229,9 @@ export const livestockAPI = {
     put(`${BASE}/visit-requests/${id}`, data, { showError: true }),
 
   // ── Farms ────────────────────────────────────────────────────────────────
-  listFarms: (opts: { search?: string; includeInactive?: boolean } = {}): Promise<ApiResponse<{ farms: Farm[] }>> =>
+  // `clientId` narrows to one client's farms — the Farm tab on a client
+  // profile. It narrows the clinic scope, never widens it.
+  listFarms: (opts: { search?: string; includeInactive?: boolean; clientId?: string } = {}): Promise<ApiResponse<{ farms: Farm[] }>> =>
     get(`${BASE}/farms${qs(opts)}`, { cache: false }),
   getFarm: (id: string): Promise<ApiResponse<{ farm: Farm }>> =>
     get(`${BASE}/farms/${id}`, { cache: false }),

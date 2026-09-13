@@ -880,8 +880,8 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
                 )}
               </div>
 
-              {/* Named animals: the paid register. Free is TOLD it exists and
-                  what it costs, rather than shown a control that refuses. */}
+              {/* Naming is free now, so every tier gets the same door — only the
+                  label changes with whether anything is named yet. */}
               {named > 0 ? (
                 <button
                   className="cp-btn-ghost w-full"
@@ -889,22 +889,13 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
                 >
                   Open {named} named {named === 1 ? 'animal' : 'animals'} →
                 </button>
-              ) : tier === 'FULL' ? (
+              ) : (
                 <button
                   className="cp-btn-ghost w-full"
                   onClick={() => { setDetailGroup(null); navigate('/client/farm/animals'); }}
                 >
                   Name the animals in this herd →
                 </button>
-              ) : (
-                <div className="cp-card-soft px-3.5 py-3">
-                  <p className="text-xs font-bold">Name them one by one</p>
-                  <p className="text-[11px] cp-muted mt-0.5">
-                    On Farmer each animal gets its own record — pregnancy, milking, treatments
-                    and what it was sold for — and your history stops being cut to
-                    {summary?.windowDays ? ` ${summary.windowDays} days` : ' a window'}.
-                  </p>
-                </div>
               )}
             </div>
           </CpModal>

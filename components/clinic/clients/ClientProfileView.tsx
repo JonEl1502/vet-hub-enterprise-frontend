@@ -1,6 +1,9 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import LegacyReconcilePanel from './LegacyReconcilePanel';
+import { livestockAPI, type Farm } from '../../../services/modules/livestock.api';
+import { usePlanAccess } from '../../../contexts/PlanAccessContext';
+import { hasFeature } from '../../../services/entitlements';
 import { Client, Pet, Visit, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole, ClientType, ClientDiscount } from '../../../types';
 import { CLIENT_TYPES, COUNTRIES } from '../../../constants';
 
@@ -45,7 +48,7 @@ const MESSAGE_STATUS_LABEL: Record<string, string> = {
 };
 import { dialog } from '../../../services/utils/dialog';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
-import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell, Star, ScrollText, FolderOpen, Camera, Loader2, Paperclip } from 'lucide-react';
+import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell, Star, ScrollText, FolderOpen, Camera, Loader2, Paperclip, Sprout } from 'lucide-react';
 import RemindersApptsTab from '../shared/RemindersApptsTab';
 import ClientPaymentsTab from './ClientPaymentsTab';
 import PetAvatar from '../shared/PetAvatar';
@@ -109,6 +112,34 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   // The same clinic's mark — receipts carry branding wherever they render.
   const receiptClinicLogo = (selectedClinics[0] as any)?.logo ?? null;
   const [activeTab, setActiveTab] = useState(initialTab);
+
+  /**
+   * THE CLIENT'S FARMS.
+   *
+   * A farm owner's profile showed "Pets (0)" and nothing else: their herds live
+   * in the farm model, which nothing on this page read, so the clinic saw a
+   * client with no animals (user, 2026-09-13).
+   *
+   * Deliberately NOT mirrored into `pets`. A Pet is an individual with a
+   * medical history, reminders and vaccination certificates; a flock of 200
+   * layers is not, and the free farm tier is group-first by design. Folding
+   * herds into patients would either create 200 rows nobody wants or lose the
+   * grouping, and it would distort every patient list and reminder sweep in the
+   * clinic. The farm is CONTEXT here; an individual animal becomes a patient
+   * when it is actually treated.
+   *
+   * Gated on `livestock:farms` because the whole clinic-side livestock module
+   * is — without it the tab would list farms nobody could open.
+   */
+  const { access: planAccess } = usePlanAccess();
+  const canSeeFarms = hasFeature(planAccess, 'livestock:farms');
+  const [farms, setFarms] = useState<Farm[]>([]);
+  useEffect(() => {
+    if (!canSeeFarms || !client?.id) { setFarms([]); return; }
+    livestockAPI.listFarms({ clientId: String(client.id) })
+      .then((r) => { if (r.success && r.data) setFarms(r.data.farms); })
+      .catch(() => { /* a farm read must never break the profile */ });
+  }, [canSeeFarms, client?.id]);
   /**
    * Cross-tab jump: a payment's INV link asks for "invoices:<visitId>". The tab
    * state lives here, so the compound value is unpacked here rather than every
@@ -1307,6 +1338,11 @@ const renderOverview = () => (
              {[
                { id: 'overview', label: 'Overview', icon: Activity },
                { id: 'pets', label: `Pets (${pets.length})`, icon: PawPrint },
+               // Only when this client actually has one — a Farms tab reading
+               // "0" on every pet owner is noise on the majority of profiles.
+               ...(canSeeFarms && farms.length > 0
+                 ? [{ id: 'farms', label: `Farms (${farms.length})`, icon: Sprout }]
+                 : []),
                { id: 'appointments', label: 'Visits', icon: Calendar },
                // ONE money tab (user, 2026-08-03). Invoices / Payments /
                // Receipts / Statements / Discounts sat alongside each other AND
@@ -1345,6 +1381,51 @@ const renderOverview = () => (
             focusReminderId={focusReminderId}
           />
         )}
+        {activeTab === 'farms' && (
+          <div className="p-5 space-y-3">
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400">
+              Herds and flocks this client keeps. Their animals are recorded as groups, not as
+              patients — open a farm to see the make-up, feeding and treatments.
+            </p>
+            {farms.map((f) => (
+              <button
+                key={f.id}
+                /* The global navigate event, same as UpgradeGate uses — this
+                   component is ten layers deep and has no navigation prop. */
+                onClick={() => window.dispatchEvent(new CustomEvent('vethub:navigate', {
+                  detail: { view: 'farm-detail', params: { farmId: f.id } },
+                }))}
+                className="w-full text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 hover:border-seafoam transition-colors"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{f.name}</p>
+                    <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate">
+                      {[f.farmType, f.county, f.location].filter(Boolean).join(' · ') || 'No location set'}
+                    </p>
+                    {/* Says WHY this clinic can see it: their own client, or a
+                        farm the owner linked from the portal. */}
+                    {f.linkedClinicId && (
+                      <p className="mt-1 text-[10px] font-black uppercase tracking-widest text-seafoam">
+                        Linked to this clinic
+                      </p>
+                    )}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <p className="text-xl font-black text-pine dark:text-zinc-100 leading-none tabular-nums">
+                      {f.headCount ?? 0}
+                    </p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">Head</p>
+                    <p className="text-[10px] text-slate-400 mt-1 tabular-nums">
+                      {f.animalGroupCount ?? 0} {(f.animalGroupCount ?? 0) === 1 ? 'kind' : 'kinds'}
+                    </p>
+                  </div>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+
         {activeTab === 'pets' && (
            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-in fade-in slide-in-from-bottom-4">
               {pets.length > 0 ? pets.map(pet => {
