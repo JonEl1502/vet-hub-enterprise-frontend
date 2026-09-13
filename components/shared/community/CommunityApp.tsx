@@ -153,8 +153,14 @@ const CommunityApp: React.FC<Props> = ({
             currentColor on the text means one component serves the white rail
             and the near-black one; the amber is literal, being the brand
             colour in both. */}
+        {/* ⚠️ LITERAL #12312A, NOT `text-pine`. `pine` resolves through
+            --secondary-rgb, which PER-CLINIC THEMING OVERRIDES AT RUNTIME — a
+            clinic on a purple theme was rendering the Community logo in its
+            own purple. Community is a platform brand, not the tenant's, and
+            a logo that changes colour per customer is not a logo. Matches the
+            committed SVGs in public/ exactly. */}
         <div className="px-1.5 pt-1 pb-5">
-          <CommunityWordmark className="w-full max-w-[178px] h-auto text-pine dark:text-zinc-100" />
+          <CommunityWordmark className="w-full max-w-[178px] h-auto text-[#12312A] dark:text-zinc-100" />
         </div>
 
         <p className="px-3 pt-1 pb-1.5 text-[9px] font-display font-extrabold uppercase tracking-[0.14em] text-slate-400">Community</p>
