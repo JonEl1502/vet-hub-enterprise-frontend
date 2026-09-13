@@ -70,24 +70,30 @@ interface PlanCardProps {
   onBundleCheckedChange?: (checked: boolean) => void;
 }
 
-const CYCLE_LABEL: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL', string> = {
+const CYCLE_LABEL: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL' | 'ONE_TIME', string> = {
   MONTHLY: 'Monthly',
   QUARTERLY: 'Quarterly',
   SEMIANNUAL: '6 Months',
   YEARLY: 'Yearly',
   BIENNIAL: '2 Years',
   TRIENNIAL: '3 Years',
+  // A one-off is not a cycle the customer picks between — it is the only way
+  // this item is sold, so it is labelled as what it is rather than as a period.
+  ONE_TIME: 'One-off',
 };
-const CYCLE_DAYS_FE: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL', number> = {
+const CYCLE_DAYS_FE: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL' | 'ONE_TIME', number> = {
   MONTHLY: 30, QUARTERLY: 90, SEMIANNUAL: 180, YEARLY: 365, BIENNIAL: 730, TRIENNIAL: 1095,
+  // Longest of all, so the cycle-downgrade guard never offers to "shorten" it.
+  ONE_TIME: 36500,
 };
-const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL', string> = {
+const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL' | 'ONE_TIME', string> = {
   MONTHLY: 'mo',
   QUARTERLY: '3mo',
   SEMIANNUAL: '6mo',
   YEARLY: 'yr',
   BIENNIAL: '2yr',
   TRIENNIAL: '3yr',
+  ONE_TIME: 'once',
 };
 
 export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPreview, isPreviewed, onPayWithMpesa, onPayWithPaystack, paystackLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget, inheritsFrom, bundleAddOn, bundleAddOnOwned, bundleChecked, onBundleCheckedChange, audience }) => {

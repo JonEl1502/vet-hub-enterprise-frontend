@@ -42,6 +42,7 @@ import { usePublicConfig } from '../../../contexts/PublicConfigContext';
 /** Short suffix per billing cycle, for add-on pricing lines. */
 const CYCLE_SUFFIX_MAP: Record<string, string> = {
   MONTHLY: 'mo', QUARTERLY: '3mo', SEMIANNUAL: '6mo', YEARLY: 'yr', BIENNIAL: '2yr', TRIENNIAL: '3yr',
+  ONE_TIME: 'once',
 };
 
 const docNo = (prefix: 'INV' | 'RCP', row: PaymentHistoryRow) =>
