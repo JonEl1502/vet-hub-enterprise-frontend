@@ -71,6 +71,8 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
   const [userType, setUserType] = useState<AdminUserType>('staff');
   const [counts, setCounts] = useState<AdminUserCounts | null>(null);
   const [truncated, setTruncated] = useState(false);
+  // Mirrors the server's cap so the banner can never quote a stale number.
+  const [rowLimit, setRowLimit] = useState<number | null>(null);
   const [status, setStatus] = useState<'all' | 'active' | 'inactive'>('all');
 
   // Set-password modal state
@@ -112,6 +114,7 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
         setUsers(res.data.users);
         setCounts(res.data.counts ?? null);
         setTruncated(!!res.data.truncated);
+        setRowLimit(res.data.limit ?? null);
       } else setError('Could not load users.');
     } catch (e: any) {
       setError(e?.message || 'Could not load users.');
@@ -242,7 +245,7 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
           rows is worse than a shorter one that admits it. */}
       {truncated && (
         <div className="p-3 mb-3 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 rounded-xl text-[11px] font-bold text-amber-700 dark:text-amber-300">
-          Showing the 500 most recent matches only. Narrow the type, clinic or search to see the rest.
+          Showing the {rowLimit ?? 100} most recent matches only. Narrow the type, clinic or search to see the rest.
         </div>
       )}
 

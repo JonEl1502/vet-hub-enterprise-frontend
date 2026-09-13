@@ -182,6 +182,18 @@ const SupplierBillingView: React.FC = () => {
 
   const currentTier = subscription?.package?.tier ?? -1;
 
+  /**
+   * A LAPSED PLAN IS NOT A FLOOR TO PROTECT — same as the clinic page.
+   *
+   * The downgrade guard stops a supplier mid-term on Enterprise from binning
+   * paid-for time by dropping to Starter. After the term expires there is no
+   * time left to bin, and leaving the guard armed meant a locked-out supplier
+   * saw "Downgrade — not available" on every cheaper plan while the only live
+   * button charged more than the one it had just failed to afford.
+   */
+  const subLapsed = !!subscription?.expiresAt && daysLeft(subscription.expiresAt) < 0;
+  const gatingTier = subLapsed ? null : (subscription?.package?.tier ?? null);
+
   // Add-ons layer OVER a base plan; listing one here would let a supplier
   // "subscribe" to it and replace their real plan. Mirrors the clinic page.
   /**
@@ -471,9 +483,11 @@ const SupplierBillingView: React.FC = () => {
                  clinic_subscriptions), so the plan's own cycle is the best
                  signal available for dimming cycle downgrades. */
               currentSubBillingCycle={
-                (subscription?.packageId === pkg.id ? (subscription?.package?.billingCycle as any) : null) ?? null
+                (!subLapsed && subscription?.packageId === pkg.id
+                  ? (subscription?.package?.billingCycle as any)
+                  : null) ?? null
               }
-              currentSubTier={subscription?.package?.tier ?? null}
+              currentSubTier={gatingTier}
               getPlanIcon={getPlanIcon}
               /* SECONDS — framer-motion's unit. This was `i * 60`, i.e. a
                  millisecond stagger fed to a seconds API, so plans 2, 3 and 4

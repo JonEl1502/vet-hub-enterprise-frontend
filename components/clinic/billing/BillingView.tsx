@@ -382,7 +382,43 @@ const BillingView: React.FC = () => {
   /** Add-ons this clinic already holds, by name — from the access endpoint the
    *  gating itself uses, so billing and the gate cannot disagree. */
   const ownedAddOnNameSet = new Set((planAccess?.addOns ?? []).map((a) => a.name));
-  const communityOwned = !!communityAddOn && ownedAddOnNameSet.has(communityAddOn.name);
+
+  /**
+   * AN ADD-ON THE PLAN ALREADY GRANTS IS NOT FOR SALE.
+   *
+   * Pro and Enterprise carry every key the Grooming and Boarding add-ons
+   * carry, yet the Add-ons grid still offered "Buy Grooming on its own" at
+   * KES 5/mo to a clinic that already had it. Charging for something the
+   * customer owns is the one billing bug you cannot apologise your way out of.
+   *
+   * Tested by KEY COVERAGE against the RESOLVED access set — the same list the
+   * gate reads — so this can never disagree with what the clinic can actually
+   * open. Two guards on the test itself:
+   *   • an add-on with NO keys (Counter) would be "covered" by anything, since
+   *     every set contains the empty set. It is excluded, not sold as free.
+   *   • '*' is the grace-period wildcard, not real entitlement. During grace a
+   *     clinic can open everything, but that ends — so nothing is marked
+   *     included on the strength of it.
+   */
+  const resolvedKeySet = new Set(planAccess?.featureKeys ?? []);
+  const hasWildcard = resolvedKeySet.has('*');
+  const planCoversAddOn = (pkg: SubscriptionPackage): boolean => {
+    if (hasWildcard) return false;
+    const keys = pkg.featureKeys ?? [];
+    if (keys.length === 0) return false;
+    return keys.every((k) => resolvedKeySet.has(k));
+  };
+  /**
+   * "Already has it" — by purchase OR because the plan grants it.
+   *
+   * Both must suppress the bundle tick, not just the purchase. Coverage alone
+   * would otherwise leave `bundleCommunity` free to ride along in
+   * bundleAddOnIdsFor and charge an Enterprise clinic for keys Enterprise
+   * already gives it.
+   */
+  const communityOwned =
+    !!communityAddOn
+    && (ownedAddOnNameSet.has(communityAddOn.name) || planCoversAddOn(communityAddOn));
 
   /**
    * Which add-on IDs ride along with a purchase of `pkg`.
@@ -549,6 +585,29 @@ const BillingView: React.FC = () => {
   }
 
   const sub = info?.subscription ?? null;
+
+  /**
+   * A LAPSED PLAN IS NOT A FLOOR TO PROTECT.
+   *
+   * The downgrade guard exists so a clinic mid-term on Enterprise can't throw
+   * away paid-for time by dropping to Basic. Once the term has expired there is
+   * nothing left to throw away — but the guard kept firing off the dead row, so
+   * every cheaper card read "Downgrade — not available" and the one button a
+   * locked-out clinic could press charged MORE than the plan it had just failed
+   * to afford (user, 2026-09-13: *"so if plan expired allow downgrade"*).
+   *
+   * Passing null for the tier reopens the whole ladder. The server agrees: its
+   * purchase-decision query now excludes expired terms too, so the card and the
+   * gate can't disagree.
+   */
+  const subLapsed = !!sub?.expiresAt && daysUntilExpiry(sub.expiresAt) < 0;
+  const gatingTier = subLapsed ? null : (sub?.package?.tier ?? null);
+  /**
+   * Same reasoning one level down. A clinic that held 6-Months Enterprise and
+   * let it lapse can plainly only afford Monthly now — refusing that as a
+   * "cycle downgrade" protects a term that already ended.
+   */
+  const gatingCycle = subLapsed ? null : ((sub?.billingCycle as any) ?? null);
   // Add-ons layer OVER a base plan, so they must never appear in the Change
   // Plan grid — an add-on is tier 0 and would read as a downgrade to nothing.
   const allPackages = info?.packages ?? [];
@@ -991,8 +1050,8 @@ const BillingView: React.FC = () => {
                 onPayWithMpesa={undefined}
                 onPayWithPaystack={(optionId, cycle) => handlePaystackPay(pkg, optionId, cycle)}
                 paystackLoading={paystackPlanId === pkg.id}
-                currentSubBillingCycle={(sub?.package?.id === pkg.id ? sub?.billingCycle : null) ?? null}
-                currentSubTier={sub?.package?.tier ?? null}
+                currentSubBillingCycle={(sub?.package?.id === pkg.id ? gatingCycle : null) ?? null}
+                currentSubTier={gatingTier}
                 upgradeTarget={sub?.package?.id === pkg.id && nextUpgradePkg ? { name: nextUpgradePkg.name, tier: nextUpgradePkg.tier } : null}
                 upgradeTargetPrice={sub?.package?.id === pkg.id ? (nextUpgradeOption?.price ?? null) : null}
                 upgradeTargetCurrency={sub?.package?.id === pkg.id ? (nextUpgradeOption?.currency ?? null) : null}
@@ -1048,8 +1107,8 @@ const BillingView: React.FC = () => {
                     onSelect={() => { if (pkg.stripePriceId) handleCheckout(pkg.stripePriceId, pkg.id); }}
                     onPayWithPaystack={(optionId, cycle) => handlePaystackPay(pkg, optionId, cycle)}
                     paystackLoading={paystackPlanId === pkg.id}
-                    currentSubBillingCycle={(sub?.billingCycle as any) ?? null}
-                    currentSubTier={sub?.package?.tier ?? null}
+                    currentSubBillingCycle={gatingCycle}
+                    currentSubTier={gatingTier}
                     getPlanIcon={getPlanIcon}
                     delay={i * 0.05}
                     bundleAddOn={communityAddOn}
@@ -1091,11 +1150,18 @@ const BillingView: React.FC = () => {
                * selection left to make.
                */
               const isCommunity = communityAddOn?.id === pkg.id;
-              const selected = isCommunity && !owned && bundleCommunity;
+              /**
+               * Already granted by the plan itself. Ranked BELOW `owned`,
+               * because when both are true the clinic paid for it separately
+               * and deserves to be told that, not told it came free.
+               */
+              const includedInPlan = !owned && planCoversAddOn(pkg);
+              const settled = owned || includedInPlan;
+              const selected = isCommunity && !settled && bundleCommunity;
               return (
                 <div key={pkg.id}
                   className={`rounded-2xl border p-5 flex flex-col transition-colors ${
-                    owned ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10'
+                    settled ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10'
                           : selected ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10 ring-1 ring-pine/30'
                           : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
                   }`}>
@@ -1104,17 +1170,17 @@ const BillingView: React.FC = () => {
                       {isCommunity && (
                         <button
                           type="button"
-                          onClick={() => { if (!owned) setBundleCommunity((v) => !v); }}
-                          disabled={owned}
-                          aria-pressed={owned ? true : selected}
-                          aria-label={owned ? `${pkg.name} is active` : `Add ${pkg.name} to your next plan purchase`}
+                          onClick={() => { if (!settled) setBundleCommunity((v) => !v); }}
+                          disabled={settled}
+                          aria-pressed={settled ? true : selected}
+                          aria-label={settled ? `${pkg.name} is active` : `Add ${pkg.name} to your next plan purchase`}
                           className={`mt-0.5 w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center border-2 transition-colors ${
-                            owned ? 'bg-emerald-500 border-emerald-500 text-white cursor-default'
+                            settled ? 'bg-emerald-500 border-emerald-500 text-white cursor-default'
                                   : selected ? 'bg-pine border-pine text-white'
                                   : 'border-slate-300 dark:border-zinc-600 hover:border-pine'
                           }`}
                         >
-                          {(owned || selected) && <Check size={10} strokeWidth={4} />}
+                          {(settled || selected) && <Check size={10} strokeWidth={4} />}
                         </button>
                       )}
                       <div>
@@ -1128,6 +1194,10 @@ const BillingView: React.FC = () => {
                     {owned ? (
                       <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300">
                         Bought
+                      </span>
+                    ) : includedInPlan ? (
+                      <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 whitespace-nowrap">
+                        Included
                       </span>
                     ) : selected ? (
                       <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-pine/15 dark:bg-pine/25 text-pine dark:text-seafoam whitespace-nowrap">
@@ -1150,6 +1220,11 @@ const BillingView: React.FC = () => {
                   {owned ? (
                     <p className="mt-4 text-[11px] text-slate-500 dark:text-zinc-400">
                       Bought — active on this clinic. Cancel from Support if you no longer need it.
+                    </p>
+                  ) : includedInPlan ? (
+                    <p className="mt-4 text-[11px] text-slate-500 dark:text-zinc-400">
+                      Already included in your {sub?.package?.name ?? 'current'} plan — there is nothing to buy.
+                      It stays as long as the plan does.
                     </p>
                   ) : (
                     <>
