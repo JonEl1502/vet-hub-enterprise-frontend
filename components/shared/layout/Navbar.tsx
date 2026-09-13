@@ -68,12 +68,25 @@ const STATUS_CONFIG: Record<string, { label: string; icon: React.ReactNode; colo
 
 // Top-bar entry point into the in-app guided tours. Safe outside a
 // TourProvider — `useOptionalTour` returns null there.
-const TourLauncherButton: React.FC = () => {
+const TourLauncherButton: React.FC<{ className?: string }> = ({ className }) => {
   // ⚠️ Was `try { useTour() } catch { return null }`. Calling a hook inside a
   // try/catch is a rules-of-hooks violation: a hook that throws mid-render
   // leaves React's hook cursor inconsistent, so the guard only appeared to work.
   const tour = useOptionalTour();
   if (!tour) return null;
+  // With a className the caller wants a MENU ROW — icon plus label — rather
+  // than the bare top-bar icon. Same button, same handler, two shapes.
+  if (className) {
+    return (
+      <button onClick={tour.openMenu} className={className} aria-label="Take a tour">
+        <Compass size={16} className="text-seafoam" />
+        <div>
+          <p className="text-[10px] font-bold uppercase text-pine dark:text-zinc-100">Take a tour</p>
+          <p className="text-[8px] opacity-60 uppercase text-pine dark:text-zinc-100">A guided walk through this screen</p>
+        </div>
+      </button>
+    );
+  }
   return (
     <button
       onClick={tour.openMenu}
@@ -443,8 +456,13 @@ const Navbar: React.FC<NavbarProps> = ({
         {/* ── Start a quick visit ── deliberately BEFORE the tour button. */}
         <QuickVisitButton role={role} />
 
-        {/* ── Take a tour ── */}
-        <TourLauncherButton />
+        {/* ── Take a tour ── desktop only. On a phone this row already
+            carries quick-visit, notifications and the avatar; tour and the
+            calculator move into the profile menu, where there is room for a
+            label saying what they are (user, 2026-09-13). */}
+        <div className="hidden md:block">
+          <TourLauncherButton />
+        </div>
 
         {/* ── Calculator ── a floating, draggable panel rather than a modal:
             the numbers being copied are on the page underneath (user,
@@ -452,7 +470,7 @@ const Navbar: React.FC<NavbarProps> = ({
         <button
           ref={calcBtnRef}
           onClick={() => setShowCalc(v => !v)}
-          className={`p-2 transition-all rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 ${showCalc ? 'text-seafoam' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-100'}`}
+          className={`hidden md:block p-2 transition-all rounded-xl hover:bg-slate-100 dark:hover:bg-zinc-800 ${showCalc ? 'text-seafoam' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-100'}`}
           title="Calculator"
           aria-label="Calculator"
         >
@@ -896,6 +914,23 @@ const Navbar: React.FC<NavbarProps> = ({
                       <p className="text-[8px] opacity-60 uppercase text-pine dark:text-zinc-100">Switch appearance</p>
                     </div>
                   </button>
+                  {/* ── Phone-only: tour and calculator ──────────────────
+                      Moved off the top bar, which on a phone had five icons
+                      competing for the same row. Here each gets a label, so
+                      "what is the compass?" stops being a question. */}
+                  <div className="md:hidden">
+                    <TourLauncherButton className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left hover:bg-slate-50 dark:hover:bg-zinc-800" />
+                    <button
+                      onClick={() => { setShowUserDropdown(false); setShowCalc(true); }}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left hover:bg-slate-50 dark:hover:bg-zinc-800"
+                    >
+                      <Calculator size={16} className="text-seafoam" />
+                      <div>
+                        <p className="text-[10px] font-bold uppercase text-pine dark:text-zinc-100">Calculator</p>
+                        <p className="text-[8px] opacity-60 uppercase text-pine dark:text-zinc-100">Add up without leaving the page</p>
+                      </div>
+                    </button>
+                  </div>
                   {/* REPORT AN ISSUE — in the profile menu because that is
                       where people look when something is wrong and they do not
                       know which page owns it. Files into the SAME support-ticket
