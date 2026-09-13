@@ -319,6 +319,38 @@ body {
   --cp-accent-soft: #2a1c14;
 }
 
+/* ── Dark-mode calibration for the portal ──────────────────────────────────
+   The portal's palette IS token-driven (--cp-ink, --cp-surface, --cp-muted),
+   but most of its components were written with raw slate/white utilities that
+   assume a light ground: `text-slate-800` titles, `bg-slate-100` chips,
+   `bg-white` panels. In light mode those read correctly, which is why it went
+   unnoticed; in dark they are near-invisible text and white boxes punched out
+   of a warm-dark page (user, 2026-09-13: *"dark mode is not well callib'd for
+   farm/client portal"*).
+
+   Remapped ONCE here rather than across ~200 call sites — and so a component
+   written the same way tomorrow is calibrated for free. Scoped to dark only,
+   so light mode is untouched and cannot regress.
+
+   Specificity is (0,2,x) against the utilities' (0,1,0), so these win on
+   cascade order alone — no `!important`, and a deliberate override at a call
+   site still beats them. */
+.dark .client-portal .text-slate-900,
+.dark .client-portal .text-slate-800,
+.dark .client-portal .text-slate-700 { color: var(--cp-ink); }
+
+.dark .client-portal .text-slate-600,
+.dark .client-portal .text-slate-500,
+.dark .client-portal .text-slate-400 { color: var(--cp-muted); }
+
+/* Surfaces: a white panel on a #17120e page is a hole, not a card. */
+.dark .client-portal .bg-white,
+.dark .client-portal .bg-slate-50,
+.dark .client-portal .bg-slate-100 { background-color: var(--cp-surface-2); }
+
+.dark .client-portal .border-slate-100,
+.dark .client-portal .border-slate-200 { border-color: var(--cp-border); }
+
 .client-portal .cp-card {
   background: var(--cp-surface);
   border: 1px solid var(--cp-border);

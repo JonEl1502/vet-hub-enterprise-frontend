@@ -200,6 +200,11 @@ interface Props {
 }
 
 const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, tier, groupLimit }) => {
+  /**
+   * The herd the farmer tapped. A card that shows six numbers and cannot be
+   * opened is a dead end — and the numbers on it are the interesting part.
+   */
+  const [detailGroup, setDetailGroup] = useState<PortalAnimalGroup | null>(null);
   const [summary, setSummary] = useState<PortalFarmSummary | null>(null);
   const [entries, setEntries] = useState<PortalLedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -523,7 +528,14 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
                 ...Object.entries(g.purposeCounts ?? {}).map(([k, v]) => [purposeLabel(k) ?? k, v]),
               ].filter(([, v]) => Number(v) > 0);
               return (
-                <div key={g.id} className="cp-card p-3.5">
+                <div
+                  key={g.id}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => setDetailGroup(g)}
+                  onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailGroup(g); } }}
+                  className="cp-card p-3.5 cursor-pointer transition-colors hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="text-sm font-bold text-slate-800 truncate">{g.name}</p>
@@ -539,14 +551,14 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
                       {namedByGroup[g.id] ? (
                         <button
                           className="mt-1 text-[10px] font-black uppercase tracking-widest cp-accent-text flex items-center gap-1"
-                          onClick={() => navigate('/client/farm/animals')}
+                          onClick={(e) => { e.stopPropagation(); navigate('/client/farm/animals'); }}
                         >
                           {namedByGroup[g.id]} named →
                         </button>
                       ) : (
                         <button
                           className="mt-1 text-[10px] font-black uppercase tracking-widest cp-accent-text flex items-center gap-1"
-                          onClick={() => openComposition(g)}
+                          onClick={(e) => { e.stopPropagation(); openComposition(g); }}
                         >
                           <Pencil size={10} /> Update
                         </button>
@@ -774,6 +786,130 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
           </div>
         </CpModal>
       )}
+
+      {/* ── One herd, opened ──────────────────────────────────────────────
+          Brief on Free, complete on Farmer — the SAME sheet either way, so the
+          farmer sees the shape of what they'd be buying rather than a locked
+          door. What Free withholds is depth (history beyond its window, named
+          animals), not the screen. */}
+      {detailGroup && (() => {
+        const g = detailGroup;
+        const cfg = speciesConfig(g.species);
+        const named = namedByGroup[g.id] ?? 0;
+        // Composition, as named rows rather than a chip soup — this is the one
+        // place a farmer reads the numbers rather than glancing at them.
+        const rows: Array<[string, number]> = ([
+          ['Male', g.males], ['Female', g.females],
+          ['Adult', g.adults], [cfg.youngLabel, g.young],
+          ...(cfg.pregnancy ? [[cfg.pregnantLabel, g.pregnant] as [string, number]] : []),
+          ...(cfg.lactation ? [[cfg.lactatingLabel, g.lactating] as [string, number]] : []),
+          ...Object.entries(g.purposeCounts ?? {}).map(
+            ([k, v]) => [purposeLabel(k) ?? k, Number(v)] as [string, number],
+          ),
+        ] as Array<[string, number]>).filter(([, v]) => Number(v) > 0);
+        // Already loaded for the ledger below — no second request to open a herd.
+        const mine = entries.filter((e) => e.animalGroupId === g.id);
+        return (
+          <CpModal onClose={() => setDetailGroup(null)} title={g.name} maxWidth="46rem">
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[11px] cp-muted truncate">
+                    {[g.species, g.breed].filter(Boolean).join(' · ')}
+                  </p>
+                  {g.housing && <p className="text-[11px] cp-muted mt-0.5 truncate">{g.housing}</p>}
+                </div>
+                <div className="shrink-0 text-right">
+                  <p className="text-3xl font-black leading-none">{g.headCount}</p>
+                  <p className="text-[10px] font-black uppercase tracking-widest cp-muted mt-1">Head</p>
+                </div>
+              </div>
+
+              {rows.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-widest cp-muted mb-1.5">Make-up</p>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                    {rows.map(([label, v]) => (
+                      <div key={label} className="cp-card-soft px-3 py-2 flex items-baseline justify-between gap-2">
+                        <span className="text-[11px] font-bold cp-muted truncate">{label}</span>
+                        <span className="text-sm font-black tabular-nums">{v}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <div className="flex items-baseline justify-between gap-3 mb-1.5">
+                  <p className="text-[10px] font-black uppercase tracking-widest cp-muted">
+                    What you recorded
+                  </p>
+                  {tier === 'BASIC' && summary?.windowDays && (
+                    <span className="text-[10px] cp-muted">last {summary.windowDays} days</span>
+                  )}
+                </div>
+                {mine.length === 0 ? (
+                  <div className="cp-card-soft px-3 py-4 text-center">
+                    <p className="text-xs cp-muted">
+                      Nothing recorded against {g.name} yet. Feed, treatment and sales you log
+                      against this herd show up here.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                    {mine.slice(0, 20).map((e) => (
+                      <div key={e.id} className="cp-card-soft px-3 py-2 flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold truncate">{e.item || e.category}</p>
+                          <p className="text-[10px] cp-muted">
+                            {new Date(e.entryDate).toLocaleDateString()}
+                            {e.quantity != null && ` · ${e.quantity}${e.unit ? ` ${e.unit}` : ''}`}
+                          </p>
+                        </div>
+                        {/* Sign it. A feed bill and a milk sale are the same
+                            number otherwise, and the farmer is reading this to
+                            tell them apart. */}
+                        <span className={`text-xs font-black tabular-nums shrink-0 ${
+                          e.direction === 'INCOME' ? 'text-emerald-500' : 'text-rose-400'
+                        }`}>
+                          {e.direction === 'INCOME' ? '+' : '−'}{KES(e.amount)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Named animals: the paid register. Free is TOLD it exists and
+                  what it costs, rather than shown a control that refuses. */}
+              {named > 0 ? (
+                <button
+                  className="cp-btn-ghost w-full"
+                  onClick={() => { setDetailGroup(null); navigate('/client/farm/animals'); }}
+                >
+                  Open {named} named {named === 1 ? 'animal' : 'animals'} →
+                </button>
+              ) : tier === 'FULL' ? (
+                <button
+                  className="cp-btn-ghost w-full"
+                  onClick={() => { setDetailGroup(null); navigate('/client/farm/animals'); }}
+                >
+                  Name the animals in this herd →
+                </button>
+              ) : (
+                <div className="cp-card-soft px-3.5 py-3">
+                  <p className="text-xs font-bold">Name them one by one</p>
+                  <p className="text-[11px] cp-muted mt-0.5">
+                    On Farmer each animal gets its own record — pregnancy, milking, treatments
+                    and what it was sold for — and your history stops being cut to
+                    {summary?.windowDays ? ` ${summary.windowDays} days` : ' a window'}.
+                  </p>
+                </div>
+              )}
+            </div>
+          </CpModal>
+        );
+      })()}
 
       {/* ── Add a herd ───────────────────────────────────────────────────── */}
       {addHerd && (
