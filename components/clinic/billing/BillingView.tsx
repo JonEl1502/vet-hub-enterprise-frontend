@@ -400,6 +400,15 @@ const BillingView: React.FC = () => {
    *     clinic can open everything, but that ends — so nothing is marked
    *     included on the strength of it.
    */
+  /**
+   * Which plan the add-ons grid is describing.
+   *
+   * null = the account's real entitlement. Clicking a plan card previews that
+   * plan instead, so "if I move to Pro, what stops being a separate purchase?"
+   * is answered by looking rather than by buying.
+   */
+  const [previewPlanId, setPreviewPlanId] = useState<string | null>(null);
+
   const resolvedKeySet = new Set(planAccess?.featureKeys ?? []);
   const hasWildcard = resolvedKeySet.has('*');
   const planCoversAddOn = (pkg: SubscriptionPackage): boolean => {
@@ -407,6 +416,19 @@ const BillingView: React.FC = () => {
     const keys = pkg.featureKeys ?? [];
     if (keys.length === 0) return false;
     return keys.every((k) => resolvedKeySet.has(k));
+  };
+
+  /**
+   * Would THIS plan cover that add-on? Same subset test, against the plan's own
+   * published keys rather than the account's resolved ones — this answers a
+   * hypothetical, so it must not consult what the account happens to hold.
+   */
+  const packageCoversAddOn = (plan: SubscriptionPackage | null, addOn: SubscriptionPackage): boolean => {
+    if (!plan) return false;
+    const planKeys = new Set(plan.featureKeys ?? []);
+    const keys = addOn.featureKeys ?? [];
+    if (keys.length === 0 || planKeys.size === 0) return false;
+    return keys.every((k) => planKeys.has(k));
   };
   /**
    * "Already has it" — by purchase OR because the plan grants it.
@@ -1052,6 +1074,8 @@ const BillingView: React.FC = () => {
                 paystackLoading={paystackPlanId === pkg.id}
                 currentSubBillingCycle={(sub?.package?.id === pkg.id ? gatingCycle : null) ?? null}
                 currentSubTier={gatingTier}
+                onPreview={() => setPreviewPlanId((cur) => (cur === pkg.id ? null : pkg.id))}
+                isPreviewed={previewPlanId === pkg.id}
                 upgradeTarget={sub?.package?.id === pkg.id && nextUpgradePkg ? { name: nextUpgradePkg.name, tier: nextUpgradePkg.tier } : null}
                 upgradeTargetPrice={sub?.package?.id === pkg.id ? (nextUpgradeOption?.price ?? null) : null}
                 upgradeTargetCurrency={sub?.package?.id === pkg.id ? (nextUpgradeOption?.currency ?? null) : null}
@@ -1109,6 +1133,8 @@ const BillingView: React.FC = () => {
                     paystackLoading={paystackPlanId === pkg.id}
                     currentSubBillingCycle={gatingCycle}
                     currentSubTier={gatingTier}
+                    onPreview={() => setPreviewPlanId((cur) => (cur === pkg.id ? null : pkg.id))}
+                    isPreviewed={previewPlanId === pkg.id}
                     getPlanIcon={getPlanIcon}
                     delay={i * 0.05}
                     bundleAddOn={communityAddOn}
@@ -1156,12 +1182,24 @@ const BillingView: React.FC = () => {
                * and deserves to be told that, not told it came free.
                */
               const includedInPlan = !owned && planCoversAddOn(pkg);
+              /**
+               * Third rank, and deliberately NOT called "Included": the account
+               * does not have this. Saying otherwise about a plan nobody has
+               * bought would be the same lie as selling something already
+               * owned, pointed the other way.
+               */
+              const previewPlan = previewPlanId
+                ? (allPackages.find((p) => p.id === previewPlanId) ?? null)
+                : null;
+              const includedInPreview =
+                !owned && !includedInPlan && packageCoversAddOn(previewPlan, pkg);
               const settled = owned || includedInPlan;
               const selected = isCommunity && !settled && bundleCommunity;
               return (
                 <div key={pkg.id}
                   className={`rounded-2xl border p-5 flex flex-col transition-colors ${
                     settled ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10'
+                          : includedInPreview ? 'border-amber-400/70 dark:border-amber-500/50 border-dashed bg-amber-50/40 dark:bg-amber-500/5'
                           : selected ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10 ring-1 ring-pine/30'
                           : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
                   }`}>
@@ -1199,6 +1237,10 @@ const BillingView: React.FC = () => {
                       <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-emerald-100 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-300 whitespace-nowrap">
                         Included
                       </span>
+                    ) : includedInPreview ? (
+                      <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-100 dark:bg-amber-500/20 text-amber-700 dark:text-amber-300 whitespace-nowrap">
+                        In {previewPlan?.name}
+                      </span>
                     ) : selected ? (
                       <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-pine/15 dark:bg-pine/25 text-pine dark:text-seafoam whitespace-nowrap">
                         In basket
@@ -1228,6 +1270,12 @@ const BillingView: React.FC = () => {
                     </p>
                   ) : (
                     <>
+                      {includedInPreview && (
+                        <p className="mt-4 text-[11px] text-amber-700 dark:text-amber-300 font-semibold leading-snug">
+                          Comes with {previewPlan?.name} — move to that plan and this stops being a
+                          separate purchase. On your current plan it is still KES-priced below.
+                        </p>
+                      )}
                       {selected && (
                         <p className="mt-4 text-[11px] text-pine dark:text-seafoam font-semibold leading-snug">
                           Ticked on your plan cards — it will be bought together with your next plan,

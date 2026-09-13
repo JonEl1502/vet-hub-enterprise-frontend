@@ -11,6 +11,12 @@ interface PlanCardProps {
   isCurrent: boolean;
   isLoading: boolean;
   onSelect: () => void;
+  /**
+   * Clicking the card body PREVIEWS this plan — the add-ons grid below then
+   * shows what it would include. Separate from onSelect, which buys.
+   */
+  onPreview?: () => void;
+  isPreviewed?: boolean;
   onPayWithMpesa?: () => void;
   /** Paystack hosted checkout (card + mobile money). Redirects off-site. */
   onPayWithPaystack?: (optionId: string | null, cycle: 'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | 'BIENNIAL' | 'TRIENNIAL') => void;
@@ -84,7 +90,7 @@ const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | '
   TRIENNIAL: '3yr',
 };
 
-export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPayWithMpesa, onPayWithPaystack, paystackLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget, inheritsFrom, bundleAddOn, bundleAddOnOwned, bundleChecked, onBundleCheckedChange, audience }) => {
+export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPreview, isPreviewed, onPayWithMpesa, onPayWithPaystack, paystackLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget, inheritsFrom, bundleAddOn, bundleAddOnOwned, bundleChecked, onBundleCheckedChange, audience }) => {
   const Icon = getPlanIcon(pkg.name);
   const { formatPrice } = useDisplayCurrency();
   // "What's included" list — collapsed to the first few, expandable in place.
@@ -249,11 +255,24 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
          plans on the supplier billing page. Clamped so a wrong unit degrades
          to a slightly-late card instead of an apparently-missing plan. */
       transition={{ duration: 0.35, delay: Math.min(Math.max(delay, 0), 1) }}
+      /* The body previews; the buttons inside still do their own jobs. A click
+         on Pay bubbles here too, which only previews the plan being bought. */
+      onClick={onPreview}
+      role={onPreview ? 'button' : undefined}
+      tabIndex={onPreview ? 0 : undefined}
+      onKeyDown={onPreview ? (e: React.KeyboardEvent) => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onPreview(); }
+      } : undefined}
+      aria-pressed={onPreview ? !!isPreviewed : undefined}
       className={`relative rounded-2xl border p-5 flex flex-col gap-4 transition-all ${
+        onPreview ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40' : ''
+      } ${
         isTierDowngrade
           ? 'border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-900/60 opacity-60'
           : isCurrent
           ? 'border-pine dark:border-seafoam bg-pine/5 dark:bg-pine/10'
+          : isPreviewed
+          ? 'border-pine dark:border-seafoam bg-white dark:bg-zinc-900 ring-2 ring-pine/40 dark:ring-seafoam/40'
           : isFeatured
           ? 'border-amber-400 dark:border-amber-500/70 bg-amber-50/40 dark:bg-amber-500/5 shadow-lg shadow-amber-500/10 lg:scale-[1.02]'
           : 'border-slate-200 dark:border-zinc-700/60 bg-white dark:bg-zinc-900 hover:border-pine/50 dark:hover:border-seafoam/40'
