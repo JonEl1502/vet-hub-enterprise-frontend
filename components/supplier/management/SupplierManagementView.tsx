@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
+  Lock,
   Globe,
   Users,
   GitBranch,
@@ -34,6 +35,8 @@ import SupplierWallet from '../billing/SupplierWallet';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import { useSupplier } from '../../../contexts/SupplierContext';
+import { usePlanAccess } from '../../../contexts/PlanAccessContext';
+import { hasFeature } from '../../../services/entitlements';
 import { suppliersAPI } from '../../../services/modules/suppliers.api';
 import type { Supplier } from '../../../services/modules/suppliers.api';
 import { toast } from '../../../services/utils/toast';
@@ -157,6 +160,7 @@ const CURRENCIES = [
 
 const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identity' }) => {
   const { user } = useAuth();
+  const { access: planAccess } = usePlanAccess();
   const { branches } = useSupplierBranch();
   // For admins, the supplier under edit is whichever one they've narrowed
   // to in the unified context switcher. SUPPLIER role users use their own.
@@ -313,10 +317,17 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
     }
   };
 
-  const tabs: { id: Tab; label: string; icon: React.ElementType }[] = [
+  /**
+   * The Branches TAB needs the same lock as the sidebar row, or it is simply
+   * the other door into the same room — the nav could send a locked supplier
+   * to Billing while this tab let them straight in.
+   */
+  const canUseBranches = hasFeature(planAccess, 'supplier:branches');
+
+  const tabs: { id: Tab; label: string; icon: React.ElementType; locked?: boolean }[] = [
     { id: 'identity',     label: 'Identity',     icon: Globe      },
     { id: 'personnel',    label: 'Personnel',    icon: Users      },
-    { id: 'branches',     label: 'Branches',     icon: GitBranch  },
+    { id: 'branches',     label: 'Branches',     icon: GitBranch, locked: !canUseBranches },
     { id: 'appearance',   label: 'Appearance',   icon: Palette    },
     { id: 'subscription', label: 'Billing', icon: CreditCard },
     { id: 'treasury',     label: 'Treasury',     icon: Wallet     },
@@ -387,15 +398,19 @@ const SupplierManagementView: React.FC<Props> = ({ setView, initialTab = 'identi
         {tabs.map(tab => (
           <button
             key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
+            onClick={() => setActiveTab(tab.locked ? 'subscription' : tab.id)}
+            title={tab.locked ? 'Multiple branches — available on a higher plan' : undefined}
             className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
               activeTab === tab.id
                 ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-md'
+                : tab.locked
+                ? 'text-slate-400 dark:text-zinc-600 hover:text-pine dark:hover:text-zinc-300'
                 : 'text-seafoam dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
             }`}
           >
             <tab.icon size={12} />
             {tab.label}
+            {tab.locked && <Lock size={10} className="opacity-70" />}
           </button>
         ))}
       </div>

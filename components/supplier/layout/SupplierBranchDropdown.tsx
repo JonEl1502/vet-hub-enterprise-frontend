@@ -1,7 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Building2, Check, ChevronDown, Search, X } from 'lucide-react';
+import { Building2, Check, ChevronDown, Lock, Search, X } from 'lucide-react';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { usePlanAccess } from '../../../contexts/PlanAccessContext';
+import { hasFeature } from '../../../services/entitlements';
 
 /**
  * THE BRANCH SCOPE PICKER — the supplier's `ClinicSearchDropdown` (user,
@@ -43,6 +45,18 @@ interface Row {
 const SupplierBranchDropdown: React.FC<Props> = ({ isCollapsed }) => {
   const { user } = useAuth();
   const { branches, activeBranchIds, setActiveBranchIds, refresh } = useSupplierBranch();
+  const { access } = usePlanAccess();
+  /**
+   * Multi-branch is a plan capability (`supplier:branches`). Without it the
+   * account works out of its head office and nowhere else.
+   *
+   * The picker is DISABLED, not removed. Hiding it would leave a supplier who
+   * has branches — from a previous plan, or created before a downgrade —
+   * silently scoped to one place with nothing on screen explaining why, and
+   * no idea that upgrading is what brings the others back. Show the lock,
+   * name the plan that lifts it.
+   */
+  const canScopeBranches = hasFeature(access, 'supplier:branches');
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
@@ -57,6 +71,19 @@ const SupplierBranchDropdown: React.FC<Props> = ({ isCollapsed }) => {
   }, [isOpen]);
 
   useEffect(() => { if (!isOpen) setQuery(''); }, [isOpen]);
+
+  /**
+   * Enforce the scope, don't just grey the control. A stale multi-branch
+   * selection left over from a richer plan would otherwise keep every page
+   * reading across branches the plan no longer covers.
+   */
+  useEffect(() => {
+    if (canScopeBranches) return;
+    setIsOpen(false);
+    if (activeBranchIds.length !== 1 || activeBranchIds[0] !== '__main__') {
+      setActiveBranchIds(['__main__']);
+    }
+  }, [canScopeBranches, activeBranchIds, setActiveBranchIds]);
 
   // Re-read on open, so a branch added on the Branches page appears here
   // without a reload — the same reason the takeover modal refreshes.
@@ -113,6 +140,42 @@ const SupplierBranchDropdown: React.FC<Props> = ({ isCollapsed }) => {
       onApply={(ids) => { setActiveBranchIds(ids); setIsOpen(false); }}
     />
   );
+
+  if (!canScopeBranches) {
+    const lockNote = 'One location on this plan — upgrade to work across branches';
+    if (isCollapsed) {
+      return (
+        <div className="relative px-3 py-2 border-b border-seafoam/10 dark:border-zinc-800 shrink-0">
+          <div
+            title={lockNote}
+            aria-label={lockNote}
+            className="w-full flex items-center justify-center p-2 rounded-lg bg-slate-100 dark:bg-zinc-800/60 text-slate-400 dark:text-zinc-500 cursor-not-allowed"
+          >
+            <Lock size={14} />
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="relative px-3 py-2 border-b border-seafoam/10 dark:border-zinc-800 shrink-0">
+        <div
+          title={lockNote}
+          className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 dark:bg-zinc-900/60 border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl text-left cursor-not-allowed"
+        >
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Building2 size={12} className="text-slate-400 shrink-0" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 truncate">
+              {user?.supplier?.name || 'Head office'}
+            </span>
+          </div>
+          <Lock size={11} className="shrink-0 text-slate-400" />
+        </div>
+        <p className="mt-1 px-1 text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500 leading-tight">
+          One location on this plan
+        </p>
+      </div>
+    );
+  }
 
   if (isCollapsed) {
     return (

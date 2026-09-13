@@ -3,10 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import SupplierBranchDropdown from './SupplierBranchDropdown';
 import { usePlanAccess } from '../../../contexts/PlanAccessContext';
-import { planLabel } from '../../../services/entitlements';
+import { planLabel, hasFeature } from '../../../services/entitlements';
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { useSupplier } from '../../../contexts/SupplierContext';
 import {
+  Lock,
   LayoutDashboard,
   Package,
   Receipt,
@@ -135,9 +136,17 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
   const supplierRole = (user as any)?.supplierRole as string | undefined;
   const canManageStaff = !supplierRole || ['OWNER', 'MANAGER'].includes(String(supplierRole));
 
+  /**
+   * Branches is a plan capability. It stays VISIBLE and locked rather than
+   * disappearing: a supplier who cannot find the feature concludes it does not
+   * exist, where one who can see it locked knows what upgrading buys. Clicking
+   * goes to Billing — the place that answers the question the lock raises.
+   */
+  const canUseBranches = hasFeature(access, 'supplier:branches');
+
   const managementSubItems = [
     { id: 'supplier-management', label: 'Account', icon: Building2 },
-    { id: 'supplier-branches', label: 'Branches', icon: GitBranch },
+    { id: 'supplier-branches', label: 'Branches', icon: GitBranch, locked: !canUseBranches },
     ...(canManageStaff ? [{ id: 'supplier-employees', label: 'Personnel', icon: Users }] : []),
     { id: 'supplier-billing', label: 'Billing', icon: CreditCard },
   ];
@@ -377,18 +386,27 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
               <div className="ml-4 mt-1 space-y-0.5 border-l-2 border-seafoam/20 dark:border-zinc-700 pl-3 animate-in slide-in-from-top-2 duration-200">
                 {managementSubItems.map(item => {
                   const isActive = activeView === item.id;
+                  const locked = !!(item as any).locked;
                   return (
                     <button
                       key={item.id}
-                      onClick={() => { setView(item.id); setIsMobileOpen(false); }}
+                      onClick={() => {
+                        // A locked row is a signpost, not a dead end.
+                        setView(locked ? 'supplier-billing' : item.id);
+                        setIsMobileOpen(false);
+                      }}
+                      title={locked ? 'Multiple branches — available on a higher plan' : undefined}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
                         isActive
                           ? 'bg-seafoam text-white shadow-md shadow-seafoam/20'
+                          : locked
+                          ? 'text-pine/30 dark:text-zinc-600 hover:text-seafoam hover:bg-white/40 dark:hover:bg-white/5'
                           : 'text-pine/50 dark:text-zinc-500 hover:text-seafoam hover:bg-white/40 dark:hover:bg-white/5'
                       }`}
                     >
                       <item.icon size={13} className="shrink-0" />
-                      {item.label}
+                      <span className="flex-1 text-left">{item.label}</span>
+                      {locked && <Lock size={10} className="shrink-0 opacity-70" />}
                     </button>
                   );
                 })}
