@@ -22,6 +22,7 @@ import {
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
+import CpPage from '../CpPage';
 import { speciesConfig, purposeLabel } from './farmSpecies';
 
 const STATUS_TONE: Record<string, string> = {
@@ -215,6 +216,214 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
     );
   }
 
+  /* The animal itself is a page too — it carries species-specific
+     production fields and a status change, which is more than a sheet
+     should ever hold. */
+  if (detail) {
+    return (
+      <CpPage title={detail.name} onBack={() => setDetail(null)}>
+        <div className="space-y-3">
+          <p className="text-xs text-slate-500">
+            {[detail.species, detail.breed, detail.sex === 'MALE' ? 'Male' : detail.sex === 'FEMALE' ? 'Female' : null,
+              ageOf(detail.dob, detail.dobIsApprox)].filter(Boolean).join(' · ')}
+            {detail.tagNumber && <span className="ml-1 inline-flex items-center gap-0.5"><Tag size={10} />{detail.tagNumber}</span>}
+          </p>
+          {detail.dobIsApprox && detail.dob && (
+            <p className="text-[10px] text-slate-400">Age is approximate — taken from what you told us, not a birth date.</p>
+          )}
+
+          {/* ⚠️ Species-correct, and ABSENT where it makes no sense. A hen is
+              never asked whether she is pregnant; she is asked when she came
+              into lay, which is the number that predicts her income. */}
+          {(() => {
+            const dcfg = speciesConfig(detail.species);
+            return (
+              <>
+                <div className="flex flex-wrap gap-1.5">
+                  {dcfg.pregnancy && (
+                    <button
+                      className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${detail.isPregnant ? 'bg-amber-500 text-white border-amber-500' : 'bg-white dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700'}`}
+                      onClick={() => setFlag(detail, { isPregnant: !detail.isPregnant })}
+                    >
+                      <Baby size={11} className="inline mr-1" />{dcfg.pregnantLabel}
+                    </button>
+                  )}
+                  {dcfg.lactation && (
+                    <button
+                      className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${detail.isLactating ? 'bg-sky-500 text-white border-sky-500' : 'bg-white dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700'}`}
+                      onClick={() => setFlag(detail, { isLactating: !detail.isLactating })}
+                    >
+                      <Milk size={11} className="inline mr-1" />{dcfg.lactatingLabel}
+                    </button>
+                  )}
+                  {detail.purpose && (
+                    <span className="px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400">
+                      {purposeLabel(detail.purpose)}
+                    </span>
+                  )}
+                </div>
+                {dcfg.laying && (
+                  <div>
+                    <label className="cp-label">Laying since</label>
+                    <input
+                      className="cp-input w-full" type="date"
+                      value={detail.layingSince ? String(detail.layingSince).slice(0, 10) : ''}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={(e) => setFlag(detail, { layingSince: e.target.value || null } as any)}
+                    />
+                    <p className="mt-1 text-[10px] text-slate-400">
+                      Point of lay — how her laying year is measured.
+                    </p>
+                  </div>
+                )}
+              </>
+            );
+          })()}
+
+          <div className="cp-card p-3.5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
+                <Scale size={11} /> Weight
+              </p>
+              <button className="text-[10px] font-black uppercase tracking-widest cp-accent-text"
+                onClick={() => { setWeighing(detail); setWeightVal(''); }}>
+                + Record
+              </button>
+            </div>
+            {detail.weights.length === 0 ? (
+              <p className="mt-2 text-xs text-slate-400">No weights yet — a single number says little; a trend says everything.</p>
+            ) : (
+              <div className="mt-2 divide-y divide-slate-100 dark:divide-zinc-800">
+                {detail.weights.slice(0, 8).map((w, i, arr) => {
+                  const prev = arr[i + 1];
+                  const delta = prev ? w.weightValue - prev.weightValue : null;
+                  return (
+                    <div key={w.id} className="py-1.5 flex items-center justify-between text-xs">
+                      <span className="text-slate-400">
+                        {new Date(w.weighedOn).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </span>
+                      <span className="font-bold text-slate-700 dark:text-zinc-200 tabular-nums">
+                        {w.weightValue}{w.weightUnit}
+                        {delta !== null && (
+                          <span className={`ml-1.5 text-[10px] font-black ${delta > 0 ? 'text-emerald-600' : delta < 0 ? 'text-rose-600' : 'text-slate-400'}`}>
+                            {delta > 0 ? '+' : ''}{delta.toFixed(1)}
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
+          {/* An animal that leaves is kept, never deleted — its history is
+              what makes the herd readable a year later. */}
+          <div>
+            <label className="cp-label">Status</label>
+            <select className="cp-input w-full" value={detail.status}
+              onChange={(e) => setFlag(detail, { status: e.target.value as any })}>
+              <option value="ACTIVE">On the farm</option>
+              <option value="SOLD">Sold</option>
+              <option value="DIED">Died</option>
+              <option value="CULLED">Culled</option>
+              <option value="LOST">Lost / stolen</option>
+            </select>
+            <p className="mt-1 text-[10px] text-slate-400">
+              An animal that leaves is kept, not deleted — you keep its weights and its history.
+            </p>
+          </div>
+        </div>
+      </CpPage>
+    );
+  }
+
+  /* ⚠️ A PAGE, NOT A SHEET (CpPage). Eight fields never fitted a sheet
+     capped at 92dvh: it opened already scrolled, with the title and the
+     Add button never on screen together. */
+  if (addOpen) {
+    return (
+      <CpPage title="Add an animal" onBack={() => setAddOpen(false)}>
+        <div className="space-y-3">
+          <div>
+            <label className="cp-label">Name</label>
+            <input className="cp-input w-full" placeholder="Nyota" value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus />
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="cp-label">What is it?</label>
+              <select className="cp-input w-full" value={form.species}
+                onChange={(e) => setForm({ ...form, species: e.target.value })}>
+                {FARM_SPECIES.map((s) => <option key={s} value={s}>{s}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="cp-label">Breed</label>
+              <input className="cp-input w-full" placeholder="Friesian" value={form.breed}
+                onChange={(e) => setForm({ ...form, breed: e.target.value })} />
+            </div>
+          </div>
+          <div>
+            <label className="cp-label">Kept for</label>
+            <select className="cp-input w-full" value={form.purpose}
+              onChange={(e) => setForm({ ...form, purpose: e.target.value })}>
+              <option value="">Not sure</option>
+              {cfg.purposes.map((pp) => <option key={pp.key} value={pp.key}>{pp.label}</option>)}
+            </select>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="cp-label">Sex</label>
+              <select className="cp-input w-full" value={form.sex}
+                onChange={(e) => setForm({ ...form, sex: e.target.value })}>
+                <option value="">Not sure</option>
+                <option value="FEMALE">Female</option>
+                <option value="MALE">Male</option>
+              </select>
+            </div>
+            <div>
+              {/* ⚠️ Age in MONTHS, not a birth date. A cow bought at market has
+                  no known birthday, and a required date field just makes
+                  someone invent one. The server marks it approximate. */}
+              <label className="cp-label">Age (months)</label>
+              <input className="cp-input w-full" type="number" min="0" placeholder="—" value={form.ageMonths}
+                onChange={(e) => setForm({ ...form, ageMonths: e.target.value })} />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="cp-label">Tag number</label>
+              <input className="cp-input w-full" placeholder="KE-0412" value={form.tagNumber}
+                onChange={(e) => setForm({ ...form, tagNumber: e.target.value })} />
+            </div>
+            <div>
+              <label className="cp-label">Weight (kg)</label>
+              <input className="cp-input w-full" type="number" min="0" placeholder="—" value={form.weightValue}
+                onChange={(e) => setForm({ ...form, weightValue: e.target.value })} />
+            </div>
+          </div>
+          {groups.length > 0 && (
+            <div>
+              <label className="cp-label">Herd <span className="text-slate-400 font-normal normal-case tracking-normal">— optional</span></label>
+              <select className="cp-input w-full" value={form.animalGroupId}
+                onChange={(e) => setForm({ ...form, animalGroupId: e.target.value })}>
+                <option value="">Not in a herd</option>
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+              <p className="mt-1 text-[10px] text-slate-400">
+                Herd numbers update themselves from the animals you name.
+              </p>
+            </div>
+          )}
+          <button className="cp-btn w-full" onClick={add} disabled={saving || !form.name.trim()}>
+            {saving ? 'Adding…' : 'Add'}
+          </button>
+        </div>
+      </CpPage>
+    );
+  }
+
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center gap-2">
@@ -340,88 +549,6 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
         ))
       )}
 
-      {/* ── Add ───────────────────────────────────────────────────────────── */}
-      {addOpen && (
-        <CpModal page title="Add an animal" onClose={() => setAddOpen(false)}>
-          <div className="space-y-3">
-            <div>
-              <label className="cp-label">Name</label>
-              <input className="cp-input w-full" placeholder="Nyota" value={form.name}
-                onChange={(e) => setForm({ ...form, name: e.target.value })} autoFocus />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="cp-label">What is it?</label>
-                <select className="cp-input w-full" value={form.species}
-                  onChange={(e) => setForm({ ...form, species: e.target.value })}>
-                  {FARM_SPECIES.map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="cp-label">Breed</label>
-                <input className="cp-input w-full" placeholder="Friesian" value={form.breed}
-                  onChange={(e) => setForm({ ...form, breed: e.target.value })} />
-              </div>
-            </div>
-            <div>
-              <label className="cp-label">Kept for</label>
-              <select className="cp-input w-full" value={form.purpose}
-                onChange={(e) => setForm({ ...form, purpose: e.target.value })}>
-                <option value="">Not sure</option>
-                {cfg.purposes.map((pp) => <option key={pp.key} value={pp.key}>{pp.label}</option>)}
-              </select>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="cp-label">Sex</label>
-                <select className="cp-input w-full" value={form.sex}
-                  onChange={(e) => setForm({ ...form, sex: e.target.value })}>
-                  <option value="">Not sure</option>
-                  <option value="FEMALE">Female</option>
-                  <option value="MALE">Male</option>
-                </select>
-              </div>
-              <div>
-                {/* ⚠️ Age in MONTHS, not a birth date. A cow bought at market has
-                    no known birthday, and a required date field just makes
-                    someone invent one. The server marks it approximate. */}
-                <label className="cp-label">Age (months)</label>
-                <input className="cp-input w-full" type="number" min="0" placeholder="—" value={form.ageMonths}
-                  onChange={(e) => setForm({ ...form, ageMonths: e.target.value })} />
-              </div>
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="cp-label">Tag number</label>
-                <input className="cp-input w-full" placeholder="KE-0412" value={form.tagNumber}
-                  onChange={(e) => setForm({ ...form, tagNumber: e.target.value })} />
-              </div>
-              <div>
-                <label className="cp-label">Weight (kg)</label>
-                <input className="cp-input w-full" type="number" min="0" placeholder="—" value={form.weightValue}
-                  onChange={(e) => setForm({ ...form, weightValue: e.target.value })} />
-              </div>
-            </div>
-            {groups.length > 0 && (
-              <div>
-                <label className="cp-label">Herd <span className="text-slate-400 font-normal normal-case tracking-normal">— optional</span></label>
-                <select className="cp-input w-full" value={form.animalGroupId}
-                  onChange={(e) => setForm({ ...form, animalGroupId: e.target.value })}>
-                  <option value="">Not in a herd</option>
-                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
-                <p className="mt-1 text-[10px] text-slate-400">
-                  Herd numbers update themselves from the animals you name.
-                </p>
-              </div>
-            )}
-            <button className="cp-btn w-full" onClick={add} disabled={saving || !form.name.trim()}>
-              {saving ? 'Adding…' : 'Add'}
-            </button>
-          </div>
-        </CpModal>
-      )}
-
       {/* ── A unit: a house, a batch, a herd ──────────────────────────────── */}
       {unitOpen && (
         <CpModal title="Add a unit" onClose={() => setUnitOpen(false)}>
@@ -445,124 +572,6 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
             <button className="cp-btn w-full" onClick={addUnit} disabled={saving || !unitName.trim()}>
               {saving ? 'Adding…' : 'Add unit'}
             </button>
-          </div>
-        </CpModal>
-      )}
-
-      {/* ── One animal ────────────────────────────────────────────────────── */}
-      {detail && (
-        <CpModal page title={detail.name} onClose={() => setDetail(null)}>
-          <div className="space-y-3">
-            <p className="text-xs text-slate-500">
-              {[detail.species, detail.breed, detail.sex === 'MALE' ? 'Male' : detail.sex === 'FEMALE' ? 'Female' : null,
-                ageOf(detail.dob, detail.dobIsApprox)].filter(Boolean).join(' · ')}
-              {detail.tagNumber && <span className="ml-1 inline-flex items-center gap-0.5"><Tag size={10} />{detail.tagNumber}</span>}
-            </p>
-            {detail.dobIsApprox && detail.dob && (
-              <p className="text-[10px] text-slate-400">Age is approximate — taken from what you told us, not a birth date.</p>
-            )}
-
-            {/* ⚠️ Species-correct, and ABSENT where it makes no sense. A hen is
-                never asked whether she is pregnant; she is asked when she came
-                into lay, which is the number that predicts her income. */}
-            {(() => {
-              const dcfg = speciesConfig(detail.species);
-              return (
-                <>
-                  <div className="flex flex-wrap gap-1.5">
-                    {dcfg.pregnancy && (
-                      <button
-                        className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${detail.isPregnant ? 'bg-amber-500 text-white border-amber-500' : 'bg-white dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700'}`}
-                        onClick={() => setFlag(detail, { isPregnant: !detail.isPregnant })}
-                      >
-                        <Baby size={11} className="inline mr-1" />{dcfg.pregnantLabel}
-                      </button>
-                    )}
-                    {dcfg.lactation && (
-                      <button
-                        className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${detail.isLactating ? 'bg-sky-500 text-white border-sky-500' : 'bg-white dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700'}`}
-                        onClick={() => setFlag(detail, { isLactating: !detail.isLactating })}
-                      >
-                        <Milk size={11} className="inline mr-1" />{dcfg.lactatingLabel}
-                      </button>
-                    )}
-                    {detail.purpose && (
-                      <span className="px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400">
-                        {purposeLabel(detail.purpose)}
-                      </span>
-                    )}
-                  </div>
-                  {dcfg.laying && (
-                    <div>
-                      <label className="cp-label">Laying since</label>
-                      <input
-                        className="cp-input w-full" type="date"
-                        value={detail.layingSince ? String(detail.layingSince).slice(0, 10) : ''}
-                        max={new Date().toISOString().slice(0, 10)}
-                        onChange={(e) => setFlag(detail, { layingSince: e.target.value || null } as any)}
-                      />
-                      <p className="mt-1 text-[10px] text-slate-400">
-                        Point of lay — how her laying year is measured.
-                      </p>
-                    </div>
-                  )}
-                </>
-              );
-            })()}
-
-            <div className="cp-card p-3.5">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1">
-                  <Scale size={11} /> Weight
-                </p>
-                <button className="text-[10px] font-black uppercase tracking-widest cp-accent-text"
-                  onClick={() => { setWeighing(detail); setWeightVal(''); }}>
-                  + Record
-                </button>
-              </div>
-              {detail.weights.length === 0 ? (
-                <p className="mt-2 text-xs text-slate-400">No weights yet — a single number says little; a trend says everything.</p>
-              ) : (
-                <div className="mt-2 divide-y divide-slate-100 dark:divide-zinc-800">
-                  {detail.weights.slice(0, 8).map((w, i, arr) => {
-                    const prev = arr[i + 1];
-                    const delta = prev ? w.weightValue - prev.weightValue : null;
-                    return (
-                      <div key={w.id} className="py-1.5 flex items-center justify-between text-xs">
-                        <span className="text-slate-400">
-                          {new Date(w.weighedOn).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                        </span>
-                        <span className="font-bold text-slate-700 dark:text-zinc-200 tabular-nums">
-                          {w.weightValue}{w.weightUnit}
-                          {delta !== null && (
-                            <span className={`ml-1.5 text-[10px] font-black ${delta > 0 ? 'text-emerald-600' : delta < 0 ? 'text-rose-600' : 'text-slate-400'}`}>
-                              {delta > 0 ? '+' : ''}{delta.toFixed(1)}
-                            </span>
-                          )}
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-
-            {/* An animal that leaves is kept, never deleted — its history is
-                what makes the herd readable a year later. */}
-            <div>
-              <label className="cp-label">Status</label>
-              <select className="cp-input w-full" value={detail.status}
-                onChange={(e) => setFlag(detail, { status: e.target.value as any })}>
-                <option value="ACTIVE">On the farm</option>
-                <option value="SOLD">Sold</option>
-                <option value="DIED">Died</option>
-                <option value="CULLED">Culled</option>
-                <option value="LOST">Lost / stolen</option>
-              </select>
-              <p className="mt-1 text-[10px] text-slate-400">
-                An animal that leaves is kept, not deleted — you keep its weights and its history.
-              </p>
-            </div>
           </div>
         </CpModal>
       )}

@@ -29,6 +29,7 @@ import {
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
+import CpPage from '../CpPage';
 import { useNavigate } from 'react-router-dom';
 import { speciesConfig, purposeLabel } from './farmSpecies';
 
@@ -397,6 +398,302 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
     ? (isIncome(sheet) ? LEDGER_CATEGORIES.INCOME : LEDGER_CATEGORIES.EXPENSE)
     : [];
 
+  /* Composition is a dozen number fields — a page, not a sheet. */
+  if (editHerd) {
+    return (
+      <CpPage title={editHerd.name} subtitle="Composition" onBack={() => setEditHerd(null)}>
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-2">
+            {compositionFields(editHerd.species).map((f) => (
+              <div key={f.key}>
+                <label className="cp-label">{f.label}</label>
+                <input
+                  className="cp-input w-full" type="number" inputMode="numeric" min="0"
+                  value={comp[f.key] ?? ''}
+                  onChange={(e) => setComp((c) => ({ ...c, [f.key]: e.target.value }))}
+                />
+              </div>
+            ))}
+          </div>
+
+          {/* The "generalities" the user asked for: how many layers, how many
+              broilers, how many kienyeji — without naming a single bird. */}
+          <div>
+            <p className="cp-label">What they are kept for</p>
+            <div className="grid grid-cols-2 gap-2">
+              {speciesConfig(editHerd.species).purposes.map((pp) => (
+                <div key={pp.key}>
+                  <label className="text-[10px] text-slate-500">{pp.label}</label>
+                  <input
+                    className="cp-input w-full" type="number" inputMode="numeric" min="0"
+                    placeholder="0"
+                    value={purposeComp[pp.key] ?? ''}
+                    onChange={(e) => setPurposeComp((c) => ({ ...c, [pp.key]: e.target.value }))}
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
+          {compCheck.error && (
+            <p className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/30 dark:text-rose-300 rounded-xl px-3 py-2">
+              {compCheck.error}
+            </p>
+          )}
+          {compCheck.hint && (
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 dark:bg-amber-400/10 dark:border-amber-400/25 dark:text-amber-300 rounded-xl px-3 py-2">
+              {compCheck.hint} Save it anyway if that is right.
+            </p>
+          )}
+          <button className="cp-btn w-full" onClick={saveComposition} disabled={saving || !!compCheck.error}>
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+        </div>
+      </CpPage>
+    );
+  }
+
+  /* The record sheet is the portal's most-used form. It gets the shell,
+     the rail and a lit tab, like every other page. */
+  if (sheet && sheetDef) {
+    return (
+      <CpPage title={sheetDef.label} onBack={() => setSheet(null)}>
+        <div className="space-y-3">
+          {/* The kind, as chips. A dropdown here reads as paperwork. */}
+          <div className="flex flex-wrap gap-1.5">
+            {categoryChoices.map((c) => (
+              <button
+                key={c.key}
+                type="button"
+                onClick={() => pickCategory(c.key)}
+                className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
+                  category === c.key ? 'bg-pine text-white border-pine' : 'bg-white text-slate-500 border-slate-200'
+                }`}
+              >
+                {c.label}
+              </button>
+            ))}
+          </div>
+
+          <div>
+            <label className="cp-label">What was it?</label>
+            <input
+              className="cp-input w-full"
+              placeholder={isIncome(category) ? 'Morning milk' : 'Dairy meal'}
+              value={item}
+              onChange={(e) => setItem(e.target.value)}
+              autoFocus
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="cp-label">How much {unit ? `(${unit.toLowerCase()})` : ''}</label>
+              <input
+                className="cp-input w-full" type="number" inputMode="decimal" min="0"
+                placeholder="0" value={quantity}
+                onChange={(e) => setQuantity(e.target.value)}
+              />
+            </div>
+            <div>
+              <label className="cp-label">{isIncome(category) ? 'Money in (KES)' : 'Money out (KES)'}</label>
+              <input
+                className="cp-input w-full" type="number" inputMode="decimal" min="0"
+                placeholder="0" value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {groups.length > 0 && (
+            <div>
+              <label className="cp-label">
+                Which animals?
+                <span className="text-slate-400 font-normal normal-case tracking-normal"> — optional</span>
+              </label>
+              <select className="cp-input w-full" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
+                <option value="">The whole farm</option>
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+              </select>
+            </div>
+          )}
+
+          {wantsVendor && (
+            <VendorField
+              value={vendor}
+              supplierId={vendorId}
+              onChange={(name, id) => { setVendor(name); setVendorId(id); }}
+            />
+          )}
+
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-1">
+              <label className="cp-label !mb-0">When</label>
+              <div className="flex gap-1">
+                {QUICK_TIMES.map((q) => (
+                  <button
+                    key={q.value}
+                    type="button"
+                    onClick={() => setEntryTime(q.value)}
+                    className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                      entryTime === q.value
+                        ? 'bg-pine text-white border-pine'
+                        : 'bg-white dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700'
+                    }`}
+                  >
+                    {q.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="grid grid-cols-[1fr_auto] gap-2">
+              <input
+                className="cp-input w-full" type="date" value={entryDate}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setEntryDate(e.target.value)}
+              />
+              <input
+                className="cp-input" type="time" value={entryTime}
+                onChange={(e) => setEntryTime(e.target.value)}
+                title="Leave empty if you are recording something from a while back"
+              />
+            </div>
+          </div>
+
+          <button className="cp-btn w-full" onClick={submit} disabled={saving || !item.trim()}>
+            {saving ? 'Saving…' : 'Record it'}
+          </button>
+        </div>
+      </CpPage>
+    );
+  }
+
+  /* A herd is a page: composition, a ledger and a named-animal roll.
+     The IIFE that used to wrap this only existed to give those derived
+     rows somewhere to live inside JSX — an early return is where they
+     belonged all along. */
+  if (detailGroup) {
+      const g = detailGroup;
+      const cfg = speciesConfig(g.species);
+      const named = namedByGroup[g.id] ?? 0;
+      // Composition, as named rows rather than a chip soup — this is the one
+      // place a farmer reads the numbers rather than glancing at them.
+      const rows: Array<[string, number]> = ([
+        ['Male', g.males], ['Female', g.females],
+        ['Adult', g.adults], [cfg.youngLabel, g.young],
+        ...(cfg.pregnancy ? [[cfg.pregnantLabel, g.pregnant] as [string, number]] : []),
+        ...(cfg.lactation ? [[cfg.lactatingLabel, g.lactating] as [string, number]] : []),
+        ...Object.entries(g.purposeCounts ?? {}).map(
+          ([k, v]) => [purposeLabel(k) ?? k, Number(v)] as [string, number],
+        ),
+      ] as Array<[string, number]>).filter(([, v]) => Number(v) > 0);
+      // Already loaded for the ledger below — no second request to open a herd.
+      const mine = entries.filter((e) => e.animalGroupId === g.id);
+      return (
+        <CpPage title={g.name} onBack={() => setDetailGroup(null)} maxWidth="46rem">
+          <div className="space-y-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-[11px] cp-muted truncate">
+                  {[g.species, g.breed].filter(Boolean).join(' · ')}
+                </p>
+                {g.housing && <p className="text-[11px] cp-muted mt-0.5 truncate">{g.housing}</p>}
+              </div>
+              <div className="shrink-0 text-right">
+                <p className="text-3xl font-black leading-none">{g.headCount}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest cp-muted mt-1">Head</p>
+              </div>
+            </div>
+
+            {rows.length > 0 && (
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-widest cp-muted mb-1.5">Make-up</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {rows.map(([label, v]) => (
+                    <div key={label} className="cp-card-soft px-3 py-2 flex items-baseline justify-between gap-2">
+                      <span className="text-[11px] font-bold cp-muted truncate">{label}</span>
+                      <span className="text-sm font-black tabular-nums">{v}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div>
+              <div className="flex items-baseline justify-between gap-3 mb-1.5">
+                <p className="text-[10px] font-black uppercase tracking-widest cp-muted">
+                  What you recorded
+                </p>
+                {tier === 'BASIC' && summary?.windowDays && (
+                  <span className="text-[10px] cp-muted">last {summary.windowDays} days</span>
+                )}
+              </div>
+              {mine.length === 0 ? (
+                <div className="cp-card-soft px-3 py-4 text-center">
+                  <p className="text-xs cp-muted">
+                    Nothing recorded against {g.name} yet. Feed, treatment and sales you log
+                    against this herd show up here.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-1.5 max-h-64 overflow-y-auto">
+                  {mine.slice(0, 20).map((e) => (
+                    <div key={e.id} className="cp-card-soft px-3 py-2 flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="text-xs font-bold truncate">{e.item || e.category}</p>
+                        <p className="text-[10px] cp-muted">
+                          {new Date(e.entryDate).toLocaleDateString()}
+                          {e.quantity != null && ` · ${e.quantity}${e.unit ? ` ${e.unit}` : ''}`}
+                        </p>
+                      </div>
+                      {/* Sign it. A feed bill and a milk sale are the same
+                          number otherwise, and the farmer is reading this to
+                          tell them apart. */}
+                      <span className={`text-xs font-black tabular-nums shrink-0 ${
+                        e.direction === 'INCOME' ? 'text-emerald-500' : 'text-rose-400'
+                      }`}>
+                        {e.direction === 'INCOME' ? '+' : '−'}{KES(e.amount)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Naming is free now, so every tier gets the same door — only the
+                label changes with whether anything is named yet.
+
+                A PARTLY-named herd says so. Naming one of four used to read
+                as "1 named" with no hint that three were still waiting, and
+                the herd count itself used to collapse to 1 — so the screen
+                gave no sign anything was outstanding. */}
+            {named > 0 ? (
+              <>
+                <button
+                  className="cp-btn-ghost w-full"
+                  onClick={() => { setDetailGroup(null); navigate('/client/farm/animals'); }}
+                >
+                  Open {named} named {named === 1 ? 'animal' : 'animals'} →
+                </button>
+                {g.headCount > named && (
+                  <p className="mt-1.5 text-[11px] cp-muted text-center">
+                    {named} of {g.headCount} named — {g.headCount - named} still to go.
+                    The make-up above stays as you entered it until every head has a name.
+                  </p>
+                )}
+              </>
+            ) : (
+              <button
+                className="cp-btn-ghost w-full"
+                onClick={() => { setDetailGroup(null); navigate('/client/farm/animals'); }}
+              >
+                Name the animals in this herd →
+              </button>
+            )}
+          </div>
+        </CpPage>
+      );
+  }
+
   return (
     <div className="space-y-5">
       {/* ── Money first. This is why they come back. ─────────────────────── */}
@@ -675,245 +972,11 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
 
       </div>
 
-      {/* ── The one record sheet ─────────────────────────────────────────── */}
-      {sheet && sheetDef && (
-        <CpModal page onClose={() => setSheet(null)} title={sheetDef.label}>
-          <div className="space-y-3">
-            {/* The kind, as chips. A dropdown here reads as paperwork. */}
-            <div className="flex flex-wrap gap-1.5">
-              {categoryChoices.map((c) => (
-                <button
-                  key={c.key}
-                  type="button"
-                  onClick={() => pickCategory(c.key)}
-                  className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border transition-all ${
-                    category === c.key ? 'bg-pine text-white border-pine' : 'bg-white text-slate-500 border-slate-200'
-                  }`}
-                >
-                  {c.label}
-                </button>
-              ))}
-            </div>
-
-            <div>
-              <label className="cp-label">What was it?</label>
-              <input
-                className="cp-input w-full"
-                placeholder={isIncome(category) ? 'Morning milk' : 'Dairy meal'}
-                value={item}
-                onChange={(e) => setItem(e.target.value)}
-                autoFocus
-              />
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="cp-label">How much {unit ? `(${unit.toLowerCase()})` : ''}</label>
-                <input
-                  className="cp-input w-full" type="number" inputMode="decimal" min="0"
-                  placeholder="0" value={quantity}
-                  onChange={(e) => setQuantity(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="cp-label">{isIncome(category) ? 'Money in (KES)' : 'Money out (KES)'}</label>
-                <input
-                  className="cp-input w-full" type="number" inputMode="decimal" min="0"
-                  placeholder="0" value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                />
-              </div>
-            </div>
-
-            {groups.length > 0 && (
-              <div>
-                <label className="cp-label">
-                  Which animals?
-                  <span className="text-slate-400 font-normal normal-case tracking-normal"> — optional</span>
-                </label>
-                <select className="cp-input w-full" value={groupId} onChange={(e) => setGroupId(e.target.value)}>
-                  <option value="">The whole farm</option>
-                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
-                </select>
-              </div>
-            )}
-
-            {wantsVendor && (
-              <VendorField
-                value={vendor}
-                supplierId={vendorId}
-                onChange={(name, id) => { setVendor(name); setVendorId(id); }}
-              />
-            )}
-
-            <div>
-              <div className="flex items-center justify-between gap-2 mb-1">
-                <label className="cp-label !mb-0">When</label>
-                <div className="flex gap-1">
-                  {QUICK_TIMES.map((q) => (
-                    <button
-                      key={q.value}
-                      type="button"
-                      onClick={() => setEntryTime(q.value)}
-                      className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
-                        entryTime === q.value
-                          ? 'bg-pine text-white border-pine'
-                          : 'bg-white dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700'
-                      }`}
-                    >
-                      {q.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div className="grid grid-cols-[1fr_auto] gap-2">
-                <input
-                  className="cp-input w-full" type="date" value={entryDate}
-                  max={new Date().toISOString().slice(0, 10)}
-                  onChange={(e) => setEntryDate(e.target.value)}
-                />
-                <input
-                  className="cp-input" type="time" value={entryTime}
-                  onChange={(e) => setEntryTime(e.target.value)}
-                  title="Leave empty if you are recording something from a while back"
-                />
-              </div>
-            </div>
-
-            <button className="cp-btn w-full" onClick={submit} disabled={saving || !item.trim()}>
-              {saving ? 'Saving…' : 'Record it'}
-            </button>
-          </div>
-        </CpModal>
-      )}
-
       {/* ── One herd, opened ──────────────────────────────────────────────
           Brief on Free, complete on Farmer — the SAME sheet either way, so the
           farmer sees the shape of what they'd be buying rather than a locked
           door. What Free withholds is depth (history beyond its window, named
           animals), not the screen. */}
-      {detailGroup && (() => {
-        const g = detailGroup;
-        const cfg = speciesConfig(g.species);
-        const named = namedByGroup[g.id] ?? 0;
-        // Composition, as named rows rather than a chip soup — this is the one
-        // place a farmer reads the numbers rather than glancing at them.
-        const rows: Array<[string, number]> = ([
-          ['Male', g.males], ['Female', g.females],
-          ['Adult', g.adults], [cfg.youngLabel, g.young],
-          ...(cfg.pregnancy ? [[cfg.pregnantLabel, g.pregnant] as [string, number]] : []),
-          ...(cfg.lactation ? [[cfg.lactatingLabel, g.lactating] as [string, number]] : []),
-          ...Object.entries(g.purposeCounts ?? {}).map(
-            ([k, v]) => [purposeLabel(k) ?? k, Number(v)] as [string, number],
-          ),
-        ] as Array<[string, number]>).filter(([, v]) => Number(v) > 0);
-        // Already loaded for the ledger below — no second request to open a herd.
-        const mine = entries.filter((e) => e.animalGroupId === g.id);
-        return (
-          <CpModal page onClose={() => setDetailGroup(null)} title={g.name} maxWidth="46rem">
-            <div className="space-y-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-[11px] cp-muted truncate">
-                    {[g.species, g.breed].filter(Boolean).join(' · ')}
-                  </p>
-                  {g.housing && <p className="text-[11px] cp-muted mt-0.5 truncate">{g.housing}</p>}
-                </div>
-                <div className="shrink-0 text-right">
-                  <p className="text-3xl font-black leading-none">{g.headCount}</p>
-                  <p className="text-[10px] font-black uppercase tracking-widest cp-muted mt-1">Head</p>
-                </div>
-              </div>
-
-              {rows.length > 0 && (
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest cp-muted mb-1.5">Make-up</p>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
-                    {rows.map(([label, v]) => (
-                      <div key={label} className="cp-card-soft px-3 py-2 flex items-baseline justify-between gap-2">
-                        <span className="text-[11px] font-bold cp-muted truncate">{label}</span>
-                        <span className="text-sm font-black tabular-nums">{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <div className="flex items-baseline justify-between gap-3 mb-1.5">
-                  <p className="text-[10px] font-black uppercase tracking-widest cp-muted">
-                    What you recorded
-                  </p>
-                  {tier === 'BASIC' && summary?.windowDays && (
-                    <span className="text-[10px] cp-muted">last {summary.windowDays} days</span>
-                  )}
-                </div>
-                {mine.length === 0 ? (
-                  <div className="cp-card-soft px-3 py-4 text-center">
-                    <p className="text-xs cp-muted">
-                      Nothing recorded against {g.name} yet. Feed, treatment and sales you log
-                      against this herd show up here.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5 max-h-64 overflow-y-auto">
-                    {mine.slice(0, 20).map((e) => (
-                      <div key={e.id} className="cp-card-soft px-3 py-2 flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <p className="text-xs font-bold truncate">{e.item || e.category}</p>
-                          <p className="text-[10px] cp-muted">
-                            {new Date(e.entryDate).toLocaleDateString()}
-                            {e.quantity != null && ` · ${e.quantity}${e.unit ? ` ${e.unit}` : ''}`}
-                          </p>
-                        </div>
-                        {/* Sign it. A feed bill and a milk sale are the same
-                            number otherwise, and the farmer is reading this to
-                            tell them apart. */}
-                        <span className={`text-xs font-black tabular-nums shrink-0 ${
-                          e.direction === 'INCOME' ? 'text-emerald-500' : 'text-rose-400'
-                        }`}>
-                          {e.direction === 'INCOME' ? '+' : '−'}{KES(e.amount)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Naming is free now, so every tier gets the same door — only the
-                  label changes with whether anything is named yet.
-
-                  A PARTLY-named herd says so. Naming one of four used to read
-                  as "1 named" with no hint that three were still waiting, and
-                  the herd count itself used to collapse to 1 — so the screen
-                  gave no sign anything was outstanding. */}
-              {named > 0 ? (
-                <>
-                  <button
-                    className="cp-btn-ghost w-full"
-                    onClick={() => { setDetailGroup(null); navigate('/client/farm/animals'); }}
-                  >
-                    Open {named} named {named === 1 ? 'animal' : 'animals'} →
-                  </button>
-                  {g.headCount > named && (
-                    <p className="mt-1.5 text-[11px] cp-muted text-center">
-                      {named} of {g.headCount} named — {g.headCount - named} still to go.
-                      The make-up above stays as you entered it until every head has a name.
-                    </p>
-                  )}
-                </>
-              ) : (
-                <button
-                  className="cp-btn-ghost w-full"
-                  onClick={() => { setDetailGroup(null); navigate('/client/farm/animals'); }}
-                >
-                  Name the animals in this herd →
-                </button>
-              )}
-            </div>
-          </CpModal>
-        );
-      })()}
 
       {/* ── Add a herd ───────────────────────────────────────────────────── */}
       {addHerd && (
@@ -939,58 +1002,6 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
             <button className="cp-btn w-full" onClick={createHerd}
               disabled={saving || !herdName.trim() || !herdSpecies.trim()}>
               {saving ? 'Adding…' : 'Add'}
-            </button>
-          </div>
-        </CpModal>
-      )}
-
-      {/* ── Composition ──────────────────────────────────────────────────── */}
-      {editHerd && (
-        <CpModal page onClose={() => setEditHerd(null)} title={editHerd.name}>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-2">
-              {compositionFields(editHerd.species).map((f) => (
-                <div key={f.key}>
-                  <label className="cp-label">{f.label}</label>
-                  <input
-                    className="cp-input w-full" type="number" inputMode="numeric" min="0"
-                    value={comp[f.key] ?? ''}
-                    onChange={(e) => setComp((c) => ({ ...c, [f.key]: e.target.value }))}
-                  />
-                </div>
-              ))}
-            </div>
-
-            {/* The "generalities" the user asked for: how many layers, how many
-                broilers, how many kienyeji — without naming a single bird. */}
-            <div>
-              <p className="cp-label">What they are kept for</p>
-              <div className="grid grid-cols-2 gap-2">
-                {speciesConfig(editHerd.species).purposes.map((pp) => (
-                  <div key={pp.key}>
-                    <label className="text-[10px] text-slate-500">{pp.label}</label>
-                    <input
-                      className="cp-input w-full" type="number" inputMode="numeric" min="0"
-                      placeholder="0"
-                      value={purposeComp[pp.key] ?? ''}
-                      onChange={(e) => setPurposeComp((c) => ({ ...c, [pp.key]: e.target.value }))}
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-            {compCheck.error && (
-              <p className="text-[11px] font-bold text-rose-700 bg-rose-50 border border-rose-200 dark:bg-rose-500/10 dark:border-rose-500/30 dark:text-rose-300 rounded-xl px-3 py-2">
-                {compCheck.error}
-              </p>
-            )}
-            {compCheck.hint && (
-              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 dark:bg-amber-400/10 dark:border-amber-400/25 dark:text-amber-300 rounded-xl px-3 py-2">
-                {compCheck.hint} Save it anyway if that is right.
-              </p>
-            )}
-            <button className="cp-btn w-full" onClick={saveComposition} disabled={saving || !!compCheck.error}>
-              {saving ? 'Saving…' : 'Save'}
             </button>
           </div>
         </CpModal>
