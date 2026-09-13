@@ -177,6 +177,30 @@ const PayCanvas: React.FC<Props> = ({
 
       try { sessionStorage.setItem('vethub_paystack_ref', data.reference); } catch { /* private window */ }
 
+      /**
+       * ⚠️ MOBILE MONEY OPENS INLINE TOO, since 2026-09-13.
+       *
+       * It used to fire the STK push server-side and this canvas just waited.
+       * That path is Ghana-only on Paystack — Kenyan M-Pesa came back "Invalid
+       * provider" — so the server now initialises with the channel pinned and
+       * hands back an access code, exactly like a card. Both methods therefore
+       * hand off to Paystack's sheet; ours is still where the payer chooses,
+       * and the chosen method is what the sheet opens on.
+       */
+      if (data.accessCode && data.publicKey) {
+        const Pop = await loadInline();
+        const popup = new Pop();
+        popup.resumeTransaction(data.accessCode, {
+          onSuccess: () => { setPhase('done'); onPaid(); },
+          onCancel: () => { stopPolling(); setPhase('choose'); setNote(null); },
+          onError: (e: any) => { setNote(e?.message || 'The payment did not go through.'); setPhase('failed'); },
+        });
+        setNote(method === 'card' ? null : (data.mobilePrompt || null));
+        setPhase('waiting');
+        startPolling(data.reference);
+        return;
+      }
+
       if (method === 'card') {
         // Paystack Inline — their iframe, our page. No redirect, no PAN here.
         if (!data.accessCode || !data.publicKey) {
