@@ -89,9 +89,23 @@ const PayCanvas: React.FC<Props> = ({
     if (open) { setPhase('choose'); setNote(null); setPhone(defaultPhone ?? ''); }
   }, [open, defaultPhone]);
 
+  const stopPolling = React.useCallback(() => {
+    if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null; }
+  }, []);
+
   // Always clear the poll — leaving one running after close keeps hitting the
   // API from a screen nobody is looking at.
-  React.useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
+  React.useEffect(() => () => { stopPolling(); }, [stopPolling]);
+
+  /**
+   * Cancelling must stop the poll, not just close the sheet.
+   *
+   * Paystack's overlay closing is the payer saying no. The poll kept running
+   * against an attempt that would never settle, so the canvas went on asking
+   * every four seconds and surfacing failures from a payment nobody was
+   * making any more.
+   */
+  const cancelAndClose = React.useCallback(() => { stopPolling(); onClose(); }, [stopPolling, onClose]);
 
   const startPolling = (reference: string) => {
     if (pollRef.current) clearInterval(pollRef.current);
@@ -99,7 +113,20 @@ const PayCanvas: React.FC<Props> = ({
     pollRef.current = setInterval(async () => {
       elapsed += 4;
       try {
-        const r = await vethubPaystackAPI.getStatus(reference, { silent: true } as any);
+        /**
+         * ⚠️ (clinicId, reference) — IN THAT ORDER.
+         *
+         * This read `getStatus(reference, { silent: true } as any)`, so the
+         * reference went in as the clinic id and the options object went in as
+         * the reference. Every tick requested
+         * `/status/%5Bobject%20Object%5D` and came back "Attempt not found",
+         * which means this poll has never once confirmed a payment: mobile
+         * money sat on "waiting" until it timed out, and a successful card
+         * charge was only ever caught by Inline's own onSuccess.
+         *
+         * The `as any` is what let it compile. It is gone.
+         */
+        const r = await vethubPaystackAPI.getStatus(clinicId, reference, { silent: true });
         const st = r?.data?.status;
         if (st === 'SUCCESS') {
           clearInterval(pollRef.current!);
@@ -137,7 +164,10 @@ const PayCanvas: React.FC<Props> = ({
         cycle,
         email,
         phone: method === 'card' ? undefined : phone.trim(),
-        method: method === 'card' ? 'hosted' : 'mobile_money',
+        // 'card' is 'hosted' with the channel pinned, so Paystack's overlay
+        // opens on the card form instead of asking again and defaulting to
+        // M-PESA.
+        method: method === 'card' ? 'card' : 'mobile_money',
         mobileProvider: method === 'airtel' ? 'airtel' : 'mpesa',
         addOnPackageIds,
       } as any);
@@ -158,7 +188,7 @@ const PayCanvas: React.FC<Props> = ({
         const popup = new Pop();
         popup.resumeTransaction(data.accessCode, {
           onSuccess: () => { setPhase('done'); onPaid(); },
-          onCancel: () => { setPhase('choose'); },
+          onCancel: () => { stopPolling(); setPhase('choose'); setNote(null); },
           onError: (e: any) => { setNote(e?.message || 'The card was declined.'); setPhase('failed'); },
         });
         setPhase('waiting');
@@ -183,14 +213,14 @@ const PayCanvas: React.FC<Props> = ({
   return createPortal(
     // Portalled — the nav is backdrop-blurred, which makes it a containing
     // block for fixed children (see ReportIssueModal for the full note).
-    <div className="fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[130] flex items-start justify-center overflow-y-auto bg-black/50 backdrop-blur-sm p-4" onClick={cancelAndClose}>
       <div className="bg-white dark:bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md my-auto overflow-hidden" onClick={(e) => e.stopPropagation()}>
         <div className="px-5 py-4 border-b border-slate-100 dark:border-zinc-800 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{planName}</p>
             <p className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">{amountLabel}</p>
           </div>
-          <button onClick={onClose} className="text-slate-400 hover:text-red-500"><X size={18} /></button>
+          <button onClick={cancelAndClose} className="text-slate-400 hover:text-red-500"><X size={18} /></button>
         </div>
 
         {phase === 'done' ? (
@@ -198,7 +228,7 @@ const PayCanvas: React.FC<Props> = ({
             <CheckCircle2 size={40} className="mx-auto text-emerald-500" />
             <p className="mt-3 text-sm font-black text-pine dark:text-zinc-100">Payment received</p>
             <p className="text-[12px] text-slate-500 dark:text-zinc-400 mt-1">Your plan is active.</p>
-            <button onClick={onClose} className="mt-5 px-5 py-2.5 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[11px] font-black uppercase tracking-widest">Done</button>
+            <button onClick={cancelAndClose} className="mt-5 px-5 py-2.5 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[11px] font-black uppercase tracking-widest">Done</button>
           </div>
         ) : phase === 'waiting' ? (
           <div className="p-8 text-center">
@@ -207,7 +237,7 @@ const PayCanvas: React.FC<Props> = ({
               {isMobile ? 'Waiting for you to approve on your phone' : 'Completing the card payment'}
             </p>
             {note && <p className="text-[12px] text-slate-500 dark:text-zinc-400 mt-2 leading-relaxed">{note}</p>}
-            <button onClick={onClose} className="mt-5 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-pine">
+            <button onClick={cancelAndClose} className="mt-5 text-[11px] font-black uppercase tracking-widest text-slate-400 hover:text-pine">
               Close — it keeps running
             </button>
           </div>
@@ -266,7 +296,7 @@ const PayCanvas: React.FC<Props> = ({
             )}
 
             <div className="flex justify-end gap-2 pt-1">
-              <button onClick={onClose} className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[11px] font-black uppercase tracking-widest text-slate-500">Cancel</button>
+              <button onClick={cancelAndClose} className="px-4 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[11px] font-black uppercase tracking-widest text-slate-500">Cancel</button>
               <button
                 onClick={pay}
                 disabled={!canPay || phase === 'starting'}

@@ -75,7 +75,7 @@ export const vethubPaystackAPI = {
        *   Paystack's INLINE overlay on this page with the returned access
        *   code. Cards never touch our DOM, so we stay in PCI SAQ A.
        */
-      method?: 'hosted' | 'mobile_money';
+      method?: 'hosted' | 'card' | 'mobile_money';
       mobileProvider?: 'mpesa' | 'airtel';
       /**
        * 288 — add-ons ticked on the plan card, bought in the same charge.
@@ -130,9 +130,15 @@ export const vethubPaystackAPI = {
       cache: false,
     }),
 
+  /**
+   * Poll one attempt. `options` exists so a CALLER THAT POLLS can pass
+   * `{ silent: true }` — without it every tick of a 4-second poll pops its own
+   * error toast at the payer while they are still approving on the handset.
+   */
   getStatus: (
     clinicId: string,
-    reference: string
+    reference: string,
+    options?: Record<string, any>
   ): Promise<ApiResponse<PaystackStatus>> =>
     /**
      * 292 — same declaration on the poll. Without it a clinic whose purchase
@@ -143,5 +149,6 @@ export const vethubPaystackAPI = {
     get(`/subscriptions/paystack/status/${encodeURIComponent(reference)}?ownerKind=CLINIC`, {
       headers: { 'x-clinic-id': clinicId },
       cache: false,
+      ...(options ?? {}),
     }),
 };
