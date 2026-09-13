@@ -342,7 +342,7 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
 
       {/* ── Add ───────────────────────────────────────────────────────────── */}
       {addOpen && (
-        <CpModal title="Add an animal" onClose={() => setAddOpen(false)}>
+        <CpModal page title="Add an animal" onClose={() => setAddOpen(false)}>
           <div className="space-y-3">
             <div>
               <label className="cp-label">Name</label>
@@ -451,7 +451,7 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
 
       {/* ── One animal ────────────────────────────────────────────────────── */}
       {detail && (
-        <CpModal title={detail.name} onClose={() => setDetail(null)}>
+        <CpModal page title={detail.name} onClose={() => setDetail(null)}>
           <div className="space-y-3">
             <p className="text-xs text-slate-500">
               {[detail.species, detail.breed, detail.sex === 'MALE' ? 'Male' : detail.sex === 'FEMALE' ? 'Female' : null,
