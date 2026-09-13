@@ -230,6 +230,27 @@ const CLINIC_ITEMS: MenuItem[] = [
   // Products / Services / Procedures / Packages taxonomy plus a procurement
   // rump. Internal view ids stay stable — only labels/grouping change.
   { id: 'referrals', label: 'Partners', icon: Repeat, requiredPerm: 'VIEW_REFERRALS' },
+  /**
+   * FARM — for a CLINIC that serves farm clients.
+   *
+   * Distinct from the LIVESTOCK audience below, which replaces the clinic nav
+   * entirely for a farm ORG. This group is the clinic looking outward at the
+   * farms among its own clients: who they are, and what they keep.
+   *
+   * Both entries sit on keys a clinic can hold from Basic up. The operational
+   * half of the farm product — feeding, crops, produce — keeps its own keys and
+   * its own nav in the livestock audience, so this group does not smuggle the
+   * Farms add-on in through the side door.
+   */
+  {
+    id: 'farm_menu',
+    label: 'Farm',
+    icon: Sprout,
+    subItems: [
+      { id: 'farms',         label: 'Clients',        icon: Warehouse },
+      { id: 'animal-groups', label: 'Herds & Flocks', icon: Milk },
+    ],
+  },
   {
     id: 'finance_menu',
     label: 'Finance',
