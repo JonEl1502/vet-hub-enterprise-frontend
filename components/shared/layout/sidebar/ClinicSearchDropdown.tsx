@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Building2, Check, ChevronDown, Search, X } from 'lucide-react';
+import { Building2, Check, ChevronDown, Lock, Search, X } from 'lucide-react';
 import { useClinic } from '../../../../contexts/ClinicContext';
+import { usePlanAccess } from '../../../../contexts/PlanAccessContext';
+import { hasFeature } from '../../../../services/entitlements';
 import ClinicLogo from '../../../clinic/clinic-mgmt/ClinicLogo';
 
 interface Props {
@@ -10,6 +12,18 @@ interface Props {
 
 const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
   const { clinics, selectedClinicIds, selectClinic, selectMultipleClinics, canMultiSelect } = useClinic();
+  const { access } = usePlanAccess();
+  /**
+   * Working across clinics and branches is `service:multi-clinic` — Enterprise
+   * only. The supplier sidebar already locks its branch picker on the matching
+   * key; this is the clinic twin, and it was missing: a Basic clinic with a
+   * branch row could scope into it freely.
+   *
+   * Disabled, not removed. A clinic that HAS a branch — from a previous plan,
+   * or created before a downgrade — would otherwise be silently pinned to one
+   * site with nothing explaining why or what lifts it.
+   */
+  const canScopeClinics = hasFeature(access, 'service:multi-clinic');
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState('');
   const ref = useRef<HTMLDivElement>(null);
@@ -26,6 +40,20 @@ const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
 
   // Reset search when closing
   useEffect(() => { if (!isOpen) setQuery(''); }, [isOpen]);
+
+  /**
+   * Enforce the scope, don't just grey the control — a multi-clinic selection
+   * left over from a richer plan would otherwise keep every page reading across
+   * sites the plan no longer covers.
+   */
+  useEffect(() => {
+    if (canScopeClinics) return;
+    setIsOpen(false);
+    const primary = clinics.find(c => !(c as any).parentClinicId) ?? clinics[0];
+    if (primary && (selectedClinicIds.length !== 1 || selectedClinicIds[0] !== primary.id)) {
+      selectClinic(primary.id);
+    }
+  }, [canScopeClinics, clinics, selectedClinicIds, selectClinic]);
 
   // Reload page after a switcher pick so every open page refetches
   // with the new X-Clinic-Ids header — same convention as the modal.
@@ -95,6 +123,43 @@ const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
     : selectedClinicIds.length === 1
       ? clinics.find(c => c.id === selectedClinicIds[0])?.name || 'Select clinic'
       : `${selectedClinicIds.length} selected`;
+
+  if (!canScopeClinics) {
+    const lockNote = 'One clinic on this plan — Enterprise works across clinics and branches';
+    const primary = clinics.find(c => !(c as any).parentClinicId) ?? clinics[0];
+    if (isCollapsed) {
+      return (
+        <div className="relative px-3 py-2 border-b border-seafoam/10 dark:border-zinc-800 shrink-0">
+          <div
+            title={lockNote}
+            aria-label={lockNote}
+            className="w-full flex items-center justify-center p-2 rounded-lg bg-slate-100 dark:bg-zinc-800/60 text-slate-400 dark:text-zinc-500 cursor-not-allowed"
+          >
+            <Lock size={14} />
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="relative px-3 py-2 border-b border-seafoam/10 dark:border-zinc-800 shrink-0">
+        <div
+          title={lockNote}
+          className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 dark:bg-zinc-900/60 border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl text-left cursor-not-allowed"
+        >
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <Building2 size={12} className="text-slate-400 shrink-0" />
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 truncate">
+              {primary?.name || 'Your clinic'}
+            </span>
+          </div>
+          <Lock size={11} className="shrink-0 text-slate-400" />
+        </div>
+        <p className="mt-1 px-1 text-[9px] font-bold uppercase tracking-widest text-slate-400 dark:text-zinc-500 leading-tight">
+          One clinic on this plan
+        </p>
+      </div>
+    );
+  }
 
   // Collapsed sidebar: tiny icon-only trigger
   if (isCollapsed) {
