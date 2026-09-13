@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import SupplierBranchDropdown from './SupplierBranchDropdown';
 import { usePlanAccess } from '../../../contexts/PlanAccessContext';
-import { planLabel, hasFeature } from '../../../services/entitlements';
+import { planLabel, hasFeature, VIEW_KEY } from '../../../services/entitlements';
 import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { useSupplier } from '../../../contexts/SupplierContext';
 import {
@@ -94,6 +94,22 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
   );
   const hoverTimeoutRef = useRef<number | null>(null);
 
+  /**
+   * Every main view carries its own key, so the sidebar follows the catalogue
+   * instead of a hand-kept list. Analytics and Import Products were never
+   * gated at all — Analytics had a key nobody checked, Import had no key —
+   * so a Starter supplier could open both and only discover the plan didn't
+   * cover them when something failed further in.
+   *
+   * Dashboard is never locked: locking the landing view leaves an account
+   * with nowhere to be.
+   */
+  const lockedView = (id: string) => {
+    if (id === 'supplier-dashboard') return false;
+    const key = VIEW_KEY[id];
+    return !!key && !hasFeature(access, key);
+  };
+
   const mainItems = [
     { id: 'supplier-dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'supplier-products', label: 'Products', icon: Package },
@@ -176,6 +192,7 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
   const NavItem = ({ item }: { item: { id: string; label: string; icon: React.FC<any> } }) => {
     const isActive = activeView === item.id || (item.id === 'supplier-employees' && activeView === 'supplier-employee-profile');
     const isHovered = activeHoverId === item.id;
+    const locked = lockedView(item.id);
     return (
       <div
         className="relative group/menuitem"
@@ -183,10 +200,15 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
         onMouseLeave={handleMouseLeave}
       >
         <button
-          onClick={() => { setView(item.id); setIsMobileOpen(false); }}
+          // A locked row is a signpost, not a dead end — Billing is where the
+          // question it raises gets answered.
+          onClick={() => { setView(locked ? 'supplier-billing' : item.id); setIsMobileOpen(false); }}
+          title={locked ? `${item.label} — available on a higher plan` : undefined}
           className={`w-full flex items-center gap-3 p-3 rounded-xl text-[9px] font-black transition-all relative group/btn ${
             isActive
               ? 'bg-seafoam text-white shadow-lg shadow-seafoam/20'
+              : locked
+              ? 'text-pine/25 dark:text-zinc-600 hover:text-seafoam hover:bg-white/40 dark:hover:bg-white/5'
               : 'text-pine/60 dark:text-zinc-500 hover:text-seafoam hover:bg-white/40 dark:hover:bg-white/5'
           }`}
         >
@@ -194,6 +216,7 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
           {(!isCollapsed || isMobileOpen) && (
             <span className="uppercase tracking-widest truncate flex-1 text-left">{item.label}</span>
           )}
+          {locked && (!isCollapsed || isMobileOpen) && <Lock size={11} className="shrink-0 opacity-70" />}
         </button>
         {isCollapsed && !isMobileOpen && isHovered && (
           <div

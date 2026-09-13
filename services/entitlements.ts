@@ -211,6 +211,9 @@ export const VIEW_KEY: Record<string, string> = {
   'supplier-orders': 'supplier:orders',
   'supplier-branches': 'supplier:branches',
   'supplier-analytics': 'supplier:analytics',
+  // Bulk import is a Growth capability; without this line the view had no key
+  // at all, so it could never be gated and every plan got it for free.
+  'supplier-import': 'supplier:bulk-import',
 
   // ── Livestock audience (VetHubCore Livestock) ────────────────────────────
   'livestock-dashboard': 'livestock:dashboard',
