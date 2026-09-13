@@ -881,14 +881,27 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
               </div>
 
               {/* Naming is free now, so every tier gets the same door — only the
-                  label changes with whether anything is named yet. */}
+                  label changes with whether anything is named yet.
+
+                  A PARTLY-named herd says so. Naming one of four used to read
+                  as "1 named" with no hint that three were still waiting, and
+                  the herd count itself used to collapse to 1 — so the screen
+                  gave no sign anything was outstanding. */}
               {named > 0 ? (
-                <button
-                  className="cp-btn-ghost w-full"
-                  onClick={() => { setDetailGroup(null); navigate('/client/farm/animals'); }}
-                >
-                  Open {named} named {named === 1 ? 'animal' : 'animals'} →
-                </button>
+                <>
+                  <button
+                    className="cp-btn-ghost w-full"
+                    onClick={() => { setDetailGroup(null); navigate('/client/farm/animals'); }}
+                  >
+                    Open {named} named {named === 1 ? 'animal' : 'animals'} →
+                  </button>
+                  {g.headCount > named && (
+                    <p className="mt-1.5 text-[11px] cp-muted text-center">
+                      {named} of {g.headCount} named — {g.headCount - named} still to go.
+                      The make-up above stays as you entered it until every head has a name.
+                    </p>
+                  )}
+                </>
               ) : (
                 <button
                   className="cp-btn-ghost w-full"

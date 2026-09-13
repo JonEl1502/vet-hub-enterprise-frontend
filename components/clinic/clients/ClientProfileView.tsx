@@ -1391,9 +1391,13 @@ const renderOverview = () => (
               <button
                 key={f.id}
                 /* The global navigate event, same as UpgradeGate uses — this
-                   component is ten layers deep and has no navigation prop. */
+                   component is ten layers deep and has no navigation prop.
+                   ⚠️ `farms`, not `farm-detail`: there is no farm-detail VIEW.
+                   The farm opens as a sheet on the Farms page, so sending
+                   someone to a route that does not exist would have dropped
+                   them on a blank screen. */
                 onClick={() => window.dispatchEvent(new CustomEvent('vethub:navigate', {
-                  detail: { view: 'farm-detail', params: { farmId: f.id } },
+                  detail: { view: 'farms', params: { farmId: f.id } },
                 }))}
                 className="w-full text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 hover:border-seafoam transition-colors"
               >
