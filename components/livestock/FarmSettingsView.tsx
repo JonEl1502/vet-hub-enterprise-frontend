@@ -16,7 +16,7 @@ import { livestockAPI, type Farm, type VetOfficer } from '../../services/modules
 import { useClinic } from '../../contexts/ClinicContext';
 import { toast, dialog } from '../../services';
 import LoadingSpinner from '../shared/common/LoadingSpinner';
-import { LivestockPage, EmptyState, Field, FarmFilter } from './shared';
+import { LivestockPage, EmptyState, Field, FarmFilter , FilterBar} from './shared';
 
 const FARM_TYPES = [
   { value: 'MIXED', label: 'Mixed (animals + crops)' },
@@ -225,7 +225,9 @@ const FarmSettingsView: React.FC = () => {
         </button>
       }
     >
-      <FarmFilter farms={farms} value={farmId} onChange={setFarmId} allowAll={false} />
+      <FilterBar>
+        <FarmFilter farms={farms} value={farmId} onChange={setFarmId} allowAll={false} />
+      </FilterBar>
 
       {draft && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

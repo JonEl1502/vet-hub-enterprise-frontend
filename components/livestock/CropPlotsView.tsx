@@ -4,7 +4,7 @@ import { Wheat, Pencil, Trash2, CalendarClock } from 'lucide-react';
 import { livestockAPI, type CropPlot, type Farm } from '../../services/modules/livestock.api';
 import { toast, dialog } from '../../services';
 import LoadingSpinner from '../shared/common/LoadingSpinner';
-import { LivestockPage, PrimaryButton, EmptyState, Modal, Field, Card, FarmFilter, fmtDate, dateInput } from './shared';
+import { LivestockPage, PrimaryButton, EmptyState, Modal, Field, Card, FarmFilter, fmtDate, dateInput , FilterBar} from './shared';
 
 const blank = { farmId: '', name: '', crop: '', sizeAcres: '' as string | number, plantedOn: '', expectedHarvestOn: '', notes: '' };
 
@@ -82,7 +82,9 @@ const CropPlotsView: React.FC = () => {
       icon={Wheat}
       actions={<PrimaryButton onClick={openNew} disabled={farms.length === 0}>Add plot</PrimaryButton>}
     >
-      <FarmFilter farms={farms} value={farmId} onChange={setFarmId} />
+      <FilterBar>
+        <FarmFilter farms={farms} value={farmId} onChange={setFarmId} />
+      </FilterBar>
 
       {loading ? (
         <div className="h-48 flex items-center justify-center"><LoadingSpinner size="md" message="Loading..." /></div>

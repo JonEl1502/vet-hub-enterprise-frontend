@@ -8,7 +8,10 @@ import {
 } from '../../services/modules/livestock.api';
 import { toast } from '../../services';
 import LoadingSpinner from '../shared/common/LoadingSpinner';
-import { LivestockPage, EmptyState, Modal, Field, FarmFilter, fmtDate, fmtDateTime } from './shared';
+import {
+  LivestockPage, EmptyState, Modal, Field, FarmFilter, SegmentedFilter, ListPanel,
+  FilterBar, PrimaryButton, fmtDate, fmtDateTime,
+} from './shared';
 
 /**
  * 299 — the clinic's FARM visit list, separate from its pet visit list.
@@ -154,13 +157,13 @@ const FarmVisitRecordsView: React.FC = () => {
         actions={
           <button
             onClick={() => setDetail(null)}
-            className="px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-800 text-[11px] font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5"
+            className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-1.5 transition-colors"
           >
             <ArrowLeft size={13} /> Visits
           </button>
         }
       >
-        <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 space-y-4">
+        <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm p-5 space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <FarmBadge />
             <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${STATUS_TONE[detail.status]}`}>
@@ -278,32 +281,15 @@ const FarmVisitRecordsView: React.FC = () => {
       subtitle="Attendances at your farm clients — separate from the clinic's own visit list"
       icon={Stethoscope}
       actions={
-        <button
-          onClick={() => { setForm({ ...form, farmId: farmId || farms[0]?.id || '' }); setCreating(true); }}
-          className="px-4 py-2.5 rounded-xl bg-pine text-white text-[11px] font-black uppercase tracking-widest hover:opacity-90"
-        >
+        <PrimaryButton onClick={() => { setForm({ ...form, farmId: farmId || farms[0]?.id || '' }); setCreating(true); }}>
           Record a visit
-        </button>
+        </PrimaryButton>
       }
     >
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="inline-flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800">
-          {FILTERS.map((f) => (
-            <button
-              key={f.id}
-              onClick={() => setFilter(f.id)}
-              className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                filter === f.id
-                  ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm'
-                  : 'text-slate-400'
-              }`}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
+      <FilterBar>
+        <SegmentedFilter options={FILTERS} value={filter} onChange={setFilter} />
         <FarmFilter farms={farms} value={farmId} onChange={setFarmId} />
-      </div>
+      </FilterBar>
 
       {loading ? (
         <LoadingSpinner />
@@ -321,7 +307,7 @@ const FarmVisitRecordsView: React.FC = () => {
                 <Sprout size={11} /> {rows[0].farmName}
                 {rows[0].farmLocation && <span className="font-bold normal-case tracking-normal text-slate-300">· {rows[0].farmLocation}</span>}
               </h3>
-              <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 divide-y divide-slate-100 dark:divide-zinc-800 overflow-hidden">
+              <ListPanel>
                 {rows.map((v) => (
                   <button
                     key={v.id}
@@ -354,7 +340,7 @@ const FarmVisitRecordsView: React.FC = () => {
                     <ChevronRight size={14} className="shrink-0 text-slate-300" />
                   </button>
                 ))}
-              </div>
+              </ListPanel>
             </div>
           ))}
         </div>

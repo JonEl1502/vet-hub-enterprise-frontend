@@ -10,7 +10,7 @@ import { Siren, CalendarClock, Check, X, Loader2, MapPin, Milk } from 'lucide-re
 import { livestockAPI, type FarmVisitRequest, type VisitRequestStatus } from '../../services/modules/livestock.api';
 import { toast } from '../../services';
 import LoadingSpinner from '../shared/common/LoadingSpinner';
-import { LivestockPage, EmptyState, Modal, Field, Card, fmtDate, fmtDateTime, dateInput } from './shared';
+import { LivestockPage, EmptyState, Modal, Field, Card, SegmentedFilter, FilterBar, fmtDate, fmtDateTime, dateInput } from './shared';
 
 const URGENCY_TONE: Record<string, string> = {
   URGENT: 'bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300',
@@ -89,18 +89,10 @@ const FarmVisitsView: React.FC = () => {
   };
 
   return (
-    <LivestockPage title="Farm Visits" subtitle="Call-out requests from farm owners" icon={Siren}>
-      <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 self-start inline-flex">
-        {FILTERS.map((f) => (
-          <button key={f.id} onClick={() => setFilter(f.id)}
-            className={`px-3.5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-              filter === f.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm'
-                              : 'text-slate-400 dark:text-zinc-500 hover:text-pine'
-            }`}>
-            {f.label}
-          </button>
-        ))}
-      </div>
+    <LivestockPage title="Call-outs" subtitle="Visit requests raised by farm owners — the queue, not the record" icon={Siren}>
+      <FilterBar>
+        <SegmentedFilter options={FILTERS} value={filter} onChange={setFilter} />
+      </FilterBar>
 
       {loading ? (
         <div className="h-48 flex items-center justify-center"><LoadingSpinner size="md" message="Loading requests..." /></div>
@@ -153,7 +145,7 @@ const FarmVisitsView: React.FC = () => {
                   {r.status === 'REQUESTED' && (
                     <button
                       onClick={() => { setScheduling(r); setWhen(dateInput(r.preferredDate)); setNotes(r.clinicNotes ?? ''); }}
-                      className="px-3.5 py-2 rounded-lg bg-pine text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5"
+                      className="px-4 py-2.5 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95 flex items-center gap-1.5 transition-all"
                     >
                       <CalendarClock size={12} /> Schedule
                     </button>

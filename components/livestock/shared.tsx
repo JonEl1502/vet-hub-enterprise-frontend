@@ -2,6 +2,21 @@
  * Shared primitives for the Livestock module — every view is the same shape
  * (header + farm filter + list + create/edit modal), so the chrome lives here
  * and each view only describes its own fields.
+ *
+ * ⚠️ THESE ARE THE CLINIC APP'S CARDS, NOT A SECOND SET.
+ *
+ * User, 2026-09-14: *"i dont like the farm ui in clinic/practitioner"* — the
+ * farm pages sit inside the clinic shell, under the clinic's own sidebar, and
+ * read as a different product once you are in them. Measured against
+ * `components/clinic`, the divergence was narrow and specific: the clinic's
+ * primary action is `bg-seafoam` (366 uses to pine's 163), its cards carry
+ * `shadow-sm` (133 uses) and lift to `hover:border-seafoam/60`, and its empty
+ * states are a dashed `border-slate-300` panel. This module had a pine primary,
+ * one shadow in the entire file, and its own empty-state weight.
+ *
+ * So the fix is to ADOPT those classes rather than invent a third style. When
+ * the clinic's idiom moves, this file follows it — it is not a parallel
+ * design system and must never become one.
  */
 import React from 'react';
 import { motion } from 'framer-motion';
@@ -38,19 +53,19 @@ export const PrimaryButton: React.FC<{ onClick: () => void; children: React.Reac
   <button
     onClick={onClick}
     disabled={disabled}
-    className="px-4 py-2.5 rounded-xl bg-pine text-white text-[11px] font-black uppercase tracking-widest flex items-center gap-1.5 hover:opacity-90 disabled:opacity-40 transition-all"
+    className="px-4 py-2.5 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95 disabled:opacity-40 transition-all"
   >
-    <Plus size={13} /> {children}
+    <Plus size={14} /> {children}
   </button>
 );
 
 export const EmptyState: React.FC<{ icon: React.ElementType; title: string; hint: string }> = ({
   icon: Icon, title, hint,
 }) => (
-  <div className="rounded-2xl border border-dashed border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 py-14 text-center">
+  <div className="rounded-2xl border border-dashed border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-10 text-center space-y-3">
     <Icon size={24} className="mx-auto text-slate-300 dark:text-zinc-700" />
-    <p className="mt-3 text-sm font-bold text-slate-600 dark:text-zinc-300">{title}</p>
-    <p className="mt-1 text-xs text-slate-400 dark:text-zinc-500 max-w-sm mx-auto">{hint}</p>
+    <p className="text-sm font-bold text-slate-600 dark:text-zinc-300">{title}</p>
+    <p className="text-xs text-slate-400 dark:text-zinc-500 max-w-sm mx-auto">{hint}</p>
   </div>
 );
 
@@ -149,6 +164,70 @@ export const PickOrType: React.FC<{
   );
 };
 
+/**
+ * The clinic's tab strip, not a second one — same weights and the same filled
+ * active pill as the Billing page's tabs.
+ *
+ * ⚠️ NO BORDER OF ITS OWN. It always sits inside a `FilterBar`, which is
+ * already a bordered card; giving this one too draws a box inside a box, which
+ * is exactly the fussiness that made the farm pages look unlike the rest of the
+ * app. The Billing strip carries a border because it sits on the bare page.
+ */
+export const SegmentedFilter: React.FC<{
+  options: Array<{ id: string; label: string; count?: number }>;
+  value: string;
+  onChange: (v: string) => void;
+}> = ({ options, value, onChange }) => (
+  <div className="overflow-x-auto -mx-1 px-1">
+    <div className="inline-flex min-w-max bg-slate-100 dark:bg-zinc-800/60 p-1 rounded-xl">
+      {options.map((o) => {
+        const active = value === o.id;
+        return (
+          <button
+            key={o.id}
+            onClick={() => onChange(o.id)}
+            className={`px-3.5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-1.5 ${
+              active
+                ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg'
+                : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+            }`}
+          >
+            {o.label}
+            {o.count != null && (
+              <span className={`px-1.5 py-0.5 rounded-md text-[9px] ${
+                active ? 'bg-white/20 dark:bg-pine/10' : 'bg-slate-200 dark:bg-zinc-800'
+              }`}>
+                {o.count}
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
+
+/**
+ * A bordered list container with hairline-separated rows — the clinic's table
+ * treatment for anything that is a register rather than a grid of cards.
+ */
+export const ListPanel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
+    {children}
+  </div>
+);
+
+/**
+ * The filter row every list view puts above its content. A bordered bar rather
+ * than loose controls floating on the page background — which is what made the
+ * farm pages read as unfinished next to Clients or Inventory.
+ */
+export const FilterBar: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+  <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm p-3">
+    {children}
+  </div>
+);
+
 export const Modal: React.FC<{
   title: string;
   onClose: () => void;
@@ -168,14 +247,14 @@ export const Modal: React.FC<{
       <div className="flex gap-2 pt-1">
         <button
           onClick={onClose}
-          className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-xs font-bold text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800"
+          className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
         >
           Cancel
         </button>
         <button
           onClick={onSave}
           disabled={saving}
-          className="flex-1 py-2.5 rounded-xl bg-pine text-white text-xs font-bold hover:opacity-90 disabled:opacity-50 flex items-center justify-center gap-1.5"
+          className="flex-1 py-2.5 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1.5 transition-all"
         >
           {saving && <Loader2 size={13} className="animate-spin" />} {saveLabel}
         </button>
@@ -196,8 +275,8 @@ export const Field: React.FC<{ label: string; children: React.ReactNode; classNa
 export const Card: React.FC<{ children: React.ReactNode; onClick?: () => void }> = ({ children, onClick }) => (
   <div
     onClick={onClick}
-    className={`rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 ${
-      onClick ? 'cursor-pointer hover:border-seafoam transition-colors' : ''
+    className={`rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-sm ${
+      onClick ? 'cursor-pointer hover:border-seafoam/60 transition-colors' : ''
     }`}
   >
     {children}
@@ -205,7 +284,7 @@ export const Card: React.FC<{ children: React.ReactNode; onClick?: () => void }>
 );
 
 export const Stat: React.FC<{ label: string; value: string | number; hint?: string }> = ({ label, value, hint }) => (
-  <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+  <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-sm">
     <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">{label}</p>
     <p className="mt-1 text-2xl font-black text-slate-800 dark:text-white">{value}</p>
     {hint && <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">{hint}</p>}

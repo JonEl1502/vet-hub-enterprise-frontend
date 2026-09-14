@@ -10,7 +10,7 @@ import { CalendarClock, Pencil, Trash2, Plus, AlertTriangle } from 'lucide-react
 import { livestockAPI, type ProduceSchedule, type ProduceRecord, type Farm, type AnimalGroup, type CropPlot } from '../../services/modules/livestock.api';
 import { toast, dialog } from '../../services';
 import LoadingSpinner from '../shared/common/LoadingSpinner';
-import { LivestockPage, PrimaryButton, EmptyState, Modal, Field, Card, FarmFilter, FREQUENCIES, UNITS, fmtDate, dateInput } from './shared';
+import { LivestockPage, PrimaryButton, EmptyState, Modal, Field, Card, FarmFilter, FREQUENCIES, UNITS, fmtDate, dateInput , FilterBar, SegmentedFilter} from './shared';
 
 const blankSched = {
   farmId: '', animalGroupId: '', cropPlotId: '', produce: '', unit: 'KG',
@@ -123,20 +123,18 @@ const ProduceView: React.FC = () => {
       icon={CalendarClock}
       actions={<PrimaryButton onClick={openNew} disabled={farms.length === 0}>New schedule</PrimaryButton>}
     >
-      <div className="flex flex-wrap items-center gap-3 justify-between">
+      {/* One bar, both controls — two bordered strips side by side was the
+          farm pages' own invention and read as clutter beside Clients. */}
+      <FilterBar>
         <FarmFilter farms={farms} value={farmId} onChange={setFarmId} />
-        <div className="flex bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 inline-flex">
-          {([['schedules', 'Schedules'], ['records', 'Recorded yield']] as const).map(([id, label]) => (
-            <button key={id} onClick={() => setTab(id)}
-              className={`px-3.5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                tab === id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm'
-                           : 'text-slate-400 dark:text-zinc-500 hover:text-pine'
-              }`}>
-              {label}
-            </button>
-          ))}
+        <div className="ml-auto">
+          <SegmentedFilter
+            options={[{ id: 'schedules', label: 'Schedules' }, { id: 'records', label: 'Recorded yield' }]}
+            value={tab}
+            onChange={(v) => setTab(v as 'schedules' | 'records')}
+          />
         </div>
-      </div>
+      </FilterBar>
 
       {loading ? (
         <div className="h-48 flex items-center justify-center"><LoadingSpinner size="md" message="Loading..." /></div>
@@ -170,7 +168,7 @@ const ProduceView: React.FC = () => {
                 <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center gap-1">
                   <button
                     onClick={() => setRecording({ ...blankRec, unit: s.unit, schedule: s })}
-                    className="flex-1 py-2 rounded-lg bg-pine text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 hover:opacity-90"
+                    className="flex-1 py-2.5 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-seafoam/20 flex items-center justify-center gap-1.5 hover:bg-seafoam/90 active:scale-[0.98] transition-all"
                   >
                     <Plus size={12} /> Record yield
                   </button>

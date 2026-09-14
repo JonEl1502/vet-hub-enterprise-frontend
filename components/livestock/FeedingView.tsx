@@ -10,7 +10,7 @@ import { Sprout, Pencil, Trash2, Check, History, Loader2 } from 'lucide-react';
 import { livestockAPI, type FeedingPlan, type FeedingLog, type Farm, type AnimalGroup } from '../../services/modules/livestock.api';
 import { toast, dialog } from '../../services';
 import LoadingSpinner from '../shared/common/LoadingSpinner';
-import { LivestockPage, PrimaryButton, EmptyState, Modal, Field, Card, FarmFilter, FREQUENCIES, fmtDateTime, dateInput } from './shared';
+import { LivestockPage, PrimaryButton, EmptyState, Modal, Field, Card, FarmFilter, FREQUENCIES, fmtDateTime, dateInput , FilterBar} from './shared';
 
 const blank = {
   farmId: '', animalGroupId: '', name: '', feedType: '', quantityKg: '' as string | number,
@@ -149,7 +149,9 @@ const FeedingView: React.FC = () => {
       icon={Sprout}
       actions={<PrimaryButton onClick={openNew} disabled={farms.length === 0}>New plan</PrimaryButton>}
     >
-      <FarmFilter farms={farms} value={farmId} onChange={setFarmId} />
+      <FilterBar>
+        <FarmFilter farms={farms} value={farmId} onChange={setFarmId} />
+      </FilterBar>
 
       {loading ? (
         <div className="h-48 flex items-center justify-center"><LoadingSpinner size="md" message="Loading..." /></div>
@@ -241,7 +243,7 @@ const FeedingView: React.FC = () => {
                 <button
                   onClick={() => quickLog(p)}
                   disabled={loggingId === p.id}
-                  className="flex-1 py-2 rounded-lg bg-pine text-white text-[10px] font-black uppercase tracking-widest flex items-center justify-center gap-1.5 hover:opacity-90 disabled:opacity-50"
+                  className="flex-1 py-2.5 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-seafoam/20 flex items-center justify-center gap-1.5 hover:bg-seafoam/90 active:scale-[0.98] disabled:opacity-50 transition-all"
                 >
                   {loggingId === p.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Log feed
                 </button>

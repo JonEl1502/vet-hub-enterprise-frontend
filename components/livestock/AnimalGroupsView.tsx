@@ -7,7 +7,7 @@ import { Milk, Pencil, Trash2 } from 'lucide-react';
 import { livestockAPI, type AnimalGroup, type Farm } from '../../services/modules/livestock.api';
 import { toast, dialog } from '../../services';
 import LoadingSpinner from '../shared/common/LoadingSpinner';
-import { LivestockPage, PrimaryButton, EmptyState, Modal, Field, Card, FarmFilter, SPECIES, PickOrType } from './shared';
+import { LivestockPage, PrimaryButton, EmptyState, Modal, Field, Card, FarmFilter, SPECIES, PickOrType , FilterBar} from './shared';
 /**
  * ⚠️ ONE source of species knowledge, shared with the client portal. The breeds,
  * housing and purposes a Kenyan farm actually uses were already researched per
@@ -84,7 +84,9 @@ const AnimalGroupsView: React.FC = () => {
       icon={Milk}
       actions={<PrimaryButton onClick={openNew} disabled={farms.length === 0}>Add group</PrimaryButton>}
     >
-      <FarmFilter farms={farms} value={farmId} onChange={setFarmId} />
+      <FilterBar>
+        <FarmFilter farms={farms} value={farmId} onChange={setFarmId} />
+      </FilterBar>
 
       {loading ? (
         <div className="h-48 flex items-center justify-center"><LoadingSpinner size="md" message="Loading..." /></div>
