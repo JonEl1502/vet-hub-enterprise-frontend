@@ -394,16 +394,43 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
         } else if (hasCompletedInitialSelection) {
           // Multi-clinic and user has gone through the picker at least once.
           if (storedSelection) {
-            // Trust localStorage — picker is authoritative. Don't filter
-            // against fetchedClinics here: branch ids may not be in the
-            // auth-cached prime yet (they arrive on the /user-clinics
-            // upgrade). Stale ids → backend 403 → user re-applies.
+            // Trust localStorage — the picker is authoritative. Deliberately
+            // NOT filtered against fetchedClinics: branch ids may not be in
+            // the auth-cached prime yet (they arrive on the /user-clinics
+            // upgrade), so filtering would narrow a legitimate selection for
+            // the first second of every cold load.
             const parsedSelection = (JSON.parse(storedSelection) as unknown[])
               .map((id) => String(id))
               .filter((id) => id && id !== 'undefined');
-            setSelectedClinicIds(parsedSelection);
+
+            /**
+             * ⚠️ ONE EXCEPTION: A SELECTION WITH NOTHING IN COMMON IS NOT
+             * STALE, IT IS SOMEBODY ELSE'S.
+             *
+             * A partial mismatch is the timing case above and is left alone. A
+             * selection that overlaps this account's clinics by NOTHING can
+             * only have been written by a different account in this browser —
+             * and acting on it sends `X-Clinic-Id: <their clinic>` on every
+             * request, which the backend rightly refuses. Kabi Vets (a
+             * two-clinic account, so it lands in exactly this branch) inherited
+             * ShiVets' selection that way and got "Permission needed" on its
+             * own billing page.
+             *
+             * Falling back to every clinic they DO hold is the safe direction:
+             * the worst case is a wider scope than they last picked, which the
+             * picker fixes in one tap, instead of an account locked out of
+             * itself.
+             */
+            const mine = new Set(fetchedClinics.map((c) => String(c.id)));
+            const overlaps = parsedSelection.some((id) => mine.has(id));
+            const toRestore = overlaps ? parsedSelection : fetchedClinics.map((c) => c.id);
+            if (!overlaps) {
+              console.warn('🧹 Stored clinic selection belongs to another account — falling back to all of this one\'s');
+              localStorage.setItem('selectedClinicIds', JSON.stringify(toRestore));
+            }
+            setSelectedClinicIds(toRestore);
             setNeedsInitialSelection(false);
-            console.log('✅ Restored clinic selection from localStorage:', parsedSelection);
+            console.log('✅ Restored clinic selection from localStorage:', toRestore);
           } else {
             // No storedSelection but user has been through the picker =
             // explicit "All Clinics". Populate the selection with every
