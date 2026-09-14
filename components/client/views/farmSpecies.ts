@@ -67,8 +67,10 @@ export interface SpeciesConfig {
   ageUnit: 'weeks' | 'months';
 
   /**
-   * Breeds actually kept in Kenya, for a datalist — the field stays free text,
-   * because the next farm over keeps something not on any list.
+   * Breeds actually kept in Kenya. Rendered as a dropdown with an "Other" that
+   * types free text (PickOrType / CpPickOrType), because the next farm over
+   * keeps a cross or a landrace that is on nobody's list — and because free
+   * text alone collected "fresian", "Fresian" and "F1" as three breeds.
    */
   breeds: string[];
 

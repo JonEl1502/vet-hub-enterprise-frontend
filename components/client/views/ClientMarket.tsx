@@ -8,6 +8,7 @@ import { marketplaceAPI, MarketListing, MarketOrder, clientPortalAPI } from '../
 import { PortalFarm, FARM_SPECIES } from '../../../services/modules/clientPortal.api';
 import { speciesConfig } from './farmSpecies';
 import CpPage from '../CpPage';
+import CpPickOrType from '../CpPickOrType';
 
 /**
  * 296 — the farm marketplace.
@@ -237,11 +238,12 @@ const ClientMarket: React.FC = () => {
                 </div>
                 <div>
                   <label className="cp-label">Breed</label>
-                  <input className="cp-input w-full" list="cp-market-breeds" placeholder={cfg.breeds[0] ?? ''}
-                    value={form.breed} onChange={(e) => setForm({ ...form, breed: e.target.value })} />
-                  <datalist id="cp-market-breeds">
-                    {cfg.breeds.map((b) => <option key={b} value={b} />)}
-                  </datalist>
+                  <CpPickOrType
+                    options={cfg.breeds}
+                    value={form.breed}
+                    onChange={(v) => setForm({ ...form, breed: v })}
+                    placeholder="Type the breed"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-3 gap-2">

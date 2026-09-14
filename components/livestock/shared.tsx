@@ -73,6 +73,82 @@ export const FarmFilter: React.FC<{
   </div>
 );
 
+/**
+ * A dropdown of the sensible answers, with "Other" that lets you type.
+ *
+ * User, 2026-09-14: *"breed for farm animals please to be dropdown, other to
+ * allow typing."* The field was free text with a placeholder of *"e.g.
+ * Friesian"* — shown, in the screenshot that prompted this, on a flock of
+ * POULTRY. A free-text breed on a Kenyan farm collects "fresian", "Fresian",
+ * "friesian x" and "F1" as four different breeds, and the suggestion was
+ * actively wrong for most species.
+ *
+ * ⚠️ THE LIST IS NEVER A CAGE. Kenya keeps crosses and landraces that are on
+ * nobody's list, so "Other" is always present and always types free text — and
+ * a value already stored that is not in the list opens in that mode rather than
+ * being silently dropped, which is the classic way a dropdown eats existing
+ * data.
+ */
+export const PickOrType: React.FC<{
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+  placeholder?: string;
+  /** Shown as the empty choice — "—" for optional fields. */
+  emptyLabel?: string;
+}> = ({ options, value, onChange, placeholder, emptyLabel = '—' }) => {
+  const inList = (v: string) => options.some((o) => o.toLowerCase() === v.trim().toLowerCase());
+  const [other, setOther] = React.useState(() => !!value && !inList(value));
+
+  // Species changed under us: a Friesian on a flock of layers is no longer a
+  // listed breed, so the field flips to free text holding what was there
+  // rather than blanking a value the user typed.
+  React.useEffect(() => {
+    if (value && !inList(value)) setOther(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [options.join('|')]);
+
+  // No curated list for this species — free text is the honest control.
+  if (options.length === 0) {
+    return (
+      <input
+        className="field-input"
+        value={value}
+        placeholder={placeholder}
+        onChange={(e) => onChange(e.target.value)}
+      />
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <select
+        className="field-select"
+        value={other ? '__other' : (inList(value) ? value : '')}
+        onChange={(e) => {
+          const v = e.target.value;
+          if (v === '__other') { setOther(true); onChange(''); return; }
+          setOther(false);
+          onChange(v);
+        }}
+      >
+        <option value="">{emptyLabel}</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+        <option value="__other">Other…</option>
+      </select>
+      {other && (
+        <input
+          className="field-input"
+          autoFocus
+          value={value}
+          placeholder={placeholder ?? 'Type it'}
+          onChange={(e) => onChange(e.target.value)}
+        />
+      )}
+    </div>
+  );
+};
+
 export const Modal: React.FC<{
   title: string;
   onClose: () => void;

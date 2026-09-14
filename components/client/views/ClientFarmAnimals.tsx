@@ -23,6 +23,7 @@ import {
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
 import CpPage from '../CpPage';
+import CpPickOrType from '../CpPickOrType';
 import { speciesConfig, purposeLabel } from './farmSpecies';
 
 const STATUS_TONE: Record<string, string> = {
@@ -359,11 +360,12 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
                 </div>
                 <div>
                   <label className="cp-label">Breed</label>
-                  <input className="cp-input w-full" list="cp-edit-breeds" placeholder={dc.breeds[0] ?? ''}
-                    value={editing.breed} onChange={(e) => setEditing({ ...editing, breed: e.target.value })} />
-                  <datalist id="cp-edit-breeds">
-                    {dc.breeds.map((b) => <option key={b} value={b} />)}
-                  </datalist>
+                  <CpPickOrType
+                    options={dc.breeds}
+                    value={editing.breed}
+                    onChange={(v) => setEditing({ ...editing, breed: v })}
+                    placeholder="Type the breed"
+                  />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-2">
@@ -550,8 +552,12 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
             </div>
             <div>
               <label className="cp-label">Breed</label>
-              <input className="cp-input w-full" list="cp-breeds" placeholder={cfg.breeds[0] ?? ''}
-                value={form.breed} onChange={(e) => setForm({ ...form, breed: e.target.value })} />
+              <CpPickOrType
+                options={cfg.breeds}
+                value={form.breed}
+                onChange={(v) => setForm({ ...form, breed: v })}
+                placeholder="Type the breed"
+              />
             </div>
           </div>
           <div>
@@ -596,9 +602,6 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
           <p className="text-[10px] cp-muted">
             {cfg.headNoun.charAt(0).toUpperCase() + cfg.headNoun.slice(1)} are counted, not named — the {cfg.groupNoun} is the record.
           </p>
-          <datalist id="cp-breeds">
-            {cfg.breeds.map((b) => <option key={b} value={b} />)}
-          </datalist>
           <button className="cp-btn w-full" onClick={addBirds} disabled={saving || !batch.count.trim()}>
             {saving ? 'Adding…' : `Add ${batch.count || ''} ${cfg.headNoun}`.trim()}
           </button>
@@ -629,8 +632,12 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
             </div>
             <div>
               <label className="cp-label">Breed</label>
-              <input className="cp-input w-full" placeholder="Friesian" value={form.breed}
-                onChange={(e) => setForm({ ...form, breed: e.target.value })} />
+              <CpPickOrType
+                options={cfg.breeds}
+                value={form.breed}
+                onChange={(v) => setForm({ ...form, breed: v })}
+                placeholder="Type the breed"
+              />
             </div>
           </div>
           <div>

@@ -7,7 +7,14 @@ import { Milk, Pencil, Trash2 } from 'lucide-react';
 import { livestockAPI, type AnimalGroup, type Farm } from '../../services/modules/livestock.api';
 import { toast, dialog } from '../../services';
 import LoadingSpinner from '../shared/common/LoadingSpinner';
-import { LivestockPage, PrimaryButton, EmptyState, Modal, Field, Card, FarmFilter, SPECIES, PURPOSES } from './shared';
+import { LivestockPage, PrimaryButton, EmptyState, Modal, Field, Card, FarmFilter, SPECIES, PickOrType } from './shared';
+/**
+ * ⚠️ ONE source of species knowledge, shared with the client portal. The breeds,
+ * housing and purposes a Kenyan farm actually uses were already researched per
+ * species for the portal's animal register; duplicating them here would let the
+ * two drift and mean "layers" stopped meaning the same thing on both sides.
+ */
+import { speciesConfig, purposeLabel } from '../client/views/farmSpecies';
 
 const blank = { farmId: '', name: '', species: 'CATTLE', breed: '', headCount: 0, purpose: '', housing: '', notes: '' };
 
@@ -145,19 +152,44 @@ const AnimalGroupsView: React.FC = () => {
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Breed">
-              <input className="field-input" value={editing.breed} placeholder="e.g. Friesian"
-                onChange={(e) => setEditing({ ...editing, breed: e.target.value })} />
+              <PickOrType
+                options={speciesConfig(editing.species).breeds}
+                value={editing.breed}
+                onChange={(v) => setEditing({ ...editing, breed: v })}
+                placeholder="Type the breed"
+              />
             </Field>
             <Field label="Purpose">
-              <select className="field-select" value={editing.purpose} onChange={(e) => setEditing({ ...editing, purpose: e.target.value })}>
+              {/* Species-correct: a flock is kept for layers or broilers, never
+                  for wool, and the global list offered both to everyone. */}
+              <select className="field-select" value={editing.purpose}
+                      onChange={(e) => setEditing({ ...editing, purpose: e.target.value })}>
                 <option value="">—</option>
-                {PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
+                {speciesConfig(editing.species).purposes.map((p) => (
+                  <option key={p.key} value={p.key}>{p.label}</option>
+                ))}
+                {/* ⚠️ KEEP WHAT IS ALREADY STORED. The clinic module used to
+                    write LAYERS/BROILERS while the shared config uses
+                    LAYER/BROILER; without this the old value matches no option,
+                    the select renders "—", and the next save silently erases a
+                    purpose nobody meant to change. */}
+                {editing.purpose
+                  && !speciesConfig(editing.species).purposes.some((p) => p.key === editing.purpose) && (
+                  <option value={editing.purpose}>
+                    {purposeLabel(editing.purpose) ?? editing.purpose}
+                  </option>
+                )}
               </select>
             </Field>
           </div>
           <Field label="Housing">
-            <input className="field-input" value={editing.housing} placeholder="e.g. Zero-grazing unit"
-              onChange={(e) => setEditing({ ...editing, housing: e.target.value })} />
+            {/* "e.g. Zero-grazing unit" was being suggested for chickens. */}
+            <PickOrType
+              options={speciesConfig(editing.species).housing}
+              value={editing.housing}
+              onChange={(v) => setEditing({ ...editing, housing: v })}
+              placeholder="Type how they are housed"
+            />
           </Field>
           <Field label="Notes">
             <textarea className="field-textarea" rows={2} value={editing.notes}
