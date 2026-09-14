@@ -114,6 +114,8 @@ export type { ClinicTransfer } from './modules/clinicTransfer.api';
 export type { Broadcast, BroadcastAudience, BroadcastAudienceType, SegmentFilter, SegmentBreakdown, SegmentSendResult, BroadcastChannel } from './modules/broadcasts.api';
 export { clientPortalAPI } from './modules/clientPortal.api';
 export { marketplaceAPI } from './modules/marketplace.api';
+export { supplierBiAPI } from './modules/supplierBi.api';
+export type { SupplierBiReport, BiProduct } from './modules/supplierBi.api';
 export { siteConnectAPI } from './modules/siteConnect.api';
 export type {
   SiteConnection, SiteDelivery, SiteRequest, SiteRequestDetail, SiteRequestStatus,

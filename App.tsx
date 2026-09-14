@@ -26,6 +26,7 @@ import SupplierProductsView from './components/supplier/products/SupplierProduct
 import SupplierInventoryView from './components/supplier/inventory/SupplierInventoryView';
 import SupplierProductFormPage from './components/supplier/products/SupplierProductFormPage';
 import SupplierOrdersView from './components/supplier/orders/SupplierOrdersView';
+import SupplierAnalyticsView from './components/supplier/analytics/SupplierAnalyticsView';
 import SupplierOrderDetailView from './components/supplier/orders/SupplierOrderDetailView';
 import SupplierBranchesView from './components/supplier/branches/SupplierBranchesView';
 import SupplierEmployeeListView from './components/supplier/employees/SupplierEmployeeListView';
@@ -2527,6 +2528,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         case 'supplier-product-new': return <SupplierProductFormPage setView={navigateTo} />;
         case 'supplier-product-edit': return <SupplierProductFormPage productId={currentNav.params?.productId} setView={navigateTo} />;
         case 'supplier-orders': return <SupplierOrdersView setView={navigateTo} />;
+        /* 298 — the Analytics tab had been in the rail with nothing behind it. */
+        case 'supplier-analytics': return <SupplierAnalyticsView setView={navigateTo} />;
         // ⚠️ MUST live in THIS switch. A SUPPLIER-role user never reaches the
         // main switch below — this branch returns first and falls back to the
         // dashboard, so a case added there renders nothing for a supplier while

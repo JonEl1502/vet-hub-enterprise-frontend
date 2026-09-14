@@ -14,7 +14,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Plus, Search, Scale, Sparkles, ChevronRight, Loader2, Baby, Milk, X, Tag,
+  Plus, Search, Scale, Sparkles, ChevronRight, Loader2, Baby, Milk, X, Tag, Pencil,
 } from 'lucide-react';
 import {
   clientPortalAPI, FARM_SPECIES,
@@ -75,6 +75,16 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
   const [detail, setDetail] = useState<FarmAnimal | null>(null);
   const [weighing, setWeighing] = useState<FarmAnimal | null>(null);
   const [weightVal, setWeightVal] = useState('');
+
+  /**
+   * ⚠️ EVERY FACT ON A DETAIL PAGE IS A FACT SOMEONE TYPED, AND TYPOS HAPPEN.
+   * "Fresian" for Friesian, a cow entered as a bull, an age guessed before the
+   * papers turned up — all of it was read-only, so the only fix was to delete
+   * the animal and lose its weights (user, 2026-09-14: *"i wanna edit the
+   * animal details"*). Null means "not editing"; a draft means the fields are
+   * live.
+   */
+  const [editing, setEditing] = useState<any | null>(null);
 
   /** Batch species only — the flock's own facts, not an animal's. */
   const [batch, setBatch] = useState({ count: '', name: '', housing: '' });
@@ -165,6 +175,38 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
         toast.success(`${form.name.trim()} added`);
         setAddOpen(false);
         setForm({ name: '', species: form.species, breed: '', sex: '', ageMonths: '', tagNumber: '', animalGroupId: form.animalGroupId, weightValue: '', purpose: form.purpose });
+        await load(); onChanged?.();
+      }
+    } finally { setSaving(false); }
+  };
+
+  const saveDetails = async () => {
+    if (!detail || !editing) return;
+    if (!editing.name.trim()) { toast.error('A name is required'); return; }
+    setSaving(true);
+    try {
+      const ecfg = speciesConfig(editing.species);
+      const r = await clientPortalAPI.updateFarmAnimal(detail.id, {
+        name: editing.name.trim(),
+        species: editing.species.trim(),
+        breed: editing.breed.trim() || null,
+        sex: editing.sex || null,
+        tagNumber: editing.tagNumber.trim() || null,
+        purpose: editing.purpose || null,
+        // Same months-is-the-column rule as the add form: send the fraction so
+        // a bird's age in weeks survives the round trip.
+        ...(editing.ageMonths === ''
+          ? {}
+          : { ageMonths: ecfg.ageUnit === 'weeks'
+              ? Number((Number(editing.ageMonths) / 4.345).toFixed(2))
+              : Number(editing.ageMonths) }),
+      } as any);
+      if (r.success) {
+        toast.success('Updated');
+        // Keep the page open on the animal you were looking at — an edit that
+        // throws you back to the list makes you find your place again.
+        if (r.data?.animal) setDetail(r.data.animal);
+        setEditing(null);
         await load(); onChanged?.();
       }
     } finally { setSaving(false); }
@@ -271,15 +313,110 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
      production fields and a status change, which is more than a sheet
      should ever hold. */
   if (detail) {
+    const dc = speciesConfig(editing?.species ?? detail.species);
     return (
-      <CpPage title={detail.name} onBack={() => setDetail(null)}>
+      <CpPage
+        title={detail.name}
+        onBack={() => { setEditing(null); setDetail(null); }}
+        actions={!editing && (
+          <button
+            className="text-[10px] font-black uppercase tracking-widest cp-accent-text flex items-center gap-1"
+            onClick={() => setEditing({
+              name: detail.name,
+              species: detail.species ?? 'Cattle',
+              breed: detail.breed ?? '',
+              sex: detail.sex ?? '',
+              tagNumber: detail.tagNumber ?? '',
+              purpose: detail.purpose ?? '',
+              // Blank rather than a back-computed number: the stored age is a
+              // date we derived from an approximation, and reversing it would
+              // show a precision that was never there. Empty means "leave it".
+              ageMonths: '',
+            })}
+          >
+            <Pencil size={11} /> Edit
+          </button>
+        )}
+      >
         <div className="space-y-3">
+          {editing ? (
+            /* ⚠️ The SAME fields as the add form, in the same order and the
+               same species vocabulary — an edit screen that asks differently
+               to the one that created the record is how the two drift. */
+            <div className="space-y-3 pb-1">
+              <div>
+                <label className="cp-label">Name</label>
+                <input className="cp-input w-full" value={editing.name} autoFocus
+                  onChange={(e) => setEditing({ ...editing, name: e.target.value })} />
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="cp-label">What is it?</label>
+                  <select className="cp-input w-full" value={editing.species}
+                    onChange={(e) => setEditing({ ...editing, species: e.target.value })}>
+                    {FARM_SPECIES.map((sp) => <option key={sp} value={sp}>{sp}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="cp-label">Breed</label>
+                  <input className="cp-input w-full" list="cp-edit-breeds" placeholder={dc.breeds[0] ?? ''}
+                    value={editing.breed} onChange={(e) => setEditing({ ...editing, breed: e.target.value })} />
+                  <datalist id="cp-edit-breeds">
+                    {dc.breeds.map((b) => <option key={b} value={b} />)}
+                  </datalist>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="cp-label">Sex</label>
+                  <select className="cp-input w-full" value={editing.sex}
+                    onChange={(e) => setEditing({ ...editing, sex: e.target.value })}>
+                    <option value="">Not sure</option>
+                    <option value="FEMALE">{dc.femaleLabel}</option>
+                    <option value="MALE">{dc.maleLabel}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="cp-label">Tag number</label>
+                  <input className="cp-input w-full" placeholder="KE-0412" value={editing.tagNumber}
+                    onChange={(e) => setEditing({ ...editing, tagNumber: e.target.value })} />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="cp-label">Kept for</label>
+                  <select className="cp-input w-full" value={editing.purpose}
+                    onChange={(e) => setEditing({ ...editing, purpose: e.target.value })}>
+                    <option value="">Not sure</option>
+                    {dc.purposes.map((pp) => <option key={pp.key} value={pp.key}>{pp.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="cp-label">
+                    Age ({dc.ageUnit}) <span className="text-slate-400 font-normal normal-case tracking-normal">— only if it changed</span>
+                  </label>
+                  <input className="cp-input w-full" type="number" min="0" placeholder={ageOf(detail.dob, detail.dobIsApprox) ?? '—'}
+                    value={editing.ageMonths} onChange={(e) => setEditing({ ...editing, ageMonths: e.target.value })} />
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button className="cp-btn flex-1" onClick={saveDetails} disabled={saving || !editing.name.trim()}>
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+                <button className="cp-btn-ghost shrink-0" onClick={() => setEditing(null)} disabled={saving}>
+                  Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
           <p className="text-xs text-slate-500">
-            {[detail.species, detail.breed, detail.sex === 'MALE' ? 'Male' : detail.sex === 'FEMALE' ? 'Female' : null,
+            {[detail.species, detail.breed,
+              detail.sex === 'MALE' ? dc.maleLabel : detail.sex === 'FEMALE' ? dc.femaleLabel : null,
               ageOf(detail.dob, detail.dobIsApprox)].filter(Boolean).join(' · ')}
             {detail.tagNumber && <span className="ml-1 inline-flex items-center gap-0.5"><Tag size={10} />{detail.tagNumber}</span>}
           </p>
-          {detail.dobIsApprox && detail.dob && (
+          )}
+          {!editing && detail.dobIsApprox && detail.dob && (
             <p className="text-[10px] text-slate-400">Age is approximate — taken from what you told us, not a birth date.</p>
           )}
 
