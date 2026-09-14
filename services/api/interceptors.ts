@@ -318,6 +318,34 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
           // Unverified account — the app already gates on user.emailVerified,
           // so a quiet reload lands them on the OTP screen. Showing a modal
           // here as well would just stack noise on top of that.
+          /**
+           * ⚠️ A SCOPE THE ACCOUNT DOES NOT OWN IS A DEAD END, SO HEAL IT.
+           *
+           * `X-Clinic-Id` comes from localStorage, and localStorage outlives a
+           * sign-out. When it names a clinic this account cannot see, EVERY
+           * request 403s — including the ones behind the clinic picker that
+           * would let them fix it. The owner is then locked out of their own
+           * practice with a modal and no next step (user, 2026-09-14: *"owner
+           * has literally no permission in any page"*).
+           *
+           * Dropping the scope keys and reloading costs one blink and puts the
+           * app back on the account's real clinics. Guarded by a session flag:
+           * if it happens twice the cause is not a stale scope, and looping the
+           * page would be worse than the modal.
+           */
+          if (apiError.message === 'No access to this clinic') {
+            try {
+              if (!sessionStorage.getItem('vethub_scope_healed')) {
+                sessionStorage.setItem('vethub_scope_healed', '1');
+                ['selectedClinicIds', 'userClinics', 'hasCompletedInitialSelection',
+                 'vethub_manage_clinic_id', 'vethub_manage_clinic_ids',
+                 'vethub_scope_user_id'].forEach((k) => localStorage.removeItem(k));
+                window.location.reload();
+                return Promise.reject(error);
+              }
+            } catch { /* storage disabled — fall through to the modal */ }
+          }
+
           if (errBody?.code === 'EMAIL_NOT_VERIFIED') {
             try {
               const raw = localStorage.getItem('authUser');

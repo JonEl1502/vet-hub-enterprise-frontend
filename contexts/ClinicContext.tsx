@@ -212,6 +212,45 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
         return;
       }
 
+      /**
+       * ⚠️ THE SCOPE CACHE BELONGS TO A USER, AND IT DID NOT SAY SO.
+       *
+       * `userClinics`, `selectedClinicIds` and `hasCompletedInitialSelection`
+       * were written to localStorage with nothing identifying whose they were.
+       * Sign a second account into the same browser and it inherits the first
+       * one's clinic list — so the single-clinic auto-select below picks the
+       * PREVIOUS owner's clinic, stamps it into `selectedClinicIds`, and the
+       * axios interceptor then sends `X-Clinic-Id: <someone else's clinic>` on
+       * every request. The backend correctly refuses, and the owner sees
+       * "Permission needed — No access to this clinic" on every page of their
+       * own practice, with no way out: the picker that would fix it is behind
+       * the same requests (user, 2026-09-14: *"owner has literally no
+       * permission in any page"*).
+       *
+       * So the cache is stamped with its owner and dropped the moment the
+       * owner changes. Clearing is the safe direction — the worst case is one
+       * extra /user-clinics round trip and the picker asking once.
+       */
+      try {
+        const SCOPE_OWNER = 'vethub_scope_user_id';
+        const stamped = localStorage.getItem(SCOPE_OWNER);
+        const current = String(user.id);
+        if (stamped !== current) {
+          [
+            'userClinics',
+            'selectedClinicIds',
+            'hasCompletedInitialSelection',
+            'vethub_manage_clinic_id',
+            'vethub_manage_clinic_ids',
+            'selectedSupplierIds',
+            'vethub_manage_supplier_id',
+            'selectedFreelancerIds',
+          ].forEach((k) => localStorage.removeItem(k));
+          localStorage.setItem(SCOPE_OWNER, current);
+          if (stamped) console.warn('🧹 Cleared clinic scope cached for a different account');
+        }
+      } catch { /* a browser with storage disabled simply re-fetches */ }
+
       setIsLoading(true);
       try {
         // Extract clinic data from user.userClinics[].clinic or use cached data

@@ -147,6 +147,15 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.removeItem('selectedClinicIds'); // Clear clinic selection
     localStorage.removeItem('hasCompletedInitialSelection'); // Clear initial selection flag
     localStorage.removeItem('userClinics'); // Clear cached clinic data
+    // ⚠️ The scope keys the axios interceptor reads go too. A clean logout was
+    // already dropping the three above; these four were not, so a management
+    // override or a supplier selection could outlive the account that set it
+    // and scope the NEXT sign-in's requests to someone else's entity.
+    localStorage.removeItem('vethub_scope_user_id');
+    localStorage.removeItem('vethub_manage_clinic_id');
+    localStorage.removeItem('vethub_manage_clinic_ids');
+    localStorage.removeItem('selectedSupplierIds');
+    localStorage.removeItem('vethub_manage_supplier_id');
     console.log('🧹 Cleared all auth and clinic data from localStorage');
   };
 
