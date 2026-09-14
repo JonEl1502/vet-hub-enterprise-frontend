@@ -235,6 +235,9 @@ export const VIEW_KEY: Record<string, string> = {
   feeding: 'livestock:feeding',
   'produce-schedule': 'livestock:produce',
   'farm-visits': 'livestock:farms',
+  // 299 — the farm visit RECORD list. Same key as the call-out queue: a clinic
+  // that can see its farm clients can record having been to them.
+  'farm-visit-records': 'livestock:farms',
 };
 
 /**

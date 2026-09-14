@@ -158,6 +158,83 @@ export interface VetOfficer {
 export type VisitUrgency = 'ROUTINE' | 'SOON' | 'URGENT';
 export type VisitRequestStatus = 'REQUESTED' | 'SCHEDULED' | 'COMPLETED' | 'CANCELLED';
 
+/**
+ * 299 — a farm VISIT: the attendance, not the call-out request above.
+ *
+ * ⚠️ `recordKind` is always 'FARM' and is meant to be RENDERED, not merely
+ * carried. User, 2026-09-14: *"the record must still show its for farm not
+ * clinic."* A vet with both lists open needs every row to say which one it is.
+ */
+export interface FarmVisit {
+  id: string;
+  recordKind: 'FARM';
+  farmId: string;
+  farmName: string | null;
+  farmLocation: string | null;
+  ownerName: string | null;
+  ownerPhone: string | null;
+  clinicId: string | null;
+  visitRequestId: string | null;
+  vetUserId: string | null;
+  vetName: string | null;
+  animalGroupId: string | null;
+  animalGroupName: string | null;
+  animalGroupSpecies: string | null;
+  farmAnimalId: string | null;
+  farmAnimalName: string | null;
+  /** One line for the list: the animal, the herd, or "The whole farm". */
+  subject: string;
+  seenCount: number | null;
+  /** SCHEDULED | IN_PROGRESS | COMPLETED | CANCELLED */
+  status: string;
+  /** ROUTINE | FOLLOW_UP | EMERGENCY | VACCINATION | AI | HERD_HEALTH | OTHER */
+  kind: string;
+  scheduledAt: string;
+  startedAt: string | null;
+  completedAt: string | null;
+  reason: string | null;
+  findings: string | null;
+  diagnosis: string | null;
+  plan: string | null;
+  notes: string | null;
+  totalCost: number;
+  currency: string;
+  isPaid: boolean;
+  travelKm: number | null;
+  treatmentCount: number;
+  createdAt: string;
+}
+
+export interface FarmVisitDetail extends FarmVisit {
+  treatments: Array<{
+    id: string; kind: string; product: string; dose: string | null;
+    route: string | null; treatedOn: string; treatedCount: number | null;
+    withdrawalMilkDays: number | null; withdrawalMeatDays: number | null;
+    milkSafeOn: string | null; meatSafeOn: string | null;
+  }>;
+}
+
+export interface FarmVisitInput {
+  farmId: string;
+  scheduledAt?: string;
+  kind?: string;
+  reason?: string | null;
+  status?: string;
+  animalGroupId?: string | null;
+  farmAnimalId?: string | null;
+  seenCount?: number | null;
+  vetUserId?: string | null;
+  vetName?: string | null;
+  findings?: string | null;
+  diagnosis?: string | null;
+  plan?: string | null;
+  notes?: string | null;
+  totalCost?: number;
+  currency?: string;
+  isPaid?: boolean;
+  travelKm?: number | null;
+}
+
 export interface FarmVisitRequest {
   id: string;
   farmId: string;
@@ -281,6 +358,16 @@ export const livestockAPI = {
    */
   logFeeding: (planId: string, data: { quantityKg?: number; fedAt?: string; notes?: string; windowKey?: string } = {}): Promise<ApiResponse<{ log: FeedingLog }>> =>
     post(`${BASE}/feeding-plans/${planId}/logs`, data, { showError: true }),
+
+  // ── Farm visits (299) ────────────────────────────────────────────────────
+  listFarmVisits: (opts: { status?: string; farmId?: string; from?: string; to?: string; limit?: number } = {}): Promise<ApiResponse<{ visits: FarmVisit[] }>> =>
+    get(`${BASE}/farm-visits${qs(opts)}`, { cache: false }),
+  getFarmVisit: (id: string): Promise<ApiResponse<{ visit: FarmVisitDetail }>> =>
+    get(`${BASE}/farm-visits/${id}`, { cache: false }),
+  createFarmVisit: (data: FarmVisitInput): Promise<ApiResponse<{ visit: FarmVisit }>> =>
+    post(`${BASE}/farm-visits`, data, { showError: true }),
+  updateFarmVisit: (id: string, data: Partial<FarmVisitInput>): Promise<ApiResponse<{ visit: FarmVisit }>> =>
+    put(`${BASE}/farm-visits/${id}`, data, { showError: true }),
 
   // ── Produce ──────────────────────────────────────────────────────────────
   listProduceSchedules: (farmId?: string): Promise<ApiResponse<{ schedules: ProduceSchedule[] }>> =>

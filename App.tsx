@@ -14,6 +14,7 @@ import FeedingView from './components/livestock/FeedingView';
 import ProduceView from './components/livestock/ProduceView';
 import FarmSettingsView from './components/livestock/FarmSettingsView';
 import FarmVisitsView from './components/livestock/FarmVisitsView';
+import FarmVisitRecordsView from './components/livestock/FarmVisitRecordsView';
 import InternalManualPage from './components/admin/manual/InternalManualPage';
 import BillablesPage from './components/clinic/clinic-mgmt/BillablesPage';
 import { VIEW_KEY, featureCopy } from './services/entitlements';
@@ -3318,6 +3319,9 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'feeding':            return <FeedingView />;
       case 'produce-schedule':   return <ProduceView />;
       case 'farm-visits':        return <FarmVisitsView />;
+      /* 299 — the farm ATTENDANCE list. `farm-visits` above is the call-out
+         queue the owners raise; this is the clinical record of going. */
+      case 'farm-visit-records': return <FarmVisitRecordsView />;
       // Farm settings is still a shell — lane S6 follow-up.
       case 'livestock-settings': return <FarmSettingsView />;
 

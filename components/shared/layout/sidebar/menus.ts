@@ -249,6 +249,14 @@ const CLINIC_ITEMS: MenuItem[] = [
     subItems: [
       { id: 'farms',         label: 'Clients',        icon: Warehouse },
       { id: 'animal-groups', label: 'Herds & Flocks', icon: Milk },
+      /**
+       * 299 — the clinic's FARM visit list, deliberately NOT the one under
+       * Visits. User: *"let Farm have separate visits lists from clinic … the
+       * record must still show its for farm not clinic."* A vet who does both
+       * needs two lists, and a farm attendance has a herd where a pet visit has
+       * a patient.
+       */
+      { id: 'farm-visit-records', label: 'Visits', icon: Stethoscope },
     ],
   },
   {
@@ -395,7 +403,8 @@ const LIVESTOCK_ITEMS: MenuItem[] = [
   { id: 'crop-plots',          label: 'Crop Plots',      icon: Wheat },
   { id: 'feeding',             label: 'Feeding',         icon: Sprout },
   { id: 'produce-schedule',    label: 'Produce',         icon: CalendarClock },
-  { id: 'farm-visits',         label: 'Farm Visits',     icon: Siren },
+  { id: 'farm-visits',         label: 'Call-outs',       icon: Siren },
+  { id: 'farm-visit-records',  label: 'Visits',          icon: Stethoscope },
   {
     id: 'livestock_mgmt',
     label: 'Account',
