@@ -68,6 +68,8 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
    * (user, 2026-08-23). See ContactDialog for why.
    */
   const [contact, setContact] = useState<{ name: string; phone: string; subtitle?: string } | null>(null);
+  const [showAllInsights, setShowAllInsights] = useState(false);
+  const scrollToCard = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   /**
    * Bills → invoices → receipts (user, 2026-08-23).
    *
@@ -447,10 +449,10 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
     { label: 'Balance Sheet', icon: ScrollText },
     { label: 'Cash Flow Statement', icon: BarChart3 },
     { label: 'Trial Balance', icon: FileSpreadsheet },
-    { label: 'Revenue by Department', icon: PiggyBank },
-    { label: 'Revenue by Vet', icon: Users },
+    { label: 'Revenue by Department', icon: PiggyBank, onClick: () => scrollToCard('revenue-by-department-card') },
+    { label: 'Revenue by Vet', icon: Users, onClick: () => scrollToCard('top-vets-card') },
     { label: 'A/R Aging Report', icon: Receipt, onClick: () => onNavigate?.('receivables') },
-    { label: 'A/P Aging Report', icon: CreditCard },
+    { label: 'A/P Aging Report', icon: CreditCard, onClick: () => onNavigate?.('payables') },
     { label: 'Custom Report', icon: Plus },
   ];
 
@@ -795,7 +797,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                 a card out of here, put something else in. */}
             <div className="flex flex-col gap-4">
               {/* Revenue by Department */}
-              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+              <div id="revenue-by-department-card" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
                 <div className="mb-2">
                   <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Revenue by Department</h3>
                   <p className="text-[10px] font-bold text-slate-400">Breakdown of income sources</p>
@@ -910,7 +912,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch">
 
             {/* Top Veterinarians */}
-            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+            <div id="top-vets-card" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
               <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight mb-3">Top Veterinarians <span className="text-[9px] font-bold text-slate-400">(By Revenue)</span></h3>
               {(bi?.topStaff?.length ?? 0) === 0 ? (
                 <p className="py-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600">No attributed visits yet</p>
@@ -1030,7 +1032,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                 <p className="py-10 text-center text-[10px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600 flex-1">Nothing to flag</p>
               ) : (
                 <div className="flex-1 divide-y divide-slate-50 dark:divide-zinc-800/60">
-                  {insights.slice(0, 6).map((ins, i) => (
+                  {(showAllInsights ? insights : insights.slice(0, 6)).map((ins, i) => (
                     <button key={i} onClick={() => ins.go ? ins.go() : undefined}
                       className={`w-full flex items-start gap-2.5 py-2 text-left group ${ins.go ? '' : 'cursor-default'}`}>
                       <ins.icon size={14} className={`${ins.tone} shrink-0 mt-0.5`} />
@@ -1040,10 +1042,12 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
                   ))}
                 </div>
               )}
-              <button onClick={() => soon('The insights hub')}
+              {insights.length > 6 && (
+              <button onClick={() => setShowAllInsights(v => !v)}
                 className="mt-3 w-full py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[9px] font-black uppercase tracking-widest text-slate-500 hover:border-seafoam hover:text-seafoam transition-all">
-                View All Insights
+                {showAllInsights ? 'Show Fewer' : 'View All Insights'}
               </button>
+              )}
             </div>
 
             {/* Forecast */}
