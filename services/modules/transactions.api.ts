@@ -88,6 +88,20 @@ export const transactionsAPI = {
   },
 
   /**
+   * Refund ONE settlement (one bill's worth of one payment) — the payment
+   * stays SETTLED, so the refunded amount lands as usable client credit
+   * instead of disappearing the way voiding the whole payment would.
+   * `amount` defaults to the settlement's full applied amount when omitted.
+   */
+  refundSettlement: async (
+    settlementId: number | string,
+    body?: { amount?: number; reason?: string },
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ settlementId: string; refundAmount: number; fullRefund: boolean; visitReopened: boolean }>> => {
+    return patch(`/transactions/settlements/${settlementId}/refund`, body ?? {}, { showError: true, ...options });
+  },
+
+  /**
    * HARD DELETE a mistaken payment (wrong client, duplicate, wrong amount).
    * Void is the default for genuine reversals — this is for entries that
    * should never have existed. Owner/manager/admin only; the deletion is

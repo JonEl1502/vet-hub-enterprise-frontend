@@ -6,7 +6,7 @@ import {
   ScrollText, Mail, Banknote, Pencil, FolderOpen, PiggyBank, Trash2,
 } from 'lucide-react';
 import { Client } from '../../../types';
-import { clientsAPI, uploadsAPI, dialog } from '../../../services';
+import { clientsAPI, uploadsAPI, dialog, transactionsAPI } from '../../../services';
 import { ClientBilling, ClientAttachment } from '../../../services/modules/clients.api';
 import RevenueStatusChip, { revenueStatusOf } from '../shared/RevenueStatusChip';
 
@@ -120,6 +120,13 @@ const ClientAccountHub: React.FC<Props> = ({
   const [advanceBusy, setAdvanceBusy] = React.useState(false);
   const [emailingStatement, setEmailingStatement] = React.useState(false);
   const [savingCreditLimit, setSavingCreditLimit] = React.useState(false);
+
+  // Refund dialog — pick which bill-payment (settlement) to reverse.
+  const [refundOpen, setRefundOpen] = React.useState(false);
+  const [refundPickId, setRefundPickId] = React.useState('');
+  const [refundAmt, setRefundAmt] = React.useState('');
+  const [refundReason, setRefundReason] = React.useState('');
+  const [refundBusy, setRefundBusy] = React.useState(false);
 
   const petKey = petId != null ? String(petId) : null;
   const subject = petKey ? (petName || 'this patient') : 'this client';
@@ -313,11 +320,56 @@ const ClientAccountHub: React.FC<Props> = ({
     finally { setSavingCreditLimit(false); }
   };
 
+  // One row per settlement — a payment covering three visits offers three
+  // refund targets, since refunding is scoped to a single bill's worth.
+  const refundables = (billing?.invoices ?? []).flatMap(inv =>
+    inv.payments.map(p => ({
+      settlementId: p.settlementId,
+      max: p.amountApplied,
+      method: p.method,
+      date: p.date,
+      label: `${currency} ${p.amountApplied.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} — ${inv.petName ?? 'Visit'} #${inv.visitId} — ${new Date(p.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })} (${p.method})`,
+    }))
+  );
+  const refundPick = refundables.find(r => r.settlementId === refundPickId) ?? null;
+
+  const openRefund = () => {
+    setRefundPickId(refundables[0]?.settlementId ?? '');
+    setRefundAmt(refundables[0] ? String(refundables[0].max) : '');
+    setRefundReason('');
+    setRefundOpen(true);
+  };
+
+  const submitRefund = async () => {
+    if (!refundPick) { toast.error('Pick a payment to refund'); return; }
+    const amount = Number(refundAmt);
+    if (!(amount > 0)) { toast.error('Enter a refund amount'); return; }
+    if (amount > refundPick.max + 0.005) { toast.error(`Only ${money(refundPick.max, currency)} was applied by this payment`); return; }
+    if (!refundReason.trim()) { toast.error('A reason is required for a refund'); return; }
+    const ok = await dialog.confirm({
+      title: 'Confirm refund',
+      message: `Refund ${money(amount, currency)} to ${client.name}? This reverses the clinic's revenue and returns the amount as usable credit on their account.`,
+      confirmLabel: 'Refund',
+      variant: 'warning',
+    });
+    if (!ok) return;
+    setRefundBusy(true);
+    try {
+      const res = await transactionsAPI.refundSettlement(refundPick.settlementId, { amount, reason: refundReason.trim() });
+      if (res.success) {
+        toast.success(`${money(amount, currency)} refunded — now available as credit`);
+        setRefundOpen(false);
+        onRefresh();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Could not process the refund'); }
+    finally { setRefundBusy(false); }
+  };
+
   const QUICK_ACTIONS: { label: string; icon: any; onClick: () => void; disabled?: boolean }[] = [
     { label: 'New Bill', icon: FileText, onClick: () => onGoTab('appointments') },
     { label: 'Collect On Invoices', icon: CircleDollarSign, onClick: () => onGoTab('invoices') },
     { label: 'Receive Payment', icon: HandCoins, onClick: () => setAdvanceOpen(true), disabled: !canCollect },
-    { label: 'Refund', icon: RotateCcw, onClick: () => soon('Refunds') },
+    { label: 'Refund', icon: RotateCcw, onClick: openRefund, disabled: refundables.length === 0 },
     { label: 'Credit Note', icon: Tag, onClick: () => soon('Credit notes') },
     { label: 'Payment Plan', icon: CalendarRange, onClick: () => soon('Payment plans') },
     { label: 'Statement', icon: ScrollText, onClick: () => onGoTab('statements') },
@@ -607,6 +659,53 @@ const ClientAccountHub: React.FC<Props> = ({
                 {advanceBusy ? 'Recording…' : 'Receive payment'}
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Refund dialog */}
+      {refundOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[800] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setRefundOpen(false)}>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full p-5 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Refund</h2>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Reverses one payment's bill — lands back as credit</p>
+              </div>
+              <button onClick={() => setRefundOpen(false)} className="text-slate-400 hover:text-pine"><X size={18} /></button>
+            </div>
+            {refundables.length === 0 ? (
+              <p className="py-6 text-center text-[10px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600">No settled payments to refund</p>
+            ) : (
+              <div className="space-y-3">
+                <div>
+                  <label className="field-label">Which payment</label>
+                  <select value={refundPickId} className="field-select"
+                    onChange={e => {
+                      setRefundPickId(e.target.value);
+                      const r = refundables.find(x => x.settlementId === e.target.value);
+                      setRefundAmt(r ? String(r.max) : '');
+                    }}>
+                    {refundables.map(r => <option key={r.settlementId} value={r.settlementId}>{r.label}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="field-label">Amount ({currency}) — up to {refundPick ? money(refundPick.max, currency) : '—'}</label>
+                  <input type="number" min={0} max={refundPick?.max} value={refundAmt} onChange={e => setRefundAmt(e.target.value)}
+                    placeholder="0.00" className="field-input text-right font-mono" />
+                </div>
+                <div>
+                  <label className="field-label">Reason (required)</label>
+                  <input type="text" value={refundReason} onChange={e => setRefundReason(e.target.value)}
+                    placeholder="Why is this being refunded?" className="field-input" />
+                </div>
+                <button onClick={submitRefund} disabled={refundBusy}
+                  className="w-full flex items-center justify-center gap-2 py-3 bg-rose-500 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-rose-600 transition-all disabled:opacity-50">
+                  {refundBusy ? <Loader2 size={14} className="animate-spin" /> : <RotateCcw size={14} />}
+                  {refundBusy ? 'Refunding…' : 'Refund'}
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

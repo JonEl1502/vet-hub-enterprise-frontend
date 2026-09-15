@@ -59,6 +59,22 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: Refund built out in Client Account Hub  —  2026-09-15
+- **What changed:** the "Refund" quick action opens a picker listing every settled payment
+  (flattened from `billing.invoices[].payments[]`, one row per settlement so a payment covering
+  several bills offers several targets), pre-fills the full applied amount, requires a reason,
+  confirms before submitting, then calls `transactionsAPI.refundSettlement`. Disabled when
+  there's nothing to refund.
+- **Record impact:** 🔵 Low — writes only against the specific settlement/visit a staff member
+  picks and confirms; nothing else moves.
+- **Data dependency:** Requires the backend's `settlementId` field on `ClientInvoice.payments`
+  (same-day change, ships together).
+- **Rollback:** revert the commit.
+- **Why:** scoped with John (2026-09-15) — a refund has to return the money to the client's
+  account, not just close the invoice. See [[Test report 2026-09-15]] in the vault.
+- ⚠️ **Watch out:** money-movement UI. Test on staging against a real settled payment before
+  prod — confirm the client's credit balance actually increases, not just that the toast says success.
+
 ### component: four more dead reports buttons wired up  —  2026-09-15
 - **What changed:** Reports & Analytics quick-report pills — "A/P Aging Report" now routes to
   the existing Payables page (`onNavigate('payables')`), same pattern as the earlier A/R fix.

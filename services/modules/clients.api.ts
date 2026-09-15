@@ -106,7 +106,7 @@ export interface ClientInvoice {
    * fulfilled by three payments lists three — `settlements` is a genuine
    * many-to-many, so a single "payment reference" would be a lie.
    */
-  payments: { id: string; amountApplied: number; method: string; status: string; date: string }[];
+  payments: { id: string; settlementId: string; amountApplied: number; method: string; status: string; date: string }[];
   encounterType?: string;
   visitType?: string | null;
   pet: { id: string; name: string; species: string } | null;
