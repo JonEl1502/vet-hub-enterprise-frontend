@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: three dead billing buttons wired up  —  2026-09-15
+- **What changed:** Client Account Hub's "Email Statement" quick action now calls
+  `clientsAPI.emailStatement` (confirm dialog first); the "Edit credit limit" pencil next to
+  Payment Information opens a `dialog.prompt` and saves via `clientsAPI.update({ maxDebt })`
+  (Preferred Method stays read-only — it's derived from payment history, not a stored field).
+  Reports & Analytics' "A/R Aging Report" quick-report pill now routes to the existing
+  Receivables page (`onNavigate('receivables')`) instead of a "coming soon" toast — that page
+  and its data were already fully built, just not linked from here.
+- **Record impact:** 🟢 None, except editing a client's credit limit which is 🔵 Low (writes
+  `maxDebt` only on the client a staff member explicitly edits).
+- **Data dependency:** None — all three reuse existing backend endpoints/fields.
+- **Rollback:** revert the commit.
+- **Why:** found during a 2026-09-15 gap-hunt pass — these were stub buttons left over from
+  earlier UI work ([[Test report 2026-09-15]] in the vault). Refund, Credit Note, Payment
+  Plan, per-row "more actions", and the nine other Quick Reports pills are still stubs,
+  deliberately deferred to a separate scoping pass.
+
 ### app: smooth scroll on the landing nav, and SQV moves to the top bar  —  2026-09-08
 - **Smooth scroll (user: "lets have smooth scroll ... when user clicks a menu").** The
   landing nav's in-page links (`#modules`, `#testimonials`, `#faq`) now glide, and a
