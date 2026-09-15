@@ -59,6 +59,23 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: four more dead reports buttons wired up  —  2026-09-15
+- **What changed:** Reports & Analytics quick-report pills — "A/P Aging Report" now routes to
+  the existing Payables page (`onNavigate('payables')`), same pattern as the earlier A/R fix.
+  "Revenue by Vet" and "Revenue by Department" now scroll to their own existing cards on the
+  same page (`Top Veterinarians`, `Revenue by Department` donut) — both were already fully
+  built and populated from `financeBI`, just not linked from the pill. "View All Insights" now
+  actually expands the Business Alerts & Insights list past its 6-item cap instead of toasting
+  "coming soon"; the button hides itself when there's nothing more to show.
+- **Record impact:** 🟢 None — all four are navigation/display only, no writes.
+- **Data dependency:** None — reuses data already being fetched on this page.
+- **Rollback:** revert the commit.
+- **Why:** same 2026-09-15 gap-hunt pass ([[Test report 2026-09-15]]). Leaves 10 of the
+  original 17 dead buttons still parked: Refund, Credit Note, Payment Plan, per-row "more
+  actions", and 6 report generators that need either real accounting infrastructure
+  (Balance Sheet, Trial Balance — no chart-of-accounts/ledger exists in this codebase at all)
+  or a product design decision before they're safe to build.
+
 ### component: three dead billing buttons wired up  —  2026-09-15
 - **What changed:** Client Account Hub's "Email Statement" quick action now calls
   `clientsAPI.emailStatement` (confirm dialog first); the "Edit credit limit" pencil next to
