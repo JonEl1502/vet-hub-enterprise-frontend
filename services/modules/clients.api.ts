@@ -354,6 +354,10 @@ export const clientsAPI = {
     totalPaid: number;
   }>> => get(`/clients/${clientId}/statement`, { cache: false }),
 
+  /** Email that same statement to the client's own address on file. */
+  emailStatement: (clientId: string | number): Promise<ApiResponse<{ sent: boolean; id?: string }>> =>
+    post(`/clients/${clientId}/statement/email`, {}),
+
   /**
    * Get all clients with pagination
    */

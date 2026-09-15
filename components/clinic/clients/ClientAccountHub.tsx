@@ -6,7 +6,7 @@ import {
   ScrollText, Mail, Banknote, Pencil, FolderOpen, PiggyBank, Trash2,
 } from 'lucide-react';
 import { Client } from '../../../types';
-import { clientsAPI, uploadsAPI } from '../../../services';
+import { clientsAPI, uploadsAPI, dialog } from '../../../services';
 import { ClientBilling, ClientAttachment } from '../../../services/modules/clients.api';
 import RevenueStatusChip, { revenueStatusOf } from '../shared/RevenueStatusChip';
 
@@ -118,6 +118,8 @@ const ClientAccountHub: React.FC<Props> = ({
   const [advanceAmt, setAdvanceAmt] = React.useState('');
   const [advanceMethod, setAdvanceMethod] = React.useState('CASH');
   const [advanceBusy, setAdvanceBusy] = React.useState(false);
+  const [emailingStatement, setEmailingStatement] = React.useState(false);
+  const [savingCreditLimit, setSavingCreditLimit] = React.useState(false);
 
   const petKey = petId != null ? String(petId) : null;
   const subject = petKey ? (petName || 'this patient') : 'this client';
@@ -275,6 +277,42 @@ const ClientAccountHub: React.FC<Props> = ({
 
   const soon = (what: string) => toast(`${what} is coming soon`, { icon: '🛠️' });
 
+  const emailStatement = async () => {
+    if (emailingStatement) return;
+    const ok = await dialog.confirm({
+      title: 'Email statement',
+      message: `Send ${client.name}'s account statement to their email on file?`,
+      confirmLabel: 'Send',
+    });
+    if (!ok) return;
+    setEmailingStatement(true);
+    try {
+      const res = await clientsAPI.emailStatement(client.id);
+      if (res.success) toast.success('Statement emailed');
+    } catch (e: any) { toast.error(e?.message || 'Could not send the statement'); }
+    finally { setEmailingStatement(false); }
+  };
+
+  const editCreditLimit = async () => {
+    const text = await dialog.prompt({
+      title: 'Credit limit',
+      message: `Set the credit limit for ${client.name}. Leave blank for no limit.`,
+      label: 'Credit limit',
+      placeholder: '0',
+      defaultValue: client.maxDebt != null ? String(client.maxDebt) : '',
+    });
+    if (text === null) return;
+    const trimmed = text.trim();
+    const value = trimmed === '' ? null : Number(trimmed);
+    if (value !== null && !(value >= 0)) { toast.error('Enter a valid amount'); return; }
+    setSavingCreditLimit(true);
+    try {
+      const res = await clientsAPI.update(Number(client.id), { maxDebt: value });
+      if (res.success) { toast.success('Credit limit updated'); onRefresh(); }
+    } catch (e: any) { toast.error(e?.message || 'Could not update the credit limit'); }
+    finally { setSavingCreditLimit(false); }
+  };
+
   const QUICK_ACTIONS: { label: string; icon: any; onClick: () => void; disabled?: boolean }[] = [
     { label: 'New Bill', icon: FileText, onClick: () => onGoTab('appointments') },
     { label: 'Collect On Invoices', icon: CircleDollarSign, onClick: () => onGoTab('invoices') },
@@ -283,7 +321,7 @@ const ClientAccountHub: React.FC<Props> = ({
     { label: 'Credit Note', icon: Tag, onClick: () => soon('Credit notes') },
     { label: 'Payment Plan', icon: CalendarRange, onClick: () => soon('Payment plans') },
     { label: 'Statement', icon: ScrollText, onClick: () => onGoTab('statements') },
-    { label: 'Email Statement', icon: Mail, onClick: () => soon('Emailing statements') },
+    { label: 'Email Statement', icon: Mail, onClick: emailStatement, disabled: emailingStatement },
   ];
 
   if (loading) {
@@ -498,8 +536,8 @@ const ClientAccountHub: React.FC<Props> = ({
                 {/* Credit and limits belong to the payer, not the patient. */}
                 {petKey && <p className="text-[10px] font-bold text-slate-400 truncate">Owner account · {client.name}</p>}
               </div>
-              <button type="button" title="Editing payment information is coming soon" onClick={() => soon('Editing payment information')}
-                className="p-1.5 rounded-lg text-slate-300 dark:text-zinc-600 hover:text-seafoam transition-colors">
+              <button type="button" title="Edit credit limit" disabled={savingCreditLimit} onClick={editCreditLimit}
+                className="p-1.5 rounded-lg text-slate-300 dark:text-zinc-600 hover:text-seafoam transition-colors disabled:opacity-50">
                 <Pencil size={13} />
               </button>
             </div>

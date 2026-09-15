@@ -449,7 +449,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
     { label: 'Trial Balance', icon: FileSpreadsheet },
     { label: 'Revenue by Department', icon: PiggyBank },
     { label: 'Revenue by Vet', icon: Users },
-    { label: 'A/R Aging Report', icon: Receipt },
+    { label: 'A/R Aging Report', icon: Receipt, onClick: () => onNavigate?.('receivables') },
     { label: 'A/P Aging Report', icon: CreditCard },
     { label: 'Custom Report', icon: Plus },
   ];
@@ -1086,7 +1086,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
             </div>
             <div className="flex flex-wrap gap-2">
               {QUICK_REPORTS.map(r => (
-                <button key={r.label} onClick={() => soon(`"${r.label}"`)}
+                <button key={r.label} onClick={() => (r as any).onClick ? (r as any).onClick() : soon(`"${r.label}"`)}
                   className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam transition-all">
                   <r.icon size={12} /> {r.label}
                 </button>
