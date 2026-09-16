@@ -32,7 +32,7 @@ export const LIVE_PERMISSION_IDS = new Set([
   'view_staff', 'manage_staff',
   // Ungated-route fixes, 2026-09-16 — owner/manager have these by default
   // (ROLE_DEFAULT_PERMISSIONS below), everyone else needs an explicit grant.
-  'manage_supplier_payments', 'manage_expenses', 'manage_record_sharing', 'manage_handshake_settlements',
+  'manage_supplier_payments', 'manage_expenses', 'manage_record_sharing', 'manage_handshake_settlements', 'manage_visit_jobs',
   // Bridged onto module grants by LEGACY_GRANT_MAP
   'view_inventory', 'create_inventory', 'edit_inventory', 'delete_inventory',
   'manage_purchase_orders', 'manage_categories',
@@ -80,6 +80,7 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
   // Suppliers & Partnerships (2026-09-16 — closing routes that had no gate at all)
   { id: 'manage_supplier_payments', label: 'Record & Void Supplier Payments/Invoices', category: 'Suppliers', live: true },
   { id: 'manage_handshake_settlements', label: 'Create & Settle Cross-Clinic Partnerships', category: 'Suppliers', live: true },
+  { id: 'manage_visit_jobs', label: 'Outsource Visits & Negotiate Pricing With Partner Clinics', category: 'Suppliers', live: true },
 
   // Medical Records (continued)
   { id: 'manage_record_sharing', label: 'Share Medical Records With Another Clinic', category: 'Medical', live: true },
