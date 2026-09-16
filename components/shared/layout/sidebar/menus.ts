@@ -70,6 +70,16 @@ export interface MenuSubItem {
    * that answers 401 — nav promising something the API refuses.
    */
   roles?: string[];
+  /**
+   * Keep this entry in the nav even when the clinic's plan doesn't include it,
+   * rendered locked (grey + lock icon) instead of being pruned. Clicking still
+   * navigates to the view as normal — App.tsx's `planAllows` gate is what
+   * actually shows the upgrade/purchase screen, so this is purely "let the
+   * clinic see the feature exists" for entries worth advertising as an add-on.
+   */
+  showWhenLocked?: boolean;
+  /** Computed at filter time in Sidebar.tsx — not set here. */
+  locked?: boolean;
 }
 
 export interface MenuItem {
@@ -237,18 +247,19 @@ const CLINIC_ITEMS: MenuItem[] = [
    * entirely for a farm ORG. This group is the clinic looking outward at the
    * farms among its own clients: who they are, and what they keep.
    *
-   * Both entries sit on keys a clinic can hold from Basic up. The operational
-   * half of the farm product — feeding, crops, produce — keeps its own keys and
-   * its own nav in the livestock audience, so this group does not smuggle the
-   * Farms add-on in through the side door.
+   * Both entries used to sit on keys every clinic held from Basic up — 2026-09-16:
+   * `livestock:farms`/`livestock:animal-groups` moved behind the "Farms" add-on
+   * (package 10), same one that already covers the operational half (feeding,
+   * crops, produce). `showWhenLocked` keeps this group visible-but-locked
+   * instead of vanishing, so a clinic without the add-on still knows it exists.
    */
   {
     id: 'farm_menu',
     label: 'Farm',
     icon: Sprout,
     subItems: [
-      { id: 'farms',         label: 'Clients',        icon: Warehouse },
-      { id: 'animal-groups', label: 'Herds & Flocks', icon: Milk },
+      { id: 'farms',         label: 'Clients',        icon: Warehouse,    showWhenLocked: true },
+      { id: 'animal-groups', label: 'Herds & Flocks', icon: Milk,         showWhenLocked: true },
       /**
        * 299 — the clinic's FARM visit list, deliberately NOT the one under
        * Visits. User: *"let Farm have separate visits lists from clinic … the
@@ -256,7 +267,7 @@ const CLINIC_ITEMS: MenuItem[] = [
        * needs two lists, and a farm attendance has a herd where a pet visit has
        * a patient.
        */
-      { id: 'farm-visit-records', label: 'Visits', icon: Stethoscope },
+      { id: 'farm-visit-records', label: 'Visits', icon: Stethoscope, showWhenLocked: true },
     ],
   },
   {

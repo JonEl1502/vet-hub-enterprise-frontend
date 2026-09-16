@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ChevronLeft, ChevronRight, ChevronDown, Sun, Moon,
+  ChevronLeft, ChevronRight, ChevronDown, Sun, Moon, Lock,
 } from 'lucide-react';
 import ClinicLogo from '../../../clinic/clinic-mgmt/ClinicLogo';
 import {
@@ -383,7 +383,12 @@ const SectionBlock: React.FC<SectionBlockProps> = ({
     // for pages whose server route is narrower than the audience that can see
     // the nav (Admin is shared by SUPER_ADMIN and MERCHANT_ADMIN).
     .map(i => (i.subItems?.length
-      ? { ...i, subItems: i.subItems.filter(s => planOk(s.id) && moduleOk(s.id) && (!s.roles || s.roles.includes(role))) }
+      ? {
+          ...i,
+          subItems: i.subItems
+            .filter(s => (planOk(s.id) || s.showWhenLocked) && moduleOk(s.id) && (!s.roles || s.roles.includes(role)))
+            .map(s => (planOk(s.id) ? s : { ...s, locked: true })),
+        }
       : i))
     .filter(i => (i.subItems ? i.subItems.length > 0 : planOk(i.id) && moduleOk(i.id)));
   if (visible.length === 0) return null;
@@ -564,13 +569,16 @@ const NavItem: React.FC<NavItemProps> = ({
                   key={sub.id}
                   onClick={() => { setView(sub.id); closeOnMobile(); }}
                   className={`w-full flex items-center gap-3 p-3 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all text-left ${
-                    activeView === sub.id
-                      ? 'bg-seafoam/10 text-seafoam'
-                      : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-pine dark:hover:text-zinc-100'
+                    sub.locked
+                      ? 'text-slate-400 dark:text-zinc-600 hover:bg-slate-50 dark:hover:bg-white/5'
+                      : activeView === sub.id
+                        ? 'bg-seafoam/10 text-seafoam'
+                        : 'text-slate-500 hover:bg-slate-50 dark:hover:bg-white/5 hover:text-pine dark:hover:text-zinc-100'
                   }`}
                 >
                   <sub.icon size={14} className="shrink-0" />
-                  {sub.label}
+                  <span className="flex-1 truncate">{sub.label}</span>
+                  {sub.locked && <Lock size={11} className="shrink-0" />}
                 </button>
               ))}
             </div>
@@ -586,13 +594,16 @@ const NavItem: React.FC<NavItemProps> = ({
               key={sub.id}
               onClick={() => { setView(sub.id); closeOnMobile(); }}
               className={`w-full flex items-center gap-3 p-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${
-                activeView === sub.id
-                  ? 'text-seafoam bg-seafoam/10 ring-1 ring-seafoam/30'
-                  : 'text-pine/40 dark:text-zinc-500 hover:text-seafoam'
+                sub.locked
+                  ? 'text-pine/25 dark:text-zinc-600 hover:text-pine/50 dark:hover:text-zinc-400'
+                  : activeView === sub.id
+                    ? 'text-seafoam bg-seafoam/10 ring-1 ring-seafoam/30'
+                    : 'text-pine/40 dark:text-zinc-500 hover:text-seafoam'
               }`}
             >
               <sub.icon size={14} />
-              {sub.label}
+              <span className="flex-1 text-left truncate">{sub.label}</span>
+              {sub.locked && <Lock size={11} className="shrink-0" />}
             </button>
           ))}
         </div>
