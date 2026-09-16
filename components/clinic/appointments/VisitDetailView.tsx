@@ -2729,6 +2729,25 @@ const VisitDetailInner: React.FC<Props> = ({
     await handleGenerateAINotes();
   };
 
+  // The global Ask-AI widget's "Draft from this conversation" button hands
+  // off a chat summary here via a window event (it's mounted at App root,
+  // outside this component's tree — same bridge pattern as the partnership
+  // deep-link above). Reuses the same preview-and-accept modal as the
+  // one-shot generator: nothing writes to the record without an explicit
+  // Save to Record click.
+  useEffect(() => {
+    const onChatDraft = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      if (String(detail.appointmentId) !== String(appointment.id) || !detail.summary) return;
+      setAIGeneratedNotes(detail.summary);
+      setEditableAINotes(detail.summary);
+      setAINotesError('');
+      setShowAINotesPreview(true);
+    };
+    window.addEventListener('vethub:draft-narrative-from-chat', onChatDraft);
+    return () => window.removeEventListener('vethub:draft-narrative-from-chat', onChatDraft);
+  }, [appointment.id]);
+
   // ── Seed taskAttachments from appointment.tasks on first load / change ──
   useEffect(() => {
     const next: Record<number, TaskAttachment[]> = {};

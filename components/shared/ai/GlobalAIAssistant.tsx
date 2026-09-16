@@ -160,6 +160,32 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
     } finally { setSending(false); }
   };
 
+  // Hands the conversation off to the visit's existing AI-notes review modal
+  // (VisitDetailView) — same preview-and-accept flow as the one-shot
+  // generator there, so nothing lands in the record without an explicit
+  // Save to Record click. Bridged via a window event since this widget is
+  // mounted at the App root, outside that component's tree.
+  const [drafting, setDrafting] = useState(false);
+  const draftNotes = async () => {
+    if (!conversationId || drafting) return;
+    setDrafting(true);
+    try {
+      const res = await aiAPI.summariseConversation(conversationId);
+      if (res.success && res.data?.summary) {
+        window.dispatchEvent(new CustomEvent('vethub:draft-narrative-from-chat', {
+          detail: { appointmentId: context.appointmentId, summary: res.data.summary },
+        }));
+        toast.success('Draft sent to the visit — review and save it there.');
+      } else {
+        toast.error('Could not summarise this conversation.');
+      }
+    } catch {
+      toast.error('Could not summarise this conversation.');
+    } finally {
+      setDrafting(false);
+    }
+  };
+
   // Resize from the top-left grip (the panel is anchored bottom-right).
   const onResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -236,6 +262,20 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
           <div className="flex justify-start"><div className="px-3 py-2 rounded-2xl bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700"><Loader2 size={14} className="animate-spin text-indigo-500" /></div></div>
         )}
       </div>
+
+      {/* Draft-to-record — only once there's an actual visit conversation to summarise */}
+      {context.appointmentId && conversationId && messages.length > 0 && (
+        <div className="px-2.5 pt-2 border-t border-slate-200 dark:border-zinc-800 shrink-0">
+          <button
+            onClick={draftNotes}
+            disabled={drafting}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 dark:hover:bg-indigo-950/50 transition-all disabled:opacity-50"
+          >
+            {drafting ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+            Draft from this conversation
+          </button>
+        </div>
+      )}
 
       {/* Composer */}
       <div className="p-2.5 border-t border-slate-200 dark:border-zinc-800 shrink-0">
