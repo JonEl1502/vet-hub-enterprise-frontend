@@ -79,7 +79,14 @@ const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+      // z-[9500] (2026-09-16, was z-[200]) — dialog.confirm() is a global
+      // singleton callable from inside ANY modal, including ones stacked at
+      // z-[800]/[900]/[1000]. At z-[200] this rendered visually present but
+      // behind the caller's own backdrop, so its buttons looked clickable
+      // and weren't — found via the Credit Note confirm step, but it broke
+      // every z-800+ caller (Refund included). Stays below ToastContainer's
+      // z-[9999] so a toast fired right after closing still shows on top.
+      className="fixed inset-0 z-[9500] flex items-center justify-center p-4"
       onClick={alertOnly ? onConfirm : onCancel}
     >
       {/* Backdrop */}

@@ -58,8 +58,11 @@ const DeleteConfirmationDialog: React.FC<DeleteConfirmationDialogProps> = ({
   const styles = TONE_STYLES[tone];
   const busy = busyLabel || `${confirmLabel.replace(/e$/, '')}ing...`;
 
+  // z-[9500] (2026-09-16, was z-[200]) — same fix as ConfirmDialog: this is
+  // a global singleton callable from any modal, including z-[800]+ ones, and
+  // rendered unclickable behind them at the old z-index.
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[9500] flex items-center justify-center p-4 animate-in fade-in duration-200">
       <div
         className="absolute inset-0 bg-black/60 backdrop-blur-sm"
         onClick={onClose}

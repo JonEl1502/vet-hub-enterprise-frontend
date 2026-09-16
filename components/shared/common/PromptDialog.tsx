@@ -30,7 +30,9 @@ const PromptDialog: React.FC<{
   const canSubmit = !opts.required || value.trim().length > 0;
 
   return createPortal(
-    <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-sm z-[900] flex items-center justify-center p-4 animate-in fade-in"
+    // z-[9500] (2026-09-16, was z-[900]) — same global-singleton-vs-caller-
+    // stacking fix as ConfirmDialog/DeleteConfirmationDialog.
+    <div className="fixed inset-0 bg-slate-900/60 dark:bg-black/70 backdrop-blur-sm z-[9500] flex items-center justify-center p-4 animate-in fade-in"
       onClick={onCancel}>
       <div className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-md w-full rounded-2xl shadow-2xl overflow-hidden ring-4 ${tone.ring} animate-in zoom-in-95 duration-200`}
         onClick={e => e.stopPropagation()}>
