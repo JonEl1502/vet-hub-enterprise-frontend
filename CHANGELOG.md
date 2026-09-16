@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### data-shape: 4 new permission grants added to the staff catalog  —  2026-09-16
+- **What changed:** `constants/permissions.ts` gains `manage_supplier_payments`,
+  `manage_expenses`, `manage_record_sharing`, `manage_handshake_settlements` (all `live: true`,
+  new "Suppliers" category). Owner/Manager have them by default (`ROLE_DEFAULT_PERMISSIONS` uses
+  `ALL_IDS` for those two roles); every other role needs an explicit grant through the existing
+  `ModulePermissionsEditor` — no new UI needed, it renders `ALL_PERMISSIONS` by category already.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None — matching backend gate ships same day (see backend CHANGELOG).
+- **Rollback:** revert the commit.
+- **Why:** closes the frontend half of four ungated backend routes found in the 2026-09-15
+  billing gap-hunt. See [[Permission grant audit trail]] in the vault.
+
 ### component: Refund built out in Client Account Hub  —  2026-09-15
 - **What changed:** the "Refund" quick action opens a picker listing every settled payment
   (flattened from `billing.invoices[].payments[]`, one row per settlement so a payment covering

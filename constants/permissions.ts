@@ -30,6 +30,9 @@ export const LIVE_PERMISSION_IDS = new Set([
   'create_appointments', 'edit_appointments', 'delete_appointments',
   // Read by the API (`requireAccess`)
   'view_staff', 'manage_staff',
+  // Ungated-route fixes, 2026-09-16 — owner/manager have these by default
+  // (ROLE_DEFAULT_PERMISSIONS below), everyone else needs an explicit grant.
+  'manage_supplier_payments', 'manage_expenses', 'manage_record_sharing', 'manage_handshake_settlements',
   // Bridged onto module grants by LEGACY_GRANT_MAP
   'view_inventory', 'create_inventory', 'edit_inventory', 'delete_inventory',
   'manage_purchase_orders', 'manage_categories',
@@ -72,6 +75,14 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
   { id: 'process_payments', label: 'Process Payments', category: 'Payments', live: true },
   { id: 'view_receipts', label: 'View Receipts', category: 'Payments', live: true },
   { id: 'apply_discounts', label: 'Apply Discounts', category: 'Payments' },
+  { id: 'manage_expenses', label: 'Record & Delete Expenses', category: 'Payments', live: true },
+
+  // Suppliers & Partnerships (2026-09-16 — closing routes that had no gate at all)
+  { id: 'manage_supplier_payments', label: 'Record & Void Supplier Payments/Invoices', category: 'Suppliers', live: true },
+  { id: 'manage_handshake_settlements', label: 'Create & Settle Cross-Clinic Partnerships', category: 'Suppliers', live: true },
+
+  // Medical Records (continued)
+  { id: 'manage_record_sharing', label: 'Share Medical Records With Another Clinic', category: 'Medical', live: true },
 
   // Staff & Settings
   { id: 'view_staff', label: 'View Staff', category: 'Staff & Settings', live: true },
