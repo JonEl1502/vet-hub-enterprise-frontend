@@ -2,7 +2,7 @@ import React from 'react';
 import toast from 'react-hot-toast';
 import {
   Wallet, FileText, CreditCard, TrendingUp, CircleDollarSign, Filter, CalendarRange,
-  ChevronDown, Eye, MoreVertical, Loader2, X, Plus, RotateCcw, HandCoins, Tag,
+  ChevronDown, Eye, Loader2, X, Plus, RotateCcw, HandCoins, Tag,
   ScrollText, Mail, Banknote, Pencil, FolderOpen, PiggyBank, Trash2,
 } from 'lucide-react';
 import { Client } from '../../../types';
@@ -128,6 +128,13 @@ const ClientAccountHub: React.FC<Props> = ({
   const [refundReason, setRefundReason] = React.useState('');
   const [refundBusy, setRefundBusy] = React.useState(false);
 
+  // Credit Note dialog — adds spendable credit with no real payment behind
+  // it (unlike Refund, which reverses one).
+  const [creditNoteOpen, setCreditNoteOpen] = React.useState(false);
+  const [creditNoteAmt, setCreditNoteAmt] = React.useState('');
+  const [creditNoteReason, setCreditNoteReason] = React.useState('');
+  const [creditNoteBusy, setCreditNoteBusy] = React.useState(false);
+
   const petKey = petId != null ? String(petId) : null;
   const subject = petKey ? (petName || 'this patient') : 'this client';
 
@@ -212,21 +219,38 @@ const ClientAccountHub: React.FC<Props> = ({
           visitId: Number(inv.visitId),
         };
       }),
-      ...payments.map((p): TimelineEntry => ({
-        key: `pay-${p.id}`,
-        kind: p.status === 'VOIDED' ? 'REFUND' : 'PAYMENT',
-        date: p.settledAt || p.createdAt,
-        title: p.status === 'VOIDED' ? 'Voided payment' : 'Payment',
-        // In patient scope the row shows only the share applied to this
-        // patient's bills — say so when the payment covered more than that.
-        desc: `Payment via ${String(p.method || '').replace(/_/g, ' ')}${
-          p.receiptNumber ? ` · Ref: ${p.receiptNumber}` : ''}${
-          p.coveredCount > 1 ? ` · ${p.coveredCount} bills` : ''}${
-          petKey && p.coveredCount > 1 ? ` · applied here of ${money(p.amount, currency)}` : ''}`,
-        ref: `PAY-${p.id}`,
-        amount: paidAmount(p),
-        status: p.status === 'VOIDED' ? 'VOIDED' : 'PAID',
-      })),
+      ...payments.map((p): TimelineEntry => {
+        // Credit Note (2026-09-16) — no real payment behind it, so it gets
+        // its own kind/description rather than reading as "Payment via
+        // CREDIT NOTE". `reference` on a credit note carries its reason.
+        if (p.method === 'CREDIT_NOTE') {
+          return {
+            key: `pay-${p.id}`,
+            kind: 'CREDIT',
+            date: p.settledAt || p.createdAt,
+            title: 'Credit Note',
+            desc: p.reference ? `Credit note — ${p.reference}` : 'Credit note',
+            ref: `CR-${p.id}`,
+            amount: p.amount || 0,
+            status: 'CREDIT',
+          };
+        }
+        return {
+          key: `pay-${p.id}`,
+          kind: p.status === 'VOIDED' ? 'REFUND' : 'PAYMENT',
+          date: p.settledAt || p.createdAt,
+          title: p.status === 'VOIDED' ? 'Voided payment' : 'Payment',
+          // In patient scope the row shows only the share applied to this
+          // patient's bills — say so when the payment covered more than that.
+          desc: `Payment via ${String(p.method || '').replace(/_/g, ' ')}${
+            p.receiptNumber ? ` · Ref: ${p.receiptNumber}` : ''}${
+            p.coveredCount > 1 ? ` · ${p.coveredCount} bills` : ''}${
+            petKey && p.coveredCount > 1 ? ` · applied here of ${money(p.amount, currency)}` : ''}`,
+          ref: `PAY-${p.id}`,
+          amount: paidAmount(p),
+          status: p.status === 'VOIDED' ? 'VOIDED' : 'PAID',
+        };
+      }),
     ];
     return rows.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [invoices, payments, petKey, paidAmount, currency]);
@@ -365,12 +389,41 @@ const ClientAccountHub: React.FC<Props> = ({
     finally { setRefundBusy(false); }
   };
 
+  const openCreditNote = () => {
+    setCreditNoteAmt('');
+    setCreditNoteReason('');
+    setCreditNoteOpen(true);
+  };
+
+  const submitCreditNote = async () => {
+    const amount = Number(creditNoteAmt);
+    if (!(amount > 0)) { toast.error('Enter a credit amount'); return; }
+    if (!creditNoteReason.trim()) { toast.error('A reason is required for a credit note'); return; }
+    const ok = await dialog.confirm({
+      title: 'Confirm credit note',
+      message: `Credit ${money(amount, currency)} to ${client.name}'s account? This does not reverse a payment — it adds usable credit they can apply to a future bill.`,
+      confirmLabel: 'Issue credit note',
+      variant: 'warning',
+    });
+    if (!ok) return;
+    setCreditNoteBusy(true);
+    try {
+      const res = await clientsAPI.issueCreditNote(client.id, { amount, reason: creditNoteReason.trim() });
+      if (res.success) {
+        toast.success(`${money(amount, currency)} credit note issued`);
+        setCreditNoteOpen(false);
+        onRefresh();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Could not issue the credit note'); }
+    finally { setCreditNoteBusy(false); }
+  };
+
   const QUICK_ACTIONS: { label: string; icon: any; onClick: () => void; disabled?: boolean }[] = [
     { label: 'New Bill', icon: FileText, onClick: () => onGoTab('appointments') },
     { label: 'Collect On Invoices', icon: CircleDollarSign, onClick: () => onGoTab('invoices') },
     { label: 'Receive Payment', icon: HandCoins, onClick: () => setAdvanceOpen(true), disabled: !canCollect },
     { label: 'Refund', icon: RotateCcw, onClick: openRefund, disabled: refundables.length === 0 },
-    { label: 'Credit Note', icon: Tag, onClick: () => soon('Credit notes') },
+    { label: 'Credit Note', icon: Tag, onClick: openCreditNote },
     { label: 'Payment Plan', icon: CalendarRange, onClick: () => soon('Payment plans') },
     { label: 'Statement', icon: ScrollText, onClick: () => onGoTab('statements') },
     { label: 'Email Statement', icon: Mail, onClick: emailStatement, disabled: emailingStatement },
@@ -480,15 +533,11 @@ const ClientAccountHub: React.FC<Props> = ({
                             <Eye size={11} /> View
                           </button>
                         ) : (
-                          <button onClick={() => onGoTab(e.kind === 'PAYMENT' || e.kind === 'REFUND' ? 'receipts' : 'invoices')}
+                          <button onClick={() => onGoTab(e.kind === 'PAYMENT' || e.kind === 'REFUND' || e.kind === 'CREDIT' ? 'receipts' : 'invoices')}
                             className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 hover:border-seafoam hover:text-seafoam transition-all">
                             <Eye size={11} /> View
                           </button>
                         )}
-                        <button type="button" title="More actions coming soon" onClick={() => soon('Row actions')}
-                          className="p-1.5 rounded-lg text-slate-300 dark:text-zinc-600 hover:text-slate-500 transition-colors">
-                          <MoreVertical size={14} />
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -706,6 +755,37 @@ const ClientAccountHub: React.FC<Props> = ({
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {creditNoteOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[800] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setCreditNoteOpen(false)}>
+          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 max-w-sm w-full p-5 rounded-2xl shadow-2xl animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-base font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Credit Note</h2>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Adds usable credit — no payment is reversed</p>
+              </div>
+              <button onClick={() => setCreditNoteOpen(false)} className="text-slate-400 hover:text-pine"><X size={18} /></button>
+            </div>
+            <div className="space-y-3">
+              <div>
+                <label className="field-label">Amount ({currency})</label>
+                <input type="number" min={0} value={creditNoteAmt} onChange={e => setCreditNoteAmt(e.target.value)}
+                  placeholder="0.00" className="field-input text-right font-mono" />
+              </div>
+              <div>
+                <label className="field-label">Reason (required)</label>
+                <input type="text" value={creditNoteReason} onChange={e => setCreditNoteReason(e.target.value)}
+                  placeholder="Why is this credit being given?" className="field-input" />
+              </div>
+              <button onClick={submitCreditNote} disabled={creditNoteBusy}
+                className="w-full flex items-center justify-center gap-2 py-3 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all disabled:opacity-50">
+                {creditNoteBusy ? <Loader2 size={14} className="animate-spin" /> : <Tag size={14} />}
+                {creditNoteBusy ? 'Issuing…' : 'Issue Credit Note'}
+              </button>
+            </div>
           </div>
         </div>
       )}

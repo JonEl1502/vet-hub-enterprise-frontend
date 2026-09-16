@@ -33,7 +33,7 @@ export const LIVE_PERMISSION_IDS = new Set([
   // Ungated-route fixes, 2026-09-16 — owner/manager have these by default
   // (ROLE_DEFAULT_PERMISSIONS below), everyone else needs an explicit grant.
   'manage_supplier_payments', 'manage_expenses', 'manage_record_sharing', 'manage_handshake_settlements', 'manage_visit_jobs',
-  'manage_petshop_checkout', 'manage_staff_service_assignment',
+  'manage_petshop_checkout', 'manage_staff_service_assignment', 'manage_credit_notes',
   // Bridged onto module grants by LEGACY_GRANT_MAP
   'view_inventory', 'create_inventory', 'edit_inventory', 'delete_inventory',
   'manage_purchase_orders', 'manage_categories',
@@ -78,6 +78,7 @@ export const ALL_PERMISSIONS: PermissionDef[] = [
   { id: 'apply_discounts', label: 'Apply Discounts', category: 'Payments' },
   { id: 'manage_expenses', label: 'Record & Delete Expenses', category: 'Payments', live: true },
   { id: 'manage_petshop_checkout', label: 'Check Out Petshop Sales', category: 'Payments', live: true },
+  { id: 'manage_credit_notes', label: 'Issue Credit Notes', category: 'Payments', live: true },
 
   // Suppliers & Partnerships (2026-09-16 — closing routes that had no gate at all)
   { id: 'manage_supplier_payments', label: 'Record & Void Supplier Payments/Invoices', category: 'Suppliers', live: true },

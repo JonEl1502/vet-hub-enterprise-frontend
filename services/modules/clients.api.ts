@@ -241,6 +241,17 @@ export const clientsAPI = {
     get(`/clients/${clientId}/billing`, { cache: false, ...options }),
 
   /**
+   * Issue a Credit Note — client-facing credit with no real payment behind
+   * it, spendable on a future bill the same way an overpayment is.
+   */
+  issueCreditNote: async (
+    clientId: string | number,
+    body: { amount: number; reason: string },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ transactionId: string; amount: number; currency: string; creditBalance: number }>> =>
+    post(`/clients/${clientId}/credit-note`, body, { showError: true, ...options }),
+
+  /**
    * Collect ONE payment across several of the client's invoices. The
    * resulting transaction is reversible as a unit: voiding it puts every
    * covered invoice back to unpaid.
