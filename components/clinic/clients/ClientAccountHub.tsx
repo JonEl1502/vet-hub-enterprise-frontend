@@ -187,11 +187,14 @@ const ClientAccountHub: React.FC<Props> = ({
   }, []);
   const invoiced12 = invoices.filter(i => new Date(i.date).getTime() >= yearAgo)
     .reduce((s, i) => s + (i.total || 0), 0);
-  const paid12 = payments.filter(p => p.status !== 'VOIDED' && new Date(p.settledAt || p.createdAt).getTime() >= yearAgo)
+  // Credit Note (2026-09-16) excluded from every "paid" figure below — it is
+  // not money the client handed over, and counting it would inflate Total
+  // Paid and Payment Reliability the moment one is issued.
+  const paid12 = payments.filter(p => p.status !== 'VOIDED' && p.method !== 'CREDIT_NOTE' && new Date(p.settledAt || p.createdAt).getTime() >= yearAgo)
     .reduce((s, p) => s + paidAmount(p), 0);
 
   const invoicedAll = invoices.reduce((s, i) => s + (i.total || 0), 0);
-  const paidAll = payments.filter(p => p.status !== 'VOIDED').reduce((s, p) => s + paidAmount(p), 0);
+  const paidAll = payments.filter(p => p.status !== 'VOIDED' && p.method !== 'CREDIT_NOTE').reduce((s, p) => s + paidAmount(p), 0);
   const reliability = invoicedAll > 0 ? Math.min(100, Math.round((paidAll / invoicedAll) * 100)) : null;
   const reliabilityLabel = reliability == null ? 'No history'
     : reliability >= 90 ? 'Excellent' : reliability >= 70 ? 'Good' : reliability >= 50 ? 'Fair' : 'Poor';
@@ -796,7 +799,8 @@ const ClientAccountHub: React.FC<Props> = ({
 // Derive the client's preferred payment method from what they actually use.
 export const preferredMethod = (payments: ClientBilling['payments']) => {
   const counts: Record<string, number> = {};
-  payments.filter(p => p.status !== 'VOIDED').forEach(p => {
+  // Credit Note excluded — the clinic issued it, the client didn't choose it.
+  payments.filter(p => p.status !== 'VOIDED' && p.method !== 'CREDIT_NOTE').forEach(p => {
     const m = String(p.method || '').replace(/_/g, ' ');
     if (m) counts[m] = (counts[m] || 0) + 1;
   });
@@ -1080,10 +1084,13 @@ export const AccountStatCards: React.FC<{
   const openCount = invoices.filter(i => !isSettled(i)).length;
   const yearAgo = (() => { const d = new Date(); d.setFullYear(d.getFullYear() - 1); return d.getTime(); })();
   const billed12 = invoices.filter(i => new Date(i.date).getTime() >= yearAgo).reduce((s, i) => s + (i.total || 0), 0);
-  const paid12 = payments.filter(p => p.status !== 'VOIDED' && new Date(p.settledAt || p.createdAt).getTime() >= yearAgo)
+  // Credit Note excluded — not money the client paid.
+  const paid12 = payments.filter(p => p.status !== 'VOIDED' && p.method !== 'CREDIT_NOTE' && new Date(p.settledAt || p.createdAt).getTime() >= yearAgo)
     .reduce((s, p) => s + paidOf(p), 0);
   const billedAll = invoices.reduce((s, i) => s + (i.total || 0), 0);
-  const paidAll = payments.filter(p => p.status !== 'VOIDED').reduce((s, p) => s + paidOf(p), 0);
+  // Credit Note excluded — see the identical exclusion above in the main
+  // ClientAccountHub component.
+  const paidAll = payments.filter(p => p.status !== 'VOIDED' && p.method !== 'CREDIT_NOTE').reduce((s, p) => s + paidOf(p), 0);
   const reliability = billedAll > 0 ? Math.min(100, Math.round((paidAll / billedAll) * 100)) : null;
 
   const cards = [

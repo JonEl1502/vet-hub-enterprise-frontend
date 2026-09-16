@@ -283,8 +283,9 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
 
   const money2 = (n: number) =>
     `${client.currency || 'KES'} ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  // Credit Note excluded — it is not a payment the client made.
   const lastPayment = (billing?.payments ?? [])
-    .filter(p => p.status !== 'VOIDED')
+    .filter(p => p.status !== 'VOIDED' && p.method !== 'CREDIT_NOTE')
     .sort((a, b) => new Date(b.settledAt || b.createdAt).getTime() - new Date(a.settledAt || a.createdAt).getTime())[0] ?? null;
   const headerOutstanding = billing?.outstanding ?? client.outstandingBalance ?? 0;
 
