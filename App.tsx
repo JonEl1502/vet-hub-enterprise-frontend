@@ -3600,9 +3600,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         />
       ) : (
       <>
-      {/* Ask-AI floating button parked for now — it overlaps content on most
-          pages (esp. mobile). Re-enable once it has a collision-free home. */}
-      {/* <GlobalAIAssistant context={aiContext} /> */}
+      {/* Floats above every fixed bottom bar in the app (RecordActionBar,
+          VisitWizard footer, client portal tab bar) via BOTTOM_CLEARANCE
+          inside GlobalAIAssistant — see that file for the collision fix. */}
+      <GlobalAIAssistant context={aiContext} />
       <SupplierBranchProvider>
       <DisplayCurrencyProvider>
       <TourProvider tours={TOURS} onNavigate={navigateTo} currentView={currentNav.view}>

@@ -81,6 +81,36 @@ import { useAuth } from '../../../contexts/AuthContext';
 import ErrorDialog from '../../shared/common/ErrorDialog';
 import { can } from '../../../constants/modulePermissions';
 
+// Downscale an image file to a compact JPEG data URL for the AI Assistant
+// upload — same approach as ImagingView/GroomingPanel (no object storage
+// round-trip, keeps the payload small).
+const fileToDownscaledDataUrl = (file: File, max = 1100, quality = 0.72): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read failed'));
+    reader.onload = () => {
+      // `Image` is shadowed by the lucide-react icon imported above — use the
+      // global explicitly so this resolves to the DOM constructor.
+      const img = new window.Image();
+      img.onerror = () => reject(new Error('decode failed'));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > max || height > max) {
+          const scale = Math.min(max / width, max / height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d')?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+
 interface Props {
   appointment: Visit;
   pet: Pet;
@@ -1743,6 +1773,9 @@ const VisitDetailInner: React.FC<Props> = ({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  // Downscaled JPEG data URL for uploadedFile — what actually gets sent to
+  // the AI as an image, split into base64+mimeType server-side.
+  const [uploadedImageDataUrl, setUploadedImageDataUrl] = useState<string | null>(null);
 
   // Expandable section state - track which section is open for each task
   type ExpandableSection = 'medication' | 'notes' | 'images' | 'ai' | 'consumables' | 'staff' | null;
@@ -2843,7 +2876,8 @@ const VisitDetailInner: React.FC<Props> = ({
         task.category,
         aiAssistantInput,
         pet.species,
-        pet.age
+        pet.age,
+        uploadedImageDataUrl || undefined
       );
 
       setAIAssistantAnalysis(analysis);
@@ -2857,6 +2891,8 @@ const VisitDetailInner: React.FC<Props> = ({
       });
     } finally {
       setIsAnalyzing(false);
+      setUploadedFile(null);
+      setUploadedImageDataUrl(null);
     }
   };
 
@@ -2899,14 +2935,19 @@ const VisitDetailInner: React.FC<Props> = ({
     recognition.start();
   };
 
-  // File upload handler
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // File upload handler — downscales to a JPEG data URL and holds it so
+  // handleAskAI can send it as an actual image, not just the filename.
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      setUploadedFile(file);
-      // TODO: Convert file to base64 and include in AI analysis
-      // For now, just show the file name
-      setAIAssistantInput(prev => prev + (prev ? '\n' : '') + `[Uploaded file: ${file.name}]`);
+    if (!file) return;
+    setUploadedFile(file);
+    setAIAssistantInput(prev => prev + (prev ? '\n' : '') + `[Attached image: ${file.name}]`);
+    try {
+      const dataUrl = await fileToDownscaledDataUrl(file);
+      setUploadedImageDataUrl(dataUrl);
+    } catch {
+      setUploadedImageDataUrl(null);
+      toast.error('Could not read that image — try a different file.');
     }
   };
 

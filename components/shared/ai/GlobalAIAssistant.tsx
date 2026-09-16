@@ -1,7 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, X, Send, Loader2, Bot } from 'lucide-react';
+import { Sparkles, X, Send, Loader2, Bot, Mic } from 'lucide-react';
 import { aiAPI } from '../../../services/modules/ai.api';
 import type { ChatMessage } from '../../../services/modules/ai.api';
+import { dialog } from '../../../services';
 
 export interface AIContext {
   page?: string;
@@ -14,6 +15,12 @@ export interface AIContext {
 // Marker so the seeded context line can be stripped from what we display.
 const CTX_PREFIX = '⟦ctx⟧';
 const stripCtx = (s: string) => s.split('\n').filter(l => !l.startsWith(CTX_PREFIX)).join('\n').trim();
+
+// Clearance above the various fixed bottom bars this app has (RecordActionBar,
+// VisitWizard/EmergencyTriagePanel footers, the client portal's mobile tab
+// bar) — all land in the ~56-64px range plus the phone's home-indicator inset.
+// max() covers the no-safe-area desktop bars; calc() covers notched phones.
+const BOTTOM_CLEARANCE = 'max(5.5rem, calc(4.5rem + env(safe-area-inset-bottom)))';
 
 /**
  * App-wide Ask-AI assistant: a bottom-right floating button that opens a
@@ -28,10 +35,37 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
   const [sending, setSending] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [size, setSize] = useState({ w: 380, h: 520 });
+  const [isRecording, setIsRecording] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const seededRef = useRef(false);
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }); }, [messages, open]);
+
+  // Same Web Speech API pattern as the per-appointment AI Assistant — free,
+  // client-side, Chrome/Edge only.
+  const handleStartRecording = async () => {
+    if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+      await dialog.alert({
+        title: 'Browser not supported',
+        message: 'Speech recognition is not supported in your browser. Please use Chrome or Edge.',
+        variant: 'warning',
+      });
+      return;
+    }
+    const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
+    const recognition = new SpeechRecognition();
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.lang = 'en-US';
+    recognition.onstart = () => setIsRecording(true);
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setInput(prev => prev + (prev ? ' ' : '') + transcript);
+    };
+    recognition.onerror = () => setIsRecording(false);
+    recognition.onend = () => setIsRecording(false);
+    recognition.start();
+  };
 
   const contextLine = () => {
     const parts: string[] = [];
@@ -82,7 +116,8 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
       <button
         onClick={() => setOpen(true)}
         title="Ask AI"
-        className="fixed bottom-6 right-6 z-[900] flex items-center gap-2 px-4 py-3 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-2xl hover:shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all"
+        style={{ bottom: BOTTOM_CLEARANCE }}
+        className="fixed right-4 sm:right-6 z-[900] flex items-center gap-2 px-4 py-3 rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 text-white shadow-2xl hover:shadow-indigo-500/40 hover:scale-105 active:scale-95 transition-all"
       >
         <Sparkles size={18} /> <span className="text-[10px] font-black uppercase tracking-widest">Ask AI</span>
       </button>
@@ -91,8 +126,14 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
 
   return (
     <div
-      className="fixed bottom-3 right-3 sm:bottom-6 sm:right-6 z-[900] flex flex-col bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-200"
-      style={{ width: size.w, height: size.h, maxWidth: 'calc(100vw - 1.5rem)', maxHeight: 'calc(100dvh - 1.5rem)' }}
+      className="fixed right-3 sm:right-6 z-[900] flex flex-col bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom-4 duration-200"
+      style={{
+        width: size.w,
+        height: size.h,
+        bottom: BOTTOM_CLEARANCE,
+        maxWidth: 'calc(100vw - 1.5rem)',
+        maxHeight: `calc(100dvh - ${BOTTOM_CLEARANCE} - 0.75rem)`,
+      }}
     >
       {/* Resize grip (top-left) */}
       <div onMouseDown={onResizeStart} title="Drag to resize" className="absolute top-0 left-0 w-4 h-4 cursor-nwse-resize z-10" />
@@ -145,6 +186,14 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
             placeholder="Ask anything…"
             className="flex-1 resize-none max-h-28 px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
           />
+          <button
+            onClick={handleStartRecording}
+            disabled={sending || isRecording}
+            title="Voice input"
+            className={`p-2.5 rounded-xl shrink-0 transition-all ${isRecording ? 'bg-red-500 text-white animate-pulse' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700'}`}
+          >
+            <Mic size={16} />
+          </button>
           <button onClick={send} disabled={sending || !input.trim()} className="p-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 shrink-0">
             {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>

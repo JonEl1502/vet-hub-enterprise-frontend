@@ -28,11 +28,20 @@ export interface AIConversation {
   updatedAt: string;
 }
 
+// Base64 (no `data:...;base64,` prefix) + mime type — matches the backend's
+// ChatImage shape (src/services/ai.service.ts). Groq clinics get a clear 422
+// instead of a silent no-op when this is attached; see ai.service.ts.
+export interface ChatImageInput {
+  data: string;
+  mimeType: string;
+}
+
 export interface ChatInput {
   message: string;
   appointmentId?: string | number;
   taskId?: string | number;
   conversationId?: string | number;
+  image?: ChatImageInput;
 }
 
 export interface ChatResult {
@@ -85,6 +94,7 @@ export const aiAPI = {
     petSpecies?: string;
     petAge?: number;
     appointmentId?: string | number;
+    image?: ChatImageInput;
   }): Promise<ApiResponse<{ fullAnalysis: string; fallback: boolean }>> =>
     post(ENDPOINTS.AI.ANALYZE, input),
 };

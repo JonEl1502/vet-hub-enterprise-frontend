@@ -15,6 +15,15 @@ export { clinicAIConfig };
 // ---------------------------------------------------------------------------
 // Internal helper — calls the backend AI proxy with auth token
 // ---------------------------------------------------------------------------
+// Splits a `data:image/jpeg;base64,XXXX` URL (what the FileReader/canvas
+// downscale helpers in this codebase produce) into the { data, mimeType }
+// shape the backend's ai.service.ts expects. Returns null for anything else
+// (e.g. a plain URL) rather than sending a malformed image field.
+const splitDataUrl = (dataUrl: string): { data: string; mimeType: string } | null => {
+  const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl);
+  return m ? { mimeType: m[1], data: m[2] } : null;
+};
+
 const aiPost = async (endpoint: string, body: object): Promise<any> => {
   const token = localStorage.getItem('authToken') || '';
 
@@ -97,15 +106,17 @@ export async function analyzeServiceObservations(
   observations: string,
   petSpecies?: string,
   petAge?: number,
-  _imageData?: string
+  imageDataUrl?: string
 ) {
   try {
+    const image = imageDataUrl ? splitDataUrl(imageDataUrl) : null;
     const data = await aiPost('analyze', {
       serviceName,
       serviceCategory,
       observations,
       petSpecies,
       petAge,
+      ...(image ? { image } : {}),
     });
 
     const fullAnalysis = data?.fullAnalysis ?? 'Analysis unavailable.';

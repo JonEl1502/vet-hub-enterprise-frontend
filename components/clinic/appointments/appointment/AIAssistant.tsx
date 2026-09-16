@@ -18,10 +18,40 @@ interface Props {
   taskCategory: string;
   petSpecies: string;
   petAge: number;
-  onAnalyze: (input: string) => Promise<void>;
+  // imageDataUrl is a full `data:image/jpeg;base64,...` URL — same convention
+  // as VisitDetailView's upload; whoever posts to /ai/analyze splits it into
+  // { data, mimeType } (see geminiService.ts's splitDataUrl).
+  onAnalyze: (input: string, imageDataUrl?: string) => Promise<void>;
   analysis: Analysis | null;
   isAnalyzing: boolean;
 }
+
+// Downscale an image file to a compact JPEG data URL — same approach as
+// ImagingView/GroomingPanel/VisitDetailView (no object storage round-trip).
+const fileToDownscaledDataUrl = (file: File, max = 1100, quality = 0.72): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read failed'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('decode failed'));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > max || height > max) {
+          const scale = Math.min(max / width, max / height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d')?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
 
 const AIAssistant: React.FC<Props> = ({
   isOpen,
@@ -36,10 +66,14 @@ const AIAssistant: React.FC<Props> = ({
 }) => {
   const [input, setInput] = useState('');
   const [isRecording, setIsRecording] = useState(false);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageDataUrl, setImageDataUrl] = useState<string | null>(null);
 
   const handleSubmit = async () => {
     if (input.trim()) {
-      await onAnalyze(input);
+      await onAnalyze(input, imageDataUrl || undefined);
+      setImageFile(null);
+      setImageDataUrl(null);
     }
   };
 
@@ -81,10 +115,15 @@ const AIAssistant: React.FC<Props> = ({
     recognition.start();
   };
 
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      setInput(prev => prev + (prev ? '\n' : '') + `[Uploaded file: ${file.name}]`);
+    if (!file) return;
+    setImageFile(file);
+    try {
+      setImageDataUrl(await fileToDownscaledDataUrl(file));
+    } catch {
+      setImageDataUrl(null);
+      await dialog.alert({ title: 'Could not read image', message: 'Try a different file.', variant: 'warning' });
     }
   };
 
@@ -228,6 +267,18 @@ const AIAssistant: React.FC<Props> = ({
             {/* Input Area */}
             <div className="p-6 border-t border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-800/50">
               <div className="space-y-3">
+                {imageFile && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-lg text-xs text-amber-900 dark:text-amber-100">
+                    <span className="truncate flex-1">📎 {imageFile.name}</span>
+                    <button
+                      onClick={() => { setImageFile(null); setImageDataUrl(null); }}
+                      className="p-0.5 hover:bg-amber-200/50 dark:hover:bg-amber-800/50 rounded"
+                      title="Remove attachment"
+                    >
+                      <X size={12} />
+                    </button>
+                  </div>
+                )}
                 <div className="relative">
                   <textarea
                     value={input}
