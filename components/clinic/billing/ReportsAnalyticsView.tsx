@@ -451,7 +451,6 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
     { label: 'Revenue by Vet', icon: Users, onClick: () => scrollToCard('top-vets-card') },
     { label: 'A/R Aging Report', icon: Receipt, onClick: () => onNavigate?.('receivables') },
     { label: 'A/P Aging Report', icon: CreditCard, onClick: () => onNavigate?.('payables') },
-    { label: 'Custom Report', icon: Plus },
   ];
 
   if (!clinicId) {
@@ -1081,10 +1080,6 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Quick Reports</h3>
-              <button onClick={() => soon('The reports library')}
-                className="text-[9px] font-black uppercase tracking-widest text-seafoam hover:text-seafoam/70 inline-flex items-center gap-1">
-                View All Reports <ChevronRight size={11} />
-              </button>
             </div>
             <div className="flex flex-wrap gap-2">
               {QUICK_REPORTS.map(r => (
