@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Check, Loader2, Sprout, ExternalLink, CreditCard, Layers, Lock,
 } from 'lucide-react';
-import { clientPortalAPI, PortalPlan, PortalPlanState } from '../../../services';
+import { clientPortalAPI, PortalCommunityAddOn, PortalPlan, PortalPlanState } from '../../../services';
 import { CLIENT_FEATURE_CATALOG } from '../../../services/modules/subscriptionPackages.api';
 import { KEY_LABEL, BASELINE_KEYS } from '../../../services/entitlements';
 
@@ -32,6 +32,23 @@ import { KEY_LABEL, BASELINE_KEYS } from '../../../services/entitlements';
 
 const money = (n: number, currency: string) =>
   `${currency} ${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+
+/** Same cycles the clinic and supplier plan cards offer — kept local since
+ *  PlanCard.tsx does not export its copy. */
+const CYCLE_LABEL: Record<string, string> = {
+  MONTHLY: 'Monthly', QUARTERLY: 'Quarterly', SEMIANNUAL: '6 Months',
+  YEARLY: 'Yearly', BIENNIAL: '2 Years', TRIENNIAL: '3 Years', ONE_TIME: 'One-off',
+};
+const CYCLE_SUFFIX: Record<string, string> = {
+  MONTHLY: 'mo', QUARTERLY: '3mo', SEMIANNUAL: '6mo',
+  YEARLY: 'yr', BIENNIAL: '2yr', TRIENNIAL: '3yr', ONE_TIME: 'once',
+};
+
+/** Would `keys` already cover everything the add-on grants? Same subset test
+ *  as the clinic side's `planCoversAddOn` — an add-on nobody's keys need is
+ *  never worth ticking. */
+const coversAddOn = (keys: Set<string>, addOnKeys: string[]) =>
+  addOnKeys.length > 0 && addOnKeys.every((k) => keys.has(k));
 
 /**
  * ⚠️ THE CARD READS THE PLAN, NOT A HAND-WRITTEN BLURB.
@@ -66,6 +83,10 @@ const ClientPlan: React.FC = () => {
   const [plans, setPlans] = useState<PortalPlan[]>([]);
   const [farmAccount, setFarmAccount] = useState(false);
   const [canChooseFarm, setCanChooseFarm] = useState(false);
+  const [communityAddOn, setCommunityAddOn] = useState<PortalCommunityAddOn | null>(null);
+  const [includeCommunity, setIncludeCommunity] = useState(true);
+  /** Selected billing cycle per plan card, keyed by plan id. */
+  const [cycles, setCycles] = useState<Record<string, string>>({});
   const [current, setCurrent] = useState<PortalPlanState | null>(null);
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -85,6 +106,7 @@ const ClientPlan: React.FC = () => {
       setPlans(p.data.plans);
       setFarmAccount(p.data.farmAccount);
       setCanChooseFarm(p.data.canChooseFarmPlans);
+      setCommunityAddOn(p.data.communityAddOn);
     }
     if (c.success && c.data) setCurrent(c.data);
     setLoading(false);
@@ -113,9 +135,34 @@ const ClientPlan: React.FC = () => {
     tick();
   }, [load]);
 
+  /** The selected cycle's billing option for a plan — defaults to the
+   *  cheapest (first) option when nothing has been picked yet. */
+  const optionFor = useCallback((plan: PortalPlan) => {
+    const wanted = cycles[plan.id];
+    return plan.billingOptions.find((o) => o.cycle === wanted) ?? plan.billingOptions[0] ?? null;
+  }, [cycles]);
+
+  /** Does the account already hold everything Community Access grants —
+   *  by owning it outright, or because the current plan already covers it? */
+  const communityOwned = useMemo(() => {
+    if (!communityAddOn) return true;
+    const mineKeys = new Set(current?.featureKeys ?? []);
+    return coversAddOn(mineKeys, communityAddOn.featureKeys);
+  }, [communityAddOn, current]);
+
+  useEffect(() => { if (communityOwned) setIncludeCommunity(false); }, [communityOwned]);
+
   const subscribe = async (plan: PortalPlan) => {
     setBusyId(plan.id);
-    const r = await clientPortalAPI.initiatePlanPayment({ packageId: plan.id });
+    const option = optionFor(plan);
+    const r = await clientPortalAPI.initiatePlanPayment({
+      packageId: plan.id,
+      billingOptionId: option?.id,
+      cycle: option?.cycle,
+      // 288 — ids only, same as the clinic rail: the server prices every
+      // line from the catalogue, nothing here says what anything costs.
+      addOnPackageIds: (communityAddOn && !communityOwned && includeCommunity) ? [communityAddOn.id] : undefined,
+    });
     setBusyId(null);
     // Paystack's hosted checkout — same rail the clinics and suppliers use.
     if (r.success && r.data?.authorizationUrl) window.location.href = r.data.authorizationUrl;
@@ -222,12 +269,37 @@ const ClientPlan: React.FC = () => {
         </div>
       </div>
 
+      {/* Community Access — one shared tick, same shape as the clinic and
+          supplier plan cards: ids only, priced by the server, and it rides
+          along with whichever plan is bought next. Hidden once the account
+          already holds it (owns it outright, or the current plan covers it). */}
+      {tab === 'plans' && communityAddOn && !communityOwned && (
+        <label className="cp-card p-4 flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={includeCommunity}
+            onChange={(e) => setIncludeCommunity(e.target.checked)}
+          />
+          <div className="flex-1">
+            <div className="text-sm font-bold" style={{ color: 'var(--cp-ink)' }}>
+              Add {communityAddOn.name} — {money(communityAddOn.price, communityAddOn.currency)}
+            </div>
+            <p className="text-xs mt-0.5" style={{ color: 'var(--cp-ink-soft)' }}>
+              Added to whichever plan you buy next, on the same billing cycle.
+            </p>
+          </div>
+        </label>
+      )}
+
       {tab === 'plans' && (
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {ordered.map((p) => {
           const isCurrent = p.tier === currentTier;
           const isDown = p.tier < currentTier;
           const farms = farmLine(p);
+          const option = optionFor(p);
+          const selectedCycle = option?.cycle;
           return (
             <div
               key={p.id}
@@ -238,8 +310,22 @@ const ClientPlan: React.FC = () => {
                 <div>
                   <div className="font-black text-lg" style={{ color: 'var(--cp-ink)' }}>{p.name}</div>
                   <div className="text-sm font-bold cp-accent-text">
-                    {p.price > 0 ? `${money(p.price, p.currency)} / month` : 'Free, always'}
+                    {option && Number(option.price) > 0
+                      ? `${money(Number(option.price), p.currency)} / ${CYCLE_SUFFIX[option.cycle] ?? option.cycle}`
+                      : 'Free, always'}
                   </div>
+                  {p.purchasable && p.billingOptions.length > 1 && (
+                    <select
+                      className="mt-1 text-xs font-bold bg-transparent border rounded-lg px-1.5 py-0.5"
+                      style={{ borderColor: 'var(--cp-border)', color: 'var(--cp-ink-soft)' }}
+                      value={selectedCycle}
+                      onChange={(e) => setCycles((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                    >
+                      {p.billingOptions.map((o) => (
+                        <option key={o.cycle} value={o.cycle}>{CYCLE_LABEL[o.cycle] ?? o.cycle}</option>
+                      ))}
+                    </select>
+                  )}
                 </div>
                 {isCurrent && (
                   <span className="cp-chip shrink-0">Current</span>

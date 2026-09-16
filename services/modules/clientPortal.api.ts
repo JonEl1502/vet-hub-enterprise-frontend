@@ -458,6 +458,17 @@ export interface PortalPlan {
   billingOptions: Array<{ id: string; cycle: string; price: number; discountPct: number }>;
 }
 
+/** The Community Access add-on offered as a tick beside the ladder — never
+ *  mixed into `plans`, same split the clinic's BillingView keeps. */
+export interface PortalCommunityAddOn {
+  id: string;
+  name: string;
+  price: number;
+  currency: string;
+  featureKeys: string[];
+  billingOptions: Array<{ id: string; cycle: string; price: number; discountPct: number }>;
+}
+
 /** 233 — the ladder, plus which half of it this account is being shown. */
 export interface PortalPlanList {
   plans: PortalPlan[];
@@ -469,6 +480,8 @@ export interface PortalPlanList {
    * farms — the portal hides its switch rather than showing a dead one.
    */
   canChooseFarmPlans: boolean;
+  /** null when no Community Access package is configured for this audience. */
+  communityAddOn: PortalCommunityAddOn | null;
 }
 
 /** What the account is on right now. Never null — no plan means Free. */
@@ -876,7 +889,7 @@ export const clientPortalAPI = {
   setFarmAccount: (isFarmer: boolean, options?: RequestOptions): Promise<ApiResponse<PortalPlanList>> =>
     post('/portal/me/farm-account', { isFarmer }, { showError: true, ...options }),
 
-  initiatePlanPayment: (data: { packageId: string; billingOptionId?: string; cycle?: string; phone?: string }, options?: RequestOptions): Promise<ApiResponse<{ attemptId: string; reference: string; authorizationUrl: string }>> =>
+  initiatePlanPayment: (data: { packageId: string; billingOptionId?: string; cycle?: string; phone?: string; addOnPackageIds?: string[] }, options?: RequestOptions): Promise<ApiResponse<{ attemptId: string; reference: string; authorizationUrl: string }>> =>
     post('/portal/me/plan/initiate', data, { showError: true, ...options }),
 
   planPaymentStatus: (reference: string, options?: RequestOptions): Promise<ApiResponse<{ status: string; reference: string; resultDesc: string | null }>> =>
