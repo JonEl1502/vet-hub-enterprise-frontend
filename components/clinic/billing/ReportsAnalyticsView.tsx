@@ -8,7 +8,7 @@ import {
 import {
   TrendingUp, TrendingDown, Wallet, Receipt, CircleDollarSign, Percent, FileText,
   CreditCard, ChevronRight, ChevronDown, Phone, Plus, Star, Loader2,
-  AlertTriangle, PackageOpen, Sparkles, BarChart3, Info, ScrollText, FileSpreadsheet,
+  AlertTriangle, PackageOpen, Sparkles, BarChart3, Info,
   Users, UserPlus, UserMinus, UserCheck, Landmark, PiggyBank,
 } from 'lucide-react';
 import PageHeader from '../../shared/common/PageHeader';
@@ -446,9 +446,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
 
   const QUICK_REPORTS = [
     { label: 'Profit & Loss Statement', icon: FileText },
-    { label: 'Balance Sheet', icon: ScrollText },
     { label: 'Cash Flow Statement', icon: BarChart3 },
-    { label: 'Trial Balance', icon: FileSpreadsheet },
     { label: 'Revenue by Department', icon: PiggyBank, onClick: () => scrollToCard('revenue-by-department-card') },
     { label: 'Revenue by Vet', icon: Users, onClick: () => scrollToCard('top-vets-card') },
     { label: 'A/R Aging Report', icon: Receipt, onClick: () => onNavigate?.('receivables') },
