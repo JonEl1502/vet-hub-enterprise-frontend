@@ -84,6 +84,24 @@ export interface ClinicStats {
   revenue: number;
 }
 
+/** Cash-basis Profit & Loss — Reports & Analytics "Quick Reports". */
+export interface ProfitAndLoss {
+  from: string;
+  to: string;
+  revenue: number;
+  expenses: number;
+  netIncome: number;
+  expensesByCategory: { category: string; amount: number }[];
+}
+
+/** Cash Flow Statement — daily cash in/out + running balance. */
+export interface CashFlow {
+  from: string;
+  to: string;
+  series: { day: string; cashIn: number; cashOut: number; net: number; runningBalance: number }[];
+  totals: { cashIn: number; cashOut: number; net: number };
+}
+
 /** Finance BI splits for the Reports & Analytics dashboard. */
 export interface FinanceBI {
   paymentMethods: { method: string; amount: number; count: number }[];
@@ -140,6 +158,28 @@ export const summariesAPI = {
     if (opts.from) q.set('from', opts.from);
     if (opts.to) q.set('to', opts.to);
     return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'finance-bi')}?${q.toString()}`, { cache: false, ...options });
+  },
+
+  /** Cash-basis Profit & Loss — revenue, expenses by category, net income. */
+  pnl: async (
+    opts: { scopeId: string | number; from?: string; to?: string },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<ProfitAndLoss>> => {
+    const q = new URLSearchParams({ scopeId: String(opts.scopeId) });
+    if (opts.from) q.set('from', opts.from);
+    if (opts.to) q.set('to', opts.to);
+    return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'pnl')}?${q.toString()}`, { cache: false, ...options });
+  },
+
+  /** Cash Flow Statement — daily cash in/out + running balance. */
+  cashFlow: async (
+    opts: { scopeId: string | number; from?: string; to?: string },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<CashFlow>> => {
+    const q = new URLSearchParams({ scopeId: String(opts.scopeId) });
+    if (opts.from) q.set('from', opts.from);
+    if (opts.to) q.set('to', opts.to);
+    return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'cashflow')}?${q.toString()}`, { cache: false, ...options });
   },
 
   /** Per-scope rows so the dashboard can render a per-clinic table. */

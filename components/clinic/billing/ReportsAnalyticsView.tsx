@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import PageHeader from '../../shared/common/PageHeader';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
+import FinancialStatementModal from './FinancialStatementModal';
 import { summariesAPI, FinanceBI, SummaryResponse } from '../../../services/modules/summaries.api';
 import { receivablesAPI, ArAgeing } from '../../../services/modules/receivables.api';
 import { supplierApAPI, SupplierInvoice } from '../../../services/modules/supplierAp.api';
@@ -116,6 +117,8 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
   const [cfGranularity, setCfGranularity] = useState<'Daily' | 'Weekly'>('Daily');
   const [quickOpen, setQuickOpen] = useState(false);
   const [forecastOpen, setForecastOpen] = useState(false);
+  // Which "Quick Reports" statement modal is open, if any (user, 2026-09-16).
+  const [statementModal, setStatementModal] = useState<'PNL' | 'CASHFLOW' | null>(null);
 
   const load = useCallback(async () => {
     if (!clinicId) { setLoading(false); return; }
@@ -445,8 +448,8 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
   };
 
   const QUICK_REPORTS = [
-    { label: 'Profit & Loss Statement', icon: FileText },
-    { label: 'Cash Flow Statement', icon: BarChart3 },
+    { label: 'Profit & Loss Statement', icon: FileText, onClick: () => setStatementModal('PNL') },
+    { label: 'Cash Flow Statement', icon: BarChart3, onClick: () => setStatementModal('CASHFLOW') },
     { label: 'Revenue by Department', icon: PiggyBank, onClick: () => scrollToCard('revenue-by-department-card') },
     { label: 'Revenue by Vet', icon: Users, onClick: () => scrollToCard('top-vets-card') },
     { label: 'A/R Aging Report', icon: Receipt, onClick: () => onNavigate?.('receivables') },
@@ -1102,6 +1105,15 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
         name={contact?.name ?? ''}
         phone={contact?.phone ?? ''}
         subtitle={contact?.subtitle}
+      />
+      <FinancialStatementModal
+        isOpen={!!statementModal}
+        onClose={() => setStatementModal(null)}
+        kind={statementModal ?? 'PNL'}
+        clinicId={clinicId}
+        from={from}
+        to={to}
+        money={money}
       />
     </div>
   );
