@@ -1795,7 +1795,7 @@ interface ReceiptModalProps {
   formatDate: (d: string) => string;
 }
 
-const ReceiptModal: React.FC<ReceiptModalProps> = ({ row, onClose, formatDate }) => {
+export const ReceiptModal: React.FC<ReceiptModalProps> = ({ row, onClose, formatDate }) => {
   const { formatPrice } = useDisplayCurrency();
   const paidAt = row.settledAt || row.createdAt;
 
@@ -1885,7 +1885,7 @@ interface InvoiceModalProps {
   onViewReceipt: () => void;
 }
 
-const InvoiceModal: React.FC<InvoiceModalProps> = ({ row, clinicName, onClose, formatDate, onViewReceipt }) => {
+export const InvoiceModal: React.FC<InvoiceModalProps> = ({ row, clinicName, onClose, formatDate, onViewReceipt }) => {
   const { formatPrice } = useDisplayCurrency();
   const paid = row.status === 'SUCCESS';
 

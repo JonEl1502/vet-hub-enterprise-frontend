@@ -7,6 +7,10 @@ import PlanFeaturesPanel, { SUPPLIER_GROUPS } from '../../clinic/billing/PlanFea
 import SupportTicketsPanel from '../../clinic/billing/SupportTicketsPanel';
 import BillingDocumentsPanel from '../../clinic/billing/BillingDocumentsPanel';
 import ReportPaymentIssueModal from '../../clinic/billing/ReportPaymentIssueModal';
+// ⚠️ Reused, not cloned — same reasoning as PlanFeaturesPanel/BillingDocumentsPanel
+// above: one invoice/receipt document, shared with the clinic page, so the two
+// can never drift apart on what a subscription document looks like.
+import { InvoiceModal, ReceiptModal } from '../../clinic/billing/BillingView';
 import SupplierBillingView from './SupplierBillingView';
 import { formatDate } from '../../../services/utils/dateFormatter';
 
@@ -38,6 +42,7 @@ const docNo = (prefix: 'INV' | 'RCP', row: PaymentHistoryRow) =>
 const SupplierBillingPage: React.FC = () => {
   const { user } = useAuth();
   const supplierId = (user as any)?.supplier?.id ? String((user as any).supplier.id) : null;
+  const supplierName = (user as any)?.supplier?.name ?? null;
   const { formatPrice } = useDisplayCurrency();
 
   const [activeTab, setActiveTab] = useState<Tab>('plan');
@@ -46,6 +51,8 @@ const SupplierBillingPage: React.FC = () => {
   const [showReportIssue, setShowReportIssue] = useState(false);
   const [ticketsRefresh, setTicketsRefresh] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [invoiceRow, setInvoiceRow] = useState<PaymentHistoryRow | null>(null);
+  const [receiptRow, setReceiptRow] = useState<PaymentHistoryRow | null>(null);
 
   const loadHistory = useCallback(async () => {
     if (!supplierId) return;
@@ -73,6 +80,20 @@ const SupplierBillingPage: React.FC = () => {
     { id: 'documents' as const, label: 'Invoices & Receipts', icon: FileText, count: history.length || null },
     { id: 'tickets' as const, label: 'Tickets', icon: LifeBuoy, count: null as number | null },
   ];
+
+  // Same shape as the clinic page: the invoice is a page, not a dialog — see
+  // BillingView.tsx's comment on `invoiceRow`. Placed after every hook.
+  if (invoiceRow) {
+    return (
+      <InvoiceModal
+        row={invoiceRow}
+        clinicName={supplierName}
+        onClose={() => setInvoiceRow(null)}
+        formatDate={formatDate}
+        onViewReceipt={() => { setInvoiceRow(null); setReceiptRow(invoiceRow); }}
+      />
+    );
+  }
 
   return (
     <div className="space-y-5 animate-in fade-in duration-300">
@@ -162,13 +183,17 @@ const SupplierBillingPage: React.FC = () => {
           docNo={docNo}
           formatDate={formatDate}
           formatPrice={formatPrice}
-          onView={() => setShowReportIssue(false)}
+          onView={(row) => (docTab === 'invoices' ? setInvoiceRow(row) : setReceiptRow(row))}
           ownerNoun="this supplier account"
         />
       )}
 
       {activeTab === 'tickets' && (
         <SupportTicketsPanel refreshKey={ticketsRefresh} onRaiseTicket={() => setShowReportIssue(true)} />
+      )}
+
+      {receiptRow && (
+        <ReceiptModal row={receiptRow} onClose={() => setReceiptRow(null)} formatDate={formatDate} />
       )}
     </div>
   );
