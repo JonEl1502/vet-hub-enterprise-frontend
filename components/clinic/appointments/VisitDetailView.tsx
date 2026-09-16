@@ -9,11 +9,11 @@ import { Visit, ApptTask, TaskStatus, User, Pet, ApptStatus, Clinic, MedicalReco
 import {
   Share2, X, Plus, ChevronRight, CheckCircle2, Circle, FileText, Receipt,
   CreditCard, Check, ArrowLeft, Stethoscope, Download, Printer, Calendar, MessageSquare,
-  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, ChevronUp, ChevronDown, Bell, Tag, MoreHorizontal, ReceiptText, ArrowRightLeft } from 'lucide-react';
+  Smile, Meh, Frown, Sparkles, Wand2, Loader2, Link2, ArrowRight, Trash2, Lock, Syringe, Users, Pill, AlertCircle, AlertTriangle, Search, RefreshCw, Phone, Mail, User as UserIcon, Clock, XCircle, ExternalLink, Copy, ShieldCheck, Wallet, Coins, Image, Upload, Send, Layers, Package, ChevronLeft, ChevronUp, ChevronDown, Bell, Tag, MoreHorizontal, ReceiptText, ArrowRightLeft, Mic } from 'lucide-react';
 import { ownerAbbrev } from '../shared/ownerAbbrev';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
-import { generateServiceNote, generateFullVisitSummary, analyzeServiceObservations } from '../../../services/geminiService';
+import { generateServiceNote, generateFullVisitSummary } from '../../../services/geminiService';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { vaccinationsAPI, visitsAPI, petsAPI, InventoryItem, clientDiscountsAPI, dialog, walletAPI, CATEGORY_TO_MENU_ID, remindersAPI, triageAPI, surgeryAPI, dewormingAPI, DewormingRecord } from '../../../services';
 import { notifyTriageChanged } from '../triage/triageEvents';
@@ -59,7 +59,6 @@ import DewormingAgainst from '../shared/DewormingAgainst';
 import Money from '../../shared/common/Money';
 import { useFx } from '../../../contexts/FxContext';
 import { COUNTRIES } from '../../../utils/countries';
-import AIAssistant from './appointment/AIAssistant';
 
 import VisitWizard from './wizard/VisitWizard';
 import { useVisitWizard } from './wizard/useVisitWizard';
@@ -1766,17 +1765,6 @@ const VisitDetailInner: React.FC<Props> = ({
   const [isGeneratingAINotes, setIsGeneratingAINotes] = useState(false);
   const [aiNotesError, setAINotesError] = useState<string>('');
 
-  // AI Assistant for Individual Services state
-  const [showAIAssistant, setShowAIAssistant] = useState<number | null>(null); // taskId
-  const [aiAssistantInput, setAIAssistantInput] = useState<string>('');
-  const [aiAssistantAnalysis, setAIAssistantAnalysis] = useState<any>(null);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [isRecording, setIsRecording] = useState(false);
-  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
-  // Downscaled JPEG data URL for uploadedFile — what actually gets sent to
-  // the AI as an image, split into base64+mimeType server-side.
-  const [uploadedImageDataUrl, setUploadedImageDataUrl] = useState<string | null>(null);
-
   // Expandable section state - track which section is open for each task
   type ExpandableSection = 'medication' | 'notes' | 'images' | 'ai' | 'consumables' | 'staff' | null;
   const [expandedSections, setExpandedSections] = useState<Record<number, ExpandableSection>>({});
@@ -1805,10 +1793,12 @@ const VisitDetailInner: React.FC<Props> = ({
   const [viewerImage, setViewerImage] = useState<TaskAttachment | null>(null);
 
   // ── AI chat (multi-turn, persisted per task) ──────────────────────────
-  type ChatState = { conversationId: string | null; messages: ChatMessage[]; input: string; sending: boolean; loaded: boolean };
+  type ChatPendingImage = { dataUrl: string; name: string };
+  type ChatState = { conversationId: string | null; messages: ChatMessage[]; input: string; sending: boolean; loaded: boolean; pendingImage: ChatPendingImage | null };
   const [chatByTask, setChatByTask] = useState<Record<number, ChatState>>({});
+  const [chatRecordingTaskId, setChatRecordingTaskId] = useState<number | null>(null);
   const ensureChatState = (taskId: number): ChatState =>
-    chatByTask[taskId] ?? { conversationId: null, messages: [], input: '', sending: false, loaded: false };
+    chatByTask[taskId] ?? { conversationId: null, messages: [], input: '', sending: false, loaded: false, pendingImage: null };
 
   // Keyboard shortcuts state
   const [showKeyboardShortcuts, setShowKeyboardShortcuts] = useState(false);
@@ -2436,7 +2426,6 @@ const VisitDetailInner: React.FC<Props> = ({
         key: 'Escape',
         action: () => {
           if (showMedicationModal) setShowMedicationModal(null);
-          if (showAIAssistant) setShowAIAssistant(null);
           if (showSummaryPreview) setShowSummaryPreview(false);
           if (showAINotesPreview) setShowAINotesPreview(false);
         },
@@ -2807,13 +2796,14 @@ const VisitDetailInner: React.FC<Props> = ({
           input: '',
           sending: false,
           loaded: true,
+          pendingImage: null,
         },
       }));
     } catch (err) {
       // Silent — UI shows empty chat; user can still send.
       setChatByTask(prev => ({
         ...prev,
-        [taskId]: { conversationId: null, messages: [], input: '', sending: false, loaded: true },
+        [taskId]: { conversationId: null, messages: [], input: '', sending: false, loaded: true, pendingImage: null },
       }));
     }
   };
@@ -2825,14 +2815,23 @@ const VisitDetailInner: React.FC<Props> = ({
     }));
   };
 
+  // Splits a `data:image/jpeg;base64,XXXX` URL into the { data, mimeType }
+  // shape aiAPI.chat's `image` field expects (same convention as
+  // geminiService.ts's splitDataUrl for the /ai/analyze path).
+  const splitChatImageDataUrl = (dataUrl: string): { data: string; mimeType: string } | null => {
+    const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl);
+    return m ? { mimeType: m[1], data: m[2] } : null;
+  };
+
   const handleChatSend = async (taskId: number) => {
     const state = ensureChatState(taskId);
     const message = state.input.trim();
     if (!message || state.sending) return;
+    const image = state.pendingImage ? splitChatImageDataUrl(state.pendingImage.dataUrl) ?? undefined : undefined;
     const userMsg: ChatMessage = { role: 'user', content: message, createdAt: new Date().toISOString() };
     setChatByTask(prev => ({
       ...prev,
-      [taskId]: { ...state, input: '', sending: true, messages: [...state.messages, userMsg] },
+      [taskId]: { ...state, input: '', sending: true, pendingImage: null, messages: [...state.messages, userMsg] },
     }));
     try {
       const res = await aiAPI.chat({
@@ -2840,6 +2839,7 @@ const VisitDetailInner: React.FC<Props> = ({
         appointmentId: appointment.id,
         taskId,
         conversationId: state.conversationId ?? undefined,
+        image,
       });
       const data = res.data;
       if (data) {
@@ -2851,6 +2851,7 @@ const VisitDetailInner: React.FC<Props> = ({
             input: '',
             sending: false,
             loaded: true,
+            pendingImage: null,
           },
         }));
       }
@@ -2860,44 +2861,29 @@ const VisitDetailInner: React.FC<Props> = ({
     }
   };
 
-  // AI Assistant for Individual Services
-  const handleAskAI = async (taskId: number) => {
-    if (!aiAssistantInput.trim()) {
-      return;
-    }
-
-    setIsAnalyzing(true);
+  // Attach an image to the next message in a task's AI chat — downscales to
+  // a JPEG data URL, same approach as ImagingView/GroomingPanel uploads.
+  const handleChatImageAttach = async (taskId: number, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file) return;
     try {
-      const task = appointment.tasks.find(t => t.id === taskId);
-      if (!task) return;
-
-      const analysis = await analyzeServiceObservations(
-        task.name,
-        task.category,
-        aiAssistantInput,
-        pet.species,
-        pet.age,
-        uploadedImageDataUrl || undefined
-      );
-
-      setAIAssistantAnalysis(analysis);
-    } catch (error) {
-      console.error('Error analyzing observations:', error);
-      setAIAssistantAnalysis({
-        fullAnalysis: 'Error analyzing observations. Please try again.',
-        diagnosticSuggestions: [],
-        treatmentRecommendations: [],
-        clinicalInsights: ''
-      });
-    } finally {
-      setIsAnalyzing(false);
-      setUploadedFile(null);
-      setUploadedImageDataUrl(null);
+      const dataUrl = await fileToDownscaledDataUrl(file);
+      setChatByTask(prev => ({
+        ...prev,
+        [taskId]: { ...ensureChatState(taskId), pendingImage: { dataUrl, name: file.name } },
+      }));
+    } catch {
+      toast.error('Could not read that image — try a different file.');
     }
   };
 
-  // Speech-to-text handler (using Web Speech API)
-  const handleStartRecording = async () => {
+  const handleChatRemoveImage = (taskId: number) => {
+    setChatByTask(prev => ({ ...prev, [taskId]: { ...ensureChatState(taskId), pendingImage: null } }));
+  };
+
+  // Voice input for a task's AI chat box (Web Speech API — Chrome/Edge only).
+  const handleChatRecording = async (taskId: number) => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
       await dialog.alert({
         title: 'Browser not supported',
@@ -2915,40 +2901,25 @@ const VisitDetailInner: React.FC<Props> = ({
     recognition.lang = 'en-US';
 
     recognition.onstart = () => {
-      setIsRecording(true);
+      setChatRecordingTaskId(taskId);
     };
 
     recognition.onresult = (event: any) => {
       const transcript = event.results[0][0].transcript;
-      setAIAssistantInput(prev => prev + (prev ? ' ' : '') + transcript);
+      const state = ensureChatState(taskId);
+      setChatInput(taskId, state.input + (state.input ? ' ' : '') + transcript);
     };
 
     recognition.onerror = (event: any) => {
       console.error('Speech recognition error:', event.error);
-      setIsRecording(false);
+      setChatRecordingTaskId(null);
     };
 
     recognition.onend = () => {
-      setIsRecording(false);
+      setChatRecordingTaskId(null);
     };
 
     recognition.start();
-  };
-
-  // File upload handler — downscales to a JPEG data URL and holds it so
-  // handleAskAI can send it as an actual image, not just the filename.
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    setUploadedFile(file);
-    setAIAssistantInput(prev => prev + (prev ? '\n' : '') + `[Attached image: ${file.name}]`);
-    try {
-      const dataUrl = await fileToDownscaledDataUrl(file);
-      setUploadedImageDataUrl(dataUrl);
-    } catch {
-      setUploadedImageDataUrl(null);
-      toast.error('Could not read that image — try a different file.');
-    }
   };
 
   // Generating the bill IS finalize (user, 2026-07-29). Unfinished services no
@@ -6009,6 +5980,21 @@ const VisitDetailInner: React.FC<Props> = ({
                                        )}
                                      </div>
 
+                                     {/* Pending image attachment */}
+                                     {state.pendingImage && (
+                                       <div className="flex items-center gap-2 px-3 py-1.5 bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-lg text-[10px] text-indigo-700 dark:text-indigo-300">
+                                         <Image size={12} className="shrink-0" />
+                                         <span className="truncate flex-1">{state.pendingImage.name}</span>
+                                         <button
+                                           onClick={() => handleChatRemoveImage(task.id)}
+                                           className="p-0.5 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded"
+                                           title="Remove attachment"
+                                         >
+                                           <X size={11} />
+                                         </button>
+                                       </div>
+                                     )}
+
                                      {/* Composer */}
                                      <div className="flex items-end gap-2">
                                        <textarea
@@ -6024,6 +6010,31 @@ const VisitDetailInner: React.FC<Props> = ({
                                          placeholder="Ask the AI… (Shift+Enter for newline)"
                                          className="flex-1 bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 rounded-lg px-3 py-2 text-[10px] text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-indigo-500 resize-none"
                                        />
+                                       <button
+                                         onClick={() => handleChatRecording(task.id)}
+                                         disabled={state.sending || chatRecordingTaskId === task.id}
+                                         className={`p-2.5 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${
+                                           chatRecordingTaskId === task.id
+                                             ? 'bg-red-500 text-white animate-pulse'
+                                             : 'bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'
+                                         }`}
+                                         title="Voice input"
+                                       >
+                                         <Mic size={14} />
+                                       </button>
+                                       <label
+                                         className="p-2.5 rounded-lg bg-white dark:bg-zinc-900 border border-indigo-200 dark:border-indigo-800 text-indigo-500 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors cursor-pointer"
+                                         title="Attach image"
+                                       >
+                                         <Upload size={14} />
+                                         <input
+                                           type="file"
+                                           className="hidden"
+                                           accept="image/*"
+                                           disabled={state.sending}
+                                           onChange={(e) => handleChatImageAttach(task.id, e)}
+                                         />
+                                       </label>
                                        <button
                                          onClick={() => handleChatSend(task.id)}
                                          disabled={state.sending || !state.input.trim()}
