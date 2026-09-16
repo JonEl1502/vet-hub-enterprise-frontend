@@ -5561,6 +5561,17 @@ const VisitDetailInner: React.FC<Props> = ({
                                    <MessageSquare size={13} /> Notes
                                  </button>
 
+                                 <button
+                                   onClick={() => { toggleExpandableSection(task.id, 'ai'); loadChatForTask(task.id); }}
+                                   className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${
+                                     expandedSections[task.id] === 'ai'
+                                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-sm'
+                                       : 'bg-indigo-50 dark:bg-indigo-950/30 border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/50'
+                                   }`}
+                                 >
+                                   <Sparkles size={13} /> Ask AI
+                                 </button>
+
                                  </>)}
                                  {/* Open-more toggle + ⋯ options — always visible, bottom-right. */}
                                  <div className="ml-auto flex items-center gap-2">
