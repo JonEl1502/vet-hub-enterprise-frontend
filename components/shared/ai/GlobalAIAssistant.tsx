@@ -1,8 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Sparkles, X, Send, Loader2, Bot, Mic } from 'lucide-react';
+import { Sparkles, X, Send, Loader2, Bot, Mic, Upload, Image as ImageIcon } from 'lucide-react';
 import { aiAPI } from '../../../services/modules/ai.api';
 import type { ChatMessage } from '../../../services/modules/ai.api';
 import { dialog } from '../../../services';
+import { toast } from '../../../services/utils/toast';
 
 export interface AIContext {
   page?: string;
@@ -10,11 +11,52 @@ export interface AIContext {
   clientName?: string;
   userName?: string;
   userRole?: string;
+  species?: string;
+  age?: number;
+  // Present when the current page is a specific visit — ties the
+  // conversation to that visit so it persists across reopens, same as any
+  // other per-visit record.
+  appointmentId?: string | number;
 }
 
 // Marker so the seeded context line can be stripped from what we display.
 const CTX_PREFIX = '⟦ctx⟧';
 const stripCtx = (s: string) => s.split('\n').filter(l => !l.startsWith(CTX_PREFIX)).join('\n').trim();
+
+// Downscale an image file to a compact JPEG data URL — same approach used
+// for every other image attach point in this codebase (ImagingView,
+// GroomingPanel, task attachments).
+const fileToDownscaledDataUrl = (file: File, max = 1100, quality = 0.72): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('read failed'));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error('decode failed'));
+      img.onload = () => {
+        let { width, height } = img;
+        if (width > max || height > max) {
+          const scale = Math.min(max / width, max / height);
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext('2d')?.drawImage(img, 0, 0, width, height);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = reader.result as string;
+    };
+    reader.readAsDataURL(file);
+  });
+
+// Splits `data:image/jpeg;base64,XXXX` into the { data, mimeType } shape
+// aiAPI.chat's `image` field expects.
+const splitDataUrl = (dataUrl: string): { data: string; mimeType: string } | null => {
+  const m = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.+)$/.exec(dataUrl);
+  return m ? { mimeType: m[1], data: m[2] } : null;
+};
 
 // Clearance above the various fixed bottom bars this app has (RecordActionBar,
 // VisitWizard/EmergencyTriagePanel footers, the client portal's mobile tab
@@ -36,8 +78,21 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [size, setSize] = useState({ w: 380, h: 520 });
   const [isRecording, setIsRecording] = useState(false);
+  const [pendingImage, setPendingImage] = useState<{ dataUrl: string; name: string } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const seededRef = useRef(false);
+
+  const handleImageAttach = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      const dataUrl = await fileToDownscaledDataUrl(file);
+      setPendingImage({ dataUrl, name: file.name });
+    } catch {
+      toast.error('Could not read that image — try a different file.');
+    }
+  };
 
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight }); }, [messages, open]);
 
@@ -71,7 +126,7 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
     const parts: string[] = [];
     if (context.userName) parts.push(`assisting ${context.userName}${context.userRole ? ` (${context.userRole})` : ''}`);
     if (context.page) parts.push(`page: ${context.page}`);
-    if (context.patientName) parts.push(`patient: ${context.patientName}`);
+    if (context.patientName) parts.push(`patient: ${context.patientName}${context.species ? ` (${context.species}${context.age != null ? `, ${context.age}y` : ''})` : ''}`);
     if (context.clientName) parts.push(`client: ${context.clientName}`);
     return parts.join(' · ');
   };
@@ -79,13 +134,20 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
   const send = async () => {
     const text = input.trim();
     if (!text || sending) return;
+    const image = pendingImage ? splitDataUrl(pendingImage.dataUrl) ?? undefined : undefined;
     setInput('');
+    setPendingImage(null);
     setSending(true);
     const ctx = contextLine();
     const outgoing = !seededRef.current && ctx ? `${CTX_PREFIX} ${ctx}\n\n${text}` : text;
     setMessages(m => [...m, { role: 'user', content: text, createdAt: new Date().toISOString() }]);
     try {
-      const res = await aiAPI.chat({ message: outgoing, conversationId: conversationId ?? undefined });
+      const res = await aiAPI.chat({
+        message: outgoing,
+        conversationId: conversationId ?? undefined,
+        appointmentId: context.appointmentId,
+        image,
+      });
       if (res.success && res.data) {
         seededRef.current = true;
         setConversationId(res.data.conversationId);
@@ -177,6 +239,15 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
 
       {/* Composer */}
       <div className="p-2.5 border-t border-slate-200 dark:border-zinc-800 shrink-0">
+        {pendingImage && (
+          <div className="flex items-center gap-2 px-3 py-1.5 mb-2 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] text-slate-600 dark:text-zinc-300">
+            <ImageIcon size={12} className="shrink-0" />
+            <span className="truncate flex-1">{pendingImage.name}</span>
+            <button onClick={() => setPendingImage(null)} className="p-0.5 hover:bg-slate-200 dark:hover:bg-zinc-800 rounded" title="Remove attachment">
+              <X size={11} />
+            </button>
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <textarea
             value={input}
@@ -194,6 +265,13 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
           >
             <Mic size={16} />
           </button>
+          <label
+            title="Attach image"
+            className="p-2.5 rounded-xl shrink-0 bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-slate-200 dark:hover:bg-zinc-700 transition-all cursor-pointer"
+          >
+            <Upload size={16} />
+            <input type="file" className="hidden" accept="image/*" disabled={sending} onChange={handleImageAttach} />
+          </label>
           <button onClick={send} disabled={sending || !input.trim()} className="p-2.5 rounded-xl bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 shrink-0">
             {sending ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
           </button>

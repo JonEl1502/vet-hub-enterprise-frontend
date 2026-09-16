@@ -3537,13 +3537,23 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     const p: any = currentNav.params || {};
     let patientName: string | undefined;
     let clientName: string | undefined;
-    if (p.petId) patientName = getPetById(p.petId)?.name;
+    let species: string | undefined;
+    let age: number | undefined;
+    const pet = p.petId ? getPetById(p.petId) : undefined;
+    if (pet) { patientName = pet.name; species = pet.species; age = pet.age; }
     if (p.clientId) clientName = getClientById(p.clientId)?.name;
-    if ((!patientName || !clientName) && p.appointmentId) {
-      const appt = appointments.find((a: any) => String(a.id) === String(p.appointmentId));
-      if (appt) { patientName = patientName || getPetById(appt.petId)?.name; clientName = clientName || getClientById(appt.clientId)?.name; }
+    const appointmentId = p.appointmentId;
+    if ((!patientName || !clientName) && appointmentId) {
+      const appt = appointments.find((a: any) => String(a.id) === String(appointmentId));
+      if (appt) {
+        const apptPet = getPetById(appt.petId);
+        patientName = patientName || apptPet?.name;
+        species = species || apptPet?.species;
+        age = age ?? apptPet?.age;
+        clientName = clientName || getClientById(appt.clientId)?.name;
+      }
     }
-    return { page: activeView, userName: (user as any)?.name, userRole: (user as any)?.role, patientName, clientName };
+    return { page: activeView, userName: (user as any)?.name, userRole: (user as any)?.role, patientName, clientName, species, age, appointmentId };
   })();
 
   return (
