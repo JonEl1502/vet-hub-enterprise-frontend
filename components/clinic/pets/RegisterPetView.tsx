@@ -95,7 +95,11 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
 
   const [formData, setFormData] = useState({
     name: '', species: 'Dog', breed: 'Mixed Breed', gender: 'Male' as const,
-    dob: new Date().toISOString().split('T')[0],
+    // Blank, not today — defaulting to "today" silently invented a real
+    // birthday for every pet whose owner doesn't know it. Leaving it blank
+    // lets the backend's existing unknown-DOB handling (sentinel date +
+    // NEEDS_UPDATE flag) do its job instead.
+    dob: '',
     weight: '0.00',
     weightUnit: 'kg',
     rfidChipNumber: '', tagNumber: '',
@@ -233,7 +237,7 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
         species: formData.species,
         breed: formData.breed,
         gender: formData.gender,
-        dob: new Date(formData.dob).toISOString(),
+        dob: formData.dob ? new Date(formData.dob).toISOString() : undefined,
         weightValue: weightValue,
         weightUnit: formData.weightUnit,
         rfidChipNumber: formData.rfidChipNumber || undefined,
@@ -252,8 +256,7 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
 
       if (response.success) {
         const p = response.data.pet;
-        const birthDate = new Date(formData.dob);
-        const age = new Date().getFullYear() - birthDate.getFullYear();
+        const age = formData.dob ? new Date().getFullYear() - new Date(formData.dob).getFullYear() : null;
 
         // Append returned record directly — no GET needed
         addPetOptimistically({
@@ -453,7 +456,7 @@ const RegisterPetView: React.FC<Props> = ({ clients: propClients, onSave, onCanc
                   />
                   <div className="space-y-1">
                     <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Birth</label>
-                    <input type="date" required className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm" value={formData.dob} onChange={e=>setFormData({...formData, dob: e.target.value})}/>
+                    <input type="date" className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-lg px-3 py-2 text-pine dark:text-zinc-100 font-bold text-sm" value={formData.dob} onChange={e=>setFormData({...formData, dob: e.target.value})}/>
                   </div>
                   {weightInput}
                   <div data-tour="pet-form-microchip" className="space-y-1">

@@ -33,7 +33,9 @@ const RegisterClientView: React.FC<Props> = ({ onSave, onCancel, clinicId }) => 
   const [formData, setFormData] = useState({
     title: '', firstName: '', secondName: '', surname: '',
     email: '', phone: '', dialCode: '+254', countryCode: 'KE', address: '', country: 'Kenya', currency: 'KES',
-    gender: 'Female' as const, region: 'Local' as ClientRegion, dob: '1990-01-01',
+    // Blank, not an invented birthday — every client used to get stuck with
+    // 1990-01-01 unless staff remembered to change it.
+    gender: 'Female' as const, region: 'Local' as ClientRegion, dob: '',
     lat: '' as string, lng: '' as string,
   });
   const [clientType, setClientType] = useState<ClientType | null>(null);
@@ -243,7 +245,7 @@ const handleUseMyLocation = () => {
                   <label className="field-label">Date of Birth</label>
                   <div className="relative group">
                     <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-300 group-focus-within:text-seafoam transition-colors" size={14}/>
-                    <input type="date" required className="field-input field-icon-left" value={formData.dob} onChange={e=>setFormData({...formData, dob: e.target.value})}/>
+                    <input type="date" className="field-input field-icon-left" value={formData.dob} onChange={e=>setFormData({...formData, dob: e.target.value})}/>
                   </div>
                 </div>
               </div>
