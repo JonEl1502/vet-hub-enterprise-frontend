@@ -87,6 +87,17 @@ const AUDIENCE_COPY: Record<Audience, {
  * column the admin lead queues split on, so the server maps the audience to it
  * — a public form must not be able to write into that axis directly.
  */
+// Same look as the app's shared .field-* classes, but WITHOUT the dark:
+// variants. This modal renders on the public marketing site, which has no
+// dark mode of its own — the app's dark-mode preference is a global
+// document-level class, so it was leaking through here whenever a visitor
+// (or the same browser profile) had dark mode on in the dashboard.
+const fieldLabel = 'block text-[10px] font-black text-pine/50 uppercase tracking-widest mb-1.5';
+const fieldInput = 'w-full bg-slate-50 border border-slate-200 rounded-lg px-3 h-9 text-sm text-pine font-bold outline-none transition-colors placeholder:text-slate-400 placeholder:font-medium focus:ring-2 focus:ring-seafoam/20 focus:border-seafoam disabled:opacity-60 disabled:cursor-not-allowed';
+const fieldSelect = `${fieldInput} appearance-none cursor-pointer pr-8`;
+const fieldTextarea = 'w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm text-pine font-medium outline-none transition-colors placeholder:text-slate-400 focus:ring-2 focus:ring-seafoam/20 focus:border-seafoam resize-none';
+const fieldHelp = 'text-[10px] font-bold text-slate-400 mt-1';
+
 const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ onClose, audience = 'clinic' }) => {
   /**
    * The visitor picks who they are; the prop is only the STARTING point.
@@ -169,9 +180,9 @@ const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ onClose, audience =
                   answer. A select rather than five cards: this is a modal, and
                   the visitor came here to leave a phone number, not to browse. */}
               <div>
-                <label className="field-label">What are you?</label>
+                <label className={fieldLabel}>What are you?</label>
                 <select
-                  className="field-select"
+                  className={fieldSelect}
                   value={picked}
                   onChange={(e) => setPicked(e.target.value as Audience)}
                 >
@@ -181,29 +192,29 @@ const DemoRequestModal: React.FC<DemoRequestModalProps> = ({ onClose, audience =
                 </select>
               </div>
               <div>
-                <label className="field-label">Your name<span className="text-red-500"> *</span></label>
-                <input className="field-input" value={form.name} onChange={set('name')} placeholder="Dr. Jane Doe" autoFocus />
+                <label className={fieldLabel}>Your name<span className="text-red-500"> *</span></label>
+                <input className={fieldInput} value={form.name} onChange={set('name')} placeholder="Dr. Jane Doe" autoFocus />
               </div>
               <div>
                 {/* Still `clinicName` on the wire — it is the org-name column
                     on the lead, and renaming it would be a migration for a
                     label. The SERVER relabels it "Company" on a supplier lead. */}
-                <label className="field-label">{copy.orgLabel}</label>
-                <input className="field-input" value={form.clinicName} onChange={set('clinicName')} placeholder={copy.orgPlaceholder} />
+                <label className={fieldLabel}>{copy.orgLabel}</label>
+                <input className={fieldInput} value={form.clinicName} onChange={set('clinicName')} placeholder={copy.orgPlaceholder} />
               </div>
               <div>
-                <label className="field-label">Email<span className="text-red-500"> *</span></label>
-                <input className="field-input" type="email" value={form.email} onChange={set('email')} placeholder={copy.emailPlaceholder} />
+                <label className={fieldLabel}>Email<span className="text-red-500"> *</span></label>
+                <input className={fieldInput} type="email" value={form.email} onChange={set('email')} placeholder={copy.emailPlaceholder} />
               </div>
               <div>
-                <label className="field-label">Phone</label>
-                <input className="field-input" type="tel" value={form.phone} onChange={set('phone')} placeholder="+254 7XX XXX XXX" />
+                <label className={fieldLabel}>Phone</label>
+                <input className={fieldInput} type="tel" value={form.phone} onChange={set('phone')} placeholder="+254 7XX XXX XXX" />
               </div>
               <div>
-                <label className="field-label">Anything you’d like us to know?</label>
-                <textarea className="field-textarea" rows={3} value={form.message} onChange={set('message')} placeholder={copy.messagePlaceholder} />
+                <label className={fieldLabel}>Anything you’d like us to know?</label>
+                <textarea className={fieldTextarea} rows={3} value={form.message} onChange={set('message')} placeholder={copy.messagePlaceholder} />
               </div>
-              <p className="field-help">Leave a phone number or a message so we can reach you.</p>
+              <p className={fieldHelp}>Leave a phone number or a message so we can reach you.</p>
               {error && <p className="text-[13px] font-semibold text-red-600">{error}</p>}
             </div>
 

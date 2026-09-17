@@ -40,9 +40,12 @@ export default function PricingPage({ onBack, onRegister }: PricingPageProps) {
         const res = await subscriptionPackagesAPI.list();
         if (cancelled) return;
         if (res.success && res.data?.packages) {
-          // Clinic-facing plans only, sorted by tier so the layout is stable.
+          // Clinic-facing MAIN tiers only — Basic/Pro/Enterprise. Excludes
+          // addons (AI Assist, Boarding, Community Access...) and trial-only
+          // packages (tier 0), which also carry the CLINIC audience but were
+          // never meant to show up as a pricing card.
           const list = res.data.packages
-            .filter(p => p.isActive !== false && (!p.audiences || p.audiences.includes('CLINIC')))
+            .filter(p => p.isActive !== false && !p.isAddon && (p.tier ?? 0) > 0 && (!p.audiences || p.audiences.includes('CLINIC')))
             .sort((a, b) => (a.tier ?? 0) - (b.tier ?? 0));
           setPackages(list);
           setCurrentPackageId(res.data.currentPackageId ?? null);
