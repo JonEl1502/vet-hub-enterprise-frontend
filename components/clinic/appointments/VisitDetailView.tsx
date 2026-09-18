@@ -28,7 +28,7 @@ import { subscribePendingRequests } from '../../../services/api/client';
 import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
-import { consumablesAPI, AppointmentConsumable, boardingAPI, inpatientAPI, labAPI, imagingAPI, clientsAPI } from '../../../services';
+import { consumablesAPI, AppointmentConsumable, boardingAPI, inpatientAPI, labAPI, imagingAPI, clientsAPI, billsAPI } from '../../../services';
 import { serviceBundlesAPI, type ServiceBundle } from '../../../services/modules/serviceBundles.api';
 import { toast } from '../../../services/utils/toast';
 import { paymentGatewaysAPI } from '../../../services/modules/paymentGateways.api';
@@ -491,12 +491,83 @@ const VisitDetailInner: React.FC<Props> = ({
       await invoicesAPI.generate(appointment.id, { scope: 'FULL' } as any);
       toast.success('Invoice generated');
       emitMoneyEvent(`Invoice generated — ${currency} ${total.toLocaleString()}`);
+      /**
+       * This bypasses BillPanel (calls invoicesAPI directly, not one of its own
+       * handlers), so BillPanel's own `bill` state — and therefore `liveBill`,
+       * which it hands up via `onBillChange` — never learns the bill moved
+       * APPROVED → INVOICED. `billStage` reads liveBill.status alone, so the
+       * footer/header stayed stuck offering "Generate invoice" again instead
+       * of advancing to Settle (2026-09-18). Refetch directly rather than
+       * relying on BillPanel to notice — its own `syncNonce` resync explicitly
+       * refuses once a bill is locked/non-editable, which this one already is.
+       */
+      const fresh = await billsAPI.get(appointment.id).catch(() => null);
+      if (fresh?.success && fresh.data?.bill) setLiveBill(fresh.data.bill);
+      const freshInvoices = await invoicesAPI.list({ clientId: (appointment as any).clientId }).catch(() => null);
+      if (freshInvoices?.success) {
+        setVisitInvoices(
+          (freshInvoices.data?.invoices ?? []).filter(
+            (r: any) => String(r.visitId) === String(appointment.id) && r.status !== 'VOID',
+          ),
+        );
+      }
       onRefreshDashboard?.();
       setActiveBottomTab('bill');
     } catch (e: any) {
       toast.error(e?.response?.data?.message || e?.message || 'Could not generate the invoice');
     } finally {
       setGeneratingInvoice(false);
+    }
+  };
+
+  /**
+   * The footer/header "Approve bill" buttons used to just switch to the Bill
+   * tab and scroll to BillPanel's own button (2026-09-18) — a click that
+   * looked like nothing happened, since it neither approved anything nor
+   * explained why. This is the real action, mirroring BillPanel's own
+   * `approveBill`: same INCOMPLETE_RECORDS handling (now that the shared
+   * error interceptor actually propagates `.details`, see
+   * services/api/interceptors.ts), same "bill anyway" escape hatch — just
+   * reachable without leaving wherever the user already is.
+   */
+  const [approvingBill, setApprovingBill] = useState(false);
+  const approveBillFromFooter = async () => {
+    if (approvingBill) return;
+    setApprovingBill(true);
+    try {
+      const res = await billsAPI.approve(appointment.id, undefined, undefined, { silent: true } as any);
+      if (res?.success && res.data?.bill) setLiveBill(res.data.bill);
+      toast.success('Bill approved');
+      onRefreshDashboard?.();
+      setActiveBottomTab('bill');
+      return;
+    } catch (e: any) {
+      const body = e?.details?.errors;
+      const open: { kind: string; name: string; status: string }[] = body?.records ?? [];
+      if (body?.code !== 'INCOMPLETE_RECORDS') {
+        toast.error(e?.message || 'Something went wrong');
+        return;
+      }
+      const list = open.map(r => `• ${r.kind}: ${r.name} — ${r.status}`).join('\n');
+      const ok = await dialog.confirm({
+        title: open.length === 1 ? '1 record is still open' : `${open.length} records are still open`,
+        message: `${list}\n\nApproving locks the clinical record, so anything unfinished now stays unfinished. Finish them first — or bill anyway if the client is paying up front.`,
+        confirmLabel: 'Bill anyway',
+        cancelLabel: 'Go finish them',
+        variant: 'danger',
+      });
+      if (!ok) return;
+      try {
+        const res2 = await billsAPI.approve(appointment.id, undefined, { acknowledgeIncomplete: true });
+        if (res2?.success && res2.data?.bill) setLiveBill(res2.data.bill);
+        toast.success('Bill approved');
+        onRefreshDashboard?.();
+        setActiveBottomTab('bill');
+      } catch (e2: any) {
+        toast.error(e2?.message || 'Something went wrong');
+      }
+    } finally {
+      setApprovingBill(false);
     }
   };
 
@@ -4863,16 +4934,16 @@ const VisitDetailInner: React.FC<Props> = ({
                     thing you can do — you would be taking money against nothing.
                     You settle an INVOICE, never a bill. */}
                 {billStage === 'APPROVE' ? (
-                  <button onClick={() => { setActiveBottomTab('bill'); setPulseBillAction(n => n + 1); }}
-                    title="Approve the bill — the vet's sign-off, on the Bill tab"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all">
-                    <FileText size={12} /> Approve bill
+                  <button onClick={approveBillFromFooter} disabled={approvingBill}
+                    title="Approve the bill — the vet's sign-off"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50">
+                    <FileText size={12} /> {approvingBill ? 'Approving…' : 'Approve bill'}
                   </button>
                 ) : billStage === 'INVOICE' ? (
-                  <button onClick={() => { setActiveBottomTab('bill'); setPulseBillAction(n => n + 1); }}
-                    title="Turn the approved bill into an invoice — on the Bill tab"
-                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all">
-                    <FileText size={12} /> Generate invoice
+                  <button onClick={generateInvoiceFromFooter} disabled={generatingInvoice}
+                    title="Turn the approved bill into an invoice"
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-widest hover:bg-seafoam/90 transition-all disabled:opacity-50">
+                    <FileText size={12} /> {generatingInvoice ? 'Generating…' : 'Generate invoice'}
                   </button>
                 ) : billStage === 'SETTLE' ? (
                   <button onClick={openSettleModal} disabled={isSettlingBill}
@@ -9229,10 +9300,10 @@ const VisitDetailInner: React.FC<Props> = ({
                   misled; the next act is PAYMENT (user, 2026-08-02). */}
               {/* One button, and it is always the NEXT act in the chain. */}
               {billStage === 'APPROVE' ? (
-                <button onClick={() => { setActiveBottomTab('bill'); setPulseBillAction(n => n + 1); }}
-                  title="Approve the bill — the vet's sign-off, on the Bill tab"
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 transition-all active:scale-95">
-                  <FileText size={13} /> Approve bill
+                <button onClick={approveBillFromFooter} disabled={approvingBill}
+                  title="Approve the bill — the vet's sign-off"
+                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 disabled:opacity-40 transition-all active:scale-95">
+                  <FileText size={13} /> {approvingBill ? 'Approving…' : 'Approve bill'}
                 </button>
               ) : billStage === 'INVOICE' ? (
                 <button onClick={generateInvoiceFromFooter} disabled={generatingInvoice}
