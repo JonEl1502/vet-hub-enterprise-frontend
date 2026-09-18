@@ -76,7 +76,7 @@ const CommunityApp: React.FC<Props> = ({
   waitingCount, workspaceName, workLinks = [],
 }) => {
   const { user } = useAuth();
-  const { access } = usePlanAccess();
+  const { access, loading } = usePlanAccess();
   const [view, setView] = useState('all');
   const [screen, setScreen] = useState<Screen>({ name: 'FEED' });
   const [reach, setReach] = useState<{ helpfulTotal: number; followers: number; postCount: number } | null>(null);
@@ -104,6 +104,45 @@ const CommunityApp: React.FC<Props> = ({
     || access.featureKeys?.includes('community:participate')
     || (((access as any).addOns ?? []) as Array<{ name: string }>).some(a => /community/i.test(a.name))
   );
+
+  /**
+   * May this account BROWSE Community at all, past a short preview (2026-09-18)?
+   *
+   * Deliberately NOT the same check as `canPost` above — a CLIENT can never
+   * post (they reply, never broadcast) but very much CAN have real Community
+   * Access via their portal plan's tick, so `canPost`'s `!isClient` gate would
+   * wrongly time-limit a paying client. Practitioners stay exempt here too,
+   * same "needs nothing" reasoning as posting.
+   *
+   * Reading used to be free to everyone, no time limit — deliberate, see
+   * `sidebar/menus.ts` ("COMMUNITY IS FOR EVERYONE"), so the page itself
+   * could explain what buying Community Access unlocks. That reasoning
+   * predates Community Access having a real price (KES 300/mo, set
+   * 2026-09-18); John's call now that it does: still let anyone look, but
+   * only for 15 seconds before returning them to work, rather than fully
+   * free forever or an outright block.
+   */
+  const hasCommunityAccess = isPractitioner
+    || !!access?.featureKeys?.includes('*')
+    || !!access?.featureKeys?.includes('view:community')
+    || !!access?.featureKeys?.includes('community:participate')
+    || (((access as any)?.addOns ?? []) as Array<{ name: string }>).some(a => /community/i.test(a.name));
+
+  // Fails OPEN while access is still loading/unreadable — same as canPost —
+  // so a slow plan fetch can never look like a preview timer to a real
+  // subscriber. Only counts down once we are SURE there is no access.
+  const [previewSecondsLeft, setPreviewSecondsLeft] = useState<number | null>(null);
+  useEffect(() => {
+    if (loading || access === null || hasCommunityAccess) { setPreviewSecondsLeft(null); return; }
+    setPreviewSecondsLeft(15);
+    const id = window.setInterval(() => {
+      setPreviewSecondsLeft((s) => (s === null ? null : s - 1));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [loading, access, hasCommunityAccess]);
+  useEffect(() => {
+    if (previewSecondsLeft === 0) onBackToWork();
+  }, [previewSecondsLeft, onBackToWork]);
 
   const mySubject: ProfileSubject = useMemo(() => ({ userId: userId ?? null }), [userId]);
 
@@ -143,6 +182,22 @@ const CommunityApp: React.FC<Props> = ({
     /* A warmer ground than the clinic app, on purpose: you should be able to
        feel which room you are in before reading a word. */
     <div className="min-h-screen bg-[#F4F1EA] dark:bg-[#12100C] text-slate-900 dark:text-zinc-100">
+
+      {/* Preview countdown (2026-09-18) — floats over content rather than
+          taking a row in the fixed rail's own layout, since it only exists
+          for 15 seconds. Names the reason AND the way out, so the redirect
+          at zero reads as "your preview ended", not an unexplained bounce. */}
+      {previewSecondsLeft !== null && (
+        <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-3 px-4 py-2.5 rounded-full bg-amber-500 text-amber-950 shadow-lg shadow-amber-900/20 text-[12px] font-bold">
+          <span>Previewing Community — back to work in {previewSecondsLeft}s</span>
+          <button
+            onClick={onGoToBilling}
+            className="px-3 py-1 rounded-full bg-amber-950 text-amber-50 text-[10px] font-black uppercase tracking-widest hover:bg-amber-900 transition-colors"
+          >
+            Get Community Access
+          </button>
+        </div>
+      )}
 
       {/* ══ ONE FIXED RAIL — never scrolls away, never moves between worlds ══ */}
       <aside className="hidden md:flex fixed left-0 top-0 bottom-0 w-[214px] z-40 flex-col gap-0.5 overflow-y-auto border-r border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#1A1814] px-3 py-4">

@@ -33,6 +33,11 @@ import { usePublicConfig } from '../../../contexts/PublicConfigContext';
 // formatPrice now comes from useDisplayCurrency() so every render honors
 // the platform-wide display currency the admin chose.
 
+// "Dismissed forever" sentinel for the stale-pending-payment banner below.
+// Not `Infinity` — that becomes `null` through JSON.stringify/parse, which
+// then compares as 0 and un-dismisses on the very next reload.
+const FOREVER = Number.MAX_SAFE_INTEGER;
+
 /**
  * Human-facing document number for a subscription charge. There is no
  * invoice table for subscriptions — each payment attempt IS the charge, so
@@ -137,8 +142,19 @@ const BillingView: React.FC = () => {
   // called 42 hooks and the loaded render 43, so React threw #310 ("rendered
   // more hooks than during the previous render") and the whole Billing page
   // showed the error boundary. Every visit hit it — `loading` starts true.
-  const [dismissedPending, setDismissedPending] = useState<string[]>(() => {
-    try { return JSON.parse(localStorage.getItem('vethub_dismissed_pending') || '[]'); } catch { return []; }
+  // Map of key -> "hidden until" timestamp (ms). FOREVER = dismissed for
+  // good (2026-09-18: was a bare string[] — permanent-only). `Infinity`
+  // itself does NOT survive JSON.stringify (becomes `null`, which then
+  // compares as 0 and un-dismisses on the next reload) — MAX_SAFE_INTEGER
+  // is the JSON-safe stand-in. Reads an old array-shaped value from before
+  // this change as FOREVER for each key, so nobody's already-dismissed
+  // banners come back.
+  const [dismissedPending, setDismissedPending] = useState<Record<string, number>>(() => {
+    try {
+      const raw = JSON.parse(localStorage.getItem('vethub_dismissed_pending') || '{}');
+      if (Array.isArray(raw)) return Object.fromEntries(raw.map((k: string) => [k, FOREVER]));
+      return raw && typeof raw === 'object' ? raw : {};
+    } catch { return {}; }
   });
 
   // ── Payment history ──────────────────────────────────────────
@@ -708,17 +724,25 @@ const BillingView: React.FC = () => {
   // (localStorage, keyed by reference/id), so this one stays gone but a NEW
   // stuck payment still shows.
   const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+  const ONE_WEEK_MS = 7 * 24 * 60 * 60 * 1000;
   const pendingKey = (r: any): string => String(r.reference || r.id || r.createdAt);
   const stalePending = history.find(
     (r) => r.status === 'PENDING' && Date.now() - new Date(r.createdAt).getTime() > FOUR_HOURS_MS
-      && !dismissedPending.includes(pendingKey(r)),
+      && !(dismissedPending[pendingKey(r)] > Date.now()),
   );
-  const dismissPending = () => {
+  // Two ways to close it (2026-09-18: was dismiss-forever only). Bounded to
+  // the last 20 keys so a clinic with years of history doesn't grow this
+  // localStorage value forever.
+  const setPendingDismissUntil = (until: number) => {
     if (!stalePending) return;
-    const next = [...dismissedPending, pendingKey(stalePending)].slice(-20); // keep the list bounded
+    const key = pendingKey(stalePending);
+    const entries = Object.entries({ ...dismissedPending, [key]: until });
+    const next = Object.fromEntries(entries.slice(-20));
     setDismissedPending(next);
     try { localStorage.setItem('vethub_dismissed_pending', JSON.stringify(next)); } catch { /* ignore */ }
   };
+  const dismissPending = () => setPendingDismissUntil(FOREVER);
+  const snoozePending = () => setPendingDismissUntil(Date.now() + ONE_WEEK_MS);
 
   // Every payment attempt is an invoice for a subscription term; only a
   // settled one also has a receipt.
@@ -847,14 +871,26 @@ const BillingView: React.FC = () => {
           >
             <LifeBuoy size={14} /> Raise a ticket
           </button>
-          <button
-            onClick={dismissPending}
-            title="Dismiss — this payment won't be flagged again"
-            aria-label="Dismiss"
-            className="shrink-0 p-2 rounded-lg text-amber-500 hover:text-amber-800 dark:hover:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors self-start sm:self-auto"
-          >
-            <X size={15} />
-          </button>
+          {/* Two ways to close it (2026-09-18) — a payment attempt that's
+              really just slow to reconcile deserves a snooze, not the same
+              "never again" as one that's genuinely a dead end. */}
+          <div className="flex items-center gap-1 shrink-0 self-start sm:self-auto">
+            <button
+              onClick={snoozePending}
+              title="Hide for a week, then flag again if it's still pending"
+              className="px-2.5 py-2 rounded-lg text-amber-700 dark:text-amber-300 hover:text-amber-900 dark:hover:text-amber-100 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors text-[10px] font-black uppercase tracking-wider whitespace-nowrap"
+            >
+              Remind me in a week
+            </button>
+            <button
+              onClick={dismissPending}
+              title="Dismiss forever — this payment won't be flagged again"
+              aria-label="Dismiss forever"
+              className="p-2 rounded-lg text-amber-500 hover:text-amber-800 dark:hover:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/40 transition-colors"
+            >
+              <X size={15} />
+            </button>
+          </div>
         </div>
       )}
 
