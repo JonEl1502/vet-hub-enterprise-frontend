@@ -6599,6 +6599,22 @@ const VisitDetailInner: React.FC<Props> = ({
               </div>
             </div>
           )}
+          {/* Neither panel above has anything to render — a transfer visit, a
+              closed visit, or one with no tasks yet all skip the "send a
+              service" card entirely, and a visit with zero outsourced jobs
+              renders nothing from VisitJobsPanel either. Say so instead of
+              leaving the tab blank (user, 2026-09-18). */}
+          {visitJobsForTasks.length === 0 && !(!isTransferVisit && !visitClosed && (appointment.tasks || []).length > 0) && (
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 text-center">
+              <p className="text-[11px] font-bold text-slate-400">
+                {isTransferVisit
+                  ? 'Nothing shared on this transfer visit yet.'
+                  : visitClosed
+                    ? 'This visit closed with nothing sent to or shared with a partner clinic.'
+                    : 'Nothing to share yet — add a service to this visit first, then send it to a partner clinic from here.'}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
