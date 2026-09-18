@@ -63,6 +63,8 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   signup: (data: { user: User; tokens: AuthTokens }) => Promise<void>;
   logout: () => Promise<void>;
+  /** Persona switching (302) — swap onto a linked account, no password. */
+  switchPersona: (targetUserId: string) => Promise<void>;
   refreshSession: () => Promise<void>;
   markEmailVerified: () => void;
 }
@@ -254,6 +256,23 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  // Always a hard reload — same reasoning as login()'s role-switch case: a
+  // persona switch is by definition a different account, so every in-memory
+  // context/cache needs to flush before the new session starts.
+  const switchPersona = async (targetUserId: string) => {
+    const response = await authAPI.switchPersona(targetUserId);
+    const { user: userData, tokens: tokenData } = response.data;
+    const { userClinics: _uc, ...slimUser } = userData;
+
+    safeSetItem('authTokens', JSON.stringify(tokenData));
+    safeSetItem('authUser', JSON.stringify(slimUser));
+    safeSetItem('authToken', tokenData.accessToken);
+    extractAndCacheClinicData(userData);
+
+    try { sessionStorage.setItem('vethub_just_logged_in', '1'); } catch {}
+    window.location.reload();
+  };
+
   const signup = async (data: { user: User; tokens: AuthTokens }) => {
     setUser(data.user);
     setTokens(data.tokens);
@@ -312,6 +331,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     login,
     signup,
     logout,
+    switchPersona,
     refreshSession,
     markEmailVerified,
   };

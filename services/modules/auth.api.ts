@@ -192,6 +192,28 @@ export const authAPI = {
   },
 
   /**
+   * Other logins (e.g. a linked supplier account) this login can switch into (302).
+   */
+  getLinkedAccounts: async (
+    options?: RequestOptions
+  ): Promise<ApiResponse<{ accounts: Array<{ id: string; role: string; name: string; orgName: string | null }> }>> => {
+    return get(ENDPOINTS.AUTH.LINKED_ACCOUNTS, { cache: false, ...options });
+  },
+
+  /**
+   * Swap the session onto a linked account — no password required (302).
+   */
+  switchPersona: async (
+    targetUserId: string,
+    options?: RequestOptions
+  ): Promise<ApiResponse<LoginResponse>> => {
+    return post<LoginResponse>(ENDPOINTS.AUTH.SWITCH_PERSONA, { targetUserId }, {
+      showError: true,
+      ...options,
+    });
+  },
+
+  /**
    * Logout
    */
   logout: async (

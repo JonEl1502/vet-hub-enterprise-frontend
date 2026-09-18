@@ -11,7 +11,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { UserRole, Clinic, Visit, ClinicSubscription } from '../../../types';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import { useSupplier } from '../../../contexts/SupplierContext';
-import { visitsAPI, purchaseOrderAPI, remindersAPI, REMINDER_SERVICE_META, messagingAPI } from '../../../services';
+import { visitsAPI, purchaseOrderAPI, remindersAPI, REMINDER_SERVICE_META, messagingAPI, authAPI } from '../../../services';
 import type { InboxMessage } from '../../../services/modules/messaging.api';
 import type { PurchaseOrder, Reminder } from '../../../services';
 
@@ -195,7 +195,13 @@ const Navbar: React.FC<NavbarProps> = ({
   // and admins jump between clinics so a global role label is fine.
   // Hoisted above `roleLabel`, which needs it — it used to be declared 80
   // lines further down, after the notification effect.
-  const { user } = useAuth();
+  const { user, switchPersona } = useAuth();
+
+  // Persona switching (302). Empty for the overwhelming majority of accounts
+  // (no linked account) — fetched only once the dropdown is actually opened,
+  // so this never costs a request on every page load.
+  const [linkedAccounts, setLinkedAccounts] = useState<Array<{ id: string; role: string; name: string; orgName: string | null }>>([]);
+  const [switchingId, setSwitchingId] = useState<string | null>(null);
   /**
    * ⚠️ A SUPPLIER'S JOB TITLE IS `supplierRole`, NOT `role`.
    *
@@ -224,6 +230,26 @@ const Navbar: React.FC<NavbarProps> = ({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  // Persona switching (302) — fetch only when the dropdown opens.
+  useEffect(() => {
+    if (!showUserDropdown) return;
+    let cancelled = false;
+    authAPI.getLinkedAccounts({ showError: false }).then(res => {
+      if (!cancelled && res.success && res.data?.accounts) setLinkedAccounts(res.data.accounts);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [showUserDropdown]);
+
+  const handleSwitchPersona = async (accountId: string) => {
+    setSwitchingId(accountId);
+    try {
+      await switchPersona(accountId);
+      // switchPersona() hard-reloads the page on success — nothing left to do.
+    } catch {
+      setSwitchingId(null);
+    }
+  };
 
   // Fetch today's appointments + pending-payment + pending POs when panel opens
   useEffect(() => {
@@ -945,6 +971,28 @@ const Navbar: React.FC<NavbarProps> = ({
                       <p className="text-[8px] opacity-60 uppercase text-pine dark:text-zinc-100">Bug, payment, data or access</p>
                     </div>
                   </button>
+                  {/* Persona switching (302) — invisible unless an admin has
+                      actually linked another account to this login. */}
+                  {linkedAccounts.map(acc => (
+                    <button
+                      key={acc.id}
+                      disabled={switchingId !== null}
+                      onClick={() => handleSwitchPersona(acc.id)}
+                      className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-50"
+                    >
+                      {switchingId === acc.id ? (
+                        <Loader2 size={16} className="text-seafoam animate-spin" />
+                      ) : (
+                        <Network size={16} className="text-seafoam" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-[10px] font-bold uppercase text-pine dark:text-zinc-100 truncate">
+                          Switch to {acc.orgName || acc.name || acc.role}
+                        </p>
+                        <p className="text-[8px] opacity-60 uppercase text-pine dark:text-zinc-100">{acc.role.replace('_', ' ')} account</p>
+                      </div>
+                    </button>
+                  ))}
                   <button
                     onClick={() => { setShowUserDropdown(false); onLogout?.(); }}
                     className="w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left hover:bg-slate-50 dark:hover:bg-zinc-800 text-red-500"

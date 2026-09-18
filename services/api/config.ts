@@ -61,6 +61,8 @@ export const ENDPOINTS = {
     VERIFY_ACCOUNT: '/auth/verify-account',
     GOOGLE: '/auth/google',
     GOOGLE_CALLBACK: '/auth/google/callback',
+    LINKED_ACCOUNTS: '/auth/linked-accounts',
+    SWITCH_PERSONA: '/auth/switch-persona',
   },
 
   // Pet-owner portal — client-facing surface (separate from staff routes).
