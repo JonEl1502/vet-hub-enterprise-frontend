@@ -184,9 +184,16 @@ const PurchaseOrderDetailView: React.FC<Props> = ({ purchaseOrderId, clinic, onB
         reference: `po:${purchaseOrder.id}`,
       });
       if (res.success) {
-        // Mark PO as PAID after wallet transfer succeeds
-        try { await purchaseOrderAPI.updateStatus(purchaseOrder.id, 'PAID'); } catch { /* best effort */ }
-        toast.success('Payment recorded — order marked as paid');
+        // Mark PO as PAID after wallet transfer succeeds. NOT best-effort
+        // anymore (301) — the backend now refuses this when delivery was
+        // never confirmed, and swallowing that left the wallet debited with
+        // a false "success" toast while the order silently stayed unpaid.
+        try {
+          await purchaseOrderAPI.updateStatus(purchaseOrder.id, 'PAID');
+          toast.success('Payment recorded — order marked as paid');
+        } catch (statusErr: any) {
+          toast.error(statusErr?.response?.data?.message || 'Wallet transfer went through, but the order could not be marked paid');
+        }
         setReconOpen(false);
         fetchPurchaseOrder();
       }
