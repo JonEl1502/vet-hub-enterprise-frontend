@@ -3560,6 +3560,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   return (
     <>
       <ToastContainer />
+      {/* Global dialog host — drives dialog.confirm / dialog.alert / dialog.confirmDelete.
+          Rendered here, ABOVE the community/clinic-shell split below, because
+          Community's `CommunityAccessGate` (2026-09-18) depends on dialog.confirm()
+          for its upgrade prompt — it used to live inside the clinic-shell branch only,
+          so every dialog.confirm() call made from Community rendered nothing at all. */}
+      <DialogHost />
       {/* ══ COMMUNITY OWNS THE WHOLE SCREEN (297) ══════════════════════════
           Community is a different mode of attention from running a clinic, so
           it renders OUTSIDE the clinic shell — its own header, wordmark, nav
@@ -3571,9 +3577,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           and returns to the exact view the user left (`goBack`, falling back
           to the dashboard when Community was entered by deep link).
 
-          ⚠️ NO PLAN GATE. Reading and replying are free to every signed-in
-          user; the server gates originating a post. A lapsed clinic must still
-          reach this. ══════════════════════════════════════════════════════ */}
+          Reading is still free to every signed-in user, past the 15s preview;
+          the server gates originating a post. Reacting, replying, saving and
+          following now run through `CommunityAccessGate.requireAccess()` (see
+          that file) — free for anyone WITH access, an upgrade prompt for
+          anyone without. ══════════════════════════════════════════════════════ */}
       {activeView === 'community' ? (
         <CommunityApp
           onBackToWork={() => (navStack.length > 1 ? goBack() : navigateTo('dashboard'))}
@@ -3876,8 +3884,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         />
       )}
 
-      {/* Global dialog host — drives dialog.confirm / dialog.alert / dialog.confirmDelete */}
-      <DialogHost />
       {/* Tour overlay + module picker */}
       <TourOverlay />
       <TourMenu />

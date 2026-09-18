@@ -24,10 +24,12 @@ import { useCommunityAccessGate } from './CommunityAccessGate';
  * readers would treat a dog and a Helpful as the same vote, which is exactly
  * what the server refuses to do when it counts them.
  *
- * ── Everything here is free ───────────────────────────────────────────────
- * Reacting, replying, saving and following need no add-on. The add-on gates
- * ORIGINATING a post. A reader who cannot reply is an audience, not a
- * community.
+ * ── Free, if you have Community Access ────────────────────────────────────
+ * Reacting, saving and following used to need no add-on at all — that
+ * predates Community Access having a real price. As of 2026-09-18 they run
+ * through `requireAccess()` (see `CommunityAccessGate`): free for anyone who
+ * has it, an upgrade prompt for anyone mid-preview who does not. Originating
+ * a post is a separate, server-side gate (`canPost` in CommunityApp).
  */
 
 const KIND_META: Record<string, { label: string; className: string }> = {
