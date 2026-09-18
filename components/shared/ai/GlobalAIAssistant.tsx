@@ -17,6 +17,9 @@ export interface AIContext {
   // conversation to that visit so it persists across reopens, same as any
   // other per-visit record.
   appointmentId?: string | number;
+  // Present on the boarding stay page (2026-09-18) — swaps the "draft"
+  // action from clinical-narrative to the day-log's structured fields.
+  stayId?: string | number;
 }
 
 // Marker so the seeded context line can be stripped from what we display.
@@ -186,6 +189,30 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
     }
   };
 
+  // Same handoff as draftNotes, but for the boarding day-log's structured
+  // fields instead of a clinical narrative — reuses the review-and-accept
+  // pattern (BoardingStayPage pre-fills its draft, staff still clicks Save).
+  const [draftingDayLog, setDraftingDayLog] = useState(false);
+  const draftDayLog = async () => {
+    if (!conversationId || draftingDayLog) return;
+    setDraftingDayLog(true);
+    try {
+      const res = await aiAPI.draftDayLogFromConversation(conversationId);
+      if (res.success && res.data?.draft) {
+        window.dispatchEvent(new CustomEvent('vethub:draft-daylog-from-chat', {
+          detail: { stayId: context.stayId, draft: res.data.draft },
+        }));
+        toast.success('Draft sent to the day log — review and save it there.');
+      } else {
+        toast.error('Could not draft a day-log entry from this conversation.');
+      }
+    } catch {
+      toast.error('Could not draft a day-log entry from this conversation.');
+    } finally {
+      setDraftingDayLog(false);
+    }
+  };
+
   // Resize from the top-left grip (the panel is anchored bottom-right).
   const onResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -273,6 +300,20 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
           >
             {drafting ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
             Draft from this conversation
+          </button>
+        </div>
+      )}
+
+      {/* Boarding day log — swaps in when the widget is opened from a stay page. */}
+      {context.stayId && conversationId && messages.length > 0 && (
+        <div className="px-2.5 pt-2 border-t border-slate-200 dark:border-zinc-800 shrink-0">
+          <button
+            onClick={draftDayLog}
+            disabled={draftingDayLog}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 dark:hover:bg-indigo-950/50 transition-all disabled:opacity-50"
+          >
+            {draftingDayLog ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+            Draft to today's care log
           </button>
         </div>
       )}

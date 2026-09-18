@@ -275,6 +275,43 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
     finally { setDaySaving(false); }
   };
 
+  // The global Ask-AI widget's "Draft to today's care log" button hands off
+  // a parsed draft here via a window event — same bridge pattern as the
+  // visit-narrative draft in VisitDetailView (widget is mounted at App
+  // root, outside this component's tree). Opens today's entry (keeping
+  // whatever's already logged, if anything), then layers only the fields
+  // the AI actually extracted on top — nothing it left null overwrites an
+  // existing value, and nothing saves until staff reviews and hits Save.
+  useEffect(() => {
+    const onChatDraft = (e: Event) => {
+      const detail = (e as CustomEvent).detail || {};
+      if (String(detail.stayId) !== String(stayId) || !detail.draft) return;
+      const todayKey = (() => { const x = new Date(); return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`; })();
+      const existing = (stay?.dailyLogs || []).find((l: any) => {
+        const x = new Date(l.logDate);
+        const k = `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+        return k === todayKey;
+      });
+      openDayEditor(todayKey, existing);
+      const d = detail.draft;
+      setDayDraft((prev: any) => ({
+        ...prev,
+        ...(d.fedAm != null && { fedAm: d.fedAm }),
+        ...(d.fedPm != null && { fedPm: d.fedPm }),
+        ...(d.walked != null && { walked: d.walked }),
+        ...(d.medicationGiven != null && { medicationGiven: d.medicationGiven }),
+        ...(d.stool && { stool: d.stool }),
+        ...(d.appetite && { appetite: d.appetite }),
+        ...(d.foodNotes && { foodNotes: d.foodNotes }),
+        ...(d.notes && { notes: d.notes }),
+      }));
+      toast.success("Draft filled in — review today's entry below and save it.");
+    };
+    window.addEventListener('vethub:draft-daylog-from-chat', onChatDraft);
+    return () => window.removeEventListener('vethub:draft-daylog-from-chat', onChatDraft);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stayId, stay]);
+
   // Per-day charges for the reconciliation sheet (user, 2026-08-02): daily
   // boarding rate + billable consumables logged that day. Shown even at 0.
   const [consumables, setConsumables] = useState<any[]>([]);

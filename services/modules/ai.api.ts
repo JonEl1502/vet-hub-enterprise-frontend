@@ -84,6 +84,13 @@ export const aiAPI = {
   summariseConversation: (id: string | number): Promise<ApiResponse<{ conversationId: string; summary: string; status: string }>> =>
     post(ENDPOINTS.AI.CONVERSATION_SUMMARY(id), {}),
 
+  /** Boarding day-log draft — parses loose shorthand into the day-log's structured fields. */
+  draftDayLogFromConversation: (id: string | number): Promise<ApiResponse<{ conversationId: string; draft: {
+    fedAm: boolean | null; fedPm: boolean | null; walked: boolean | null; medicationGiven: boolean | null;
+    stool: string | null; appetite: string | null; foodNotes: string | null; notes: string | null;
+  } }>> =>
+    post(ENDPOINTS.AI.CONVERSATION_DAYLOG_DRAFT(id), {}),
+
   generateServiceNote: (input: ServiceNoteInput): Promise<ApiResponse<ServiceNoteResult>> =>
     post<ServiceNoteResult>(ENDPOINTS.AI.SERVICE_NOTE, input),
 

@@ -3553,7 +3553,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         clientName = clientName || getClientById(appt.clientId)?.name;
       }
     }
-    return { page: activeView, userName: (user as any)?.name, userRole: (user as any)?.role, patientName, clientName, species, age, appointmentId };
+    const stayId = activeView === 'boarding-stay' ? p.stayId : undefined;
+    return { page: activeView, userName: (user as any)?.name, userRole: (user as any)?.role, patientName, clientName, species, age, appointmentId, stayId };
   })();
 
   return (

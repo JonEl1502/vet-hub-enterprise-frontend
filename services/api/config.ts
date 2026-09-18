@@ -472,6 +472,7 @@ export const ENDPOINTS = {
     CHAT: '/ai/chat',
     CONVERSATIONS: '/ai/conversations',
     CONVERSATION_SUMMARY: (id: string | number) => `/ai/conversations/${id}/summary`,
+    CONVERSATION_DAYLOG_DRAFT: (id: string | number) => `/ai/conversations/${id}/day-log-draft`,
     SERVICE_NOTE: '/ai/service-note',
     VISIT_SUMMARY: '/ai/visit-summary',
     ANALYZE: '/ai/analyze',
