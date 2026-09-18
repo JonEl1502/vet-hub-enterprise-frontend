@@ -6,6 +6,7 @@ import {
 import { communityAPI, CommunityPost, toast, dialog } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import { PACKS, packFor } from './packs';
+import { useCommunityAccessGate } from './CommunityAccessGate';
 
 /**
  * One post in the feed (297).
@@ -53,6 +54,7 @@ interface Props {
 const PostCard: React.FC<Props> = ({
   post, onChange, onOpen, onOpenAuthor, onOpenTag, onOrder, onRemove, mine, expanded,
 }) => {
+  const { requireAccess } = useCommunityAccessGate();
   const meta = KIND_META[post.kind] || KIND_META.ARTICLE;
   const [packOpen, setPackOpen] = useState(false);
   const packRef = useRef<HTMLDivElement | null>(null);
@@ -80,6 +82,7 @@ const PostCard: React.FC<Props> = ({
    * returns, never incremented again on top of the guess.
    */
   const react = async (kind: 'HELPFUL' | 'THANKS' | 'EMOJI', emoji?: string) => {
+    if (!requireAccess()) return;
     const key = kind === 'HELPFUL' ? 'viewerHelpful' : 'viewerThanks';
     const countKey = kind === 'HELPFUL' ? 'helpfulCount' : 'thanksCount';
 
@@ -113,6 +116,7 @@ const PostCard: React.FC<Props> = ({
   };
 
   const save = async () => {
+    if (!requireAccess()) return;
     const on = !post.viewerSaved;
     onChange({ ...post, viewerSaved: on });
     try {
@@ -132,6 +136,7 @@ const PostCard: React.FC<Props> = ({
   };
 
   const report = async () => {
+    if (!requireAccess()) return;
     const ok = await dialog.confirm({
       title: 'Report this post?',
       message: 'A moderator will look at it. Your name is not shown to the author.',

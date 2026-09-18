@@ -3,14 +3,19 @@ import { ArrowLeft, Loader2, Flag, Trash2, EyeOff, ThumbsUp, CornerDownRight } f
 import { communityAPI, CommunityComment, CommunityPost, toast, dialog } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import PostCard from './PostCard';
+import { useCommunityAccessGate } from './CommunityAccessGate';
 
 /**
  * A post and its thread (297).
  *
- * ⚠️ REPLYING IS FREE TO EVERY SIGNED-IN USER — clients and farm owners
- * included. The add-on gates ORIGINATING a post, never answering one. A reader
- * who cannot reply is an audience, not a community, and this screen is where
- * that distinction is actually cashed.
+ * ⚠️ REPLYING used to be free to every signed-in user, same reasoning as
+ * reading (a reader who cannot reply is an audience, not a community). That
+ * predates Community Access having a real price. As of 2026-09-18, replying
+ * (and reacting, saving, following, reporting) now runs through
+ * `requireAccess()` — see CommunityAccessGate — so a non-subscriber gets an
+ * upgrade dialog on the attempt, mid-preview, rather than a free pass. Only
+ * ORIGINATING a post stays a separate, server-side gate (`canPost` in
+ * CommunityApp), untouched by this.
  *
  * ⚠️ ONE LEVEL OF NESTING. The server flattens a reply-to-a-reply onto the
  * top-level comment; this renders the same shape. Arbitrary depth becomes
@@ -33,6 +38,7 @@ interface Props {
 }
 
 const PostDetail: React.FC<Props> = ({ post, onBack, onChange, onOpenAuthor, onOpenTag, onOrder, ownsPost }) => {
+  const { requireAccess } = useCommunityAccessGate();
   const [comments, setComments] = useState<CommunityComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [body, setBody] = useState('');
@@ -50,6 +56,7 @@ const PostDetail: React.FC<Props> = ({ post, onBack, onChange, onOpenAuthor, onO
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [post.id]);
 
   const send = async () => {
+    if (!requireAccess()) return;
     const text = body.trim();
     if (!text) return;
     setSending(true);
@@ -63,6 +70,7 @@ const PostDetail: React.FC<Props> = ({ post, onBack, onChange, onOpenAuthor, onO
   };
 
   const helpful = async (c: CommunityComment) => {
+    if (!requireAccess()) return;
     // Optimistic, then replaced by the server's number — never added on top of
     // the guess, or a slow network double-counts.
     setComments(list => list.map(x => x.id === c.id
@@ -98,6 +106,7 @@ const PostDetail: React.FC<Props> = ({ post, onBack, onChange, onOpenAuthor, onO
   };
 
   const report = async (c: CommunityComment) => {
+    if (!requireAccess()) return;
     const ok = await dialog.confirm({
       title: 'Report this reply?',
       message: 'A moderator will look at it. Your name is not shown to the author.',

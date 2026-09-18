@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Calendar, MapPin } from 'lucide-react';
 import { communityAPI, CommunityPost, CommunityFollowing, FollowSubject } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import { useCommunityAccessGate } from './CommunityAccessGate';
 
 /**
  * The discovery column (297): trending topics, who's here, meet-ups near you,
@@ -30,6 +31,7 @@ const Card: React.FC<{ title: string; extra?: React.ReactNode; children: React.R
 );
 
 const DiscoverRail: React.FC<Props> = ({ onOpenTag, onOpenPost, reach }) => {
+  const { requireAccess } = useCommunityAccessGate();
   const [topics, setTopics] = useState<Array<{ tag: string; posts: number }>>([]);
   const [meets, setMeets] = useState<CommunityPost[]>([]);
   const [suggested, setSuggested] = useState<CommunityPost[]>([]);
@@ -87,6 +89,7 @@ const DiscoverRail: React.FC<Props> = ({ onOpenTag, onOpenPost, reach }) => {
   };
 
   const toggleFollow = async (p: CommunityPost) => {
+    if (!requireAccess()) return;
     const s = subjectOf(p);
     if (!s) return;
     setBusy(s.key);
@@ -107,6 +110,7 @@ const DiscoverRail: React.FC<Props> = ({ onOpenTag, onOpenPost, reach }) => {
   };
 
   const toggleTag = async (tag: string) => {
+    if (!requireAccess()) return;
     try {
       const res = await communityAPI.follow({ tag });
       const on = !!res.data?.following;

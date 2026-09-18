@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Loader2 } from 'lucide-react';
 import { communityAPI, CommunityPost, CommunityProfile, FollowSubject } from '../../../services';
 import PostCard from './PostCard';
+import { useCommunityAccessGate } from './CommunityAccessGate';
 
 /**
  * An author's own page (297).
@@ -39,6 +40,7 @@ const KIND_TABS: Array<{ key: string; label: string }> = [
 ];
 
 const AuthorProfile: React.FC<Props> = ({ subject, onBack, onOpenPost, onOpenTag, onOrder, currentUserId }) => {
+  const { requireAccess } = useCommunityAccessGate();
   const [profile, setProfile] = useState<CommunityProfile | null>(null);
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [tab, setTab] = useState('ALL');
@@ -73,6 +75,7 @@ const AuthorProfile: React.FC<Props> = ({ subject, onBack, onOpenPost, onOpenTag
   }, [subject.clinicId, subject.supplierId, subject.userId, tab]);
 
   const toggleFollow = async () => {
+    if (!requireAccess()) return;
     if (!profile) return;
     const s: FollowSubject | null =
       profile.clinicId ? { clinicId: profile.clinicId }

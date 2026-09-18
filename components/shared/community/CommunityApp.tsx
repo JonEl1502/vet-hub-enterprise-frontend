@@ -13,6 +13,7 @@ import AuthorProfile, { ProfileSubject } from './AuthorProfile';
 import MarketplaceRail, { Listing } from './MarketplaceRail';
 import ListingView from './ListingView';
 import DiscoverRail from './DiscoverRail';
+import { CommunityAccessGateProvider } from './CommunityAccessGate';
 
 /**
  * Community, as its own destination (297).
@@ -179,8 +180,9 @@ const CommunityApp: React.FC<Props> = ({
   const onFeed = screen.name === 'FEED';
 
   return (
-    /* A warmer ground than the clinic app, on purpose: you should be able to
-       feel which room you are in before reading a word. */
+    <CommunityAccessGateProvider hasAccess={hasCommunityAccess} onGetAccess={onGoToBilling}>
+    {/* A warmer ground than the clinic app, on purpose: you should be able to
+       feel which room you are in before reading a word. */}
     <div className="min-h-screen bg-[#F4F1EA] dark:bg-[#12100C] text-slate-900 dark:text-zinc-100">
 
       {/* Preview countdown (2026-09-18) — floats over content rather than
@@ -395,6 +397,7 @@ const CommunityApp: React.FC<Props> = ({
         </div>
       </div>
     </div>
+    </CommunityAccessGateProvider>
   );
 };
 
