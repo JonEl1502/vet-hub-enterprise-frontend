@@ -23,11 +23,11 @@
   <!-- ── Open Graph (WhatsApp, Facebook, LinkedIn) ─────────────────── -->
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="VetHubCore">
-  <meta property="og:url" content="https://app.vethubcore.com/">
+  <meta property="og:url" content="https://vethubcore.com/">
   <meta property="og:title" content="VetHubCore — The Operating System for Veterinary Practice">
   <meta property="og:description" content="Every clinic · Every pet · Every team. Visits, records, inventory, and billing — one connected platform with 24/7 support. Start your 1-month free demo — full access, no card required.">
-  <meta property="og:image" content="https://app.vethubcore.com/og-image.jpg?v=4">
-  <meta property="og:image:secure_url" content="https://app.vethubcore.com/og-image.jpg?v=4">
+  <meta property="og:image" content="https://vethubcore.com/og-image.jpg?v=4">
+  <meta property="og:image:secure_url" content="https://vethubcore.com/og-image.jpg?v=4">
   <meta property="og:image:type" content="image/jpeg">
   <meta property="og:image:width" content="1200">
   <meta property="og:image:height" content="630">
@@ -38,7 +38,97 @@
   <meta name="twitter:card" content="summary_large_image">
   <meta name="twitter:title" content="VetHubCore — The Operating System for Veterinary Practice">
   <meta name="twitter:description" content="Every clinic · Every pet · Every team. Visits, records, inventory, and billing — one connected platform with 24/7 support.">
-  <meta name="twitter:image" content="https://app.vethubcore.com/og-image.jpg?v=4">
+  <meta name="twitter:image" content="https://vethubcore.com/og-image.jpg?v=4">
+
+  <!-- ── Structured data ───────────────────────────────────────────────
+       Ported 2026-09-18 from the orphaned static marketing homepage,
+       which had this well-built already (including a disambiguation FAQ
+       entry) but stopped being reachable once the apex started serving
+       this app instead. "VetHub" alone collides with several unrelated
+       products (a Kenyan agrovet platform, a US veterans marketplace, a
+       PACS imaging tool, etc.) — this is what tells Google which one is
+       ours. `sameAs` is empty on purpose: fill it with real social/
+       business-profile URLs (LinkedIn, Google Business Profile) when
+       they exist, never with a guessed or placeholder link. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": "https://vethubcore.com/#organization",
+        "name": "VetHubCore",
+        "alternateName": ["VetHub Core", "Vet Hub Core"],
+        "url": "https://vethubcore.com/",
+        "logo": "https://vethubcore.com/favicon-512.png",
+        "description": "VetHubCore builds veterinary practice management software for clinics, veterinary suppliers, farms and pet owners across Africa.",
+        "foundingLocation": { "@type": "Place", "name": "Nairobi, Kenya" },
+        "areaServed": [
+          { "@type": "Country", "name": "Kenya" },
+          { "@type": "Country", "name": "Uganda" },
+          { "@type": "Country", "name": "Tanzania" },
+          { "@type": "Country", "name": "Nigeria" },
+          { "@type": "Country", "name": "Ghana" },
+          { "@type": "Country", "name": "Rwanda" },
+          { "@type": "Country", "name": "South Africa" }
+        ],
+        "sameAs": []
+      },
+      {
+        "@type": "WebSite",
+        "@id": "https://vethubcore.com/#website",
+        "url": "https://vethubcore.com/",
+        "name": "VetHubCore",
+        "publisher": { "@id": "https://vethubcore.com/#organization" },
+        "inLanguage": "en"
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": "https://vethubcore.com/#software",
+        "name": "VetHubCore",
+        "applicationCategory": "BusinessApplication",
+        "applicationSubCategory": "Veterinary Practice Management Software",
+        "operatingSystem": "Web, iOS, Android",
+        "url": "https://vethubcore.com/",
+        "description": "Run your whole veterinary practice in one place: appointments, patient and medical records, laboratory, surgery, imaging, inpatient care, pharmacy and inventory, invoicing, M-Pesa and card payments, plus a pet-owner portal.",
+        "publisher": { "@id": "https://vethubcore.com/#organization" },
+        "countriesSupported": ["KE", "UG", "TZ", "NG", "GH", "RW", "ZA"],
+        "offers": {
+          "@type": "Offer",
+          "priceCurrency": "KES",
+          "price": "0",
+          "description": "Free one-month trial with full access. No card required."
+        }
+      },
+      {
+        "@type": "FAQPage",
+        "@id": "https://vethubcore.com/#faq",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "What is VetHubCore?",
+            "acceptedAnswer": { "@type": "Answer", "text": "VetHubCore is veterinary practice management software. It runs a clinic's whole day in one system — appointments, consultations, medical records, laboratory, surgery, imaging, inpatient care, pharmacy and inventory, invoicing and payments — and gives pet owners a portal to book, message and pay online." }
+          },
+          {
+            "@type": "Question",
+            "name": "Does VetHubCore support M-Pesa?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes. M-Pesa is built into billing, so a client can pay an invoice from the counter or from the pet-owner portal, and the payment settles against the invoice automatically. Card payments are supported alongside it." }
+          },
+          {
+            "@type": "Question",
+            "name": "Is there a free trial?",
+            "acceptedAnswer": { "@type": "Answer", "text": "Yes. Every new clinic gets one month of full access, with no card required to start." }
+          },
+          {
+            "@type": "Question",
+            "name": "Is VetHubCore the same as VetHub Services?",
+            "acceptedAnswer": { "@type": "Answer", "text": "No. VetHubCore is a separate company and a separate product. VetHubCore builds practice management software that veterinary clinics run their operations on. Any similarly named business is unrelated to us." }
+          }
+        ]
+      }
+    ]
+  }
+  </script>
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
