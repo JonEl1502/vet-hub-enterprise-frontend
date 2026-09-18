@@ -3,8 +3,9 @@ import { Activity, AlertTriangle, HeartPulse, Wind, Droplets, Brain, Thermometer
 import toast from 'react-hot-toast';
 import { triageAPI, consumablesAPI, EmergencyTriageRecord, TriageCategory, TriageOutcome } from '../../../services';
 import { formatTime } from '../../../services/utils/dateFormatter';
-import { STABILIZATION, billableKey, loadEmergencyBillables } from './emergencyBillables';
+import { STABILIZATION, billableKey, EmergencyBillablesConfig } from './emergencyBillables';
 import { useData } from '../../../contexts/DataContext';
+import { useClinic } from '../../../contexts/ClinicContext';
 import { notifyTriageChanged } from './triageEvents';
 
 interface StaffOpt { id: number | string; name: string }
@@ -211,8 +212,16 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId,
     setPrimarySurvey(p => ({ ...p, [sec]: { ...(p[sec] || {}), [k]: v } }));
 
   // Clinic-configured intervention fees + consumables (Clinic Management →
-  // Emergency Billables). UI phase: read from localStorage.
-  const billables = useMemo(() => loadEmergencyBillables(clinicId), [clinicId]);
+  // Emergency Billables) — stored on the clinic's own `emergencyBillables`
+  // column (2026-09-18; used to read from localStorage, which is how a
+  // priced oxygen cage never made it into the bill: this triage panel and
+  // the settings tab that priced it might not even be the same browser).
+  const { clinics, selectedClinics } = useClinic();
+  const billableClinic = clinics.find(c => String(c.id) === String(clinicId)) ?? selectedClinics[0] ?? null;
+  const billables = useMemo(
+    () => (billableClinic?.emergencyBillables as EmergencyBillablesConfig) ?? {},
+    [billableClinic?.emergencyBillables],
+  );
   const { inventory } = useData();
   const currency = 'KES';
   // Price attached consumables from the clinic's live inventory (qty × sell).
@@ -250,10 +259,18 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId,
         })
           .catch(() => toast.error(`${label}: failed to log consumables`));
       }
+      // Bill the intervention's own service fee, the same moment it is
+      // ticked — it used to only ever show as a number in this panel's own
+      // React state ("staged"), with nothing writing it to the visit at all.
+      if (b?.price) {
+        triageAPI.logInterventionFee(appointmentId, { label, price: b.price })
+          .then(r => { if (r.success) { toast.success(`${label} — fee billed`); onChargesChanged?.(); } })
+          .catch(() => toast.error(`${label}: failed to bill fee`));
+      }
     }
   };
 
-  // Ticked interventions → staged fees + (already-billed) consumables.
+  // Ticked interventions → fees + consumables, both already billed.
   const emergencyCharges = useMemo(() => {
     const feeLines: { label: string; price: number }[] = [];
     const consumableLines: { label: string; price: number }[] = [];
@@ -481,8 +498,8 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId,
                   <div key={`d-${c.k}`} className="ml-1 pl-2 border-l-2 border-seafoam/30 space-y-0.5">
                     {fee ? (
                       <div className="flex items-baseline justify-between gap-2 text-[9px]">
-                        <span className="font-bold text-slate-500 dark:text-zinc-400 truncate">{c.label} — fee (staged)</span>
-                        <span className="font-black font-mono text-amber-600 dark:text-amber-400 shrink-0">{currency} {fee.toLocaleString()}</span>
+                        <span className="font-bold text-slate-500 dark:text-zinc-400 truncate">{c.label} — fee (billed)</span>
+                        <span className="font-black font-mono text-emerald-600 dark:text-emerald-400 shrink-0">{currency} {fee.toLocaleString()}</span>
                       </div>
                     ) : null}
                     {cons.map((l, i) => {
@@ -532,14 +549,14 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId,
             </div>
           ))}
         </div>
-        {/* Ticked interventions → staged fees + already-billed consumables. */}
+        {/* Ticked interventions → fees + consumables, both already billed. */}
         {(emergencyCharges.feeLines.length > 0 || emergencyCharges.consumableLines.length > 0) && (
           <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20 p-3 space-y-1.5">
             <p className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Emergency protocol charges</p>
 
             {emergencyCharges.feeLines.length > 0 && (
               <div className="space-y-0.5">
-                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Intervention fees (staged)</p>
+                <p className="text-[8px] font-black uppercase tracking-widest text-emerald-600 dark:text-emerald-400">Intervention fees — billed on tick</p>
                 {emergencyCharges.feeLines.map((l, i) => (
                   <div key={i} className="flex items-baseline justify-between text-[11px]">
                     <span className="font-bold text-slate-600 dark:text-zinc-300">{l.label}</span>
@@ -565,7 +582,7 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId,
               <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">Total (fees + consumables)</span>
               <span className="text-[12px] font-black font-mono text-amber-700 dark:text-amber-400">{currency} {emergencyCharges.total.toLocaleString()}</span>
             </div>
-            <p className="text-[8px] font-bold text-slate-400">Consumables bill &amp; deduct immediately when ticked; intervention fees are added to the visit bill at finalize. Configure in Clinic Management → Emergency Billables.</p>
+            <p className="text-[8px] font-bold text-slate-400">Both bill immediately when ticked — consumables also deduct stock. Configure in Clinic Management → Emergency Billables.</p>
           </div>
         )}
         <div className="w-40"><label className="field-label">Pain score (0–10)</label><input className="field-input" type="number" min={0} max={10} value={painScore} onChange={e => setPainScore(e.target.value)} /></div>

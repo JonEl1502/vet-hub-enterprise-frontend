@@ -55,6 +55,9 @@ interface Clinic {
   // Per-weekday opening hours { mon: {open,close,closed}, ... } — drives
   // auto after-hours detection at visit registration.
   workingHours?: Record<string, { open: string; close: string; closed: boolean }> | null;
+  // Emergency triage intervention pricing, keyed `${group}:${check}` — see
+  // components/clinic/triage/emergencyBillables.ts for the shape.
+  emergencyBillables?: Record<string, { price?: number; consumables?: Array<{ inventoryItemId: string; name: string; qty: number; unit?: string }> }> | null;
 }
 
 /**
@@ -113,6 +116,7 @@ const transformApiClinic = (clinic: any): Clinic => ({
   shell: clinic.shell ?? (clinic.isLivestock === true ? 'FARM' : 'CLINIC'),
   catalogScope: clinic.catalogScope ?? 'ALL',
   workingHours: clinic.workingHours ?? null,
+  emergencyBillables: clinic.emergencyBillables ?? null,
 });
 
 interface ClinicContextType {

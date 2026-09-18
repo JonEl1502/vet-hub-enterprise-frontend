@@ -35,30 +35,14 @@ export const STABILIZATION: { key: string; title: string; icon: React.ElementTyp
 ];
 
 // ── Emergency billables config ────────────────────────────────────
-// Per intervention: an optional service fee (shown as a staged emergency
-// charge during triage) and optional consumables that auto-log (deduct
-// stock + bill) the moment the intervention is ticked.
-// UI-ONLY phase: persisted in localStorage; moves to a clinic settings
-// column in the API phase.
+// Per intervention: an optional service fee (billed immediately when ticked
+// during triage — see triage.service.logInterventionFee) and optional
+// consumables that auto-log (deduct stock + bill) the same moment.
+// Stored on the clinic's own `emergencyBillables` JSON column (2026-09-18) —
+// used to be localStorage-only, which is how a priced intervention could be
+// configured on one browser and never bill anywhere, on any device.
 export interface EmergencyBillableConsumable { inventoryItemId: string; name: string; qty: number; unit?: string }
 export interface EmergencyBillable { price?: number; consumables?: EmergencyBillableConsumable[] }
 export type EmergencyBillablesConfig = Record<string, EmergencyBillable>; // key `${group}:${check}`
 
 export const billableKey = (groupKey: string, checkKey: string) => `${groupKey}:${checkKey}`;
-
-const STORAGE_PREFIX = 'vethub.emergencyBillables.v1';
-// Config is PER-CLINIC — the attached inventory items belong to one clinic, so a
-// config from clinic A must not surface (or 404) on clinic B. Keyed by clinicId.
-const keyFor = (clinicId?: string | number | null) =>
-  clinicId != null && clinicId !== '' ? `${STORAGE_PREFIX}:${clinicId}` : STORAGE_PREFIX;
-
-export function loadEmergencyBillables(clinicId?: string | number | null): EmergencyBillablesConfig {
-  try {
-    const raw = localStorage.getItem(keyFor(clinicId));
-    return raw ? (JSON.parse(raw) as EmergencyBillablesConfig) : {};
-  } catch { return {}; }
-}
-
-export function saveEmergencyBillables(clinicId: string | number | null, cfg: EmergencyBillablesConfig) {
-  try { localStorage.setItem(keyFor(clinicId), JSON.stringify(cfg)); } catch { /* quota */ }
-}

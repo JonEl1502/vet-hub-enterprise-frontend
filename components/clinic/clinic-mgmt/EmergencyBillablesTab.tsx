@@ -1,9 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import StayRatesEditor from './StayRatesEditor';
-import { Siren, Package, X, Search, CreditCard, BedDouble, Stethoscope } from 'lucide-react';
+import { Siren, Package, X, Search, CreditCard, BedDouble, Stethoscope, Loader2, Check } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
 import {
-  STABILIZATION, billableKey, loadEmergencyBillables, saveEmergencyBillables,
+  STABILIZATION, billableKey,
   EmergencyBillablesConfig,
 } from '../triage/emergencyBillables';
 import { VISIT_FEE_DEFS, loadVisitFees, saveVisitFees, VisitFeesConfig, loadVisitFeeServices, saveVisitFeeServices, VisitFeeServicesConfig, loadVisitFeeRates, saveVisitFeeRates, VisitFeeRatesConfig, loadVisitFeeMeta, saveVisitFeeMeta, VisitFeeMeta, DistanceUnit, HOUSE_CALL_DISTANCE_KEY } from '../shared/visitFees';
@@ -28,9 +28,6 @@ type ServiceChargeKey = ServiceChargeDef['key'];
 
 const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | number | null }> = ({ currency = 'KES', clinicId }) => {
   const { inventory } = useData();
-  const [cfg, setCfg] = useState<EmergencyBillablesConfig>(() => loadEmergencyBillables(clinicId));
-  // Reload the per-clinic config when the managed clinic changes.
-  useEffect(() => { setCfg(loadEmergencyBillables(clinicId)); }, [clinicId]);
   // Encounter/visit-type entry fees — applied automatically when the type is
   // picked at registration (blank/0 = no charge).
   const [fees, setFees] = useState<VisitFeesConfig>(() => loadVisitFees());
@@ -47,6 +44,39 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
   // CLINIC (177), not this browser, so colleagues and other devices see them.
   const { selectedClinics, updateClinic } = useClinic();
   const svcClinic = selectedClinics[0] ?? null;
+  /**
+   * Emergency protocol billables — used to be `localStorage`-only (2026-09-18
+   * postmortem: a priced oxygen cage staged a charge in the triage panel but
+   * nothing server-side ever saw it, so it silently never billed). Now stored
+   * on the clinic's own `emergencyBillables` JSON column, same as
+   * `workingHours` — one clinic, one config, every device and every colleague
+   * sees the same prices, and triage finalize can actually read them.
+   */
+  const [cfg, setCfg] = useState<EmergencyBillablesConfig>(() => (svcClinic?.emergencyBillables as EmergencyBillablesConfig) ?? {});
+  const [cfgSaving, setCfgSaving] = useState(false);
+  const [cfgSavedFlash, setCfgSavedFlash] = useState(false);
+  const cfgDirtyRef = useRef(false);
+  useEffect(() => {
+    cfgDirtyRef.current = false;
+    setCfg((svcClinic?.emergencyBillables as EmergencyBillablesConfig) ?? {});
+  }, [svcClinic?.id]);
+  // Debounced autosave — the price fields fire on every keystroke, and a PATCH
+  // per keystroke would hammer the API. 700ms after the last edit, one PATCH.
+  useEffect(() => {
+    if (!cfgDirtyRef.current || !svcClinic) return;
+    const t = setTimeout(async () => {
+      setCfgSaving(true);
+      try {
+        await updateClinic(svcClinic.id, { emergencyBillables: cfg } as any);
+        cfgDirtyRef.current = false;
+        setCfgSavedFlash(true);
+        setTimeout(() => setCfgSavedFlash(false), 1800);
+      } catch { /* updateClinic surfaces its own error */ }
+      finally { setCfgSaving(false); }
+    }, 700);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cfg, svcClinic?.id]);
   const savedCharges = chargesFromClinic(svcClinic);
   // Seed from this browser's pre-177 copy ONLY when the clinic has nothing set,
   // so numbers typed before the move aren't silently lost — they are saved to
@@ -129,11 +159,8 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
   const [q, setQ] = useState('');
 
   const update = (key: string, patch: any) => {
-    setCfg(prev => {
-      const next = { ...prev, [key]: { ...(prev[key] || {}), ...patch } };
-      saveEmergencyBillables(clinicId, next);
-      return next;
-    });
+    cfgDirtyRef.current = true;
+    setCfg(prev => ({ ...prev, [key]: { ...(prev[key] || {}), ...patch } }));
   };
 
   const matches = useMemo(() => {
@@ -367,6 +394,9 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
             Price stabilization interventions (e.g. oxygen) and attach consumables — ticking the intervention during triage stages the fee and auto-logs the consumables (deducts stock &amp; bills).
           </p>
         </div>
+        <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
+          {cfgSaving ? <><Loader2 size={11} className="animate-spin" /> Saving</> : cfgSavedFlash ? <span className="text-seafoam flex items-center gap-1"><Check size={11} /> Saved</span> : null}
+        </span>
         <span className="px-2 py-0.5 rounded-lg bg-red-50 dark:bg-red-950/30 text-red-600 dark:text-red-400 text-[9px] font-black uppercase tracking-widest">{pricedCount} configured</span>
       </div>
 
@@ -468,14 +498,9 @@ const EmergencyBillablesTab: React.FC<{ currency?: string; clinicId?: string | n
         ))}
       </div>
       <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">
-        {/* The warning is real — this config is per-browser — but it used to be
-            written for developers ("UI phase", "when the API lands"), which
-            means nothing to the person actually pricing an oxygen cage. Say
-            what it costs THEM: a colleague on another machine sees none of it. */}
-        <strong className="text-amber-600">Saved in this browser only.</strong> A colleague on another
-        device or browser will not see these prices — set them again there, until clinic-wide saving
-        arrives. Priced interventions are added to the bill when the visit is finalised; attached
-        consumables bill and deduct stock immediately.
+        Saved on the clinic — every colleague, on any device, sees the same prices. Ticking a priced
+        intervention in triage stages its fee and bills it immediately; attached consumables also
+        bill and deduct stock immediately.
       </p>
     </div>
     </div>

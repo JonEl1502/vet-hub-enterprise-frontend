@@ -42,6 +42,7 @@ export interface Clinic {
   feeInjection?: number | null;
   feePrescription?: number | null;
   workingHours?: Record<string, { open: string; close: string; closed: boolean }> | null;
+  emergencyBillables?: Record<string, { price?: number; consumables?: Array<{ inventoryItemId: string; name: string; qty: number; unit?: string }> }> | null;
   prodTest?: boolean;
   /** FARM org (160) — drives the plan catalogue and the app audience. */
   isLivestock?: boolean;

@@ -299,6 +299,7 @@ export const ENDPOINTS = {
     BY_APPOINTMENT: (appointmentId: string | number) => `/triage-records/by-appointment/${appointmentId}`,
     MONITORING: (id: string | number) => `/triage-records/${id}/monitoring`,
     TIMELOG: (id: string | number) => `/triage-records/${id}/timelog`,
+    INTERVENTION_FEE: (appointmentId: string | number) => `/triage-records/by-appointment/${appointmentId}/intervention-fee`,
   },
   PETSHOP: { CHECKOUT: '/petshop/checkout' },
   RECORD_SHARES: { BASE: '/record-shares', ACCESS_LOG: '/record-shares/access-log' },

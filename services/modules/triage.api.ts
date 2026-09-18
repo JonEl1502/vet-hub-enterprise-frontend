@@ -82,6 +82,10 @@ export const triageAPI = {
   addTimeLog: async (id: string | number, event: { event: string; at?: string; auto?: boolean }, options?: RequestOptions): Promise<ApiResponse<{ record: EmergencyTriageRecord }>> =>
     post(ENDPOINTS.TRIAGE_RECORDS.TIMELOG(id), event, { showError: true, ...options }),
 
+  /** Bills a stabilization intervention's service fee immediately — see triage.service.logInterventionFee. */
+  logInterventionFee: async (appointmentId: string | number, data: { label: string; price: number }, options?: RequestOptions): Promise<ApiResponse<{ taskId: string }>> =>
+    post(ENDPOINTS.TRIAGE_RECORDS.INTERVENTION_FEE(appointmentId), data, { showError: true, ...options }),
+
   remove: async (id: string | number, options?: RequestOptions): Promise<ApiResponse<{ success: boolean }>> =>
     del(ENDPOINTS.TRIAGE_RECORDS.BY_ID(id), { showError: true, ...options }),
 };
