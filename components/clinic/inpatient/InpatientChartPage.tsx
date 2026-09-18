@@ -1285,6 +1285,12 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                                         {l?.status === 'done' && (
                                           <span className="text-[8px] font-black uppercase tracking-widest text-emerald-600">Done</span>
                                         )}
+                                        {/* Generated from the Treatment Plan's schedule (304) — tells
+                                            a nurse this slot came from the plan, not a hand-typed entry. */}
+                                        {(l?.data as any)?.fromPlan && (
+                                          <span title="Generated from the treatment plan's schedule"
+                                            className="px-1.5 py-0.5 rounded-md text-[7px] font-black uppercase tracking-wider bg-seafoam/10 text-seafoam">Plan</span>
+                                        )}
                                         <span className="ml-auto text-[9px] text-slate-400 shrink-0">
                                           {formatTime(l ? l.loggedAt : (g.vitals[0]?.recordedAt ?? (g.items[0] as any)?.createdAt))}
                                         </span>

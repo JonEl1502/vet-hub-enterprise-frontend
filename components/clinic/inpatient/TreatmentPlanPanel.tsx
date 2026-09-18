@@ -24,6 +24,11 @@ interface Props {
 }
 
 const SLOTS = ['AM', 'MIDDAY', 'PM', 'NIGHT'];
+// Quick-pick routes so "injection" doesn't have to be typed out each time —
+// IV/IM/SC are all injections; Oral/Topical cover the non-injection cases.
+// The field underneath stays plain text, so a route not listed here is one
+// click away from being typed instead.
+const ROUTES = ['IV', 'IM', 'SC', 'Oral', 'Topical'];
 
 const TreatmentPlanPanel: React.FC<Props> = ({ hospitalizationId, readOnly }) => {
   const [sections, setSections] = React.useState<TreatmentPlanSection[]>([]);
@@ -209,6 +214,14 @@ const TreatmentPlanPanel: React.FC<Props> = ({ hospitalizationId, readOnly }) =>
                     placeholder="Frequency (BID, q8h…)" className="field-input py-1 text-[11px] flex-1 min-w-[130px]" />
                   <input value={draft.route ?? ''} onChange={e => setDraft((d: any) => ({ ...d, route: e.target.value }))}
                     placeholder="Route" className="field-input py-1 text-[11px] w-24" />
+                </div>
+                <div className="flex flex-wrap gap-1">
+                  {ROUTES.map(r => (
+                    <button key={r} type="button" onClick={() => setDraft((d: any) => ({ ...d, route: r }))}
+                      className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${draft.route === r
+                        ? 'bg-seafoam text-white border-seafoam'
+                        : 'bg-slate-50 dark:bg-zinc-950 text-slate-500 border-slate-200 dark:border-zinc-800'}`}>{r}</button>
+                  ))}
                 </div>
                 <div className="flex flex-wrap gap-1">
                   {SLOTS.map(sl => (
