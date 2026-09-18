@@ -216,6 +216,21 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
       // Get request options from config
       const requestOptions = (error.config as any)?._requestOptions as RequestOptions | undefined;
 
+      /**
+       * Every `Promise.reject(error)` below re-throws the RAW axios error —
+       * but callers (e.g. BillPanel's approveBill, reading `e?.details?.errors`
+       * to detect INCOMPLETE_RECORDS and offer "bill anyway?") expect the
+       * enriched shape `handleApiError` builds below. That enrichment was
+       * computed and used ONLY inside this interceptor for its own toasts,
+       * then discarded — so any caller depending on `.details` always got
+       * `undefined`, silently fell through to a generic "something went
+       * wrong" toast (or nothing, on a `silent` call), and a real,
+       * actionable server response looked like a dead end (2026-09-18).
+       * Attach it once, up front, so it survives every reject path below.
+       */
+      const apiError = handleApiError(error, requestOptions?.customErrorMessage);
+      (error as any).details = apiError.details;
+
       // Admin telemetry: any non-2xx that reaches this handler gets reported
       // (throttled, fire-and-forget) — who, which API, what status.
       reportClientError(error);
@@ -304,9 +319,7 @@ export const setupResponseInterceptor = (axiosInstance: AxiosInstance): void => 
         return Promise.reject(error);
       }
 
-      // Handle other errors
-      const apiError = handleApiError(error, requestOptions?.customErrorMessage);
-
+      // Handle other errors — `apiError` already computed above.
       // Surface the error if enabled and not silent. Permission errors (403) go
       // to the branded VetHub modal (dialog.alert) instead of a transient toast.
       if (!requestOptions?.silent && requestOptions?.showError !== false) {
