@@ -11,9 +11,11 @@ export interface VaccinationRecord {
   isCustom?: boolean;
   vaccineName: string;
   batchNumber?: string;
-  // Dispensed vial's SKU — auto-filled by applyStock from the deducted item.
+  // Dispensed vial's SKU. Set on records created before the stock-linking
+  // flow was removed (2026-09-18) — new records never carry one.
   sku?: string | null;
-  // Stock link — set once by applyStock (deducts the dose from inventory).
+  // Stock link on records created before the stock-linking flow was removed
+  // (2026-09-18) — `deleteVaccinationRecord` still restocks these on delete.
   inventoryItemId?: string | null;
   stockDeductedAt?: string | null;
   // Vaccine package this record was expanded from (null for single vaccines).
@@ -82,12 +84,6 @@ export const vaccinationsAPI = {
   createFromAppointment: async (appointmentId: string): Promise<VaccinationRecord[]> => {
     const response = await api.post(`/vaccinations/from-appointment/${appointmentId}`);
     return response.data.vaccinationRecords;
-  },
-
-  // Draw the dose from inventory: deducts stock + fills batch from the item.
-  applyStock: async (id: string, data: { inventoryItemId: string; quantity?: number }): Promise<VaccinationRecord> => {
-    const response = await api.post(`/vaccinations/${id}/apply-stock`, data);
-    return response.data.vaccinationRecord;
   },
 
   // Delete a vaccination record (e.g. a custom vaccine added by mistake)

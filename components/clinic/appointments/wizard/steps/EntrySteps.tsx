@@ -8,7 +8,6 @@ import BoardingStayPage from '../../../boarding/BoardingStayPage';
 import InpatientChartPage from '../../../inpatient/InpatientChartPage';
 import { useData } from '../../../../../contexts/DataContext';
 import { petsAPI } from '../../../../../services';
-import { VACCINES } from '../../../../../constants/vaccines';
 import AdmissionGate from '../../../shared/AdmissionGate';
 import { inpatientAPI, visitsAPI } from '../../../../../services';
 import BoardingIntakeFields, { emptyBoardingIntake } from '../../../shared/BoardingIntakeFields';
@@ -26,19 +25,6 @@ type FieldDef =
   | { kind: 'gate'; key: string; label: string; span?: 2 }
   | { kind: 'intake'; key: 'boarding' | 'grooming'; label: string; span?: 2 }
   | { kind: 'food'; key: string; label: string; span?: 2 };
-
-// Vaccine types pickable wherever a gate check records vaccination status.
-//
-// Drawn from the CANONICAL list (`constants/vaccines`) that the boarding,
-// inpatient and grooming admission gates already use. This step used to carry
-// its own hardcoded eight, so the wizard's gate check silently drifted behind
-// the admit modals' fourteen (user, 2026-08-02: "this gate check is behind").
-// Deworming is not a vaccine, so it stays appended here rather than polluting
-// the shared list.
-const VACCINE_TYPES = [
-  ...VACCINES.map(v => ({ k: v.key, label: v.label })),
-  { k: 'deworm', label: 'Deworming up to date' },
-];
 
 // Map an administered vaccine's (free-text) name onto the checklist keys so
 // the patient's medical records can auto-tick "Vaccines verified".
@@ -122,15 +108,17 @@ const FORMS: Record<string, EntryFormDef> = {
        * adjective about the whole animal, where the gate records which vaccine,
        * verified when.
        *
-       * Both are kept. The gate is the RECORD (what this patient has); the
-       * checklist further down is the PLAN (what is going in today).
+       * A "vaccines planned today" checklist used to sit here too — removed
+       * 2026-09-18 (dead: it wrote into wizard state that nothing downstream
+       * ever read, so ticking it had zero effect; the vet had to re-pick the
+       * same vaccines again in the Treatment step for anything to actually be
+       * recorded or billed). What's actually going in today is decided there.
        */
       { kind: 'gate', key: 'gate', label: 'Vaccination gate', span: 2 },
       { kind: 'seg', key: 'healthyToday', label: 'Healthy today', options: ['Yes', 'No', 'Unsure'] },
       { kind: 'input', key: 'temperature', label: 'Temperature (°C)', type: 'number', placeholder: '38.5' },
       { kind: 'input', key: 'weight', label: 'Weight (kg)', type: 'number' },
       { kind: 'seg', key: 'status', label: 'Current vaccine status', options: ['Up to date', 'Overdue', 'Unknown', 'First course'] },
-      { kind: 'checks', key: 'vaccinesPlanned', label: 'Vaccines to administer today', items: VACCINE_TYPES, span: 2 },
       { kind: 'checks', key: 'contraindications', label: 'Contraindications', items: [
         { k: 'fever', label: 'Fever' }, { k: 'illness', label: 'Current illness' },
         { k: 'priorReaction', label: 'Previous vaccine reaction' }, { k: 'pregnancy', label: 'Pregnancy' },

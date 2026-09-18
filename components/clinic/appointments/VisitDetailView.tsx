@@ -36,15 +36,14 @@ import { uploadsAPI } from '../../../services/modules/uploads.api';
 import { aiAPI, taskAttachmentsAPI, ChatMessage } from '../../../services/modules/ai.api';
 import { OutsourceServiceButton, VisitJobsPanel, TransferBillPanel } from './VisitOutsource';
 import PetAvatar from '../shared/PetAvatar';
+import { FLAGS as GROOMING_FLAGS } from '../shared/GroomingIntakeFields';
 import TaskCard from './appointment/TaskCard';
 import PatientCard from './appointment/PatientCard';
 import MedicationPanel from './appointment/MedicationPanel';
-import GroomingPanel from './GroomingPanel';
 import GroupVisitPanel from './GroupVisitPanel';
 import ReasonModal from '../shared/ReasonModal';
 import VaccinationPanel from './VaccinationPanel';
 import EmergencyTriagePanel from '../triage/EmergencyTriagePanel';
-import BoardingCareLogPanel from './BoardingCareLogPanel';
 import AdmitInpatientModal from '../inpatient/AdmitInpatientModal';
 import AdmitBoardingModal from '../boarding/AdmitBoardingModal';
 import FinalizeReminderGate, { ReminderDraft } from './FinalizeReminderGate';
@@ -6782,9 +6781,13 @@ const VisitDetailInner: React.FC<Props> = ({
                      const ga: any = wiz.state.data.groomingAssessment || {};
                      const groomTasks = appointment.tasks.filter(t => (t.category || '').toLowerCase().includes('groom'));
                      const groomTotal = groomTasks.reduce((s, t) => s + Number(t.price || 0), 0);
+                     // Fleas/wounds/ear/nail flags ticked at intake — captured since
+                     // 2026-08-03 but never shown anywhere until now (2026-09-18).
+                     const flaggedLabels = GROOMING_FLAGS.filter(f => !!(ga.flags || {})[f.k]).map(f => f.label);
                      const rows: Array<[string, any]> = ([
                        ['Temperament', gd.temperament || ga.temperament],
                        ['Coat condition', ga.coat],
+                       ['Flags at intake', flaggedLabels.length > 0 ? flaggedLabels.join(', ') : ''],
                        ['Vaccination status', gd.vaccinationStatus || ga.vaccStatus],
                        ['Special instructions', gd.specialInstructions || ga.instructions],
                        ['Groomer notes', gd.groomerNotes],

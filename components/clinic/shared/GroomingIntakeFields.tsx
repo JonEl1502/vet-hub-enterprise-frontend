@@ -28,7 +28,9 @@ export const emptyGroomingIntake = (): GroomingIntakeValue => ({
 
 const TEMPERAMENTS = ['Calm', 'Nervous', 'Aggressive', 'Unknown'];
 const COATS = ['Good', 'Matted', 'Shedding', 'Skin issues'];
-const FLAGS: { k: string; label: string }[] = [
+// Exported so the Grooming Report (VisitDetailView) can render the SAME
+// labels for whichever flags were ticked, instead of a second hardcoded copy.
+export const FLAGS: { k: string; label: string }[] = [
   { k: 'fleas', label: 'Fleas / ticks seen' },
   { k: 'wounds', label: 'Wounds / hotspots' },
   { k: 'earIssues', label: 'Ear issues' },
