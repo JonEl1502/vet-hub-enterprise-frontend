@@ -16,6 +16,9 @@ export interface Reminder {
   clientId: string;
   originAppointmentId: string | null;
   bookedAppointmentId: string | null;
+  /** Which ENCOUNTER within the visit this reminder belongs to — null means
+   *  "the whole visit", same convention as bills and charges. */
+  encounterId: string | null;
   serviceType: ReminderServiceType;
   title: string | null;
   notes: string | null;
@@ -48,6 +51,7 @@ export interface CreateReminderPayload {
   recurrence?: string | null;
   meta?: Record<string, any>;
   originAppointmentId?: string | number;
+  encounterId?: string | number;
   /** Ties several points created together into one follow-up plan (134). */
   groupId?: string;
 }
@@ -57,7 +61,7 @@ export type ReminderScope = 'upcoming' | 'past' | 'today' | 'all';
 // ─── API Methods ──────────────────────────────────────────────────
 export const remindersAPI = {
   list: async (
-    params: { scope?: ReminderScope; status?: string; serviceType?: string; petId?: string | number; clientId?: string | number } = {},
+    params: { scope?: ReminderScope; status?: string; serviceType?: string; petId?: string | number; clientId?: string | number; originAppointmentId?: string | number; encounterId?: string | number } = {},
     options?: RequestOptions,
   ): Promise<ApiResponse<{ reminders: Reminder[] }>> => {
     const q = new URLSearchParams();
@@ -66,6 +70,8 @@ export const remindersAPI = {
     if (params.serviceType) q.set('serviceType', params.serviceType);
     if (params.petId != null) q.set('petId', String(params.petId));
     if (params.clientId != null) q.set('clientId', String(params.clientId));
+    if (params.originAppointmentId != null) q.set('originAppointmentId', String(params.originAppointmentId));
+    if (params.encounterId != null) q.set('encounterId', String(params.encounterId));
     const qs = q.toString();
     return get(`${ENDPOINTS.REMINDERS.BASE}${qs ? `?${qs}` : ''}`, { cache: false, ...options });
   },

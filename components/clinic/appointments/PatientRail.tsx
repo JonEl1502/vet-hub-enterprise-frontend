@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { Visit, Pet, Client, Clinic } from '../../../types';
 import { petsAPI, remindersAPI, appointmentsAPI } from '../../../services';
 import type { ReminderServiceType } from '../../../services/modules/reminders.api';
+import type { VisitEncounter } from '../../../services/modules/appointments.api';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import { dialog } from '../../../services/utils/dialog';
 
@@ -77,6 +78,15 @@ interface Props {
   followUpPlan?: { nextDate?: string; nextTime?: string; reminders?: { title: string; description?: string; dueDate: string; assignTo?: string; assignToName?: string }[]; carePlan?: string[] } | null;
   onBookFromPlan?: (prefill: { date?: string; time?: string; note?: string }) => void;
   onRemindersCreated?: (n: number) => void;
+  /**
+   * The visit's stacked encounters (172) — a visit with more than one
+   * (boarding + grooming, say) needs a way to say WHICH encounter a new
+   * reminder belongs to, and to label existing ones (303). A visit with 0 or
+   * 1 encounters shows no picker at all — nothing changes for the common case.
+   */
+  encounters?: VisitEncounter[];
+  /** Which encounter a NEW reminder defaults to — the wizard's current one. */
+  defaultEncounterId?: string | null;
   // Cross-clinic transfer visit: the patient lives at the REQUESTER clinic, so
   // pet-detail lookups here 404 ("Pet not found"). Skip them (user, 2026-08-02).
   transferVisit?: boolean;
@@ -104,7 +114,7 @@ interface Props {
  * Bill & Balance used to lead this rail; it now lives in the Bill & Invoice tab
  * (`BillBalanceCard.tsx`) beside the bill it describes.
  */
-const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allAppointments, visitReminder, onNavigateToVisit, onNavigateToPet, onNavigateToClient, onBookFollowUp, followUpPlan, onBookFromPlan, onRemindersCreated, readOnly, only, transferVisit }) => {
+const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allAppointments, visitReminder, onNavigateToVisit, onNavigateToPet, onNavigateToClient, onBookFollowUp, followUpPlan, onBookFromPlan, onRemindersCreated, readOnly, only, transferVisit, encounters, defaultEncounterId }) => {
   const showFollowUp = only !== 'context';
   const showContext = only !== 'followup';
   const [petSnapshot, setPetSnapshot] = useState<any | null>(null);
@@ -161,6 +171,11 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
     (followUpPlan?.reminders || []).map(r => ({ title: r.title, description: r.description, dueDate: r.dueDate, serviceType: guessServiceType(r.title), assignTo: r.assignTo, assignToName: r.assignToName })));
   const [pointDraft, setPointDraft] = useState<PlanPoint>({ title: '', dueDate: '', serviceType: 'FOLLOW_UP' });
   const [creatingReminders, setCreatingReminders] = useState(false);
+  // Which encounter a NEW reminder attaches to — only matters (and only
+  // shows a picker) when the visit actually has more than one (303).
+  const [reminderEncounterId, setReminderEncounterId] = useState<string | null>(defaultEncounterId ?? null);
+  useEffect(() => { setReminderEncounterId(defaultEncounterId ?? null); }, [visit.id, defaultEncounterId]);
+  const encounterLabel = (enc: VisitEncounter) => (enc.visitType || enc.encounterType).replace(/_/g, ' ');
   // Resync when the VISIT changes or the plan arrives from the server —
   // the initializer above runs once, which left stale points showing when
   // navigating between visits/pets (plan is per-visit, saved in the wizard
@@ -251,6 +266,7 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
           serviceType: p.serviceType, title: p.title,
           dueAt: new Date(`${p.dueDate}T09:00:00`).toISOString(),
           originAppointmentId: visit.id,
+          encounterId: reminderEncounterId ?? undefined,
           // Reuse the doctor's exact description (fallback if they left it blank).
           notes: p.description?.trim() || 'From the doctor’s follow-up plan',
           // Assignee → drives the "set this reminder" notification in their bell.
@@ -346,6 +362,17 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
                   className="w-full flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/40 text-left hover:border-amber-400 transition-all group">
                   <Bell size={10} className="text-amber-500 shrink-0" />
                   <span className="flex-1 text-[10px] font-bold text-pine dark:text-zinc-100 truncate">{r.title}</span>
+                  {/* Which encounter this reminder came from (303) — only worth
+                      saying when the visit actually has more than one. */}
+                  {(encounters?.length ?? 0) > 1 && r.encounterId && (() => {
+                    const enc = encounters!.find(e => e.id === r.encounterId);
+                    return enc ? (
+                      <span title="Which encounter this reminder came from"
+                        className="shrink-0 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[7px] font-black uppercase tracking-wider">
+                        {encounterLabel(enc)}
+                      </span>
+                    ) : null;
+                  })()}
                   {r.groupId && (
                     <span title="Part of one follow-up plan"
                       className="shrink-0 px-1.5 py-0.5 rounded-md bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 text-[7px] font-black uppercase tracking-wider">Plan</span>
@@ -381,27 +408,39 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
             <p className="text-[8px] font-bold text-slate-400">Visit closed — reminders &amp; bookings are locked here. Manage them from the Reminders page.</p>
           ) : (
           <>
-          {/* Once a reminder exists, don't offer "add again" — edit/remove the
-              created one above instead (tap it). Same for the booked appointment. */}
-          {createdReminders.length === 0 ? (
-            <>
-              {/* Add a new point (e.g. "Call client on deworming"). */}
-              <div className="flex gap-1.5">
-                <input className="field-input !h-7 text-[11px] flex-1" placeholder="Add point — e.g. Call client on deworming" value={pointDraft.title}
-                  onChange={e => setPointDraft(d => ({ ...d, title: e.target.value }))}
-                  onKeyDown={e => e.key === 'Enter' && addPoint()} />
-                <input type="date" className="field-input !h-7 !px-1.5 text-[10px] w-28 shrink-0" value={pointDraft.dueDate} onChange={e => setPointDraft(d => ({ ...d, dueDate: e.target.value }))} />
-                <button type="button" onClick={addPoint} className="px-2 h-7 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all shrink-0">Add</button>
-              </div>
-              {planPoints.length > 0 && (
-                <button type="button" onClick={createReminders} disabled={creatingReminders}
-                  className="w-full mt-1.5 px-2 py-1.5 rounded-lg bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
-                  {creatingReminders ? <Loader2 size={11} className="animate-spin" /> : <Bell size={11} />} Create {planPoints.length} reminder{planPoints.length === 1 ? '' : 's'}
-                </button>
-              )}
-            </>
-          ) : (
-            <p className="text-[8px] font-bold text-slate-400">Reminder created — tap it above to edit or remove.</p>
+          {/* A visit can carry several reminders (303) — creating one no longer
+              hides the ability to add another. */}
+          {createdReminders.length > 0 && (
+            <p className="text-[8px] font-bold text-slate-400">{createdReminders.length} reminder{createdReminders.length === 1 ? '' : 's'} set for this visit — tap one above to edit or remove, or add another below.</p>
+          )}
+          {/* Which encounter a new reminder attaches to — only shown when the
+              visit actually has more than one (303); a single-encounter visit
+              (the common case) shows nothing extra here. */}
+          {(encounters?.length ?? 0) > 1 && (
+            <div className="flex items-center gap-1.5">
+              <span className="text-[8px] font-black uppercase tracking-widest text-slate-400 shrink-0">For</span>
+              <select className="field-select !h-7 !px-1.5 text-[10px] flex-1" value={reminderEncounterId ?? ''}
+                onChange={e => setReminderEncounterId(e.target.value || null)}>
+                <option value="">Whole visit</option>
+                {encounters!.map(enc => (
+                  <option key={enc.id} value={enc.id}>{encounterLabel(enc)}{enc.isPrimary ? ' (primary)' : ''}</option>
+                ))}
+              </select>
+            </div>
+          )}
+          {/* Add a new point (e.g. "Call client on deworming"). */}
+          <div className="flex gap-1.5">
+            <input className="field-input !h-7 text-[11px] flex-1" placeholder="Add point — e.g. Call client on deworming" value={pointDraft.title}
+              onChange={e => setPointDraft(d => ({ ...d, title: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && addPoint()} />
+            <input type="date" className="field-input !h-7 !px-1.5 text-[10px] w-28 shrink-0" value={pointDraft.dueDate} onChange={e => setPointDraft(d => ({ ...d, dueDate: e.target.value }))} />
+            <button type="button" onClick={addPoint} className="px-2 h-7 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all shrink-0">Add</button>
+          </div>
+          {planPoints.length > 0 && (
+            <button type="button" onClick={createReminders} disabled={creatingReminders}
+              className="w-full mt-1.5 px-2 py-1.5 rounded-lg bg-amber-500 text-white text-[9px] font-black uppercase tracking-widest hover:bg-amber-600 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50">
+              {creatingReminders ? <Loader2 size={11} className="animate-spin" /> : <Bell size={11} />} Create {planPoints.length} reminder{planPoints.length === 1 ? '' : 's'}
+            </button>
           )}
           {onBookFromPlan && upcomingBookings.length === 0 ? (
             <button type="button"

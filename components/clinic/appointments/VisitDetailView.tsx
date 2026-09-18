@@ -1172,6 +1172,8 @@ const VisitDetailInner: React.FC<Props> = ({
       }}
       readOnly={visitClosed}
       transferVisit={isTransferVisit}
+      encounters={wiz.encounters}
+      defaultEncounterId={wiz.selectedEncounterId}
       only="context"
     />
   );
@@ -1195,6 +1197,8 @@ const VisitDetailInner: React.FC<Props> = ({
       }}
       readOnly={visitClosed}
       transferVisit={isTransferVisit}
+      encounters={wiz.encounters}
+      defaultEncounterId={wiz.selectedEncounterId}
       only="followup"
     />
   );
