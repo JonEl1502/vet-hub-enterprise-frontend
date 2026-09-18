@@ -37,6 +37,13 @@ export const ROLE_META: Partial<Record<UserRole, RoleMeta>> = {
 
 const DEFAULT_BADGE = 'bg-slate-500/15 text-slate-500 dark:text-slate-300 border-slate-500/30';
 
+// Mirrors the backend's `isPlatformAdmin` (src/middleware/auth.ts) so the two
+// stay in lockstep — a role treated as full-access on one side but not the
+// other is exactly how MERCHANT_ADMIN ended up hitting "Clinic ID is
+// required" (2026-09-18): the frontend only ever special-cased SUPER_ADMIN.
+export const isPlatformAdmin = (role?: string | null): boolean =>
+  role === UserRole.SUPER_ADMIN || role === UserRole.MERCHANT_ADMIN;
+
 export const roleLabel = (role?: UserRole | string): string =>
   (role && ROLE_META[role as UserRole]?.label) || String(role || '').replace(/_/g, ' ');
 

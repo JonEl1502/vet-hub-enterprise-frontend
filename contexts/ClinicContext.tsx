@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useRef, ReactNode } from 'react';
 import { useAuth } from './AuthContext';
 import { clinicsAPI } from '../services';
+import { isPlatformAdmin } from '../constants/roles';
 
 interface Clinic {
   id: string;
@@ -172,7 +173,7 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
   }, [isAuthenticated]);
 
   // Determine if user can multi-select clinics
-  const canMultiSelect = user?.role === 'SUPER_ADMIN' || user?.role === 'CLINIC_OWNER';
+  const canMultiSelect = isPlatformAdmin(user?.role) || user?.role === 'CLINIC_OWNER';
 
   // /user-clinics returns each main clinic with a nested `branches: [...]`
   // array. Flatten parent + branches into one top-level Clinic[] so the
@@ -260,17 +261,23 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
         // Extract clinic data from user.userClinics[].clinic or use cached data
         let fetchedClinics: Clinic[] = [];
 
-        // SUPER_ADMIN users can access all clinics
-        if (user.role === 'SUPER_ADMIN') {
+        // Platform admins (SUPER_ADMIN, MERCHANT_ADMIN) can access all clinics.
+        // MERCHANT_ADMIN was missing here (2026-09-18) — it fell through to
+        // the "regular user" branches below, which read `user.userClinics`
+        // (a platform admin has none), landing on `clinics: []` and no
+        // X-Clinic-Id ever sent, which is how a merchant admin's requests hit
+        // downstream "Clinic ID is required" errors CONSTANTLY, not just
+        // during the SUPER_ADMIN race window this same bug produces.
+        if (isPlatformAdmin(user.role)) {
           try {
             const response = await clinicsAPI.getAll();
             if (response.success && response.data.clinics) {
               fetchedClinics = response.data.clinics.map(transformApiClinic);
-              console.log(`✅ SUPER_ADMIN: Loaded ${fetchedClinics.length} clinics from API`);
+              console.log(`✅ ${user.role}: Loaded ${fetchedClinics.length} clinics from API`);
               setClinics(fetchedClinics);
             }
           } catch (error) {
-            console.error('Failed to fetch all clinics for SUPER_ADMIN:', error);
+            console.error(`Failed to fetch all clinics for ${user.role}:`, error);
             setClinics([]);
           }
         }
@@ -356,21 +363,21 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
         // Auto-select first clinic or restore from localStorage
         const storedSelection = localStorage.getItem('selectedClinicIds');
 
-        // SUPER_ADMIN: Auto-select all clinics by default
-        if (user.role === 'SUPER_ADMIN') {
+        // Platform admin: auto-select all clinics by default
+        if (isPlatformAdmin(user.role)) {
           const allClinicIds = fetchedClinics.map(c => c.id);
           if (hasCompletedInitialSelection && storedSelection) {
             // Restore previous selection if exists
             const parsedSelection = JSON.parse(storedSelection);
             const validSelection = parsedSelection.filter((id: string) => allClinicIds.includes(id));
             setSelectedClinicIds(validSelection.length > 0 ? validSelection : allClinicIds);
-            console.log('✅ SUPER_ADMIN: Restored clinic selection:', validSelection);
+            console.log(`✅ ${user.role}: Restored clinic selection:`, validSelection);
           } else {
             // Auto-select all clinics for first-time login
             setSelectedClinicIds(allClinicIds);
             localStorage.setItem('selectedClinicIds', JSON.stringify(allClinicIds));
             localStorage.setItem('hasCompletedInitialSelection', 'true');
-            console.log('✅ SUPER_ADMIN: Auto-selected all clinics:', allClinicIds.length);
+            console.log(`✅ ${user.role}: Auto-selected all clinics:`, allClinicIds.length);
           }
           setNeedsInitialSelection(false);
         }

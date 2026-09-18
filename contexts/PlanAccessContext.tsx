@@ -18,8 +18,15 @@ import { allowsView, hasFeature, hydrateModuleCatalog, daysOverdue, type PlanAcc
 import { usePublicConfig } from './PublicConfigContext';
 import { moduleCatalogAPI } from '../services/modules/moduleCatalog.api';
 
-/** Roles that bypass plan gating entirely (platform staff). */
-const FULL_ACCESS_ROLES = ['SUPER_ADMIN', 'ADMIN', 'SUPPORT'];
+/**
+ * Roles that bypass plan gating entirely (platform staff).
+ *
+ * `MERCHANT_ADMIN` was missing here (2026-09-18) — it's a real platform-admin
+ * role (`isPlatformAdmin` in the backend's auth middleware treats it exactly
+ * like SUPER_ADMIN), but this list only ever special-cased SUPER_ADMIN, so a
+ * merchant admin got plan-gated like an ordinary clinic account.
+ */
+const FULL_ACCESS_ROLES = ['SUPER_ADMIN', 'MERCHANT_ADMIN', 'ADMIN', 'SUPPORT'];
 
 interface PlanAccessContextType {
   /** Raw access state, or null when bypassed / not yet loaded. */
