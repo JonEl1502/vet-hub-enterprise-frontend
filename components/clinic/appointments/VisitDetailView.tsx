@@ -532,6 +532,18 @@ const VisitDetailInner: React.FC<Props> = ({
   const [approvingBill, setApprovingBill] = useState(false);
   const approveBillFromFooter = async () => {
     if (approvingBill) return;
+    // Approving freezes the bill AND locks the clinical record — the least
+    // reversible action here. BillPanel's own Approve button confirms this
+    // (user, 2026-08-18: "it had no confirmation at all"); this shortcut
+    // skipped straight to the API call with none at all (user, 2026-09-18).
+    const amount = `${activeClinic.currency} ${Number(liveBill?.total ?? appointment.totalCost ?? 0).toLocaleString()}`;
+    const ok = await dialog.confirm({
+      title: `Approve this bill for ${amount}?`,
+      message: 'This freezes the bill and locks the clinical record. Reopening it afterwards is possible but leaves a trail.',
+      confirmLabel: `Approve · ${amount}`,
+      variant: 'info',
+    });
+    if (!ok) return;
     setApprovingBill(true);
     try {
       const res = await billsAPI.approve(appointment.id, undefined, undefined, { silent: true } as any);
