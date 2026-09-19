@@ -6,6 +6,7 @@ import { useData } from '../../../contexts/DataContext';
 import { appointmentsAPI, remindersAPI, Appointment, dialog } from '../../../services';
 import type { AppointmentStatus } from '../../../services/modules/appointmentBookings.api';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import { petMetaLine } from '../../../utils/pet';
 import ReasonModal from '../shared/ReasonModal';
 import AppointmentCreateModal from './AppointmentCreateModal';
 import LinkPickerModal, { LinkItem } from '../shared/LinkPickerModal';
@@ -128,7 +129,9 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
     } catch (e: any) { toast.error(e?.message || 'Failed to attach'); } finally { setBusyId(null); }
   };
 
-  const petName = (a: Appointment) => pets.find((p: any) => String(p.id) === String(a.petId))?.name || 'Patient';
+  const petOf = (a: Appointment) => pets.find((p: any) => String(p.id) === String(a.petId));
+  const petName = (a: Appointment) => petOf(a)?.name || 'Patient';
+  const petMeta = (a: Appointment) => petMetaLine(petOf(a));
   const clientName = (a: Appointment) => clients.find((c: any) => String(c.id) === String(a.clientId))?.name || '';
 
   const filtered = useMemo(() => {
@@ -307,6 +310,7 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <button onClick={() => setDetail(a)} className="block text-sm font-black text-pine dark:text-zinc-100 truncate hover:text-seafoam transition-colors text-left">{petName(a)} <span className="text-slate-400 font-medium">· {clientName(a)}</span></button>
+                  {petMeta(a) && <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide truncate">{petMeta(a)}</p>}
                   <p className="text-[10px] text-slate-400 flex items-center flex-wrap gap-x-2 gap-y-0.5 mt-0.5">
                     <span className="inline-flex items-center gap-1"><Clock size={11} /> {formatDate(a.scheduledAt)} {new Date(a.scheduledAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                     <span className={`px-1.5 py-0.5 rounded text-[9px] font-black uppercase tracking-widest ${STATUS_TONE[a.status]}`}>{a.status.toLowerCase().replace('_', ' ')}</span>

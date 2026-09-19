@@ -23,4 +23,23 @@ export const petSexLabel = (
   return sex === 'Female' ? 'Female, spayed' : 'Male, neutered';
 };
 
+/**
+ * The one-line "breed • species • sex • age" caption used wherever a pet is
+ * named in a list or card. Was hand-duplicated three times with only the
+ * separator differing (`PetsView.tsx`, `VisitReadOnlyView.tsx`,
+ * `VisitDetailView.tsx`'s visit header) before this existed — now the single
+ * place that join lives, so every list gets the full picture (breed, species,
+ * sex, age) with one import instead of each surface picking its own subset
+ * (user, 2026-09-19: "anywhere a pet is shown... show the gender and the
+ * species. And the species and the breed too").
+ */
+export const petMetaLine = (
+  pet?: { breed?: string | null; species?: string | null; gender?: string | null; isNeutered?: boolean | null; age?: string | number | null } | null,
+  separator = ' • ',
+): string => {
+  return [pet?.breed, pet?.species, petSexLabel(pet), pet?.age]
+    .filter((v) => v != null && String(v).trim() !== '')
+    .join(separator);
+};
+
 export default petSexLabel;
