@@ -78,6 +78,12 @@ export const JourneyTimeline: React.FC<{ events: JourneyEvent[]; compact?: boole
                 {!e.auto && e.kind !== 'transfer' && (
                   <span className="text-[7px] font-black uppercase bg-seafoam/10 text-seafoam px-1 py-0.5 rounded tracking-widest">staff note</span>
                 )}
+                {/* Who did it — resolved server-side from the session that took
+                    the action, never client-supplied. Only billing events carry
+                    this today (raise/approve bill, issue invoice, collect payment). */}
+                {e.actor && (
+                  <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">· by {e.actor}</span>
+                )}
               </div>
             )}
           </li>
