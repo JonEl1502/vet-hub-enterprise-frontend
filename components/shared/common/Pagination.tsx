@@ -326,6 +326,11 @@ const Pagination: React.FC<PaginationProps> = ({
         ⚠️ Offset by `--vh-sidebar-w` past the sidebar on desktop, same
         convention as `RecordActionBar` — see that file for why. On mobile the
         sidebar collapses to an overlay, so the dock spans full width there.
+        ⚠️ HORIZONTAL PADDING MUST MATCH THE PAGE GUTTER — `px-4 md:px-6`, the
+        same as `<main>`'s own content wrapper (`p-4 md:p-6`). Without it the
+        dock is flush with the screen edge while the table above it is inset
+        by the gutter, so the two visibly don't line up (user, 2026-09-19).
+        Same fix `RecordActionBar` already had to make for the same reason.
         ⚠️ The wrapper is `pointer-events-none` so the transparent gutter
         beside the bar does not eat clicks on the row underneath it.
         ⚠️ z-[52] is a SLOT, not a round number. The ladder it has to sit in:
@@ -340,7 +345,7 @@ const Pagination: React.FC<PaginationProps> = ({
       */}
       <div
         ref={stickyRef}
-        className="fixed bottom-0 right-0 left-0 md:left-[var(--vh-sidebar-w,16rem)] z-[52] px-1 pb-2 pointer-events-none"
+        className="fixed bottom-0 right-0 left-0 md:left-[var(--vh-sidebar-w,16rem)] z-[52] px-4 md:px-6 pb-2 pointer-events-none"
       >
         <div className="pointer-events-auto">{bar(true)}</div>
       </div>
