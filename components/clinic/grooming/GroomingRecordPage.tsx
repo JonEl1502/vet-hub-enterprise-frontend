@@ -11,6 +11,7 @@ import RecordPageHeader, { STICKY_RAIL } from '../shared/RecordPageHeader';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
 import AddCategoryService from '../shared/AddCategoryService';
 import { deriveVisitStatus, STATUS_LABEL, STATUS_STYLE } from '../shared/visitStatus';
+import { petMetaLine } from '../../../utils/pet';
 
 interface Props {
   appointment: Visit;
@@ -140,7 +141,7 @@ const GroomingRecordPageInner: React.FC<Props> = ({ appointment, onBack, onChang
         eyebrow="Grooming visit"
         title={<><Dog size={16} /> {pet?.name ?? appointment.pet?.name ?? 'Patient'}</>}
         condensedMeta={pet?.species ?? ''}
-        subtitle={`${pet?.breed ? `${pet.breed} · ` : ''}${pet?.species ?? ''}${owner?.name ? ` · Owner: ${owner.name}` : ''}`}
+        subtitle={`${petMetaLine(pet)}${owner?.name ? ` · Owner: ${owner.name}` : ''}`}
         right={<>
           {/* 294 — WHAT THIS PAGE COMES TO, IN THE HEADER (user, 2026-09-10:
               *"header to show total for the services in that page"*).

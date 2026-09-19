@@ -9,6 +9,7 @@ import GroomingRecordPage from './GroomingRecordPage';
 import GroomingAdmitModal from './GroomingAdmitModal';
 import { deriveVisitStatus, STATUS_LABEL, STATUS_STYLE as MODULE_STATUS_STYLE } from '../shared/visitStatus';
 import OwnerContact from '../shared/OwnerContact';
+import { petMetaLine } from '../../../utils/pet';
 
 interface Props {
   onOpenAppointment?: (appointmentId: string, settle?: boolean) => void;
@@ -52,6 +53,7 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
   }, [openForAppointmentId, appointments]);
 
   const petName = (id: number) => pets.find(p => p.id === id)?.name ?? 'Patient';
+  const petMeta = (id: number) => petMetaLine(pets.find(p => p.id === id));
   const ownerName = (id: number) => clients.find(c => c.id === id)?.name ?? '';
 
   const grooms = useMemo(() => {
@@ -131,6 +133,7 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
                   <span className="text-xl shrink-0">✂️</span>
                   <span className="min-w-0">
                     <span className="block text-sm font-black text-pine dark:text-zinc-100 truncate">{petName(a.petId)}</span>
+                    {petMeta(a.petId) && <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide truncate">{petMeta(a.petId)}</span>}
                     {/* The visit CARRIES its client (name, phone, email). The
                         `clients.find()` fallback below it is a page of the
                         book, not the book — on a large clinic it misses and the

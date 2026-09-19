@@ -10,6 +10,7 @@ import DefaultRateEditor from '../shared/DefaultRateEditor';
 import AdmitBoardingModal from './AdmitBoardingModal';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import OwnerContact from '../shared/OwnerContact';
+import { petMetaLine } from '../../../utils/pet';
 
 const daysIn = (dropOffAt: string) => Math.max(0, calendarDaysBetween(dropOffAt)) + 1;
 const vaccinesOk = (vc: Record<string, boolean>) => Object.keys(vc || {}).length > 0 && Object.values(vc).every(Boolean);
@@ -24,6 +25,9 @@ const STATUSES = [
 
 const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenStay, initialOpenStayId, openForAppointmentId, openForPetId }) => {
   const { pets } = useData();
+  // The embedded `BoardingStay.pet` doesn't declare gender — cross-reference
+  // the full pets list by id for real sex data instead.
+  const petMetaFor = (petId: string) => petMetaLine(pets.find((p: any) => String(p.id) === String(petId)));
   const { selectedClinics } = useClinic();
   const defaultRate = selectedClinics[0]?.boardingDayRate ?? null;
   const [stays, setStays] = useState<BoardingStay[]>([]);
@@ -154,6 +158,7 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenSt
                   <span className="text-xl shrink-0">{s.pet?.species === 'Cat' ? '🐱' : '🐶'}</span>
                   <span className="min-w-0">
                     <span className="block text-sm font-black text-pine dark:text-zinc-100 truncate">{s.pet?.name}</span>
+                    {petMetaFor(s.petId) && <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide truncate">{petMetaFor(s.petId)}</span>}
                     {/* Was the owner's NAME alone — the number and address to
                         reach them lived a click away on the client record. */}
                     <OwnerContact owner={s.client} className="mt-0.5" />

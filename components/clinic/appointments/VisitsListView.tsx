@@ -19,6 +19,7 @@ import { startOfToday } from 'date-fns';
 import ConfirmDialog from '../../shared/common/ConfirmDialog';
 import ScopeClinicBadge from '../../shared/common/ScopeClinicBadge';
 import PetAvatar from '../shared/PetAvatar';
+import { petMetaLine } from '../../../utils/pet';
 
 interface Props {
   pets: Pet[];
@@ -690,6 +691,7 @@ const VisitsListView: React.FC<Props> = ({
                               </div>
                               <div className="min-w-0">
                                 <p className="text-pine dark:text-zinc-100 font-black text-sm leading-tight">{appt.pet?.name || pet?.name}</p>
+                                {petMetaLine(pet || appt.pet) && <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-bold uppercase tracking-wide truncate max-w-[130px]">{petMetaLine(pet || appt.pet)}</p>}
                                 <p className="text-seafoam dark:text-zinc-500 text-[9px] font-bold mt-0.5 truncate max-w-[130px]">{appt.client?.name || 'Unknown'}</p>
                                 {/* Owning clinic/branch — only when multiple clinics are in scope. */}
                                 <ScopeClinicBadge clinicId={appt.clinicId} clinicName={clinic?.name} className="mt-0.5" />
@@ -951,6 +953,7 @@ const VisitsListView: React.FC<Props> = ({
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-pine dark:text-zinc-100 font-black text-base leading-tight">{appt.pet?.name || pet?.name}</p>
+                          {petMetaLine(pet || appt.pet) && <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-bold uppercase tracking-wide truncate">{petMetaLine(pet || appt.pet)}</p>}
                           <p className="text-seafoam dark:text-zinc-500 text-[9px] font-black mt-0.5 uppercase tracking-tighter">
                             {appt.client?.name || 'Unknown'}
                           </p>

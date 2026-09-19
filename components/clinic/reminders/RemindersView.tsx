@@ -11,6 +11,7 @@ import ReasonModal from '../shared/ReasonModal';
 import AppointmentCreateModal from '../appointments/AppointmentCreateModal';
 import LinkPickerModal, { LinkItem } from '../shared/LinkPickerModal';
 import RecordDetailModal from '../shared/RecordDetailModal';
+import { petMetaLine } from '../../../utils/pet';
 
 interface Props {
   onOpenAppointment?: (appointmentId: string) => void;
@@ -47,6 +48,9 @@ const serviceTone: Record<string, string> = {
 
 const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, focusId }) => {
   const { pets, clients } = useData();
+  // The embedded `Reminder.pet` doesn't carry gender — cross-reference the
+  // full pets list by id so the meta line has real sex data, not a guess.
+  const petMetaFor = (petId: string) => petMetaLine(pets.find((p: any) => String(p.id) === String(petId)));
   const [reminders, setReminders] = useState<Reminder[]>([]);
   const [loading, setLoading] = useState(true);
   const [scope, setScope] = useState<ReminderScope>('upcoming');
@@ -346,6 +350,7 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
                     <span className="text-xl shrink-0">{first.pet?.species === 'Cat' ? '🐱' : '🐶'}</span>
                     <span className="min-w-0">
                       <span className="block text-sm font-black text-pine dark:text-zinc-100 truncate hover:text-seafoam transition-colors">{first.pet?.name}</span>
+                      {petMetaFor(first.petId) && <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide truncate">{petMetaFor(first.petId)}</span>}
                       <span className="block text-[10px] text-slate-400 truncate">{first.client?.name}</span>
                     </span>
                   </button>
@@ -453,6 +458,7 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
                     <span className="text-xl shrink-0">{r.pet?.species === 'Cat' ? '🐱' : '🐶'}</span>
                     <span className="min-w-0">
                       <span className="block text-sm font-black text-pine dark:text-zinc-100 truncate hover:text-seafoam transition-colors">{r.pet?.name}</span>
+                      {petMetaFor(r.petId) && <span className="block text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide truncate">{petMetaFor(r.petId)}</span>}
                       <span className="block text-[10px] text-slate-400 truncate">{r.client?.name}</span>
                     </span>
                   </button>
@@ -592,6 +598,7 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
           subtitle={`${detail.client?.name || ''} · ${REMINDER_SERVICE_META[detail.serviceType]?.label ?? detail.serviceType}`}
           icon={<div className="w-9 h-9 rounded-xl bg-seafoam/10 flex items-center justify-center shrink-0"><BellRing size={18} className="text-seafoam" /></div>}
           fields={[
+            { label: 'Patient', value: petMetaFor(detail.petId) || undefined },
             { label: 'Service', value: REMINDER_SERVICE_META[detail.serviceType]?.label ?? detail.serviceType },
             { label: 'Due', value: detail.dueAt ? formatDate(detail.dueAt) : undefined },
             { label: 'Status', value: detail.status.toLowerCase() },

@@ -2,6 +2,7 @@ import React from 'react';
 import { Pet } from '../../../../types';
 import { Calendar, Heart, Scale, Cake } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { petMetaLine } from '../../../../utils/pet';
 
 interface Props {
   pet: Pet;
@@ -24,7 +25,9 @@ const PatientCard: React.FC<Props> = ({ pet, appointmentDate }) => {
             {pet.name}
           </h2>
           <p className="text-[9px] font-bold text-seafoam uppercase tracking-widest">
-            {pet.species} • {pet.breed}
+            {/* Age already has its own row below, so it's left out here to
+                avoid showing it twice. */}
+            {petMetaLine({ ...pet, age: undefined })}
           </p>
         </div>
       </div>
