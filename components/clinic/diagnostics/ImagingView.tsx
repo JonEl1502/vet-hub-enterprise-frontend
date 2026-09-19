@@ -13,6 +13,7 @@ import { recordSharingAPI, visitsAPI, dialog } from '../../../services';
 import { useStaff } from '../../../contexts/StaffContext';
 import ImagingRecordPage from './ImagingRecordPage';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import { petMetaLine } from '../../../utils/pet';
 
 interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; openForAppointmentId?: string }
 
@@ -84,16 +85,21 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
 
   // Combine a single patient's studies into one card (mirrors the Lab/Surgery pages).
   const grouped = useMemo(() => {
-    const map = new Map<string, { key: string; pet: string; species?: string; records: ImagingRecord[] }>();
+    const map = new Map<string, { key: string; pet: string; petId?: string; records: ImagingRecord[] }>();
     for (const r of filtered) {
       const key = r.petId ? `pet:${r.petId}` : `rec:${r.id}`;
-      if (!map.has(key)) map.set(key, { key, pet: r.pet?.name || 'Patient', species: (r.pet as any)?.species, records: [] });
+      if (!map.has(key)) map.set(key, { key, pet: r.pet?.name || 'Patient', petId: r.petId, records: [] });
       map.get(key)!.records.push(r);
     }
     return Array.from(map.values());
   }, [filtered]);
 
   const petMatches = useMemo(() => { const q = petSearch.trim().toLowerCase(); if (!q) return [] as any[]; return pets.filter((p: any) => p.name?.toLowerCase().includes(q)).slice(0, 8); }, [pets, petSearch]);
+
+  // The record's embedded `pet` only carries species/breed (RecordPet), not
+  // gender/isNeutered — cross-reference the full `pets` array by id, same fix
+  // as RemindersView/BoardingView.
+  const petMetaFor = (petId?: string | null) => petMetaLine(pets.find((p: any) => String(p.id) === String(petId)));
 
   // Prior visits for the selected patient — for follow-ups, the study links to an
   // existing appointment instead of spinning up a new walk-in visit.
@@ -354,7 +360,10 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
               {grouped.map(g => (
                 <div key={g.key} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-2.5">
                   <div className="flex items-center justify-between gap-2">
-                    <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{g.pet}{g.species ? ` · ${g.species}` : ''}</p>
+                    <div className="min-w-0">
+                      <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{g.pet}</p>
+                      {petMetaFor(g.petId) && <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide truncate">{petMetaFor(g.petId)}</p>}
+                    </div>
                     <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">{g.records.length} stud{g.records.length === 1 ? 'y' : 'ies'}</span>
                   </div>
                   <div className="space-y-1.5">

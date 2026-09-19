@@ -11,6 +11,8 @@ import ShareWithClinics from '../shared/ShareWithClinics';
 import UpgradeGate from '../../shared/common/UpgradeGate';
 import { visitJobsAPI, VisitJob } from '../../../services/modules/visitJobs.api';
 import { Send } from 'lucide-react';
+import { useData } from '../../../contexts/DataContext';
+import { petMetaLine } from '../../../utils/pet';
 
 interface Props {
   record: ImagingRecord;
@@ -49,6 +51,11 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
   const [siblings, setSiblings] = useState<ImagingRecord[]>([record]);
   const [currentId, setCurrentId] = useState<string | number>(record.id);
   const current = siblings.find(r => String(r.id) === String(currentId)) || record;
+  // The embedded `current.pet` (RecordPet) only carries species/breed, not
+  // gender/isNeutered — cross-reference the full `pets` array by id, same fix
+  // as RemindersView/BoardingView.
+  const { pets } = useData();
+  const petFull = pets.find((p: any) => String(p.id) === String(current.petId));
 
   const loadSiblings = React.useCallback(async () => {
     if (!record.appointmentId) { setSiblings([record]); return; }
@@ -191,6 +198,7 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
         <div className="flex-1 min-w-0">
           <p className="text-white/60 text-[9px] font-black uppercase tracking-widest">Imaging study</p>
           <h1 className="text-xl font-black tracking-tight truncate flex items-center gap-2"><Dog size={18} /> {current.pet?.name ?? 'Patient'}{(current.pet as any)?.species ? <span className="text-white/60 text-sm font-bold">· {(current.pet as any).species}</span> : null}</h1>
+          {petMetaLine(petFull) && <p className="text-[11px] text-white/70 truncate">{petMetaLine(petFull)}</p>}
           <p className="text-[11px] text-white/70 truncate">
             {current.modality}{current.bodyPart ? ` · ${current.bodyPart}` : ''} · {current.studyDate ? formatDate(current.studyDate) : formatDate(current.createdAt)}
             {current.source === 'EXTERNAL' && <span className="inline-flex items-center gap-1 ml-2"><Building2 size={10} /> {current.externalSource || 'External'}</span>}

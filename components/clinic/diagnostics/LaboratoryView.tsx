@@ -14,6 +14,7 @@ import { labAPI, LabRecord, LabMarker, DiagSource } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import UpgradeGate from '../../shared/common/UpgradeGate';
+import { petMetaLine } from '../../../utils/pet';
 
 interface Props { onOpenAppointment?: (appointmentId: string, settle?: boolean) => void; openForAppointmentId?: string }
 
@@ -73,10 +74,10 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
   // Group panels/tests by their visit so all of a patient's lab work for one
   // visit sits in a single card (mirrors the Surgery page).
   const grouped = useMemo(() => {
-    const map = new Map<string, { key: string; pet: string; species?: string; date: string; records: LabRecord[] }>();
+    const map = new Map<string, { key: string; pet: string; petId?: string; date: string; records: LabRecord[] }>();
     for (const r of filtered) {
       const key = r.appointmentId ? `appt:${r.appointmentId}` : `rec:${r.id}`;
-      if (!map.has(key)) map.set(key, { key, pet: r.pet?.name || 'Patient', species: (r.pet as any)?.species, date: r.resultDate || r.createdAt, records: [] });
+      if (!map.has(key)) map.set(key, { key, pet: r.pet?.name || 'Patient', petId: r.petId, date: r.resultDate || r.createdAt, records: [] });
       map.get(key)!.records.push(r);
     }
     return Array.from(map.values());
@@ -87,6 +88,11 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
     if (!q) return [] as any[];
     return pets.filter((p: any) => p.name?.toLowerCase().includes(q)).slice(0, 8);
   }, [pets, petSearch]);
+
+  // The record's embedded `pet` only carries species/breed (RecordPet), not
+  // gender/isNeutered — cross-reference the full `pets` array by id, same fix
+  // as RemindersView/BoardingView.
+  const petMetaFor = (petId?: string | null) => petMetaLine(pets.find((p: any) => String(p.id) === String(petId)));
 
   const startNew = () => { setEditing({ petId: null, petName: '', source: 'INTERNAL' as DiagSource, direction: 'RECEIVED' as 'RECEIVED' | 'SENT', externalSource: '', partnerClinicId: null, panelName: '', testType: '', specimen: '', attachments: [] as any[], createVisit: true, leadStaffId: null as number | null, resultDate: new Date().toISOString().slice(0, 10), notes: '', markers: [{ name: '', value: '', unit: '', refRange: '', flag: '' }] }); setPetSearch(''); };
 
@@ -326,7 +332,8 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
                 <div key={g.key} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2.5 shadow-sm">
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{g.pet}{g.species ? ` · ${g.species}` : ''}</p>
+                      <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{g.pet}</p>
+                      {petMetaFor(g.petId) && <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide truncate">{petMetaFor(g.petId)}</p>}
                       <p className="text-[10px] text-slate-400 flex items-center gap-1"><Clock size={10} /> {formatDate(g.date)}{g.records.length > 1 ? ` · ${g.records.length} tests` : ''}</p>
                     </div>
                   </div>
