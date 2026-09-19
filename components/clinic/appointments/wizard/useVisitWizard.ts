@@ -68,6 +68,10 @@ export interface VisitWizardApi {
   isComplete: (step: WizardStepId) => boolean;
   emit: (label: string, kind?: JourneyKind, auto?: boolean) => void;
   events: JourneyEvent[];
+  /** True while a journey fetch (initial load, background auto-refresh, or a
+   *  manual reload) is in flight — render this on the Journey button itself,
+   *  not a page-wide loading indicator. */
+  journeyLoading: boolean;
   /** Re-read the server-derived journey now (e.g. when opening the drawer). */
   reloadEvents: () => Promise<void> | void;
   /**
@@ -388,12 +392,21 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
   // One source: GET /visits/:id/events. Everything the visit did — from any
   // page, by any user, on any device — is rebuilt there from the records.
   const [serverEvents, setServerEvents] = useState<JourneyEvent[]>([]);
+  /**
+   * Scoped to the Journey button/drawer alone, not the page-wide `netBusy`
+   * pill (user, 2026-09-19: the shared pill popping in/out for every journey
+   * refetch — including the background auto-reloads below — was shifting the
+   * whole header row). Render this on the Journey button itself.
+   */
+  const [journeyLoading, setJourneyLoading] = useState(false);
   const reloadEvents = useCallback(() => {
-    return visitsAPI.getEvents(visit.id)
+    setJourneyLoading(true);
+    return visitsAPI.getEvents(visit.id, { excludeFromBusy: true })
       .then(r => {
         if (r.success && Array.isArray(r.data?.events)) setServerEvents(r.data!.events as JourneyEvent[]);
       })
-      .catch(() => { /* offline — the list we have stands */ });
+      .catch(() => { /* offline — the list we have stands */ })
+      .finally(() => setJourneyLoading(false));
   }, [visit.id]);
 
   // A system `emit` fires the instant the request that changed something
@@ -621,5 +634,5 @@ export function useVisitWizard(visit: Visit, species?: string | null): VisitWiza
     }).catch(() => { /* offline — the local pin still applies */ });
   }, [visit.id, state.entryKey, state.startedAt, state.currentStep, state.completed, state.data]);
 
-  return { entry, steps, template, setVisitTemplate, templateStages, templateFields, state, currentStep: steps[idx] ?? steps[0], goTo, next, prev, setStepData, completeStep, isComplete, emit, events, reloadEvents, refreshJourney: scheduleEventsReload, progress, resetWizard, availableEntries, switchEntry, encounters, selectedEncounterId: selectedEncounter?.id ?? null, reloadEncounters };
+  return { entry, steps, template, setVisitTemplate, templateStages, templateFields, state, currentStep: steps[idx] ?? steps[0], goTo, next, prev, setStepData, completeStep, isComplete, emit, events, journeyLoading, reloadEvents, refreshJourney: scheduleEventsReload, progress, resetWizard, availableEntries, switchEntry, encounters, selectedEncounterId: selectedEncounter?.id ?? null, reloadEncounters };
 }

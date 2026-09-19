@@ -92,6 +92,16 @@ export interface RequestOptions extends Omit<AxiosRequestConfig, 'url' | 'method
    * Custom loading message
    */
   loadingMessage?: string;
+
+  /**
+   * Excludes this request from the global `netBusy` in-flight counter
+   * (`subscribePendingRequests`) — for a request that already has its own
+   * dedicated, scoped loading indicator elsewhere, so it doesn't ALSO pop the
+   * page-wide pill and shift layout (e.g. the Visit Journey's background
+   * auto-refreshes, user 2026-09-19).
+   * @default false
+   */
+  excludeFromBusy?: boolean;
 }
 
 /**

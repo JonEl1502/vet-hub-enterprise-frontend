@@ -159,6 +159,8 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
   const [advOutstanding, setAdvOutstanding] = useState(false);
   const [advMinSpentInput, setAdvMinSpentInput] = useState('');
   const advMinSpent = Number(advMinSpentInput) || 0;
+  const [advMaxSpentInput, setAdvMaxSpentInput] = useState('');
+  const advMaxSpent = Number(advMaxSpentInput) || 0;
   const [advClientType, setAdvClientType] = useState<string | null>(null);
   /**
    * ⚠️ This drives the "· on" marker on the collapsed panel's toggle, so it has
@@ -167,7 +169,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
    * both hidden and silently active is how a list comes to look empty for no
    * visible reason.
    */
-  const advActive = advOutstanding || advMinSpent > 0 || !!advClientType || !!letterFilter || !!dateRange;
+  const advActive = advOutstanding || advMinSpent > 0 || advMaxSpent > 0 || !!advClientType || !!letterFilter || !!dateRange;
 
   const localFiltered = useMemo(() => {
     if (searchQuery.length < SEARCH_MIN_CHARS) return clients;
@@ -277,9 +279,10 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
     // Risk & credit (advanced panel): outstanding balance / spend / type.
     if (advOutstanding) list = list.filter(c => (c.outstandingBalance ?? 0) > 0);
     if (advMinSpent > 0) list = list.filter(c => (c.totalSpent ?? 0) >= advMinSpent);
+    if (advMaxSpent > 0) list = list.filter(c => (c.totalSpent ?? 0) <= advMaxSpent);
     if (advClientType) list = list.filter(c => c.clientType === advClientType);
     return list;
-  }, [searchFiltered, pets, appointments, dateRange, clientFilter, pastCountMin, letterFilter, advOutstanding, advMinSpent, advClientType]);
+  }, [searchFiltered, pets, appointments, dateRange, clientFilter, pastCountMin, letterFilter, advOutstanding, advMinSpent, advMaxSpent, advClientType]);
 
   useEffect(() => {
     // The result set changed, so a remembered page is meaningless — page 7 of a
@@ -319,7 +322,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
    * over cached rows and the server cannot reproduce them.
    */
   const letterOnly = !!letterFilter && searchQuery.length < SEARCH_MIN_CHARS && !dateRange
-    && clientFilter === 'all' && !advOutstanding && advMinSpent <= 0 && !advClientType;
+    && clientFilter === 'all' && !advOutstanding && advMinSpent <= 0 && advMaxSpent <= 0 && !advClientType;
 
   const sliceStart = (currentPage - 1) * itemsPerPage;
   const beyondCache = isUnfiltered && sliceStart >= filtered.length && filtered.length > 0;
@@ -782,6 +785,14 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                   className="w-36 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30"
                 />
               </div>
+              <div>
+                <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Max amount spent</label>
+                <input
+                  type="number" min="0" placeholder="e.g. 50000" value={advMaxSpentInput}
+                  onChange={(e) => setAdvMaxSpentInput(e.target.value)}
+                  className="w-36 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30"
+                />
+              </div>
               <div className="flex flex-wrap gap-1.5">
                 {[
                   { v: 'VERY_RISKY', l: '💀 Very risky' },
@@ -811,7 +822,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
               )}
               {advActive && (
                 <button type="button"
-                  onClick={() => { setAdvOutstanding(false); setAdvMinSpentInput(''); setAdvClientType(null); setLetterFilter(null); setDateRange(null); }}
+                  onClick={() => { setAdvOutstanding(false); setAdvMinSpentInput(''); setAdvMaxSpentInput(''); setAdvClientType(null); setLetterFilter(null); setDateRange(null); }}
                   className="ml-auto text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500"
                 >
                   Clear

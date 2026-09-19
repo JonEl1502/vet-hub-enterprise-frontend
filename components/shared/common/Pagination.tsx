@@ -12,23 +12,24 @@ interface PaginationProps {
   /** Compact variant: only prev/next + scrollable page numbers, no counter or per-page selector. For top-of-list placement. */
   compact?: boolean;
   /**
-   * Render a SECOND copy of the full bar, stuck to the bottom of the viewport
-   * (user, 2026-08-24). On a 4,000-row list the pager is a scroll away at all
-   * times; this keeps it under the thumb without moving the one at the end of
-   * the list, which is where people look for it after reading the last row.
+   * Dock a copy of the full bar to the bottom of the screen, always visible
+   * (user, 2026-08-24, revised 2026-09-19 from `sticky` to a true `fixed`
+   * dock — the sticky version rode away with the list near the true end
+   * instead of staying put). On a 4,000-row list the pager is under the
+   * thumb at all times, never a scroll away.
    *
-   * The sticky copy — and only the sticky copy — carries the scroll buttons in
-   * the space its middle would otherwise waste.
+   * The docked copy — and only the docked copy — carries the scroll buttons
+   * in the space its middle would otherwise waste.
    *
    * ⚠️ Ignored on a short list: fewer than `STICKY_MIN_ROWS` rows on screen and
-   * no second bar is rendered.
+   * no dock is rendered (just the plain end-of-list bar).
    */
   alsoStickyBottom?: boolean;
 }
 
 /**
- * Below this many rows on screen there is nothing to scroll past, so the sticky
- * copy of the pager is not rendered at all.
+ * Below this many rows on screen there is nothing to scroll past, so the
+ * docked copy of the pager is not rendered at all.
  */
 const STICKY_MIN_ROWS = 20;
 
@@ -52,6 +53,19 @@ const Pagination: React.FC<PaginationProps> = ({
   alsoStickyBottom = false,
 }) => {
   const stickyRef = React.useRef<HTMLDivElement>(null);
+  /** Measured height of the docked bar, so the spacer below the list reserves
+   *  exactly enough room — no guessed pixel value that drifts when the bar
+   *  wraps onto two rows on a narrow screen. */
+  const [barHeight, setBarHeight] = React.useState(0);
+  React.useEffect(() => {
+    const el = stickyRef.current;
+    if (!el) return;
+    const measure = () => setBarHeight(el.offsetHeight);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   /**
    * The app does not scroll the window — `<main>` does — and a view may put
@@ -154,7 +168,7 @@ const Pagination: React.FC<PaginationProps> = ({
 
   const bar = (isSticky: boolean) => (
     <div className={`flex flex-wrap items-center justify-between gap-2 px-3 py-1.5 border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 ${
-      isSticky ? 'rounded-xl border shadow-lg shadow-slate-900/10 dark:shadow-black/40' : 'rounded-b-xl'
+      isSticky ? 'rounded-xl border border-seafoam/30 shadow-lg shadow-slate-900/10 dark:shadow-black/40' : 'rounded-b-xl'
     }`}>
       {/* Items info — compact X-Y/Z form */}
       <div className="flex items-center gap-2">
@@ -197,7 +211,7 @@ const Pagination: React.FC<PaginationProps> = ({
         <div className="flex items-center gap-1.5 order-3 sm:order-none">
           <button
             onClick={() => scrollTo('top')}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-700 hover:text-seafoam transition-colors text-[9px] font-black uppercase tracking-wider"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-seafoam/30 bg-seafoam/5 text-seafoam hover:bg-seafoam hover:text-white transition-colors text-[9px] font-black uppercase tracking-wider"
             title="Scroll back to the top"
           >
             <ArrowUpToLine size={13} />
@@ -205,7 +219,7 @@ const Pagination: React.FC<PaginationProps> = ({
           </button>
           <button
             onClick={() => scrollTo('center')}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-700 hover:text-seafoam transition-colors text-[9px] font-black uppercase tracking-wider"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-seafoam/30 bg-seafoam/5 text-seafoam hover:bg-seafoam hover:text-white transition-colors text-[9px] font-black uppercase tracking-wider"
             title="Scroll to the middle of the list"
           >
             <AlignCenterVertical size={13} />
@@ -213,7 +227,7 @@ const Pagination: React.FC<PaginationProps> = ({
           </button>
           <button
             onClick={() => scrollTo('bottom')}
-            className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-700 hover:text-seafoam transition-colors text-[9px] font-black uppercase tracking-wider"
+            className="flex items-center gap-1 px-2 py-1.5 rounded-lg border border-seafoam/30 bg-seafoam/5 text-seafoam hover:bg-seafoam hover:text-white transition-colors text-[9px] font-black uppercase tracking-wider"
             title="Scroll to the end of the list"
           >
             <ArrowDownToLine size={13} />
@@ -301,19 +315,19 @@ const Pagination: React.FC<PaginationProps> = ({
 
   return (
     <>
-      {bar(false)}
       {/*
-        A COPY, not a move: the bar at the end of the list stays where people
-        look for it after the last row. This one rides the bottom of the
-        scrollport so paging never costs a scroll.
+        A real DOCK, not a copy of the end-of-list bar — always pinned to the
+        bottom of the screen regardless of scroll position (user, 2026-09-19:
+        the earlier `sticky` version rode away with the list in the final
+        stretch instead of staying put). No separate `bar(false)` at the true
+        end any more — the dock is already there, so a second copy would just
+        be a duplicate sitting right next to it.
 
-        ⚠️ `sticky`, not `fixed` — fixed would sit over the page at every
-        width and cover the last row; sticky pins only while there IS more
-        list below, and settles above its twin at the end.
+        ⚠️ Offset by `--vh-sidebar-w` past the sidebar on desktop, same
+        convention as `RecordActionBar` — see that file for why. On mobile the
+        sidebar collapses to an overlay, so the dock spans full width there.
         ⚠️ The wrapper is `pointer-events-none` so the transparent gutter
         beside the bar does not eat clicks on the row underneath it.
-      */}
-      {/*
         ⚠️ z-[52] is a SLOT, not a round number. The ladder it has to sit in:
           60  navbar
           55  the list pages' filter card and its dropdowns
@@ -324,9 +338,17 @@ const Pagination: React.FC<PaginationProps> = ({
         Above the cards it is pinned in front of, below the filters that open
         downward onto it (user, 2026-08-24).
       */}
-      <div ref={stickyRef} className="sticky bottom-2 z-[52] mt-2 px-1 pointer-events-none">
+      <div
+        ref={stickyRef}
+        className="fixed bottom-0 right-0 left-0 md:left-[var(--vh-sidebar-w,16rem)] z-[52] px-1 pb-2 pointer-events-none"
+      >
         <div className="pointer-events-auto">{bar(true)}</div>
       </div>
+      {/* Reserves the dock's own height at the end of the list so the fixed
+          bar never covers the last row — see `RecordActionBarSpacer` for the
+          same pattern. Measured, not guessed: the bar can wrap onto two rows
+          on a narrow screen. */}
+      <div style={{ height: barHeight }} aria-hidden />
     </>
   );
 };

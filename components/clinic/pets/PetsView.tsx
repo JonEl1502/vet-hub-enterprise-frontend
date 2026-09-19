@@ -58,12 +58,22 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
 
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   /**
+   * Amount spent has no per-pet figure of its own — spend is tracked per
+   * CLIENT (`client.totalSpent`), same as the Clients page filter this
+   * mirrors. So this filters by the patient's OWNER's total spend, looked up
+   * via `pet.ownerId`, not a per-pet number (user, 2026-09-19).
+   */
+  const [advMinSpentInput, setAdvMinSpentInput] = useState('');
+  const advMinSpent = Number(advMinSpentInput) || 0;
+  const [advMaxSpentInput, setAdvMaxSpentInput] = useState('');
+  const advMaxSpent = Number(advMaxSpentInput) || 0;
+  /**
    * ⚠️ Drives the "· on" marker on the collapsed toggle, so it must cover EVERY
    * filter that lives inside the panel — the letter AND the date range, which
    * moved there (user, 2026-08-24). A filter that is both hidden and silently
    * active is how a list comes to look empty for no visible reason.
    */
-  const advActive = !!letterFilter || !!dateRange;
+  const advActive = !!letterFilter || !!dateRange || advMinSpent > 0 || advMaxSpent > 0;
   const [currentPage, setCurrentPage] = useState(1);
   /**
    * 100 PER PAGE BY DEFAULT (user, 2026-08-24: "i want it to start here at 100").
@@ -266,10 +276,19 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
         return name.toUpperCase().startsWith(letterFilter);
       });
     }
+    if (advMinSpent > 0 || advMaxSpent > 0) {
+      list = list.filter(pet => {
+        const owner = clients.find(c => c.id === pet.ownerId);
+        const spent = owner?.totalSpent ?? 0;
+        if (advMinSpent > 0 && spent < advMinSpent) return false;
+        if (advMaxSpent > 0 && spent > advMaxSpent) return false;
+        return true;
+      });
+    }
     return list;
-  }, [searchFiltered, appointments, dateRange, petFilter, pastCountMin, letterFilter]);
+  }, [searchFiltered, appointments, dateRange, petFilter, pastCountMin, letterFilter, clients, advMinSpent, advMaxSpent]);
 
-  useEffect(() => { setCurrentPage(1); }, [searchQuery, dateRange, petFilter, pastCountMin, letterFilter]);
+  useEffect(() => { setCurrentPage(1); }, [searchQuery, dateRange, petFilter, pastCountMin, letterFilter, advMinSpent, advMaxSpent]);
 
   /**
    * PAGES BEYOND WHAT IS CACHED ARE FETCHED FROM THE SERVER.
@@ -290,7 +309,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
   const [remotePage, setRemotePage] = useState<{ page: number; rows: Pet[] } | null>(null);
   const [loadingRemotePage, setLoadingRemotePage] = useState(false);
   const sliceStart = (currentPage - 1) * itemsPerPage;
-  const isUnfilteredForPaging = searchQuery.length < SEARCH_MIN_CHARS && !dateRange && petFilter === 'all' && !letterFilter;
+  const isUnfilteredForPaging = searchQuery.length < SEARCH_MIN_CHARS && !dateRange && petFilter === 'all' && !letterFilter && advMinSpent <= 0 && advMaxSpent <= 0;
   const beyondCache = isUnfilteredForPaging && sliceStart >= filtered.length && filtered.length > 0;
 
   useEffect(() => {
@@ -611,7 +630,25 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
             </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-end gap-3">
+              <div>
+                <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Min amount spent</label>
+                <input
+                  type="number" min="0" placeholder="e.g. 10000" value={advMinSpentInput}
+                  onChange={(e) => setAdvMinSpentInput(e.target.value)}
+                  title="Filters by the patient's owner's total spend"
+                  className="w-36 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30"
+                />
+              </div>
+              <div>
+                <label className="block text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Max amount spent</label>
+                <input
+                  type="number" min="0" placeholder="e.g. 50000" value={advMaxSpentInput}
+                  onChange={(e) => setAdvMaxSpentInput(e.target.value)}
+                  title="Filters by the patient's owner's total spend"
+                  className="w-36 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30"
+                />
+              </div>
               {hasFullAccess && (
                 <button
                   onClick={() => setShowOrphans(true)}
@@ -624,7 +661,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
               {advActive && (
                 <button
                   type="button"
-                  onClick={() => { setLetterFilter(null); setDateRange(null); }}
+                  onClick={() => { setLetterFilter(null); setDateRange(null); setAdvMinSpentInput(''); setAdvMaxSpentInput(''); }}
                   className="ml-auto text-[9px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500"
                 >
                   Clear

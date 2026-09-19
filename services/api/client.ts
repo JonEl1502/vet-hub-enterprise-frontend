@@ -65,6 +65,7 @@ const makeRequest = async <T = any>(
     setLoading,
     silent = false,
     showError = true,
+    excludeFromBusy = false,
     ...axiosConfig
   } = options;
 
@@ -80,7 +81,7 @@ const makeRequest = async <T = any>(
   if (setLoading && !silent) {
     setLoading(true);
   }
-  bumpPending(1);
+  if (!excludeFromBusy) bumpPending(1);
   try {
 
   let lastError: any;
@@ -159,7 +160,7 @@ const makeRequest = async <T = any>(
   throw lastError;
 
   } finally {
-    bumpPending(-1);
+    if (!excludeFromBusy) bumpPending(-1);
   }
 };
 

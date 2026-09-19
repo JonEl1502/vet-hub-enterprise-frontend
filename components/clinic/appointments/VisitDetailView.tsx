@@ -5149,9 +5149,13 @@ const VisitDetailInner: React.FC<Props> = ({
               <Loader2 size={12} className="animate-spin" /> Loading{netBusy > 1 ? ` · ${netBusy}` : '…'}
             </span>
           )}
-          {/* Patient Journey — reachable from every tab, not only the wizard. */}
+          {/* Patient Journey — reachable from every tab, not only the wizard.
+              Its own loading state lives on the button (the spinner swaps in
+              for the compass), not the shared `netBusy` pill above — a
+              background journey refetch used to pop that pill in and out and
+              shift this whole row (user, 2026-09-19). */}
           <button onClick={() => { setShowJourney(true); void wiz.reloadEvents(); }} className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-seafoam/30 bg-seafoam/5 text-seafoam text-[10px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
-            🧭 Journey · {wiz.events.length}
+            {wiz.journeyLoading ? <Loader2 size={12} className="animate-spin" /> : '🧭'} Journey · {wiz.events.length}
           </button>
         </div>
       </div>
