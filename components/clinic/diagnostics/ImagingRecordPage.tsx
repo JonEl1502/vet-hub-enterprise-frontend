@@ -197,7 +197,7 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
         <div className="p-3 bg-white/15 rounded-2xl"><ScanLine size={24} /></div>
         <div className="flex-1 min-w-0">
           <p className="text-white/60 text-[9px] font-black uppercase tracking-widest">Imaging study</p>
-          <h1 className="text-xl font-black tracking-tight truncate flex items-center gap-2"><Dog size={18} /> {current.pet?.name ?? 'Patient'}{(current.pet as any)?.species ? <span className="text-white/60 text-sm font-bold">· {(current.pet as any).species}</span> : null}</h1>
+          <h1 className="text-xl font-black tracking-tight truncate flex items-center gap-2"><Dog size={18} /> {current.pet?.name ?? 'Patient'}</h1>
           {petMetaLine(petFull) && <p className="text-[11px] text-white/70 truncate">{petMetaLine(petFull)}</p>}
           <p className="text-[11px] text-white/70 truncate">
             {current.modality}{current.bodyPart ? ` · ${current.bodyPart}` : ''} · {current.studyDate ? formatDate(current.studyDate) : formatDate(current.createdAt)}
