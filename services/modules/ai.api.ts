@@ -91,6 +91,18 @@ export const aiAPI = {
   } }>> =>
     post(ENDPOINTS.AI.CONVERSATION_DAYLOG_DRAFT(id), {}),
 
+  /**
+   * Visit-booking draft — extracts who/why/when from the conversation. Names
+   * only, never ids: the caller still has to resolve (or ask the clinician
+   * to resolve) who that actually is before booking through the real
+   * appointmentsAPI.create, same review-before-write pattern as the other drafts.
+   */
+  draftVisitFromConversation: (id: string | number): Promise<ApiResponse<{ conversationId: string; draft: {
+    petName: string | null; clientName: string | null; reason: string | null;
+    suggestedDate: string | null; suggestedTime: string | null; notes: string | null;
+  } }>> =>
+    post(ENDPOINTS.AI.CONVERSATION_VISIT_DRAFT(id), {}),
+
   generateServiceNote: (input: ServiceNoteInput): Promise<ApiResponse<ServiceNoteResult>> =>
     post<ServiceNoteResult>(ENDPOINTS.AI.SERVICE_NOTE, input),
 

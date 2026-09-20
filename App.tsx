@@ -3615,7 +3615,26 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       {/* Floats above every fixed bottom bar in the app (RecordActionBar,
           VisitWizard footer, client portal tab bar) via BOTTOM_CLEARANCE
           inside GlobalAIAssistant — see that file for the collision fix. */}
-      <GlobalAIAssistant context={aiContext} />
+      <GlobalAIAssistant
+        context={aiContext}
+        onCreateVisitDraft={(draft) => {
+          navigateTo('new-appointment', {
+            initialClientId: draft.initialClientId,
+            initialPetId: draft.initialPetId,
+          });
+          // No prefill field on the New Visit form for reason/date/time/notes
+          // or an unresolved name — surfaced instead so nothing the model
+          // extracted silently gets lost.
+          const carried = [
+            draft.unresolvedPetName ? `Patient: "${draft.unresolvedPetName}" (pick from the list)` : null,
+            draft.reason ? `Reason: ${draft.reason}` : null,
+            draft.suggestedDate ? `Date: ${draft.suggestedDate}` : null,
+            draft.suggestedTime ? `Time: ${draft.suggestedTime}` : null,
+            draft.notes ? `Notes: ${draft.notes}` : null,
+          ].filter(Boolean);
+          if (carried.length) toast.info(carried.join(' · '), 8000);
+        }}
+      />
       <SupplierBranchProvider>
       <DisplayCurrencyProvider>
       <TourProvider tours={TOURS} onNavigate={navigateTo} currentView={currentNav.view}>

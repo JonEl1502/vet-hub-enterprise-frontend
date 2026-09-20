@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Sparkles, X, Send, Loader2, Bot, Mic, Upload, Image as ImageIcon } from 'lucide-react';
 import { aiAPI } from '../../../services/modules/ai.api';
 import type { ChatMessage } from '../../../services/modules/ai.api';
+import { petsAPI } from '../../../services/modules/pets.api';
 import { dialog } from '../../../services';
 import { toast } from '../../../services/utils/toast';
 
@@ -73,7 +74,24 @@ const BOTTOM_CLEARANCE = 'max(5.5rem, calc(4.5rem + env(safe-area-inset-bottom))
  * current page + patient/client + logged-in user so one assistant can help
  * across the whole app and answer for whoever is signed in.
  */
-const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
+export interface VisitDraftHandoff {
+  initialClientId?: number;
+  initialPetId?: number;
+  reason?: string | null;
+  suggestedDate?: string | null;
+  suggestedTime?: string | null;
+  notes?: string | null;
+  /** Set when the model named a patient/client but the search couldn't
+   * confidently resolve one — never guessed, so the clinician picks by hand. */
+  unresolvedPetName?: string | null;
+}
+
+const GlobalAIAssistant: React.FC<{
+  context: AIContext;
+  /** Hands a resolved (or honestly unresolved) draft off to the real New
+   * Visit flow — this component never creates a visit itself. */
+  onCreateVisitDraft?: (draft: VisitDraftHandoff) => void;
+}> = ({ context, onCreateVisitDraft }) => {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [input, setInput] = useState('');
@@ -213,6 +231,54 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
     }
   };
 
+  // "Create a visit" from a plain chat request. The model only ever extracts
+  // a NAME, never an id — this resolves that name against real pets by
+  // search and only pre-fills when the match is unambiguous. Zero matches or
+  // several both mean "don't guess": hand off with the name intact so the
+  // clinician picks the right one on the real New Visit form, the same trusted
+  // path every other visit in this app is created through.
+  const [draftingVisit, setDraftingVisit] = useState(false);
+  const draftVisit = async () => {
+    if (!conversationId || draftingVisit || !onCreateVisitDraft) return;
+    setDraftingVisit(true);
+    try {
+      const res = await aiAPI.draftVisitFromConversation(conversationId);
+      if (!res.success || !res.data?.draft) {
+        toast.error('Could not draft a visit from this conversation.');
+        return;
+      }
+      const { petName, clientName, reason, suggestedDate, suggestedTime, notes } = res.data.draft;
+      const handoff: VisitDraftHandoff = { reason, suggestedDate, suggestedTime, notes };
+
+      const searchTerm = petName || clientName;
+      if (searchTerm) {
+        try {
+          const search = await petsAPI.getAll({ search: searchTerm, limit: 5 } as any);
+          const matches = search.success ? search.data?.pets ?? [] : [];
+          if (matches.length === 1) {
+            handoff.initialPetId = Number(matches[0].id);
+            handoff.initialClientId = Number(matches[0].ownerId);
+          } else {
+            handoff.unresolvedPetName = searchTerm;
+          }
+        } catch {
+          handoff.unresolvedPetName = searchTerm;
+        }
+      }
+
+      onCreateVisitDraft(handoff);
+      toast.success(
+        handoff.initialPetId
+          ? 'Found the patient — opening New Visit, pre-filled.'
+          : 'Opening New Visit — pick the patient, the rest of the draft carried over.'
+      );
+    } catch {
+      toast.error('Could not draft a visit from this conversation.');
+    } finally {
+      setDraftingVisit(false);
+    }
+  };
+
   // Resize from the top-left grip (the panel is anchored bottom-right).
   const onResizeStart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -314,6 +380,22 @@ const GlobalAIAssistant: React.FC<{ context: AIContext }> = ({ context }) => {
           >
             {draftingDayLog ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
             Draft to today's care log
+          </button>
+        </div>
+      )}
+
+      {/* Book a visit — only when this is a general chat (no visit/stay
+          already open, those have their own more specific draft action) and
+          there's a real conversation to extract from. */}
+      {!context.appointmentId && !context.stayId && onCreateVisitDraft && conversationId && messages.length > 0 && (
+        <div className="px-2.5 pt-2 border-t border-slate-200 dark:border-zinc-800 shrink-0">
+          <button
+            onClick={draftVisit}
+            disabled={draftingVisit}
+            className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 border border-indigo-200 dark:border-indigo-800 text-indigo-700 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-100 dark:hover:bg-indigo-950/50 transition-all disabled:opacity-50"
+          >
+            {draftingVisit ? <Loader2 size={13} className="animate-spin" /> : <Sparkles size={13} />}
+            Create a visit from this
           </button>
         </div>
       )}

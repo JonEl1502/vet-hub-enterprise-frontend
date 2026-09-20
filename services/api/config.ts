@@ -474,6 +474,7 @@ export const ENDPOINTS = {
     CONVERSATIONS: '/ai/conversations',
     CONVERSATION_SUMMARY: (id: string | number) => `/ai/conversations/${id}/summary`,
     CONVERSATION_DAYLOG_DRAFT: (id: string | number) => `/ai/conversations/${id}/day-log-draft`,
+    CONVERSATION_VISIT_DRAFT: (id: string | number) => `/ai/conversations/${id}/visit-draft`,
     SERVICE_NOTE: '/ai/service-note',
     VISIT_SUMMARY: '/ai/visit-summary',
     ANALYZE: '/ai/analyze',
