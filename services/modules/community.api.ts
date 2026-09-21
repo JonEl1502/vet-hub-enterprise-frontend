@@ -7,8 +7,8 @@
 import { get, post, put, del } from '../api/client';
 import { RequestOptions, ApiResponse } from '../api/types';
 
-export type CommunityKind = 'ARTICLE' | 'DEAL' | 'MEET';
-export type CommunityAuthorKind = 'CLINIC' | 'SUPPLIER' | 'PRACTITIONER';
+export type CommunityKind = 'ARTICLE' | 'DEAL' | 'MEET' | 'ADOPTION';
+export type CommunityAuthorKind = 'CLINIC' | 'SUPPLIER' | 'PRACTITIONER' | 'CLIENT';
 
 export interface CommunityPost {
   id: string;
@@ -22,6 +22,14 @@ export interface CommunityPost {
   title: string;
   body: string | null;
   mediaUrl: string | null;
+  /** Gallery (307), additive to `mediaUrl` which stays the cover image. */
+  mediaUrls: string[];
+  /** ADOPTION only — null on every other kind. */
+  petSpecies: string | null;
+  petBreed: string | null;
+  petAge: string | null;
+  petSex: 'MALE' | 'FEMALE' | 'UNKNOWN' | null;
+  adoptionStatus: 'AVAILABLE' | 'PENDING' | 'ADOPTED' | null;
   tags: string[];
   status: 'DRAFT' | 'PUBLISHED' | 'REMOVED';
   publishedAt: string | null;
@@ -89,6 +97,13 @@ export interface CreateCommunityPost {
   title: string;
   body?: string;
   mediaUrl?: string;
+  /** ADOPTION only (307). */
+  mediaUrls?: string[];
+  petSpecies?: string;
+  petBreed?: string;
+  petAge?: string;
+  petSex?: 'MALE' | 'FEMALE' | 'UNKNOWN';
+  adoptionStatus?: 'AVAILABLE' | 'PENDING' | 'ADOPTED';
   tags?: string[];
   price?: number;
   compareAtPrice?: number;

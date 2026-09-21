@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Home, Users, Tag, Calendar, Hash, Bookmark, PenLine, User as UserIcon,
-  ArrowLeft, Bell, Search,
+  ArrowLeft, Bell, Search, Heart,
 } from 'lucide-react';
 import { communityAPI, CommunityPost } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -64,6 +64,8 @@ const NAV: Array<{ key: string; label: string; icon: any }> = [
   { key: 'following', label: 'Following', icon: Users },
   { key: 'DEAL', label: 'Deals', icon: Tag },
   { key: 'MEET', label: 'Meet-ups', icon: Calendar },
+  /** Free to post and free to browse for everyone — see CommunityFeed's `modes`. */
+  { key: 'ADOPTION', label: 'Adoption', icon: Heart },
 ];
 
 const YOURS: Array<{ key: string; label: string; icon: any }> = [
@@ -132,15 +134,20 @@ const CommunityApp: React.FC<Props> = ({
   // Fails OPEN while access is still loading/unreadable — same as canPost —
   // so a slow plan fetch can never look like a preview timer to a real
   // subscriber. Only counts down once we are SURE there is no access.
+  //
+  // ⚠️ ADOPTION IS EXEMPT (307) — free to browse and post forever, so the
+  // countdown must not evict someone sitting on that tab, or the "free"
+  // promise is only true for 15 seconds. It still runs on every other tab,
+  // where access is genuinely paywalled.
   const [previewSecondsLeft, setPreviewSecondsLeft] = useState<number | null>(null);
   useEffect(() => {
-    if (loading || access === null || hasCommunityAccess) { setPreviewSecondsLeft(null); return; }
+    if (loading || access === null || hasCommunityAccess || view === 'ADOPTION') { setPreviewSecondsLeft(null); return; }
     setPreviewSecondsLeft(15);
     const id = window.setInterval(() => {
       setPreviewSecondsLeft((s) => (s === null ? null : s - 1));
     }, 1000);
     return () => window.clearInterval(id);
-  }, [loading, access, hasCommunityAccess]);
+  }, [loading, access, hasCommunityAccess, view]);
   useEffect(() => {
     if (previewSecondsLeft === 0) onBackToWork();
   }, [previewSecondsLeft, onBackToWork]);
@@ -249,7 +256,7 @@ const CommunityApp: React.FC<Props> = ({
           <p className="mt-1.5 text-[10.5px] font-semibold text-slate-400 leading-relaxed">
             {canPost
               ? 'Reading and replying are free for everyone; this is what lets you publish.'
-              : 'Reply to anyone for free. Publishing your own posts is the add-on.'}
+              : 'Reply to anyone for free, and post a pet for adoption any time — that one is always free. This is what adds articles, deals and meet-ups.'}
           </p>
           {!canPost && (
             <button onClick={onGoToBilling} className="mt-2 w-full rounded-lg bg-gradient-to-r from-pine to-seafoam py-1.5 text-[8.5px] font-display font-extrabold uppercase tracking-widest text-white">

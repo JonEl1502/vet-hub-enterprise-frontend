@@ -11,11 +11,13 @@ import { usePortalMode } from './usePortalMode';
  * they were here as an audience that could not make a sound: the old composer
  * was closed to CLIENT outright and there was nothing else to do but read.
  *
- * They still cannot BROADCAST — originating a post that reaches the room is
- * what the add-on sells, and a client has no business to advertise. But they
- * can now reply, react, follow and save, all free. That is the difference
- * between an audience and a community, and it is why the clinics' add-on is
- * worth anything.
+ * They still cannot BROADCAST an advert — originating a post that reaches the
+ * room is what the add-on sells, and a client has no business to advertise.
+ * But they can now reply, react, follow and save, all free, plus ONE
+ * exception (307): post a pet up for adoption, free, no add-on, because
+ * rehoming your own pet is not advertising a business. That is the
+ * difference between an audience and a community, and it is why the
+ * clinics' add-on is worth anything.
  *
  * ⚠️ "Back to work" says "Back to my pets" / "Back to my farm" here. A pet
  * owner has no work to return to, and borrowing the clinic's word would make

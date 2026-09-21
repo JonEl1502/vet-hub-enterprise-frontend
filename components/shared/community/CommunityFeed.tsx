@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Loader2, Megaphone, X } from 'lucide-react';
+import { Loader2, Megaphone, X, ImagePlus } from 'lucide-react';
 import { communityAPI, CommunityPost, CommunityKind, toast, dialog } from '../../../services';
+import { uploadsAPI } from '../../../services/modules/uploads.api';
 import PostCard from './PostCard';
 
 /**
@@ -25,15 +26,17 @@ const TABS: Array<{ key: string; label: string }> = [
   { key: 'following', label: 'Following' },
   { key: 'DEAL', label: 'Deals' },
   { key: 'MEET', label: 'Meet-ups' },
+  { key: 'ADOPTION', label: 'Adoption' },
 ];
 
-type Mode = 'POST' | 'ARTICLE' | 'DEAL' | 'MEET';
+type Mode = 'POST' | 'ARTICLE' | 'DEAL' | 'MEET' | 'ADOPTION';
 
 const MODE_HINT: Record<Mode, string> = {
   POST: 'Goes to everyone who follows you, and to anyone browsing For you. No targeting — that belongs to deals and meet-ups.',
   ARTICLE: 'The long one. It gets its own page, and Helpful on it is what builds your reach.',
   DEAL: 'Attached products carry the OFFER price into a buyer\'s purchase order. Targeting matters here — a Nairobi delivery deal means nothing in Mombasa.',
   MEET: 'Leave the location levels open and everyone on VetHub sees it. Set a town and it reaches that town.',
+  ADOPTION: 'Free to post for everyone — a client rehoming their own pet, a clinic or a shelter. Set a town so nearby people see it first.',
 };
 
 interface Props {
@@ -59,14 +62,17 @@ const CommunityFeed: React.FC<Props> = ({
   const [loading, setLoading] = useState(true);
   const [emptyReason, setEmptyReason] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<Mode>(isPractitioner ? 'MEET' : 'POST');
+  const [mode, setMode] = useState<Mode>(canPost ? (isPractitioner ? 'MEET' : 'POST') : 'ADOPTION');
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
     title: '', body: '', tags: '',
     price: '', compareAtPrice: '', endsAt: '', startsAt: '',
     venueMode: 'IN_PERSON' as 'IN_PERSON' | 'ONLINE',
     venueCountry: '', venueCity: '', venueAddress: '', venueLink: '',
     audienceCities: '', audienceCountries: '', audienceRegions: '',
+    petSpecies: '', petBreed: '', petAge: '', petSex: '' as '' | 'MALE' | 'FEMALE' | 'UNKNOWN',
+    photos: [] as string[],
   });
 
   const load = async () => {
@@ -74,7 +80,7 @@ const CommunityFeed: React.FC<Props> = ({
     setEmptyReason(null);
     try {
       const tag = view.startsWith('tag:') ? view.slice(4) : undefined;
-      const kind = ['ARTICLE', 'DEAL', 'MEET'].includes(view) ? view : undefined;
+      const kind = ['ARTICLE', 'DEAL', 'MEET', 'ADOPTION'].includes(view) ? view : undefined;
       const res = await communityAPI.feed({
         kind, tag,
         following: view === 'following',
@@ -92,13 +98,14 @@ const CommunityFeed: React.FC<Props> = ({
 
   const publish = async () => {
     if (!form.title.trim()) { toast.error('Give it a title'); return; }
+    if (mode === 'ADOPTION' && !form.petSpecies.trim()) { toast.error('What kind of animal is this?'); return; }
     setSaving(true);
     try {
       // A plain POST is an ARTICLE on the wire — the server knows three kinds,
       // and inventing a fourth for "a short one" would mean a migration, a new
       // badge, and a distinction no reader cares about.
       const kind: CommunityKind = mode === 'POST' ? 'ARTICLE' : mode;
-      const targeted = mode === 'DEAL' || mode === 'MEET';
+      const targeted = mode === 'DEAL' || mode === 'MEET' || mode === 'ADOPTION';
       await communityAPI.create({
         kind,
         ...(isPractitioner ? { authorKind: 'PRACTITIONER' as const } : {}),
@@ -118,23 +125,45 @@ const CommunityFeed: React.FC<Props> = ({
           venueAddress: form.venueMode === 'IN_PERSON' ? (form.venueAddress.trim() || undefined) : undefined,
           venueLink: form.venueMode === 'ONLINE' ? (form.venueLink.trim() || undefined) : undefined,
         } : {}),
+        ...(mode === 'ADOPTION' ? {
+          petSpecies: form.petSpecies.trim() || undefined,
+          petBreed: form.petBreed.trim() || undefined,
+          petAge: form.petAge.trim() || undefined,
+          petSex: form.petSex || undefined,
+          mediaUrl: form.photos[0] || undefined,
+          mediaUrls: form.photos.length ? form.photos : undefined,
+        } : {}),
         ...(targeted ? {
           audienceCities: form.audienceCities.split(',').map(t => t.trim()).filter(Boolean),
           audienceCountries: form.audienceCountries.split(',').map(t => t.trim()).filter(Boolean),
           audienceRegions: form.audienceRegions ? [form.audienceRegions] : [],
         } : {}),
       });
-      toast.success('Posted to Community');
+      toast.success(mode === 'ADOPTION' ? 'Posted to Adoption' : 'Posted to Community');
       setOpen(false);
       setForm({
         title: '', body: '', tags: '', price: '', compareAtPrice: '', endsAt: '', startsAt: '',
         venueMode: 'IN_PERSON', venueCountry: '', venueCity: '', venueAddress: '', venueLink: '',
         audienceCities: '', audienceCountries: '', audienceRegions: '',
+        petSpecies: '', petBreed: '', petAge: '', petSex: '', photos: [],
       });
       await load();
     } catch {
       /* the API layer surfaces the 403 with the upgrade wording */
     } finally { setSaving(false); }
+  };
+
+  const addPhotos = async (files: FileList | null) => {
+    if (!files?.length) return;
+    setUploading(true);
+    try {
+      const uploaded = await Promise.all(
+        Array.from(files).slice(0, 8 - form.photos.length).map(f => uploadsAPI.upload(f, 'community')),
+      );
+      setForm(f => ({ ...f, photos: [...f.photos, ...uploaded.map(u => u.publicUrl)].slice(0, 8) }));
+    } catch {
+      toast.error('Could not upload one or more photos');
+    } finally { setUploading(false); }
   };
 
   const removePost = async (p: CommunityPost) => {
@@ -148,13 +177,18 @@ const CommunityFeed: React.FC<Props> = ({
     try { await communityAPI.remove(p.id); await load(); } catch { /* toasted */ }
   };
 
-  const modes: Mode[] = isPractitioner ? ['POST', 'MEET'] : ['POST', 'ARTICLE', 'DEAL', 'MEET'];
+  // ADOPTION is free to originate for everyone who can reach this screen at
+  // all — a client rehoming their own pet, or a clinic/supplier without the
+  // Community Access add-on. See community.controller.ts's resolveAuthor().
+  const modes: Mode[] = canPost
+    ? (isPractitioner ? ['POST', 'MEET', 'ADOPTION'] : ['POST', 'ARTICLE', 'DEAL', 'MEET', 'ADOPTION'])
+    : ['ADOPTION'];
 
   return (
     <div className="flex flex-col gap-3.5 min-w-0">
-      {/* ── composer ── */}
-      {canPost && (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl">
+      {/* ── composer — ALWAYS shown, even without the add-on: Adoption is the
+          one mode everyone can publish (see `modes` above). ── */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl">
           <div className="flex items-center gap-2.5 p-3.5">
             <span className="w-10 h-10 rounded-xl bg-gradient-to-br from-pine to-seafoam grid place-items-center text-white font-display font-extrabold text-sm shrink-0">
               {avatarLetter}
@@ -258,10 +292,55 @@ const CommunityFeed: React.FC<Props> = ({
                 </div>
               )}
 
+              {mode === 'ADOPTION' && (
+                <div className="flex flex-col gap-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <input id="community-pet-species" className="field-input" placeholder="Species — Dog, Cat, Rabbit…"
+                      value={form.petSpecies} onChange={e => setForm(f => ({ ...f, petSpecies: e.target.value }))} />
+                    <input id="community-pet-breed" className="field-input" placeholder="Breed (optional)"
+                      value={form.petBreed} onChange={e => setForm(f => ({ ...f, petBreed: e.target.value }))} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input id="community-pet-age" className="field-input" placeholder="Age — e.g. 8 months"
+                      value={form.petAge} onChange={e => setForm(f => ({ ...f, petAge: e.target.value }))} />
+                    <select id="community-pet-sex" className="field-select"
+                      value={form.petSex} onChange={e => setForm(f => ({ ...f, petSex: e.target.value as typeof form.petSex }))}>
+                      <option value="">Sex — unknown</option>
+                      <option value="MALE">Male</option>
+                      <option value="FEMALE">Female</option>
+                      <option value="UNKNOWN">Unknown</option>
+                    </select>
+                  </div>
+
+                  <span className="text-[9px] font-display font-extrabold uppercase tracking-widest text-slate-400">Photos</span>
+                  <div className="flex flex-wrap gap-2">
+                    {form.photos.map(url => (
+                      <div key={url} className="relative w-16 h-16 rounded-lg overflow-hidden border border-slate-200 dark:border-zinc-800">
+                        <img src={url} alt="" className="w-full h-full object-cover" />
+                        <button
+                          type="button"
+                          onClick={() => setForm(f => ({ ...f, photos: f.photos.filter(p => p !== url) }))}
+                          className="absolute top-0.5 right-0.5 w-4 h-4 rounded-full bg-black/60 text-white grid place-items-center"
+                        >
+                          <X size={9} />
+                        </button>
+                      </div>
+                    ))}
+                    {form.photos.length < 8 && (
+                      <label className="w-16 h-16 rounded-lg border border-dashed border-slate-300 dark:border-zinc-700 grid place-items-center cursor-pointer text-slate-400 hover:border-seafoam hover:text-seafoam">
+                        {uploading ? <Loader2 size={16} className="animate-spin" /> : <ImagePlus size={16} />}
+                        <input type="file" accept="image/*" multiple className="hidden"
+                          onChange={e => { addPhotos(e.target.files); e.target.value = ''; }} />
+                      </label>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <input id="community-tags" className="field-input" placeholder="Tags, comma separated — these become topics"
                 value={form.tags} onChange={e => setForm(f => ({ ...f, tags: e.target.value }))} />
 
-              {(mode === 'DEAL' || mode === 'MEET') && (
+              {(mode === 'DEAL' || mode === 'MEET' || mode === 'ADOPTION') && (
                 <div className="pt-2.5 border-t border-dashed border-slate-200 dark:border-zinc-800 flex flex-col gap-2">
                   <span className="text-[9px] font-display font-extrabold uppercase tracking-widest text-slate-400">Who sees this</span>
                   <input id="community-aud-cities" className="field-input" placeholder="Towns and cities — Nairobi, Westlands, Kikuyu"
@@ -300,21 +379,20 @@ const CommunityFeed: React.FC<Props> = ({
             </div>
           )}
         </div>
-      )}
 
       {/* ── the offer, never a wall: the feed below still reads normally (288) ── */}
       {!canPost && (
         <section className="rounded-2xl border border-pine/25 dark:border-seafoam/25 bg-gradient-to-br from-pine/[0.06] to-seafoam/[0.06] dark:from-pine/15 dark:to-seafoam/10 p-5">
           <p className="text-[9px] font-display font-extrabold uppercase tracking-widest text-pine dark:text-seafoam">
-            Reading and replying are free · posting is the add-on
+            Adoption posting is free · everything else is the add-on
           </p>
           <h2 className="mt-1.5 text-lg font-display font-extrabold text-pine dark:text-zinc-100 leading-tight">
-            You can read and reply to everything here. Community Access lets you start the conversation.
+            You can read, reply, and post a pet for adoption — free. Community Access adds articles, deals and meet-ups.
           </h2>
           <p className="mt-2 text-[13px] text-slate-600 dark:text-zinc-400 leading-relaxed max-w-2xl">
-            Browse the whole feed, reply to anyone, follow whoever you like — all free, for as long
-            as you like. Community Access is what adds your own articles, deals and meet-ups to it,
-            published under your name to everyone in the room.
+            Browse the whole feed, reply to anyone, follow whoever you like, and post an adoption listing
+            any time — all free, for as long as you like. Community Access is what adds your own articles,
+            deals and meet-ups to it, published under your name to everyone in the room.
           </p>
           <button
             onClick={onGetAccess}
@@ -364,8 +442,9 @@ const CommunityFeed: React.FC<Props> = ({
             {emptyReason === 'NOT_FOLLOWING_ANYONE'
               ? 'Follow a clinic, a supplier or a topic and this becomes your own feed. Suggestions are on the right.'
               : view === 'saved' ? 'The bookmark on any post keeps it here. Only you can see this.'
+              : view === 'ADOPTION' ? 'Be the first — post a pet that needs a home.'
               : canPost ? 'Be the first — post an article, a deal, or a meet-up.'
-              : 'Clinics and suppliers post here. Check back soon, or reply to something in For you.'}
+              : 'Clinics and suppliers post here. Check back soon, or post a pet for adoption — that one is free.'}
           </p>
         </div>
       )}

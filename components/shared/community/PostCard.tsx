@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Calendar, MapPin, Eye, Trash2, ShoppingCart, ThumbsUp, HandHeart,
-  Bookmark, MessageCircle, Share2, Plus, Flag,
+  Bookmark, MessageCircle, Share2, Plus, Flag, PawPrint,
 } from 'lucide-react';
 import { communityAPI, CommunityPost, toast, dialog } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
@@ -36,6 +36,13 @@ const KIND_META: Record<string, { label: string; className: string }> = {
   ARTICLE: { label: 'Article', className: 'bg-cyan-500/10 text-cyan-600 border-cyan-500/25' },
   DEAL: { label: 'Deal', className: 'bg-amber-500/10 text-amber-600 border-amber-500/25' },
   MEET: { label: 'Meet-up', className: 'bg-violet-500/10 text-violet-600 border-violet-500/25' },
+  ADOPTION: { label: 'Adoption', className: 'bg-rose-500/10 text-rose-600 border-rose-500/25' },
+};
+
+const ADOPTION_STATUS_META: Record<string, { label: string; className: string }> = {
+  AVAILABLE: { label: 'Available', className: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/25' },
+  PENDING: { label: 'Pending', className: 'bg-amber-500/10 text-amber-600 border-amber-500/25' },
+  ADOPTED: { label: 'Adopted', className: 'bg-slate-500/10 text-slate-500 border-slate-500/25' },
 };
 
 interface Props {
@@ -117,6 +124,15 @@ const PostCard: React.FC<Props> = ({
     }
   };
 
+  const setAdoptionStatus = async (adoptionStatus: 'AVAILABLE' | 'PENDING' | 'ADOPTED') => {
+    const prev = post.adoptionStatus;
+    onChange({ ...post, adoptionStatus });
+    try {
+      const res = await communityAPI.update(post.id, { adoptionStatus });
+      if (res.data?.post) onChange(res.data.post);
+    } catch { onChange({ ...post, adoptionStatus: prev }); }
+  };
+
   const save = async () => {
     if (!requireAccess()) return;
     const on = !post.viewerSaved;
@@ -190,6 +206,11 @@ const PostCard: React.FC<Props> = ({
           <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border ${meta.className}`}>
             {meta.label}
           </span>
+          {post.kind === 'ADOPTION' && post.adoptionStatus && (
+            <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest border ${ADOPTION_STATUS_META[post.adoptionStatus]?.className || ADOPTION_STATUS_META.AVAILABLE.className}`}>
+              {ADOPTION_STATUS_META[post.adoptionStatus]?.label || post.adoptionStatus}
+            </span>
+          )}
         </div>
       </div>
 
@@ -205,7 +226,44 @@ const PostCard: React.FC<Props> = ({
         )}
       </div>
 
-      {post.mediaUrl && <img src={post.mediaUrl} alt="" className="w-full max-h-96 object-cover mt-3" />}
+      {post.kind === 'ADOPTION' && post.mediaUrls.length > 0 ? (
+        <div className={`grid gap-0.5 mt-3 ${post.mediaUrls.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+          {post.mediaUrls.slice(0, 4).map(url => (
+            <img key={url} src={url} alt="" className={`w-full object-cover ${post.mediaUrls.length === 1 ? 'max-h-96' : 'h-40'}`} />
+          ))}
+        </div>
+      ) : post.mediaUrl && <img src={post.mediaUrl} alt="" className="w-full max-h-96 object-cover mt-3" />}
+
+      {post.kind === 'ADOPTION' && (post.petSpecies || post.petBreed || post.petAge || post.petSex) && (
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-4 pt-3 text-[11px] font-bold text-slate-500 dark:text-zinc-400">
+          {[post.petSpecies, post.petBreed, post.petAge, post.petSex && post.petSex !== 'UNKNOWN' ? post.petSex.charAt(0) + post.petSex.slice(1).toLowerCase() : null]
+            .filter(Boolean)
+            .map((fact, i) => (
+              <span key={i} className="inline-flex items-center gap-1.5">
+                {i === 0 && <PawPrint size={12} />} {fact}
+              </span>
+            ))}
+        </div>
+      )}
+
+      {/* Owner-only status changer — the listing's own lifecycle (307). */}
+      {post.kind === 'ADOPTION' && mine && (
+        <div className="flex flex-wrap items-center gap-1.5 px-4 pt-3" onClick={e => e.stopPropagation()}>
+          {(['AVAILABLE', 'PENDING', 'ADOPTED'] as const).map(s => (
+            <button
+              key={s}
+              onClick={() => setAdoptionStatus(s)}
+              className={`px-2 py-1 rounded-md text-[9px] font-black uppercase tracking-widest border transition-colors ${
+                post.adoptionStatus === s
+                  ? ADOPTION_STATUS_META[s].className
+                  : 'border-slate-200 dark:border-zinc-800 text-slate-400 hover:border-seafoam hover:text-seafoam'
+              }`}
+            >
+              Mark {ADOPTION_STATUS_META[s].label.toLowerCase()}
+            </button>
+          ))}
+        </div>
+      )}
 
       {post.kind === 'DEAL' && post.price != null && (
         <div className="flex items-baseline gap-2.5 px-4 pt-3 flex-wrap">
