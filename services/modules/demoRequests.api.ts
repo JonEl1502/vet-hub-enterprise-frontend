@@ -16,6 +16,19 @@ import { RequestOptions, ApiResponse } from '../api/types';
 export type DemoRequestStatus = 'NEW' | 'CONTACTED' | 'CONVERTED' | 'DISMISSED';
 /** Which queue — not a status. A lead is inbound or outbound for life. */
 export type LeadKind = 'INBOUND' | 'OUTREACH';
+/**
+ * What the prospect actually is (306) — a closed set, unlike `segment` (free
+ * text) which has no fixed vocabulary to filter on.
+ */
+export type OrgType = 'CLINIC' | 'MANUFACTURER' | 'DISTRIBUTOR' | 'RETAILER' | 'LAB_EQUIPMENT';
+
+export const ORG_TYPE_OPTIONS: { id: OrgType; label: string }[] = [
+  { id: 'CLINIC', label: 'Clinic' },
+  { id: 'MANUFACTURER', label: 'Manufacturer' },
+  { id: 'DISTRIBUTOR', label: 'Distributor / Wholesaler' },
+  { id: 'RETAILER', label: 'Retailer / Pet store' },
+  { id: 'LAB_EQUIPMENT', label: 'Lab / Equipment' },
+];
 
 export interface DemoRequest {
   id: string;
@@ -31,6 +44,7 @@ export interface DemoRequest {
   /** Outreach only — the row id in the research sheet, e.g. "CL-0001". */
   externalRef?: string | null;
   segment?: string | null;
+  orgType?: OrgType | null;
   country?: string | null;
   region?: string | null;
   town?: string | null;
@@ -69,21 +83,24 @@ export interface LeadImportRow {
   region?: string | null;
   town?: string | null;
   segment?: string | null;
+  orgType?: string | null;
   priority?: string | null;
   leadScore?: number | string | null;
   message?: string | null;
 }
 
 export const demoRequestsAPI = {
-  list: (params?: { status?: string; q?: string; kind?: LeadKind }, options?: RequestOptions): Promise<ApiResponse<{
+  list: (params?: { status?: string; q?: string; kind?: LeadKind; orgType?: OrgType }, options?: RequestOptions): Promise<ApiResponse<{
     requests: DemoRequest[];
     counts: Record<string, number>;
     kindCounts: Record<string, number>;
+    orgTypeCounts: Record<string, number>;
   }>> => {
     const qs = new URLSearchParams();
     if (params?.status) qs.set('status', params.status);
     if (params?.q) qs.set('q', params.q);
     if (params?.kind) qs.set('kind', params.kind);
+    if (params?.orgType) qs.set('orgType', params.orgType);
     const suffix = qs.toString() ? `?${qs}` : '';
     return get(`/admin/demo-requests${suffix}`, { cache: false, ...options });
   },
@@ -98,7 +115,7 @@ export const demoRequestsAPI = {
     data: {
       status?: DemoRequestStatus; notes?: string; email?: string; phone?: string;
       name?: string; clinicName?: string; website?: string;
-      country?: string; region?: string; town?: string; segment?: string; priority?: string;
+      country?: string; region?: string; town?: string; segment?: string; orgType?: OrgType | null; priority?: string;
     },
     options?: RequestOptions,
   ): Promise<ApiResponse<{ id: string; status: DemoRequestStatus; notes: string | null; email: string | null; contactedAt: string | null }>> =>

@@ -49,7 +49,10 @@ const FIELD_ALIASES: Record<keyof LeadImportRow, string[]> = {
   country: ['Country'],
   region: ['Region / County', 'Region', 'County', 'Coverage Area', 'State', 'Province'],
   town: ['Town / Area', 'Town', 'Base Town', 'City', 'Area', 'Location'],
-  segment: ['Classification', 'Segment', 'Category', 'Type', 'Evidence Tier'],
+  segment: ['Classification', 'Segment', 'Sub-segment', 'Sub Segment', 'Evidence Tier'],
+  // Coarser than segment on purpose (306) — "Type"/"Category" reads as the
+  // broad bucket a human means, and segment keeps the finer research detail.
+  orgType: ['Org Type', 'Organisation Type', 'Organization Type', 'Business Type', 'Type', 'Category'],
   priority: ['Prior Priority', 'Priority'],
   leadScore: ['Lead Score', 'Score'],
   message: [], // built from several columns at once — see EXTRA_COLUMNS.
@@ -59,8 +62,29 @@ const FIELD_ALIASES: Record<keyof LeadImportRow, string[]> = {
 export const FIELD_LABELS: Record<string, string> = {
   externalRef: 'Lead ID', clinicName: 'Business', name: 'Contact', email: 'Email',
   phone: 'Phone', website: 'Website', country: 'Country', region: 'Region',
-  town: 'Town', segment: 'Segment', priority: 'Priority', leadScore: 'Lead score',
+  town: 'Town', segment: 'Segment', orgType: 'Type', priority: 'Priority', leadScore: 'Lead score',
 };
+
+/**
+ * Best-effort free text → the five-bucket closed set (306). Checked in order:
+ * distributor/wholesaler and manufacturer are checked first because a lot of
+ * segment text contains "Veterinary" or "Vet", which would otherwise fall
+ * through to CLINIC even for "Veterinary distributor".
+ *
+ * Returns null rather than guessing when nothing matches — the backend
+ * refuses anything outside the five anyway, so a wrong guess would just be a
+ * silently wrong filter value instead of an honest blank.
+ */
+export function normalizeOrgType(raw: string): string | null {
+  const s = String(raw ?? '').toLowerCase();
+  if (!s) return null;
+  if (/distribut|wholesal/.test(s)) return 'DISTRIBUTOR';
+  if (/manufactur/.test(s)) return 'MANUFACTURER';
+  if (/\blab\b|laborator|surgical|equipment|medical/.test(s)) return 'LAB_EQUIPMENT';
+  if (/retail|outlet|pharmacy|\bstore\b|e-?commerce|parastatal|day-old|chick/.test(s)) return 'RETAILER';
+  if (/clinic|practice|hospital|surgery|mobile vet|animal health|veterinary/.test(s)) return 'CLINIC';
+  return null;
+}
 
 /**
  * Columns that are not fields of their own but ARE what you say on the call —
@@ -167,6 +191,7 @@ export function mapLeadRows(
       region: pick(row, 'region') || null,
       town: pick(row, 'town') || null,
       segment: pick(row, 'segment') || null,
+      orgType: normalizeOrgType(pick(row, 'orgType')),
       priority: pick(row, 'priority') || null,
       leadScore: scoreRaw && Number.isFinite(score) ? score : null,
       message: message || null,

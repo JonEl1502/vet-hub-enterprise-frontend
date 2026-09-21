@@ -4,7 +4,7 @@ import {
   Mail, Phone, Search, Loader2, Building2, MessageSquare, CheckCircle2, X,
   Globe, MapPin, Upload, Plus, Inbox, Target, AlertTriangle, ArrowUpRight, Ban,
 } from 'lucide-react';
-import demoRequestsAPI, { DemoRequest, DemoRequestStatus, LeadKind } from '../../../services/modules/demoRequests.api';
+import demoRequestsAPI, { DemoRequest, DemoRequestStatus, LeadKind, OrgType, ORG_TYPE_OPTIONS } from '../../../services/modules/demoRequests.api';
 import AdminPageHeader from '../shared/AdminPageHeader';
 import LeadImportModal from './LeadImportModal';
 import LeadConvertDialog from './LeadConvertDialog';
@@ -47,6 +47,16 @@ const PRIORITY_STYLE: Record<string, string> = {
   MEDIUM: 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400',
 };
 
+/** What the prospect is (306) — the axis this queue gets filtered by. */
+const ORG_TYPE_STYLE: Record<string, string> = {
+  CLINIC: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+  MANUFACTURER: 'bg-violet-100 text-violet-700 dark:bg-violet-900/30 dark:text-violet-400',
+  DISTRIBUTOR: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+  RETAILER: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+  LAB_EQUIPMENT: 'bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400',
+};
+const orgTypeLabel = (t?: string | null) => ORG_TYPE_OPTIONS.find(o => o.id === t)?.label || t || '';
+
 const fmt = (d?: string | null) =>
   d ? new Date(d).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
 
@@ -83,6 +93,8 @@ const DemoRequestsAdminPage: React.FC<Props> = ({
   // colder every hour they wait, and outreach keeps.
   const [kind, setKind] = React.useState<LeadKind>(initialKind);
   const [tab, setTab] = React.useState<DemoRequestStatus | 'ALL'>(initialStatus);
+  const [orgType, setOrgType] = React.useState<OrgType | 'ALL'>('ALL');
+  const [orgTypeCounts, setOrgTypeCounts] = React.useState<Record<string, number>>({});
   const [q, setQ] = React.useState('');
   const [loading, setLoading] = React.useState(true);
   const [busyId, setBusyId] = React.useState<string | null>(null);
@@ -100,15 +112,17 @@ const DemoRequestsAdminPage: React.FC<Props> = ({
         status: tab === 'ALL' ? undefined : tab,
         q: q.trim() || undefined,
         kind,
+        orgType: orgType === 'ALL' ? undefined : orgType,
       });
       if (res.success && res.data) {
         setRows(res.data.requests);
         setCounts(res.data.counts || {});
         setKindCounts(res.data.kindCounts || {});
+        setOrgTypeCounts(res.data.orgTypeCounts || {});
       }
     } catch { /* surfaced by the client */ }
     finally { setLoading(false); }
-  }, [tab, q, kind]);
+  }, [tab, q, kind, orgType]);
 
   // Debounced so typing a search doesn't fire a request per keystroke.
   React.useEffect(() => {
@@ -163,7 +177,7 @@ const DemoRequestsAdminPage: React.FC<Props> = ({
             <button
               key={k.id}
               onClick={() => {
-                setKind(k.id); setTab('NEW');
+                setKind(k.id); setTab('NEW'); setOrgType('ALL');
                 onFilterChange?.({ leadKind: k.id, leadStatus: 'NEW' });
               }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all ${
@@ -200,6 +214,20 @@ const DemoRequestsAdminPage: React.FC<Props> = ({
             {s.id !== 'ALL' && counts[s.id] ? ` (${counts[s.id]})` : ''}
           </button>
         ))}
+        {isOutreach && (
+          <select
+            value={orgType}
+            onChange={e => setOrgType(e.target.value as OrgType | 'ALL')}
+            className="px-3 py-1.5 bg-slate-100 dark:bg-zinc-800 border-none rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 outline-none focus:ring-2 focus:ring-seafoam/30"
+          >
+            <option value="ALL">All types</option>
+            {ORG_TYPE_OPTIONS.map(o => (
+              <option key={o.id} value={o.id}>
+                {o.label}{orgTypeCounts[o.id] ? ` (${orgTypeCounts[o.id]})` : ''}
+              </option>
+            ))}
+          </select>
+        )}
         <div className="relative ml-auto min-w-[220px]">
           <Search size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
@@ -255,8 +283,8 @@ const DemoRequestsAdminPage: React.FC<Props> = ({
           <table className="w-full text-[11px]">
             <thead className="bg-slate-50 dark:bg-zinc-950">
               <tr>
-                {['Practice', 'Where', 'Contact', 'Score', 'Status', ''].map((h, i) => (
-                  <th key={i} className={`px-3 py-2.5 text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap ${i === 5 ? 'text-right' : 'text-left'}`}>{h}</th>
+                {['Practice', 'Type', 'Where', 'Contact', 'Score', 'Status', ''].map((h, i) => (
+                  <th key={i} className={`px-3 py-2.5 text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap ${i === 6 ? 'text-right' : 'text-left'}`}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -273,6 +301,13 @@ const DemoRequestsAdminPage: React.FC<Props> = ({
                       {r.segment && <span className="text-[9px] font-bold uppercase tracking-widest text-slate-400">{r.segment}</span>}
                       {r.externalRef && <span className="text-[9px] font-mono text-slate-300 dark:text-zinc-600">{r.externalRef}</span>}
                     </div>
+                  </td>
+                  <td className="px-3 py-2.5 align-top">
+                    {r.orgType && (
+                      <span className={`px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest whitespace-nowrap ${ORG_TYPE_STYLE[r.orgType] || ORG_TYPE_STYLE.LAB_EQUIPMENT}`}>
+                        {orgTypeLabel(r.orgType)}
+                      </span>
+                    )}
                   </td>
                   <td className="px-3 py-2.5 align-top text-slate-500 dark:text-zinc-400 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1"><MapPin size={10} /> {r.town || r.region || '—'}</span>
@@ -445,10 +480,10 @@ const DemoRequestsAdminPage: React.FC<Props> = ({
  */
 const AddPotentialClientModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ onClose, onAdded }) => {
   const [form, setForm] = React.useState({
-    clinicName: '', name: '', email: '', phone: '', town: '', country: '', segment: '', website: '', notes: '',
+    clinicName: '', name: '', email: '', phone: '', town: '', country: '', segment: '', orgType: '', website: '', notes: '',
   });
   const [busy, setBusy] = React.useState(false);
-  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(f => ({ ...f, [k]: e.target.value }));
+  const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(f => ({ ...f, [k]: e.target.value }));
 
   const submit = async () => {
     if (!form.clinicName.trim()) return;
@@ -483,7 +518,17 @@ const AddPotentialClientModal: React.FC<{ onClose: () => void; onAdded: () => vo
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div><label className="field-label">Segment</label><input className="field-input" value={form.segment} onChange={set('segment')} placeholder="Mixed Practice" /></div>
-          <div><label className="field-label">Website</label><input className="field-input" value={form.website} onChange={set('website')} placeholder="https://…" /></div>
+          <div>
+            <label className="field-label">Type</label>
+            <select className="field-input" value={form.orgType} onChange={set('orgType')}>
+              <option value="">—</option>
+              {ORG_TYPE_OPTIONS.map(o => <option key={o.id} value={o.id}>{o.label}</option>)}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label className="field-label">Website</label>
+          <input className="field-input" value={form.website} onChange={set('website')} placeholder="https://…" />
         </div>
         <div>
           <label className="field-label">Note</label>
