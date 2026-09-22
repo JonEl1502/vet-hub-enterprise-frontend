@@ -35,12 +35,23 @@ const STATUS_LABEL: Record<string, string> = {
 
 const flagTone: Record<string, string> = { HIGH: 'text-rose-500', LOW: 'text-amber-500', NORMAL: 'text-emerald-500' };
 
+// Single source of truth for "is this a diagnostic category" — the search
+// box below is filtered with the SAME regex (`isDiagnostic` cannot use a
+// RegExp.test directly since it also needs the plain keyword list), so
+// anything the search lets you add is guaranteed to satisfy this too. They
+// drifted apart once already: the search had no filter at all, so a
+// non-diagnostic service could be added here and then never appear in the
+// list below — "added" but invisible where you were looking (user,
+// 2026-09-22).
+const DIAGNOSTIC_CATEGORY_KEYWORDS = ['lab', 'imaging', 'diagnostic', 'x-ray', 'xray', 'ultrasound', 'radiolog', 'dental', 'surg', 'theatre', 'operation'];
+const DIAGNOSTIC_CATEGORY_RE = new RegExp(DIAGNOSTIC_CATEGORY_KEYWORDS.join('|'), 'i');
+
 const isDiagnostic = (category?: string) => {
   const c = (category || '').toLowerCase();
   // 2026-08-22: surgery joins the panel so it gets the same inline result
   // editor — the user asked for parity ("if lab collapsible is for lab,
   // surgery same"), and a surgery report is a result like any other.
-  return ['lab', 'imaging', 'diagnostic', 'x-ray', 'xray', 'ultrasound', 'radiolog', 'dental', 'surg', 'theatre', 'operation'].some(k => c.includes(k));
+  return DIAGNOSTIC_CATEGORY_KEYWORDS.some(k => c.includes(k));
 };
 
 type ModuleRecs = { lab: LabRecord[]; imaging: ImagingRecord[]; surgery: any[] };
@@ -270,6 +281,7 @@ const DiagnosticsStep: React.FC<StepProps> = ({ visit, data, setData, goServices
         onAdd={injectService}
         addedNames={addedNames}
         currency={currency}
+        categoryFilter={DIAGNOSTIC_CATEGORY_RE}
         placeholder="Search a diagnostic service or procedure to add…"
         procedures={procTemplates.map(t => ({ id: t.id, name: t.name, type: t.type, estimatedTotal: t.estimatedTotal }))}
         onAddProcedure={applyProcedure}

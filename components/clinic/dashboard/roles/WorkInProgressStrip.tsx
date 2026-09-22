@@ -1,13 +1,17 @@
 import React from 'react';
-import { Home, Stethoscope, Scissors, BedDouble, Syringe } from 'lucide-react';
+import { Home, Stethoscope, Scissors, BedDouble, Syringe, CalendarClock, BellRing } from 'lucide-react';
 import { Visit, ApptStatus } from '../../../../types';
-import { visitsInRange, hasCategory, DayRange } from './roleShared';
+import { remindersAPI, Reminder } from '../../../../services';
+import { visitsInRange, hasCategory, inDayRange, DayRange } from './roleShared';
 
 /**
  * "Today's work in progress" — the one strip every role sees, so a groomer and
  * a vet share a picture of what the clinic is actually doing right now.
  *
- * Derived entirely from the visits already in DataContext; no extra fetch.
+ * Derived from the visits already in DataContext, plus one light self-fetch
+ * for reminders (same pattern `StaffDashboard` uses) — kept self-contained so
+ * this stays a drop-anywhere component, not something every caller has to
+ * wire data into.
  */
 
 interface Props {
@@ -24,6 +28,13 @@ interface Props {
 }
 
 const BLOCKS = [
+  {
+    // Every visit, whatever its category — the rollup the other blocks are a
+    // breakdown OF. First in the row so the total lands before the split.
+    key: 'appointments', label: 'Appointments', icon: CalendarClock, view: 'appointments',
+    tint: 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/30',
+    match: () => true,
+  },
   {
     key: 'boarding', label: 'Boarding', icon: Home, view: 'boarding',
     tint: 'text-sky-600 dark:text-sky-400 bg-sky-50 dark:bg-sky-950/30',
@@ -84,22 +95,45 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
    */
   const inRange = visitsInRange(visits, range);
   const showingToday = !range || range.isToday;
-  const today = React.useMemo(() => {
-    if (!showingToday) return inRange;
+  const stillOpen = React.useMemo(() => {
+    if (!showingToday) return [];
     const seen = new Set(inRange.map(v => String(v.id)));
-    const stillOpen = visits.filter(
-      v => v.status === ApptStatus.IN_PROGRESS && !seen.has(String(v.id)),
-    );
-    return [...inRange, ...stillOpen];
+    return visits.filter(v => v.status === ApptStatus.IN_PROGRESS && !seen.has(String(v.id)));
   }, [inRange, visits, showingToday]);
+  // `today` keeps its old meaning (in-range + carried-over) for the
+  // Active/Waiting/Done breakdown below — a boarder from 3 days ago that is
+  // still IN_PROGRESS is current work in that category, not stale data.
+  const today = React.useMemo(() => [...inRange, ...stillOpen], [inRange, stillOpen]);
+
+  // Reminders due — self-fetched, same pattern StaffDashboard already uses,
+  // so this stays a drop-anywhere component (user, 2026-09-22: "show
+  // appointments reminders stats too").
+  const [reminders, setReminders] = React.useState<Reminder[]>([]);
+  React.useEffect(() => {
+    let alive = true;
+    const req = showingToday ? remindersAPI.today() : remindersAPI.list({ scope: 'all' } as any);
+    req.then((r: any) => {
+      if (!alive || !r?.success || !r.data?.reminders) return;
+      const rows = r.data.reminders as Reminder[];
+      setReminders(showingToday ? rows : rows.filter(x => inDayRange(range, (x as any).dueAt) && x.status === 'PENDING'));
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [showingToday, range?.start, range?.end]);
+  const overdueReminders = reminders.filter(r => new Date(r.dueAt).getTime() < Date.now()).length;
 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
       <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-3">
         {range && !range.isToday ? `Work in progress · ${range.label}` : "Today's work in progress"}
       </p>
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {BLOCKS.map(b => {
+          // Started today (or on the picked day) — the number the strip's own
+          // title promises. Carried-over (still open from before today) is
+          // shown separately so it can never silently inflate "today"'s count
+          // again (user, 2026-09-22).
+          const startedToday = inRange.filter(b.match);
+          const carriedOver = stillOpen.filter(b.match);
           const mine = today.filter(b.match);
           const active = mine.filter(v => v.status === ApptStatus.IN_PROGRESS).length;
           const waiting = mine.filter(v => v.status === ApptStatus.SCHEDULED).length;
@@ -124,7 +158,7 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
               </span>
               <div className="flex items-end gap-3">
                 <span className="min-w-0">
-                  <span className="block text-xl font-black leading-none tabular-nums text-pine dark:text-zinc-100">{mine.length}</span>
+                  <span className="block text-xl font-black leading-none tabular-nums text-pine dark:text-zinc-100">{startedToday.length}</span>
                   <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Total</span>
                 </span>
                 <span className="min-w-0">
@@ -140,9 +174,42 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
                   <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Done</span>
                 </span>
               </div>
+              {carriedOver.length > 0 && (
+                <p className="mt-2 pt-2 border-t border-dashed border-slate-100 dark:border-zinc-800 text-[9px] font-bold text-slate-400">
+                  +{carriedOver.length} more from before today
+                </p>
+              )}
             </Tag>
           );
         })}
+
+        {/* Reminders — not a visit, so no Active/Waiting/Done breakdown; just
+            what's due and how much of that is already overdue. */}
+        {(() => {
+          const Tag: any = onOpen ? 'button' : 'div';
+          return (
+            <Tag
+              {...(onOpen ? { type: 'button', onClick: () => onOpen('reminders'), title: 'Open reminders' } : {})}
+              className={`rounded-2xl border border-slate-100 dark:border-zinc-800 p-3 text-left transition-all ${
+                onOpen ? 'hover:border-seafoam cursor-pointer' : ''
+              }`}
+            >
+              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest mb-2 text-seafoam bg-seafoam/10">
+                <BellRing size={11} /> Reminders
+              </span>
+              <div className="flex items-end gap-3">
+                <span className="min-w-0">
+                  <span className="block text-xl font-black leading-none tabular-nums text-pine dark:text-zinc-100">{reminders.length}</span>
+                  <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Due</span>
+                </span>
+                <span className="min-w-0">
+                  <span className={`block text-sm font-black leading-none tabular-nums ${overdueReminders ? 'text-rose-500' : 'text-slate-400'}`}>{overdueReminders}</span>
+                  <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Overdue</span>
+                </span>
+              </div>
+            </Tag>
+          );
+        })()}
       </div>
     </div>
   );
