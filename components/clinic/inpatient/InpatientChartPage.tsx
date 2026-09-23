@@ -6,7 +6,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ArrowLeft, Stethoscope, Loader2, LogOut, Plus, Dog, Activity, Thermometer, ClipboardList, CheckCircle2, Circle, Scissors, ExternalLink, Share2, Trash2, Receipt, Pencil, X, RotateCcw, CalendarClock, AlertTriangle, Coins} from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
 import TreatmentPlanPanel from './TreatmentPlanPanel';
-import { inpatientAPI, Hospitalization, InpatientBackdate, InpatientRemove, InpatientReprice, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
+import { inpatientAPI, Hospitalization, InpatientBackdate, InpatientRemove, InpatientReprice, LogKind, DischargeOutcome, visitsAPI, toast, servicesAPI, consumablesAPI, remindersAPI } from '../../../services';
 import { formatDate, formatTime, calendarDaysBetween } from '../../../services/utils/dateFormatter';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import InlineServiceSearch from '../shared/InlineServiceSearch';
@@ -455,20 +455,53 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
     await load();
   };
 
-  const doDischarge = async (reminder: ReminderDraft | null) => {
+  const doDischarge = async (reminders: ReminderDraft[] | null) => {
     setBusy(true);
     try {
+      // Discharge never actually persisted `reminder` server-side — the field
+      // was silently dropped. Reminders are saved directly below instead, the
+      // same way the visit workflow's reminder gate already does it.
       const res = await inpatientAPI.discharge(hospId, {
         outcome: discharge.outcome, dischargeNotes: discharge.dischargeNotes || undefined,
         homeInstructions: discharge.homeInstructions || undefined,
         finalWeight: discharge.finalWeight ? Number(discharge.finalWeight) : undefined,
         dischargeReason: discharge.dischargeReason.trim() || undefined,
-        reminder,
       });
       if (res.success) {
+        const apptId = (res.data as any)?.appointmentId || h?.billing?.appointmentId || h?.appointmentId;
+        if (reminders && reminders.length > 0 && apptId && h?.pet?.id && h?.client?.id) {
+          const [first, ...rest] = reminders;
+          const groupId = rest.length > 0 ? `discharge-${hospId}-${Date.now().toString(36)}` : undefined;
+          const existingId = h?.billing?.reminder?.id;
+          let ok = 0;
+          if (existingId) {
+            const r = await remindersAPI.update(existingId, {
+              serviceType: first.serviceType as any, title: first.title, notes: first.notes, dueAt: first.dueAt,
+            }).catch(() => null);
+            if (r?.success) ok++;
+          } else {
+            const r = await remindersAPI.create({
+              petId: h.pet.id, clientId: h.client.id,
+              serviceType: first.serviceType as any, title: first.title, notes: first.notes, dueAt: first.dueAt,
+              originAppointmentId: apptId,
+              ...(groupId ? { groupId } : {}),
+            }).catch(() => null);
+            if (r?.success) ok++;
+          }
+          for (const draft of rest) {
+            const r = await remindersAPI.create({
+              petId: h.pet.id, clientId: h.client.id,
+              serviceType: draft.serviceType as any, title: draft.title, notes: draft.notes, dueAt: draft.dueAt,
+              originAppointmentId: apptId,
+              groupId,
+            }).catch(() => null);
+            if (r?.success) ok++;
+          }
+          if (ok > 0) toast.success(ok > 1 ? `${ok} reminders saved` : 'Reminder saved');
+          else toast.error('Failed to save reminder');
+        }
         setShowDischargeGate(false);
         onChanged?.();
-        const apptId = (res.data as any)?.appointmentId || h?.billing?.appointmentId || h?.appointmentId;
         if (apptId) onOpenAppointment?.(String(apptId), false);
         else onBack();
       }
@@ -2086,7 +2119,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
         submitting={busy}
         existing={h?.billing?.reminder ?? null}
         onCancel={() => setShowDischargeGate(false)}
-        onConfirm={(reminder) => doDischarge(reminder)}
+        onConfirm={(reminders) => doDischarge(reminders)}
       />
       {showShare && h && (
         <ShareWithClinics recordType="inpatient" recordId={h.id} allowedClinicIds={h.allowedClinicIds}

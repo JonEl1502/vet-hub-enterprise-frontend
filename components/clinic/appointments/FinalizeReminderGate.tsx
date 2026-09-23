@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { BellRing, Loader2, X, CalendarClock, ShieldAlert, HeartCrack } from 'lucide-react';
+import { BellRing, Loader2, X, CalendarClock, ShieldAlert, HeartCrack, Plus } from 'lucide-react';
 import { ReminderServiceType, REMINDER_SERVICE_META } from '../../../services';
 import { localYMD } from '../../../services/utils/dateFormatter';
 
@@ -36,8 +36,10 @@ interface Props {
    */
   askAgainAt?: string;
   onCancel: () => void;
-  // null = deceased bypass (finalize with no reminder)
-  onConfirm: (reminder: ReminderDraft | null) => void;
+  // null = deceased bypass (finalize with no reminder). Otherwise one or more
+  // drafts — "Add another reminder" lets grooming, a vaccination, and a
+  // deworming, say, each go out on their own date from the same visit.
+  onConfirm: (reminders: ReminderDraft[] | null) => void;
 }
 
 const SERVICE_TYPES: ReminderServiceType[] = ['FOLLOW_UP', 'VACCINATION', 'DEWORMING', 'GROOMING', 'MEDICATION', 'CHECKUP', 'OTHER'];
@@ -68,6 +70,10 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
   const [title, setTitle] = useState('');
   const [notes, setNotes] = useState('');
   const [touchedDate, setTouchedDate] = useState(false);
+  // Extra reminders beyond the primary one above — e.g. deworming and grooming
+  // alongside a vaccination follow-up, each on its own date. The primary slot
+  // keeps the existing update-in-place behaviour; these are always new rows.
+  const [extras, setExtras] = useState<ReminderDraft[]>([]);
   const isUpdate = !!existing;
 
   // (Re)seed the form each time the gate opens. If a reminder already exists,
@@ -80,6 +86,7 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
     setTitle(existing?.title || '');
     setNotes(existing?.notes || '');
     setTouchedDate(!!existing?.dueAt);
+    setExtras([]);
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // When the service type changes, move the due date to its suggested offset
@@ -89,7 +96,17 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
     if (!touchedDate) setDueAt(dateInDays(REMINDER_SERVICE_META[t].days));
   };
 
-  const valid = useMemo(() => !!dueAt, [dueAt]);
+  const valid = useMemo(() => !!dueAt && extras.every(e => !!e.dueAt), [dueAt, extras]);
+
+  const addExtra = () => setExtras(prev => [...prev, {
+    serviceType: 'FOLLOW_UP',
+    dueAt: dateInDays(REMINDER_SERVICE_META.FOLLOW_UP.days),
+    title: '',
+    notes: '',
+  }]);
+  const updateExtra = (i: number, patch: Partial<ReminderDraft>) =>
+    setExtras(prev => prev.map((e, idx) => (idx === i ? { ...e, ...patch } : e)));
+  const removeExtra = (i: number) => setExtras(prev => prev.filter((_, idx) => idx !== i));
 
   if (!open) return null;
 
@@ -163,6 +180,46 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
               <textarea rows={2} className={fieldCls} placeholder="e.g. recheck wound, next booster, etc." value={notes} onChange={e => setNotes(e.target.value)} />
             </div>
 
+            {extras.map((ex, i) => (
+              <div key={i} className="p-3 space-y-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/40">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400">Reminder {i + 2}</span>
+                  <button onClick={() => removeExtra(i)} className="p-1 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20">
+                    <X size={14} />
+                  </button>
+                </div>
+                <div>
+                  <label className={labelCls}>Service</label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {SERVICE_TYPES.map(t => (
+                      <button
+                        key={t}
+                        onClick={() => updateExtra(i, { serviceType: t })}
+                        className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border transition-all ${ex.serviceType === t ? 'bg-seafoam text-white border-seafoam shadow-sm' : 'bg-white dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-800 hover:border-seafoam'}`}
+                      >
+                        {REMINDER_SERVICE_META[t].label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className={labelCls}><CalendarClock size={11} className="inline mr-1 -mt-0.5" /> Due date</label>
+                  <input type="date" className={fieldCls} value={ex.dueAt} onChange={e => updateExtra(i, { dueAt: e.target.value })} />
+                </div>
+                <div>
+                  <label className={labelCls}>Title <span className="text-slate-300 normal-case font-medium">(optional)</span></label>
+                  <input className={fieldCls} placeholder={`${REMINDER_SERVICE_META[ex.serviceType].label} due for ${petName}`} value={ex.title} onChange={e => updateExtra(i, { title: e.target.value })} />
+                </div>
+              </div>
+            ))}
+
+            <button
+              onClick={addExtra}
+              className="w-full flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl border border-dashed border-slate-300 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:border-seafoam hover:text-seafoam transition-colors"
+            >
+              <Plus size={13} /> Add another reminder
+            </button>
+
             <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
               <button onClick={onCancel} disabled={submitting} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50">Cancel</button>
               {/* Skip (user, 2026-08-04): a visit that is continuing — surgery
@@ -182,11 +239,15 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
                 Skip for now
               </button>
               <button
-                onClick={() => onConfirm({ serviceType, dueAt: new Date(dueAt).toISOString(), title: title.trim(), notes: notes.trim() })}
+                onClick={() => {
+                  const primary: ReminderDraft = { serviceType, dueAt: new Date(dueAt).toISOString(), title: title.trim(), notes: notes.trim() };
+                  const rest = extras.map(e => ({ ...e, dueAt: new Date(e.dueAt).toISOString(), title: e.title.trim(), notes: e.notes.trim() }));
+                  onConfirm([primary, ...rest]);
+                }}
                 disabled={submitting || !valid}
                 className="flex items-center gap-2 px-5 py-2.5 bg-pine text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-pine/90 active:scale-95 disabled:opacity-60 disabled:cursor-not-allowed"
               >
-                {submitting ? <Loader2 size={14} className="animate-spin" /> : <BellRing size={14} />} {isUpdate ? 'Update reminder & continue' : 'Set reminder & finalize'}
+                {submitting ? <Loader2 size={14} className="animate-spin" /> : <BellRing size={14} />} {isUpdate ? 'Update reminder & continue' : extras.length > 0 ? 'Set reminders & finalize' : 'Set reminder & finalize'}
               </button>
             </div>
             {/* Say what Skip actually does. Deferring to a real later prompt and

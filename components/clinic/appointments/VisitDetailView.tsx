@@ -1214,24 +1214,44 @@ const VisitDetailInner: React.FC<Props> = ({
     />
   );
 
-  const createVisitReminder = async (draft: ReminderDraft | null) => {
-    if (!draft) { setShowReminderCreate(false); return; }
+  const createVisitReminder = async (drafts: ReminderDraft[] | null) => {
+    if (!drafts || drafts.length === 0) { setShowReminderCreate(false); return; }
+    // Only the first draft can update a reminder this visit already has; every
+    // draft after it (grooming + a vaccination + deworming, say) is a new
+    // reminder, tied together with a groupId when there's more than one.
+    const [first, ...rest] = drafts;
+    const groupId = rest.length > 0 ? `visit-${appointment.id}-${Date.now().toString(36)}` : undefined;
     try {
-      // Update the existing reminder if this visit already has one; else create.
       if (visitReminder?.id) {
         const res = await remindersAPI.update(visitReminder.id, {
-          serviceType: draft.serviceType as any, title: draft.title, notes: draft.notes, dueAt: draft.dueAt,
+          serviceType: first.serviceType as any, title: first.title, notes: first.notes, dueAt: first.dueAt,
         });
-        if (res.success && res.data?.reminder) { toast.success('Reminder updated'); setVisitReminder(res.data.reminder); setShowReminderCreate(false); }
-        return;
+        if (!(res.success && res.data?.reminder)) { toast.error('Failed to save reminder'); return; }
+        setVisitReminder(res.data.reminder);
+      } else {
+        const res = await remindersAPI.create({
+          petId: appointment.petId, clientId: appointment.clientId,
+          serviceType: first.serviceType as any, title: first.title, notes: first.notes,
+          dueAt: first.dueAt,
+          originAppointmentId: appointment.id,
+          ...(groupId ? { groupId } : {}),
+        });
+        if (!(res.success && res.data?.reminder)) { toast.error('Failed to save reminder'); return; }
+        setVisitReminder(res.data.reminder);
       }
-      const res = await remindersAPI.create({
-        petId: appointment.petId, clientId: appointment.clientId,
-        serviceType: draft.serviceType as any, title: draft.title, notes: draft.notes,
-        dueAt: draft.dueAt,
-        originAppointmentId: appointment.id,
-      });
-      if (res.success && res.data?.reminder) { toast.success('Reminder created'); setVisitReminder(res.data.reminder); setShowReminderCreate(false); }
+      let ok = 1;
+      for (const draft of rest) {
+        const res = await remindersAPI.create({
+          petId: appointment.petId, clientId: appointment.clientId,
+          serviceType: draft.serviceType as any, title: draft.title, notes: draft.notes,
+          dueAt: draft.dueAt,
+          originAppointmentId: appointment.id,
+          groupId,
+        }).catch(() => null);
+        if (res?.success) ok++;
+      }
+      toast.success(ok > 1 ? `${ok} reminders saved` : 'Reminder saved');
+      setShowReminderCreate(false);
     } catch (e: any) { toast.error(e?.message || 'Failed to save reminder'); }
   };
   // Per-service consumables popover (hover card) + image viewer popover.
@@ -4524,9 +4544,9 @@ const VisitDetailInner: React.FC<Props> = ({
         askAgainAt={(appointment as any).hospitalizationId ? 'at discharge'
           : (appointment as any).boardingStayId ? 'at check-out' : undefined}
         onCancel={() => { void proceedWithSettle(); }}
-        onConfirm={async (reminder) => {
+        onConfirm={async (reminders) => {
           // Best-effort: a reminder that fails to save must not block the money.
-          if (reminder) { try { await createVisitReminder(reminder); } catch { /* surfaced by createVisitReminder */ } }
+          if (reminders) { try { await createVisitReminder(reminders); } catch { /* surfaced by createVisitReminder */ } }
           await proceedWithSettle();
         }}
       />
@@ -4541,7 +4561,7 @@ const VisitDetailInner: React.FC<Props> = ({
         submitting={false}
         existing={visitReminder}
         onCancel={() => setShowReminderCreate(false)}
-        onConfirm={(reminder) => createVisitReminder(reminder)}
+        onConfirm={(reminders) => createVisitReminder(reminders)}
       />
 
       {/* Per-service consumables now render INLINE in the service card's
@@ -7376,7 +7396,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                  <button
                                    onClick={() => {
                                      setPrintMenuFor(null);
-                                     downloadDocumentPdf('invoice-content', 'Invoice #' + appointment.id, false);
+                                     downloadDocumentPdf('invoice-content', `Invoice — ${client?.name ?? appointment.client?.name ?? ''} — ${appointment.id}`, false);
                                    }}
                                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800"
                                  >
@@ -7386,7 +7406,7 @@ const VisitDetailInner: React.FC<Props> = ({
                                  <button
                                    onClick={() => {
                                      setPrintMenuFor(null);
-                                     downloadDocumentPdf('invoice-content', 'Invoice #' + appointment.id, true);
+                                     downloadDocumentPdf('invoice-content', `Invoice — ${client?.name ?? appointment.client?.name ?? ''} — ${appointment.id}`, true);
                                    }}
                                    className="w-full flex items-center gap-2 px-3 py-2 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800 border-t border-slate-100 dark:border-zinc-800"
                                  >

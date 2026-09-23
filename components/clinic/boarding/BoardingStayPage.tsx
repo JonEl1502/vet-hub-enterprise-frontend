@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { dialog } from '../../../services/utils/dialog';
 import { ArrowLeft, Home, Loader2, LogOut, Plus, Dog, ShieldCheck, ShieldAlert, Utensils, Footprints, Pill, ClipboardList, Camera, Scale, Scissors, ExternalLink, Share2, Trash2, Receipt, RotateCcw, CalendarClock } from 'lucide-react';
-import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI, consumablesAPI } from '../../../services';
+import { boardingAPI, BoardingStay, visitsAPI, toast, servicesAPI, consumablesAPI, remindersAPI } from '../../../services';
 import type { BoardingBackdate } from '../../../services/modules/boarding.api';
 import { sellUnitOf } from '../shared/QtyUnitControl';
 import NotesFormatToggle from '../shared/NotesFormatToggle';
@@ -388,19 +388,37 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
     return sod(new Date()) < sod(new Date(stay.expectedPickupAt));
   })();
 
-  const checkOut = async (reminder: ReminderDraft | null) => {
+  const checkOut = async (reminders: ReminderDraft[] | null) => {
     // The server refuses an early check-out with no reason (178). Ask here so
     // the refusal never has to happen.
     if (pickupIsEarly && !checkoutReason.trim()) { setAskReason(true); return; }
     setBusy(true);
     try {
-      const res = await boardingAPI.update(stayId, { status: 'CHECKED_OUT', ...(dischargeWeight ? { dischargeWeight: Number(dischargeWeight) } : {}), ...(checkoutReason.trim() ? { checkoutReason: checkoutReason.trim() } : {}), reminder });
+      // Check-out never actually persisted `reminder` server-side — the field
+      // was silently dropped. Reminders are saved directly below instead, the
+      // same way the visit workflow's reminder gate already does it.
+      const res = await boardingAPI.update(stayId, { status: 'CHECKED_OUT', ...(dischargeWeight ? { dischargeWeight: Number(dischargeWeight) } : {}), ...(checkoutReason.trim() ? { checkoutReason: checkoutReason.trim() } : {}) });
       if (res.success) {
-        setShowCheckoutGate(false);
-        onChanged?.();
         // Route to the visit workflow to finalize + bill this stay (or add
         // another category/service). Pop the wallet when a bill is outstanding.
         const apptId = (res.data as any)?.appointmentId || stay?.billing?.appointmentId || stay?.appointmentId;
+        if (reminders && reminders.length > 0 && apptId && stay?.pet?.id && stay?.client?.id) {
+          const groupId = reminders.length > 1 ? `checkout-${stayId}-${Date.now().toString(36)}` : undefined;
+          let ok = 0;
+          for (const draft of reminders) {
+            const r = await remindersAPI.create({
+              petId: stay.pet.id, clientId: stay.client.id,
+              serviceType: draft.serviceType as any, title: draft.title, notes: draft.notes, dueAt: draft.dueAt,
+              originAppointmentId: apptId,
+              ...(groupId ? { groupId } : {}),
+            }).catch(() => null);
+            if (r?.success) ok++;
+          }
+          if (ok > 0) toast.success(ok > 1 ? `${ok} reminders saved` : 'Reminder saved');
+          else toast.error('Failed to save reminder');
+        }
+        setShowCheckoutGate(false);
+        onChanged?.();
         const outstanding = !!stay?.billing && !stay.billing.isPaid && (stay.billing.totalCost ?? 0) > 0;
         if (apptId) onOpenAppointment?.(String(apptId), outstanding);
         else onBack();
@@ -1476,7 +1494,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
         petDeceased={false}
         submitting={busy}
         onCancel={() => setShowCheckoutGate(false)}
-        onConfirm={(reminder) => checkOut(reminder)}
+        onConfirm={(reminders) => checkOut(reminders)}
       />
       {showShare && stay && (
         <ShareWithClinics recordType="boarding" recordId={stay.id} allowedClinicIds={stay.allowedClinicIds}
