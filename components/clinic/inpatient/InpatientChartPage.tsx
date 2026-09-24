@@ -17,6 +17,7 @@ import NotesFormatToggle from '../shared/NotesFormatToggle';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
 import { useData } from '../../../contexts/DataContext';
 import { useClinic } from '../../../contexts/ClinicContext';
+import UpgradeGate from '../../shared/common/UpgradeGate';
 
 // Full-page inpatient chart — converted from the old right-side drawer so the
 // chart is a real navigable page (deep-linkable via nav param hospId).
@@ -898,6 +899,11 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
               </span>
             );
           })()}
+          {h && active && (
+            <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
+              Day {Math.max(1, calendarDaysBetween(h.admittedAt))}
+            </span>
+          )}
           {h && !active && (
             <span className="px-2.5 py-1 rounded-full bg-white/10 text-white/80 text-[9px] font-black uppercase tracking-widest">
               Discharged {h.dischargedAt ? formatDate(h.dischargedAt) : ''}{h.outcome ? ` · ${h.outcome}` : ''}
@@ -953,6 +959,29 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                     </button>
                   )}</td></tr>)}</tbody></table></div>
               ) : <p className="text-[10px] text-slate-400">No vitals recorded.</p>}
+              {/* Basic-tier vitals entry (308): temperature + weight only, always
+                  open — the full six-field TPR form stays inside the Pro-gated
+                  daily sheet below. Shares the same `vital` state/`addVital`
+                  handler as that form; unused fields just stay blank. */}
+              {active && (
+                <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 flex flex-wrap items-end gap-1.5">
+                  <label className="block">
+                    <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Temp °C</span>
+                    <input className={fieldCls} value={vital.temperature}
+                      onChange={e => setVital(s => ({ ...s, temperature: e.target.value }))} />
+                  </label>
+                  <label className="block">
+                    <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">Wt kg</span>
+                    <input className={fieldCls} value={vital.weight}
+                      onChange={e => setVital(s => ({ ...s, weight: e.target.value }))} />
+                  </label>
+                  <button onClick={addVital} disabled={busy || !vitalHasValue}
+                    title={vitalHasValue ? undefined : 'Record at least one reading first'}
+                    className="flex items-center justify-center gap-1.5 px-3 py-1.5 bg-white dark:bg-zinc-900 hover:bg-seafoam/10 text-seafoam rounded-lg text-[9px] font-black uppercase tracking-widest border border-seafoam/30 disabled:opacity-50">
+                    {busy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Add vitals
+                  </button>
+                </div>
+              )}
             </section>
 
             {/* The standalone "Add to daily sheet" form is GONE — it lived at
@@ -960,7 +989,10 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                 below, and "Fill this day" had to scroll you back up to it. Every
                 field now sits INSIDE the day you are filling, boarding-style
                 (user, 2026-08-04). */}
-            {/* Daily sheet timeline */}
+            {/* Daily sheet timeline — the medication/fluids/feeding/nursing
+                charting is the Pro-and-up "clinical detail" half of inpatient
+                (308); admit/discharge/vitals stay open on every plan. */}
+            <UpgradeGate feature="capability:inpatient-clinical">
             <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 shadow-sm">
               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Daily sheet — admission to {h.dischargedAt ? 'discharge' : 'today'}</p>
               {/* Per-day reconciliation (user, 2026-08-02): EVERY calendar day of the
@@ -1450,6 +1482,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                 );
               })()}
             </section>
+            </UpgradeGate>
 
             {/* Consumables moved into the day's editor above — logging an item
                 is part of that day's care, not a separate card below it. */}
@@ -1593,9 +1626,12 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
               )}
 
               {/* Structured treatment plan (132) — sections the clinic names
-                  itself, each holding planned meds / food / consumables. */}
+                  itself, each holding planned meds / food / consumables.
+                  Pro-and-up "clinical detail" (308), same as the daily sheet. */}
               <div className="pt-3 mt-3 border-t border-slate-100 dark:border-zinc-800">
-                <TreatmentPlanPanel hospitalizationId={h.id} readOnly={!!h.dischargedAt} />
+                <UpgradeGate feature="capability:inpatient-clinical">
+                  <TreatmentPlanPanel hospitalizationId={h.id} readOnly={!!h.dischargedAt} />
+                </UpgradeGate>
               </div>
 
               {/* Calendar dates crossed since admission — same maths as the
@@ -1606,6 +1642,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                   nothing at all. Now it always shows the working, and carries
                   the two actions to fix it. */}
               <div className="pt-3 mt-3 border-t border-slate-100 dark:border-zinc-800">
+                <UpgradeGate feature="capability:inpatient-clinical">
                 {(() => {
                   const days = Math.max(1, calendarDaysBetween(h.admittedAt, h.dischargedAt ?? undefined));
                   const ownRate = Number(h.dailyRate ?? 0) || 0;
@@ -1626,10 +1663,14 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                     />
                   );
                 })()}
+                </UpgradeGate>
               </div>
               {/* ONE rail card (user, 2026-08-03: simpler) — complexity and
-                  discharge fold in here instead of floating as their own cards. */}
+                  discharge fold in here instead of floating as their own cards.
+                  Complexity is Pro-and-up "clinical detail" (308), same as the
+                  daily sheet and treatment plan. */}
               <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">
+                <UpgradeGate feature="capability:inpatient-clinical" variant="inline">
                 <StandardRecordControls
                   complexity={{
                     value: h.complexity ?? null,
@@ -1637,6 +1678,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
                     onChange: (v) => { inpatientAPI.update(hospId, { complexity: v }).then(() => { load(); onChanged?.(); }); },
                   }}
                 />
+                </UpgradeGate>
               </div>
 
               <div className="pt-3 border-t border-slate-100 dark:border-zinc-800">

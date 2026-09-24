@@ -449,6 +449,9 @@ export function planHighlights(
  * copy only — never an access decision.
  */
 export const FEATURE_COPY: Record<string, { label: string; plan: string; blurb?: string }> = {
+  // Basic modules
+  'view:inpatient': { label: 'Inpatient', plan: 'Basic', blurb: 'Admit a patient, track days in and log a basic vital. The daily clinical detail is on Pro.' },
+
   // Pro modules
   'view:laboratory': { label: 'Laboratory', plan: 'Pro', blurb: 'Run and record in-house lab work.' },
   'view:imaging': { label: 'Imaging', plan: 'Pro', blurb: 'Store and report on radiographs and scans.' },
@@ -476,6 +479,11 @@ export const FEATURE_COPY: Record<string, { label: string; plan: string; blurb?:
     plan: 'Pro',
     blurb: 'Save a food, portion and schedule to a patient so the next stay starts pre-filled.',
   },
+  'capability:inpatient-clinical': {
+    label: 'Inpatient clinical detail',
+    plan: 'Pro',
+    blurb: 'The daily-sheet timeline (medication, fluids, feeding, nursing notes) and the structured treatment plan on an inpatient stay.',
+  },
 
   // Enterprise modules
   'view:surgery': { label: 'Surgery', plan: 'Enterprise', blurb: 'Theatre scheduling and surgical records.' },
@@ -484,7 +492,6 @@ export const FEATURE_COPY: Record<string, { label: string; plan: string; blurb?:
     plan: 'Enterprise',
     blurb: 'Publish a workflow so other clinics can copy it.',
   },
-  'view:inpatient': { label: 'Inpatient', plan: 'Enterprise', blurb: 'Admissions, wards, and treatment sheets.' },
 
   // Capabilities
   'capability:attachments': {
