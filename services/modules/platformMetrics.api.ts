@@ -39,9 +39,29 @@ export interface PlatformMetrics {
   };
 }
 
+export interface SignupsTimeseriesRow {
+  period: string;
+  group: null;
+  total: number; // signup count for that period (valueOf is always 1 per clinic)
+  count: number;
+}
+
 const BASE = '/admin/platform-metrics';
 
 export const platformMetricsAPI = {
   get: (options?: RequestOptions): Promise<ApiResponse<PlatformMetrics>> =>
     get(BASE, { cache: false, ...options }),
+
+  /** Clinic signups over time, bucketed (2026-09-27, dashboard polish). */
+  signupsTimeseries: (
+    opts: { from?: string; to?: string; bucket?: 'day' | 'week' | 'month' | 'year' } = {},
+    options?: RequestOptions,
+  ): Promise<ApiResponse<SignupsTimeseriesRow[]>> => {
+    const q = new URLSearchParams();
+    if (opts.from) q.set('from', opts.from);
+    if (opts.to) q.set('to', opts.to);
+    if (opts.bucket) q.set('bucket', opts.bucket);
+    const qs = q.toString();
+    return get(`${BASE}/signups-timeseries${qs ? `?${qs}` : ''}`, { cache: false, ...options });
+  },
 };

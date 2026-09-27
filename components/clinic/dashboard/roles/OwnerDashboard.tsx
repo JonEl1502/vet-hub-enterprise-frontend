@@ -1,5 +1,8 @@
 import React from 'react';
 import { FileText, Receipt, CircleDollarSign, ChevronRight, Phone } from 'lucide-react';
+import {
+  ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
+} from 'recharts';
 import { Visit, ApptStatus } from '../../../../types';
 import { billsAPI, remindersAPI, Reminder } from '../../../../services';
 import { BillQueueRow } from '../../../../services/modules/bills.api';
@@ -119,6 +122,30 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
   const money = (n: number) => `${currency} ${Math.round(n).toLocaleString()}`;
   const open = (v: Visit) => onNavigate?.('appointment-detail', { appointmentId: Number(v.id) });
 
+  // Last 7 days revenue + visits — the concrete "zero charts" gap on this
+  // dashboard (2026-09-27, dashboard polish). MTD above is the only multi-day
+  // figure today, with nothing visual. Built from visits already in context —
+  // no new API call, same `localDay` bucketing the rest of this file uses.
+  const trend = React.useMemo(() => {
+    const byDay = new Map<string, { revenue: number; visits: number }>();
+    for (const v of (visits || [])) {
+      const k = localDay(v.date);
+      const row = byDay.get(k) ?? { revenue: 0, visits: 0 };
+      row.visits += 1;
+      if (v.isPaid) row.revenue += Number(v.totalCost || 0);
+      byDay.set(k, row);
+    }
+    const days: { label: string; revenue: number; visits: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const k = localDay(d);
+      const row = byDay.get(k) ?? { revenue: 0, visits: 0 };
+      days.push({ label: d.toLocaleDateString('en-US', { weekday: 'short' }), ...row });
+    }
+    return days;
+  }, [visits]);
+
   return (
     <div className="space-y-4">
       {/* Day control — every dashboard has one (user, 2026-08-04). The pulse
@@ -198,6 +225,20 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
           onClick: () => onNavigate?.('inventory'),
         },
       ]} />
+
+      <RoleCard title="Last 7 days" subtitle="Revenue and visits, from the visits already loaded">
+        <div className="h-56">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={trend}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+              <XAxis dataKey="label" tick={{ fontSize: 10 }} />
+              <YAxis tick={{ fontSize: 10 }} tickFormatter={(v) => money(v)} width={70} />
+              <Tooltip formatter={(v: number, name: string) => (name === 'revenue' ? money(v) : v)} />
+              <Area type="monotone" dataKey="revenue" stroke="#1C7A5B" fill="#1C7A5B" fillOpacity={0.15} strokeWidth={2} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </RoleCard>
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
         <RoleCard

@@ -1,10 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
   Building2, Truck, UserCog, CreditCard, TrendingUp, RefreshCw,
-  Loader2, MapPin, Globe, Activity, Layers,
+  Loader2, MapPin, Globe, Activity, Layers, Wallet, Users, Dog, Trophy,
 } from 'lucide-react';
+import {
+  ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
+} from 'recharts';
 import { platformMetricsAPI, PlatformMetrics } from '../../../services';
+import { SignupsTimeseriesRow } from '../../../services/modules/platformMetrics.api';
 import { useClinic } from '../../../contexts/ClinicContext';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import AdminPageHeader from '../shared/AdminPageHeader';
@@ -14,6 +18,7 @@ const PlatformDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [signups, setSignups] = useState<SignupsTimeseriesRow[]>([]);
   const { selectedClinics } = useClinic();
   // Display currency for revenue cards: prefer the active clinic's currency
   // (so the admin sees figures in a familiar denomination); falls back to KES.
@@ -24,9 +29,13 @@ const PlatformDashboard: React.FC = () => {
     else setLoading(true);
     setError(null);
     try {
-      const res = await platformMetricsAPI.get();
+      const [res, signupsRes] = await Promise.all([
+        platformMetricsAPI.get(),
+        platformMetricsAPI.signupsTimeseries({ bucket: 'month' }).catch(() => null),
+      ]);
       if (res.success) setMetrics(res.data);
       else setError('Failed to load metrics');
+      if (signupsRes?.success && signupsRes.data) setSignups(signupsRes.data);
     } catch (e: any) {
       setError(e?.message || 'Failed to load metrics');
     } finally {
@@ -36,6 +45,11 @@ const PlatformDashboard: React.FC = () => {
   };
 
   useEffect(() => { void load(); }, []);
+
+  const signupsChartData = useMemo(
+    () => signups.map((r) => ({ period: r.period, signups: r.total })),
+    [signups],
+  );
 
   if (loading && !metrics) {
     return (
@@ -121,6 +135,35 @@ const PlatformDashboard: React.FC = () => {
         />
       </div>
 
+      {/* Second KPI row — MRR, clients, pets (2026-09-27, dashboard polish).
+          The backend has always computed these three; this component just
+          never rendered them. */}
+      {metrics.subscriptions.mrr != null && metrics.totals && (
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <KpiCard
+            label="MRR"
+            value={fmtMoney(metrics.subscriptions.mrr)}
+            sub="Sum of amountPaid across active subs"
+            icon={<Wallet size={18} />}
+            accent="emerald"
+          />
+          <KpiCard
+            label="Total Clients"
+            value={fmt(metrics.totals.clients)}
+            sub="Across every clinic"
+            icon={<Users size={18} />}
+            accent="seafoam"
+          />
+          <KpiCard
+            label="Total Pets"
+            value={fmt(metrics.totals.pets)}
+            sub="Across every clinic"
+            icon={<Dog size={18} />}
+            accent="amber"
+          />
+        </div>
+      )}
+
       {/* Plan breakdown */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
         <div className="flex items-center gap-2 mb-4">
@@ -159,8 +202,38 @@ const PlatformDashboard: React.FC = () => {
         )}
       </div>
 
+      {/* Clinic signups over time — the concrete "zero charts" gap
+          (2026-09-27, dashboard polish). Reuses the shared bucketRows
+          helper on the backend; this is presentation only. */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
+        <div className="flex items-center gap-2 mb-4">
+          <TrendingUp size={16} className="text-seafoam" />
+          <h3 className="text-sm font-black uppercase tracking-widest text-pine dark:text-zinc-100">
+            Clinic Signups
+          </h3>
+        </div>
+        {signupsChartData.length === 0 ? (
+          <p className="text-slate-400 text-[10px] font-bold uppercase">No signup data</p>
+        ) : (
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={signupsChartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                <XAxis dataKey="period" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} allowDecimals={false} width={40} />
+                <Tooltip />
+                <Bar dataKey="signups" fill="#1C7A5B" radius={[6, 6, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        )}
+      </div>
+
       {/* Clinic geo distribution */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <TopClinicsCard
+          items={(metrics.clinics.top ?? []).map(c => ({ label: c.clinicName, count: c.clientCount }))}
+        />
         <DistributionCard
           title="By Country"
           icon={<Globe size={14} />}
@@ -286,6 +359,45 @@ const DistributionCard: React.FC<DistributionCardProps> = ({ title, icon, items,
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/**
+ * Top 5 clinics by client count (2026-09-27, dashboard polish) — the backend
+ * has always computed `clinics.top`; this was the other unrendered field.
+ * Bar scale is relative to the TOP clinic here, not `clinics.total` — a
+ * percent-of-all-clinics reading would be meaningless for a client-count
+ * ranking.
+ */
+const TopClinicsCard: React.FC<{ items: Array<{ label: string; count: number }> }> = ({ items }) => {
+  const max = items[0]?.count || 1;
+  return (
+    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
+      <div className="flex items-center gap-2 mb-4 text-seafoam">
+        <Trophy size={14} />
+        <h4 className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Top Clinics</h4>
+      </div>
+      {items.length === 0 ? (
+        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No data</p>
+      ) : (
+        <div className="space-y-2">
+          {items.map(item => (
+            <div key={item.label}>
+              <div className="flex justify-between text-[10px] font-black uppercase tracking-widest mb-1">
+                <span className="text-pine dark:text-zinc-100 truncate">{item.label}</span>
+                <span className="text-slate-400 font-mono shrink-0 ml-2">{item.count}</span>
+              </div>
+              <div className="h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-seafoam rounded-full transition-all"
+                  style={{ width: `${(item.count / max) * 100}%` }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       )}
     </div>
