@@ -775,11 +775,13 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
             <button
               key={key}
               onClick={() => openSheet(key)}
-              className={`rounded-2xl border p-3.5 text-left transition-transform active:scale-[0.98] ${TONES[tone]}`}
+              className="cp-card rounded-2xl p-3.5 text-left transition-transform active:scale-[0.98] flex flex-col gap-1.5"
             >
-              <Icon size={18} />
-              <p className="mt-1.5 text-sm font-black">{label}</p>
-              <p className="text-[10px] opacity-70 leading-tight mt-0.5">{hint}</p>
+              <span className={`cp-icon-chip border ${TONES[tone]}`}>
+                <Icon size={18} />
+              </span>
+              <p className="mt-0.5 text-sm font-black">{label}</p>
+              <p className="text-[10px] opacity-70 leading-tight">{hint}</p>
             </button>
           ))}
         </div>

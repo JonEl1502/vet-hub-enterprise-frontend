@@ -111,6 +111,16 @@ export interface FinanceBI {
   compare: { from: string; to: string };
 }
 
+export type ReportBucket = 'day' | 'week' | 'month' | 'year';
+
+/** One bucketed row — Revenue Reports (species/client), 2026-09-27. */
+export interface RevenueReportRow {
+  period: string; // day/week/month/year key depending on `bucket`
+  group: string;  // species name, or client display name
+  total: number;
+  count: number;
+}
+
 export const summariesAPI = {
   /** Aggregated totals + daily series for the requested scope. */
   get: async (
@@ -180,6 +190,30 @@ export const summariesAPI = {
     if (opts.from) q.set('from', opts.from);
     if (opts.to) q.set('to', opts.to);
     return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'cashflow')}?${q.toString()}`, { cache: false, ...options });
+  },
+
+  /** Revenue by species, bucketed by day/week/month/year. */
+  revenueBySpecies: async (
+    opts: { scopeId: string | number; from?: string; to?: string; bucket?: ReportBucket },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<RevenueReportRow[]>> => {
+    const q = new URLSearchParams({ scopeId: String(opts.scopeId) });
+    if (opts.from) q.set('from', opts.from);
+    if (opts.to) q.set('to', opts.to);
+    if (opts.bucket) q.set('bucket', opts.bucket);
+    return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'revenue-by-species')}?${q.toString()}`, { cache: false, ...options });
+  },
+
+  /** Revenue by client, bucketed by day/week/month/year. */
+  revenueByClient: async (
+    opts: { scopeId: string | number; from?: string; to?: string; bucket?: ReportBucket },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<(RevenueReportRow & { clientId: string })[]>> => {
+    const q = new URLSearchParams({ scopeId: String(opts.scopeId) });
+    if (opts.from) q.set('from', opts.from);
+    if (opts.to) q.set('to', opts.to);
+    if (opts.bucket) q.set('bucket', opts.bucket);
+    return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'revenue-by-client')}?${q.toString()}`, { cache: false, ...options });
   },
 
   /** Per-scope rows so the dashboard can render a per-clinic table. */

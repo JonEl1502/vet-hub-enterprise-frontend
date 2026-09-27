@@ -9,6 +9,7 @@
  */
 import {
   BookLock,
+  HeartPulse,
   Sprout,
   Wheat,
   Milk,
@@ -279,6 +280,8 @@ const CLINIC_ITEMS: MenuItem[] = [
       // Financial Overview retired 2026-08-03 — Reports & Analytics replaced it
       // (the old view id still redirects there).
       { id: 'reports-analytics',  label: 'Reports & Analytics', icon: BarChart3 },
+      { id: 'revenue-reports',    label: 'Revenue Reports',     icon: TrendingUp },
+      { id: 'financial-health',   label: 'Financial Health',    icon: HeartPulse },
       // Revenue Desk — bills + invoices, tabbed by state. Replaces the `bills`
       // queue entry withdrawn 2026-07-27; that view is still routable.
       { id: 'revenue-desk',       label: 'Bills & Invoices',    icon: ReceiptText },

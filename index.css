@@ -434,6 +434,19 @@ body {
   font-size: 0.72rem;
   font-weight: 700;
 }
+/* Icon-in-a-chip: a small rounded tinted square housing one lucide icon.
+   Tone (bg/text color) comes from Tailwind classes at the call site (the
+   existing amber/sky/emerald/rose tint pairs already used for the Record
+   grid) — this class only owns size/shape, so it drops into any tint. */
+.client-portal .cp-icon-chip {
+  width: 2.35rem;
+  height: 2.35rem;
+  border-radius: 0.85rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
 .client-portal .cp-muted { color: var(--cp-muted); }
 .client-portal .cp-accent-text { color: var(--cp-accent-dark); }
 .client-portal .cp-active-link { background: var(--cp-accent-soft); color: var(--cp-accent-dark); }

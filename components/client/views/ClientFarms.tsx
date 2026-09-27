@@ -29,6 +29,10 @@ const fmtDate = (d?: string | null) =>
   d ? new Date(d).toLocaleDateString('en-US', { dateStyle: 'medium' }) : '—';
 const fmtWhen = (d?: string | null) =>
   d ? new Date(d).toLocaleString('en-US', { dateStyle: 'medium', timeStyle: 'short' }) : 'Never';
+const greeting = () => {
+  const h = new Date().getHours();
+  return h < 12 ? 'Good morning' : h < 17 ? 'Good afternoon' : 'Good evening';
+};
 
 const ClientFarms: React.FC = () => {
   const farmerPlan = useFarmerPlan();
@@ -267,13 +271,17 @@ const ClientFarms: React.FC = () => {
       {active && (
         <div className="cp-card relative p-4 sm:p-5">
           <div className="flex items-start justify-between gap-3 sm:pr-56">
-            <div className="min-w-0">
-              <h2 className="text-base font-black text-slate-800 truncate">{active.name}</h2>
-              {(active.county || active.location) && (
-                <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
-                  <MapPin size={11} /> {[active.county, active.location].filter(Boolean).join(' · ')}
-                </p>
-              )}
+            <div className="min-w-0 flex items-start gap-3">
+              <span className="cp-icon-btn hidden sm:inline-flex"><Sprout size={18} /></span>
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold cp-muted">{greeting()}</p>
+                <h2 className="text-base font-black text-slate-800 truncate">{active.name}</h2>
+                {(active.county || active.location) && (
+                  <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                    <MapPin size={11} /> {[active.county, active.location].filter(Boolean).join(' · ')}
+                  </p>
+                )}
+              </div>
             </div>
             {/* The clinic link is now something the FARMER controls. It used to
                 be read-only text, which meant an owner-created farm — the whole

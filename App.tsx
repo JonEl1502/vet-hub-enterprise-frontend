@@ -155,6 +155,8 @@ import ClinicSwitcherModal from './components/clinic/clinic-mgmt/ClinicSwitcherM
 import InitialClinicSelection from './components/clinic/clinic-mgmt/InitialClinicSelection';
 import TransactionsView from './components/clinic/billing/TransactionsView';
 import ReportsAnalyticsView from './components/clinic/billing/ReportsAnalyticsView';
+import RevenueReportsView from './components/clinic/billing/RevenueReportsView';
+import FinancialHealthView from './components/clinic/billing/FinancialHealthView';
 import ReceivablesView from './components/clinic/billing/ReceivablesView';
 import ExpensesView from './components/clinic/billing/ExpensesView';
 import ToastContainer from './components/shared/common/ToastContainer';
@@ -2967,6 +2969,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           clinicId={firstActiveClinic?.id}
           onNavigate={(view, params) => navigateTo(view, params)}
         />;
+      case 'revenue-reports':
+        return <RevenueReportsView clinicId={firstActiveClinic?.id} />;
+      case 'financial-health':
+        return <FinancialHealthView clinicId={firstActiveClinic?.id} />;
       case 'receivables':
         return <ReceivablesView currency={(firstActiveClinic as any)?.currency} />;
       case 'expenses':

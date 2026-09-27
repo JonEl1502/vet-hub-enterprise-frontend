@@ -49,10 +49,9 @@ interface Props {
   farmId: string;
   groups: PortalAnimalGroup[];
   /**
-   * Naming is free from 2026-09-13 — BASIC and FULL both get the register.
-   * `tier` is still here because the register's DEPTH differs: weights over
-   * time and the full history remain Farmer-only, and the upsell below the
-   * list says so instead of a wall in front of it.
+   * Naming and tracking individual animals is FULL-tier only (reverted
+   * 2026-09-27 — see `assertCanNameAnimals` on the backend for why). BASIC
+   * sees an upgrade card instead of the register, same treatment as NONE.
    */
   tier: 'NONE' | 'BASIC' | 'FULL';
   onChanged?: () => void;
@@ -96,8 +95,8 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
   const cfg = speciesConfig(form.species);
 
   const load = useCallback(() => {
-    // Any farm tier may list its named animals; 'NONE' has no farm at all.
-    if (tier === 'NONE') { setLoading(false); return Promise.resolve(); }
+    // Only FULL may list named animals; NONE has no farm, BASIC sees the upsell.
+    if (tier !== 'FULL') { setLoading(false); return Promise.resolve(); }
     setLoading(true);
     return clientPortalAPI.listFarmAnimals(farmId, { q: q.trim() || undefined, animalGroupId: groupFilter || undefined })
       .then((r) => { if (r.success && r.data) setAnimals(r.data.animals); })
@@ -300,6 +299,32 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
         <ul className="mt-3 grid gap-1.5 sm:grid-cols-2 text-[11px] text-slate-600 dark:text-zinc-300">
           {['Herds and flocks with their make-up', 'Name, breed, sex, age and tag number',
             'Feed, treatments and produce recorded', 'Kept, never deleted'].map((f) => (
+            <li key={f} className="flex items-start gap-1.5">
+              <span className="mt-1 w-1 h-1 rounded-full bg-current shrink-0 opacity-50" />{f}
+            </li>
+          ))}
+        </ul>
+        <button className="cp-btn mt-4" onClick={onUpgrade}>See the farm plans</button>
+      </div>
+    );
+  }
+
+  // ── Farm side is on, but naming is a Farmer-plan feature ──────────────────
+  if (tier === 'BASIC') {
+    return (
+      <div className="cp-card p-5 sm:p-6">
+        <Sparkles size={20} className="cp-accent-text" />
+        <p className="mt-2 text-sm font-black text-slate-800 dark:text-zinc-100">
+          Name your animals on the Farmer plan
+        </p>
+        <p className="mt-1 text-xs text-slate-500 leading-relaxed max-w-lg">
+          Your herds and flocks stay free either way. Naming an individual animal —
+          with its own breed, sex, tag number and weight history — is a Farmer-plan
+          feature.
+        </p>
+        <ul className="mt-3 grid gap-1.5 sm:grid-cols-2 text-[11px] text-slate-600 dark:text-zinc-300">
+          {['Name, breed, sex, age and tag number', 'Weight history over time',
+            'Feeding plans, produce and vet visits', 'Full record history'].map((f) => (
             <li key={f} className="flex items-start gap-1.5">
               <span className="mt-1 w-1 h-1 rounded-full bg-current shrink-0 opacity-50" />{f}
             </li>
