@@ -113,10 +113,27 @@ export interface FinanceBI {
 
 export type ReportBucket = 'day' | 'week' | 'month' | 'year';
 
-/** One bucketed row — Revenue Reports (species/client), 2026-09-27. */
+/** One bucketed row — Revenue Reports (species/client/vet/service), 2026-09-27. */
 export interface RevenueReportRow {
   period: string; // day/week/month/year key depending on `bucket`
-  group: string;  // species name, or client display name
+  group: string;  // species/client/staff/service name
+  total: number;
+  count: number;
+}
+
+/** One bucketed row — Payments Collected (payment method). NOT the same total
+ *  as RevenueReportRow's billed-revenue rows — see summary.service.ts. */
+export interface PaymentMethodRow {
+  period: string;
+  group: string; // payment method
+  total: number;
+  count: number;
+}
+
+/** Discounts given, bucketed — no grouping dimension. */
+export interface DiscountRow {
+  period: string;
+  group: null;
   total: number;
   count: number;
 }
@@ -214,6 +231,54 @@ export const summariesAPI = {
     if (opts.to) q.set('to', opts.to);
     if (opts.bucket) q.set('bucket', opts.bucket);
     return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'revenue-by-client')}?${q.toString()}`, { cache: false, ...options });
+  },
+
+  /** Revenue by vet/staff, bucketed. */
+  revenueByVet: async (
+    opts: { scopeId: string | number; from?: string; to?: string; bucket?: ReportBucket },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<(RevenueReportRow & { staffId: string | null })[]>> => {
+    const q = new URLSearchParams({ scopeId: String(opts.scopeId) });
+    if (opts.from) q.set('from', opts.from);
+    if (opts.to) q.set('to', opts.to);
+    if (opts.bucket) q.set('bucket', opts.bucket);
+    return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'revenue-by-vet')}?${q.toString()}`, { cache: false, ...options });
+  },
+
+  /** Revenue by service, bucketed. Finer than category (financeBI's revenueByCategory). */
+  revenueByService: async (
+    opts: { scopeId: string | number; from?: string; to?: string; bucket?: ReportBucket },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<RevenueReportRow[]>> => {
+    const q = new URLSearchParams({ scopeId: String(opts.scopeId) });
+    if (opts.from) q.set('from', opts.from);
+    if (opts.to) q.set('to', opts.to);
+    if (opts.bucket) q.set('bucket', opts.bucket);
+    return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'revenue-by-service')}?${q.toString()}`, { cache: false, ...options });
+  },
+
+  /** Payments collected by method, bucketed. NOT the same total as revenueBy* above. */
+  revenueByPaymentMethod: async (
+    opts: { scopeId: string | number; from?: string; to?: string; bucket?: ReportBucket },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<PaymentMethodRow[]>> => {
+    const q = new URLSearchParams({ scopeId: String(opts.scopeId) });
+    if (opts.from) q.set('from', opts.from);
+    if (opts.to) q.set('to', opts.to);
+    if (opts.bucket) q.set('bucket', opts.bucket);
+    return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'revenue-by-payment-method')}?${q.toString()}`, { cache: false, ...options });
+  },
+
+  /** Discounts given, bucketed — a plain time series, no grouping dimension. */
+  discountsOverTime: async (
+    opts: { scopeId: string | number; from?: string; to?: string; bucket?: ReportBucket },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<DiscountRow[]>> => {
+    const q = new URLSearchParams({ scopeId: String(opts.scopeId) });
+    if (opts.from) q.set('from', opts.from);
+    if (opts.to) q.set('to', opts.to);
+    if (opts.bucket) q.set('bucket', opts.bucket);
+    return get(`${ENDPOINTS.SUMMARIES.CLINIC_STATS.replace('clinic-stats', 'discounts-over-time')}?${q.toString()}`, { cache: false, ...options });
   },
 
   /** Per-scope rows so the dashboard can render a per-clinic table. */
