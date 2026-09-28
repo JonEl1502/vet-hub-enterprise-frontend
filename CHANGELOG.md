@@ -59,6 +59,36 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: sell-form photos, health chips, contact preference, price-on-request  —  2026-09-28
+- **What changed:** redesign slice 2. New `ListingPhotoUploader.tsx` (up to 6
+  photos, presigned direct-to-R2 upload via a new `marketplaceAPI.photoUploadUrl`
+  + the existing `uploadsAPI.putToSignedUrl`, drag-to-reorder via `@dnd-kit`,
+  first photo is the cover). Health/extras chips (Vaccinated/Dewormed/
+  In-calf/Milking with a litres-per-day sub-field/Registered — server-validated
+  against a fixed set, not free text). Contact-preference picker (in-app/phone/
+  WhatsApp). "Price on request" toggle — disables and bypasses the price field's
+  validation. Unit switched from free text to a constrained `<select>`. County
+  suggestions expanded from a hand-picked 14 to the real 47. Live preview
+  updated to show the cover photo, health chips, and "Price on request" in
+  place of a price.
+- **Record impact:** 🟢 None — additive fields, all optional, existing listings
+  unaffected.
+- **Data dependency:** Requires backend migration 312 (see backend CHANGELOG,
+  same date) — `unitPrice`/`priceOnRequest`/`healthTags`/`milkingLitersPerDay`/
+  `contactPreference` on `MarketListing`, and the new `photo-upload-url` route.
+  Already live on staging as of this entry.
+- **Rollback:** revert commit `448caba7` and rebuild. Backend fields are
+  additive and safe to leave in place even if this frontend commit is reverted.
+- **Tested:** `tsc --noEmit` clean (94 pre-existing errors, unchanged), `eslint`
+  clean. Verified live on `app-staging.vethubcore.com`: real photo uploaded to
+  R2 and rendered back (checked `img.complete`/`naturalWidth`, not just that a
+  `<img>` tag existed), health-chip toggle + litres sub-field, contact-preference
+  picker, price-on-request disabling the price field and the submit gate
+  correctly, 47 counties in the datalist. Backend verified independently via
+  curl: valid create succeeds, invalid health tags are silently dropped (not
+  rejected — matches the "known set" design), missing price without
+  price-on-request correctly 400s, the CHECK constraint holds.
+
 ### component: client portal shell now fixed-viewport, sell-form redesign slice 1  —  2026-09-28
 - **What changed:** `ClientLayout.tsx` shell rebuilt on the Rekodi pattern —
   `fixed inset-0 flex` root, side rail is a real `h-full` flex child instead
