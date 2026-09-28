@@ -28,14 +28,21 @@ export interface MarketListing {
   quantity: number;
   /** head | birds | kg | trays | litres — the species' own counting noun. */
   unit: string;
-  /** ⚠️ PER UNIT. `totalPrice` is the convenience, not the source. */
-  unitPrice: number;
-  totalPrice: number;
+  /** ⚠️ PER UNIT. `totalPrice` is the convenience, not the source. Null only
+   * ever means `priceOnRequest` — see the schema/service comment on 312. */
+  unitPrice: number | null;
+  priceOnRequest: boolean;
+  totalPrice: number | null;
   currency: string;
   negotiable: boolean;
   county: string | null;
   location: string | null;
   mediaUrls: string[];
+  /** Drawn from a fixed set: VACCINATED | DEWORMED | IN_CALF | MILKING | REGISTERED. */
+  healthTags: string[];
+  milkingLitersPerDay: number | null;
+  /** APP | PHONE | WHATSAPP */
+  contactPreference: string;
   status: string;
   publishedAt: string | null;
   expiresAt: string | null;
@@ -79,12 +86,16 @@ export interface MarketListingInput {
   weightKg?: number | null;
   quantity?: number;
   unit?: string;
-  unitPrice: number;
+  unitPrice?: number | null;
+  priceOnRequest?: boolean;
   currency?: string;
   negotiable?: boolean;
   county?: string | null;
   location?: string | null;
   mediaUrls?: string[];
+  healthTags?: string[];
+  milkingLitersPerDay?: number | null;
+  contactPreference?: string;
 }
 
 const BASE = '/portal/me/marketplace';
@@ -115,6 +126,14 @@ export const marketplaceAPI = {
 
   create: (data: MarketListingInput, options?: RequestOptions): Promise<ApiResponse<{ listing: MarketListing }>> =>
     post(BASE, data, { showError: true, ...options }),
+
+  /** Signed PUT URL for a listing photo — same presigned-upload flow as
+   * `clientPortalAPI.avatarUploadUrl`, PUT the bytes with `uploadsAPI.putToSignedUrl`. */
+  photoUploadUrl: (
+    input: { contentType: string; filename?: string; sizeBytes?: number },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ uploadUrl: string; publicUrl: string; key: string; expiresIn: number }>> =>
+    post(`${BASE}/photo-upload-url`, input, options),
 
   update: (
     listingId: string,

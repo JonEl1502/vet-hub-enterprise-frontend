@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Loader2, Plus, Search, MapPin, Tag, ShieldCheck, Store, Eye,
+  MessageSquare, Phone, MessageCircle,
 } from 'lucide-react';
 // ⚠️ NOT 'react-hot-toast'. That library's <Toaster/> is never mounted
 // anywhere in this app — every toast.success/error call through it renders
@@ -14,6 +15,7 @@ import { PortalFarm, FARM_SPECIES } from '../../../services/modules/clientPortal
 import { speciesConfig } from './farmSpecies';
 import CpPage from '../CpPage';
 import CpPickOrType from '../CpPickOrType';
+import ListingPhotoUploader from '../ListingPhotoUploader';
 
 /**
  * 296 — the farm marketplace.
@@ -35,10 +37,34 @@ const money = (n: number, currency: string) =>
   `${currency} ${n.toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
 /** Counties a listing is most often in — free text still wins. */
+/** All 47. Was a hand-picked 14 — a real farmer outside that list had no way
+ * to name their own county at all, only free text with no suggestions. */
 const COUNTIES = [
-  'Nairobi', 'Kiambu', 'Nakuru', 'Uasin Gishu', 'Meru', 'Nyeri', 'Machakos',
-  'Kakamega', 'Bungoma', 'Kisii', 'Kajiado', 'Murang’a', 'Laikipia', 'Narok',
+  'Mombasa', 'Kwale', 'Kilifi', 'Tana River', 'Lamu', 'Taita-Taveta', 'Garissa',
+  'Wajir', 'Mandera', 'Marsabit', 'Isiolo', 'Meru', 'Tharaka-Nithi', 'Embu',
+  'Kitui', 'Machakos', 'Makueni', 'Nyandarua', 'Nyeri', 'Kirinyaga', 'Murang’a',
+  'Kiambu', 'Turkana', 'West Pokot', 'Samburu', 'Trans Nzoia', 'Uasin Gishu',
+  'Elgeyo-Marakwet', 'Nandi', 'Baringo', 'Laikipia', 'Nakuru', 'Narok', 'Kajiado',
+  'Kericho', 'Bomet', 'Kakamega', 'Vihiga', 'Bungoma', 'Busia', 'Siaya', 'Kisumu',
+  'Homa Bay', 'Migori', 'Kisii', 'Nyamira', 'Nairobi',
+].sort();
+
+/** Mirrors the backend's HEALTH_TAGS set (marketplace.service.ts) exactly —
+ * these are the only values the server will keep, so the UI must not offer
+ * anything else. */
+const HEALTH_TAG_META: { key: string; label: string }[] = [
+  { key: 'VACCINATED', label: 'Vaccinated' },
+  { key: 'DEWORMED', label: 'Dewormed' },
+  { key: 'IN_CALF', label: 'In-calf / pregnant' },
+  { key: 'MILKING', label: 'Milking' },
+  { key: 'REGISTERED', label: 'Registered / pedigree' },
 ];
+
+const CONTACT_PREFS = [
+  { key: 'APP', label: 'In-app messages', icon: MessageSquare },
+  { key: 'PHONE', label: 'Phone call', icon: Phone },
+  { key: 'WHATSAPP', label: 'WhatsApp', icon: MessageCircle },
+] as const;
 
 const STATUS_COPY: Record<string, string> = {
   ENQUIRY: 'You asked — the seller has been told',
@@ -78,7 +104,12 @@ const ClientMarket: React.FC = () => {
   const [form, setForm] = useState({
     kind: 'LIVESTOCK', title: '', species: 'Cattle', breed: '', sex: '',
     ageMonths: '', weightKg: '', quantity: '1', unit: 'head', unitPrice: '',
+    priceOnRequest: false,
     county: '', location: '', description: '', farmId: '', negotiable: true,
+    mediaUrls: [] as string[],
+    healthTags: [] as string[],
+    milkingLitersPerDay: '',
+    contactPreference: 'APP',
   });
   const [enquiry, setEnquiry] = useState({ quantity: '1', note: '' });
   const [touched, setTouched] = useState<{ title?: boolean; unitPrice?: boolean }>({});
@@ -120,16 +151,17 @@ const ClientMarket: React.FC = () => {
   const errors = useMemo(() => {
     const e: { title?: string; unitPrice?: string } = {};
     if (!form.title.trim()) e.title = 'Say what you are selling';
-    const price = Number(form.unitPrice);
-    if (!form.unitPrice.trim()) e.unitPrice = 'A price is required';
-    else if (!Number.isFinite(price) || price <= 0) e.unitPrice = 'Enter a price above zero';
+    if (!form.priceOnRequest) {
+      const price = Number(form.unitPrice);
+      if (!form.unitPrice.trim()) e.unitPrice = 'A price is required';
+      else if (!Number.isFinite(price) || price <= 0) e.unitPrice = 'Enter a price above zero';
+    }
     return e;
-  }, [form.title, form.unitPrice]);
+  }, [form.title, form.unitPrice, form.priceOnRequest]);
   const formValid = Object.keys(errors).length === 0;
 
   const submitListing = async () => {
     if (!formValid) { toast.error(errors.title || errors.unitPrice || 'Check the form for what is missing'); return; }
-    const price = Number(form.unitPrice);
     setSaving(true);
     try {
       const r = await marketplaceAPI.create({
@@ -143,16 +175,25 @@ const ClientMarket: React.FC = () => {
         weightKg: form.weightKg === '' ? null : Number(form.weightKg),
         quantity: Math.max(1, Number(form.quantity) || 1),
         unit: form.unit,
-        unitPrice: price,
+        unitPrice: form.priceOnRequest ? null : Number(form.unitPrice),
+        priceOnRequest: form.priceOnRequest,
         county: form.county.trim() || null,
         location: form.location.trim() || null,
         farmId: form.farmId || null,
         negotiable: form.negotiable,
+        mediaUrls: form.mediaUrls,
+        healthTags: form.healthTags,
+        milkingLitersPerDay: form.healthTags.includes('MILKING') && form.milkingLitersPerDay !== ''
+          ? Number(form.milkingLitersPerDay) : null,
+        contactPreference: form.contactPreference,
       });
       if (r.success) {
         toast.success('Listed');
         setSellOpen(false);
-        setForm((p) => ({ ...p, title: '', breed: '', ageMonths: '', weightKg: '', unitPrice: '', description: '' }));
+        setForm((p) => ({
+          ...p, title: '', breed: '', ageMonths: '', weightKg: '', unitPrice: '', description: '',
+          priceOnRequest: false, mediaUrls: [], healthTags: [], milkingLitersPerDay: '', contactPreference: 'APP',
+        }));
         setTab('mine');
         await load();
       }
@@ -223,9 +264,9 @@ const ClientMarket: React.FC = () => {
     // ⚠️ What buyers will actually see (§3 of the redesign brief). Deliberately
     // reuses the exact fact-chip/price logic the detail view renders below, so
     // this can never drift from what a real listing looks like once posted.
-    // No photo/rating/verification here yet — the backend doesn't model a
-    // seller rating or verification status at all today, and photo upload is
-    // the next slice; showing either would be inventing data, not previewing it.
+    // No rating/verification here — the backend doesn't model a seller rating
+    // or verification status at all today; showing either would be inventing
+    // data, not previewing it.
     const previewFacts = [
       form.kind === 'LIVESTOCK' ? form.breed : null,
       form.kind === 'LIVESTOCK' && form.sex === 'FEMALE' ? cfg.femaleLabel : null,
@@ -233,15 +274,26 @@ const ClientMarket: React.FC = () => {
       form.kind === 'LIVESTOCK' && form.ageMonths ? `${form.ageMonths} ${cfg.ageUnit}` : null,
       form.kind === 'LIVESTOCK' && form.weightKg ? `${form.weightKg}kg` : null,
     ].filter(Boolean) as string[];
+    const previewHealthChips = HEALTH_TAG_META.filter((t) => form.healthTags.includes(t.key)).map((t) =>
+      t.key === 'MILKING' && form.milkingLitersPerDay
+        ? `Milking ${form.milkingLitersPerDay} L/day`
+        : t.label,
+    );
     const preview = (
       <div className="space-y-3">
         <p className="cp-label !mb-2">Buyers will see</p>
-        <div className="rounded-xl aspect-[4/3] flex items-center justify-center"
-             style={{ background: 'var(--cp-surface-2)', border: '1px dashed var(--cp-border)' }}>
-          <span className="text-xs cp-muted text-center px-4">
-            {form.kind === 'LIVESTOCK' ? '🐄' : '🌾'} Photos coming in the next update
-          </span>
-        </div>
+        {form.mediaUrls[0] ? (
+          <div className="rounded-xl aspect-[4/3] overflow-hidden">
+            <img src={form.mediaUrls[0]} alt="" className="w-full h-full object-cover" />
+          </div>
+        ) : (
+          <div className="rounded-xl aspect-[4/3] flex items-center justify-center"
+               style={{ background: 'var(--cp-surface-2)', border: '1px dashed var(--cp-border)' }}>
+            <span className="text-xs cp-muted text-center px-4">
+              {form.kind === 'LIVESTOCK' ? '🐄' : '🌾'} No photos added yet
+            </span>
+          </div>
+        )}
         <div className="min-w-0">
           <div className="font-black truncate" style={{ color: 'var(--cp-ink)' }}>
             {form.title.trim() || 'Untitled listing'}
@@ -252,10 +304,14 @@ const ClientMarket: React.FC = () => {
           </div>
         </div>
         <div className="text-lg font-black cp-accent-text">
-          {Number(form.unitPrice) > 0 ? money(Number(form.unitPrice), 'KES') : 'KES —'}
-          <span className="text-[11px] font-bold cp-muted"> / {form.unit.replace(/s$/, '') || 'unit'}</span>
+          {form.priceOnRequest
+            ? 'Price on request'
+            : <>
+                {Number(form.unitPrice) > 0 ? money(Number(form.unitPrice), 'KES') : 'KES —'}
+                <span className="text-[11px] font-bold cp-muted"> / {form.unit.replace(/s$/, '') || 'unit'}</span>
+              </>}
         </div>
-        {Number(form.quantity) > 1 && Number(form.unitPrice) > 0 && (
+        {!form.priceOnRequest && Number(form.quantity) > 1 && Number(form.unitPrice) > 0 && (
           <div className="text-[11px] cp-muted">
             {form.quantity} × {money(Number(form.unitPrice), 'KES')} ={' '}
             <strong style={{ color: 'var(--cp-ink)' }}>
@@ -266,6 +322,13 @@ const ClientMarket: React.FC = () => {
         {previewFacts.length > 0 && (
           <div className="flex flex-wrap gap-1.5">
             {previewFacts.map((f) => <span key={f} className="cp-chip">{f}</span>)}
+          </div>
+        )}
+        {previewHealthChips.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {previewHealthChips.map((f) => (
+              <span key={f} className="cp-chip" style={{ background: 'var(--cp-surface-2)', color: 'var(--cp-seafoam)' }}>{f}</span>
+            ))}
           </div>
         )}
         <div className="text-[11px] cp-muted flex flex-wrap gap-x-2 gap-y-1">
@@ -308,6 +371,11 @@ const ClientMarket: React.FC = () => {
             />
             {touched.title && errors.title && <p className="cp-field-error">{errors.title}</p>}
           </div>
+
+          <ListingPhotoUploader
+            value={form.mediaUrls}
+            onChange={(mediaUrls) => setForm((p) => ({ ...p, mediaUrls }))}
+          />
 
           {form.kind === 'LIVESTOCK' && (
             <>
@@ -362,8 +430,11 @@ const ClientMarket: React.FC = () => {
             </div>
             <div>
               <label className="cp-label">Unit</label>
-              <input className="cp-input w-full" value={form.unit}
-                onChange={(e) => setForm({ ...form, unit: e.target.value })} />
+              <select className="cp-input w-full" value={form.unit}
+                onChange={(e) => setForm({ ...form, unit: e.target.value })}>
+                {(form.kind === 'PRODUCE' ? ['kg', 'crate', 'bag', 'litre'] : ['head', 'litre', 'kg', 'crate', 'bag'])
+                  .map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
             </div>
             <div>
               {/* ⚠️ PER UNIT, said on the label. A farmer quoting a total for
@@ -381,17 +452,23 @@ const ClientMarket: React.FC = () => {
                     prefix sat on top of the typed value. An inline
                     `paddingLeft` beats the external shorthand outright. */}
                 <input className="cp-input w-full" style={{ paddingLeft: '2.75rem' }} type="number" min="0" placeholder="45,000"
+                  disabled={form.priceOnRequest}
                   value={form.unitPrice}
                   onChange={(e) => setForm({ ...form, unitPrice: e.target.value })}
                   onBlur={() => setTouched((t) => ({ ...t, unitPrice: true }))}
                   aria-invalid={touched.unitPrice && !!errors.unitPrice}
                 />
               </div>
-              {touched.unitPrice && errors.unitPrice && <p className="cp-field-error">{errors.unitPrice}</p>}
+              {!form.priceOnRequest && touched.unitPrice && errors.unitPrice && <p className="cp-field-error">{errors.unitPrice}</p>}
+              <label className="flex items-center gap-1.5 mt-1.5 text-xs font-semibold" style={{ color: 'var(--cp-ink-soft)' }}>
+                <input type="checkbox" className="cp-checkbox" checked={form.priceOnRequest}
+                  onChange={(e) => setForm({ ...form, priceOnRequest: e.target.checked })} />
+                Price on request
+              </label>
             </div>
           </div>
 
-          {Number(form.quantity) > 1 && Number(form.unitPrice) > 0 && (
+          {!form.priceOnRequest && Number(form.quantity) > 1 && Number(form.unitPrice) > 0 && (
             <p className="text-[11px] cp-muted">
               Total: {form.quantity} × {money(Number(form.unitPrice), 'KES')} ={' '}
               <strong style={{ color: 'var(--cp-ink)' }}>
@@ -429,11 +506,68 @@ const ClientMarket: React.FC = () => {
             </div>
           )}
 
+          {form.kind === 'LIVESTOCK' && (
+            <div>
+              <label className="cp-label">Health &amp; extras</label>
+              <div className="flex flex-wrap gap-1.5">
+                {HEALTH_TAG_META.map((t) => {
+                  const on = form.healthTags.includes(t.key);
+                  return (
+                    <button
+                      key={t.key}
+                      type="button"
+                      onClick={() => setForm((p) => ({
+                        ...p,
+                        healthTags: on ? p.healthTags.filter((k) => k !== t.key) : [...p.healthTags, t.key],
+                      }))}
+                      className={`cp-chip transition-opacity ${on ? '' : 'opacity-50 hover:opacity-80'}`}
+                      style={on ? undefined : { background: 'var(--cp-surface-2)', color: 'var(--cp-muted)' }}
+                      aria-pressed={on}
+                    >
+                      {t.label}
+                    </button>
+                  );
+                })}
+              </div>
+              {form.healthTags.includes('MILKING') && (
+                <div className="mt-2 max-w-[10rem]">
+                  <label className="cp-label !mb-1">Litres / day</label>
+                  <input className="cp-input w-full" type="number" min="0" placeholder="18"
+                    value={form.milkingLitersPerDay}
+                    onChange={(e) => setForm({ ...form, milkingLitersPerDay: e.target.value })} />
+                </div>
+              )}
+            </div>
+          )}
+
           <div>
             <label className="cp-label">Anything else</label>
             <textarea className="cp-input w-full" rows={3}
-              placeholder="Vaccinated, dewormed in July, milking 18 litres."
+              placeholder="Anything a buyer would want to know."
               value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+          </div>
+
+          <div>
+            <label className="cp-label">How should buyers reach you?</label>
+            <div className="flex flex-wrap gap-1.5">
+              {CONTACT_PREFS.map(({ key, label, icon: Icon }) => {
+                const on = form.contactPreference === key;
+                return (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setForm((p) => ({ ...p, contactPreference: key }))}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold border transition-all flex items-center gap-1.5 ${
+                      on ? 'cp-tab-on border-transparent' : 'cp-muted'
+                    }`}
+                    style={on ? undefined : { borderColor: 'var(--cp-border)' }}
+                    aria-pressed={on}
+                  >
+                    <Icon className="w-3.5 h-3.5" /> {label}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           <label className="cp-checkbox-row">
