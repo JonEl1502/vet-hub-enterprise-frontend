@@ -59,6 +59,51 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: client portal shell now fixed-viewport, sell-form redesign slice 1  —  2026-09-28
+- **What changed:** `ClientLayout.tsx` shell rebuilt on the Rekodi pattern —
+  `fixed inset-0 flex` root, side rail is a real `h-full` flex child instead
+  of a `sticky` box that only looked as tall as its own content, `<main
+  id="cp-main-scroll">` is now the single scrolling element. `CpPage.tsx`
+  gains an optional `section` prop (breadcrumb trail) and `aside` prop
+  (switches to a 2-column `xl:` layout, sticky right rail). `ClientMarket.tsx`
+  sell-something form ("`/client/market`"): 2-col layout with a live "buyers
+  will see" preview, inline field validation replacing submit-time-only
+  toasts, real `List it` disabled logic, styled checkbox (was a bare native
+  one), responsive field grids (were fixed 2/3-col with no mobile stacking),
+  "Mixed" sex option hidden at qty=1, KES-prefixed price input, promo copy
+  "See Farmer" → "Upgrade to Farmer plan". Also fixed a real live bug hit
+  while in this file: it imported `toast` from `react-hot-toast`, whose
+  `<Toaster/>` is never mounted anywhere in the app — every toast from this
+  file (including the "Listed" success message) rendered nothing. Switched to
+  the app's real, mounted toast (`services`). `.cp-label` size bumped
+  (0.72rem → 0.78rem, tracking eased) — portal-wide, every field label uses
+  this class. Dark-mode-only `.cp-topnav` gradient now blends from the body's
+  own dark tone instead of sitting as a flat disconnected green block.
+- **Record impact:** 🟢 None — UI/CSS only, no new fields read or written.
+- **Data dependency:** None.
+- **Rollback:** revert commit `d87936af` and rebuild.
+- ⚠️ **Watch out:** `window.scrollTo` no longer resets scroll on navigation
+  inside the client portal — the scroll container is now `#cp-main-scroll`,
+  not the document. Any NEW client-portal code that calls `window.scrollTo`
+  will silently no-op; use `document.getElementById('cp-main-scroll')?.scrollTo(...)`.
+  Also: `.cp-input`'s own `padding: 0 0.85rem` shorthand beats a Tailwind
+  `pl-*` utility on the same element (equal specificity, CSS load order) —
+  use an inline `style={{ paddingLeft }}` for any prefixed input, not `pl-*`.
+- **Scope note:** slice 1 of 6 of a larger client + farm-practitioner portal
+  redesign (John's brief, 2026-09-28). Still open: photo upload, "pick from
+  My Farm" prefill, health/extras chips, contact preference, draft-saving,
+  market browse filters (species/price already supported by the API, just
+  never wired into the UI), and the farm-practitioner portal pass. Same
+  promo-copy fix ("See Farmer" → "Upgrade to Farmer plan") should also be
+  applied to the other two places it's duplicated: `ClientFarms.tsx` and
+  `ClientFarmMedical.tsx` — not done yet, same pattern, quick.
+- **Tested:** `tsc --noEmit` clean (0 new errors vs. baseline), `eslint`
+  clean, verified live on `app-staging.vethubcore.com` (not just localhost)
+  at 1440px and 400px via Playwright — full-height sidebar, 2-col sell form,
+  live preview updating, inline validation, styled checkbox all confirmed
+  working in the real served bundle (grepped the deployed JS for two new
+  strings to rule out a stale-cache false positive).
+
 ### data-shape: 4 new permission grants added to the staff catalog  —  2026-09-16
 - **What changed:** `constants/permissions.ts` gains `manage_supplier_payments`,
   `manage_expenses`, `manage_record_sharing`, `manage_handshake_settlements` (all `live: true`,
