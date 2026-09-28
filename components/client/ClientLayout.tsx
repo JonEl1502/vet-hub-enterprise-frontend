@@ -165,7 +165,16 @@ const ClientLayout: React.FC = () => {
     `cp-rail-link ${isActive ? 'cp-rail-active' : ''}`;
 
   return (
-    <div className="client-portal min-h-screen">
+    // ⚠️ FIXED-VIEWPORT SHELL (2026-09-28, Rekodi pattern). Was `min-h-screen`
+    // with the document itself scrolling, which is why the side rail — a plain
+    // `sticky` box — only ever looked as tall as its OWN content (nav links +
+    // promo card) and visibly stopped partway down a long page instead of
+    // reading as a full-height pane. Pinning the shell to the viewport and
+    // making `<main>` the ONLY scrolling element lets the rail be a true flex
+    // sibling at `h-full` — it fills the pane by construction, not by faking
+    // height with `sticky`. Also sidesteps the mobile `100vh`-includes-the-
+    // collapsing-address-bar trap the same way Rekodi's shell does.
+    <div className="client-portal fixed inset-0 flex flex-col overflow-hidden">
       {/* 290 — the one-time side question. Rendered OVER the portal rather than
           instead of it: the layout behind stays mounted, so answering does not
           remount the app and lose whatever was already fetched. */}
@@ -185,7 +194,7 @@ const ClientLayout: React.FC = () => {
           inside a 390px parent, and the whole document scrolled sideways —
           a sticky navbar then spans only the viewport while the body does not,
           which is exactly what the user screenshotted. */}
-      <header className="cp-topnav sticky top-0 z-20 flex items-center justify-between gap-2 px-4 sm:px-6 h-16">
+      <header className="cp-topnav shrink-0 z-20 flex items-center justify-between gap-2 px-4 sm:px-6 h-16">
         <div className="flex items-center gap-2.5 font-black text-lg min-w-0">
           <span className="cp-logo-mark w-9 h-9 rounded-xl flex items-center justify-center p-1 shrink-0">
             <BrandMark title="VetHubCore" />
@@ -309,10 +318,15 @@ const ClientLayout: React.FC = () => {
           view and still short of the line-length where body text gets hard to
           track. `mx-auto` is correct HERE (unlike the clinic app, §0d) because
           this shell has no fixed sidebar to strand space beside. */}
-      <div className="flex max-w-[1400px] mx-auto w-full">
-        {/* Desktop side rail */}
-        <aside className="hidden md:block w-52 lg:w-56 shrink-0 p-3 lg:pl-4 lg:pr-2 sticky top-16 self-start">
-          <nav className="cp-rail flex flex-col gap-1 p-2.5">
+      <div className="flex-1 min-h-0 flex max-w-[1400px] mx-auto w-full">
+        {/* Desktop side rail. `h-full` (a flex sibling in a height-constrained
+            parent) replaces the old `sticky top-16 self-start`, which only
+            ever looked as tall as its own content. The rail's own nav list
+            scrolls internally (`overflow-y-auto` on the `<nav>`) if the item
+            list ever outgrows the viewport; the promo card stays pinned below
+            it at `shrink-0`, never scrolled out of reach. */}
+        <aside className="hidden md:flex md:flex-col w-52 lg:w-56 shrink-0 h-full p-3 lg:pl-4 lg:pr-2">
+          <nav className="cp-rail flex-1 flex flex-col gap-1 p-2.5 overflow-y-auto min-h-0">
             {NAV.map(({ to, end, label, icon: Icon }) => (
               <NavLink key={to} to={to} end={end} className={linkClasses}>
                 <span className="cp-rail-icon"><Icon className="w-[18px] h-[18px]" /></span>
@@ -325,7 +339,7 @@ const ClientLayout: React.FC = () => {
               account cannot request — a live button leading to a 403. It now
               sells the plan instead (user, 2026-08-29: *"have it and as selling
               point there make them want to buy it"*). */}
-          <div className="cp-rail-promo mt-3">
+          <div className="cp-rail-promo mt-3 shrink-0">
             <p className="text-sm font-extrabold">
               {farmLocked ? 'Get the vet to your farm'
                 : mode === 'FARM' ? 'Need the vet on the farm?'
@@ -345,23 +359,28 @@ const ClientLayout: React.FC = () => {
               onClick={() => navigate(farmLocked ? '/client/plan' : '/client/appointments')}
             >
               {farmLocked
-                ? <><Sparkles className="w-4 h-4" /> See Farmer</>
+                ? <><Sparkles className="w-4 h-4" /> Upgrade to Farmer plan</>
                 : <><CalendarPlus className="w-4 h-4" /> Book a visit</>}
             </button>
           </div>
         </aside>
 
-        {/* Page content */}
+        {/* Page content — the ONE scrolling element in the whole shell. */}
         {/* ⚠️ Gutters, not padding-for-its-own-sake. `.cp-card` ships with NO
             padding of its own, so every card states its own inset — the page
             only needs enough edge to keep cards off the viewport. */}
-        {/* ⚠️ `overflow-x-clip`, NEVER `-hidden`. `hidden` would make this a
-            scroll container and silently kill every `position: sticky` in the
-            portal — the topnav, the record-page headers and the farm herd rail.
-            This is the same pairing the clinic app uses (§0d rule 2) and it is
-            the guard that makes a sideways-scrolling page impossible rather
-            than merely unlikely. */}
-        <main className="flex-1 min-w-0 overflow-x-clip p-3 sm:p-4 lg:py-4 lg:pl-3 lg:pr-4 pb-24 md:pb-6">
+        {/* ⚠️ `overflow-x-clip`, NEVER `-hidden`. `hidden` would silently strip
+            the vertical scrolling this element also needs. `overflow-y-auto`
+            plus `overflow-x-clip` is a valid, independent pair — this box
+            scrolls vertically and clips (never scrolls) horizontally. Any
+            `position: sticky` element inside a page (record-page headers, the
+            farm herd rail) now sticks relative to THIS box instead of the
+            document, which is what Rekodi's shell also relies on — sticky only
+            needs *a* scrolling ancestor, not specifically the document. */}
+        <main
+          id="cp-main-scroll"
+          className="flex-1 min-w-0 overflow-y-auto overflow-x-clip p-3 sm:p-4 lg:py-4 lg:pl-3 lg:pr-4 pb-24 md:pb-6"
+        >
           {/* ⚠️ Hold the HOME route until the mode is known. Without this a
               farmer sees "here's what's happening with your pets" flash on
               every single app open, because the pet dashboard renders while

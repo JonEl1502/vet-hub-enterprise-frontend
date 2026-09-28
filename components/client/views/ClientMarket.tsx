@@ -3,7 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Loader2, Plus, Search, MapPin, Tag, ShieldCheck, Store, Eye,
 } from 'lucide-react';
-import { toast } from 'react-hot-toast';
+// ⚠️ NOT 'react-hot-toast'. That library's <Toaster/> is never mounted
+// anywhere in this app — every toast.success/error call through it renders
+// nothing, including the "Listed" success message this file used to fire on
+// every successful sell. The app's real, mounted toast system is re-exported
+// from `services` (see ToastContainer.tsx, rendered in ClientApp.tsx).
+import { toast } from '../../../services';
 import { marketplaceAPI, MarketListing, MarketOrder, clientPortalAPI } from '../../../services';
 import { PortalFarm, FARM_SPECIES } from '../../../services/modules/clientPortal.api';
 import { speciesConfig } from './farmSpecies';
@@ -76,6 +81,7 @@ const ClientMarket: React.FC = () => {
     county: '', location: '', description: '', farmId: '', negotiable: true,
   });
   const [enquiry, setEnquiry] = useState({ quantity: '1', note: '' });
+  const [touched, setTouched] = useState<{ title?: boolean; unitPrice?: boolean }>({});
 
   const cfg = useMemo(() => speciesConfig(form.species), [form.species]);
 
@@ -107,10 +113,23 @@ const ClientMarket: React.FC = () => {
     if (form.kind === 'LIVESTOCK') setForm((p) => ({ ...p, unit: speciesConfig(p.species).headNoun }));
   }, [form.species, form.kind]);
 
-  const submitListing = async () => {
-    if (!form.title.trim()) { toast.error('Say what you are selling'); return; }
+  // ⚠️ ONE validity check, read by both the submit button's disabled state and
+  // the inline error copy under each field — a button that disables itself for
+  // a reason the form never explains is worse than one that's merely clickable
+  // and fails at submit-time, which is what this form did before.
+  const errors = useMemo(() => {
+    const e: { title?: string; unitPrice?: string } = {};
+    if (!form.title.trim()) e.title = 'Say what you are selling';
     const price = Number(form.unitPrice);
-    if (!Number.isFinite(price) || price <= 0) { toast.error('A price is required'); return; }
+    if (!form.unitPrice.trim()) e.unitPrice = 'A price is required';
+    else if (!Number.isFinite(price) || price <= 0) e.unitPrice = 'Enter a price above zero';
+    return e;
+  }, [form.title, form.unitPrice]);
+  const formValid = Object.keys(errors).length === 0;
+
+  const submitListing = async () => {
+    if (!formValid) { toast.error(errors.title || errors.unitPrice || 'Check the form for what is missing'); return; }
+    const price = Number(form.unitPrice);
     setSaving(true);
     try {
       const r = await marketplaceAPI.create({
@@ -201,8 +220,67 @@ const ClientMarket: React.FC = () => {
 
   // ── Sell: a page, because it is a dozen fields ──────────────────────────
   if (sellOpen) {
+    // ⚠️ What buyers will actually see (§3 of the redesign brief). Deliberately
+    // reuses the exact fact-chip/price logic the detail view renders below, so
+    // this can never drift from what a real listing looks like once posted.
+    // No photo/rating/verification here yet — the backend doesn't model a
+    // seller rating or verification status at all today, and photo upload is
+    // the next slice; showing either would be inventing data, not previewing it.
+    const previewFacts = [
+      form.kind === 'LIVESTOCK' ? form.breed : null,
+      form.kind === 'LIVESTOCK' && form.sex === 'FEMALE' ? cfg.femaleLabel : null,
+      form.kind === 'LIVESTOCK' && form.sex === 'MALE' ? cfg.maleLabel : null,
+      form.kind === 'LIVESTOCK' && form.ageMonths ? `${form.ageMonths} ${cfg.ageUnit}` : null,
+      form.kind === 'LIVESTOCK' && form.weightKg ? `${form.weightKg}kg` : null,
+    ].filter(Boolean) as string[];
+    const preview = (
+      <div className="space-y-3">
+        <p className="cp-label !mb-2">Buyers will see</p>
+        <div className="rounded-xl aspect-[4/3] flex items-center justify-center"
+             style={{ background: 'var(--cp-surface-2)', border: '1px dashed var(--cp-border)' }}>
+          <span className="text-xs cp-muted text-center px-4">
+            {form.kind === 'LIVESTOCK' ? '🐄' : '🌾'} Photos coming in the next update
+          </span>
+        </div>
+        <div className="min-w-0">
+          <div className="font-black truncate" style={{ color: 'var(--cp-ink)' }}>
+            {form.title.trim() || 'Untitled listing'}
+          </div>
+          <div className="text-[11px] cp-muted truncate">
+            {[form.kind === 'LIVESTOCK' ? form.species : null, form.breed].filter(Boolean).join(' · ')
+              || (form.kind === 'PRODUCE' ? 'Produce' : 'Livestock')}
+          </div>
+        </div>
+        <div className="text-lg font-black cp-accent-text">
+          {Number(form.unitPrice) > 0 ? money(Number(form.unitPrice), 'KES') : 'KES —'}
+          <span className="text-[11px] font-bold cp-muted"> / {form.unit.replace(/s$/, '') || 'unit'}</span>
+        </div>
+        {Number(form.quantity) > 1 && Number(form.unitPrice) > 0 && (
+          <div className="text-[11px] cp-muted">
+            {form.quantity} × {money(Number(form.unitPrice), 'KES')} ={' '}
+            <strong style={{ color: 'var(--cp-ink)' }}>
+              {money(Number(form.quantity) * Number(form.unitPrice), 'KES')}
+            </strong> total
+          </div>
+        )}
+        {previewFacts.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {previewFacts.map((f) => <span key={f} className="cp-chip">{f}</span>)}
+          </div>
+        )}
+        <div className="text-[11px] cp-muted flex flex-wrap gap-x-2 gap-y-1">
+          {(form.location || form.county) && (
+            <span className="flex items-center gap-1">
+              <MapPin className="w-3 h-3" /> {[form.location, form.county].filter(Boolean).join(', ')}
+            </span>
+          )}
+          {form.negotiable && <span>· negotiable</span>}
+        </div>
+      </div>
+    );
+
     return (
-      <CpPage title="Sell something" onBack={() => setSellOpen(false)}>
+      <CpPage title="Sell something" section="Market" onBack={() => setSellOpen(false)} aside={preview}>
         <div className="space-y-3">
           <div className="flex gap-1.5">
             {([['LIVESTOCK', 'An animal'], ['PRODUCE', 'Produce']] as const).map(([k, label]) => (
@@ -223,12 +301,17 @@ const ClientMarket: React.FC = () => {
             <label className="cp-label">What are you selling?</label>
             <input className="cp-input w-full" autoFocus
               placeholder={form.kind === 'LIVESTOCK' ? 'In-calf Friesian heifer' : 'Maize, 90kg bags'}
-              value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} />
+              value={form.title}
+              onChange={(e) => setForm({ ...form, title: e.target.value })}
+              onBlur={() => setTouched((t) => ({ ...t, title: true }))}
+              aria-invalid={touched.title && !!errors.title}
+            />
+            {touched.title && errors.title && <p className="cp-field-error">{errors.title}</p>}
           </div>
 
           {form.kind === 'LIVESTOCK' && (
             <>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="cp-label">What is it?</label>
                   <select className="cp-input w-full" value={form.species}
@@ -246,12 +329,13 @@ const ClientMarket: React.FC = () => {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
                 <div>
                   <label className="cp-label">Sex</label>
                   <select className="cp-input w-full" value={form.sex}
                     onChange={(e) => setForm({ ...form, sex: e.target.value })}>
-                    <option value="">Mixed</option>
+                    {/* ⚠️ "Mixed" only makes sense across more than one animal. */}
+                    {Number(form.quantity) !== 1 && <option value="">Mixed</option>}
                     <option value="FEMALE">{cfg.femaleLabel}</option>
                     <option value="MALE">{cfg.maleLabel}</option>
                   </select>
@@ -262,7 +346,7 @@ const ClientMarket: React.FC = () => {
                     value={form.ageMonths} onChange={(e) => setForm({ ...form, ageMonths: e.target.value })} />
                 </div>
                 <div>
-                  <label className="cp-label">Weight (kg)</label>
+                  <label className="cp-label">Weight (kg) <span className="cp-muted font-normal normal-case tracking-normal">— optional</span></label>
                   <input className="cp-input w-full" type="number" min="0" placeholder="—"
                     value={form.weightKg} onChange={(e) => setForm({ ...form, weightKg: e.target.value })} />
                 </div>
@@ -270,7 +354,7 @@ const ClientMarket: React.FC = () => {
             </>
           )}
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <div>
               <label className="cp-label">How many</label>
               <input className="cp-input w-full" type="number" min="1"
@@ -285,22 +369,38 @@ const ClientMarket: React.FC = () => {
               {/* ⚠️ PER UNIT, said on the label. A farmer quoting a total for
                   twenty birds and a buyer reading a per-bird price is the one
                   misunderstanding this screen must not allow. */}
-              <label className="cp-label">Price per {form.unit.replace(/s$/, '')}</label>
-              <input className="cp-input w-full" type="number" min="0" placeholder="45000"
-                value={form.unitPrice} onChange={(e) => setForm({ ...form, unitPrice: e.target.value })} />
+              <label className="cp-label">Price per {form.unit.replace(/s$/, '')} (KES)</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold cp-muted pointer-events-none">
+                  KES
+                </span>
+                {/* ⚠️ `pl-*` alone loses this fight: `.cp-input`'s own
+                    `padding: 0 0.85rem` shorthand (index.css) has equal
+                    class-selector specificity and is compiled after
+                    Tailwind's utilities, so it silently won and the KES
+                    prefix sat on top of the typed value. An inline
+                    `paddingLeft` beats the external shorthand outright. */}
+                <input className="cp-input w-full" style={{ paddingLeft: '2.75rem' }} type="number" min="0" placeholder="45,000"
+                  value={form.unitPrice}
+                  onChange={(e) => setForm({ ...form, unitPrice: e.target.value })}
+                  onBlur={() => setTouched((t) => ({ ...t, unitPrice: true }))}
+                  aria-invalid={touched.unitPrice && !!errors.unitPrice}
+                />
+              </div>
+              {touched.unitPrice && errors.unitPrice && <p className="cp-field-error">{errors.unitPrice}</p>}
             </div>
           </div>
 
           {Number(form.quantity) > 1 && Number(form.unitPrice) > 0 && (
             <p className="text-[11px] cp-muted">
-              {form.quantity} × {money(Number(form.unitPrice), 'KES')} ={' '}
+              Total: {form.quantity} × {money(Number(form.unitPrice), 'KES')} ={' '}
               <strong style={{ color: 'var(--cp-ink)' }}>
                 {money(Number(form.quantity) * Number(form.unitPrice), 'KES')}
-              </strong> in total.
+              </strong>
             </p>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div>
               <label className="cp-label">County</label>
               <input className="cp-input w-full" list="cp-counties" placeholder="Nakuru"
@@ -336,13 +436,13 @@ const ClientMarket: React.FC = () => {
               value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
           </div>
 
-          <label className="flex items-center gap-2 text-sm" style={{ color: 'var(--cp-ink-soft)' }}>
-            <input type="checkbox" checked={form.negotiable}
+          <label className="cp-checkbox-row">
+            <input type="checkbox" className="cp-checkbox" checked={form.negotiable}
               onChange={(e) => setForm({ ...form, negotiable: e.target.checked })} />
             Price is negotiable
           </label>
 
-          <button className="cp-btn w-full" onClick={submitListing} disabled={saving || !form.title.trim()}>
+          <button className="cp-btn w-full" onClick={submitListing} disabled={saving || !formValid}>
             {saving ? 'Listing…' : 'List it'}
           </button>
         </div>

@@ -36,14 +36,35 @@ const CpPage: React.FC<{
   /**
    * Forms read at a comfortable measure; a detail page with its own columns
    * can ask for more. Defaults to the width a two-up field grid wants.
+   * Ignored when `aside` is given — a two-column page uses the shell's full
+   * width instead of a single-column reading measure.
    */
   maxWidth?: string;
   /** Trailing controls in the header row — a delete, a status pill. */
   actions?: ReactNode;
-}> = ({ title, subtitle, onBack, children, maxWidth = '42rem', actions }) => {
+  /**
+   * Breadcrumb trail segment between "Portal" and the page title, e.g.
+   * "Market". Optional — a page with no natural section (Settings, Plan)
+   * just omits it and gets the title alone, same as before.
+   */
+  section?: string;
+  /**
+   * Right-column content on wide screens — a live preview, a summary rail.
+   * Presence of this prop is what switches the page into the 2-column
+   * layout: `children` on the left, `aside` on the right at `xl:` (1280px)
+   * and up, stacked below it on anything narrower. `aside` is its own
+   * `.cp-card`, sticky under the header at `xl:` so a long left-hand form
+   * scrolls past a preview that stays in view.
+   */
+  aside?: ReactNode;
+}> = ({ title, subtitle, onBack, children, maxWidth = '42rem', actions, section, aside }) => {
   // Arriving at a page from halfway down a long list should not deposit you
-  // halfway down the page. The shell scrolls the document, not an inner box.
-  useEffect(() => { window.scrollTo({ top: 0, behavior: 'auto' }); }, []);
+  // halfway down the page. ⚠️ The shell scrolls its `<main id="cp-main-scroll">`
+  // now, not the document (2026-09-28, fixed-viewport shell) — `window.scrollTo`
+  // would silently do nothing.
+  useEffect(() => {
+    document.getElementById('cp-main-scroll')?.scrollTo({ top: 0, behavior: 'auto' });
+  }, []);
 
   // Escape leaves a page the same way the back arrow does. A phone has the
   // arrow; a desktop keyboard reaches for Escape out of modal habit, and
@@ -55,7 +76,16 @@ const CpPage: React.FC<{
   }, [onBack]);
 
   return (
-    <div className="w-full" style={{ maxWidth }}>
+    <div className="w-full" style={aside ? undefined : { maxWidth }}>
+      {section && (
+        <nav aria-label="Breadcrumb" className="mb-1.5 flex items-center gap-1.5 text-xs font-bold cp-muted">
+          <span>Portal</span>
+          <span aria-hidden="true">/</span>
+          <span>{section}</span>
+          <span aria-hidden="true">/</span>
+          <span style={{ color: 'var(--cp-ink)' }} className="truncate">{title}</span>
+        </nav>
+      )}
       <div className="flex items-start gap-3 mb-3">
         <button
           onClick={onBack}
@@ -72,7 +102,14 @@ const CpPage: React.FC<{
         </div>
         {actions && <div className="shrink-0 flex items-center gap-1.5">{actions}</div>}
       </div>
-      <div className="cp-card p-4 sm:p-5">{children}</div>
+      {aside ? (
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(0,1fr)_380px] gap-4 items-start">
+          <div className="cp-card p-4 sm:p-5 min-w-0">{children}</div>
+          <div className="cp-card p-4 sm:p-5 min-w-0 xl:sticky xl:top-0">{aside}</div>
+        </div>
+      ) : (
+        <div className="cp-card p-4 sm:p-5">{children}</div>
+      )}
     </div>
   );
 };

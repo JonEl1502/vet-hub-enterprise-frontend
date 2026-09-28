@@ -413,14 +413,55 @@ body {
 .client-portal .cp-input::placeholder { color: var(--cp-muted); font-weight: 500; }
 .client-portal .cp-input:focus { border-color: var(--cp-accent); box-shadow: 0 0 0 3px rgba(239, 133, 90, 0.15); }
 
+/* ⚠️ Was 0.72rem — legible on a wide monitor, genuinely tiny-and-shouty on a
+   phone (user: "less tiny all-caps"). Bumped size and eased the tracking;
+   kept uppercase, since dropping it is a bigger identity change than "make it
+   readable" asked for. Portal-wide (every field label uses this class), so
+   this one change reaches every form at once. */
 .client-portal .cp-label {
   display: block;
-  font-size: 0.72rem;
+  font-size: 0.78rem;
   font-weight: 700;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.025em;
   text-transform: uppercase;
   color: var(--cp-muted);
   margin-bottom: 0.4rem;
+}
+
+/* Inline field-error caption — the portal had no error-message idiom at all
+   (the sell form's only feedback was two toast.error() calls at submit time).
+   Modelled on the staff app's `.field-help` convention (index.css §Rules &
+   Preferences reference), portal-tokenized. */
+.client-portal .cp-field-error {
+  margin-top: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #dc4b4b;
+}
+.dark .client-portal .cp-field-error { color: #f0837e; }
+
+/* A real checkbox, not a bare native one. The sell form's "Price is
+   negotiable" box was the one unstyled native control left in an otherwise
+   fully-themed form. */
+.client-portal .cp-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--cp-ink);
+}
+.client-portal .cp-checkbox {
+  width: 1.15rem;
+  height: 1.15rem;
+  border-radius: 0.35rem;
+  border: 1.5px solid var(--cp-border);
+  accent-color: var(--cp-accent);
+  cursor: pointer;
+}
+.client-portal .cp-checkbox:focus-visible {
+  outline: 2px solid var(--cp-accent);
+  outline-offset: 2px;
 }
 
 .client-portal .cp-chip {
@@ -460,6 +501,21 @@ body {
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   box-shadow: 0 12px 32px -20px rgba(23, 51, 46, 0.65);
   color: #f7f2ea;
+}
+/* ⚠️ Dark mode only — in light mode the pine header already sits on a warm
+   cream body (#f7f2ea) and reads fine. In dark mode it sat on a near-black
+   warm-brown body (#17120e) as a flat, disconnected green block (user,
+   2026-09-28: "clashes with the dark-brown body"). Rather than losing the
+   green identity, the gradient now starts FROM the body's own dark tone on
+   the left and resolves into the same pine/coral it always was — the header
+   grows out of the page instead of sitting on top of it. Scoped `.dark` only,
+   same convention as the rest of this file's dark-mode calibration block. */
+.dark .client-portal .cp-topnav {
+  background:
+    radial-gradient(52rem 26rem at 108% -40%, rgba(239, 133, 90, 0.28), transparent 55%),
+    radial-gradient(40rem 22rem at -10% 130%, rgba(28, 122, 91, 0.32), transparent 60%),
+    linear-gradient(115deg, #14100c 0%, #1a352f 45%, #1f4a41 100%);
+  border-bottom: 1px solid var(--cp-border);
 }
 .client-portal .cp-logo-mark {
   background: linear-gradient(135deg, #f79b70 0%, #e56a3c 100%);
