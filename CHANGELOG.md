@@ -59,6 +59,43 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: "Ask a vet to inspect" — buyer request flow + clinic inbox  —  2026-09-29
+- **What changed:** redesign slice 5. New `RequestInspectionModal.tsx` — buyer
+  filters by expertise ('Livestock'/'Poultry', new `specialties` values) or
+  searches by name/town, picks a clinic, sets a preferred date and what to
+  check. Listing detail page shows a new "Ask a vet to inspect" button plus
+  any completed, seller-attached reports. Deals tab now shows sent/received
+  inspection requests alongside marketplace orders, with a cancel action.
+  Clinic side: new `InspectionRequestsView.tsx` under `components/livestock/`
+  — deliberately the SAME shared primitives as `FarmVisitsView.tsx`'s
+  call-out queue (`LivestockPage`/`Card`/`Modal`/`SegmentedFilter`), per
+  John's direction that practitioner and farmer workflows should read as one
+  system, not carry unrelated chrome.
+- **Bug found and fixed**: the new "Inspections" sidebar item was placed
+  under the Livestock-AUDIENCE sidebar only — but a buyer can send a request
+  to ANY clinic carrying the specialty tag, not just farm-shell ones. Tested
+  with a real general clinic (small-animal specialties, no farm shell) and
+  confirmed it had no way to see a request sent to it. Fixed by also adding
+  the item to the ordinary clinic sidebar's existing "Farm" submenu group
+  (`showWhenLocked: true`, same as its siblings — no Farms add-on required to
+  receive a request, the cost sits on the buyer's plan).
+- **Also fixed in passing**: "Start a Quick Visit" (a walk-in-counter button)
+  now also hides for any FARM-shell account, not just the `FREELANCER` role —
+  a vet officer or clinic owner running a livestock practice does call-outs,
+  not a walk-in counter, and was still seeing it because the old check only
+  looked at role, not shell.
+- **Record impact:** 🟢 None — reads/writes only the new backend tables.
+- **Data dependency:** Requires backend migration 313 (see backend
+  CHANGELOG, same date). Already live on staging.
+- **Rollback:** revert `2b0e1172` (feature) + `56e4bc77` (menu placement fix).
+- **Tested:** `tsc --noEmit` clean (94 baseline, unchanged), `eslint` clean.
+  Verified live on staging end-to-end with two genuinely different real
+  accounts (buyer ≠ seller — the backend correctly rejected the first attempt
+  where I'd accidentally used the same account for both) and a real clinic
+  (specialties temporarily extended for the test, then restored exactly):
+  request → clinic finds it by searching expertise → accepts → submits a
+  report → report renders on the listing for the buyer.
+
 ### component: sell-form "Pick from My Farm" prefill + draft-saving  —  2026-09-29
 - **What changed:** completes redesign slice 2. New `PickFromFarmModal.tsx` —
   lists the seller's named farm animals (`clientPortalAPI.listFarmAnimals`),
