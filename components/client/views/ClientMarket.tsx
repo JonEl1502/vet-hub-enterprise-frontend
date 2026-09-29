@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Loader2, Plus, Search, MapPin, Tag, ShieldCheck, Store, Eye,
   MessageSquare, Phone, MessageCircle, PawPrint, LayoutGrid, List as ListIcon,
+  Stethoscope, FileCheck,
 } from 'lucide-react';
 // ⚠️ NOT 'react-hot-toast'. That library's <Toaster/> is never mounted
 // anywhere in this app — every toast.success/error call through it renders
@@ -17,6 +18,8 @@ import CpPage from '../CpPage';
 import CpPickOrType from '../CpPickOrType';
 import ListingPhotoUploader from '../ListingPhotoUploader';
 import PickFromFarmModal, { FarmPrefill } from '../PickFromFarmModal';
+import RequestInspectionModal from '../RequestInspectionModal';
+import { InspectionReport, InspectionRequest } from '../../../services/modules/marketplace.api';
 
 /**
  * 296 — the farm marketplace.
@@ -84,6 +87,7 @@ const ClientMarket: React.FC = () => {
   const [listings, setListings] = useState<MarketListing[]>([]);
   const [mine, setMine] = useState<MarketListing[]>([]);
   const [orders, setOrders] = useState<{ buying: MarketOrder[]; selling: MarketOrder[] }>({ buying: [], selling: [] });
+  const [inspections, setInspections] = useState<{ sent: InspectionRequest[]; received: InspectionRequest[] }>({ sent: [], received: [] });
   const [farms, setFarms] = useState<PortalFarm[]>([]);
   const [loading, setLoading] = useState(true);
   /**
@@ -108,6 +112,8 @@ const ClientMarket: React.FC = () => {
 
   // Detail + sell
   const [detail, setDetail] = useState<MarketListing | null>(null);
+  const [inspectionModalOpen, setInspectionModalOpen] = useState(false);
+  const [inspectionReports, setInspectionReports] = useState<InspectionReport[]>([]);
   const [sellOpen, setSellOpen] = useState(false);
   const [form, setForm] = useState({
     kind: 'LIVESTOCK', title: '', species: 'Cattle', breed: '', sex: '',
@@ -167,7 +173,7 @@ const ClientMarket: React.FC = () => {
   const loadTicketRef = useRef(0);
   const load = useCallback(async () => {
     const ticket = ++loadTicketRef.current;
-    const [b, m, o, f] = await Promise.all([
+    const [b, m, o, f, ir] = await Promise.all([
       marketplaceAPI.browse({
         q, kind, county, species, sex, sort,
         minPrice: minPrice ? Number(minPrice) : undefined,
@@ -176,6 +182,7 @@ const ClientMarket: React.FC = () => {
       marketplaceAPI.mine({ silent: true }),
       marketplaceAPI.orders({ silent: true }),
       clientPortalAPI.getMyFarms({ silent: true }),
+      marketplaceAPI.myInspectionRequests({ silent: true }),
     ]);
     if (ticket !== loadTicketRef.current) return; // a newer request already landed
     if (b.status === 403) { setLocked(true); setLoading(false); return; }
@@ -184,6 +191,7 @@ const ClientMarket: React.FC = () => {
     if (m.success && m.data) setMine(m.data.listings);
     if (o.success && o.data) setOrders(o.data);
     if (f.success && f.data) setFarms(f.data.farms);
+    if (ir.success && ir.data) setInspections(ir.data);
     setLoading(false);
   }, [q, kind, county, species, sex, sort, minPrice, maxPrice]);
 
@@ -193,6 +201,13 @@ const ClientMarket: React.FC = () => {
     const id = setTimeout(() => { load(); }, debounced ? 300 : 0);
     return () => clearTimeout(id);
   }, [load, q, minPrice, maxPrice]);
+
+  useEffect(() => {
+    if (!detail) { setInspectionReports([]); return; }
+    marketplaceAPI.listingInspectionReports(detail.id, { silent: true }).then((r) => {
+      if (r.success && r.data) setInspectionReports(r.data.reports);
+    });
+  }, [detail]);
 
   // ⚠️ The unit follows the species, because "3 head of chicken" is the same
   // cattle-shaped mistake the animal register had.
@@ -293,6 +308,11 @@ const ClientMarket: React.FC = () => {
   const withdraw = async (l: MarketListing) => {
     const r = await marketplaceAPI.update(l.id, { status: 'WITHDRAWN' });
     if (r.success) { toast.success('Taken down'); await load(); }
+  };
+
+  const cancelInspection = async (id: string) => {
+    const r = await marketplaceAPI.cancelInspectionRequest(id);
+    if (r.success) { toast.success('Cancelled'); await load(); }
   };
 
   if (locked) {
@@ -680,6 +700,7 @@ const ClientMarket: React.FC = () => {
       detail.weightKg != null ? `${detail.weightKg}kg` : null,
     ].filter(Boolean);
     return (
+      <>
       <CpPage
         title={detail.title}
         subtitle={[detail.species, detail.county].filter(Boolean).join(' · ') || undefined}
@@ -745,6 +766,22 @@ const ClientMarket: React.FC = () => {
             </p>
           )}
 
+          {inspectionReports.length > 0 && (
+            <div className="cp-card-soft p-3 space-y-2">
+              <p className="text-xs font-black uppercase tracking-widest flex items-center gap-1.5" style={{ color: 'var(--cp-seafoam)' }}>
+                <FileCheck className="w-3.5 h-3.5" /> Vet inspection{inspectionReports.length > 1 ? 's' : ''}
+              </p>
+              {inspectionReports.map((r) => (
+                <div key={r.id} className="text-sm" style={{ color: 'var(--cp-ink-soft)' }}>
+                  <p className="whitespace-pre-wrap">{r.report}</p>
+                  <p className="text-[11px] cp-muted mt-1">
+                    {r.clinicName}{r.completedAt ? ` · ${new Date(r.completedAt).toLocaleDateString()}` : ''}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
+
           <div className="text-xs cp-muted flex flex-wrap gap-x-3 gap-y-1">
             <span className="flex items-center gap-1"><Store className="w-3 h-3" /> {detail.sellerName}</span>
             {(detail.location || detail.county) && (
@@ -780,6 +817,9 @@ const ClientMarket: React.FC = () => {
             <button className="cp-btn w-full" onClick={submitEnquiry} disabled={saving}>
               {saving ? 'Sending…' : 'Ask the seller'}
             </button>
+            <button type="button" className="cp-btn-ghost w-full flex items-center justify-center gap-1.5" onClick={() => setInspectionModalOpen(true)}>
+              <Stethoscope className="w-3.5 h-3.5" /> Ask a vet to inspect
+            </button>
             {/* ⚠️ Say what actually happens. Nothing is charged here, and a
                 buyer who assumes the platform is holding their money would find
                 out at the worst possible moment. */}
@@ -791,6 +831,14 @@ const ClientMarket: React.FC = () => {
           </div>
         </div>
       </CpPage>
+      {inspectionModalOpen && (
+        <RequestInspectionModal
+          listingId={detail.id}
+          onClose={() => setInspectionModalOpen(false)}
+          onSent={() => setInspectionModalOpen(false)}
+        />
+      )}
+      </>
     );
   }
 
@@ -819,7 +867,10 @@ const ClientMarket: React.FC = () => {
           {([
             ['browse', `Browse${listings.length ? ` (${listings.length})` : ''}`],
             ['mine', `My listings${mine.length ? ` (${mine.length})` : ''}`],
-            ['deals', `Deals${orders.buying.length + orders.selling.length ? ` (${orders.buying.length + orders.selling.length})` : ''}`],
+            ['deals', (() => {
+              const n = orders.buying.length + orders.selling.length + inspections.sent.length + inspections.received.length;
+              return `Deals${n ? ` (${n})` : ''}`;
+            })()],
           ] as const).map(([id, label]) => (
             <button
               key={id}
@@ -1033,7 +1084,50 @@ const ClientMarket: React.FC = () => {
               </div>
             );
           })}
-          {orders.buying.length + orders.selling.length === 0 && (
+          {(['received', 'sent'] as const).map((side) => {
+            const rows = inspections[side];
+            if (rows.length === 0) return null;
+            return (
+              <div key={side}>
+                <h3 className="text-[10px] font-black uppercase tracking-widest cp-muted mb-2 flex items-center gap-1.5">
+                  <Stethoscope className="w-3 h-3" />
+                  {side === 'received' ? 'Vet inspections asked about yours' : 'Vet inspections you asked for'}
+                </h3>
+                <div className="cp-card overflow-hidden divide-y" style={{ borderColor: 'var(--cp-border)' }}>
+                  {rows.map((r) => (
+                    <div key={r.id} className="px-4 py-3">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="font-bold truncate" style={{ color: 'var(--cp-ink)' }}>{r.listingTitle}</div>
+                          <div className="text-[11px] cp-muted">
+                            {r.clinicName}
+                            {side === 'received' && r.buyerName && <> · asked by {r.buyerName}</>}
+                          </div>
+                        </div>
+                        <span className="cp-chip shrink-0 text-[9px]">{r.status}</span>
+                      </div>
+                      {r.message && (
+                        <p className="text-xs mt-1 italic" style={{ color: 'var(--cp-ink-soft)' }}>&ldquo;{r.message}&rdquo;</p>
+                      )}
+                      {r.clinicNote && (
+                        <p className="text-[11px] cp-muted mt-1">Clinic: {r.clinicNote}</p>
+                      )}
+                      {!['COMPLETED', 'CANCELLED', 'DECLINED'].includes(r.status) && (
+                        <button
+                          type="button"
+                          onClick={() => cancelInspection(r.id)}
+                          className="text-[10px] font-black uppercase tracking-widest cp-muted mt-1.5"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+          {orders.buying.length + orders.selling.length + inspections.sent.length + inspections.received.length === 0 && (
             <div className="cp-card px-5 py-12 text-center">
               <p className="text-sm font-bold" style={{ color: 'var(--cp-ink)' }}>No deals yet</p>
               <p className="text-xs mt-1 cp-muted">Ask about something on the board and it shows up here.</p>

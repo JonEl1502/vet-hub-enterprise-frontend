@@ -25,6 +25,7 @@ import {
   ShoppingCart,
   Layers,
   ClipboardList,
+  ClipboardCheck,
   ShieldCheck,
   Briefcase,
   Award,
@@ -419,6 +420,7 @@ const LIVESTOCK_ITEMS: MenuItem[] = [
   { id: 'produce-schedule',    label: 'Produce',         icon: CalendarClock },
   { id: 'farm-visits',         label: 'Call-outs',       icon: Siren },
   { id: 'farm-visit-records',  label: 'Visits',          icon: Stethoscope },
+  { id: 'inspection-requests', label: 'Inspections',     icon: ClipboardCheck },
   {
     id: 'livestock_mgmt',
     label: 'Account',

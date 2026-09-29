@@ -26,6 +26,7 @@ export interface PortalClinic {
   rating: number;
   latitude: number | null;
   longitude: number | null;
+  specialties: string[];
   distanceKm?: number;
 }
 
@@ -543,8 +544,8 @@ export interface PortalProduceRecord {
 
 export const clientPortalAPI = {
   // ---- public: discovery ---------------------------------------------
-  searchClinics: (q: string, options?: RequestOptions): Promise<ApiResponse<{ clinics: PortalClinic[] }>> =>
-    get(ENDPOINTS.PORTAL.CLINIC_SEARCH, { params: { q }, silent: true, ...options }),
+  searchClinics: (q: string, specialty?: string, options?: RequestOptions): Promise<ApiResponse<{ clinics: PortalClinic[] }>> =>
+    get(ENDPOINTS.PORTAL.CLINIC_SEARCH, { params: { q, specialty }, silent: true, ...options }),
 
   nearestClinics: (lat: number, lng: number, options?: RequestOptions): Promise<ApiResponse<{ clinics: PortalClinic[] }>> =>
     get(ENDPOINTS.PORTAL.CLINIC_NEAREST, { params: { lat, lng }, silent: true, ...options }),

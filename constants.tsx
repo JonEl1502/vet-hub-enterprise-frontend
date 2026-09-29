@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Stethoscope, FlaskConical, Microscope, BedDouble, Zap, Bone, Eye, Heart, Scissors, Activity, Star, Crown, AlertTriangle, Skull, Bath, Home } from 'lucide-react';
+import { Stethoscope, FlaskConical, Microscope, BedDouble, Zap, Bone, Eye, Heart, Scissors, Activity, Star, Crown, AlertTriangle, Skull, Bath, Home, Beef, Bird } from 'lucide-react';
 import { ClientType } from './types';
 import { ServiceCategory, PredefinedService } from './types';
 
@@ -16,7 +16,9 @@ export type ClinicSpecialty =
   | 'Orthopedics'
   | 'Ophthalmology'
   | 'Cardiology'
-  | 'Dermatology';
+  | 'Dermatology'
+  | 'Livestock'
+  | 'Poultry';
 
 export const CLINIC_SPECIALTIES: { value: ClinicSpecialty; label: string; icon: React.ReactNode }[] = [
   { value: 'Surgical',     label: 'Surgical',     icon: <Stethoscope size={11} /> },
@@ -33,6 +35,11 @@ export const CLINIC_SPECIALTIES: { value: ClinicSpecialty; label: string; icon: 
   { value: 'Ophthalmology',label: 'Ophthalmology',icon: <Eye size={11} /> },
   { value: 'Cardiology',   label: 'Cardiology',   icon: <Heart size={11} /> },
   { value: 'Dermatology',  label: 'Dermatology',  icon: <Activity size={11} /> },
+  // 2026-09-29 — so a farm-shell clinic can be found for a marketplace
+  // "ask a vet to inspect" request. Same list, same filter pattern
+  // `CreatePartnershipPage.tsx` already uses for cross-clinic discovery.
+  { value: 'Livestock',    label: 'Livestock',    icon: <Beef size={11} /> },
+  { value: 'Poultry',      label: 'Poultry',       icon: <Bird size={11} /> },
 ];
 
 export const CLIENT_TYPES: {

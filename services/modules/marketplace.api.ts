@@ -74,6 +74,38 @@ export interface MarketOrder {
   createdAt: string;
 }
 
+export interface InspectionRequest {
+  id: string;
+  listingId: string;
+  listingTitle: string | null;
+  buyerClientId: string;
+  buyerName: string | null;
+  sellerClientId: string;
+  sellerName: string | null;
+  clinicId: string;
+  clinicName: string | null;
+  /** REQUESTED | ACKNOWLEDGED | ACCEPTED | DECLINED | COMPLETED | CANCELLED */
+  status: string;
+  preferredDate: string | null;
+  message: string | null;
+  clinicNote: string | null;
+  scheduledAt: string | null;
+  report: string | null;
+  reportFileUrl: string | null;
+  attachToListing: boolean;
+  handledAt: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface InspectionReport {
+  id: string;
+  report: string | null;
+  reportFileUrl: string | null;
+  completedAt: string | null;
+  clinicName: string | null;
+}
+
 export interface MarketListingInput {
   farmId?: string | null;
   kind?: string;
@@ -152,6 +184,28 @@ export const marketplaceAPI = {
     options?: RequestOptions,
   ): Promise<ApiResponse<{ order: MarketOrder }>> =>
     post(`${BASE}/${listingId}/enquire`, data, { showError: true, ...options }),
+
+  // ── inspection requests (313) — "Ask a vet to inspect" ─────────────────
+  requestInspection: (
+    listingId: string,
+    data: { clinicId: string; preferredDate?: string; message?: string },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ request: InspectionRequest }>> =>
+    post(`${BASE}/${listingId}/inspection-requests`, data, { showError: true, ...options }),
+
+  myInspectionRequests: (
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ sent: InspectionRequest[]; received: InspectionRequest[] }>> =>
+    get(`${BASE}/inspection-requests`, options),
+
+  cancelInspectionRequest: (id: string, options?: RequestOptions): Promise<ApiResponse<{ request: InspectionRequest }>> =>
+    post(`${BASE}/inspection-requests/${id}/cancel`, {}, { showError: true, ...options }),
+
+  listingInspectionReports: (
+    listingId: string,
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ reports: InspectionReport[] }>> =>
+    get(`${BASE}/${listingId}/inspection-reports`, options),
 };
 
 export default marketplaceAPI;
