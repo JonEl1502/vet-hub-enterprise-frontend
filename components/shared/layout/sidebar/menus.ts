@@ -270,6 +270,17 @@ const CLINIC_ITEMS: MenuItem[] = [
        * a patient.
        */
       { id: 'farm-visit-records', label: 'Visits', icon: Stethoscope, showWhenLocked: true },
+      /**
+       * 313 — deliberately here too, not only under the Livestock AUDIENCE
+       * sidebar. A marketplace buyer picks a clinic by its `specialties` tag
+       * (any clinic can carry 'Livestock'/'Poultry'), not by whether that
+       * clinic runs a FARM shell — a general small-animal clinic that just
+       * happens to also see livestock needs somewhere to find a request it
+       * was sent. `showWhenLocked` for the same reason as its siblings: no
+       * Farms add-on required to receive one, the cost already sits on the
+       * BUYER's `client:marketplace` plan.
+       */
+      { id: 'inspection-requests', label: 'Inspections', icon: ClipboardCheck, showWhenLocked: true },
     ],
   },
   {
