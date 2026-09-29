@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Loader2, Plus, Search, MapPin, Tag, ShieldCheck, Store, Eye,
-  MessageSquare, Phone, MessageCircle, PawPrint,
+  MessageSquare, Phone, MessageCircle, PawPrint, LayoutGrid, List as ListIcon,
 } from 'lucide-react';
 // ⚠️ NOT 'react-hot-toast'. That library's <Toaster/> is never mounted
 // anywhere in this app — every toast.success/error call through it renders
@@ -98,6 +98,13 @@ const ClientMarket: React.FC = () => {
   const [q, setQ] = useState('');
   const [kind, setKind] = useState('');
   const [county, setCounty] = useState('');
+  const [species, setSpecies] = useState('');
+  const [sex, setSex] = useState('');
+  const [minPrice, setMinPrice] = useState('');
+  const [maxPrice, setMaxPrice] = useState('');
+  const [sort, setSort] = useState('');
+  const [view, setView] = useState<'grid' | 'list'>('grid');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   // Detail + sell
   const [detail, setDetail] = useState<MarketListing | null>(null);
@@ -150,13 +157,27 @@ const ClientMarket: React.FC = () => {
     return () => clearTimeout(id);
   }, [form, sellOpen]);
 
+  // ⚠️ REQUEST RACE GUARD. Changing a filter fires a new debounced request
+  // without waiting for the previous one — the first request (unfiltered, on
+  // mount) can genuinely resolve AFTER a later, filtered one if the network
+  // is even slightly uneven, silently overwriting the correct filtered result
+  // with the stale unfiltered one. Caught live: typing a min-price filter
+  // sometimes left the excluded listing on screen. Each call stamps a ticket;
+  // only the response for the MOST RECENT call is allowed to touch state.
+  const loadTicketRef = useRef(0);
   const load = useCallback(async () => {
+    const ticket = ++loadTicketRef.current;
     const [b, m, o, f] = await Promise.all([
-      marketplaceAPI.browse({ q, kind, county }, { silent: true }),
+      marketplaceAPI.browse({
+        q, kind, county, species, sex, sort,
+        minPrice: minPrice ? Number(minPrice) : undefined,
+        maxPrice: maxPrice ? Number(maxPrice) : undefined,
+      }, { silent: true }),
       marketplaceAPI.mine({ silent: true }),
       marketplaceAPI.orders({ silent: true }),
       clientPortalAPI.getMyFarms({ silent: true }),
     ]);
+    if (ticket !== loadTicketRef.current) return; // a newer request already landed
     if (b.status === 403) { setLocked(true); setLoading(false); return; }
     setLocked(false);
     if (b.success && b.data) setListings(b.data.listings);
@@ -164,13 +185,14 @@ const ClientMarket: React.FC = () => {
     if (o.success && o.data) setOrders(o.data);
     if (f.success && f.data) setFarms(f.data.farms);
     setLoading(false);
-  }, [q, kind, county]);
+  }, [q, kind, county, species, sex, sort, minPrice, maxPrice]);
 
   useEffect(() => {
-    // Debounced only for the text box; a dropdown change should feel instant.
-    const id = setTimeout(() => { load(); }, q ? 300 : 0);
+    // Debounced only for free-text inputs; a dropdown/toggle change should feel instant.
+    const debounced = !!(q || minPrice || maxPrice);
+    const id = setTimeout(() => { load(); }, debounced ? 300 : 0);
     return () => clearTimeout(id);
-  }, [load, q]);
+  }, [load, q, minPrice, maxPrice]);
 
   // ⚠️ The unit follows the species, because "3 head of chicken" is the same
   // cattle-shaped mistake the animal register had.
@@ -664,14 +686,31 @@ const ClientMarket: React.FC = () => {
         onBack={() => setDetail(null)}
       >
         <div className="space-y-4">
+          {detail.mediaUrls.length > 0 && (
+            <div className="grid grid-cols-4 gap-1.5">
+              <div className="col-span-4 rounded-xl overflow-hidden aspect-[4/3]">
+                <img src={detail.mediaUrls[0]} alt="" className="w-full h-full object-cover" />
+              </div>
+              {detail.mediaUrls.slice(1).map((u) => (
+                <div key={u} className="rounded-lg overflow-hidden aspect-square">
+                  <img src={u} alt="" className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          )}
+
           <div>
             <div className="text-2xl font-black cp-accent-text">
-              {money(detail.unitPrice, detail.currency)}
-              <span className="text-sm font-bold cp-muted"> / {detail.unit.replace(/s$/, '')}</span>
+              {detail.priceOnRequest || detail.unitPrice == null
+                ? 'Price on request'
+                : <>
+                    {money(detail.unitPrice, detail.currency)}
+                    <span className="text-sm font-bold cp-muted"> / {detail.unit.replace(/s$/, '')}</span>
+                  </>}
             </div>
             <div className="text-sm mt-0.5" style={{ color: 'var(--cp-ink-soft)' }}>
               {detail.quantity} {detail.unit} available
-              {detail.quantity > 1 && <> · {money(detail.totalPrice, detail.currency)} for the lot</>}
+              {detail.quantity > 1 && detail.totalPrice != null && <> · {money(detail.totalPrice, detail.currency)} for the lot</>}
               {detail.negotiable && <> · negotiable</>}
             </div>
           </div>
@@ -681,6 +720,22 @@ const ClientMarket: React.FC = () => {
               {facts.map((f) => (
                 <span key={f as string} className="cp-chip">{f}</span>
               ))}
+            </div>
+          )}
+
+          {detail.healthTags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {detail.healthTags.map((key) => {
+                const meta = HEALTH_TAG_META.find((t) => t.key === key);
+                const label = key === 'MILKING' && detail.milkingLitersPerDay
+                  ? `Milking ${detail.milkingLitersPerDay} L/day`
+                  : meta?.label ?? key;
+                return (
+                  <span key={key} className="cp-chip" style={{ background: 'var(--cp-surface-2)', color: 'var(--cp-seafoam)' }}>
+                    {label}
+                  </span>
+                );
+              })}
             </div>
           )}
 
@@ -707,12 +762,14 @@ const ClientMarket: React.FC = () => {
                 <input className="cp-input w-full" type="number" min="1" max={detail.quantity}
                   value={enquiry.quantity} onChange={(e) => setEnquiry({ ...enquiry, quantity: e.target.value })} />
               </div>
-              <div>
-                <label className="cp-label">That would be</label>
-                <div className="cp-input w-full flex items-center font-black" style={{ color: 'var(--cp-ink)' }}>
-                  {money(detail.unitPrice * Math.max(1, Number(enquiry.quantity) || 1), detail.currency)}
+              {detail.unitPrice != null && (
+                <div>
+                  <label className="cp-label">That would be</label>
+                  <div className="cp-input w-full flex items-center font-black" style={{ color: 'var(--cp-ink)' }}>
+                    {money(detail.unitPrice * Math.max(1, Number(enquiry.quantity) || 1), detail.currency)}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
             <div>
               <label className="cp-label">Message to the seller</label>
@@ -796,6 +853,67 @@ const ClientMarket: React.FC = () => {
             </select>
           </div>
 
+          <div className="flex items-center justify-between gap-2">
+            <button
+              type="button"
+              onClick={() => setShowMoreFilters((v) => !v)}
+              className="text-xs font-bold cp-accent-text flex items-center gap-1"
+            >
+              <Tag className="w-3 h-3" /> {showMoreFilters ? 'Fewer filters' : 'More filters'}
+            </button>
+            <div className="flex items-center gap-2">
+              <select className="cp-input !h-9 text-xs" value={sort} onChange={(e) => setSort(e.target.value)}>
+                <option value="">Newest first</option>
+                <option value="price_asc">Price: low to high</option>
+                <option value="price_desc">Price: high to low</option>
+              </select>
+              <div className="flex rounded-lg overflow-hidden border" style={{ borderColor: 'var(--cp-border)' }}>
+                {([['grid', LayoutGrid], ['list', ListIcon]] as const).map(([v, Icon]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setView(v)}
+                    aria-pressed={view === v}
+                    className={`px-2.5 py-1.5 ${view === v ? 'cp-tab-on' : 'cp-muted'}`}
+                    aria-label={`${v} view`}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {showMoreFilters && (
+            <div className="cp-card p-3 grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div>
+                <label className="cp-label !mb-1">Species</label>
+                <select className="cp-input w-full" value={species} onChange={(e) => setSpecies(e.target.value)}>
+                  <option value="">Any</option>
+                  {FARM_SPECIES.map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="cp-label !mb-1">Sex</label>
+                <select className="cp-input w-full" value={sex} onChange={(e) => setSex(e.target.value)}>
+                  <option value="">Any</option>
+                  <option value="FEMALE">Female</option>
+                  <option value="MALE">Male</option>
+                </select>
+              </div>
+              <div>
+                <label className="cp-label !mb-1">Min price (KES)</label>
+                <input className="cp-input w-full" type="number" min="0" placeholder="0"
+                  value={minPrice} onChange={(e) => setMinPrice(e.target.value)} />
+              </div>
+              <div>
+                <label className="cp-label !mb-1">Max price (KES)</label>
+                <input className="cp-input w-full" type="number" min="0" placeholder="No limit"
+                  value={maxPrice} onChange={(e) => setMaxPrice(e.target.value)} />
+              </div>
+            </div>
+          )}
+
           {loading ? (
             <div className="flex justify-center py-16"><Loader2 className="w-5 h-5 animate-spin cp-accent-text" /></div>
           ) : listings.length === 0 ? (
@@ -805,25 +923,44 @@ const ClientMarket: React.FC = () => {
               <p className="text-xs mt-1 cp-muted">Be the first — list an animal and farmers near you will see it.</p>
             </div>
           ) : (
-            <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+            <div className={view === 'grid' ? 'grid gap-3 sm:grid-cols-2 xl:grid-cols-3' : 'space-y-2'}>
               {listings.map((l) => (
-                <button key={l.id} onClick={() => setDetail(l)} className="cp-card p-4 text-left hover:opacity-90 transition-opacity">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="font-black truncate" style={{ color: 'var(--cp-ink)' }}>{l.title}</div>
-                      <div className="text-[11px] cp-muted truncate">
-                        {[l.species, l.breed].filter(Boolean).join(' · ') || (l.kind === 'PRODUCE' ? 'Produce' : 'Livestock')}
-                      </div>
+                <button
+                  key={l.id}
+                  onClick={() => setDetail(l)}
+                  className={`cp-card text-left hover:opacity-90 transition-opacity ${
+                    view === 'grid' ? 'p-4' : 'p-3 flex items-center gap-3'
+                  }`}
+                >
+                  {l.mediaUrls[0] && (
+                    <div className={view === 'grid'
+                      ? 'rounded-lg overflow-hidden aspect-[4/3] mb-2 -mt-1'
+                      : 'w-16 h-16 rounded-lg overflow-hidden shrink-0'}>
+                      <img src={l.mediaUrls[0]} alt="" className="w-full h-full object-cover" />
                     </div>
-                    {l.negotiable && <span className="cp-chip shrink-0 text-[9px]">Nego</span>}
-                  </div>
-                  <div className="mt-2 text-lg font-black cp-accent-text">
-                    {money(l.unitPrice, l.currency)}
-                    <span className="text-[11px] font-bold cp-muted"> / {l.unit.replace(/s$/, '')}</span>
-                  </div>
-                  <div className="mt-1 text-[11px] cp-muted flex flex-wrap gap-x-2">
-                    <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> {l.quantity} {l.unit}</span>
-                    {l.county && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {l.county}</span>}
+                  )}
+                  <div className={view === 'list' ? 'min-w-0 flex-1' : undefined}>
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <div className="font-black truncate" style={{ color: 'var(--cp-ink)' }}>{l.title}</div>
+                        <div className="text-[11px] cp-muted truncate">
+                          {[l.species, l.breed].filter(Boolean).join(' · ') || (l.kind === 'PRODUCE' ? 'Produce' : 'Livestock')}
+                        </div>
+                      </div>
+                      {l.negotiable && <span className="cp-chip shrink-0 text-[9px]">Nego</span>}
+                    </div>
+                    <div className="mt-2 text-lg font-black cp-accent-text">
+                      {l.priceOnRequest || l.unitPrice == null
+                        ? 'Price on request'
+                        : <>
+                            {money(l.unitPrice, l.currency)}
+                            <span className="text-[11px] font-bold cp-muted"> / {l.unit.replace(/s$/, '')}</span>
+                          </>}
+                    </div>
+                    <div className="mt-1 text-[11px] cp-muted flex flex-wrap gap-x-2">
+                      <span className="flex items-center gap-1"><Tag className="w-3 h-3" /> {l.quantity} {l.unit}</span>
+                      {l.county && <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {l.county}</span>}
+                    </div>
                   </div>
                 </button>
               ))}
@@ -845,7 +982,8 @@ const ClientMarket: React.FC = () => {
                 <div className="min-w-0 flex-1">
                   <div className="font-bold truncate" style={{ color: 'var(--cp-ink)' }}>{l.title}</div>
                   <div className="text-[11px] cp-muted">
-                    {money(l.unitPrice, l.currency)} / {l.unit.replace(/s$/, '')} · {l.quantity} {l.unit}
+                    {l.priceOnRequest || l.unitPrice == null ? 'Price on request' : `${money(l.unitPrice, l.currency)} / ${l.unit.replace(/s$/, '')}`}
+                    {' · '}{l.quantity} {l.unit}
                     {' · '}{l.orderCount} asked · {l.viewCount} looked
                   </div>
                 </div>

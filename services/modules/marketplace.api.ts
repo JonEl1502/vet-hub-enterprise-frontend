@@ -102,7 +102,11 @@ const BASE = '/portal/me/marketplace';
 
 export const marketplaceAPI = {
   browse: (
-    params: { kind?: string; species?: string; county?: string; q?: string; maxPrice?: number; limit?: number; cursor?: string } = {},
+    params: {
+      kind?: string; species?: string; county?: string; q?: string; sex?: string;
+      sort?: string; minPrice?: number; maxPrice?: number; minAgeMonths?: number; maxAgeMonths?: number;
+      limit?: number; cursor?: string;
+    } = {},
     options?: RequestOptions,
   ): Promise<ApiResponse<{ listings: MarketListing[]; nextCursor: string | null }>> => {
     const qs = new URLSearchParams();
