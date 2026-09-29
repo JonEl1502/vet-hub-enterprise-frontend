@@ -59,6 +59,38 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: sell-form "Pick from My Farm" prefill + draft-saving  —  2026-09-29
+- **What changed:** completes redesign slice 2. New `PickFromFarmModal.tsx` —
+  lists the seller's named farm animals (`clientPortalAPI.listFarmAnimals`),
+  picking one prefills species/breed/sex (age computed from `dob`, weight from
+  `weightValue` when the unit is kg) plus **verified** health chips derived
+  from `clientPortalAPI.farmMedical`'s treatment history: a VACCINATION or
+  DEWORMING record within the last 12 months on that specific animal
+  (`farmTreatment.farmAnimalId`) pre-toggles the matching chip, and
+  `isPregnant`/`isLactating` do the same for In-calf/Milking. Manual entry is
+  untouched as the fallback — the picker only ever sets fields, never removes
+  the option to type them by hand. Also: the sell form now autosaves to
+  `localStorage` (400ms debounce) while open and restores on next visit if
+  non-trivial (a title or description present) — same problem the Visit
+  Wizard's autosave solves, no server-side draft involved since
+  `createListing` always publishes immediately by design (see the service's
+  own comment) and this doesn't touch that.
+- **Record impact:** 🟢 None — reads existing farm/animal/treatment data,
+  writes nothing new.
+- **Data dependency:** None beyond what slices 1–2 already required.
+- **Rollback:** revert commit `c6b80552` and rebuild.
+- **Tested:** `tsc --noEmit` clean (94 baseline, unchanged), `eslint` clean.
+  Verified live on staging: created a real named animal with real vaccination
+  + deworming records via the API, picked it in the browser, confirmed every
+  field including all three verified chips pre-toggled correctly. Separately
+  confirmed the draft survives a full page **reload** (not just a component
+  remount) — typed a title, hard-reloaded the tab, reopened Sell, title was
+  still there.
+- ⚠️ **Watch out:** the overnight demo-reseed cron (`DEMO_RESEED_CRON`, staging
+  only) regenerates demo client/farm ids and wipes any manually-granted test
+  subscription — don't assume a staging test account's entitlements or ids
+  from a previous session are still valid; re-check before testing.
+
 ### component: sell-form photos, health chips, contact preference, price-on-request  —  2026-09-28
 - **What changed:** redesign slice 2. New `ListingPhotoUploader.tsx` (up to 6
   photos, presigned direct-to-R2 upload via a new `marketplaceAPI.photoUploadUrl`
