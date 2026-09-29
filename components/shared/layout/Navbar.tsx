@@ -109,13 +109,21 @@ const TourLauncherButton: React.FC<{ className?: string }> = ({ className }) => 
  * and platform staff, and "start a visit" means nothing to a seller — it would
  * navigate them to a view their sidebar does not even carry.
  *
+ * ⚠️ Also wrong for a FARM-shell org (283), even when the signed-in role
+ * qualifies. A vet officer or clinic owner running a livestock/farm practice
+ * does call-outs, not a walk-in counter — "someone already at the counter" is
+ * a clinic-shell idea that doesn't exist in their day (user, 2026-09-29:
+ * practitioner and farmer workflows should go hand in hand, not carry
+ * clinic-counter chrome that means nothing to either side).
+ *
  * Navigates by event rather than a prop, the same channel the page-level button
  * used, so this needs no threading through App.tsx.
  */
 const CLINIC_SIDE_ROLES = ['CLINIC_OWNER', 'VET', 'STAFF', 'CLINIC_MANAGER', 'RECEPTIONIST', 'NURSE'];
 
-const QuickVisitButton: React.FC<{ role: UserRole }> = ({ role }) => {
+const QuickVisitButton: React.FC<{ role: UserRole; shell?: string }> = ({ role, shell }) => {
   if (!CLINIC_SIDE_ROLES.includes(String(role))) return null;
+  if (shell === 'FARM') return null;
   return (
     <button
       type="button"
@@ -480,7 +488,7 @@ const Navbar: React.FC<NavbarProps> = ({
       <div className="flex items-center gap-2 md:gap-4 shrink-0">
 
         {/* ── Start a quick visit ── deliberately BEFORE the tour button. */}
-        <QuickVisitButton role={role} />
+        <QuickVisitButton role={role} shell={(clinic as Clinic)?.shell} />
 
         {/* ── Take a tour ── desktop only. On a phone this row already
             carries quick-visit, notifications and the avatar; tour and the
