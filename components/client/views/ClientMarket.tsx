@@ -1,8 +1,8 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Loader2, Plus, Search, MapPin, Tag, ShieldCheck, Store, Eye,
-  MessageSquare, Phone, MessageCircle,
+  MessageSquare, Phone, MessageCircle, PawPrint,
 } from 'lucide-react';
 // ⚠️ NOT 'react-hot-toast'. That library's <Toaster/> is never mounted
 // anywhere in this app — every toast.success/error call through it renders
@@ -16,6 +16,7 @@ import { speciesConfig } from './farmSpecies';
 import CpPage from '../CpPage';
 import CpPickOrType from '../CpPickOrType';
 import ListingPhotoUploader from '../ListingPhotoUploader';
+import PickFromFarmModal, { FarmPrefill } from '../PickFromFarmModal';
 
 /**
  * 296 — the farm marketplace.
@@ -113,8 +114,41 @@ const ClientMarket: React.FC = () => {
   });
   const [enquiry, setEnquiry] = useState({ quantity: '1', note: '' });
   const [touched, setTouched] = useState<{ title?: boolean; unitPrice?: boolean }>({});
+  const [pickerOpen, setPickerOpen] = useState(false);
 
   const cfg = useMemo(() => speciesConfig(form.species), [form.species]);
+
+  // ── draft ───────────────────────────────────────────────────────────────
+  // ⚠️ Client-side only — nothing server-side. `createListing` always
+  // publishes immediately by design ("Listed means listed", see below), so
+  // this is not a real DRAFT row; it only stops a farmer losing ten typed
+  // fields to an accidental back-tap or a closed tab, same problem the visit
+  // wizard's localStorage autosave (`useVisitWizard.ts`) solves for a
+  // clinical record — same pattern, no server counterpart to reconcile
+  // against here because there is no server draft to disagree with.
+  const DRAFT_KEY = 'cp-market-sell-draft';
+  const draftLoadedRef = useRef(false);
+  useEffect(() => {
+    if (!sellOpen || draftLoadedRef.current) return;
+    draftLoadedRef.current = true;
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved?.title || saved?.description) {
+          setForm((p) => ({ ...p, ...saved }));
+          toast.info('Picked up where you left off');
+        }
+      }
+    } catch { /* a corrupted draft is not worth failing the page over */ }
+  }, [sellOpen]);
+  useEffect(() => {
+    if (!sellOpen) return;
+    const id = setTimeout(() => {
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify(form)); } catch { /* storage full/disabled — draft is a nicety, not required */ }
+    }, 400);
+    return () => clearTimeout(id);
+  }, [form, sellOpen]);
 
   const load = useCallback(async () => {
     const [b, m, o, f] = await Promise.all([
@@ -194,6 +228,7 @@ const ClientMarket: React.FC = () => {
           ...p, title: '', breed: '', ageMonths: '', weightKg: '', unitPrice: '', description: '',
           priceOnRequest: false, mediaUrls: [], healthTags: [], milkingLitersPerDay: '', contactPreference: 'APP',
         }));
+        try { localStorage.removeItem(DRAFT_KEY); } catch { /* not fatal — a stale empty-ish draft just gets overwritten next time */ }
         setTab('mine');
         await load();
       }
@@ -216,6 +251,21 @@ const ClientMarket: React.FC = () => {
         await load();
       }
     } finally { setSaving(false); }
+  };
+
+  const applyFarmPrefill = (prefill: FarmPrefill) => {
+    setForm((p) => ({
+      ...p,
+      farmId: prefill.farmId,
+      species: prefill.species,
+      breed: prefill.breed,
+      sex: prefill.sex,
+      ageMonths: prefill.ageMonths,
+      weightKg: prefill.weightKg,
+      healthTags: Array.from(new Set([...p.healthTags, ...prefill.verifiedHealthTags])),
+    }));
+    setPickerOpen(false);
+    toast.success('Prefilled from the farm record');
   };
 
   const withdraw = async (l: MarketListing) => {
@@ -343,6 +393,7 @@ const ClientMarket: React.FC = () => {
     );
 
     return (
+      <>
       <CpPage title="Sell something" section="Market" onBack={() => setSellOpen(false)} aside={preview}>
         <div className="space-y-3">
           <div className="flex gap-1.5">
@@ -379,6 +430,15 @@ const ClientMarket: React.FC = () => {
 
           {form.kind === 'LIVESTOCK' && (
             <>
+              {farms.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setPickerOpen(true)}
+                  className="cp-btn-ghost w-full flex items-center justify-center gap-1.5"
+                >
+                  <PawPrint className="w-3.5 h-3.5" /> Pick from My Farm
+                </button>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="cp-label">What is it?</label>
@@ -581,6 +641,10 @@ const ClientMarket: React.FC = () => {
           </button>
         </div>
       </CpPage>
+      {pickerOpen && (
+        <PickFromFarmModal farms={farms} onClose={() => setPickerOpen(false)} onPick={applyFarmPrefill} />
+      )}
+      </>
     );
   }
 
