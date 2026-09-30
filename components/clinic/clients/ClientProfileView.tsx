@@ -2,6 +2,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import LegacyReconcilePanel from './LegacyReconcilePanel';
 import { livestockAPI, type Farm } from '../../../services/modules/livestock.api';
+import { clientLivestockAPI } from '../../../services/modules/clientLivestock.api';
+import ClientLivestockDetail from './ClientLivestockDetail';
 import { usePlanAccess } from '../../../contexts/PlanAccessContext';
 import { hasFeature } from '../../../services/entitlements';
 import { Client, Pet, Visit, ApptStatus, Message, FULL_ACCESS_ROLES, UserRole, ClientType, ClientDiscount } from '../../../types';
@@ -140,6 +142,18 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
       .then((r) => { if (r.success && r.data) setFarms(r.data.farms); })
       .catch(() => { /* a farm read must never break the profile */ });
   }, [canSeeFarms, client?.id]);
+  /**
+   * Whether THIS CLIENT owns any farms at all, independent of the clinic's own
+   * Farms add-on above — a clinic with no livestock module still needs to see
+   * that a client farms, so it can point them at a subscription.
+   */
+  const [hasClientLivestock, setHasClientLivestock] = useState(false);
+  useEffect(() => {
+    if (!client?.id) { setHasClientLivestock(false); return; }
+    clientLivestockAPI.listFarms(String(client.id))
+      .then((r) => { if (r.success && r.data) setHasClientLivestock(r.data.length > 0); })
+      .catch(() => { /* a farm read must never break the profile */ });
+  }, [client?.id]);
   /**
    * Cross-tab jump: a payment's INV link asks for "invoices:<visitId>". The tab
    * state lives here, so the compound value is unpacked here rather than every
@@ -1341,8 +1355,8 @@ const renderOverview = () => (
                { id: 'pets', label: `Pets (${pets.length})`, icon: PawPrint },
                // Only when this client actually has one — a Farms tab reading
                // "0" on every pet owner is noise on the majority of profiles.
-               ...(canSeeFarms && farms.length > 0
-                 ? [{ id: 'farms', label: `Farms (${farms.length})`, icon: Sprout }]
+               ...((canSeeFarms && farms.length > 0) || hasClientLivestock
+                 ? [{ id: 'farms', label: farms.length > 0 ? `Farms (${farms.length})` : 'Farms', icon: Sprout }]
                  : []),
                { id: 'appointments', label: 'Visits', icon: Calendar },
                // ONE money tab (user, 2026-08-03). Invoices / Payments /
@@ -1428,6 +1442,9 @@ const renderOverview = () => (
                 </div>
               </button>
             ))}
+            <div className="pt-2">
+              <ClientLivestockDetail clientId={String(client.id)} />
+            </div>
           </div>
         )}
 

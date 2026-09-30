@@ -3,7 +3,8 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { ApptStatus, Client, FULL_ACCESS_ROLES, UserRole } from '../../../types';
 import { Transaction } from '../../../services/modules/transactions.api';
-import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Building2, UserX, UserCheck, MapPin, CreditCard, MessageCircle, BellRing } from 'lucide-react';
+import { Search, PawPrint, User, Phone, Mail, Edit, Trash2, RefreshCw, Calendar, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Building2, UserX, UserCheck, MapPin, CreditCard, MessageCircle, BellRing, Lock } from 'lucide-react';
+import { clientLivestockAPI } from '../../../services/modules/clientLivestock.api';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import DuplicateClientsModal from './DuplicateClientsModal';
 import TransferClinicModal from '../clinic-mgmt/TransferClinicModal';
@@ -367,6 +368,20 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
     if (useServerRows) return remotePage?.page === currentPage ? remotePage.rows : [];
     return filtered.slice(start, start + itemsPerPage);
   }, [filtered, currentPage, itemsPerPage, useServerRows, remotePage]);
+
+  /**
+   * "No subscription" badge state, one batched call per visible page rather
+   * than one per row. Absent keys mean "not a farm client" — see
+   * `getAccessSummaryBatch` on the backend.
+   */
+  const [livestockLockMap, setLivestockLockMap] = useState<Record<string, boolean>>({});
+  useEffect(() => {
+    const ids = paginatedClients.map(c => String(c.id)).filter(Boolean);
+    if (ids.length === 0) return;
+    clientLivestockAPI.getAccessBatch(ids)
+      .then(r => { if (r.success && r.data) setLivestockLockMap(r.data); })
+      .catch(() => { /* a badge lookup must never break the client list */ });
+  }, [paginatedClients]);
 
   // When the user isn't narrowing the list, trust the server total AND let
   // totalPages reflect that total so page 2+ is reachable. With local
@@ -984,6 +999,14 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                             {client.isActive === false && (
                               <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 text-[9px] font-black uppercase tracking-widest">
                                 <UserX size={9} /> Deactivated
+                              </span>
+                            )}
+                            {livestockLockMap[String(client.id)] === true && (
+                              <span
+                                title="This client hasn't subscribed to individual animal tracking"
+                                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-rose-100 dark:bg-rose-900/30 text-rose-700 dark:text-rose-300 text-[9px] font-black uppercase tracking-widest"
+                              >
+                                <Lock size={9} /> No Subscription
                               </span>
                             )}
                           </div>
