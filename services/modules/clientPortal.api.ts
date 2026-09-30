@@ -406,6 +406,16 @@ export interface FarmAnimalWeight {
   id: string; weighedOn: string; weightValue: number; weightUnit: string; notes?: string | null;
 }
 
+/** Daily per-animal input (264) — a single feeding entry, no recurring plan behind it. */
+export interface AnimalFeedingLog {
+  id: string; fedAt: string; quantityKg: number | null; notes: string | null;
+}
+
+/** Daily per-animal output (264) — milk, eggs, wool, one animal at a time. */
+export interface AnimalProduceRecord {
+  id: string; produce: string | null; recordedOn: string; quantity: number; unit: string; notes: string | null;
+}
+
 /** The species a Kenyan farm actually keeps, in rough order of likelihood. */
 export const FARM_SPECIES = [
   'Cattle', 'Goat', 'Sheep', 'Poultry', 'Pig', 'Camel', 'Donkey', 'Rabbit', 'Fish', 'Bees',
@@ -856,6 +866,18 @@ export const clientPortalAPI = {
 
   farmAnimalSummary: (farmId: string, options?: RequestOptions): Promise<ApiResponse<{ named: number; byGroup: Record<string, number> }>> =>
     get(`/portal/me/farms/${farmId}/animal-summary`, { cache: false, silent: true, ...options }),
+
+  listAnimalFeedingLogs: (animalId: string, options?: RequestOptions): Promise<ApiResponse<{ logs: AnimalFeedingLog[] }>> =>
+    get(`/portal/me/farm-animals/${animalId}/feeding-logs`, { cache: false, ...options }),
+
+  recordAnimalFeeding: (animalId: string, data: { quantityKg?: number; fedAt?: string; notes?: string }, options?: RequestOptions): Promise<ApiResponse<{ log: AnimalFeedingLog }>> =>
+    post(`/portal/me/farm-animals/${animalId}/feeding-logs`, data, { showError: true, ...options }),
+
+  listAnimalProduceRecords: (animalId: string, options?: RequestOptions): Promise<ApiResponse<{ records: AnimalProduceRecord[] }>> =>
+    get(`/portal/me/farm-animals/${animalId}/produce-records`, { cache: false, ...options }),
+
+  recordAnimalProduce: (animalId: string, data: { produce: string; quantity: number; unit?: string; recordedOn?: string; notes?: string }, options?: RequestOptions): Promise<ApiResponse<{ record: AnimalProduceRecord }>> =>
+    post(`/portal/me/farm-animals/${animalId}/produce-records`, data, { showError: true, ...options }),
 
   /** A farmer adds their own farm — what makes the ladder's farm counts real. */
   createMyFarm: (data: { name: string; farmType?: string; county?: string; location?: string; sizeAcres?: number; notes?: string }, options?: RequestOptions): Promise<ApiResponse<{ farm: PortalFarm }>> =>

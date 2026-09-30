@@ -101,6 +101,14 @@ export interface ClientFarmAnimal {
   weights: Array<{ id: string; weighedOn: string; weightValue: number; weightUnit: string; notes: string | null }>;
 }
 
+export interface ClientAnimalFeedingLog {
+  id: string; fedAt: string; quantityKg: number | null; notes: string | null;
+}
+
+export interface ClientAnimalProduceRecord {
+  id: string; produce: string | null; recordedOn: string; quantity: number; unit: string; notes: string | null;
+}
+
 export type ClientFarmAnimalsResult =
   | { locked: true; requiredFeature: 'livestock:farms'; currentPackageName: string | null; cheapestPackage: ClientLivestockPackage | null }
   | { locked: false; animals: ClientFarmAnimal[] };
@@ -122,6 +130,12 @@ export const clientLivestockAPI = {
 
   getFarmAnimal: (clientId: string, animalId: string): Promise<ApiResponse<ClientFarmAnimal>> =>
     get(`${BASE(clientId)}/animals/${animalId}`, { cache: false }),
+
+  listAnimalFeedingLogs: (clientId: string, animalId: string): Promise<ApiResponse<ClientAnimalFeedingLog[]>> =>
+    get(`${BASE(clientId)}/animals/${animalId}/feeding-logs`, { cache: false }),
+
+  listAnimalProduceRecords: (clientId: string, animalId: string): Promise<ApiResponse<ClientAnimalProduceRecord[]>> =>
+    get(`${BASE(clientId)}/animals/${animalId}/produce-records`, { cache: false }),
 
   /** Lock state for a page of clients at once — for the client list's badge. */
   getAccessBatch: (clientIds: string[]): Promise<ApiResponse<Record<string, boolean>>> =>
