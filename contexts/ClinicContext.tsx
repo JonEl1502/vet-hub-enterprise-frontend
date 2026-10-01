@@ -300,16 +300,33 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
           // enough to render UI; failures here just leave the cached view
           // in place. On success, replace the clinics list with the
           // flattened parent + branches set.
-          void clinicsAPI.getUserClinics({ cache: false }).then((res: any) => {
-            if (!res?.success || !Array.isArray(res?.data?.clinics)) return;
-            const flat = flattenParentsAndBranches(res.data.clinics);
-            if (flat.length > 0) {
-              setClinics(flat);
-              // Cache the full parents-with-nested-branches shape so the
-              // next cold load can prime with branches included.
-              try { localStorage.setItem('userClinics', JSON.stringify(res.data.clinics)); } catch {}
-            }
-          }).catch(() => {});
+          {
+            const requestUserId = String(user.id);
+            void clinicsAPI.getUserClinics({ cache: false }).then((res: any) => {
+              /**
+               * ⚠️ THIS REQUEST MAY OUTLIVE THE ACCOUNT THAT MADE IT.
+               *
+               * `logout()` does not reload the page (see AuthContext), so a
+               * slow `/user-clinics` response from the PREVIOUS account can
+               * resolve after a new one has already logged in on the same
+               * browser and been stamped as the scope owner above. Writing
+               * it anyway reintroduces the exact cross-account contamination
+               * the owner-stamp was built to stop, just via a late WRITE
+               * instead of a stale READ (user, 2026-10-01: ShiVets → Kabi
+               * Vets → a third account all on one device, the third landed
+               * on clinic 1 — none of which were its own).
+               */
+              if (localStorage.getItem('vethub_scope_user_id') !== requestUserId) return;
+              if (!res?.success || !Array.isArray(res?.data?.clinics)) return;
+              const flat = flattenParentsAndBranches(res.data.clinics);
+              if (flat.length > 0) {
+                setClinics(flat);
+                // Cache the full parents-with-nested-branches shape so the
+                // next cold load can prime with branches included.
+                try { localStorage.setItem('userClinics', JSON.stringify(res.data.clinics)); } catch {}
+              }
+            }).catch(() => {});
+          }
           console.log(`✅ Loaded ${fetchedClinics.length} clinics from user object with full details`);
           setClinics(fetchedClinics);
         } else if (!Array.isArray(user.userClinics)) {
@@ -328,13 +345,20 @@ export const ClinicProvider: React.FC<ClinicProviderProps> = ({ children }) => {
             // Upgrade to live data in the background so any post-cache
             // edits flow through. Flatten the same way the primary path
             // does so branches are exposed as top-level clinic entries.
-            void clinicsAPI.getUserClinics({ cache: false }).then((res: any) => {
-              if (res?.success && Array.isArray(res?.data?.clinics) && res.data.clinics.length) {
-                const flat = flattenParentsAndBranches(res.data.clinics);
-                if (flat.length > 0) setClinics(flat);
-                try { localStorage.setItem('userClinics', JSON.stringify(res.data.clinics)); } catch {}
-              }
-            }).catch(() => {});
+            {
+              const requestUserId = String(user.id);
+              // Same late-write guard as the primed path above — a request
+              // started before this account logged in must not overwrite
+              // state once a different account owns the scope.
+              void clinicsAPI.getUserClinics({ cache: false }).then((res: any) => {
+                if (localStorage.getItem('vethub_scope_user_id') !== requestUserId) return;
+                if (res?.success && Array.isArray(res?.data?.clinics) && res.data.clinics.length) {
+                  const flat = flattenParentsAndBranches(res.data.clinics);
+                  if (flat.length > 0) setClinics(flat);
+                  try { localStorage.setItem('userClinics', JSON.stringify(res.data.clinics)); } catch {}
+                }
+              }).catch(() => {});
+            }
           } else {
             console.warn('No clinic data found in user object or localStorage');
             setClinics([]);

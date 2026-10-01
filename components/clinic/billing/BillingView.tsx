@@ -562,7 +562,22 @@ const BillingView: React.FC = () => {
             return;
           }
         }
-      } catch { /* keep polling */ }
+      } catch (err: any) {
+        /**
+         * A 404 here means this reference does not belong to the active
+         * clinic context — a leftover `vethub_paystack_ref` from a previous
+         * session/account, or a clinic switch mid-flow. It will NEVER
+         * resolve by retrying (the owner check does not change on its own),
+         * so retrying for 90s just spams the API and leaves the "confirming
+         * payment" banner up over nothing. Any other error (network blip,
+         * 5xx) is worth retrying — only stop on a confirmed not-found.
+         */
+        if (err?.response?.status === 404) {
+          cancelled = true;
+          setConfirmingPayment(false);
+          return;
+        }
+      }
       if (!cancelled && Date.now() - startedAt < 90 * 1000) {
         setTimeout(tick, 2500);
       } else if (!cancelled) {
