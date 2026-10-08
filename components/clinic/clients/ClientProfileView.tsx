@@ -24,6 +24,9 @@ const FINANCE_TABS = [
   { id: 'refunds', label: 'Refunds' },
   { id: 'statements', label: 'Statements' },
   { id: 'discounts', label: 'Discounts & Credits' },
+  // 314 — own ledger, deliberately separate from visit billing (see
+  // ClientPetshopTab's doc comment).
+  { id: 'petshop', label: 'Pet Shop' },
 ];
 
 const TITLE_OPTIONS = ['Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Hon'];
@@ -57,7 +60,7 @@ import PetAvatar from '../shared/PetAvatar';
 import ClientBillsTab from './ClientBillsTab';
 import CreditTopUpModal from './CreditTopUpModal';
 import { AccountStatCards, AccountFilterBar, useAccountFilters } from './ClientAccountHub';
-import ClientAccountHub, { ClientStatementTab, ClientFilesTab, preferredMethod, isSettled } from './ClientAccountHub';
+import ClientAccountHub, { ClientStatementTab, ClientFilesTab, ClientPetshopTab, preferredMethod, isSettled } from './ClientAccountHub';
 import { ClientBilling } from '../../../services/modules/clients.api';
 import { formatDate, formatDateTime } from '../../../services/utils/dateFormatter';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -1891,6 +1894,9 @@ const renderOverview = () => (
         )}
         {activeTab === 'statements' && (
           <ClientStatementTab clientId={client.id} currency={client.currency || 'KES'} />
+        )}
+        {activeTab === 'petshop' && (
+          <ClientPetshopTab clientId={client.id} currency={client.currency || 'KES'} />
         )}
         {activeTab === 'files' && <ClientFilesTab clientId={client.id} canEdit={hasFullAccess} />}
         {activeTab === 'discounts' && (

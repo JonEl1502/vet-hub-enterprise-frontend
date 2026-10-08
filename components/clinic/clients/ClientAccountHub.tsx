@@ -3,11 +3,12 @@ import toast from 'react-hot-toast';
 import {
   Wallet, FileText, CreditCard, TrendingUp, CircleDollarSign, Filter, CalendarRange,
   ChevronDown, Eye, Loader2, X, Plus, RotateCcw, HandCoins, Tag,
-  ScrollText, Mail, Banknote, Pencil, FolderOpen, PiggyBank, Trash2,
+  ScrollText, Mail, Banknote, Pencil, FolderOpen, PiggyBank, Trash2, ShoppingBag,
 } from 'lucide-react';
 import { Client } from '../../../types';
-import { clientsAPI, uploadsAPI, dialog, transactionsAPI } from '../../../services';
+import { clientsAPI, uploadsAPI, dialog, transactionsAPI, petshopAPI } from '../../../services';
 import { ClientBilling, ClientAttachment } from '../../../services/modules/clients.api';
+import { PetshopSaleRecord } from '../../../services/modules/petshop.api';
 import RevenueStatusChip, { revenueStatusOf } from '../shared/RevenueStatusChip';
 
 /**
@@ -916,6 +917,79 @@ export const ClientStatementTab: React.FC<{
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/**
+ * Client → Pet Shop tab (314).
+ *
+ * This client's Pet Shop purchase history — deliberately its OWN ledger, not
+ * folded into the visit Bills/Invoices/Payments tabs above. A pet shop sale
+ * is paid in full at checkout (same as any till), so there is nothing to
+ * collect here; this is a read-only record of what was bought and when.
+ */
+export const ClientPetshopTab: React.FC<{ clientId: string | number; currency: string }> = ({ clientId, currency }) => {
+  const [sales, setSales] = React.useState<PetshopSaleRecord[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    let live = true;
+    petshopAPI.clientSales(clientId).then(r => { if (live && r.success && r.data) setSales(r.data); }).catch(() => {})
+      .finally(() => { if (live) setLoading(false); });
+    return () => { live = false; };
+  }, [clientId]);
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-16"><Loader2 size={20} className="animate-spin text-seafoam" /></div>;
+  }
+
+  const totalSpent = sales.reduce((s, sale) => s + sale.total, 0);
+
+  return (
+    <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4">
+      <div className="grid grid-cols-2 gap-3">
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Total Spent</p>
+          <p className="text-base font-black font-mono text-pine dark:text-zinc-100">{money(totalSpent, currency)}</p>
+        </div>
+        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
+          <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">Purchases</p>
+          <p className="text-base font-black font-mono text-pine dark:text-zinc-100">{sales.length}</p>
+        </div>
+      </div>
+
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+        <div className="px-4 sm:px-5 py-4 border-b border-slate-100 dark:border-zinc-800 flex items-center gap-2">
+          <ShoppingBag size={14} className="text-seafoam" />
+          <div>
+            <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight">Pet Shop Purchases</h3>
+            <p className="text-[10px] font-bold text-slate-400">Separate from this client's visit billing — paid in full at checkout</p>
+          </div>
+        </div>
+        {sales.length === 0 ? (
+          <div className="py-16 text-center opacity-40 uppercase font-black text-[10px] tracking-[0.2em]">No pet shop purchases yet</div>
+        ) : (
+          <div className="divide-y divide-slate-50 dark:divide-zinc-800/60">
+            {sales.map(sale => (
+              <div key={sale.id} className="px-4 sm:px-5 py-3">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">{fmt(sale.createdAt)} · {sale.paymentMethod}</span>
+                  <span className="text-[11px] font-black font-mono text-pine dark:text-zinc-100">{money(sale.total, currency)}</span>
+                </div>
+                <ul className="mt-1.5 space-y-0.5">
+                  {sale.lines.map(l => (
+                    <li key={l.id} className="flex items-center justify-between gap-2 text-[10px] text-slate-500 dark:text-zinc-400">
+                      <span>{l.name} × {l.quantity}</span>
+                      <span className="font-mono">{money(l.lineTotal, currency)}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -1,4 +1,4 @@
-import { post } from '../api/client';
+import { post, get } from '../api/client';
 import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
 
@@ -26,7 +26,21 @@ export interface PetshopSaleResult {
   lines: { inventoryItemId: string; name: string; quantity: number; unitPrice: number; lineTotal: number }[];
 }
 
+// A client's own Pet Shop purchase history (314) — separate ledger from
+// visit billing, same shape as a checkout result's lines/totals.
+export interface PetshopSaleRecord {
+  id: string;
+  subtotal: number;
+  discountAmount: number;
+  total: number;
+  paymentMethod: string;
+  createdAt: string;
+  lines: { id: string; name: string; quantity: number; unitPrice: number; lineTotal: number }[];
+}
+
 export const petshopAPI = {
   checkout: async (data: PetshopSalePayload, options?: RequestOptions): Promise<ApiResponse<PetshopSaleResult>> =>
     post(ENDPOINTS.PETSHOP.CHECKOUT, data, { showError: true, ...options }),
+  clientSales: async (clientId: string | number, options?: RequestOptions): Promise<ApiResponse<PetshopSaleRecord[]>> =>
+    get(ENDPOINTS.PETSHOP.CLIENT_SALES(clientId), options),
 };
