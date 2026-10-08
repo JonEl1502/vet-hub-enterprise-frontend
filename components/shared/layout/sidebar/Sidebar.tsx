@@ -279,18 +279,19 @@ const Sidebar: React.FC<SidebarProps> = ({
           isCollapsed={isCollapsed && !isMobileOpen}
         />
 
-        {/* Entity scope picker — show exactly one, matching what you're
+        {/* Entity scope picker — show at most one, matching what you're
             actually looking at. Keyed on the ACTIVE VIEW as well as the
             audience: an admin sitting on Tenants → Suppliers was being offered
-            a CLINIC picker, which scopes nothing on that page. Never both.
-            Each still self-hides at 0/1 entities. */}
+            a CLINIC picker, which scopes nothing on that page. Never both,
+            and audiences with no entity to scope (admin, freelancer,
+            livestock) get neither. Each still self-hides at 0/1 entities. */}
         {/* RAW view here on purpose — this picks which nav to render, not what
             to highlight, so it must test the view you are actually on. */}
         {(audience === 'supplier' || SUPPLIER_SCOPED_VIEWS.has(rawActiveView)) ? (
           <SupplierSearchDropdown isCollapsed={isCollapsed && !isMobileOpen} />
-        ) : (
+        ) : audience === 'clinic' ? (
           <ClinicSearchDropdown isCollapsed={isCollapsed && !isMobileOpen} />
-        )}
+        ) : null}
 
         {/* Nav body */}
         <nav className="flex-1 overflow-y-auto custom-scrollbar">
