@@ -1814,19 +1814,27 @@ const VisitDetailInner: React.FC<Props> = ({
 
   // Authoritative meds/consumables list for the tab + invoice freshness.
   const [medConsumables, setMedConsumables] = useState<AppointmentConsumable[]>([]);
+  // Shared by the mount effect below and the live dispense picker's
+  // `onChanged` — dispensing calls this directly, so the list updates the
+  // moment a new item is logged without needing a dependency-counter trick.
+  const reloadMedConsumables = useCallback(() => {
+    return consumablesAPI.list(appointment.id).then(r => { if (r.success && r.data) setMedConsumables(r.data); }).catch(() => {});
+  }, [appointment.id]);
   /**
    * Keyed on `activeBottomTab` deliberately — and that IS sufficient here.
    *
    * This looked like the inpatient-chart staleness bug (2026-08-23) and was
    * "fixed" with a refresh counter. Driving it on staging showed the fix was
-   * inert: the only `<ConsumablePicker>` in this file sits inside
-   * `SHOW_RETIRED_SERVICES_TAB && workflowTab === 'services'`, and that flag is
-   * hard-`false`, so the counter could never be bumped. The list is reachable
-   * only via Records → Meds & consumables, and arriving there changes
-   * `activeBottomTab`, which refetches. No stale state is reachable.
+   * inert: the only `<ConsumablePicker>` in this file sat inside
+   * `SHOW_RETIRED_SERVICES_TAB && workflowTab === 'services'`, and that flag was
+   * hard-`false`, so the counter could never be bumped. The list was reachable
+   * only via Records → Meds & consumables, and arriving there changed
+   * `activeBottomTab`, which refetches. No stale state was reachable.
    *
-   * If the retired services tab is ever revived, its picker must bump a counter
-   * added to these deps — that is when this becomes a real problem.
+   * The medications tab now has its OWN live `<ConsumablePicker>` (the "Dispense
+   * medication" panel below) whose `onChanged` calls `reloadMedConsumables`
+   * directly — so a dispense updates this list immediately, without relying on
+   * the `activeBottomTab` dependency at all.
    */
   useEffect(() => {
     let live = true;
@@ -7126,6 +7134,17 @@ const VisitDetailInner: React.FC<Props> = ({
                          </div>
                           <span className="text-[9px] font-black bg-seafoam/10 text-seafoam px-2 py-1 rounded-lg uppercase tracking-wider">{medsTabItems.length} Item{medsTabItems.length !== 1 ? 's' : ''}</span>
                        </div>
+                       {/* Dispense medication straight from this visit — same
+                           search-the-shelf picker Pharmacy uses, charged onto
+                           THIS visit's bill. The list below shows it the moment
+                           it's logged (`reloadMedConsumables`); its own "already
+                           logged" list is hidden so nothing prints twice. */}
+                       <ConsumablePicker
+                         appointmentId={appointment.id}
+                         title="Dispense medication"
+                         onChanged={reloadMedConsumables}
+                         hideLoggedList
+                       />
                        {medsTabItems.length === 0 ? (
                          <div className="flex flex-col items-center justify-center py-12 text-center">
                            <div className="w-16 h-16 bg-slate-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center mb-3">
