@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { User, UserRole, Clinic, Visit, ApptTask, TaskStatus, ActivityLog, FULL_ACCESS_ROLES } from '../../../types';
-import { ShieldCheck, Mail, Calendar, Hash, BadgeCheck, GraduationCap, ArrowLeft, History, BarChart3, ClipboardList, Clock, CheckCircle2, Activity, User as UserIcon, Save, Stethoscope, CalendarCheck, PackageCheck, AlertCircle, CreditCard } from 'lucide-react';
+import { ShieldCheck, Mail, Phone, Calendar, Hash, BadgeCheck, GraduationCap, ArrowLeft, History, BarChart3, ClipboardList, Clock, CheckCircle2, Activity, User as UserIcon, Save, Stethoscope, CalendarCheck, PackageCheck, AlertCircle, CreditCard } from 'lucide-react';
 import { usersAPI } from '../../../services/modules/users.api';
 import { useAuth } from '../../../contexts/AuthContext';
 import { toast, dialog } from '../../../services';
@@ -9,6 +9,7 @@ import StaffCategoryAccess from './StaffCategoryAccess';
 import { ALL_PERMISSIONS, ROLE_DEFAULT_PERMISSIONS } from '../../../constants/permissions';
 import { ASSIGNABLE_ROLE_GROUPS, ROLE_META, roleLabel } from '../../../constants/roles';
 import ModulePermissionsEditor from './ModulePermissionsEditor';
+import InlineEditField, { InlineSelectGroup } from '../../shared/common/InlineEditField';
 
 interface Props {
   staff: User;
@@ -19,8 +20,18 @@ interface Props {
 }
 
 
-const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBack, onUpdate }) => {
+const StaffProfileView: React.FC<Props> = ({ staff: staffProp, clinics, appointments, onBack, onUpdate }) => {
   const { user } = useAuth();
+  // Edits made on this page, laid over the record we were given so the page
+  // reflects a save at once instead of waiting for the list to refetch.
+  const [patch, setPatch] = useState<Partial<User>>({});
+  const staff: User = useMemo(() => {
+    const merged = { ...staffProp, ...patch } as User;
+    // `name` and `age` are computed from other fields — keep them in step.
+    merged.name = [merged.title, merged.firstName, merged.secondName, merged.surname].filter(Boolean).join(' ') || staffProp.name;
+    if ('dob' in patch) merged.age = patch.dob ? new Date().getFullYear() - new Date(patch.dob).getFullYear() : undefined;
+    return merged;
+  }, [staffProp, patch]);
   // Ownership is a platform-governed transfer, not a clinic-editable role.
   const isPlatformAdmin = user?.role === UserRole.SUPER_ADMIN || user?.role === UserRole.MERCHANT_ADMIN;
   const [activeTab, setActiveTab] = useState<'profile' | 'stats' | 'activity' | 'permissions'>('profile');
@@ -123,45 +134,77 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
     }
   };
 
-  // Save changes
-  const handleSaveChanges = async () => {
+  /**
+   * Role + permissions in ONE write, returning whether it saved.
+   *
+   * Shared by the Save button on the Permissions tab and the inline Role field
+   * on the Profile tab, so both go through the same ownership and manager
+   * guards — the inline field is not a way around them (the API enforces them
+   * too).
+   */
+  const saveRoleAndPermissions = async (role: UserRole, perms: string[]): Promise<boolean> => {
     // Ownership is platform-governed: a clinic can neither grant OWNER nor
     // change an existing owner's role. Only SUPER_ADMIN/MERCHANT_ADMIN can,
     // through the documented clinic-transfer process.
-    if (!isPlatformAdmin && (selectedRole === UserRole.CLINIC_OWNER || staff.role === UserRole.CLINIC_OWNER)) {
+    if (!isPlatformAdmin && (role === UserRole.CLINIC_OWNER || staff.role === UserRole.CLINIC_OWNER)) {
       await dialog.alert({
         title: 'Ownership is admin-managed',
         message: 'Clinic Owner can only be set or changed by a VetHubCore admin through a clinic transfer — which requires a signed transfer and a lawyer/advocate affidavit. Contact support to initiate one.',
         variant: 'warning',
         confirmLabel: 'Got it',
       });
-      return;
+      return false;
     }
     // A Clinic Manager must belong to a clinic — block the role otherwise.
-    if (selectedRole === UserRole.CLINIC_MANAGER && (!staff.clinicIds || staff.clinicIds.length === 0)) {
+    if (role === UserRole.CLINIC_MANAGER && (!staff.clinicIds || staff.clinicIds.length === 0)) {
       await dialog.alert({
         title: 'Clinic required',
         message: 'A Clinic Manager must be attached to a clinic. Assign this staff member to a clinic first, then set the Clinic Manager role.',
         variant: 'warning',
         confirmLabel: 'Got it',
       });
-      return;
+      return false;
     }
     setIsSaving(true);
     try {
       await usersAPI.update(staff.id, {
-        role: selectedRole,
-        customPermissions: customPermissions,
+        role,
+        customPermissions: perms,
       });
       toast.success('Staff profile updated successfully');
+      setPatch((p) => ({ ...p, role, customPermissions: perms }));
       if (onUpdate) {
         onUpdate();
       }
+      return true;
     } catch (error) {
       console.error('Failed to update staff profile:', error);
       toast.error('Failed to update staff profile. Please try again.');
+      return false;
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveChanges = () => saveRoleAndPermissions(selectedRole, customPermissions);
+
+  /**
+   * One profile field, saved on its own. Everything here is a plain UserProfile
+   * column the API already accepts (the Edit form posts the same keys). Returns
+   * whether it saved so the inline editor knows to close.
+   */
+  const saveProfileField = async (field: 'firstName' | 'secondName' | 'surname' | 'email' | 'phone' | 'idNumber' | 'dob', value: string): Promise<boolean> => {
+    try {
+      await usersAPI.update(staff.id, { [field]: value } as Partial<User>);
+      toast.success('Saved');
+      setPatch((p) => ({ ...p, [field]: value }));
+      if (onUpdate) onUpdate();
+      return true;
+    } catch (error) {
+      // `showError` on the request already told the user why (e.g. an email
+      // that belongs to another account); keep the editor open for another try.
+      console.error(`Failed to update staff ${field}:`, error);
+      return false;
     }
   };
 
@@ -353,14 +396,56 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
    *    One quiet line instead.
    */
   const renderProfile = () => {
-    const fields = [
-      { label: 'Role', val: roleLabel(staff.role), icon: ShieldCheck },
-      { label: 'Email', val: staff.email || '—', icon: Mail },
-      { label: 'ID number', val: staff.idNumber || '—', icon: Hash },
-      { label: 'Date of birth', val: staff.dob || '—', icon: Calendar },
-      { label: 'Age', val: staff.age ? `${staff.age} years` : '—', icon: Clock },
-      { label: 'Staff ID', val: `STF-${staff.id}`, icon: UserIcon },
-    ];
+    // Who may edit. The profile fields follow "can manage staff" (owner,
+    // manager, platform admin, or the manage_staff permission) — and anyone may
+    // fix their own details. A role change is narrower: manage-staff only, and an
+    // owner's role never from here unless the viewer is a platform admin.
+    const myPermissions = user ? [...(ROLE_DEFAULT_PERMISSIONS[user.role] || []), ...(user.customPermissions || [])] : [];
+    const canManageStaff = !!user && (FULL_ACCESS_ROLES.includes(user.role as UserRole) || myPermissions.includes('manage_staff'));
+    const isSelf = !!user && String(user.id) === String(staff.id);
+    const canEditFields = canManageStaff || isSelf;
+    const ownerLocked = staff.role === UserRole.CLINIC_OWNER && !isPlatformAdmin;
+    const canEditRole = canManageStaff && !ownerLocked;
+    const noEditReason = 'You need permission to manage staff to change this.';
+
+    const roleGroups: InlineSelectGroup[] = ASSIGNABLE_ROLE_GROUPS.map(({ group, roles }) => ({
+      label: group,
+      options: (group === 'Management' && isPlatformAdmin ? [UserRole.CLINIC_OWNER, ...roles] : roles)
+        .map((r) => ({ value: r, label: ROLE_META[r]?.label || roleLabel(r) })),
+    }));
+    // The current role must always be selectable, even if it is not one an owner can assign.
+    if (!roleGroups.some((g) => g.options.some((o) => o.value === staff.role))) {
+      roleGroups.push({ label: 'Current', options: [{ value: staff.role, label: roleLabel(staff.role) }] });
+    }
+
+    // Details that are blank today — shown as a prompt, not a dash.
+    const missing = [
+      !staff.phone && 'phone',
+      !staff.idNumber && 'ID number',
+      !staff.dob && 'date of birth',
+    ].filter(Boolean) as string[];
+
+    const validEmail = (v: string) => (/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v) ? null : 'Enter a valid email address.');
+    const validPhone = (v: string) => (/^\+?\d{9,15}$/.test(v.replace(/[\s-]/g, '')) ? null : 'Enter a valid phone number, e.g. 0712 345 678.');
+    const validId = (v: string) => (/^[A-Za-z0-9][A-Za-z0-9\-\/ ]{3,19}$/.test(v) ? null : 'ID number must be 4–20 letters or digits.');
+    const validDob = (v: string) => {
+      const d = new Date(v);
+      if (isNaN(d.getTime())) return 'Enter a valid date.';
+      if (d > new Date()) return 'Date of birth cannot be in the future.';
+      if (d.getFullYear() < 1900) return 'Enter a valid date of birth.';
+      return null;
+    };
+    // The email is what this person signs in with — confirm before moving it.
+    const saveEmail = async (v: string) => {
+      const ok = await dialog.confirm({
+        title: 'Change sign-in email?',
+        message: `${staff.name} signs in with ${staff.email}. After this they will need to use ${v} instead.`,
+        confirmLabel: 'Change email',
+        cancelLabel: 'Cancel',
+        variant: 'warning',
+      });
+      return ok ? saveProfileField('email', v) : false;
+    };
     const authorised = staff.clinicIds.map(cid => clinics.find(cl => cl.id === cid)).filter(Boolean) as typeof clinics;
 
     return (
@@ -386,16 +471,50 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
             </div>
           </div>
 
-          {/* Dense field grid. Values print as stored — no uppercase. */}
+          {/* Every field edits in place. Blank ones read "Add …" so what is
+              missing is visible, and one click fixes it. */}
+          {canEditFields && missing.length > 0 && (
+            <div className="mx-4 sm:mx-5 mt-4 flex items-start gap-2 rounded-xl border border-amber-200 dark:border-amber-500/30 bg-amber-50 dark:bg-amber-500/10 px-3 py-2 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+              <AlertCircle size={14} className="shrink-0 mt-px" />
+              <span>Profile incomplete — no {missing.join(', ')} on file. Click a field below to add it.</span>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-6 gap-y-4 p-4 sm:p-5">
-            {fields.map(f => (
-              <div key={f.label} className="min-w-0">
-                <p className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 dark:text-zinc-500 mb-0.5">
-                  <f.icon size={12} className="shrink-0" /> {f.label}
-                </p>
-                <p className="text-[13px] font-bold text-pine dark:text-zinc-100 truncate" title={String(f.val)}>{f.val}</p>
-              </div>
-            ))}
+            <InlineEditField label="First name" icon={UserIcon} value={staff.firstName || ''}
+              editable={canEditFields} lockedReason={noEditReason}
+              onSave={(v) => saveProfileField('firstName', v)} />
+            <InlineEditField label="Other names" icon={UserIcon} value={staff.secondName || ''} allowClear
+              editable={canEditFields} lockedReason={noEditReason}
+              onSave={(v) => saveProfileField('secondName', v)} />
+            <InlineEditField label="Surname" icon={UserIcon} value={staff.surname || ''}
+              editable={canEditFields} lockedReason={noEditReason}
+              onSave={(v) => saveProfileField('surname', v)} />
+            <InlineEditField label="Role" icon={ShieldCheck} type="select" groups={roleGroups}
+              value={staff.role} display={roleLabel(staff.role)}
+              editable={canEditRole}
+              lockedReason={ownerLocked ? "Only a platform admin can change the clinic owner's role (via a clinic transfer)." : noEditReason}
+              onSave={async (v) => {
+                const ok = await saveRoleAndPermissions(v as UserRole, customPermissions);
+                if (ok) setSelectedRole(v as UserRole);
+                return ok;
+              }} />
+            <InlineEditField label="Email" icon={Mail} type="email" value={staff.email || ''}
+              editable={canEditFields} lockedReason={noEditReason}
+              hint="This is the address they sign in with." validate={validEmail}
+              onSave={saveEmail} />
+            <InlineEditField label="Phone" icon={Phone} type="tel" value={staff.phone || ''} allowClear
+              editable={canEditFields} lockedReason={noEditReason} placeholder="0712 345 678"
+              validate={validPhone} onSave={(v) => saveProfileField('phone', v)} />
+            <InlineEditField label="ID number" icon={Hash} value={staff.idNumber || ''} allowClear
+              editable={canEditFields} lockedReason={noEditReason}
+              validate={validId} onSave={(v) => saveProfileField('idNumber', v)} />
+            <InlineEditField label="Date of birth" icon={Calendar} type="date" value={staff.dob || ''} allowClear
+              editable={canEditFields} lockedReason={noEditReason}
+              validate={validDob} onSave={(v) => saveProfileField('dob', v)} />
+            <InlineEditField label="Age" icon={Clock} value={staff.age ? String(staff.age) : ''}
+              display={`${staff.age} years`} editable={false} lockedReason="Worked out from the date of birth." onSave={async () => false} />
+            <InlineEditField label="Staff ID" icon={UserIcon} value={`STF-${staff.id}`}
+              editable={false} lockedReason="Assigned by the system." onSave={async () => false} />
           </div>
         </div>
 

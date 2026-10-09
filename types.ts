@@ -136,6 +136,7 @@ export interface User {
   idNumber?: string;
   dob?: string;
   age?: number;
+  phone?: string;
   certifications?: string[];
   activityLogs?: ActivityLog[];
   supplier?: {
