@@ -472,9 +472,9 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
 
   return (
     <div className="space-y-4 pb-20">
-       <header className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 pb-4 border-b border-slate-200 dark:border-zinc-800">
+       <header className="flex items-center gap-3">
         <div className="flex items-center gap-3">
-           <button onClick={onBack} className="w-9 h-9 shrink-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam hover:text-pine transition-all shadow-sm active:scale-95">
+           <button onClick={onBack} aria-label="Back to staff list" className="w-9 h-9 shrink-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl flex items-center justify-center text-seafoam hover:text-pine transition-all shadow-sm active:scale-95">
              <ArrowLeft size={16}/>
            </button>
            <div className="flex items-center gap-3 min-w-0">
@@ -492,28 +492,46 @@ const StaffProfileView: React.FC<Props> = ({ staff, clinics, appointments, onBac
            </div>
         </div>
 
-        <div className="flex bg-slate-50 dark:bg-zinc-900 p-0.5 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-x-auto">
-           {[
-             { id: 'profile', label: 'Profile', icon: UserIcon },
-             { id: 'permissions', label: 'Permissions', icon: ShieldCheck },
-             { id: 'stats', label: 'Stats', icon: BarChart3 },
-             { id: 'activity', label: 'Activity', icon: History },
-           ].map(tab => (
-             <button
-               key={tab.id}
-               onClick={() => setActiveTab(tab.id as any)}
-               className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-[8px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                 activeTab === tab.id
-                   ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-md'
-                   : 'text-slate-400 dark:text-zinc-500 hover:text-pine'
-               }`}
-             >
-               <tab.icon size={11} />
-               {tab.label}
-             </button>
-           ))}
-        </div>
       </header>
+
+      {/*
+        TABS LIVE UNDER THE PERSON, FULL WIDTH (user, 2026-10-09: "the tabs
+        below the user info and selection made easier"). They used to sit at the
+        far right of the header in 8px type — a long mouse trip from the name
+        they belong to, and a miss-tap on a phone. Four equal cells, each at
+        least 44px tall (the touch-target floor), icon + label always visible,
+        and the active one filled so there is no doubt which view is showing.
+      */}
+      <nav
+        role="tablist"
+        aria-label="Staff profile sections"
+        className="grid grid-cols-4 gap-1 p-1 bg-slate-100 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl"
+      >
+        {[
+          { id: 'profile', label: 'Profile', icon: UserIcon },
+          { id: 'permissions', label: 'Permissions', icon: ShieldCheck },
+          { id: 'stats', label: 'Stats', icon: BarChart3 },
+          { id: 'activity', label: 'Activity', icon: History },
+        ].map(tab => {
+          const selected = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              role="tab"
+              aria-selected={selected}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={`min-h-[44px] flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-2 px-2 py-2 rounded-xl text-[10px] sm:text-xs font-black uppercase tracking-wider transition-all ${
+                selected
+                  ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-md'
+                  : 'text-slate-500 dark:text-zinc-400 hover:bg-white dark:hover:bg-zinc-800 hover:text-pine dark:hover:text-zinc-100'
+              }`}
+            >
+              <tab.icon size={16} className="shrink-0" />
+              <span className="truncate">{tab.label}</span>
+            </button>
+          );
+        })}
+      </nav>
 
       <div>
          {activeTab === 'profile' && renderProfile()}
