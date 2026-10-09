@@ -45,6 +45,8 @@ const SIDES: Array<{
   },
 ];
 
+const SAVE_FAILED = "We couldn't save that. Check your connection and tap again.";
+
 interface Props {
   /** Hidden when the plan cannot support farm mode — see usePortalMode. */
   farmAvailable: boolean;
@@ -53,12 +55,27 @@ interface Props {
 
 const PortalSideChooser: React.FC<Props> = ({ farmAvailable, onChoose }) => {
   const [saving, setSaving] = useState<PortalMode | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const sides = SIDES.filter((s) => s.id !== 'FARM' || farmAvailable);
 
+  /**
+   * ⚠️ A FAILED SAVE MUST SAY SO. This modal is not dismissible, so when the
+   * request failed the spinner used to just stop and the same card sat there
+   * looking untouched — indistinguishable from "nothing happened". The global
+   * error toast can also land behind this overlay. Say it in the modal itself.
+   */
   const pick = async (side: PortalMode) => {
     if (saving) return;
     setSaving(side);
-    try { await onChoose(side); } finally { setSaving(null); }
+    setError(null);
+    try {
+      const res = (await onChoose(side)) as { success?: boolean; message?: string } | undefined;
+      if (res && res.success === false) setError(res.message || SAVE_FAILED);
+    } catch (err: any) {
+      setError(err?.response?.data?.message || SAVE_FAILED);
+    } finally {
+      setSaving(null);
+    }
   };
 
   return (
@@ -106,6 +123,11 @@ const PortalSideChooser: React.FC<Props> = ({ farmAvailable, onChoose }) => {
             </button>
           ))}
         </div>
+        {error && (
+          <p role="alert" className="mt-4 text-xs font-semibold text-red-600 dark:text-red-400">
+            {error}
+          </p>
+        )}
       </div>
     </div>
   );

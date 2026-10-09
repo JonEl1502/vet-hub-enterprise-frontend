@@ -65,6 +65,8 @@ export const usePortalMode = () => {
   const [holdings, setHoldings] = useState<Holdings | null>(null);
   const [mode, setModeState] = useState<PortalMode>(() => readStoredMode() ?? 'PETS');
   const [loading, setLoading] = useState(true);
+  /** The first-run question was answered in this session, even if the server had no row to keep it on. */
+  const [answeredHere, setAnsweredHere] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -140,7 +142,31 @@ export const usePortalMode = () => {
   /** 290 — answer the first-run question, or activate the other side. */
   const chooseSide = useCallback(async (m: PortalMode, action: 'ACTIVATE' | 'MOVE' | 'DEFAULT' = 'DEFAULT') => {
     const res = await clientPortalAPI.setPortalSide(m, action);
-    if (res.success && res.data) setHoldings(res.data as Holdings);
+    if (res.success && res.data) {
+      const h = res.data as Holdings;
+      /**
+       * ⚠️ A BRAND-NEW ACCOUNT HAS NOWHERE TO STORE THE ANSWER YET.
+       *
+       * The side is saved on the account's `Client` rows, and a pet-owner
+       * account has none until it joins a clinic (`clientSignup` creates only
+       * the user + profile). So for someone who signs up and answers before
+       * the join lands — or who skipped the clinic step — the server updates
+       * zero rows, succeeds, and hands back `needsSideChoice: true` again.
+       * Believing that put the same modal straight back: the spinner stopped,
+       * nothing happened, and picking again did the same (reported on a
+       * Westlands Paws QR sign-up, 2026-10-09).
+       *
+       * The answer was still given. Honour it here — the mode and the device
+       * memory are set below — and stop asking. The account is asked again at
+       * most once more, after it has a clinic and the choice can be stored.
+       */
+      if (action === 'DEFAULT' && h.needsSideChoice) {
+        setAnsweredHere(true);
+        setHoldings({ ...h, defaultSide: m, needsSideChoice: false });
+      } else {
+        setHoldings(h);
+      }
+    }
     if (action !== 'ACTIVATE') { setModeState(m); storeMode(m); }
     return res;
   }, []);
@@ -156,7 +182,7 @@ export const usePortalMode = () => {
      * server-side: nothing chosen yet AND either both sides are live or
      * neither is. A single live side is answered silently.
      */
-    needsSideChoice: !loading && !!holdings?.needsSideChoice,
+    needsSideChoice: !loading && !!holdings?.needsSideChoice && !answeredHere,
     /**
      * 262 — the switcher is now driven by the OPT-IN, not by owning a farm.
      *
