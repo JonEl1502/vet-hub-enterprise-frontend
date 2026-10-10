@@ -21,7 +21,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Wheat, Milk, Coins, Stethoscope, Plus, Trash2, TrendingUp, TrendingDown,
-  Loader2, Search, Pencil, Info,
+  Loader2, Search, Pencil, Info, Receipt,
 } from 'lucide-react';
 import {
   clientPortalAPI, LEDGER_CATEGORIES, VENDOR_CATEGORIES,
@@ -30,7 +30,7 @@ import {
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
 import CpPage from '../CpPage';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { speciesConfig, purposeLabel } from './farmSpecies';
 
 const KES = (n: number) =>
@@ -74,6 +74,24 @@ const SHEETS = [
   { key: 'MEDICATION', label: 'Treatment', icon: Stethoscope, tone: 'rose',
     hint: 'Medicine, dewormer, spray — and where you bought it' },
 ] as const;
+
+/**
+ * Opened only from the bottom bar's centre button (`?record=EXPENSE`) — not a
+ * fifth button on the page. It is the "Fed them" form with the cost kinds as
+ * chips, so anything a farmer pays for (transport, a rope, labour, feed) is one
+ * tap away without first deciding which of the four buttons it belongs under.
+ */
+const EXTRA_SHEETS = [
+  { key: 'EXPENSE', label: 'Expense', icon: Receipt, tone: 'rose', hint: 'Anything you paid for' },
+] as const;
+
+/** What the "What was it?" box suggests, so the farmer sees the kind of answer wanted. */
+const ITEM_HINTS: Record<string, string> = {
+  FEED: 'Dairy meal', MEDICATION: 'Dewormer', PEST_CONTROL: 'Tick spray', LABOUR: 'Casual labour',
+  TRANSPORT: 'Transport to market', OTHER_EXPENSE: 'Rope', LOSS: 'Calf died',
+  MILK_SALE: 'Morning milk', EGG_SALE: 'Eggs', LIVESTOCK_SALE: 'Goat', PRODUCE_SALE: 'Wool, skins or grain',
+  OTHER_INCOME: 'Manure sale',
+};
 
 /**
  * ⚠️ Every tone needs its `dark:` pair (§0d — dark mode is not optional).
@@ -261,10 +279,26 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
 
   useEffect(() => { load(); }, [load]);
 
+  /**
+   * The bottom bar's centre button links here as `?record=FEED|MILK_SALE|EXPENSE`.
+   * Open that form once, then take the parameter off the address so Back — or a
+   * refresh — does not throw the form open again.
+   */
+  const [searchParams, setSearchParams] = useSearchParams();
+  const wantedRecord = searchParams.get('record');
+  useEffect(() => {
+    if (!wantedRecord) return;
+    if ([...SHEETS, ...EXTRA_SHEETS].some((x) => x.key === wantedRecord)) openSheet(wantedRecord);
+    setSearchParams((prev) => { const n = new URLSearchParams(prev); n.delete('record'); return n; }, { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantedRecord]);
+
   const openSheet = (key: string) => {
+    // EXPENSE is a doorway, not a category — it opens on Feed, the commonest cost.
+    const cat = key === 'EXPENSE' ? 'FEED' : key;
     setSheet(key);
-    setCategory(key);
-    setItem(''); setAmount(''); setQuantity(''); setUnit(unitFor(key));
+    setCategory(cat);
+    setItem(''); setAmount(''); setQuantity(''); setUnit(unitFor(cat));
     setGroupId(''); setVendor(''); setVendorId(null);
     setEntryDate(new Date().toISOString().slice(0, 10));
     // Pre-filled with NOW, because the overwhelming case is recording something
@@ -395,7 +429,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
 
   const atGroupLimit = groupLimit > 0 && groups.length >= groupLimit;
   const wantsVendor = VENDOR_CATEGORIES.includes(category);
-  const sheetDef = SHEETS.find((s) => s.key === sheet);
+  const sheetDef = [...SHEETS, ...EXTRA_SHEETS].find((s) => s.key === sheet);
   const categoryChoices = sheet
     ? (isIncome(sheet) ? LEDGER_CATEGORIES.INCOME : LEDGER_CATEGORIES.EXPENSE)
     : [];
@@ -480,7 +514,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
             <label className="cp-label">What was it?</label>
             <input
               className="cp-input w-full"
-              placeholder={isIncome(category) ? 'Morning milk' : 'Dairy meal'}
+              placeholder={ITEM_HINTS[category] ?? (isIncome(category) ? 'Morning milk' : 'Dairy meal')}
               value={item}
               onChange={(e) => setItem(e.target.value)}
               autoFocus

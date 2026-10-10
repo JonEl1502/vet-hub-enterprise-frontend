@@ -4,7 +4,7 @@ import {
   Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus, Sprout, Beef,
   Stethoscope, UserRound,
   Settings, LogOut, Sun, Moon, Monitor, ChevronDown, Sparkles, Users,
-  type LucideIcon, Store,
+  type LucideIcon, Store, Wheat, Milk, LayoutGrid,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useThemeMode, type ThemeMode } from '../../hooks/useThemeMode';
@@ -14,6 +14,7 @@ import NotificationBell from './NotificationBell';
 import { usePortalMode } from './usePortalMode';
 import PortalSideChooser from './PortalSideChooser';
 import { useFarmerPlan } from './useFarmerPlan';
+import QuickRecordWheel, { type WheelAction } from './QuickRecordWheel';
 
 /**
  * 288 — COMMUNITY IS FREE TO READ, SO IT IS IN BOTH NAVS.
@@ -71,6 +72,16 @@ const FARM_NAV: NavTab[] = [
   { to: '/client/settings', label: 'Profile', icon: UserRound },
 ];
 
+/**
+ * FARM bottom bar on a phone (Rekodi style): four tabs around the centre "C"
+ * button, with everything else behind More. Seven equal tabs left each label
+ * squeezed to ~50px; four plus a button is what a thumb can actually hit.
+ * The sidebar on a laptop is unchanged — it still lists all seven.
+ */
+const FARM_BAR_LEFT = ['/client/farm', '/client/farm/animals'];
+const FARM_BAR_RIGHT = ['/client/farm/medical'];
+const FARM_MORE = ['/client/market', '/client/messages', '/client/community', '/client/settings'];
+
 const ClientLayout: React.FC = () => {
   const { user, logout } = useAuth();
   const { invoices, messages } = useClientPortal();
@@ -78,6 +89,8 @@ const ClientLayout: React.FC = () => {
   const { mode, setMode, chooseSide, canSwitch, holdings, loading: modeLoading, needsSideChoice } = usePortalMode();
   const farmerPlan = useFarmerPlan();
   const { pathname } = useLocation();
+  const [moreOpen, setMoreOpen] = useState(false);
+  useEffect(() => { setMoreOpen(false); }, [pathname]);
 
   /**
    * Keep the ROUTE and the MODE agreeing — they could not, before this.
@@ -157,6 +170,19 @@ const ClientLayout: React.FC = () => {
   const unpaid = invoices.filter((i) => !i.isPaid).length;
   const unread = messages.filter((m) => !m.fromOwner && !m.isRead).length;
   const badgeFor = (to: string) => (to === '/client/invoices' ? unpaid : to === '/client/messages' ? unread : 0);
+
+  // What the centre button offers. Each one lands on the farm page with the
+  // matching record form already open (see ClientFarmRecords' `?record=`).
+  const wheelActions: WheelAction[] = [
+    { id: 'feed', label: 'Feeding', icon: Wheat, tone: 'bg-amber-400 text-amber-950', onSelect: () => navigate('/client/farm?record=FEED') },
+    { id: 'produce', label: 'Produce', icon: Milk, tone: 'bg-emerald-400 text-emerald-950', onSelect: () => navigate('/client/farm?record=MILK_SALE') },
+    { id: 'expense', label: 'Expense', icon: Receipt, tone: 'bg-rose-400 text-rose-950', onSelect: () => navigate('/client/farm?record=EXPENSE') },
+  ];
+  const barLeft = FARM_NAV.filter((t) => FARM_BAR_LEFT.includes(t.to));
+  const barRight = FARM_NAV.filter((t) => FARM_BAR_RIGHT.includes(t.to));
+  const moreTabs = FARM_NAV.filter((t) => FARM_MORE.includes(t.to));
+  const moreActive = moreTabs.some((t) => pathname === t.to || pathname.startsWith(`${t.to}/`));
+  const moreBadge = moreTabs.reduce((n, t) => n + badgeFor(t.to), 0);
 
   const displayName = user?.name || user?.email || '';
   const initial = displayName.trim().charAt(0).toUpperCase() || '?';
@@ -393,7 +419,67 @@ const ClientLayout: React.FC = () => {
         </main>
       </div>
 
-      {/* Mobile bottom tab bar */}
+      {/* Mobile bottom bar. FARM mode gets the Rekodi layout — four tabs around
+          the centre "C" button (a quick-record dial) with the rest under More. */}
+      {mode === 'FARM' ? (
+        <>
+          <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 flex items-center border-t backdrop-blur-md"
+               style={{ background: 'color-mix(in srgb, var(--cp-surface) 94%, transparent)', borderColor: 'var(--cp-border)', paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+            {barLeft.map(({ to, end, label, icon: Icon }) => (
+              <NavLink key={to} to={to} end={end}
+                       className={({ isActive }) =>
+                         `cp-tab flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-bold transition-transform ${isActive ? 'cp-tab-active scale-105' : ''}`}>
+                <Icon className="w-5 h-5" />
+                {label}
+              </NavLink>
+            ))}
+
+            <div className="flex-1 h-[52px] flex items-center justify-center">
+              <QuickRecordWheel actions={wheelActions} />
+            </div>
+
+            {barRight.map(({ to, end, label, icon: Icon }) => (
+              <NavLink key={to} to={to} end={end}
+                       className={({ isActive }) =>
+                         `cp-tab flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-bold transition-transform ${isActive ? 'cp-tab-active scale-105' : ''}`}>
+                <Icon className="w-5 h-5" />
+                {label}
+              </NavLink>
+            ))}
+
+            <button type="button" onClick={() => setMoreOpen((v) => !v)} aria-expanded={moreOpen}
+                    className={`cp-tab flex-1 flex flex-col items-center justify-center gap-0.5 py-2.5 text-[10px] font-bold transition-transform ${moreOpen || moreActive ? 'cp-tab-active scale-105' : ''}`}>
+              <LayoutGrid className="w-5 h-5" />
+              More
+              {moreBadge > 0 && !moreOpen && (
+                <span className="absolute top-1.5 right-1/4 w-4 h-4 rounded-full text-white text-[9px] flex items-center justify-center"
+                      style={{ background: 'var(--cp-accent)' }}>{moreBadge}</span>
+              )}
+            </button>
+          </nav>
+
+          {moreOpen && (
+            <div className="md:hidden fixed inset-0 z-30" onClick={() => setMoreOpen(false)}>
+              <div className="absolute right-2 w-56 rounded-2xl border p-1.5 shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-200 origin-bottom-right"
+                   style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 64px)', background: 'var(--cp-surface)', borderColor: 'var(--cp-border)' }}
+                   onClick={(e) => e.stopPropagation()}>
+                {moreTabs.map(({ to, label, icon: Icon }) => (
+                  <NavLink key={to} to={to} onClick={() => setMoreOpen(false)}
+                           className={({ isActive }) =>
+                             `relative flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-colors ${isActive ? 'cp-tab-on' : 'hover:bg-black/5'}`}>
+                    <Icon className="w-5 h-5" />
+                    {label}
+                    {badgeFor(to) > 0 && (
+                      <span className="ml-auto min-w-5 h-5 px-1 rounded-full text-white text-[10px] flex items-center justify-center"
+                            style={{ background: 'var(--cp-accent)' }}>{badgeFor(to)}</span>
+                    )}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 flex border-t"
            style={{ background: 'var(--cp-surface)', borderColor: 'var(--cp-border)' }}>
         {NAV.map(({ to, end, label, icon: Icon }) => (
@@ -411,6 +497,7 @@ const ClientLayout: React.FC = () => {
           </NavLink>
         ))}
       </nav>
+      )}
     </div>
   );
 };

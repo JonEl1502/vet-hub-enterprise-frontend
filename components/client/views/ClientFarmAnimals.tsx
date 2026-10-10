@@ -25,6 +25,7 @@ import CpModal from '../CpModal';
 import CpPage from '../CpPage';
 import CpPickOrType from '../CpPickOrType';
 import { speciesConfig, purposeLabel } from './farmSpecies';
+import { WeighForm, FeedForm, ProduceForm } from './AnimalRecordForms';
 
 const STATUS_TONE: Record<string, string> = {
   ACTIVE: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300',
@@ -74,15 +75,12 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
   const [unitSpecies, setUnitSpecies] = useState('Poultry');
   const [detail, setDetail] = useState<FarmAnimal | null>(null);
   const [weighing, setWeighing] = useState<FarmAnimal | null>(null);
-  const [weightVal, setWeightVal] = useState('');
 
   /** Daily input/output for whichever animal is open in `detail` (264). */
   const [feedingLogs, setFeedingLogs] = useState<AnimalFeedingLog[]>([]);
   const [produceRecords, setProduceRecords] = useState<AnimalProduceRecord[]>([]);
   const [feeding, setFeeding] = useState<FarmAnimal | null>(null);
-  const [feedQty, setFeedQty] = useState('');
   const [producing, setProducing] = useState<FarmAnimal | null>(null);
-  const [produceForm, setProduceForm] = useState({ produce: '', quantity: '', unit: 'KG' });
 
   useEffect(() => {
     if (!detail) { setFeedingLogs([]); setProduceRecords([]); return; }
@@ -226,48 +224,45 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
     } finally { setSaving(false); }
   };
 
-  const saveWeight = async () => {
-    if (!weighing || weightVal === '') return;
+  // The forms (AnimalRecordForms) gather and validate; these only send.
+  const saveWeight = async (payload: { weightValue: number; weighedOn?: string }) => {
+    if (!weighing) return;
     setSaving(true);
     try {
-      const r = await clientPortalAPI.recordAnimalWeight(weighing.id, { weightValue: Number(weightVal) });
+      const r = await clientPortalAPI.recordAnimalWeight(weighing.id, payload);
       if (r.success) {
         toast.success('Weight recorded');
-        setWeighing(null); setWeightVal('');
+        setWeighing(null);
         await load(); onChanged?.();
       }
     } finally { setSaving(false); }
   };
 
-  const saveFeeding = async () => {
+  const saveFeeding = async (payload: { quantityKg?: number; fedAt?: string; notes?: string }) => {
     if (!feeding) return;
     setSaving(true);
     try {
-      const r = await clientPortalAPI.recordAnimalFeeding(feeding.id, {
-        quantityKg: feedQty === '' ? undefined : Number(feedQty),
-      });
+      const r = await clientPortalAPI.recordAnimalFeeding(feeding.id, payload);
       if (r.success) {
         toast.success('Feeding recorded');
-        setFeeding(null); setFeedQty('');
-        const logsR = await clientPortalAPI.listAnimalFeedingLogs(feeding.id);
+        const id = feeding.id;
+        setFeeding(null);
+        const logsR = await clientPortalAPI.listAnimalFeedingLogs(id);
         if (logsR.success && logsR.data) setFeedingLogs(logsR.data.logs);
       }
     } finally { setSaving(false); }
   };
 
-  const saveProduce = async () => {
-    if (!producing || !produceForm.produce.trim() || produceForm.quantity === '') return;
+  const saveProduce = async (payload: { produce: string; quantity: number; unit: string; recordedOn?: string; notes?: string }) => {
+    if (!producing) return;
     setSaving(true);
     try {
-      const r = await clientPortalAPI.recordAnimalProduce(producing.id, {
-        produce: produceForm.produce.trim(),
-        quantity: Number(produceForm.quantity),
-        unit: produceForm.unit,
-      });
+      const r = await clientPortalAPI.recordAnimalProduce(producing.id, payload);
       if (r.success) {
         toast.success('Produce recorded');
-        setProducing(null); setProduceForm({ produce: '', quantity: '', unit: 'KG' });
-        const recR = await clientPortalAPI.listAnimalProduceRecords(producing.id);
+        const id = producing.id;
+        setProducing(null);
+        const recR = await clientPortalAPI.listAnimalProduceRecords(id);
         if (recR.success && recR.data) setProduceRecords(recR.data.records);
       }
     } finally { setSaving(false); }
@@ -383,12 +378,48 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
     );
   }
 
+  /**
+   * ⚠️ THESE MUST BE RENDERED BY THE ANIMAL PAGE, not only by the list.
+   *
+   * The animal is shown by an EARLY RETURN (`if (detail) { return … }`), and the
+   * weigh / feed / produce sheets used to sit at the bottom of the component —
+   * after it, in the list's return, which never runs while an animal is open.
+   * So "+ Record" on Weight, Feeding and Produce set its state and then drew
+   * nothing: no sheet, no error, nothing recorded. Found by driving the page in
+   * a phone-sized browser (2026-10-10), not by reading it.
+   */
+  const recordModals = (
+    <>
+      {/* ── Weigh-in ──────────────────────────────────────────────────────── */}
+      {weighing && (
+        <CpModal title={`Weigh ${weighing.name}`} onClose={() => setWeighing(null)}>
+          <WeighForm animal={weighing} saving={saving} onSubmit={saveWeight} />
+        </CpModal>
+      )}
+
+      {/* ── Daily feeding ─────────────────────────────────────────────────── */}
+      {feeding && (
+        <CpModal title={`Feed ${feeding.name}`} onClose={() => setFeeding(null)}>
+          <FeedForm animal={feeding} saving={saving} onSubmit={saveFeeding} />
+        </CpModal>
+      )}
+
+      {/* ── Daily produce ─────────────────────────────────────────────────── */}
+      {producing && (
+        <CpModal title={`Produce from ${producing.name}`} onClose={() => setProducing(null)}>
+          <ProduceForm animal={producing} saving={saving} onSubmit={saveProduce} />
+        </CpModal>
+      )}
+    </>
+  );
+
   /* The animal itself is a page too — it carries species-specific
      production fields and a status change, which is more than a sheet
      should ever hold. */
   if (detail) {
     const dc = speciesConfig(editing?.species ?? detail.species);
     return (
+      <>
       <CpPage
         title={detail.name}
         onBack={() => { setEditing(null); setDetail(null); }}
@@ -549,7 +580,7 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
                 <Scale size={11} /> Weight
               </p>
               <button className="text-[10px] font-black uppercase tracking-widest cp-accent-text"
-                onClick={() => { setWeighing(detail); setWeightVal(''); }}>
+                onClick={() => setWeighing(detail)}>
                 + Record
               </button>
             </div>
@@ -586,7 +617,7 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
                 <Utensils size={11} /> Feeding
               </p>
               <button className="text-[10px] font-black uppercase tracking-widest cp-accent-text"
-                onClick={() => { setFeeding(detail); setFeedQty(''); }}>
+                onClick={() => setFeeding(detail)}>
                 + Record
               </button>
             </div>
@@ -598,6 +629,8 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
                   <div key={l.id} className="py-1.5 flex items-center justify-between text-xs">
                     <span className="text-slate-400">
                       {new Date(l.fedAt).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {' · '}{new Date(l.fedAt).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                      {l.notes ? ` · ${l.notes}` : ''}
                     </span>
                     <span className="font-bold text-slate-700 dark:text-zinc-200 tabular-nums">
                       {l.quantityKg != null ? `${l.quantityKg}kg` : '—'}
@@ -614,7 +647,7 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
                 <Droplet size={11} /> Produce
               </p>
               <button className="text-[10px] font-black uppercase tracking-widest cp-accent-text"
-                onClick={() => { setProducing(detail); setProduceForm({ produce: '', quantity: '', unit: 'KG' }); }}>
+                onClick={() => setProducing(detail)}>
                 + Record
               </button>
             </div>
@@ -627,6 +660,7 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
                     <span className="text-slate-400">
                       {new Date(r.recordedOn).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                       {r.produce ? ` · ${r.produce}` : ''}
+                      {r.notes ? ` · ${r.notes}` : ''}
                     </span>
                     <span className="font-bold text-slate-700 dark:text-zinc-200 tabular-nums">
                       {r.quantity}{r.unit}
@@ -655,6 +689,8 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
           </div>
         </div>
       </CpPage>
+      {recordModals}
+      </>
     );
   }
 
@@ -992,73 +1028,6 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
         </CpModal>
       )}
 
-      {/* ── Weigh-in ──────────────────────────────────────────────────────── */}
-      {weighing && (
-        <CpModal title={`Weigh ${weighing.name}`} onClose={() => setWeighing(null)}>
-          <div className="space-y-3">
-            <div>
-              <label className="cp-label">Weight (kg)</label>
-              <input className="cp-input w-full" type="number" min="0" step="0.1" autoFocus
-                value={weightVal} onChange={(e) => setWeightVal(e.target.value)} />
-            </div>
-            {weighing.weightValue != null && (
-              <p className="text-[11px] text-slate-500">
-                Last recorded {weighing.weightValue}{weighing.weightUnit}
-                {weighing.weighedOn && ` on ${new Date(weighing.weighedOn).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`}.
-              </p>
-            )}
-            <button className="cp-btn w-full" onClick={saveWeight} disabled={saving || weightVal === ''}>
-              {saving ? 'Saving…' : 'Record'}
-            </button>
-          </div>
-        </CpModal>
-      )}
-
-      {/* ── Daily feeding ─────────────────────────────────────────────────── */}
-      {feeding && (
-        <CpModal title={`Feed ${feeding.name}`} onClose={() => setFeeding(null)}>
-          <div className="space-y-3">
-            <div>
-              <label className="cp-label">Quantity (kg)</label>
-              <input className="cp-input w-full" type="number" min="0" step="0.1" autoFocus
-                placeholder="Optional"
-                value={feedQty} onChange={(e) => setFeedQty(e.target.value)} />
-            </div>
-            <button className="cp-btn w-full" onClick={saveFeeding} disabled={saving}>
-              {saving ? 'Saving…' : 'Record'}
-            </button>
-          </div>
-        </CpModal>
-      )}
-
-      {/* ── Daily produce ─────────────────────────────────────────────────── */}
-      {producing && (
-        <CpModal title={`Produce from ${producing.name}`} onClose={() => setProducing(null)}>
-          <div className="space-y-3">
-            <div>
-              <label className="cp-label">What did it produce?</label>
-              <input className="cp-input w-full" placeholder="Milk, eggs, wool…" autoFocus
-                value={produceForm.produce} onChange={(e) => setProduceForm({ ...produceForm, produce: e.target.value })} />
-            </div>
-            <div className="grid grid-cols-2 gap-2">
-              <div>
-                <label className="cp-label">Quantity</label>
-                <input className="cp-input w-full" type="number" min="0" step="0.1"
-                  value={produceForm.quantity} onChange={(e) => setProduceForm({ ...produceForm, quantity: e.target.value })} />
-              </div>
-              <div>
-                <label className="cp-label">Unit</label>
-                <input className="cp-input w-full" placeholder="KG, L, dozen…"
-                  value={produceForm.unit} onChange={(e) => setProduceForm({ ...produceForm, unit: e.target.value })} />
-              </div>
-            </div>
-            <button className="cp-btn w-full" onClick={saveProduce}
-              disabled={saving || !produceForm.produce.trim() || produceForm.quantity === ''}>
-              {saving ? 'Saving…' : 'Record'}
-            </button>
-          </div>
-        </CpModal>
-      )}
     </div>
   );
 };
