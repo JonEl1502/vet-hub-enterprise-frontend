@@ -3178,7 +3178,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         const sId = currentNav.params?.staffId;
         const staffMember = allStaff.find(s => s.id === sId);
         if (!staffMember) return null;
-        return <StaffProfileView staff={staffMember} clinics={store.clinics} appointments={appointments} onBack={goBack} />;
+        return <StaffProfileView staff={staffMember} clinics={store.clinics} appointments={appointments} onBack={goBack} onUpdate={() => { refreshStaff(); }} />;
       case 'clinics':
         return <ClinicsManagementView onNavigate={navigateTo} />;
       case 'admin-clinic-new':

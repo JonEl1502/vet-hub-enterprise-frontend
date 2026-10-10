@@ -10,6 +10,7 @@ import { ALL_PERMISSIONS, ROLE_DEFAULT_PERMISSIONS } from '../../../constants/pe
 import { ASSIGNABLE_ROLE_GROUPS, ROLE_META, roleLabel } from '../../../constants/roles';
 import ModulePermissionsEditor from './ModulePermissionsEditor';
 import InlineEditField, { InlineSelectGroup } from '../../shared/common/InlineEditField';
+import StatusToggle from '../../shared/common/StatusToggle';
 
 interface Props {
   staff: User;
@@ -187,6 +188,24 @@ const StaffProfileView: React.FC<Props> = ({ staff: staffProp, clinics, appointm
   };
 
   const handleSaveChanges = () => saveRoleAndPermissions(selectedRole, customPermissions);
+
+  /**
+   * Activate / deactivate this account. Deactivating blocks sign-in (the login
+   * refuses an inactive user) — the confirm dialog is the shared StatusToggle's.
+   * Errors are shown here so the toggle never leaves an unhandled rejection; the
+   * API refuses a self-change and anyone who may not change status.
+   */
+  const saveStatus = async (next: boolean): Promise<void> => {
+    try {
+      await usersAPI.update(staff.id, { isActive: next } as any);
+      toast.success(next ? 'Staff activated' : 'Staff deactivated');
+      setPatch((p) => ({ ...p, isActive: next }));
+      if (onUpdate) onUpdate();
+    } catch (error: any) {
+      console.error('Failed to update staff status:', error);
+      toast.error(error?.message || 'Failed to update status');
+    }
+  };
 
   /**
    * One profile field, saved on its own. Everything here is a plain UserProfile
@@ -406,6 +425,9 @@ const StaffProfileView: React.FC<Props> = ({ staff: staffProp, clinics, appointm
     const canEditFields = canManageStaff || isSelf;
     const ownerLocked = staff.role === UserRole.CLINIC_OWNER && !isPlatformAdmin;
     const canEditRole = canManageStaff && !ownerLocked;
+    // Account status: platform admins and clinic owners only, never your own.
+    const canToggleStatus = (isPlatformAdmin || user?.role === UserRole.CLINIC_OWNER) && !isSelf;
+    const isActiveAccount = staff.isActive !== false;
     const noEditReason = 'You need permission to manage staff to change this.';
 
     const roleGroups: InlineSelectGroup[] = ASSIGNABLE_ROLE_GROUPS.map(({ group, roles }) => ({
@@ -459,9 +481,22 @@ const StaffProfileView: React.FC<Props> = ({ staff: staffProp, clinics, appointm
               <p className="text-[11px] font-bold text-slate-400 dark:text-zinc-500 mt-0.5">{roleLabel(staff.role)}</p>
             </div>
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" /> Active
-              </span>
+              {canToggleStatus ? (
+                <StatusToggle
+                  isActive={isActiveAccount}
+                  entityName={staff.name}
+                  entityKind="staff member"
+                  onToggle={saveStatus}
+                />
+              ) : (
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black border ${
+                  isActiveAccount
+                    ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20'
+                    : 'bg-red-500/10 text-red-500 border-red-500/20'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${isActiveAccount ? 'bg-emerald-500' : 'bg-red-500'}`} /> {isActiveAccount ? 'Active' : 'Inactive'}
+                </span>
+              )}
               {authorised.map(c => (
                 <span key={c.id} className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-100 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 max-w-[14rem]">
                   <span className="shrink-0">{c.logo}</span>
