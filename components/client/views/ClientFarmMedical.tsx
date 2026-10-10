@@ -50,7 +50,9 @@ const ClientFarmMedical: React.FC = () => {
   const [pitchOpen, setPitchOpen] = useState(false);
   const [q, setQ] = useState('');
   const [opts, setOpts] = useState<PortalClinic[]>([]);
-  const [filtered, setFiltered] = useState(0);
+  const [unavailable, setUnavailable] = useState<PortalClinic[]>([]);
+  const [invitedIds, setInvitedIds] = useState<string[]>([]);
+  const [asked, setAsked] = useState<{ id: string; clinicId: string; clinicName: string; askedAt: string }[]>([]);
   const [searching, setSearching] = useState(false);
 
   // Recording a treatment
@@ -83,6 +85,7 @@ const ClientFarmMedical: React.FC = () => {
   const load = useCallback((farmId: string) => {
     if (!farmId) return;
     clientPortalAPI.farmMedical(farmId).then((r) => { if (r.success && r.data) setData(r.data); });
+    clientPortalAPI.listFarmClinicInvites(farmId).then((r) => { if (r.success && r.data) setAsked(r.data.invites); });
   }, []);
   useEffect(() => { load(activeId); }, [activeId, load]);
 
@@ -149,11 +152,11 @@ const ClientFarmMedical: React.FC = () => {
   useEffect(() => {
     if (!connectOpen) return;
     const term = q.trim();
-    if (term.length < 2) { setOpts([]); setFiltered(0); return; }
+    if (term.length < 2) { setOpts([]); setUnavailable([]); return; }
     setSearching(true);
     const id = setTimeout(() => {
-      clientPortalAPI.farmClinicOptions(term)
-        .then((r) => { if (r.success && r.data) { setOpts(r.data.clinics); setFiltered(r.data.filtered); } })
+      clientPortalAPI.farmClinicOptions(term, activeId)
+        .then((r) => { if (r.success && r.data) { setOpts(r.data.clinics); setUnavailable(r.data.unavailable ?? []); setInvitedIds(r.data.invitedClinicIds ?? []); } })
         .finally(() => setSearching(false));
     }, 300);
     return () => clearTimeout(id);
@@ -177,6 +180,18 @@ const ClientFarmMedical: React.FC = () => {
       if (r.success) {
         toast.success(clinicId ? 'Clinic connected' : 'Clinic removed');
         setConnectOpen(false); setQ(''); setOpts([]);
+        load(activeId);
+      }
+    } finally { setSaving(false); }
+  };
+
+  const askToJoin = async (c: PortalClinic) => {
+    setSaving(true);
+    try {
+      const r = await clientPortalAPI.inviteClinicToFarms(activeId, c.id);
+      if (r.success) {
+        setInvitedIds((ids) => (ids.includes(c.id) ? ids : [...ids, c.id]));
+        toast.success(`We have asked ${c.name} to join`);
         load(activeId);
       }
     } finally { setSaving(false); }
@@ -441,6 +456,12 @@ const ClientFarmMedical: React.FC = () => {
                 <button className="cp-btn mt-3 w-full" onClick={openConnect}>
                   <Building2 size={14} /> Connect a clinic
                 </button>
+                {asked.length > 0 && (
+                  <p className="mt-2.5 text-[11px] text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 rounded-xl px-3 py-2 leading-relaxed">
+                    Waiting on {asked.map((a) => a.clinicName).join(', ')} — we have asked
+                    {asked.length === 1 ? ' them' : ' them'} to join Farms. You will be able to connect as soon as they do.
+                  </p>
+                )}
               </>
             )}
           </div>
@@ -679,14 +700,41 @@ const ClientFarmMedical: React.FC = () => {
                 ))}
               </div>
             )}
-            {q.trim().length >= 2 && !searching && opts.length === 0 && (
-              <p className="text-xs text-slate-500">No clinic here offers farm services yet.</p>
+            {q.trim().length >= 2 && !searching && opts.length === 0 && unavailable.length === 0 && (
+              <p className="text-xs text-slate-500">No clinic matches that. Try the clinic's name or town.</p>
             )}
-            {filtered > 0 && (
-              <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 leading-relaxed">
-                {filtered} other {filtered === 1 ? 'clinic matches' : 'clinics match'} but {filtered === 1 ? 'does' : 'do'} not
-                offer farm services on VetHub yet. Ask them to add Farms to their plan.
-              </p>
+            {unavailable.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  {opts.length === 0 ? 'No clinic here offers farm services yet. ' : ''}
+                  These clinics are on VetHub but cannot open farm records yet. Ask them to join —
+                  we will tell them you asked, and you will see it here when they do.
+                </p>
+                <div className="cp-card overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
+                  {unavailable.map((c) => {
+                    const done = invitedIds.includes(c.id);
+                    return (
+                      <div key={c.id} className="px-3.5 py-2.5 flex items-center gap-3">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-bold text-slate-800 dark:text-zinc-100 truncate">{c.name}</p>
+                          <p className="text-[10px] text-slate-400 truncate">
+                            {[c.city, c.phone].filter(Boolean).join(' · ') || 'On VetHub'}
+                          </p>
+                        </div>
+                        {done ? (
+                          <span className="shrink-0 text-[10px] font-black uppercase tracking-widest text-emerald-600 flex items-center gap-1">
+                            <ShieldCheck size={12} /> Asked
+                          </span>
+                        ) : (
+                          <button className="cp-btn shrink-0 !py-1.5 !px-3 !text-xs" disabled={saving} onClick={() => askToJoin(c)}>
+                            Ask to join
+                          </button>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         </CpModal>

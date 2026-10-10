@@ -817,8 +817,16 @@ export const clientPortalAPI = {
    * `filtered` counts the ones that matched the search but cannot take farms,
    * so the UI can say so rather than let a farmer conclude their vet is absent.
    */
-  farmClinicOptions: (q: string, options?: RequestOptions): Promise<ApiResponse<{ clinics: PortalClinic[]; filtered: number }>> =>
-    get(`/portal/me/farm-clinics?q=${encodeURIComponent(q)}`, { cache: false, silent: true, ...options }),
+  farmClinicOptions: (q: string, farmId?: string, options?: RequestOptions): Promise<ApiResponse<{ clinics: PortalClinic[]; unavailable: PortalClinic[]; invitedClinicIds: string[]; filtered: number }>> =>
+    get(`/portal/me/farm-clinics?q=${encodeURIComponent(q)}${farmId ? `&farmId=${farmId}` : ''}`, { cache: false, silent: true, ...options }),
+
+  /** Ask a clinic that is not on Farms yet to join and connect. Idempotent. */
+  inviteClinicToFarms: (farmId: string, clinicId: string, options?: RequestOptions): Promise<ApiResponse<{ clinicId: string; clinicName: string; status: string; alreadyAsked: boolean }>> =>
+    post(`/portal/me/farms/${farmId}/clinic-invites`, { clinicId }, { showError: true, ...options }),
+
+  /** Clinics this farm has asked and that have not joined yet. */
+  listFarmClinicInvites: (farmId: string, options?: RequestOptions): Promise<ApiResponse<{ invites: { id: string; clinicId: string; clinicName: string; askedAt: string }[] }>> =>
+    get(`/portal/me/farms/${farmId}/clinic-invites`, { cache: false, silent: true, ...options }),
 
   /** Connect a farm to a clinic, or pass null to disconnect. */
   setFarmClinic: (farmId: string, clinicId: string | null, options?: RequestOptions): Promise<ApiResponse<{ linkedClinicId: string | null; clinic: { id: string; name: string; logo: string | null } | null }>> =>

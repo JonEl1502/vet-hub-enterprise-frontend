@@ -6,10 +6,11 @@
  * can assert on exactly what a form would have sent. See README.md.
  */
 import { chromium } from 'playwright-core';
+import { fileURLToPath } from 'node:url';
 
 /** Where the dev server runs (`npm run dev`). */
 export const BASE = process.env.E2E_BASE || 'http://localhost:3000';
-export const SHOTS = new URL('./shots/', import.meta.url).pathname;
+export const SHOTS = fileURLToPath(new URL('./shots/', import.meta.url));
 
 const bika = {
   id: 'a1', farmId: 'f1', animalGroupId: 'g1', animalGroupName: 'Dairy cows', name: 'Bika', species: 'Cattle',
@@ -45,6 +46,7 @@ export async function launch({ width = 400, height = 781, dark = true } = {}) {
   const feedLogs = [];
   const produceRecs = [];
   const unmocked = [];
+  const invited = [];
   const errors = [];
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -61,6 +63,7 @@ export async function launch({ width = 400, height = 781, dark = true } = {}) {
     if (req.method() !== 'GET') {
       let body = null; try { body = req.postDataJSON(); } catch { /* none */ }
       posts.push({ method: req.method(), path, body });
+      if (/clinic-invites$/.test(path)) { invited.push(String(body?.clinicId)); return ok({ clinicId: body?.clinicId, clinicName: 'Westlands Paws Vet Clinic', status: 'PENDING', alreadyAsked: false }); }
       if (/feeding-logs$/.test(path)) { const log = { id: 'l' + (feedLogs.length + 1), fedAt: body?.fedAt ?? new Date().toISOString(), quantityKg: body?.quantityKg ?? null, notes: body?.notes ?? null }; feedLogs.unshift(log); return ok({ log }); }
       if (/produce-records$/.test(path)) { const record = { id: 'p' + (produceRecs.length + 1), produce: body?.produce, recordedOn: body?.recordedOn ?? new Date().toISOString(), quantity: body?.quantity, unit: body?.unit, notes: body?.notes ?? null }; produceRecs.unshift(record); return ok({ record }); }
       if (/weights$/.test(path)) return ok({ weight: { id: 'w2', weighedOn: new Date().toISOString(), weightValue: body?.weightValue, weightUnit: 'kg' } });
@@ -81,7 +84,9 @@ export async function launch({ width = 400, height = 781, dark = true } = {}) {
     if (path === '/portal/me/farms/f1/produce') return ok({ schedules: [], records: [] });
     if (path === '/portal/me/farms/f1/feeding') return ok({ plans: [] });
     if (path === '/portal/me/farms/f1/visit-requests') return ok({ requests: [] });
-    if (path === '/portal/me/farms/f1/medical') return ok({ treatments: [], visits: [], withdrawals: [] });
+    if (path === '/portal/me/farms/f1/medical') return ok({ tier: 'FULL', linkedClinicId: null, treatments: [], clinical: [], withholding: [], spentOnHealth: 0, contacts: [] });
+    if (path === '/portal/me/farm-clinics') { const unavailable = [{ id: 'c9', name: 'Westlands Paws Vet Clinic', city: 'Nairobi', phone: '0700 000 000' }]; return ok({ clinics: [], unavailable, invitedClinicIds: invited, filtered: 1 }); }
+    if (path === '/portal/me/farms/f1/clinic-invites') return ok({ invites: invited.map((id) => ({ id: 'i1', clinicId: id, clinicName: 'Westlands Paws Vet Clinic', askedAt: new Date().toISOString() })) });
     if (path === '/portal/me/plan') return ok({ package: null });
     // Everything else the shell polls (messages, invoices, notifications…): empty but well-formed.
     unmocked.push(path);

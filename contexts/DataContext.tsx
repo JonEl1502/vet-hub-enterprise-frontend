@@ -235,6 +235,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       window.dispatchEvent(new CustomEvent('vethub:stream', { detail: e }));
       if (e.type === 'message.new') toast('💬 New portal message from a client');
       else if (e.type === 'booking.requested') toast('📅 New booking request from the portal');
+      else if (e.type === 'farm.invite') toast('🌾 A farmer asked your clinic to join Farms');
     });
     return close;
     // eslint-disable-next-line react-hooks/exhaustive-deps
