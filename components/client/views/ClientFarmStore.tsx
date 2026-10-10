@@ -30,9 +30,14 @@ export const FarmStoreCard: React.FC<{ farmId: string }> = ({ farmId }) => {
     <section>
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-xs font-black uppercase tracking-widest text-slate-500">Store</h3>
-        <button className="text-[10px] font-black uppercase tracking-widest cp-accent-text" onClick={() => navigate('/client/farm/store')}>
-          {items.length ? 'Open store' : '+ Set up'}
-        </button>
+        <div className="flex items-center gap-3">
+          {items.length > 0 && (
+            <button className="text-[10px] font-black uppercase tracking-widest cp-accent-text" onClick={() => navigate('/client/farm/store')}>Open store</button>
+          )}
+          <button className="text-[10px] font-black uppercase tracking-widest cp-accent-text" onClick={() => navigate('/client/farm/store')} data-testid="store-add-link">
+            + Add item
+          </button>
+        </div>
       </div>
       {items.length === 0 ? (
         <button className="cp-card p-4 w-full text-left" onClick={() => navigate('/client/farm/store')}>
@@ -228,6 +233,12 @@ const ClientFarmStore: React.FC = () => {
           </div>
         </section>
       ))}
+
+      {items.length > 0 && (
+        <button className="cp-btn w-full !py-3 flex items-center justify-center gap-2" onClick={() => open({ kind: 'ADD' })} data-testid="add-item-bottom">
+          <Plus size={16} /> Add item to store
+        </button>
+      )}
 
       {dialog?.kind === 'ADD' && (
         <CpModal title="Add to store" onClose={() => setDialog(null)}>

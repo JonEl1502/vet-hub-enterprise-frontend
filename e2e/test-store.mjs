@@ -10,6 +10,7 @@ const last = (re) => [...posts].reverse().find((p) => re.test(p.path));
 
 // ── home card ──
 await go('/client/farm');
+check('home Store card has a visible "+ Add item" link', await page.getByTestId('store-add-link').isVisible());
 check('home shows the Store card with the item and balance', await page.getByText('Dairy meal').first().isVisible() && await page.getByText('100 kg').first().isVisible());
 
 // ── store page ──
@@ -30,7 +31,8 @@ check('purchase posts 2 × BAG_50 with the price', p?.body?.quantity === 2 && p?
 check('balance is now 200 kg', await page.getByText('200 kg').first().isVisible());
 
 // new item: hay in bales (asks for kg per bale)
-await page.getByRole('button', { name: 'Add item' }).click();
+check('a second "Add item to store" button sits under the list', await page.getByTestId('add-item-bottom').isVisible());
+await page.getByRole('button', { name: 'Add item', exact: true }).click();
 await page.getByPlaceholder(/Dairy meal, Hay/).fill('Hay');
 await page.getByRole('button', { name: 'Hay & forage', exact: true }).click();
 await page.getByRole('button', { name: 'Add and enter stock' }).click(); await page.waitForTimeout(700);
