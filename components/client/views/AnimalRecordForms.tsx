@@ -41,7 +41,7 @@ export const remember = (kind: string, animalId: string, value: string) => {
   try { localStorage.setItem(memKey(kind, animalId), value); } catch { /* fine */ }
 };
 
-const Chip: React.FC<{ active?: boolean; onClick: () => void; children: React.ReactNode; testId?: string }> = ({ active, onClick, children, testId }) => (
+export const Chip: React.FC<{ active?: boolean; onClick: () => void; children: React.ReactNode; testId?: string }> = ({ active, onClick, children, testId }) => (
   <button
     type="button"
     onClick={onClick}
@@ -57,7 +57,7 @@ const Chip: React.FC<{ active?: boolean; onClick: () => void; children: React.Re
   </button>
 );
 
-const WhenRow: React.FC<{ date: string; onDate: (d: string) => void; children?: React.ReactNode }> = ({ date, onDate, children }) => (
+export const WhenRow: React.FC<{ date: string; onDate: (d: string) => void; children?: React.ReactNode }> = ({ date, onDate, children }) => (
   <div>
     <div className="flex items-center justify-between gap-2 mb-1">
       <label className="cp-label !mb-0" htmlFor="rec-date">When</label>
@@ -72,11 +72,11 @@ const WhenRow: React.FC<{ date: string; onDate: (d: string) => void; children?: 
   </div>
 );
 
-const onEnter = (fn: () => void) => (e: React.KeyboardEvent) => {
+export const onEnter = (fn: () => void) => (e: React.KeyboardEvent) => {
   if (e.key === 'Enter') { e.preventDefault(); fn(); }
 };
 
-const SubmitButton: React.FC<{ saving: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }> = ({ saving, disabled, onClick, children }) => (
+export const SubmitButton: React.FC<{ saving: boolean; disabled?: boolean; onClick: () => void; children: React.ReactNode }> = ({ saving, disabled, onClick, children }) => (
   <button type="button" className="cp-btn w-full min-h-[48px]" onClick={onClick} disabled={saving || disabled} data-testid="record-submit">
     {saving ? 'Saving…' : children}
   </button>

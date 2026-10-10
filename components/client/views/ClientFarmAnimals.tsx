@@ -18,14 +18,17 @@ import {
 } from 'lucide-react';
 import {
   clientPortalAPI, FARM_SPECIES,
-  type FarmAnimal, type PortalAnimalGroup, type AnimalFeedingLog, type AnimalProduceRecord,
+  type FarmAnimal, type AnimalSummary, type PortalAnimalGroup, type AnimalFeedingLog, type AnimalProduceRecord,
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
 import CpPage from '../CpPage';
 import CpPickOrType from '../CpPickOrType';
 import { speciesConfig, purposeLabel } from './farmSpecies';
-import { WeighForm, FeedForm, ProduceForm } from './AnimalRecordForms';
+import { WeighForm, ProduceForm } from './AnimalRecordForms';
+import FeedFromStoreForm from './FeedFromStoreForm';
+import AnimalHero from './AnimalHero';
+import AnimalBreeding from './AnimalBreeding';
 
 const STATUS_TONE: Record<string, string> = {
   ACTIVE: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-400/10 dark:text-emerald-300',
@@ -82,8 +85,11 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
   const [feeding, setFeeding] = useState<FarmAnimal | null>(null);
   const [producing, setProducing] = useState<FarmAnimal | null>(null);
 
+  const [summary, setSummary] = useState<AnimalSummary | null>(null);
+
   useEffect(() => {
-    if (!detail) { setFeedingLogs([]); setProduceRecords([]); return; }
+    if (!detail) { setFeedingLogs([]); setProduceRecords([]); setSummary(null); return; }
+    clientPortalAPI.animalSummary(detail.id).then((r) => { if (r.success && r.data) setSummary(r.data); });
     clientPortalAPI.listAnimalFeedingLogs(detail.id).then((r) => { if (r.success && r.data) setFeedingLogs(r.data.logs); });
     clientPortalAPI.listAnimalProduceRecords(detail.id).then((r) => { if (r.success && r.data) setProduceRecords(r.data.records); });
   }, [detail?.id]);
@@ -400,7 +406,15 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
       {/* ── Daily feeding ─────────────────────────────────────────────────── */}
       {feeding && (
         <CpModal title={`Feed ${feeding.name}`} onClose={() => setFeeding(null)}>
-          <FeedForm animal={feeding} saving={saving} onSubmit={saveFeeding} />
+          <FeedFromStoreForm
+            farmId={farmId} groups={groups} animals={animals} isFull animal={feeding}
+            onDone={async () => {
+              const id = feeding.id;
+              setFeeding(null);
+              const logsR = await clientPortalAPI.listAnimalFeedingLogs(id);
+              if (logsR.success && logsR.data) setFeedingLogs(logsR.data.logs);
+            }}
+          />
         </CpModal>
       )}
 
@@ -515,12 +529,21 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
               </div>
             </div>
           ) : (
-          <p className="text-xs text-slate-500">
-            {[detail.species, detail.breed,
+          <AnimalHero
+            animal={detail}
+            subtitle={[detail.species, detail.breed,
               detail.sex === 'MALE' ? dc.maleLabel : detail.sex === 'FEMALE' ? dc.femaleLabel : null,
               ageOf(detail.dob, detail.dobIsApprox)].filter(Boolean).join(' · ')}
-            {detail.tagNumber && <span className="ml-1 inline-flex items-center gap-0.5"><Tag size={10} />{detail.tagNumber}</span>}
-          </p>
+            chips={(
+              <>
+                {detail.isPregnant && <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-amber-500 text-white flex items-center gap-1"><Baby size={10} />{dc.pregnantLabel}</span>}
+                {detail.isLactating && <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-sky-500 text-white flex items-center gap-1"><Milk size={10} />{dc.lactatingLabel}</span>}
+                {detail.purpose && <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-white/20 backdrop-blur text-white">{purposeLabel(detail.purpose)}</span>}
+                {detail.status !== 'ACTIVE' && <span className="px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-rose-500 text-white">{detail.status}</span>}
+              </>
+            )}
+            onChanged={async () => { const r = await clientPortalAPI.getFarmAnimal(detail.id); if (r.success && r.data) { setDetail(r.data.animal); load(); } }}
+          />
           )}
           {!editing && detail.dobIsApprox && detail.dob && (
             <p className="text-[10px] text-slate-400">Age is approximate — taken from what you told us, not a birth date.</p>
@@ -533,29 +556,15 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
             const dcfg = speciesConfig(detail.species);
             return (
               <>
-                <div className="flex flex-wrap gap-1.5">
-                  {dcfg.pregnancy && (
-                    <button
-                      className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${detail.isPregnant ? 'bg-amber-500 text-white border-amber-500' : 'bg-white dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700'}`}
-                      onClick={() => setFlag(detail, { isPregnant: !detail.isPregnant })}
-                    >
-                      <Baby size={11} className="inline mr-1" />{dcfg.pregnantLabel}
-                    </button>
-                  )}
-                  {dcfg.lactation && (
-                    <button
-                      className={`px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border ${detail.isLactating ? 'bg-sky-500 text-white border-sky-500' : 'bg-white dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700'}`}
-                      onClick={() => setFlag(detail, { isLactating: !detail.isLactating })}
-                    >
-                      <Milk size={11} className="inline mr-1" />{dcfg.lactatingLabel}
-                    </button>
-                  )}
-                  {detail.purpose && (
-                    <span className="px-2.5 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400">
-                      {purposeLabel(detail.purpose)}
-                    </span>
-                  )}
-                </div>
+                <AnimalBreeding
+                  animal={detail}
+                  cfg={dcfg}
+                  onChanged={async (fresh) => {
+                    if (fresh) setDetail(fresh);
+                    else { const r = await clientPortalAPI.getFarmAnimal(detail.id); if (r.success && r.data) setDetail(r.data.animal); }
+                    load(); onChanged?.();
+                  }}
+                />
                 {dcfg.laying && (
                   <div>
                     <label className="cp-label">Laying since</label>
@@ -573,6 +582,23 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
               </>
             );
           })()}
+
+          {summary && (
+            <div className="grid grid-cols-3 gap-2" data-testid="animal-totals">
+              <div className="cp-card p-3 text-center">
+                <p className="text-lg font-black tabular-nums text-slate-800 dark:text-zinc-100">{summary.feed.kg30d}<span className="text-[10px] font-bold text-slate-400"> kg</span></p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Fed · 30 days</p>
+              </div>
+              <div className="cp-card p-3 text-center">
+                <p className="text-lg font-black tabular-nums text-slate-800 dark:text-zinc-100">{summary.milk.litres30d}<span className="text-[10px] font-bold text-slate-400"> L</span></p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Milk · 30 days</p>
+              </div>
+              <div className="cp-card p-3 text-center">
+                <p className="text-lg font-black tabular-nums text-slate-800 dark:text-zinc-100">{detail.weightValue ?? '—'}<span className="text-[10px] font-bold text-slate-400"> {detail.weightValue != null ? detail.weightUnit : ''}</span></p>
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Weight</p>
+              </div>
+            </div>
+          )}
 
           <div className="cp-card p-3.5">
             <div className="flex items-center justify-between gap-2">
@@ -966,6 +992,13 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
                   onClick={() => openDetail(a)}
                   className="w-full text-left flex items-center gap-3 px-3.5 sm:px-4 py-2.5 hover:bg-slate-50/70 dark:hover:bg-white/[0.03] transition-colors"
                 >
+                  {a.avatarUrl ? (
+                    <img src={a.avatarUrl} alt="" className="w-10 h-10 rounded-xl object-cover shrink-0" loading="lazy" />
+                  ) : (
+                    <span className="w-10 h-10 rounded-xl shrink-0 bg-gradient-to-br from-[#f79b70] to-[#e56a3c] text-white/90 flex items-center justify-center text-sm font-black">
+                      {a.name.slice(0, 1).toUpperCase()}
+                    </span>
+                  )}
                   <div className="min-w-0 flex-1">
                     <p className="text-[13px] font-bold text-slate-800 dark:text-zinc-100 truncate flex items-center gap-1.5">
                       {a.name}

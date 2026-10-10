@@ -2,7 +2,7 @@
  * VetHubCore Livestock API — farms, herds/flocks, crop plots, feeding, produce.
  * Backed by migration 109; the whole module is gated on `livestock:farms`.
  */
-import { get, post, put, del } from '../api/client';
+import { get, post, put, patch, del } from '../api/client';
 import { ApiResponse } from '../api/types';
 
 export type FarmType = 'LIVESTOCK' | 'CROP' | 'MIXED';
@@ -288,7 +288,22 @@ const qs = (params: Record<string, any>) => {
   return s ? `?${s}` : '';
 };
 
+export interface ClinicFarmReminder {
+  id: string; farmId: string; farmAnimalId: string | null; animalName: string | null;
+  farmName: string | null; ownerName: string | null;
+  kind: string; title: string; notes: string | null; dueOn: string; status: string; source: 'SYSTEM' | 'CLINIC';
+}
+
 export const livestockAPI = {
+  /** Upcoming due / dry-off dates on farms linked to this clinic, and advice it has left. */
+  listFarmReminders: (): Promise<ApiResponse<{ reminders: ClinicFarmReminder[] }>> =>
+    get(`${BASE}/farm-reminders`, { cache: false, silent: true } as any),
+  /** Leave advice or a follow-up for the farmer. */
+  addFarmReminder: (data: { farmId: string; farmAnimalId?: string; title: string; notes?: string; dueOn?: string }): Promise<ApiResponse<{ reminder: ClinicFarmReminder }>> =>
+    post(`${BASE}/farm-reminders`, data),
+  setFarmReminderStatus: (id: string, status: 'DONE' | 'DISMISSED'): Promise<ApiResponse<{ ok: boolean }>> =>
+    patch(`${BASE}/farm-reminders/${id}`, { status }),
+
   dashboard: (): Promise<ApiResponse<LivestockDashboard>> =>
     get(`${BASE}/dashboard`, { cache: false }),
 

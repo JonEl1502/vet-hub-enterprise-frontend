@@ -22,6 +22,8 @@ import {
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
+import FarmRemindersCard from './FarmRemindersCard';
+import { FarmStoreCard } from './ClientFarmStore';
 import ClientFarmRecords from './ClientFarmRecords';
 import { useFarmerPlan } from '../useFarmerPlan';
 
@@ -338,6 +340,10 @@ const ClientFarms: React.FC = () => {
           groupLimit={holdings?.groupLimit ?? 3}
         />
       )}
+
+      {/* Store — what is on hand, and what is running low. Both rungs. */}
+      {active && <FarmRemindersCard farmId={active.id} clinicLinked={!!active.clinic} />}
+      {active && <FarmStoreCard farmId={active.id} />}
 
       {/* Feeding — the daily action, first. PAID (livestock:farms). */}
       {isFull && (

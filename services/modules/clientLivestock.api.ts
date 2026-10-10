@@ -91,6 +91,11 @@ export interface ClientFarmAnimal {
   isPregnant: boolean;
   isLactating: boolean;
   expectedDueOn: string | null;
+  repro?: {
+    dueOn: string | null; dueIsEstimate: boolean; daysToDue: number | null; daysPregnant: number | null;
+    dryOffOn: string | null; dryOffInDays: number | null; nextMilkingOn: string | null;
+    daysInMilk: number | null; driedOffOn: string | null; breedingMethod: string | null;
+  };
   status: 'ACTIVE' | 'SOLD' | 'DIED' | 'CULLED' | 'LOST';
   exitedOn: string | null;
   exitNote: string | null;

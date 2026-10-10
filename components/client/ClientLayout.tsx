@@ -4,7 +4,7 @@ import {
   Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus, Sprout, Beef,
   Stethoscope, UserRound,
   Settings, LogOut, Sun, Moon, Monitor, ChevronDown, Sparkles, Users,
-  type LucideIcon, Store, Wheat, Milk, LayoutGrid,
+  type LucideIcon, Store, Package, Wheat, Milk, LayoutGrid,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useThemeMode, type ThemeMode } from '../../hooks/useThemeMode';
@@ -60,6 +60,7 @@ const PET_NAV: NavTab[] = [
 const FARM_NAV: NavTab[] = [
   { to: '/client/farm', end: true, label: 'My Farm', icon: Sprout },
   { to: '/client/farm/animals', label: 'Animals', icon: Beef },
+  { to: '/client/farm/store', label: 'Store', icon: Package },
   { to: '/client/farm/medical', label: 'Medical', icon: Stethoscope },
   // 296 — animals and produce, farmer to farmer.
   { to: '/client/market', label: 'Market', icon: Store },
@@ -80,7 +81,7 @@ const FARM_NAV: NavTab[] = [
  */
 const FARM_BAR_LEFT = ['/client/farm', '/client/farm/animals'];
 const FARM_BAR_RIGHT = ['/client/farm/medical'];
-const FARM_MORE = ['/client/market', '/client/messages', '/client/community', '/client/settings'];
+const FARM_MORE = ['/client/farm/store', '/client/market', '/client/messages', '/client/community', '/client/settings'];
 
 const ClientLayout: React.FC = () => {
   const { user, logout } = useAuth();

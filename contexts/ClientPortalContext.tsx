@@ -121,6 +121,9 @@ export const ClientPortalProvider: React.FC<{ children: ReactNode }> = ({ childr
         const subj = e.payload?.subject;
         // Broadcasts carry a subject → show it; direct messages don't.
         toast.info(subj ? `📣 ${subj}` : '💬 New message from your clinic');
+      } else if (e.type === 'farm.reminder') {
+        window.dispatchEvent(new CustomEvent('vethub:farm-reminder'));
+        toast.info('🌾 Your clinic left a note for your farm');
       } else if (e.type === 'booking.updated') {
         refreshAppointments();
         const status = String(e.payload?.status || '').toLowerCase();

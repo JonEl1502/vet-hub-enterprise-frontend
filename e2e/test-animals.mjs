@@ -53,31 +53,23 @@ await submit().click(); await page.waitForTimeout(700);
 p = lastPost(/weights$/);
 check('weight: back-dated entry sends weighedOn=yesterday', p?.body?.weighedOn === yesterday() && p?.body?.weightValue === 490, JSON.stringify(p?.body));
 
-// ═════════ FEEDING ═════════
+// ═════════ FEEDING (from the store) ═════════
 await openRecord('Feeding');
 await shot(page, '12-feeding-form');
 check('feeding: title "Feed Bika"', await page.getByText('Feed Bika').isVisible());
-check('feeding: decimal keypad', (await page.locator('#rec-feed-qty').getAttribute('inputmode')) === 'decimal');
-for (const k of ['1 kg', '2 kg', '5 kg', '10 kg']) check(`feeding: quick quantity "${k}"`, await page.getByRole('button', { name: k, exact: true }).isVisible());
-for (const t of ['Napier', 'Hay', 'Dairy meal', 'Silage']) check(`feeding: cattle feed type "${t}"`, await page.getByRole('button', { name: t, exact: true }).isVisible());
-check('feeding: no "same as last" before the first record', (await page.getByTestId('feed-same').count()) === 0);
-await page.getByRole('button', { name: '5 kg', exact: true }).click();
-await page.getByRole('button', { name: 'Napier', exact: true }).click();
+check('feeding: the store item is offered with its balance', await page.getByRole('button', { name: /Dairy meal · 100 kg/ }).isVisible());
+for (const u of ['kg', '20 kg bag', '50 kg bag', '100 kg bag', 'Bale']) check(`feeding: can enter in "${u}"`, await page.getByRole('button', { name: u, exact: true }).isVisible());
+await page.locator('#feed-store-qty').fill('5');
 await page.getByRole('button', { name: 'Morning', exact: true }).click();
-check('feeding: picking a feed fills the text box', (await page.locator('#rec-feed-type').inputValue()) === 'Napier');
-await submit().click(); await page.waitForTimeout(700);
-p = lastPost(/feeding-logs$/);
-check('feeding: sends quantity 5, notes "Napier"', p?.body?.quantityKg === 5 && p?.body?.notes === 'Napier', JSON.stringify(p?.body));
-check('feeding: sends a time for "Morning" (06:30 local)', !!p?.body?.fedAt && new Date(p.body.fedAt).getHours() === 6 && new Date(p.body.fedAt).getMinutes() === 30, JSON.stringify(p?.body));
-await page.waitForTimeout(300);
+await page.getByTestId('record-submit').click(); await page.waitForTimeout(700);
+p = lastPost(/stock\/use$/);
+check('feeding: posts to the store with item, qty and unit', p?.body?.itemId === 's1' && p?.body?.quantity === 5 && p?.body?.unit === 'KG', JSON.stringify(p?.body));
+check('feeding: targets THIS animal', p?.body?.farmAnimalId === 'a1', JSON.stringify(p?.body));
+check('feeding: sends a time for "Morning" (06:30 local)', !!p?.body?.fedAt && new Date(p.body.fedAt).getHours() === 6, JSON.stringify(p?.body));
+await page.waitForTimeout(400);
 const feedText = await section('Feeding').innerText();
-check('feeding: the list now shows the feed and amount', /Napier/.test(feedText) && /5kg/.test(feedText), feedText);
+check('feeding: the list now shows the feed and amount', /Dairy meal/.test(feedText) && /5kg/.test(feedText), feedText);
 await shot(page, '13-feeding-recorded');
-await openRecord('Feeding');
-check('feeding: "Same as last · 5 kg" now offered', await page.getByTestId('feed-same').isVisible());
-await page.locator('#rec-feed-qty').fill('3.5'); await page.locator('#rec-feed-qty').press('Enter'); await page.waitForTimeout(600);
-p = lastPost(/feeding-logs$/);
-check('feeding: quantity alone is enough (type & time optional)', p?.body?.quantityKg === 3.5 && !('notes' in p.body) && !('fedAt' in p.body), JSON.stringify(p?.body));
 
 // ═════════ PRODUCE ═════════
 await openRecord('Produce');

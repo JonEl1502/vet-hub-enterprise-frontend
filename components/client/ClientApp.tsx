@@ -15,6 +15,7 @@ import ClientFarms from './views/ClientFarms';
 import ClientFarmAnimalsPage from './views/ClientFarmAnimalsPage';
 import ClientMarket from './views/ClientMarket';
 import ClientFarmMedical from './views/ClientFarmMedical';
+import ClientFarmStore from './views/ClientFarmStore';
 import ClientPetProfile from './views/ClientPetProfile';
 import ClientVisits from './views/ClientVisits';
 import ClientVisitDetail from './views/ClientVisitDetail';
@@ -94,6 +95,7 @@ const ClientApp: React.FC = () => {
           {/* Medical is also where "Visits" went — a farm visit is a medical
               event and belongs beside the treatments it produces. */}
           <Route path="farm/medical" element={<ClientFarmMedical />} />
+          <Route path="farm/store" element={<ClientFarmStore />} />
           {/* 296 — the marketplace. Server-gated on `client:marketplace`, and
               the tab STAYS in the rail for a farmer who has not bought it: the
               view sells the add-on rather than 403ing or vanishing. */}

@@ -25,13 +25,14 @@ import {
 } from 'lucide-react';
 import {
   clientPortalAPI, LEDGER_CATEGORIES, VENDOR_CATEGORIES,
-  type PortalAnimalGroup, type PortalLedgerEntry, type PortalFarmSummary, type PortalVendor,
+  type PortalAnimalGroup, type FarmAnimal, type PortalLedgerEntry, type PortalFarmSummary, type PortalVendor,
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
 import CpPage from '../CpPage';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { speciesConfig, purposeLabel } from './farmSpecies';
+import FeedFromStoreForm from './FeedFromStoreForm';
 
 const KES = (n: number) =>
   `KES ${Math.round(n).toLocaleString('en-KE')}`;
@@ -66,7 +67,7 @@ const QUICK_TIMES = [
 /** The four things a farmer actually does, in the order they do them. */
 const SHEETS = [
   { key: 'FEED', label: 'Fed them', icon: Wheat, tone: 'amber',
-    hint: 'What you gave them, how much it cost' },
+    hint: 'What you fed, to whom, and how much — from your store' },
   { key: 'MILK_SALE', label: 'Milk & produce', icon: Milk, tone: 'sky',
     hint: 'What came off the farm, and what you sold it for' },
   { key: 'LIVESTOCK_SALE', label: 'Sold', icon: Coins, tone: 'emerald',
@@ -230,6 +231,12 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
   const [entries, setEntries] = useState<PortalLedgerEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  // Named animals, only to offer "one animal" in the feeding form (Farmer plan).
+  const [feedAnimals, setFeedAnimals] = useState<FarmAnimal[]>([]);
+  useEffect(() => {
+    if (tier !== 'FULL') { setFeedAnimals([]); return; }
+    clientPortalAPI.listFarmAnimals(farmId).then((r) => { if (r.success && r.data) setFeedAnimals(r.data.animals); }).catch(() => {});
+  }, [farmId, tier]);
 
   // One sheet, driven by whichever of the four buttons was pressed.
   const [sheet, setSheet] = useState<string | null>(null);
@@ -490,6 +497,15 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
 
   /* The record sheet is the portal's most-used form. It gets the shell,
      the rail and a lit tab, like every other page. */
+  if (sheet === 'FEED' && sheetDef) {
+    return (
+      <CpPage title="Fed them" onBack={() => setSheet(null)}>
+        <FeedFromStoreForm farmId={farmId} groups={groups} animals={feedAnimals} isFull={tier === 'FULL'}
+          onDone={() => { setSheet(null); load(); }} />
+      </CpPage>
+    );
+  }
+
   if (sheet && sheetDef) {
     return (
       <CpPage title={sheetDef.label} onBack={() => setSheet(null)}>

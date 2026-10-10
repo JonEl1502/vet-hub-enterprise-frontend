@@ -353,6 +353,28 @@ export const ADMINISTERED_BY = [
   { key: 'AGROVET', label: 'The agrovet' },
 ];
 
+
+// ── Farm store (backend 316) ─────────────────────────────────────────────────
+export type StockCategory = 'FEED' | 'FORAGE' | 'SALT' | 'MINERAL' | 'WATER' | 'CALF_MILK' | 'DRUG' | 'SUPPLY';
+export type StockBaseUnit = 'KG' | 'L' | 'PCS';
+export interface FarmStockItem {
+  id: string; farmId: string; name: string; category: StockCategory; baseUnit: StockBaseUnit;
+  baleKg: number | null; quantity: number; minThreshold: number; low: boolean; empty: boolean;
+  notes: string | null; updatedAt: string;
+}
+export interface FarmStockMovement {
+  id: string; itemId: string; kind: 'PURCHASE' | 'USE' | 'ADJUST'; quantity: number;
+  enteredQty: number | null; enteredUnit: string | null; farmAnimalId: string | null;
+  animalGroupId: string | null; note: string | null; occurredAt: string;
+}
+
+export interface FarmReminder {
+  id: string; farmId: string; farmAnimalId: string | null; animalName: string | null;
+  kind: 'DUE_SOON' | 'DRY_OFF' | 'LOW_STOCK' | 'ADVICE' | string;
+  title: string; notes: string | null; dueOn: string; status: string;
+  source: 'SYSTEM' | 'CLINIC'; fromClinic?: string | null;
+}
+
 export interface FarmMedical {
   tier: 'NONE' | 'BASIC' | 'FULL';
   linkedClinicId: string | null;
@@ -366,6 +388,22 @@ export interface FarmMedical {
 }
 
 /** ⚠️ A farm animal is NOT a pet and must never be called one (user, 2026-08-29). */
+export interface AnimalRepro {
+  gestationDays: number | null;
+  /** Days before calving a milking animal is dried off (null = not milked as a rule). */
+  dryOffDays: number | null;
+  pregnantSince: string | null; daysPregnant: number | null;
+  dueOn: string | null; dueIsEstimate: boolean; daysToDue: number | null;
+  /** When to stop milking, and when milking starts again (at calving). */
+  dryOffOn: string | null; dryOffInDays: number | null; nextMilkingOn: string | null;
+  daysInMilk: number | null; lactatingSince: string | null; driedOffOn: string | null;
+  breedingMethod: 'NATURAL' | 'AI' | 'UNKNOWN' | null;
+}
+export interface AnimalSummary {
+  feed: { kg30d: number; byItem: { name: string; kg: number }[] };
+  milk: { litres30d: number; litres7d: number; perDay7d: number };
+}
+
 export interface FarmAnimal {
   id: string;
   farmId: string;
@@ -392,6 +430,9 @@ export interface FarmAnimal {
   isPregnant: boolean;
   isLactating: boolean;
   expectedDueOn: string | null;
+  /** Derived server-side from the service date + species (317). */
+  repro?: AnimalRepro;
+  photos?: { id: string; url: string; caption: string | null; createdAt: string }[];
   status: 'ACTIVE' | 'SOLD' | 'DIED' | 'CULLED' | 'LOST';
   exitedOn: string | null;
   exitNote: string | null;
@@ -819,6 +860,43 @@ export const clientPortalAPI = {
    */
   farmClinicOptions: (q: string, farmId?: string, options?: RequestOptions): Promise<ApiResponse<{ clinics: PortalClinic[]; unavailable: PortalClinic[]; invitedClinicIds: string[]; filtered: number }>> =>
     get(`/portal/me/farm-clinics?q=${encodeURIComponent(q)}${farmId ? `&farmId=${farmId}` : ''}`, { cache: false, silent: true, ...options }),
+
+
+  // ── Farm reminders (318) ──
+  listFarmReminders: (farmId: string, options?: RequestOptions): Promise<ApiResponse<{ reminders: FarmReminder[] }>> =>
+    get(`/portal/me/farms/${farmId}/reminders`, { cache: false, silent: true, ...options }),
+  setFarmReminderStatus: (id: string, status: 'DONE' | 'DISMISSED', options?: RequestOptions): Promise<ApiResponse<{ ok: boolean }>> =>
+    patch(`/portal/me/farm-reminders/${id}`, { status }, { showError: true, ...options }),
+
+  // ── Animal page extras (317) ──
+  animalPhotoUploadUrl: (animalId: string, data: { contentType: string; filename?: string; sizeBytes?: number }, options?: RequestOptions): Promise<ApiResponse<{ uploadUrl: string; publicUrl: string; key: string }>> =>
+    post(`/portal/me/farm-animals/${animalId}/photos/upload-url`, data, { showError: true, ...options }),
+  addAnimalPhoto: (animalId: string, data: { url: string; caption?: string }, options?: RequestOptions): Promise<ApiResponse<{ photo: { id: string; url: string; caption: string | null; createdAt: string } }>> =>
+    post(`/portal/me/farm-animals/${animalId}/photos`, data, { showError: true, ...options }),
+  setAnimalPhotoCover: (photoId: string, options?: RequestOptions): Promise<ApiResponse<{ ok: boolean }>> =>
+    post(`/portal/me/farm-animal-photos/${photoId}/cover`, {}, { showError: true, ...options }),
+  deleteAnimalPhoto: (photoId: string, options?: RequestOptions): Promise<ApiResponse<{ ok: boolean }>> =>
+    del(`/portal/me/farm-animal-photos/${photoId}`, { showError: true, ...options }),
+  recordAnimalCalving: (animalId: string, data: { date?: string }, options?: RequestOptions): Promise<ApiResponse<{ ok: boolean; calvedOn: string }>> =>
+    post(`/portal/me/farm-animals/${animalId}/calved`, data, { showError: true, ...options }),
+  animalSummary: (animalId: string, options?: RequestOptions): Promise<ApiResponse<AnimalSummary>> =>
+    get(`/portal/me/farm-animals/${animalId}/summary`, { cache: false, silent: true, ...options }),
+
+  // ── Farm store (316) ──
+  listFarmStock: (farmId: string, options?: RequestOptions): Promise<ApiResponse<{ items: FarmStockItem[]; lowCount: number }>> =>
+    get(`/portal/me/farms/${farmId}/stock`, { cache: false, silent: true, ...options }),
+  createFarmStockItem: (farmId: string, data: { name: string; category: StockCategory; baseUnit?: StockBaseUnit; baleKg?: number | null; minThreshold?: number | null }, options?: RequestOptions): Promise<ApiResponse<{ item: FarmStockItem }>> =>
+    post(`/portal/me/farms/${farmId}/stock/items`, data, { showError: true, ...options }),
+  updateFarmStockItem: (itemId: string, data: { name?: string; baleKg?: number | null; minThreshold?: number; isActive?: boolean }, options?: RequestOptions): Promise<ApiResponse<{ item: FarmStockItem }>> =>
+    patch(`/portal/me/farm-stock/${itemId}`, data, { showError: true, ...options }),
+  purchaseFarmStock: (itemId: string, data: { quantity: number; unit: string; amount?: number | null; vendorName?: string; date?: string }, options?: RequestOptions): Promise<ApiResponse<{ item: FarmStockItem }>> =>
+    post(`/portal/me/farm-stock/${itemId}/purchase`, data, { showError: true, ...options }),
+  adjustFarmStock: (itemId: string, data: { quantity: number; unit: string }, options?: RequestOptions): Promise<ApiResponse<{ item: FarmStockItem }>> =>
+    post(`/portal/me/farm-stock/${itemId}/adjust`, data, { showError: true, ...options }),
+  useFarmStock: (farmId: string, data: { itemId: string; quantity: number; unit: string; animalGroupId?: string; farmAnimalId?: string; fedAt?: string; notes?: string }, options?: RequestOptions): Promise<ApiResponse<{ item: FarmStockItem; ranShort: boolean; shortBy: number }>> =>
+    post(`/portal/me/farms/${farmId}/stock/use`, data, { showError: true, ...options }),
+  farmStockMovements: (itemId: string, options?: RequestOptions): Promise<ApiResponse<{ movements: FarmStockMovement[] }>> =>
+    get(`/portal/me/farm-stock/${itemId}/movements`, { cache: false, silent: true, ...options }),
 
   /** Ask a clinic that is not on Farms yet to join and connect. Idempotent. */
   inviteClinicToFarms: (farmId: string, clinicId: string, options?: RequestOptions): Promise<ApiResponse<{ clinicId: string; clinicName: string; status: string; alreadyAsked: boolean }>> =>

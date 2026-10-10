@@ -80,8 +80,15 @@ const AnimalRow: React.FC<{ a: ClientFarmAnimal; clientId: string }> = ({ a, cli
           {a.weightValue != null && (
             <span className="inline-flex items-center gap-1"><Scale size={10} /> {a.weightValue}{a.weightUnit} ({fmtDate(a.weighedOn)})</span>
           )}
-          {a.isPregnant && <span className="text-pink-500 font-bold">Pregnant</span>}
-          {a.isLactating && <span className="text-sky-500 font-bold">Lactating</span>}
+          {a.isPregnant && (
+            <span className="text-pink-500 font-bold">
+              Pregnant{a.repro?.dueOn ? ` · due ${fmtDate(a.repro.dueOn)}${a.repro.dueIsEstimate ? ' (est.)' : ''}` : ''}
+            </span>
+          )}
+          {a.isPregnant && a.repro?.dryOffOn && (
+            <span className="text-amber-600 font-bold">Stop milking {fmtDate(a.repro.dryOffOn)}</span>
+          )}
+          {a.isLactating && <span className="text-sky-500 font-bold">Lactating{a.repro?.daysInMilk != null ? ` · day ${a.repro.daysInMilk}` : ''}</span>}
           {a.dob && <span>Born {fmtDate(a.dob)}{a.dobIsApprox ? ' (approx)' : ''}</span>}
         </div>
       </button>

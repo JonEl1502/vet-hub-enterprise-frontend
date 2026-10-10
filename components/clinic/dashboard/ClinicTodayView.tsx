@@ -9,6 +9,7 @@ import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker'
 import { usePartnerJobs } from '../partnerships/B2BJobsStats';
 import { Send, Users } from 'lucide-react';
 import FarmInviteNotice from './FarmInviteNotice';
+import FarmRemindersCard from './FarmRemindersCard';
 
 /**
  * The day the dashboard is pointed at. Structurally the role dashboards'
@@ -385,6 +386,7 @@ const ClinicTodayView: React.FC<Props> = ({ onOpenVisit, onOpenBookings, onOpenR
     <div className="space-y-4">
       {/* 1 · Conversion pulse — the day's numbers and conversion rates. */}
       <FarmInviteNotice />
+      <FarmRemindersCard />
 
       {scopeId != null && <ConversionPulse scopeId={scopeId} />}
 
