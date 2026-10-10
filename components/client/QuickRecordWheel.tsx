@@ -169,7 +169,7 @@ const QuickRecordWheel: React.FC<Props> = ({ actions, label = 'Record something'
               }}
             >
               <span className="absolute inset-0 p-2.5 transition-opacity duration-200" style={{ opacity: shown ? 0 : 1 }}>
-                <BrandMark title="" />
+                <BrandMark variant="v2" title="" />
               </span>
               <X size={26} className="absolute transition-opacity duration-200" style={{ opacity: shown ? 1 : 0, transform: 'rotate(-90deg)' }} />
             </button>
@@ -187,7 +187,7 @@ const QuickRecordWheel: React.FC<Props> = ({ actions, label = 'Record something'
         className={`cp-logo-mark w-14 h-14 rounded-2xl flex items-center justify-center -translate-y-6 border-4 active:scale-90 transition-transform ${open ? '' : 'qrw-idle'}`}
         style={{ borderColor: 'var(--cp-surface)' }}
       >
-        <span className="block w-full h-full p-2"><BrandMark title="" /></span>
+        <span className="block w-full h-full p-2"><BrandMark variant="v2" title="" /></span>
       </button>
     </>
   );

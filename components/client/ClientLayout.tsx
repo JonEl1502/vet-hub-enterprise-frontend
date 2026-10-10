@@ -224,7 +224,7 @@ const ClientLayout: React.FC = () => {
       <header className="cp-topnav shrink-0 z-20 flex items-center justify-between gap-2 px-4 sm:px-6 h-16">
         <div className="flex items-center gap-2.5 font-black text-lg min-w-0">
           <span className="cp-logo-mark w-9 h-9 rounded-xl flex items-center justify-center p-1 shrink-0">
-            <BrandMark title="VetHubCore" />
+            <BrandMark variant="v2" title="VetHubCore" />
           </span>
           <span className="truncate">VetHubCore</span>
         </div>
