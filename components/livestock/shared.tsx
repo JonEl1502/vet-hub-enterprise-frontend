@@ -3,26 +3,21 @@
  * (header + farm filter + list + create/edit modal), so the chrome lives here
  * and each view only describes its own fields.
  *
- * ⚠️ THESE ARE THE CLINIC APP'S CARDS, NOT A SECOND SET.
+ * ⚠️ THESE WEAR THE FARMER PORTAL'S LOOK (Phase D, user 2026-10-10).
  *
- * User, 2026-09-14: *"i dont like the farm ui in clinic/practitioner"* — the
- * farm pages sit inside the clinic shell, under the clinic's own sidebar, and
- * read as a different product once you are in them. Measured against
- * `components/clinic`, the divergence was narrow and specific: the clinic's
- * primary action is `bg-seafoam` (366 uses to pine's 163), its cards carry
- * `shadow-sm` (133 uses) and lift to `hover:border-seafoam/60`, and its empty
- * states are a dashed `border-slate-300` panel. This module had a pine primary,
- * one shadow in the entire file, and its own empty-state weight.
- *
- * So the fix is to ADOPT those classes rather than invent a third style. When
- * the clinic's idiom moves, this file follows it — it is not a parallel
- * design system and must never become one.
+ * History: on 2026-09-14 the user disliked the farm UI inside the clinic and
+ * these were aligned to the CLINIC's cards. On 2026-10-10 they asked for the
+ * practitioner side to "use the same UI design as the farmer side of VetHub
+ * Core". So the primitives now render the portal's `.cp-*` classes inside a
+ * `.farm-skin` panel (index.css shares one rule set between `.client-portal`
+ * and `.farm-skin`). A vet who opens a farmer's farm and the farmer looking at
+ * it see the same warm sand-and-coral pages. It is still ONE design system —
+ * never fork these classes.
  */
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Plus, X, Loader2, Warehouse } from 'lucide-react';
+import { Plus, X, Loader2, Sprout } from 'lucide-react';
 import type { Farm } from '../../services/modules/livestock.api';
-import PageHeader from '../shared/common/PageHeader';
 
 export const SPECIES = ['CATTLE', 'GOAT', 'SHEEP', 'POULTRY', 'PIG', 'RABBIT', 'FISH', 'CAMEL', 'DONKEY', 'OTHER'];
 export const PURPOSES = ['DAIRY', 'MEAT', 'LAYERS', 'BROILERS', 'BREEDING', 'WOOL', 'DRAUGHT', 'OTHER'];
@@ -35,14 +30,23 @@ export const LivestockPage: React.FC<{
   icon: any;
   actions?: React.ReactNode;
   children: React.ReactNode;
-}> = ({ title, subtitle, icon, actions, children }) => (
+}> = ({ title, subtitle, icon: Icon, actions, children }) => (
   <motion.div
     initial={{ opacity: 0, y: 16 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.35 }}
-    className="space-y-5 pb-20"
+    className="farm-skin space-y-5 mb-20"
   >
-    <PageHeader title={title} subtitle={subtitle} icon={icon} actions={actions} />
+    <div className="flex items-start justify-between gap-3 flex-wrap">
+      <div className="flex items-center gap-3 min-w-0">
+        {Icon && <span className="cp-icon-chip shrink-0"><Icon size={18} /></span>}
+        <div className="min-w-0">
+          <h2 className="text-xl font-black leading-tight" style={{ color: 'var(--cp-ink)' }}>{title}</h2>
+          <p className="text-xs cp-muted">{subtitle}</p>
+        </div>
+      </div>
+      {actions && <div className="flex items-center gap-2">{actions}</div>}
+    </div>
     {children}
   </motion.div>
 );
@@ -53,7 +57,7 @@ export const PrimaryButton: React.FC<{ onClick: () => void; children: React.Reac
   <button
     onClick={onClick}
     disabled={disabled}
-    className="px-4 py-2.5 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-2 shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95 disabled:opacity-40 transition-all"
+    className="cp-btn !py-2 !px-3.5 !text-xs"
   >
     <Plus size={14} /> {children}
   </button>
@@ -62,10 +66,10 @@ export const PrimaryButton: React.FC<{ onClick: () => void; children: React.Reac
 export const EmptyState: React.FC<{ icon: React.ElementType; title: string; hint: string }> = ({
   icon: Icon, title, hint,
 }) => (
-  <div className="rounded-2xl border border-dashed border-slate-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-10 text-center space-y-3">
-    <Icon size={24} className="mx-auto text-slate-300 dark:text-zinc-700" />
-    <p className="text-sm font-bold text-slate-600 dark:text-zinc-300">{title}</p>
-    <p className="text-xs text-slate-400 dark:text-zinc-500 max-w-sm mx-auto">{hint}</p>
+  <div className="cp-card p-10 text-center space-y-2" style={{ borderStyle: 'dashed' }}>
+    <Icon size={26} className="mx-auto cp-accent-text" />
+    <p className="text-sm font-black" style={{ color: 'var(--cp-ink)' }}>{title}</p>
+    <p className="text-xs cp-muted max-w-sm mx-auto">{hint}</p>
   </div>
 );
 
@@ -77,7 +81,7 @@ export const FarmFilter: React.FC<{
   allowAll?: boolean;
 }> = ({ farms, value, onChange, allowAll = true }) => (
   <div className="flex items-center gap-2">
-    <Warehouse size={14} className="text-slate-400 shrink-0" />
+    <Sprout size={14} className="cp-accent-text shrink-0" />
     <select className="field-select max-w-xs" value={value} onChange={(e) => onChange(e.target.value)}>
       {allowAll && <option value="">All farms</option>}
       {!allowAll && <option value="">Select a farm…</option>}
@@ -179,26 +183,20 @@ export const SegmentedFilter: React.FC<{
   onChange: (v: string) => void;
 }> = ({ options, value, onChange }) => (
   <div className="overflow-x-auto -mx-1 px-1">
-    <div className="inline-flex min-w-max bg-slate-100 dark:bg-zinc-800/60 p-1 rounded-xl">
+    <div className="inline-flex min-w-max gap-1.5">
       {options.map((o) => {
         const active = value === o.id;
         return (
           <button
             key={o.id}
             onClick={() => onChange(o.id)}
-            className={`px-3.5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-1.5 ${
-              active
-                ? 'bg-pine dark:bg-zinc-100 text-white dark:text-pine shadow-lg'
-                : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+            className={`px-3.5 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all whitespace-nowrap flex items-center gap-1.5 border ${
+              active ? 'cp-tab-on border-transparent' : 'bg-white dark:bg-zinc-800/50 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700'
             }`}
           >
             {o.label}
             {o.count != null && (
-              <span className={`px-1.5 py-0.5 rounded-md text-[9px] ${
-                active ? 'bg-white/20 dark:bg-pine/10' : 'bg-slate-200 dark:bg-zinc-800'
-              }`}>
-                {o.count}
-              </span>
+              <span className={`px-1.5 py-0.5 rounded-md text-[10px] ${active ? 'bg-white/25' : 'bg-slate-100 dark:bg-zinc-700'}`}>{o.count}</span>
             )}
           </button>
         );
@@ -212,7 +210,7 @@ export const SegmentedFilter: React.FC<{
  * treatment for anything that is a register rather than a grid of cards.
  */
 export const ListPanel: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
+  <div className="cp-card overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
     {children}
   </div>
 );
@@ -223,7 +221,7 @@ export const ListPanel: React.FC<{ children: React.ReactNode }> = ({ children })
  * farm pages read as unfinished next to Clients or Inventory.
  */
 export const FilterBar: React.FC<{ children: React.ReactNode }> = ({ children }) => (
-  <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm p-3">
+  <div className="flex flex-wrap items-center gap-3">
     {children}
   </div>
 );
@@ -236,26 +234,17 @@ export const Modal: React.FC<{
   saveLabel?: string;
   children: React.ReactNode;
 }> = ({ title, onClose, onSave, saving, saveLabel = 'Save', children }) => (
-  <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+  <div className="farm-skin !bg-transparent !p-0 fixed inset-0 z-50 flex items-end sm:items-center justify-center sm:p-4">
     <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-    <div className="relative w-full max-w-lg max-h-[90vh] overflow-y-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl p-6 flex flex-col gap-4 animate-in zoom-in-95 fade-in duration-150">
+    <div className="cp-card relative w-full sm:max-w-lg max-h-[92vh] overflow-y-auto !rounded-b-none sm:!rounded-3xl p-5 flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-sm font-black text-slate-900 dark:text-zinc-100">{title}</h3>
-        <button onClick={onClose} className="text-slate-400 hover:text-pine"><X size={16} /></button>
+        <h3 className="text-base font-black" style={{ color: 'var(--cp-ink)' }}>{title}</h3>
+        <button onClick={onClose} className="cp-icon-btn cp-icon-btn-ghost" aria-label="Close"><X size={16} /></button>
       </div>
       <div className="space-y-3">{children}</div>
       <div className="flex gap-2 pt-1">
-        <button
-          onClick={onClose}
-          className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={onSave}
-          disabled={saving}
-          className="flex-1 py-2.5 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-1.5 transition-all"
-        >
+        <button onClick={onClose} className="cp-btn-ghost flex-1">Cancel</button>
+        <button onClick={onSave} disabled={saving} className="cp-btn flex-1">
           {saving && <Loader2 size={13} className="animate-spin" />} {saveLabel}
         </button>
       </div>
@@ -275,19 +264,17 @@ export const Field: React.FC<{ label: string; children: React.ReactNode; classNa
 export const Card: React.FC<{ children: React.ReactNode; onClick?: () => void }> = ({ children, onClick }) => (
   <div
     onClick={onClick}
-    className={`rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-sm ${
-      onClick ? 'cursor-pointer hover:border-seafoam/60 transition-colors' : ''
-    }`}
+    className={`cp-card p-4 ${onClick ? 'cursor-pointer transition-transform hover:-translate-y-0.5' : ''}`}
   >
     {children}
   </div>
 );
 
 export const Stat: React.FC<{ label: string; value: string | number; hint?: string }> = ({ label, value, hint }) => (
-  <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 shadow-sm">
-    <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500">{label}</p>
-    <p className="mt-1 text-2xl font-black text-slate-800 dark:text-white">{value}</p>
-    {hint && <p className="text-[11px] text-slate-400 dark:text-zinc-500 mt-0.5">{hint}</p>}
+  <div className="cp-card p-4">
+    <p className="text-[10px] font-black uppercase tracking-widest cp-muted">{label}</p>
+    <p className="mt-1 text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>{value}</p>
+    {hint && <p className="text-[11px] cp-muted mt-0.5">{hint}</p>}
   </div>
 );
 

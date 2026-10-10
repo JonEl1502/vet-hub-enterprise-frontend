@@ -11,6 +11,7 @@ import {
   BookLock,
   HeartPulse,
   Sprout,
+  Beef,
   Wheat,
   Milk,
   Warehouse,
@@ -260,8 +261,15 @@ const CLINIC_ITEMS: MenuItem[] = [
     label: 'Farm',
     icon: Sprout,
     subItems: [
-      { id: 'farms',         label: 'Clients',        icon: Warehouse,    showWhenLocked: true },
-      { id: 'animal-groups', label: 'Herds & Flocks', icon: Milk,         showWhenLocked: true },
+      // Phase D (user 2026-10-10): same words and icons as the farmer's side —
+      // "Farms" (Sprout, their "My Farm"), "Animals" (Beef), Siren for call-outs.
+      { id: 'farms',         label: 'Farms',          icon: Sprout,       showWhenLocked: true },
+      { id: 'animal-groups', label: 'Herds & Flocks', icon: Beef,         showWhenLocked: true },
+      /**
+       * The call-out queue. It was only in the FARM-org sidebar, so a general
+       * clinic whose farmers send visit requests had nowhere to open them.
+       */
+      { id: 'farm-visits',   label: 'Call-outs',      icon: Siren,        showWhenLocked: true },
       /**
        * 299 — the clinic's FARM visit list, deliberately NOT the one under
        * Visits. User: *"let Farm have separate visits lists from clinic … the
@@ -424,8 +432,8 @@ export const applyBillableItemsLayout = (items: MenuItem[], prodTest: boolean): 
 const LIVESTOCK_ITEMS: MenuItem[] = [
   { id: 'livestock-dashboard', label: 'Dashboard',       icon: LayoutDashboard },
   COMMUNITY_ITEM,
-  { id: 'farms',               label: 'Farms',           icon: Warehouse },
-  { id: 'animal-groups',       label: 'Herds & Flocks',  icon: Milk },
+  { id: 'farms',               label: 'Farms',           icon: Sprout },
+  { id: 'animal-groups',       label: 'Herds & Flocks',  icon: Beef },
   { id: 'crop-plots',          label: 'Crop Plots',      icon: Wheat },
   { id: 'feeding',             label: 'Feeding',         icon: Sprout },
   { id: 'produce-schedule',    label: 'Produce',         icon: CalendarClock },

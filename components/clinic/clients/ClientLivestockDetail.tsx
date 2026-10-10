@@ -1,207 +1,202 @@
 /**
- * Clinic-facing detail on a client's farms — herds, crop plots, and individual
- * animals at the same depth the client sees on their own portal. Gated by the
- * CLIENT's own subscription (`livestock:farms`), not the clinic's Farms add-on:
- * a clinic with no livestock module at all can still see that a client farms
- * and needs to subscribe to unlock the per-animal register.
+ * A client's farms, as the clinic sees them — the same warm sand-and-coral look
+ * as the farmer's own portal (Phase D), and the same depth: photos, who is in
+ * calf or milking and when, what they were fed and gave, what treatments are
+ * under withholding, and what is coming up — with a way to answer with advice.
+ *
+ * Gated by the CLIENT's own subscription (`livestock:farms`), not the clinic's
+ * Farms add-on: a clinic with no livestock module can still see that a client
+ * farms and needs to subscribe to unlock the per-animal register. The farmer's
+ * MONEY is never shown here — only the clinical and husbandry record.
  */
-import React, { useEffect, useState } from 'react';
-import { Lock, ChevronDown, ChevronRight, Sprout, Wheat, Scale, Utensils, Droplet } from 'lucide-react';
+import React, { useCallback, useEffect, useState } from 'react';
+import {
+  Lock, Sprout, Wheat, Scale, Utensils, Droplet, Baby, Milk, Beef, Stethoscope, ShieldAlert,
+  CalendarClock, MessageSquarePlus, ChevronDown, ChevronUp, MapPin,
+} from 'lucide-react';
 import {
   clientLivestockAPI,
-  type ClientLivestockAccess,
-  type ClientFarm,
-  type ClientFarmDetail,
-  type ClientFarmAnimal,
-  type ClientAnimalFeedingLog,
-  type ClientAnimalProduceRecord,
+  type ClientLivestockAccess, type ClientFarm, type ClientFarmDetail, type ClientFarmAnimal,
+  type ClientAnimalFeedingLog, type ClientAnimalProduceRecord, type ClientFarmTreatment,
 } from '../../../services/modules/clientLivestock.api';
+import { livestockAPI, type ClinicFarmReminder } from '../../../services/modules/livestock.api';
+import { fmtDay, rel } from '../../client/views/AnimalBreeding';
+import { AdviseModal } from '../dashboard/FarmRemindersCard';
 
-const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString() : '—');
+const fmtDate = (iso: string | null) => (iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+const DAY = 86_400_000;
+const daysUntil = (iso: string) => { const t = new Date(); t.setHours(0, 0, 0, 0); return Math.round((new Date(`${iso.slice(0, 10)}T00:00:00`).getTime() - t.getTime()) / DAY); };
+
+const SectionTitle: React.FC<{ icon: React.ElementType; children: React.ReactNode; right?: React.ReactNode }> = ({ icon: Icon, children, right }) => (
+  <div className="flex items-center justify-between mb-2">
+    <h4 className="text-xs font-black uppercase tracking-widest cp-muted flex items-center gap-1.5"><Icon size={12} /> {children}</h4>
+    {right}
+  </div>
+);
 
 const LockedPanel: React.FC<{ access: Extract<ClientLivestockAccess, { locked: true }> }> = ({ access }) => (
-  <div className="border border-dashed border-amber-300 dark:border-amber-800 bg-amber-50/60 dark:bg-amber-950/20 rounded-xl p-4 flex items-start gap-3">
-    <Lock size={16} className="text-amber-500 shrink-0 mt-0.5" />
+  <div className="cp-card p-4 flex items-start gap-3" style={{ borderStyle: 'dashed' }}>
+    <span className="cp-icon-chip shrink-0"><Lock size={16} /></span>
     <div className="min-w-0">
-      <p className="text-[11px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest">
-        No individual animal records
-      </p>
-      <p className="text-[11px] text-amber-700/80 dark:text-amber-400/80 mt-1">
+      <p className="text-sm font-black" style={{ color: 'var(--cp-ink)' }}>Individual animals are on the Farmer plan</p>
+      <p className="text-xs cp-muted mt-1 leading-relaxed">
         This client is on {access.currentPackageName ?? 'the Free plan'} and hasn't subscribed to per-animal
-        tracking, so their individual animals are hidden here too.
+        tracking, so their animals, breeding dates and treatments are hidden here too.
         {access.cheapestPackage && (
-          <>
-            {' '}Encourage them to upgrade to <strong>{access.cheapestPackage.name}</strong> ({access.cheapestPackage.currency}{' '}
-            {access.cheapestPackage.amount.toLocaleString()}/mo) to unlock it.
-          </>
+          <> Encourage them to upgrade to <strong>{access.cheapestPackage.name}</strong> ({access.cheapestPackage.currency}{' '}
+          {access.cheapestPackage.amount.toLocaleString()}/mo) to unlock it.</>
         )}
       </p>
     </div>
   </div>
 );
 
-const AnimalRow: React.FC<{ a: ClientFarmAnimal; clientId: string }> = ({ a, clientId }) => {
+const AnimalCard: React.FC<{ a: ClientFarmAnimal; clientId: string; onAdvise: (a: ClientFarmAnimal) => void }> = ({ a, clientId, onAdvise }) => {
   const [open, setOpen] = useState(false);
-  const [feedingLogs, setFeedingLogs] = useState<ClientAnimalFeedingLog[] | null>(null);
-  const [produceRecords, setProduceRecords] = useState<ClientAnimalProduceRecord[] | null>(null);
+  const [feeding, setFeeding] = useState<ClientAnimalFeedingLog[] | null>(null);
+  const [produce, setProduce] = useState<ClientAnimalProduceRecord[] | null>(null);
+  const r = a.repro;
 
   useEffect(() => {
-    if (!open || feedingLogs) return;
-    Promise.all([
-      clientLivestockAPI.listAnimalFeedingLogs(clientId, a.id),
-      clientLivestockAPI.listAnimalProduceRecords(clientId, a.id),
-    ])
-      .then(([f, p]) => {
-        if (f.success && f.data) setFeedingLogs(f.data);
-        if (p.success && p.data) setProduceRecords(p.data);
-      })
+    if (!open || feeding) return;
+    Promise.all([clientLivestockAPI.listAnimalFeedingLogs(clientId, a.id), clientLivestockAPI.listAnimalProduceRecords(clientId, a.id)])
+      .then(([f, p]) => { if (f.success && f.data) setFeeding(f.data); if (p.success && p.data) setProduce(p.data); })
       .catch(() => { /* a log read must never break the profile */ });
-  }, [open, feedingLogs, clientId, a.id]);
+  }, [open, feeding, clientId, a.id]);
 
   return (
-    <div className="border border-slate-200 dark:border-zinc-800 rounded-lg p-3">
-      <button type="button" onClick={() => setOpen((v) => !v)} className="w-full text-left">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0 flex items-center gap-1.5">
-            {open ? <ChevronDown size={12} className="text-slate-400 shrink-0" /> : <ChevronRight size={12} className="text-slate-400 shrink-0" />}
-            <div className="min-w-0">
-              <p className="text-[12px] font-black text-pine dark:text-zinc-100 truncate">{a.name}</p>
-              <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">
-                {[a.breed, a.species, a.sex].filter(Boolean).join(' · ') || a.species}
-              </p>
+    <div className="cp-card overflow-hidden" data-testid="clinic-animal">
+      <button type="button" className="w-full text-left flex items-center gap-3 p-3" onClick={() => setOpen((v) => !v)}>
+        {a.avatarUrl ? (
+          <img src={a.avatarUrl} alt="" className="w-16 h-16 rounded-2xl object-cover shrink-0" loading="lazy" />
+        ) : (
+          <span className="w-16 h-16 rounded-2xl shrink-0 bg-gradient-to-br from-[#f79b70] to-[#e56a3c] text-white/90 flex items-center justify-center"><Beef size={26} strokeWidth={1.6} /></span>
+        )}
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-black truncate" style={{ color: 'var(--cp-ink)' }}>
+            {a.name}{a.tagNumber ? <span className="cp-muted font-bold text-[11px]"> · #{a.tagNumber}</span> : null}
+          </p>
+          <p className="text-[11px] cp-muted truncate">{[a.species, a.breed, a.sex === 'MALE' ? 'Male' : a.sex === 'FEMALE' ? 'Female' : null].filter(Boolean).join(' · ')}</p>
+          <div className="mt-1.5 flex flex-wrap gap-1.5">
+            {a.isPregnant && <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-white flex items-center gap-1"><Baby size={10} /> In calf</span>}
+            {a.isLactating && <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-sky-500 text-white flex items-center gap-1"><Milk size={10} /> Milking{r?.daysInMilk != null ? ` · day ${r.daysInMilk}` : ''}</span>}
+            {a.status !== 'ACTIVE' && <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-slate-500 text-white">{a.status}</span>}
+          </div>
+        </div>
+        {open ? <ChevronUp size={16} className="cp-muted shrink-0" /> : <ChevronDown size={16} className="cp-muted shrink-0" />}
+      </button>
+
+      {a.isPregnant && r?.dueOn && (
+        <div className="mx-3 mb-3 rounded-xl px-3 py-2 bg-amber-50 dark:bg-amber-500/10 border border-amber-200 dark:border-amber-500/25 text-xs space-y-0.5">
+          <p className="flex justify-between"><span className="text-amber-900/70 dark:text-amber-200/70">Due{r.dueIsEstimate ? ' (est.)' : ''}</span><b>{fmtDay(r.dueOn)} <span className="font-normal opacity-70">· {rel(r.daysToDue)}</span></b></p>
+          {r.dryOffOn && <p className="flex justify-between"><span className="text-amber-900/70 dark:text-amber-200/70">Stop milking</span><b className={a.isLactating && (r.dryOffInDays ?? 99) <= 14 ? 'text-rose-600' : ''}>{fmtDay(r.dryOffOn)}</b></p>}
+          {r.nextMilkingOn && <p className="flex justify-between"><span className="text-amber-900/70 dark:text-amber-200/70">Milking starts again</span><b>{fmtDay(r.nextMilkingOn)}</b></p>}
+        </div>
+      )}
+
+      {open && (
+        <div className="px-3 pb-3 pt-1 border-t border-[var(--cp-border)] space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest cp-muted mb-1.5 flex items-center gap-1"><Scale size={10} /> Weight</p>
+              {a.weights.length === 0 ? <p className="text-[11px] cp-muted">None recorded.</p> : a.weights.slice(0, 4).map((w) => (
+                <div key={w.id} className="flex justify-between text-[11px]"><span className="cp-muted">{fmtDate(w.weighedOn)}</span><b>{w.weightValue}{w.weightUnit}</b></div>
+              ))}
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest cp-muted mb-1.5 flex items-center gap-1"><Utensils size={10} /> Feeding</p>
+              {!feeding ? <p className="text-[11px] cp-muted">Loading…</p> : feeding.length === 0 ? <p className="text-[11px] cp-muted">None logged.</p> : feeding.slice(0, 4).map((l) => (
+                <div key={l.id} className="flex justify-between text-[11px]"><span className="cp-muted truncate">{fmtDate(l.fedAt)}{l.notes ? ` · ${l.notes}` : ''}</span><b>{l.quantityKg != null ? `${l.quantityKg}kg` : '—'}</b></div>
+              ))}
+            </div>
+            <div>
+              <p className="text-[10px] font-black uppercase tracking-widest cp-muted mb-1.5 flex items-center gap-1"><Droplet size={10} /> Produce</p>
+              {!produce ? <p className="text-[11px] cp-muted">Loading…</p> : produce.length === 0 ? <p className="text-[11px] cp-muted">None logged.</p> : produce.slice(0, 4).map((p) => (
+                <div key={p.id} className="flex justify-between text-[11px]"><span className="cp-muted">{fmtDate(p.recordedOn)}{p.produce ? ` · ${p.produce}` : ''}</span><b>{p.quantity}{p.unit}</b></div>
+              ))}
             </div>
           </div>
-          <span className={`shrink-0 px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${
-            a.status === 'ACTIVE' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'
-          }`}>{a.status}</span>
-        </div>
-        <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-[10px] text-slate-400">
-          {a.tagNumber && <span>Tag {a.tagNumber}</span>}
-          {a.weightValue != null && (
-            <span className="inline-flex items-center gap-1"><Scale size={10} /> {a.weightValue}{a.weightUnit} ({fmtDate(a.weighedOn)})</span>
-          )}
-          {a.isPregnant && (
-            <span className="text-pink-500 font-bold">
-              Pregnant{a.repro?.dueOn ? ` · due ${fmtDate(a.repro.dueOn)}${a.repro.dueIsEstimate ? ' (est.)' : ''}` : ''}
-            </span>
-          )}
-          {a.isPregnant && a.repro?.dryOffOn && (
-            <span className="text-amber-600 font-bold">Stop milking {fmtDate(a.repro.dryOffOn)}</span>
-          )}
-          {a.isLactating && <span className="text-sky-500 font-bold">Lactating{a.repro?.daysInMilk != null ? ` · day ${a.repro.daysInMilk}` : ''}</span>}
-          {a.dob && <span>Born {fmtDate(a.dob)}{a.dobIsApprox ? ' (approx)' : ''}</span>}
-        </div>
-      </button>
-      {open && (
-        <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1"><Utensils size={10} /> Feeding</p>
-            {!feedingLogs ? (
-              <p className="text-[10px] text-slate-400">Loading…</p>
-            ) : feedingLogs.length === 0 ? (
-              <p className="text-[10px] text-slate-400">No feeding logged yet.</p>
-            ) : (
-              <div className="space-y-1">
-                {feedingLogs.slice(0, 5).map((l) => (
-                  <div key={l.id} className="flex items-center justify-between text-[10px]">
-                    <span className="text-slate-400">{fmtDate(l.fedAt)}</span>
-                    <span className="font-bold text-slate-600 dark:text-zinc-300">{l.quantityKg != null ? `${l.quantityKg}kg` : '—'}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-          <div>
-            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1"><Droplet size={10} /> Produce</p>
-            {!produceRecords ? (
-              <p className="text-[10px] text-slate-400">Loading…</p>
-            ) : produceRecords.length === 0 ? (
-              <p className="text-[10px] text-slate-400">No produce logged yet.</p>
-            ) : (
-              <div className="space-y-1">
-                {produceRecords.slice(0, 5).map((r) => (
-                  <div key={r.id} className="flex items-center justify-between text-[10px]">
-                    <span className="text-slate-400">{fmtDate(r.recordedOn)}{r.produce ? ` · ${r.produce}` : ''}</span>
-                    <span className="font-bold text-slate-600 dark:text-zinc-300">{r.quantity}{r.unit}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <button className="cp-btn-ghost !py-2 !px-3 !text-[11px]" onClick={() => onAdvise(a)}><MessageSquarePlus size={13} /> Advise on {a.name}</button>
         </div>
       )}
     </div>
   );
 };
 
-const FarmCard: React.FC<{ farm: ClientFarm; access: ClientLivestockAccess; clientId: string }> = ({ farm, access, clientId }) => {
-  const [open, setOpen] = useState(false);
+const FarmPanel: React.FC<{ farm: ClientFarm; access: ClientLivestockAccess; clientId: string; defaultOpen: boolean }> = ({ farm, access, clientId, defaultOpen }) => {
+  const [open, setOpen] = useState(defaultOpen);
   const [detail, setDetail] = useState<ClientFarmDetail | null>(null);
   const [animals, setAnimals] = useState<ClientFarmAnimal[] | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [treatments, setTreatments] = useState<ClientFarmTreatment[] | null>(null);
+  const [reminders, setReminders] = useState<ClinicFarmReminder[]>([]);
+  const [advise, setAdvise] = useState<{ animal?: ClientFarmAnimal } | null>(null);
+
+  const loadReminders = useCallback(() => {
+    livestockAPI.listFarmReminders().then((r) => setReminders(r.success && r.data ? r.data.reminders.filter((x) => x.farmId === farm.id) : [])).catch(() => setReminders([]));
+  }, [farm.id]);
 
   useEffect(() => {
     if (!open || detail) return;
-    setLoading(true);
     Promise.all([
       clientLivestockAPI.getFarmDetail(clientId, farm.id),
       access.locked ? Promise.resolve(null) : clientLivestockAPI.listFarmAnimals(clientId, farm.id),
-    ])
-      .then(([detailRes, animalsRes]) => {
-        if (detailRes.success && detailRes.data) setDetail(detailRes.data);
-        if (animalsRes?.success && animalsRes.data && !animalsRes.data.locked) setAnimals(animalsRes.data.animals);
-      })
-      .catch(() => { /* a farm read must never break the profile */ })
-      .finally(() => setLoading(false));
-  }, [open, detail, clientId, farm.id, access.locked]);
+      access.locked ? Promise.resolve(null) : clientLivestockAPI.listFarmTreatments(clientId, farm.id).catch(() => null),
+    ]).then(([d, a, t]) => {
+      if (d.success && d.data) setDetail(d.data);
+      if (a?.success && a.data && !a.data.locked) setAnimals(a.data.animals);
+      if (t?.success && t.data) setTreatments(t.data);
+    }).catch(() => { /* a farm read must never break the profile */ });
+    loadReminders();
+  }, [open, detail, clientId, farm.id, access.locked, loadReminders]);
+
+  const held = (treatments ?? []).filter((t) => t.meatHeld || t.milkHeld);
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="w-full flex items-center justify-between gap-3 p-4 text-left hover:bg-slate-50/60 dark:hover:bg-zinc-800/40"
-      >
-        <div className="min-w-0 flex items-center gap-2">
-          {open ? <ChevronDown size={14} className="text-slate-400 shrink-0" /> : <ChevronRight size={14} className="text-slate-400 shrink-0" />}
-          <Sprout size={14} className="text-seafoam shrink-0" />
-          <div className="min-w-0">
-            <p className="text-[12px] font-black text-pine dark:text-zinc-100 truncate">{farm.name}</p>
-            <p className="text-[10px] text-slate-400 truncate">
-              {[farm.farmType, farm.county, farm.location].filter(Boolean).join(' · ') || 'No location set'}
-            </p>
+    <div className="space-y-3">
+      <div className="cp-card p-4">
+        <button type="button" className="w-full flex items-center gap-3 text-left" onClick={() => setOpen((v) => !v)}>
+          <span className="cp-icon-chip shrink-0"><Sprout size={18} /></span>
+          <div className="min-w-0 flex-1">
+            <p className="text-base font-black truncate" style={{ color: 'var(--cp-ink)' }}>{farm.name}</p>
+            <p className="text-[11px] cp-muted flex items-center gap-1 truncate"><MapPin size={10} />{[farm.farmType, farm.county, farm.location].filter(Boolean).join(' · ') || 'No location set'}</p>
           </div>
+          {open ? <ChevronUp size={16} className="cp-muted" /> : <ChevronDown size={16} className="cp-muted" />}
+        </button>
+        <div className="mt-3 grid grid-cols-3 text-center">
+          {[['Head', farm.headCount], ['Kinds', farm.animalGroupCount], ['Plots', farm.cropPlotCount]].map(([l, v]) => (
+            <div key={String(l)}><p className="text-lg font-black tabular-nums" style={{ color: 'var(--cp-ink)' }}>{v}</p><p className="text-[10px] font-black uppercase tracking-widest cp-muted">{l}</p></div>
+          ))}
         </div>
-        <div className="shrink-0 text-right text-[10px] text-slate-400">
-          {farm.headCount} head · {farm.animalGroupCount} herd{farm.animalGroupCount === 1 ? '' : 's'} · {farm.cropPlotCount} plot{farm.cropPlotCount === 1 ? '' : 's'}
-        </div>
-      </button>
+        {farm.clinic && (
+          <div className="mt-3 flex items-center justify-between gap-2">
+            <span className="text-[10px] font-black uppercase tracking-widest cp-accent-text flex items-center gap-1"><Stethoscope size={11} /> Cared for by {farm.clinic.name}</span>
+            <button className="cp-btn-ghost !py-1.5 !px-3 !text-[11px]" onClick={() => setAdvise({})}><MessageSquarePlus size={13} /> Leave advice</button>
+          </div>
+        )}
+      </div>
+
       {open && (
-        <div className="border-t border-slate-100 dark:border-zinc-800 p-4 space-y-4">
-          {loading && !detail && <p className="text-[11px] text-slate-400">Loading…</p>}
-          {detail && detail.animalGroups.length > 0 && (
-            <div>
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Herds & flocks</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {detail.animalGroups.map((g) => (
-                  <div key={g.id} className="border border-slate-200 dark:border-zinc-800 rounded-lg p-3">
-                    <p className="text-[11px] font-black text-pine dark:text-zinc-100">{g.name}</p>
-                    <p className="text-[10px] text-slate-400">{[g.breed, g.species].filter(Boolean).join(' · ')}</p>
-                    <p className="text-[10px] text-slate-500 mt-1">{g.headCount} head{g.purpose ? ` · ${g.purpose}` : ''}</p>
-                  </div>
-                ))}
-              </div>
+        <>
+          {held.length > 0 && (
+            <div className="rounded-2xl p-3 bg-rose-50 dark:bg-rose-500/10 border border-rose-200 dark:border-rose-500/25" data-testid="withholding">
+              <p className="text-xs font-black text-rose-700 dark:text-rose-300 flex items-center gap-1.5 mb-1.5"><ShieldAlert size={14} /> Under withholding now</p>
+              {held.map((t) => (
+                <p key={t.id} className="text-[11px] text-rose-800 dark:text-rose-200">
+                  <b>{t.product}</b> · {t.target}
+                  {t.milkHeld && t.milkSafeOn ? ` · milk safe ${fmtDay(t.milkSafeOn)}` : ''}
+                  {t.meatHeld && t.meatSafeOn ? ` · meat safe ${fmtDay(t.meatSafeOn)}` : ''}
+                </p>
+              ))}
             </div>
           )}
-          {detail && detail.cropPlots.length > 0 && (
+
+          {reminders.length > 0 && (
             <div>
-              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Crop plots</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {detail.cropPlots.map((p) => (
-                  <div key={p.id} className="border border-slate-200 dark:border-zinc-800 rounded-lg p-3">
-                    <p className="text-[11px] font-black text-pine dark:text-zinc-100 flex items-center gap-1.5"><Wheat size={12} className="text-amber-500" /> {p.name}</p>
-                    <p className="text-[10px] text-slate-400">{p.crop}{p.sizeAcres != null ? ` · ${p.sizeAcres} acres` : ''}</p>
-                    <p className="text-[10px] text-slate-500 mt-1">Planted {fmtDate(p.plantedOn)} · Harvest {fmtDate(p.expectedHarvestOn)}</p>
+              <SectionTitle icon={CalendarClock}>Coming up</SectionTitle>
+              <div className="cp-card overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
+                {reminders.map((r) => (
+                  <div key={r.id} className="px-3.5 py-2.5 flex items-center justify-between gap-2">
+                    <div className="min-w-0"><p className="text-sm font-bold truncate" style={{ color: 'var(--cp-ink)' }}>{r.title}</p><p className="text-[10px] cp-muted">{fmtDay(r.dueOn)} · {rel(daysUntil(r.dueOn))}{r.source === 'CLINIC' ? ' · your advice' : ''}</p></div>
                   </div>
                 ))}
               </div>
@@ -209,24 +204,69 @@ const FarmCard: React.FC<{ farm: ClientFarm; access: ClientLivestockAccess; clie
           )}
 
           <div>
-            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2">Individual animals</p>
-            {access.locked ? (
-              <LockedPanel access={access} />
-            ) : animals && animals.length > 0 ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                {animals.map((a) => <AnimalRow key={a.id} a={a} clientId={clientId} />)}
-              </div>
-            ) : animals ? (
-              <p className="text-[11px] text-slate-400">No individual animals recorded yet.</p>
-            ) : null}
+            <SectionTitle icon={Beef}>Animals</SectionTitle>
+            {access.locked ? <LockedPanel access={access} />
+              : animals && animals.length > 0 ? (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                  {animals.map((a) => <AnimalCard key={a.id} a={a} clientId={clientId} onAdvise={(x) => setAdvise({ animal: x })} />)}
+                </div>
+              ) : animals ? <p className="text-xs cp-muted">No individual animals recorded yet.</p> : <p className="text-xs cp-muted">Loading…</p>}
           </div>
-        </div>
+
+          {detail && detail.animalGroups.length > 0 && (
+            <div>
+              <SectionTitle icon={Milk}>Herds &amp; flocks</SectionTitle>
+              <div className="grid grid-cols-2 gap-2">
+                {detail.animalGroups.map((g) => (
+                  <div key={g.id} className="cp-card-soft p-3">
+                    <p className="text-sm font-black" style={{ color: 'var(--cp-ink)' }}>{g.name}</p>
+                    <p className="text-[11px] cp-muted">{[g.breed, g.species].filter(Boolean).join(' · ')}</p>
+                    <p className="text-[11px] mt-1"><b>{g.headCount}</b> head{g.purpose ? ` · ${g.purpose}` : ''}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {treatments && treatments.length > 0 && (
+            <div>
+              <SectionTitle icon={Stethoscope}>Treatments</SectionTitle>
+              <div className="cp-card overflow-hidden divide-y divide-slate-100 dark:divide-zinc-800">
+                {treatments.slice(0, 8).map((t) => (
+                  <div key={t.id} className="px-3.5 py-2.5">
+                    <p className="text-sm font-bold" style={{ color: 'var(--cp-ink)' }}>{t.product}{t.dose ? ` · ${t.dose}` : ''}</p>
+                    <p className="text-[10px] cp-muted">{fmtDate(t.treatedOn)} · {t.target}{t.administeredBy ? ` · by ${t.administeredBy.toLowerCase()}` : ''}{t.milkSafeOn ? ` · milk safe ${fmtDate(t.milkSafeOn)}` : ''}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {detail && detail.cropPlots.length > 0 && (
+            <div>
+              <SectionTitle icon={Wheat}>Crop plots</SectionTitle>
+              <div className="grid grid-cols-2 gap-2">
+                {detail.cropPlots.map((p) => (
+                  <div key={p.id} className="cp-card-soft p-3"><p className="text-sm font-black" style={{ color: 'var(--cp-ink)' }}>{p.name}</p><p className="text-[11px] cp-muted">{p.crop}{p.sizeAcres != null ? ` · ${p.sizeAcres} acres` : ''}</p></div>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
+      {advise && (
+        <AdviseModal
+          farmId={farm.id} farmAnimalId={advise.animal?.id}
+          context={advise.animal ? `${advise.animal.name} · ${farm.name}` : farm.name}
+          onClose={() => setAdvise(null)} onSent={() => { setAdvise(null); loadReminders(); }}
+        />
       )}
     </div>
   );
 };
 
-const ClientLivestockDetail: React.FC<{ clientId: string }> = ({ clientId }) => {
+const ClientLivestockDetail: React.FC<{ clientId: string; /** Show just this farm (the Farms screen opens one at a time). */ onlyFarmId?: string }> = ({ clientId, onlyFarmId }) => {
   const [access, setAccess] = useState<ClientLivestockAccess | null>(null);
   const [farms, setFarms] = useState<ClientFarm[] | null>(null);
 
@@ -245,10 +285,8 @@ const ClientLivestockDetail: React.FC<{ clientId: string }> = ({ clientId }) => 
   if (!farms || farms.length === 0 || !access) return null;
 
   return (
-    <div className="space-y-3">
-      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Farm & animal records</p>
-      {access.locked && <LockedPanel access={access} />}
-      {farms.map((f) => <FarmCard key={f.id} farm={f} access={access} clientId={clientId} />)}
+    <div className={onlyFarmId ? 'space-y-4' : 'farm-skin space-y-4'}>
+      {farms.filter((f) => !onlyFarmId || f.id === onlyFarmId).map((f, i) => <FarmPanel key={f.id} farm={f} access={access} clientId={clientId} defaultOpen={i === 0} />)}
     </div>
   );
 };

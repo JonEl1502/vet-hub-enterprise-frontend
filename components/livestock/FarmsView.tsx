@@ -7,7 +7,8 @@
  * instead of the pet-owner portal.
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Warehouse, Trash2, Pencil, Search, MapPin, Milk, Wheat, ArrowRight, Stethoscope, X, Layers } from 'lucide-react';
+import { Sprout, Trash2, Pencil, Search, MapPin, Milk, Wheat, ArrowRight, Stethoscope, ArrowLeft, Layers } from 'lucide-react';
+import ClientLivestockDetail from '../clinic/clients/ClientLivestockDetail';
 import { livestockAPI, type Farm, type VetOfficer, type AnimalGroup } from '../../services/modules/livestock.api';
 import { clientsAPI, toast, dialog } from '../../services';
 import { useClinic } from '../../contexts/ClinicContext';
@@ -150,11 +151,27 @@ const FarmsView: React.FC = () => {
     return <div className="h-64 flex items-center justify-center"><LoadingSpinner size="lg" message="Loading farms..." /></div>;
   }
 
+  // One farm, opened — a page in the farmer's look, not a dialog. Read-only on
+  // purpose: editing the farm is the pencil; this answers "what is on this farm",
+  // which is the question a vet arrives with.
+  if (detail) {
+    return (
+      <LivestockPage
+        title={detail.name}
+        subtitle={[detail.ownerClientName, detail.county, detail.location].filter(Boolean).join(' · ') || 'No owner or location set'}
+        icon={Sprout}
+        actions={<button className="cp-btn-ghost !py-2 !px-3.5 !text-xs" onClick={() => setDetail(null)}><ArrowLeft size={14} /> Farms</button>}
+      >
+        <ClientLivestockDetail clientId={detail.ownerClientId} onlyFarmId={detail.id} />
+      </LivestockPage>
+    );
+  }
+
   return (
     <LivestockPage
       title="Farms"
       subtitle="Every farm on this clinic"
-      icon={Warehouse}
+      icon={Sprout}
       actions={<PrimaryButton onClick={openNew}>New farm</PrimaryButton>}
     >
       <div className="relative max-w-sm">
@@ -169,7 +186,7 @@ const FarmsView: React.FC = () => {
 
       {filtered.length === 0 ? (
         <EmptyState
-          icon={Warehouse}
+          icon={Sprout}
           title={search ? 'No farms match' : 'No farms yet'}
           hint={search ? 'Try a different search.' : 'Register a farm to start tracking herds, feeding and produce.'}
         />
@@ -180,9 +197,7 @@ const FarmsView: React.FC = () => {
               {/* Identity — a mark, the farm, then who owns it. The owner is
                   the person a vet rings, so it is not a footnote. */}
               <div className="flex items-start gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-seafoam/10 dark:bg-seafoam/15 flex items-center justify-center shrink-0">
-                  <Warehouse size={18} className="text-seafoam" />
-                </div>
+                <span className="cp-icon-chip shrink-0"><Sprout size={18} /></span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-start justify-between gap-2">
                     <p className="text-sm font-black text-slate-800 dark:text-white truncate">{f.name}</p>
@@ -210,7 +225,7 @@ const FarmsView: React.FC = () => {
                   { icon: Layers, label: 'Kinds', value: f.animalGroupCount ?? 0 },
                   { icon: Wheat, label: 'Plots', value: f.cropPlotCount ?? 0 },
                 ].map(({ icon: Icon, label, value }) => (
-                  <div key={label} className="rounded-xl bg-slate-50 dark:bg-zinc-800/60 px-2.5 py-2">
+                  <div key={label} className="cp-card-soft px-2.5 py-2">
                     <Icon size={11} className="text-slate-400" />
                     <p className="text-base font-black text-slate-800 dark:text-zinc-100 leading-none mt-1 tabular-nums">{value}</p>
                     <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">{label}</p>
@@ -224,7 +239,7 @@ const FarmsView: React.FC = () => {
               {/* Says WHY this clinic can see it — their client, or a farm the
                   owner linked from the portal. */}
               {f.linkedClinicId && (
-                <p className="mt-2 text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1">
+                <p className="mt-2 text-[10px] font-black uppercase tracking-widest cp-accent-text flex items-center gap-1">
                   <Stethoscope size={11} /> Linked to this clinic
                 </p>
               )}
@@ -232,7 +247,7 @@ const FarmsView: React.FC = () => {
               <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 flex items-center gap-1">
                 <button
                   onClick={() => setDetail(f)}
-                  className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl bg-pine dark:bg-zinc-100 text-white dark:text-pine text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all"
+                  className="cp-btn flex-1 !py-2 !text-xs"
                 >
                   View details <ArrowRight size={12} />
                 </button>
@@ -243,82 +258,6 @@ const FarmsView: React.FC = () => {
               </div>
             </Card>
           ))}
-        </div>
-      )}
-
-      {/* ── One farm, opened ─────────────────────────────────────────────
-          Read-only on purpose. Editing the farm is the pencil; this answers
-          "what is on this farm", which is the question a vet arrives with. */}
-      {detail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setDetail(null)} />
-          <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-2xl animate-in zoom-in-95 fade-in duration-150">
-            <div className="sticky top-0 bg-white dark:bg-zinc-900 border-b border-slate-100 dark:border-zinc-800 px-6 py-4 flex items-start justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-base font-black text-pine dark:text-zinc-100 truncate">{detail.name}</p>
-                <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate">
-                  {[detail.ownerClientName, detail.county, detail.location].filter(Boolean).join(' · ') || 'No owner or location set'}
-                </p>
-              </div>
-              <button onClick={() => setDetail(null)} className="p-1.5 rounded-lg text-slate-400 hover:text-pine dark:hover:text-zinc-100 shrink-0">
-                <X size={18} />
-              </button>
-            </div>
-
-            <div className="p-6 space-y-5">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {[
-                  { label: 'Head', value: detail.headCount ?? 0 },
-                  { label: 'Kinds', value: detail.animalGroupCount ?? 0 },
-                  { label: 'Plots', value: detail.cropPlotCount ?? 0 },
-                  { label: 'Acres', value: detail.sizeAcres ?? '—' },
-                ].map((m) => (
-                  <div key={m.label} className="rounded-xl bg-slate-50 dark:bg-zinc-800/60 px-3 py-2.5">
-                    <p className="text-lg font-black text-slate-800 dark:text-zinc-100 leading-none tabular-nums">{m.value}</p>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-1">{m.label}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div>
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Herds &amp; flocks</p>
-                {detailGroups === null ? (
-                  <p className="text-xs text-slate-400">Loading…</p>
-                ) : detailGroups.length === 0 ? (
-                  <div className="rounded-xl border border-dashed border-slate-200 dark:border-zinc-800 px-4 py-6 text-center">
-                    <p className="text-xs text-slate-500 dark:text-zinc-400">
-                      Nothing recorded on this farm yet. The owner adds herds from their portal, or
-                      you can add them under Herds &amp; Flocks.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    {detailGroups.map((g) => (
-                      <div key={g.id} className="flex items-center justify-between gap-3 rounded-xl bg-slate-50 dark:bg-zinc-800/60 px-3.5 py-2.5">
-                        <div className="min-w-0">
-                          <p className="text-xs font-black text-slate-800 dark:text-zinc-100 truncate">{g.name}</p>
-                          <p className="text-[10px] text-slate-500 dark:text-zinc-400 truncate">
-                            {[g.species, g.breed, g.housing].filter(Boolean).join(' · ')}
-                          </p>
-                        </div>
-                        <div className="shrink-0 text-right">
-                          <p className="text-sm font-black text-slate-800 dark:text-zinc-100 tabular-nums leading-none">{g.headCount}</p>
-                          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Head</p>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {detail.notes && (
-                <div>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">Notes</p>
-                  <p className="text-xs text-slate-600 dark:text-zinc-300 leading-relaxed">{detail.notes}</p>
-                </div>
-              )}
-            </div>
-          </div>
         </div>
       )}
 

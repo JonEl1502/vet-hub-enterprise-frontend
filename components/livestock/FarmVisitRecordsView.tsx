@@ -1,12 +1,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Stethoscope, Sprout, Loader2, MapPin, Milk, Syringe, Phone, ChevronRight,
-  ArrowLeft, CircleDollarSign,
+  ArrowLeft, CircleDollarSign, Plus,
 } from 'lucide-react';
 import {
   livestockAPI, type Farm, type FarmVisit, type FarmVisitDetail, type AnimalGroup,
 } from '../../services/modules/livestock.api';
 import { toast } from '../../services';
+import { clientLivestockAPI, type ClientFarmAnimal } from '../../services/modules/clientLivestock.api';
 import LoadingSpinner from '../shared/common/LoadingSpinner';
 import {
   LivestockPage, EmptyState, Modal, Field, FarmFilter, SegmentedFilter, ListPanel,
@@ -67,6 +68,9 @@ const FarmVisitRecordsView: React.FC = () => {
   const [visits, setVisits] = useState<FarmVisit[]>([]);
   const [farms, setFarms] = useState<Farm[]>([]);
   const [groups, setGroups] = useState<AnimalGroup[]>([]);
+  const [animals, setAnimals] = useState<ClientFarmAnimal[]>([]);
+  const [txOpen, setTxOpen] = useState(false);
+  const [tx, setTx] = useState({ product: '', kind: 'TREATMENT', dose: '', route: '', withdrawalMilkDays: '', withdrawalMeatDays: '' });
   const [filter, setFilter] = useState('open');
   const [farmId, setFarmId] = useState('');
   const [loading, setLoading] = useState(true);
@@ -75,7 +79,7 @@ const FarmVisitRecordsView: React.FC = () => {
   const [detail, setDetail] = useState<FarmVisitDetail | null>(null);
   const [creating, setCreating] = useState(false);
   const [form, setForm] = useState<any>({
-    farmId: '', kind: 'ROUTINE', reason: '', animalGroupId: '', seenCount: '',
+    farmId: '', kind: 'ROUTINE', reason: '', animalGroupId: '', farmAnimalId: '', seenCount: '',
     scheduledAt: new Date().toISOString().slice(0, 16), vetName: '',
   });
 
@@ -101,6 +105,35 @@ const FarmVisitRecordsView: React.FC = () => {
     });
   }, [form.farmId]);
 
+  // Named animals of the chosen farm, so a visit can be for ONE cow. Only when the
+  // client is on the plan that unlocks them — otherwise the picker simply isn't there.
+  useEffect(() => {
+    const farm = farms.find((f) => f.id === form.farmId);
+    if (!farm) { setAnimals([]); return; }
+    clientLivestockAPI.listFarmAnimals(farm.ownerClientId, farm.id)
+      .then((r) => setAnimals(r.success && r.data && r.data.locked === false ? r.data.animals : []))
+      .catch(() => setAnimals([]));
+  }, [form.farmId, farms]);
+
+  const saveTreatment = async () => {
+    if (!detail || !tx.product.trim()) { toast.error('What was given?'); return; }
+    setSaving(true);
+    try {
+      const r = await livestockAPI.addVisitTreatment(detail.id, {
+        product: tx.product.trim(), kind: tx.kind,
+        dose: tx.dose.trim() || undefined, route: tx.route || undefined,
+        withdrawalMilkDays: tx.withdrawalMilkDays === '' ? null : Number(tx.withdrawalMilkDays),
+        withdrawalMeatDays: tx.withdrawalMeatDays === '' ? null : Number(tx.withdrawalMeatDays),
+      });
+      if (r.success && r.data) {
+        toast.success('Treatment recorded — the farmer will see it');
+        setDetail(r.data.visit); setTxOpen(false);
+        setTx({ product: '', kind: 'TREATMENT', dose: '', route: '', withdrawalMilkDays: '', withdrawalMeatDays: '' });
+        await load();
+      }
+    } finally { setSaving(false); }
+  };
+
   const openDetail = async (v: FarmVisit) => {
     const r = await livestockAPI.getFarmVisit(v.id);
     if (r.success && r.data) setDetail(r.data.visit);
@@ -115,6 +148,7 @@ const FarmVisitRecordsView: React.FC = () => {
         kind: form.kind,
         reason: form.reason.trim() || null,
         animalGroupId: form.animalGroupId || null,
+        farmAnimalId: form.farmAnimalId || null,
         seenCount: form.seenCount === '' ? null : Number(form.seenCount),
         scheduledAt: new Date(form.scheduledAt).toISOString(),
         vetName: form.vetName.trim() || null,
@@ -122,7 +156,7 @@ const FarmVisitRecordsView: React.FC = () => {
       if (r.success) {
         toast.success('Farm visit recorded');
         setCreating(false);
-        setForm({ ...form, reason: '', animalGroupId: '', seenCount: '' });
+        setForm({ ...form, reason: '', animalGroupId: '', farmAnimalId: '', seenCount: '' });
         await load();
       }
     } finally { setSaving(false); }
@@ -157,13 +191,13 @@ const FarmVisitRecordsView: React.FC = () => {
         actions={
           <button
             onClick={() => setDetail(null)}
-            className="px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 hover:bg-slate-50 dark:hover:bg-zinc-800 flex items-center gap-1.5 transition-colors"
+            className="cp-btn-ghost !py-2 !px-3.5 !text-xs"
           >
             <ArrowLeft size={13} /> Visits
           </button>
         }
       >
-        <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-sm p-5 space-y-4">
+        <div className="cp-card p-5 space-y-4">
           <div className="flex flex-wrap items-center gap-2">
             <FarmBadge />
             <span className={`px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest ${STATUS_TONE[detail.status]}`}>
@@ -242,9 +276,10 @@ const FarmVisitRecordsView: React.FC = () => {
           {/* Treatments given on this visit — the withdrawal dates are the
               reason a farm record exists at all. */}
           <div>
-            <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
-              Treatments on this visit
-            </h4>
+            <div className="flex items-center justify-between mb-2">
+              <h4 className="text-xs font-black uppercase tracking-widest cp-muted">Treatments on this visit</h4>
+              <button className="cp-btn !py-1.5 !px-3 !text-xs" onClick={() => setTxOpen(true)}><Plus size={13} /> Add treatment</button>
+            </div>
             {detail.treatments.length === 0 ? (
               <p className="text-xs text-slate-400">Nothing recorded against this visit.</p>
             ) : (
@@ -270,6 +305,34 @@ const FarmVisitRecordsView: React.FC = () => {
             )}
           </div>
         </div>
+
+        {txOpen && (
+          <Modal title="Add a treatment" onClose={() => setTxOpen(false)} onSave={saveTreatment} saving={saving}>
+            <Field label="What was given">
+              <input className="field-input w-full" placeholder="Oxytetracycline LA" value={tx.product} autoFocus
+                     onChange={(e) => setTx({ ...tx, product: e.target.value })} />
+            </Field>
+            <Field label="Kind">
+              <select className="field-select w-full" value={tx.kind} onChange={(e) => setTx({ ...tx, kind: e.target.value })}>
+                {['TREATMENT', 'VACCINATION', 'DEWORMING', 'PEST_CONTROL', 'SUPPLEMENT', 'AI', 'OTHER'].map((k) => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}
+              </select>
+            </Field>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Dose"><input className="field-input w-full" placeholder="10 ml" value={tx.dose} onChange={(e) => setTx({ ...tx, dose: e.target.value })} /></Field>
+              <Field label="Route">
+                <select className="field-select w-full" value={tx.route} onChange={(e) => setTx({ ...tx, route: e.target.value })}>
+                  <option value="">—</option>
+                  {['ORAL', 'INJECTION_IM', 'INJECTION_SC', 'INJECTION_IV', 'TOPICAL', 'SPRAY', 'DIP', 'IN_WATER', 'IN_FEED', 'INTRAMAMMARY', 'OTHER'].map((k) => <option key={k} value={k}>{k.replace('_', ' ')}</option>)}
+                </select>
+              </Field>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Milk withheld (days)"><input className="field-input w-full" type="number" min="0" value={tx.withdrawalMilkDays} onChange={(e) => setTx({ ...tx, withdrawalMilkDays: e.target.value })} /></Field>
+              <Field label="Meat withheld (days)"><input className="field-input w-full" type="number" min="0" value={tx.withdrawalMeatDays} onChange={(e) => setTx({ ...tx, withdrawalMeatDays: e.target.value })} /></Field>
+            </div>
+            <p className="text-[11px] cp-muted">Goes on this visit and on the farmer's Medical record, with the withholding dates.</p>
+          </Modal>
+        )}
       </LivestockPage>
     );
   }
@@ -350,7 +413,7 @@ const FarmVisitRecordsView: React.FC = () => {
         <Modal title="Record a farm visit" onClose={() => setCreating(false)} onSave={save} saving={saving}>
           <Field label="Farm">
             <select className="field-select w-full" value={form.farmId}
-                    onChange={(e) => setForm({ ...form, farmId: e.target.value, animalGroupId: '' })}>
+                    onChange={(e) => setForm({ ...form, farmId: e.target.value, animalGroupId: '', farmAnimalId: '' })}>
               <option value="">Choose…</option>
               {farms.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
@@ -375,6 +438,15 @@ const FarmVisitRecordsView: React.FC = () => {
                     {g.name} — {g.species}{g.headCount ? ` (${g.headCount})` : ''}
                   </option>
                 ))}
+              </select>
+            </Field>
+          )}
+          {animals.length > 0 && (
+            <Field label="Or one animal — optional">
+              <select className="field-select w-full" value={form.farmAnimalId}
+                      onChange={(e) => setForm({ ...form, farmAnimalId: e.target.value })}>
+                <option value="">Not one animal</option>
+                {animals.map((a) => <option key={a.id} value={a.id}>{a.name}{a.tagNumber ? ` · #${a.tagNumber}` : ''}</option>)}
               </select>
             </Field>
           )}

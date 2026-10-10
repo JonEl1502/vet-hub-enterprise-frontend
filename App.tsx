@@ -3318,7 +3318,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       case 'crop-plots':         return <CropPlotsView />;
       case 'feeding':            return <FeedingView />;
       case 'produce-schedule':   return <ProduceView />;
-      case 'farm-visits':        return <FarmVisitsView />;
+      case 'farm-visits':        return <FarmVisitsView onNavigate={(v) => navigateTo(v)} />;
       case 'inspection-requests': return <InspectionRequestsView />;
       /* 299 — the farm ATTENDANCE list. `farm-visits` above is the call-out
          queue the owners raise; this is the clinical record of going. */

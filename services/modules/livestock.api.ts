@@ -222,6 +222,7 @@ export interface FarmVisitInput {
   status?: string;
   animalGroupId?: string | null;
   farmAnimalId?: string | null;
+  visitRequestId?: string | null;
   seenCount?: number | null;
   vetUserId?: string | null;
   vetName?: string | null;
@@ -298,6 +299,9 @@ export const livestockAPI = {
   /** Upcoming due / dry-off dates on farms linked to this clinic, and advice it has left. */
   listFarmReminders: (): Promise<ApiResponse<{ reminders: ClinicFarmReminder[] }>> =>
     get(`${BASE}/farm-reminders`, { cache: false, silent: true } as any),
+  /** The vet records what they gave during a farm visit (lands on the farmer's Medical record too). */
+  addVisitTreatment: (visitId: string, data: { product: string; kind?: string; dose?: string; route?: string; withdrawalMeatDays?: number | null; withdrawalMilkDays?: number | null; reason?: string }): Promise<ApiResponse<{ visit: FarmVisitDetail }>> =>
+    post(`${BASE}/farm-visits/${visitId}/treatments`, data),
   /** Leave advice or a follow-up for the farmer. */
   addFarmReminder: (data: { farmId: string; farmAnimalId?: string; title: string; notes?: string; dueOn?: string }): Promise<ApiResponse<{ reminder: ClinicFarmReminder }>> =>
     post(`${BASE}/farm-reminders`, data),

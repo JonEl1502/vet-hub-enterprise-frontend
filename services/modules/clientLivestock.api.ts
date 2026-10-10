@@ -114,6 +114,12 @@ export interface ClientAnimalProduceRecord {
   id: string; produce: string | null; recordedOn: string; quantity: number; unit: string; notes: string | null;
 }
 
+export interface ClientFarmTreatment {
+  id: string; scope: string; kind: string; product: string; dose: string | null; route: string | null; reason: string | null;
+  treatedOn: string; treatedCount: number | null; target: string; administeredBy: string; administeredName: string | null;
+  meatSafeOn: string | null; milkSafeOn: string | null; meatHeld: boolean; milkHeld: boolean;
+}
+
 export type ClientFarmAnimalsResult =
   | { locked: true; requiredFeature: 'livestock:farms'; currentPackageName: string | null; cheapestPackage: ClientLivestockPackage | null }
   | { locked: false; animals: ClientFarmAnimal[] };
@@ -132,6 +138,10 @@ export const clientLivestockAPI = {
 
   listFarmAnimals: (clientId: string, farmId: string): Promise<ApiResponse<ClientFarmAnimalsResult>> =>
     get(`${BASE(clientId)}/farms/${farmId}/animals`, { cache: false }),
+
+  /** Clinical treatments + withholding — no money. FULL-tier clients only (403 otherwise). */
+  listFarmTreatments: (clientId: string, farmId: string): Promise<ApiResponse<ClientFarmTreatment[]>> =>
+    get(`${BASE(clientId)}/farms/${farmId}/treatments`, { cache: false, silent: true } as any),
 
   getFarmAnimal: (clientId: string, animalId: string): Promise<ApiResponse<ClientFarmAnimal>> =>
     get(`${BASE(clientId)}/animals/${animalId}`, { cache: false }),

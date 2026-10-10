@@ -309,7 +309,51 @@ body {
   background: var(--cp-bg);
   color: var(--cp-ink);
 }
-.dark .client-portal {
+/* The clinic app's FARM screens wear the farmer portal's look (Phase D, user
+   2026-10-10: *"use the same UI design as the farmer side"*). Same tokens, and
+   every `.cp-*` rule below is shared via `:is(.client-portal, .farm-skin)` —
+   one design system, not a copy. Unlike the portal it sits INSIDE the clinic
+   shell, so it is a rounded sand panel, not a full-viewport page. */
+.farm-skin {
+  --cp-bg: #f7f2ea;
+  --cp-surface: #ffffff;
+  --cp-surface-2: #fbf6ef;
+  --cp-border: #ece3d6;
+  --cp-ink: #1f3d39;
+  --cp-muted: #8a8077;
+  --cp-accent: #ef855a;
+  --cp-accent-dark: #df6f44;
+  --cp-accent-soft: #fdeee6;
+  --cp-seafoam: #1C7A5B;
+  background: var(--cp-bg);
+  color: var(--cp-ink);
+  border-radius: 1.5rem;
+  padding: 1rem;
+}
+@media (min-width: 640px) { .farm-skin { padding: 1.5rem; } }
+/* The clinic's shared form classes, mapped onto the portal's inputs so every
+   existing livestock form picks up the farmer look without being rewritten. */
+.farm-skin .field-input,
+.farm-skin .field-select {
+  width: 100%;
+  background: var(--cp-surface-2);
+  border: 1px solid var(--cp-border);
+  border-radius: 0.8rem;
+  padding: 0 0.85rem;
+  min-height: 2.6rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--cp-ink);
+  outline: none;
+}
+.farm-skin textarea.field-input { padding-top: 0.6rem; padding-bottom: 0.6rem; }
+.farm-skin .field-input:focus,
+.farm-skin .field-select:focus { border-color: var(--cp-accent); box-shadow: 0 0 0 3px rgba(239, 133, 90, 0.15); }
+.farm-skin .field-label {
+  display: block; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.025em;
+  text-transform: uppercase; color: var(--cp-muted); margin-bottom: 0.4rem;
+}
+.dark :is(.client-portal, .farm-skin) {
   --cp-bg: #17120e;
   --cp-surface: #211b16;
   --cp-surface-2: #1b1612;
@@ -335,35 +379,35 @@ body {
    Specificity is (0,2,x) against the utilities' (0,1,0), so these win on
    cascade order alone — no `!important`, and a deliberate override at a call
    site still beats them. */
-.dark .client-portal .text-slate-900,
-.dark .client-portal .text-slate-800,
-.dark .client-portal .text-slate-700 { color: var(--cp-ink); }
+.dark :is(.client-portal, .farm-skin) .text-slate-900,
+.dark :is(.client-portal, .farm-skin) .text-slate-800,
+.dark :is(.client-portal, .farm-skin) .text-slate-700 { color: var(--cp-ink); }
 
-.dark .client-portal .text-slate-600,
-.dark .client-portal .text-slate-500,
-.dark .client-portal .text-slate-400 { color: var(--cp-muted); }
+.dark :is(.client-portal, .farm-skin) .text-slate-600,
+.dark :is(.client-portal, .farm-skin) .text-slate-500,
+.dark :is(.client-portal, .farm-skin) .text-slate-400 { color: var(--cp-muted); }
 
 /* Surfaces: a white panel on a #17120e page is a hole, not a card. */
-.dark .client-portal .bg-white,
-.dark .client-portal .bg-slate-50,
-.dark .client-portal .bg-slate-100 { background-color: var(--cp-surface-2); }
+.dark :is(.client-portal, .farm-skin) .bg-white,
+.dark :is(.client-portal, .farm-skin) .bg-slate-50,
+.dark :is(.client-portal, .farm-skin) .bg-slate-100 { background-color: var(--cp-surface-2); }
 
-.dark .client-portal .border-slate-100,
-.dark .client-portal .border-slate-200 { border-color: var(--cp-border); }
+.dark :is(.client-portal, .farm-skin) .border-slate-100,
+.dark :is(.client-portal, .farm-skin) .border-slate-200 { border-color: var(--cp-border); }
 
-.client-portal .cp-card {
+:is(.client-portal, .farm-skin) .cp-card {
   background: var(--cp-surface);
   border: 1px solid var(--cp-border);
   border-radius: 1.25rem;
   box-shadow: 0 1px 2px rgba(31, 61, 57, 0.04), 0 8px 24px -16px rgba(31, 61, 57, 0.18);
 }
-.client-portal .cp-card-soft {
+:is(.client-portal, .farm-skin) .cp-card-soft {
   background: var(--cp-surface-2);
   border: 1px solid var(--cp-border);
   border-radius: 1rem;
 }
 
-.client-portal .cp-btn {
+:is(.client-portal, .farm-skin) .cp-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -376,10 +420,10 @@ body {
   font-size: 0.875rem;
   transition: background 0.18s ease, transform 0.18s ease;
 }
-.client-portal .cp-btn:hover { background: var(--cp-accent-dark); transform: translateY(-1px); }
-.client-portal .cp-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
+:is(.client-portal, .farm-skin) .cp-btn:hover { background: var(--cp-accent-dark); transform: translateY(-1px); }
+:is(.client-portal, .farm-skin) .cp-btn:disabled { opacity: 0.55; cursor: not-allowed; transform: none; }
 
-.client-portal .cp-btn-ghost {
+:is(.client-portal, .farm-skin) .cp-btn-ghost {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -393,9 +437,9 @@ body {
   font-size: 0.875rem;
   transition: background 0.18s ease, border-color 0.18s ease;
 }
-.client-portal .cp-btn-ghost:hover { background: var(--cp-surface-2); border-color: var(--cp-accent); }
+:is(.client-portal, .farm-skin) .cp-btn-ghost:hover { background: var(--cp-surface-2); border-color: var(--cp-accent); }
 
-.client-portal .cp-input {
+:is(.client-portal, .farm-skin) .cp-input {
   width: 100%;
   background: var(--cp-surface-2);
   border: 1px solid var(--cp-border);
@@ -408,17 +452,17 @@ body {
   outline: none;
   transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
-.client-portal textarea.cp-input { height: auto; padding: 0.6rem 0.85rem; resize: none; font-weight: 500; }
-.client-portal select.cp-input { cursor: pointer; appearance: none; }
-.client-portal .cp-input::placeholder { color: var(--cp-muted); font-weight: 500; }
-.client-portal .cp-input:focus { border-color: var(--cp-accent); box-shadow: 0 0 0 3px rgba(239, 133, 90, 0.15); }
+:is(.client-portal, .farm-skin) textarea.cp-input { height: auto; padding: 0.6rem 0.85rem; resize: none; font-weight: 500; }
+:is(.client-portal, .farm-skin) select.cp-input { cursor: pointer; appearance: none; }
+:is(.client-portal, .farm-skin) .cp-input::placeholder { color: var(--cp-muted); font-weight: 500; }
+:is(.client-portal, .farm-skin) .cp-input:focus { border-color: var(--cp-accent); box-shadow: 0 0 0 3px rgba(239, 133, 90, 0.15); }
 
 /* ⚠️ Was 0.72rem — legible on a wide monitor, genuinely tiny-and-shouty on a
    phone (user: "less tiny all-caps"). Bumped size and eased the tracking;
    kept uppercase, since dropping it is a bigger identity change than "make it
    readable" asked for. Portal-wide (every field label uses this class), so
    this one change reaches every form at once. */
-.client-portal .cp-label {
+:is(.client-portal, .farm-skin) .cp-label {
   display: block;
   font-size: 0.78rem;
   font-weight: 700;
@@ -432,18 +476,18 @@ body {
    (the sell form's only feedback was two toast.error() calls at submit time).
    Modelled on the staff app's `.field-help` convention (index.css §Rules &
    Preferences reference), portal-tokenized. */
-.client-portal .cp-field-error {
+:is(.client-portal, .farm-skin) .cp-field-error {
   margin-top: 0.3rem;
   font-size: 0.75rem;
   font-weight: 600;
   color: #dc4b4b;
 }
-.dark .client-portal .cp-field-error { color: #f0837e; }
+.dark :is(.client-portal, .farm-skin) .cp-field-error { color: #f0837e; }
 
 /* A real checkbox, not a bare native one. The sell form's "Price is
    negotiable" box was the one unstyled native control left in an otherwise
    fully-themed form. */
-.client-portal .cp-checkbox-row {
+:is(.client-portal, .farm-skin) .cp-checkbox-row {
   display: flex;
   align-items: center;
   gap: 0.6rem;
@@ -451,7 +495,7 @@ body {
   font-weight: 600;
   color: var(--cp-ink);
 }
-.client-portal .cp-checkbox {
+:is(.client-portal, .farm-skin) .cp-checkbox {
   width: 1.15rem;
   height: 1.15rem;
   border-radius: 0.35rem;
@@ -459,12 +503,12 @@ body {
   accent-color: var(--cp-accent);
   cursor: pointer;
 }
-.client-portal .cp-checkbox:focus-visible {
+:is(.client-portal, .farm-skin) .cp-checkbox:focus-visible {
   outline: 2px solid var(--cp-accent);
   outline-offset: 2px;
 }
 
-.client-portal .cp-chip {
+:is(.client-portal, .farm-skin) .cp-chip {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -479,7 +523,7 @@ body {
    Tone (bg/text color) comes from Tailwind classes at the call site (the
    existing amber/sky/emerald/rose tint pairs already used for the Record
    grid) — this class only owns size/shape, so it drops into any tint. */
-.client-portal .cp-icon-chip {
+:is(.client-portal, .farm-skin) .cp-icon-chip {
   width: 2.35rem;
   height: 2.35rem;
   border-radius: 0.85rem;
@@ -488,12 +532,12 @@ body {
   justify-content: center;
   flex-shrink: 0;
 }
-.client-portal .cp-muted { color: var(--cp-muted); }
-.client-portal .cp-accent-text { color: var(--cp-accent-dark); }
-.client-portal .cp-active-link { background: var(--cp-accent-soft); color: var(--cp-accent-dark); }
+:is(.client-portal, .farm-skin) .cp-muted { color: var(--cp-muted); }
+:is(.client-portal, .farm-skin) .cp-accent-text { color: var(--cp-accent-dark); }
+:is(.client-portal, .farm-skin) .cp-active-link { background: var(--cp-accent-soft); color: var(--cp-accent-dark); }
 
 /* Portal chrome — pine gradient topnav + card nav rail */
-.client-portal .cp-topnav {
+:is(.client-portal, .farm-skin) .cp-topnav {
   background:
     radial-gradient(52rem 26rem at 108% -40%, rgba(239, 133, 90, 0.35), transparent 55%),
     radial-gradient(40rem 22rem at -10% 130%, rgba(28, 122, 91, 0.45), transparent 60%),
@@ -510,18 +554,18 @@ body {
    the left and resolves into the same pine/coral it always was — the header
    grows out of the page instead of sitting on top of it. Scoped `.dark` only,
    same convention as the rest of this file's dark-mode calibration block. */
-.dark .client-portal .cp-topnav {
+.dark :is(.client-portal, .farm-skin) .cp-topnav {
   background:
     radial-gradient(52rem 26rem at 108% -40%, rgba(239, 133, 90, 0.28), transparent 55%),
     radial-gradient(40rem 22rem at -10% 130%, rgba(28, 122, 91, 0.32), transparent 60%),
     linear-gradient(115deg, #14100c 0%, #1a352f 45%, #1f4a41 100%);
   border-bottom: 1px solid var(--cp-border);
 }
-.client-portal .cp-logo-mark {
+:is(.client-portal, .farm-skin) .cp-logo-mark {
   background: linear-gradient(135deg, #f79b70 0%, #e56a3c 100%);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 16px -8px rgba(229, 106, 60, 0.8);
 }
-.client-portal .cp-topnav-btn {
+:is(.client-portal, .farm-skin) .cp-topnav-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -534,8 +578,8 @@ body {
   font-size: 0.85rem;
   transition: background 0.18s ease, border-color 0.18s ease;
 }
-.client-portal .cp-topnav-btn:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.45); }
-.client-portal .cp-avatar {
+:is(.client-portal, .farm-skin) .cp-topnav-btn:hover { background: rgba(255, 255, 255, 0.18); border-color: rgba(255, 255, 255, 0.45); }
+:is(.client-portal, .farm-skin) .cp-avatar {
   width: 2.25rem;
   height: 2.25rem;
   border-radius: 999px;
@@ -549,13 +593,13 @@ body {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.3);
 }
 
-.client-portal .cp-rail {
+:is(.client-portal, .farm-skin) .cp-rail {
   background: var(--cp-surface);
   border: 1px solid var(--cp-border);
   border-radius: 1.25rem;
   box-shadow: 0 1px 2px rgba(31, 61, 57, 0.04), 0 14px 30px -24px rgba(31, 61, 57, 0.35);
 }
-.client-portal .cp-rail-link {
+:is(.client-portal, .farm-skin) .cp-rail-link {
   display: flex;
   align-items: center;
   gap: 0.7rem;
@@ -566,8 +610,8 @@ body {
   color: var(--cp-muted);
   transition: background 0.15s ease, color 0.15s ease;
 }
-.client-portal .cp-rail-link:hover { background: var(--cp-surface-2); color: var(--cp-ink); }
-.client-portal .cp-rail-icon {
+:is(.client-portal, .farm-skin) .cp-rail-link:hover { background: var(--cp-surface-2); color: var(--cp-ink); }
+:is(.client-portal, .farm-skin) .cp-rail-icon {
   width: 2.15rem;
   height: 2.15rem;
   border-radius: 0.7rem;
@@ -579,16 +623,16 @@ body {
   color: var(--cp-seafoam);
   transition: background 0.15s ease, color 0.15s ease;
 }
-.client-portal .cp-rail-link:hover .cp-rail-icon { background: var(--cp-accent-soft); color: var(--cp-accent-dark); }
-.client-portal .cp-rail-link.cp-rail-active {
+:is(.client-portal, .farm-skin) .cp-rail-link:hover .cp-rail-icon { background: var(--cp-accent-soft); color: var(--cp-accent-dark); }
+:is(.client-portal, .farm-skin) .cp-rail-link.cp-rail-active {
   background: linear-gradient(135deg, #f2926b 0%, #e2653a 100%);
   color: #fff;
   box-shadow: 0 12px 22px -12px rgba(226, 101, 58, 0.75);
 }
-.client-portal .cp-rail-link.cp-rail-active .cp-rail-icon { background: rgba(255, 255, 255, 0.2); color: #fff; }
-.client-portal .cp-rail-link.cp-rail-active .cp-chip { background: #fff; color: var(--cp-accent-dark); }
+:is(.client-portal, .farm-skin) .cp-rail-link.cp-rail-active .cp-rail-icon { background: rgba(255, 255, 255, 0.2); color: #fff; }
+:is(.client-portal, .farm-skin) .cp-rail-link.cp-rail-active .cp-chip { background: #fff; color: var(--cp-accent-dark); }
 
-.client-portal .cp-rail-promo {
+:is(.client-portal, .farm-skin) .cp-rail-promo {
   background:
     radial-gradient(9rem 7rem at 115% -20%, rgba(239, 133, 90, 0.5), transparent 60%),
     linear-gradient(140deg, #1f4a41 0%, #1c7a5b 100%);
@@ -597,9 +641,9 @@ body {
   padding: 0.9rem;
   box-shadow: 0 14px 26px -18px rgba(28, 122, 91, 0.8);
 }
-.client-portal .cp-rail-promo .cp-btn { width: 100%; padding: 0.5rem 0.9rem; font-size: 0.8rem; }
+:is(.client-portal, .farm-skin) .cp-rail-promo .cp-btn { width: 100%; padding: 0.5rem 0.9rem; font-size: 0.8rem; }
 
-.client-portal .cp-hero {
+:is(.client-portal, .farm-skin) .cp-hero {
   background:
     radial-gradient(30rem 16rem at 112% -30%, rgba(239, 133, 90, 0.4), transparent 60%),
     radial-gradient(24rem 14rem at -8% 120%, rgba(28, 122, 91, 0.5), transparent 62%),
@@ -607,7 +651,7 @@ body {
   border-radius: 1.4rem;
   box-shadow: 0 18px 36px -24px rgba(23, 51, 46, 0.7);
 }
-.client-portal .cp-hero-btn {
+:is(.client-portal, .farm-skin) .cp-hero-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -620,8 +664,8 @@ body {
   font-size: 0.875rem;
   transition: background 0.18s ease, border-color 0.18s ease;
 }
-.client-portal .cp-hero-btn:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.45); }
-.client-portal .cp-icon-btn {
+:is(.client-portal, .farm-skin) .cp-hero-btn:hover { background: rgba(255, 255, 255, 0.2); border-color: rgba(255, 255, 255, 0.45); }
+:is(.client-portal, .farm-skin) .cp-icon-btn {
   width: 2.5rem;
   height: 2.5rem;
   border-radius: 999px;
@@ -634,15 +678,15 @@ body {
   box-shadow: 0 8px 14px -8px rgba(226, 101, 58, 0.8);
   transition: background 0.18s ease;
 }
-.client-portal .cp-icon-btn:hover { background: var(--cp-accent-dark); }
-.client-portal .cp-icon-btn.cp-icon-btn-ghost {
+:is(.client-portal, .farm-skin) .cp-icon-btn:hover { background: var(--cp-accent-dark); }
+:is(.client-portal, .farm-skin) .cp-icon-btn.cp-icon-btn-ghost {
   background: rgba(255, 255, 255, 0.12);
   border: 1px solid rgba(255, 255, 255, 0.25);
   box-shadow: none;
 }
-.client-portal .cp-icon-btn.cp-icon-btn-ghost:hover { background: rgba(255, 255, 255, 0.22); }
+:is(.client-portal, .farm-skin) .cp-icon-btn.cp-icon-btn-ghost:hover { background: rgba(255, 255, 255, 0.22); }
 
-.client-portal .cp-pill-tabs {
+:is(.client-portal, .farm-skin) .cp-pill-tabs {
   display: inline-flex;
   gap: 0.25rem;
   background: var(--cp-surface-2);
@@ -652,7 +696,7 @@ body {
   max-width: 100%;
   overflow-x: auto;
 }
-.client-portal .cp-pill-tab {
+:is(.client-portal, .farm-skin) .cp-pill-tab {
   border-radius: 999px;
   padding: 0.4rem 0.95rem;
   font-size: 0.8rem;
@@ -661,15 +705,15 @@ body {
   white-space: nowrap;
   transition: background 0.15s ease, color 0.15s ease;
 }
-.client-portal .cp-pill-tab:hover { color: var(--cp-ink); }
-.client-portal .cp-pill-tab.cp-pill-active {
+:is(.client-portal, .farm-skin) .cp-pill-tab:hover { color: var(--cp-ink); }
+:is(.client-portal, .farm-skin) .cp-pill-tab.cp-pill-active {
   background: linear-gradient(135deg, #f2926b 0%, #e2653a 100%);
   color: #fff;
   box-shadow: 0 8px 14px -8px rgba(226, 101, 58, 0.7);
 }
 
-.client-portal .cp-timeline { position: relative; padding-left: 1.4rem; }
-.client-portal .cp-timeline::before {
+:is(.client-portal, .farm-skin) .cp-timeline { position: relative; padding-left: 1.4rem; }
+:is(.client-portal, .farm-skin) .cp-timeline::before {
   content: '';
   position: absolute;
   left: 0.45rem;
@@ -679,7 +723,7 @@ body {
   border-radius: 2px;
   background: var(--cp-border);
 }
-.client-portal .cp-timeline-dot {
+:is(.client-portal, .farm-skin) .cp-timeline-dot {
   position: absolute;
   left: 0;
   top: 0.3rem;
@@ -695,15 +739,15 @@ body {
    shape, painted in portal tokens. The active pill is filled rather than
    underlined, which is what distinguishes it from `.cp-tab` above (that one is
    the bottom tab bar, where an underline is the right signal). */
-.client-portal .cp-tab-on {
+:is(.client-portal, .farm-skin) .cp-tab-on {
   background: var(--cp-accent);
   color: #fff;
   box-shadow: 0 6px 16px -6px rgba(0, 0, 0, 0.35);
 }
 
-.client-portal .cp-tab { position: relative; color: var(--cp-muted); }
-.client-portal .cp-tab.cp-tab-active { color: var(--cp-accent-dark); }
-.client-portal .cp-tab.cp-tab-active::before {
+:is(.client-portal, .farm-skin) .cp-tab { position: relative; color: var(--cp-muted); }
+:is(.client-portal, .farm-skin) .cp-tab.cp-tab-active { color: var(--cp-accent-dark); }
+:is(.client-portal, .farm-skin) .cp-tab.cp-tab-active::before {
   content: '';
   position: absolute;
   top: 0;

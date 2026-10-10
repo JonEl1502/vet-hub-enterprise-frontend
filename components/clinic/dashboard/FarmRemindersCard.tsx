@@ -17,10 +17,6 @@ const ICON: Record<string, React.ElementType> = { DUE_SOON: Baby, DRY_OFF: Milk,
 const FarmRemindersCard: React.FC = () => {
   const [items, setItems] = useState<ClinicFarmReminder[]>([]);
   const [advise, setAdvise] = useState<ClinicFarmReminder | null>(null);
-  const [text, setText] = useState('');
-  const [date, setDate] = useState('');
-  const [saving, setSaving] = useState(false);
-
   const load = useCallback(() => {
     livestockAPI.listFarmReminders()
       .then((r) => setItems(r.success && r.data ? r.data.reminders : []))
@@ -34,17 +30,6 @@ const FarmRemindersCard: React.FC = () => {
   }, [load]);
 
   if (items.length === 0) return null;
-
-  const send = async () => {
-    if (!advise || !text.trim()) return;
-    setSaving(true);
-    try {
-      const r = await livestockAPI.addFarmReminder({
-        farmId: advise.farmId, farmAnimalId: advise.farmAnimalId ?? undefined, title: text.trim(), dueOn: date || undefined,
-      });
-      if (r.success) { toast.success('Sent to the farmer'); setAdvise(null); setText(''); setDate(''); load(); }
-    } finally { setSaving(false); }
-  };
 
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm p-4" data-testid="clinic-farm-reminders">
@@ -63,7 +48,7 @@ const FarmRemindersCard: React.FC = () => {
                 </p>
               </div>
               {r.source === 'SYSTEM' && (
-                <button className="shrink-0 text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1" onClick={() => { setAdvise(r); setText(''); setDate(''); }}>
+                <button className="shrink-0 text-[10px] font-black uppercase tracking-widest text-seafoam flex items-center gap-1" onClick={() => setAdvise(r)}>
                   <MessageSquarePlus size={12} /> Advise
                 </button>
               )}
@@ -75,26 +60,48 @@ const FarmRemindersCard: React.FC = () => {
       </div>
 
       {advise && (
-        <div className="fixed inset-0 z-[70] bg-black/50 flex items-end sm:items-center justify-center p-0 sm:p-4" onClick={() => setAdvise(null)}>
-          <div className="bg-white dark:bg-zinc-900 w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-black text-pine dark:text-zinc-100">Advise the farmer</p>
-                <p className="text-[11px] text-slate-400">{advise.title} · {advise.farmName}</p>
-              </div>
-              <button onClick={() => setAdvise(null)} aria-label="Close" className="text-slate-400"><X size={18} /></button>
-            </div>
-            <textarea className="field-input w-full" rows={3} placeholder="e.g. Dry her off on the 10th and book a pre-calving check" value={text} onChange={(e) => setText(e.target.value)} autoFocus />
-            <div>
-              <label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Remind on (optional)</label>
-              <input className="field-input w-full mt-1" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-            </div>
-            <button className="w-full py-3 rounded-xl bg-seafoam text-white text-sm font-black disabled:opacity-50" disabled={saving || !text.trim()} onClick={send}>
-              {saving ? 'Sending…' : 'Send to farmer'}
-            </button>
-          </div>
-        </div>
+        <AdviseModal
+          farmId={advise.farmId} farmAnimalId={advise.farmAnimalId} context={`${advise.title} · ${advise.farmName ?? ''}`}
+          onClose={() => setAdvise(null)} onSent={() => { setAdvise(null); load(); }}
+        />
       )}
+    </div>
+  );
+};
+
+/** Leave advice or a follow-up for the farmer — shared by the home card and the farm view. */
+export const AdviseModal: React.FC<{
+  farmId: string; farmAnimalId?: string | null; context: string; onClose: () => void; onSent: () => void;
+}> = ({ farmId, farmAnimalId, context, onClose, onSent }) => {
+  const [text, setText] = useState('');
+  const [date, setDate] = useState('');
+  const [saving, setSaving] = useState(false);
+  const send = async () => {
+    if (!text.trim()) return;
+    setSaving(true);
+    try {
+      const r = await livestockAPI.addFarmReminder({ farmId, farmAnimalId: farmAnimalId ?? undefined, title: text.trim(), dueOn: date || undefined });
+      if (r.success) { toast.success('Sent to the farmer'); onSent(); }
+    } finally { setSaving(false); }
+  };
+  return (
+    <div className="farm-skin !bg-transparent !p-0 fixed inset-0 z-[70] bg-black/50 flex items-end sm:items-center justify-center sm:p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/50" />
+      <div className="cp-card relative w-full sm:max-w-md !rounded-b-none sm:!rounded-3xl p-5 space-y-3" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <p className="text-base font-black" style={{ color: 'var(--cp-ink)' }}>Advise the farmer</p>
+            <p className="text-[11px] cp-muted">{context}</p>
+          </div>
+          <button onClick={onClose} aria-label="Close" className="cp-icon-btn cp-icon-btn-ghost"><X size={16} /></button>
+        </div>
+        <textarea className="field-input w-full" rows={3} placeholder="e.g. Dry her off on the 10th and book a pre-calving check" value={text} onChange={(e) => setText(e.target.value)} autoFocus />
+        <div>
+          <label className="field-label">Remind on (optional)</label>
+          <input className="field-input w-full" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+        </div>
+        <button className="cp-btn w-full" disabled={saving || !text.trim()} onClick={send}>{saving ? 'Sending…' : 'Send to farmer'}</button>
+      </div>
     </div>
   );
 };

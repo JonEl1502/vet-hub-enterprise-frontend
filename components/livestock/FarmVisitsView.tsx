@@ -6,7 +6,7 @@
  * so the history of who asked for what stays intact.
  */
 import React, { useCallback, useEffect, useState } from 'react';
-import { Siren, CalendarClock, Check, X, Loader2, MapPin, Milk } from 'lucide-react';
+import { Siren, CalendarClock, Check, X, Loader2, MapPin, Milk, Stethoscope } from 'lucide-react';
 import { livestockAPI, type FarmVisitRequest, type VisitRequestStatus } from '../../services/modules/livestock.api';
 import { toast } from '../../services';
 import LoadingSpinner from '../shared/common/LoadingSpinner';
@@ -32,7 +32,7 @@ const FILTERS: Array<{ id: string; label: string }> = [
   { id: '', label: 'All' },
 ];
 
-const FarmVisitsView: React.FC = () => {
+const FarmVisitsView: React.FC<{ onNavigate?: (view: string) => void }> = ({ onNavigate }) => {
   const [requests, setRequests] = useState<FarmVisitRequest[]>([]);
   const [filter, setFilter] = useState('open');
   const [loading, setLoading] = useState(true);
@@ -68,6 +68,22 @@ const FarmVisitsView: React.FC = () => {
         setRequests((prev) => prev.map((x) => (x.id === r.id ? res.data!.request : x)));
         toast.success('Updated');
       }
+    } finally { setBusyId(null); }
+  };
+
+  /**
+   * Turn a request into the clinical record: a farm visit linked to it (the
+   * server moves the request on), then straight to the Visits list so the vet
+   * can write it up — findings, treatments, withholding.
+   */
+  const startVisit = async (r: FarmVisitRequest) => {
+    setBusyId(r.id);
+    try {
+      const res = await livestockAPI.createFarmVisit({
+        farmId: r.farmId, visitRequestId: r.id, reason: r.reason, kind: 'ROUTINE',
+        status: 'IN_PROGRESS', scheduledAt: new Date(r.scheduledFor ?? Date.now()).toISOString(),
+      });
+      if (res.success) { toast.success('Visit record opened'); onNavigate?.('farm-visit-records'); }
     } finally { setBusyId(null); }
   };
 
@@ -145,22 +161,29 @@ const FarmVisitsView: React.FC = () => {
                   {r.status === 'REQUESTED' && (
                     <button
                       onClick={() => { setScheduling(r); setWhen(dateInput(r.preferredDate)); setNotes(r.clinicNotes ?? ''); }}
-                      className="px-4 py-2.5 rounded-xl bg-seafoam text-white text-[10px] font-black uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95 flex items-center gap-1.5 transition-all"
+                      className="cp-btn !py-2 !px-3.5 !text-xs"
                     >
                       <CalendarClock size={12} /> Schedule
                     </button>
                   )}
                   <button
+                    onClick={() => startVisit(r)}
+                    disabled={busyId === r.id}
+                    className="cp-btn !py-2 !px-3.5 !text-xs"
+                  >
+                    <Stethoscope size={12} /> Start visit
+                  </button>
+                  <button
                     onClick={() => patch(r, { status: 'COMPLETED' })}
                     disabled={busyId === r.id}
-                    className="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300 flex items-center gap-1.5 disabled:opacity-50"
+                    className="cp-btn-ghost !py-2 !px-3.5 !text-xs"
                   >
                     {busyId === r.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Done
                   </button>
                   <button
                     onClick={() => patch(r, { status: 'CANCELLED' })}
                     disabled={busyId === r.id}
-                    className="px-3.5 py-2 rounded-lg border border-slate-200 dark:border-zinc-700 text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-rose-500 flex items-center gap-1.5 disabled:opacity-50"
+                    className="cp-btn-ghost !py-2 !px-3.5 !text-xs"
                   >
                     <X size={12} /> Cancel
                   </button>
