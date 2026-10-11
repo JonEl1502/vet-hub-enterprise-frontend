@@ -133,7 +133,7 @@ const FarmPlansAccessPanel: React.FC = () => {
       </div>
 
       <p className="text-[11px] text-slate-500 dark:text-zinc-500 leading-relaxed">
-        Who is offered <strong>Farmer</strong>, <strong>Farmer Pro</strong> and <strong>Farmer Pro+</strong> on
+        Who is offered <strong>Farmer Plus</strong> and <strong>Farmer Pro</strong> on
         their plan screen. Everyone else sees Free and Plus. This controls what is
         <em> shown</em> — the rungs themselves are still bought normally, and a client
         already paying for one always keeps seeing it.

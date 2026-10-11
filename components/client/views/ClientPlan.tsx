@@ -12,14 +12,15 @@ import { KEY_LABEL, BASELINE_KEYS } from '../../../services/entitlements';
  *
  * The CLIENT audience holds two different customers and one ladder. A pet owner
  * climbs it for convenience; a FARMER climbs it for farm access, which starts
- * at the Farmer rung. That is why farm access is a plan rung and not an add-on:
+ * at the Farmer Plus rung. That is why farm access is a plan rung and not an add-on:
  * a farmer IS a client, and 230 took CLIENT off the Farms add-on for exactly
  * this reason.
  *
  * 233 — but one ladder for two customers meant every pet owner was offered
- * "Farmer Pro+ — KES 5,000", which is livestock software for a labrador. The
+ * a farmer plan, which is livestock software for a labrador. The
  * server now sends only the rungs this account should see, and `farmAccount`
- * says which of the two it is.
+ * says which of the two it is. A farmer sees Free, Farmer Plus and Farmer Pro
+ * (2026-10-11) and is not offered Community Access.
  *
  * ⚠️ The reveal below is FREE. Charging for it would bill the same capability
  * twice — an unlock fee, then the rung that actually grants the farms — so all
@@ -461,7 +462,7 @@ const ClientPlan: React.FC = () => {
             <p className="text-xs mt-0.5" style={{ color: 'var(--cp-ink-soft)' }}>
               {farmAccount
                 ? 'The Farmer plans above cover farms, herds, feeding and produce. Turn them off to go back to the pet-owner plans.'
-                : 'Turn on farm plans to see Farmer, Farmer Pro and Farmer Pro+ — for farms, herds, feeding and produce. Free to turn on; you only pay if you pick one.'}
+                : 'Turn on farm plans to see Farmer Plus and Farmer Pro — for farms, herds, feeding and produce. Free to turn on; you only pay if you pick one.'}
             </p>
           </div>
           <button className="cp-btn-ghost shrink-0" onClick={toggleFarm} disabled={switchingFarm}>

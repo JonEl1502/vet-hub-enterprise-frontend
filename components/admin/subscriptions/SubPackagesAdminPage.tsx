@@ -424,7 +424,7 @@ const SubPackagesAdminPage: React.FC = () => {
           set of rungs, so it needs a control the other tabs don't: who is
           OFFERED the Farmer rungs. It sits here rather than in Platform
           Settings because it is a fact about this ladder, and the person
-          editing Farmer Pro+ is the person deciding who should see it. */}
+          editing Farmer Pro is the person deciding who should see it. */}
       {audience === 'client' && <FarmPlansAccessPanel />}
 
       {(

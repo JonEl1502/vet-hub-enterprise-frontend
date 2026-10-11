@@ -47,6 +47,12 @@ export async function launch({ width = 400, height = 781, dark = true } = {}) {
   const produceRecs = [];
   const unmocked = [];
   const invited = [];
+  // The client plan ladder as the server returns it. Mutate `plansResp` in a test to switch audiences.
+  const mkPlan = (id, name, tier, price, farm, features, maxFarms = 0) => ({ id, name, tier, price, currency: 'KES', billingCycle: 'MONTHLY', features, featureKeys: farm ? ['livestock:farms'] : [], maxFarms, farmPlan: farm, purchasable: tier > 0, billingOptions: [] });
+  const plansResp = {
+    plans: [mkPlan('14', 'Free', 0, 0, false, ['Your pets’ records', 'Book appointments online']), mkPlan('15', 'Farmer Plus', 2, 1500, true, ['Everything in Free', 'Farm mode in the portal', 'One farm'], 1), mkPlan('16', 'Farmer Pro', 3, 2500, true, ['Everything in Farmer Plus', 'Up to three farms', 'Crop plots'], 3)],
+    farmAccount: true, canChooseFarmPlans: true, communityAddOn: null,
+  };
   // Mutable animal with the server's breeding arithmetic mirrored (farmRepro.ts) so the page has real dates to show.
   const animal = { ...bika, photos: [], pregnantSince: null, breedingMethod: null, lactatingSince: '2026-06-01', driedOffOn: null };
   const DAYMS = 86400000;
@@ -144,12 +150,13 @@ export async function launch({ width = 400, height = 781, dark = true } = {}) {
     if (/farm-stock\/[^/]+\/movements$/.test(path)) return ok({ movements });
     if (path === '/portal/me/farm-clinics') { const unavailable = [{ id: 'c9', name: 'Westlands Paws Vet Clinic', city: 'Nairobi', phone: '0700 000 000' }]; return ok({ clinics: [], unavailable, invitedClinicIds: invited, filtered: 1 }); }
     if (path === '/portal/me/farms/f1/clinic-invites') return ok({ invites: invited.map((id) => ({ id: 'i1', clinicId: id, clinicName: 'Westlands Paws Vet Clinic', askedAt: new Date().toISOString() })) });
-    if (path === '/portal/me/plan') return ok({ package: null });
+    if (path === '/portal/me/plans') return ok(plansResp);
+    if (path === '/portal/me/plan') return ok({ state: 'FREE', featureKeys: ['livestock:basic'], packageName: null, tier: 0, expiresAt: null, maxFarms: 1, clientId: '7' });
     // Everything else the shell polls (messages, invoices, notifications…): empty but well-formed.
     unmocked.push(path);
     return ok({ invoices: [], messages: [], appointments: [], pets: [], clinics: [], notifications: [], unreadCount: 0, threads: [], items: [], farms: [], posts: [] });
   });
-  return { browser, page, posts, unmocked, errors, stock, animal, reminders };
+  return { browser, page, posts, unmocked, errors, stock, animal, reminders, plansResp };
 }
 
 export const shot = (page, name) => page.screenshot({ path: `${SHOTS}${name}.png` });
