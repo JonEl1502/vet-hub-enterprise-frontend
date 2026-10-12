@@ -69,6 +69,8 @@ interface DataContextType {
   ensurePets: () => Promise<void>;
   /** Fetch ONE pet by id and merge it into `pets` if the page-limited list missed it. */
   ensurePetById: (id: number) => Promise<boolean>;
+  /** Fetch ONE client by id and merge it into `clients` if the page-limited list missed it. */
+  ensureClientById: (id: number) => Promise<boolean>;
   ensureAppointments: () => Promise<void>;
   /** Server-backed, paged visits for a date range. See the implementation for why. */
   fetchVisitsRange: (start: Date | string, end: Date | string, maxPages?: number) => Promise<{ rows: Visit[]; total: number; truncated: number }>;
@@ -161,6 +163,58 @@ export const mapVisitRow = (a: any): Visit => ({
   transactionId: a.transactionId ?? null,
   receiptNumber: a.receiptNumber ?? null,
 });
+
+/**
+ * Row → Client mapper, module-level for the same reason mapVisitRow is:
+ * fetchClients (page of 1000) and ensureClientById (single fetch, for a
+ * client the page missed) must agree on shape, or the single-fetch path
+ * would silently drop fields the list path kept (project_datacontext_field_mapper_footgun).
+ */
+export const mapApiClientToClient = (c: any): Client => ({
+  id: parseInt(c.id),
+  clinicId: parseInt(c.clinicId),
+  clinicName: c.clinicName ?? null,
+  title: c.title || '',
+  firstName: c.firstName || '',
+  secondName: c.secondName || '',
+  surname: c.surname || '',
+  name: String(c.name || ''),
+  email: String(c.email || ''),
+  phone: String(c.phone || ''),
+  address: String(c.address || ''),
+  country: String(c.country || 'Kenya'),
+  currency: 'KES',
+  gender: c.gender || 'Female',
+  region: c.region || 'Local',
+  dob: String(c.dob || ''),
+  lat: c.lat || null,
+  lng: c.lng || null,
+  clientType: c.clientType || null,
+  clientTypeNote: c.clientTypeNote || '',
+  maxDebt: c.maxDebt || null,
+  clientRiskRate: c.clientRiskRate || null,
+  outstandingBalance: Number(c.outstandingBalance) || 0,
+  internalNotes: c.internalNotes || null,
+  profileStatus: c.profileStatus ?? 'COMPLETE',
+  pendingFields: c.pendingFields ?? [],
+  portalStatus: c.portalStatus ?? 'none',
+  portalLastLoginAt: c.portalLastLoginAt ?? null,
+  isActive: c.isActive !== false,
+  avatar: String(c.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name}`),
+  joinDate: String(c.joinedAt || new Date().toISOString().split('T')[0]),
+  totalSpent: Number(c.totalSpent) || 0,
+  lastVisit: String(c.lastVisitAt || ''),
+  petCount: typeof c.petCount === 'number' ? c.petCount : undefined,
+  pets: Array.isArray(c.pets)
+    ? c.pets.map((p: any) => ({
+        ...p,
+        id: typeof p.id === 'string' ? parseInt(p.id) : p.id,
+        ownerId: parseInt(c.id),
+      }))
+    : undefined,
+  legacyBalance: c.legacyBalance != null ? Number(c.legacyBalance) : null,
+  legacyBalanceSource: c.legacyBalanceSource ?? null,
+}) as any;
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
 
@@ -320,56 +374,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       // refresh button silently serve stale data.
       const response: any = await clientsAPI.getAll({ page: 1, limit: 1000, status: clientStatus }, { cache: false });
       if (response.success && response.data.clients) {
-        const mapped: Client[] = response.data.clients.map((c: any) => ({
-          id: parseInt(c.id),
-          clinicId: parseInt(c.clinicId),
-          clinicName: c.clinicName ?? null,
-          title: c.title || '',
-          firstName: c.firstName || '',
-          secondName: c.secondName || '',
-          surname: c.surname || '',
-          name: String(c.name || ''),
-          email: String(c.email || ''),
-          phone: String(c.phone || ''),
-          address: String(c.address || ''),
-          country: String(c.country || 'Kenya'),
-          currency: 'KES',
-          gender: c.gender || 'Female',
-          region: c.region || 'Local',
-          dob: String(c.dob || ''),
-          lat: c.lat || null,
-          lng: c.lng || null,
-          clientType: c.clientType || null,
-          clientTypeNote: c.clientTypeNote || '',
-          maxDebt: c.maxDebt || null,
-          clientRiskRate: c.clientRiskRate || null,
-          outstandingBalance: Number(c.outstandingBalance) || 0,
-          internalNotes: c.internalNotes || null,
-          profileStatus: c.profileStatus ?? 'COMPLETE',
-          pendingFields: c.pendingFields ?? [],
-          portalStatus: c.portalStatus ?? 'none',
-          portalLastLoginAt: c.portalLastLoginAt ?? null,
-          isActive: c.isActive !== false,
-          avatar: String(c.avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${c.name}`),
-          joinDate: String(c.joinedAt || new Date().toISOString().split('T')[0]),
-          totalSpent: Number(c.totalSpent) || 0,
-          lastVisit: String(c.lastVisitAt || ''),
-          // ⚠️ This mapper is allow-list: a field it does not copy is GONE, no
-          // matter that the API sent it. These four were being dropped, which
-          // is why client cards showed "0 PATIENTS" with no pet faces for
-          // clients who plainly had pets, and why the Actualise button never
-          // appeared on anyone. The API was right the whole time.
-          petCount: typeof c.petCount === 'number' ? c.petCount : undefined,
-          pets: Array.isArray(c.pets)
-            ? c.pets.map((p: any) => ({
-                ...p,
-                id: typeof p.id === 'string' ? parseInt(p.id) : p.id,
-                ownerId: parseInt(c.id),
-              }))
-            : undefined,
-          legacyBalance: c.legacyBalance != null ? Number(c.legacyBalance) : null,
-          legacyBalanceSource: c.legacyBalanceSource ?? null,
-        }) as any);
+        const mapped: Client[] = response.data.clients.map(mapApiClientToClient);
         setClients(mapped);
         const totalFromServer = Number(response.data?.pagination?.totalItems);
         setTotals(prev => ({ ...prev, clients: Number.isFinite(totalFromServer) ? totalFromServer : mapped.length }));
@@ -718,6 +723,34 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, [pets]);
 
   /**
+   * Pull a single client in when the list did not include it — the owner-side
+   * twin of ensurePetById, same cause.
+   *
+   * `fetchClients` takes one page (limit 1000, newest createdAt first). A
+   * clinic with more than 1000 clients (Westlands Paws: 2,254) therefore has
+   * everyone past the newest 1000 missing from context — which for a
+   * migrated clinic is disproportionately its OLDEST, highest-history
+   * clients, since they sort to the back. `getClientById` returning
+   * undefined for one of them produced "Client not found. The client may
+   * have been deleted" on a client who plainly exists (user report,
+   * 2026-10-12, Muthaiga Chandaria — client id 1612, created during the
+   * LeagPro import, 1,292 clients created after her). Fetch the one asked for.
+   */
+  const ensureClientById = useCallback(async (id: number): Promise<boolean> => {
+    if (clients.some(c => c.id === id)) return true;
+    try {
+      const res: any = await clientsAPI.getById(id);
+      const c = res?.data?.client ?? res?.data;
+      if (!c?.id) return false;
+      const one = mapApiClientToClient(c);
+      setClients(prev => (prev.some(x => x.id === one.id) ? prev : [...prev, one]));
+      return true;
+    } catch {
+      return false;
+    }
+  }, [clients]);
+
+  /**
    * A client's pets — the SERVER's copy first.
    *
    * `pets` here is only the page this context has loaded. On a clinic with
@@ -757,7 +790,7 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     fetchVisitsRange,
     refreshClients, refreshPets, refreshAppointments, refreshTransactions, refreshInventory,
     updateAppointmentLocally,
-    getClientById, getPetById, getClientPets, ensurePetById,
+    getClientById, getPetById, getClientPets, ensurePetById, ensureClientById,
     addClientOptimistically, updateClientOptimistically, removeClientOptimistically,
     addPetOptimistically, updatePetOptimistically, removePetOptimistically,
     addAppointmentOptimistically, updateAppointmentOptimistically, removeAppointmentOptimistically,

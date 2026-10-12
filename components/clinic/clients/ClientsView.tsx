@@ -182,9 +182,16 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
     );
   }, [clients, searchQuery]);
 
-  // API fallback when local search returns nothing
+  // Server search, always — `clients` is only the newest 1000 (page-limited),
+  // so a non-empty localFiltered does NOT mean local is complete. Gating this
+  // on "local found nothing" (the old behaviour) meant a query that happened
+  // to match anyone in that window — e.g. "chan" matching "Bachani" — hid
+  // every real match living outside it, such as a client imported months
+  // earlier whose name legitimately contains the same substring (user
+  // report, 2026-10-12: Muthaiga Chandaria missing from a "chan" search).
+  // Always query, then merge below.
   useEffect(() => {
-    if (searchQuery.length < SEARCH_MIN_CHARS || localFiltered.length > 0) {
+    if (searchQuery.length < SEARCH_MIN_CHARS) {
       setApiClientResults([]);
       setIsSearchingApi(false);
       return;
@@ -209,11 +216,19 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
       }
     }, 400);
     return () => clearTimeout(timer);
-  }, [searchQuery, localFiltered.length]);
+  }, [searchQuery]);
 
+  // Merge, not replace — local hits may include clients the (limit: 20)
+  // server search truncated, and server hits are exactly the ones local was
+  // missing. Dedup by id, local first so an already-loaded client's richer
+  // in-context fields win over the slimmer API shape.
   const searchFiltered = useMemo(() => {
-    return localFiltered.length > 0 ? localFiltered : apiClientResults;
-  }, [localFiltered, apiClientResults]);
+    if (searchQuery.length < SEARCH_MIN_CHARS) return localFiltered;
+    const byId = new Map<number, Client>();
+    localFiltered.forEach(c => byId.set(c.id, c));
+    apiClientResults.forEach(c => { if (!byId.has(c.id)) byId.set(c.id, c); });
+    return Array.from(byId.values());
+  }, [localFiltered, apiClientResults, searchQuery]);
 
   const filtered = useMemo(() => {
     let list = searchFiltered;

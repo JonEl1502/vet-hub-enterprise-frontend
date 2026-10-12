@@ -86,6 +86,7 @@ import ScopePickerModal, { type PickItem } from './components/admin/platform/Sco
 import ClinicManagementView from './components/clinic/clinic-mgmt/ClinicManagementView';
 import ImportDataView from './components/shared/common/ImportDataView';
 import PetFetchGate from './components/clinic/pets/PetFetchGate';
+import ClientFetchGate from './components/clinic/clients/ClientFetchGate';
 import useScrollMemory from './hooks/useScrollMemory';
 import BillingTiersView from './components/clinic/billing/BillingTiersView';
 import VisitDetailView from './components/clinic/appointments/VisitDetailView';
@@ -2830,26 +2831,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         // Get client from context (should be available from auto-fetch cache)
         const client = getClientById(cId);
         if (!client) {
-          // Client not found in cache - this could happen if:
-          // 1. The client was just created and cache hasn't refreshed
-          // 2. The client is beyond the first 100 records
-          // 3. The client was deleted
-          return (
-            <div className="p-6">
-              <button onClick={goBack} className="mb-4 px-4 py-2 bg-slate-200 dark:bg-zinc-800 rounded-lg hover:bg-slate-300 dark:hover:bg-zinc-700">
-                ← Back
-              </button>
-              <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-                <p className="text-yellow-800 dark:text-yellow-200">Client not found. The client may have been deleted or you may not have access to view them.</p>
-                <button
-                  onClick={() => refreshClients()}
-                  className="mt-3 px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
-                >
-                  Refresh Data
-                </button>
-              </div>
-            </div>
-          );
+          // Not in the loaded page — fetch that one client rather than
+          // declaring it gone. With thousands of clients per migrated
+          // clinic most ids are legitimately absent here.
+          return <ClientFetchGate clientId={cId} onBack={goBack} />;
         }
         // Filter transactions by client's appointments
         const clientAppointments = appointments.filter(a => a.clientId === cId);
