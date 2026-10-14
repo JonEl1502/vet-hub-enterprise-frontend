@@ -34,6 +34,14 @@ export interface LeadMessageTemplate {
   forClinic?: boolean;
 }
 
+/**
+ * What is true today: pet owners and farmers have their own portal where they
+ * search for clinics (by name, town or nearest to them) and book. Only clinics
+ * the platform has verified appear in that search, so this says clinics "can be
+ * found" and does not promise more clients.
+ */
+const communityLine = 'VetHubCore is also a community: pet owners and farmers have their own portal where they search for clinics near them and book, so new clients can find you there.';
+
 const stopLine = 'If this isn\'t for you, just say and I won\'t message again.';
 
 export const LEAD_TEMPLATES: LeadMessageTemplate[] = [
@@ -48,6 +56,8 @@ export const LEAD_TEMPLATES: LeadMessageTemplate[] = [
 
 I'm ${c.sign} from VetHubCore. We make practice software for vet clinics in Kenya, with M-Pesa built into the billing, and we build websites for clinics too.
 
+${communityLine}
+
 I noticed ${c.clinic} doesn't have a website yet. We can build and host one for you${c.town ? `, so people searching for a vet in ${c.town} can find you and book` : ''}, and VetHubCore keeps your bookings, records and bills in one place.
 
 Would a 2-minute video of how it works be useful? If not, no problem.`,
@@ -61,6 +71,8 @@ Would a 2-minute video of how it works be useful? If not, no problem.`,
 `${c.greeting}
 
 I'm ${c.sign} from VetHubCore. We make practice software for vet clinics in Kenya, with M-Pesa built into the billing.
+
+${communityLine}
 
 I saw ${c.clinic} and thought of all the booking messages that must pile up in WhatsApp. Would a 2-minute video of how other clinics handle that be useful? If not, no problem.`,
   },
