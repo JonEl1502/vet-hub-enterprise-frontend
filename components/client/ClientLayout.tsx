@@ -406,7 +406,7 @@ const ClientLayout: React.FC = () => {
             needs *a* scrolling ancestor, not specifically the document. */}
         <main
           id="cp-main-scroll"
-          className="flex-1 min-w-0 overflow-y-auto overflow-x-clip p-3 sm:p-4 lg:py-4 lg:pl-3 lg:pr-4 pb-24 md:pb-6"
+          className="cp-main flex-1 min-w-0 overflow-y-auto overflow-x-clip p-2 sm:p-4 lg:py-4 lg:pl-3 lg:pr-4 md:pb-6"
         >
           {/* ⚠️ Hold the HOME route until the mode is known. Without this a
               farmer sees "here's what's happening with your pets" flash on

@@ -1347,3 +1347,32 @@ body {
 .dark .sup-btn-ghost { background: #18181b; border-color: #27272a; color: #f4f4f5; }
 .sup-btn-ghost:hover:not(:disabled) { background: rgb(248 250 252); }
 .dark .sup-btn-ghost:hover:not(:disabled) { background: #27272a; }
+
+
+/* ── CLIENT PORTAL: PHONE DENSITY ────────────────────────────────────────
+ * The portal's gutters and card insets were sized for a roomy tablet and read
+ * as wasted space on a phone: a 12px page edge, 16–24px inside every card,
+ * 20px between sections. Tightened here, phones only (<768px), in one place
+ * instead of across every view; md and up are untouched.
+ *
+ * The bottom padding is NOT cosmetic: it keeps the last card clear of the fixed
+ * bottom bar (~58px + the safe area) AND of the centre "C" button, which stands
+ * ~28px proud of that bar. Without the extra, the C button's ring sat on top of
+ * the final card. */
+@media (max-width: 767px) {
+  .client-portal #cp-main-scroll.cp-main {
+    padding: 0.5rem 0.5rem calc(7.5rem + env(safe-area-inset-bottom, 0px));
+  }
+  /* section rhythm */
+  .client-portal .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.875rem; }
+  .client-portal .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.75rem; }
+  .client-portal .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.625rem; }
+  /* card insets */
+  .client-portal :is(.cp-card, .cp-card-soft, .cp-hero):is(.p-4, .p-5, .p-6) { padding: 0.75rem; }
+  .client-portal :is(.cp-card, .cp-card-soft, .cp-hero).p-3\.5 { padding: 0.625rem; }
+  .client-portal :is(.cp-card, .cp-card-soft, .cp-hero):is(.px-5, .px-6) { padding-left: 0.875rem; padding-right: 0.875rem; }
+  .client-portal :is(.cp-card, .cp-card-soft).py-12 { padding-top: 1.75rem; padding-bottom: 1.75rem; }
+  .client-portal :is(.cp-card, .cp-card-soft).py-14 { padding-top: 2rem; padding-bottom: 2rem; }
+  .client-portal :is(.cp-card, .cp-card-soft).py-6 { padding-top: 1rem; padding-bottom: 1rem; }
+  .client-portal .cp-card { border-radius: 1rem; }
+}
