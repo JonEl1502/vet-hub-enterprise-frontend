@@ -18,7 +18,12 @@ export interface MessageContext {
   clinic: string;
   /** Town, when the research has one — "people searching for a vet in Kitengela". */
   town: string;
+  /** First name, used in "I'm John from VetHubCore". */
   sign: string;
+  /** Name for the sign-off ("Kabiu John"). */
+  signFull: string;
+  /** Link in the sign-off, and the one the follow-ups point to. */
+  site: string;
   link: string;
 }
 
@@ -42,6 +47,9 @@ export interface LeadMessageTemplate {
  */
 const communityLine = 'VetHubCore is also a community: pet owners and farmers have their own portal where they search for clinics near them and book, so new clients can find you there.';
 
+/** "Kind Regards, / Name / site" closes every message. */
+const signoff = (c: MessageContext) => `Kind Regards,\n${c.signFull}\n${c.site}`;
+
 const stopLine = 'If this isn\'t for you, just say and I won\'t message again.';
 
 export const LEAD_TEMPLATES: LeadMessageTemplate[] = [
@@ -54,13 +62,15 @@ export const LEAD_TEMPLATES: LeadMessageTemplate[] = [
     body: c =>
 `${c.greeting}
 
-I'm ${c.sign} from VetHubCore. We make practice software for vet clinics in Kenya, with M-Pesa built into the billing, and we build websites for clinics too.
+I'm ${c.sign} from VetHubCore. We make practice software for vet clinics in Kenya, and we build websites for clinics too.
 
 ${communityLine}
 
 I noticed ${c.clinic} doesn't have a website yet. We can build and host one for you${c.town ? `, so people searching for a vet in ${c.town} can find you and book` : ''}, and VetHubCore keeps your bookings, records and bills in one place.
 
-Would a 2-minute video of how it works be useful? If not, no problem.`,
+Would a 15-minute demo of how it works be useful to you? If not, no problem.
+
+${signoff(c)}`,
   },
   {
     id: 'first',
@@ -70,11 +80,13 @@ Would a 2-minute video of how it works be useful? If not, no problem.`,
     body: c =>
 `${c.greeting}
 
-I'm ${c.sign} from VetHubCore. We make practice software for vet clinics in Kenya, with M-Pesa built into the billing.
+I'm ${c.sign} from VetHubCore. We make practice software for vet clinics in Kenya.
 
 ${communityLine}
 
-I saw ${c.clinic} and thought of all the booking messages that must pile up in WhatsApp. Would a 2-minute video of how other clinics handle that be useful? If not, no problem.`,
+I saw ${c.clinic} and thought of all the booking messages that must pile up in WhatsApp. Would a 15-minute demo of how other clinics handle that be useful to you? If not, no problem.
+
+${signoff(c)}`,
   },
   {
     id: 'yes',
@@ -82,9 +94,13 @@ I saw ${c.clinic} and thought of all the booking messages that must pile up in W
     forClinic: true,
     subject: c => `The 2-minute video for ${c.clinic}`,
     body: c =>
-`Great, here it is: ${c.link}
+`Great, thank you. When is a good time for a 15-minute demo? Tell me a day and time that suits you and I'll fit around it.
 
-The first month is full-access and free, with no card, so you can test it on one day of appointments. Want me to set that up?`,
+In the meantime, here is VetHubCore: ${c.link}
+
+The first month is full-access and free, with no card, so you can test it on one day of appointments.
+
+${signoff(c)}`,
   },
   {
     id: 'follow3',
@@ -94,9 +110,11 @@ The first month is full-access and free, with no card, so you can test it on one
     body: c =>
 `${c.greeting}
 
-Following up in case my first message got buried. Here is the 2-minute look at bookings and invoicing: ${c.link}
+Following up in case my first message got buried. I'm happy to do a 15-minute demo whenever suits you, or to send a short overview here: ${c.link}
 
-Happy to answer anything. ${stopLine}`,
+${stopLine}
+
+${signoff(c)}`,
   },
   {
     id: 'follow7',
@@ -108,7 +126,7 @@ Happy to answer anything. ${stopLine}`,
 
 Last note from me. Clinics usually start by testing it on one day of appointments, and I can set that up whenever you like. If it's not the right time, I'll leave you be.
 
-${c.sign}`,
+${signoff(c)}`,
   },
   {
     id: 'last',
@@ -119,19 +137,20 @@ ${c.sign}`,
     body: c =>
 `I'll stop here so I don't clutter your phone. If it ever becomes useful: vethubcore.com. All the best with ${c.clinic}.
 
-${c.sign}`,
+${signoff(c)}`,
   },
   {
     id: 'bundle',
     label: 'Website + VetHubCore',
     forClinic: true,
+    needsNoWebsite: true,
     subject: c => `A website for ${c.clinic}`,
     body: c =>
 `${c.greeting}
 
 Clinics without a website lose bookings to the ones that have one. I can build and host yours: free if you take VetHubCore Pro for two years, or KES 75,000 on a one-year plan. Want to see an example site first?
 
-${c.sign}`,
+${signoff(c)}`,
   },
   {
     id: 'supplier',
@@ -141,9 +160,11 @@ ${c.sign}`,
     body: c =>
 `${c.greeting}
 
-${c.sign} from Nairobi here. I run VetHubCore, and vet clinics on it can order from suppliers on the platform. I thought ${c.clinic} may want to be where those clinics already are. Open to a short call about listing your products?
+I'm ${c.sign} from VetHubCore, in Nairobi. Vet clinics on VetHubCore can order from suppliers on the platform, and I thought ${c.clinic} may want to be where those clinics already are. Open to a short call about listing your products?
 
-${stopLine}`,
+${stopLine}
+
+${signoff(c)}`,
   },
   {
     id: 'supplier_follow3',
@@ -157,7 +178,9 @@ Following up on my note about listing ${c.clinic}'s products for vet clinics on 
 
 Would a short call be worth it, or shall I send the details here?
 
-${stopLine}`,
+${stopLine}
+
+${signoff(c)}`,
   },
   {
     id: 'supplier_follow7',
@@ -169,7 +192,7 @@ ${stopLine}`,
 
 Last note from me on this. If it would help, I can send a short outline of how suppliers are listed and how clinics order from them. If it is not the right time, I will leave you be.
 
-${c.sign}`,
+${signoff(c)}`,
   },
 ];
 

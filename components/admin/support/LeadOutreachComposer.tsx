@@ -21,6 +21,7 @@ import { greetingFor, templatesFor, whatsappNumber, LeadMessageTemplate } from '
 // v2: an earlier build could save a wrong name here (the clinic's own name), so the key moved on.
 const LS_SIGN = 'vhc:outreach:sign:v2';
 const LS_LINK = 'vhc:outreach:link';
+const LS_FULL = 'vhc:outreach:signfull';
 const read = (k: string, fallback: string) => { try { return localStorage.getItem(k) ?? fallback; } catch { return fallback; } };
 const save = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* not persisted */ } };
 
@@ -37,6 +38,7 @@ const LeadOutreachComposer: React.FC<Props> = ({ lead, onLogged }) => {
   // signed-in account: that picked up the wrong name. John is the default
   // because this is his platform's outreach; anyone else changes it once.
   const [sign, setSign] = React.useState(() => read(LS_SIGN, 'John'));
+  const [signFull, setSignFull] = React.useState(() => read(LS_FULL, 'Kabiu John'));
   const [link, setLink] = React.useState(() => read(LS_LINK, 'https://vethubcore.com'));
   const [tplId, setTplId] = React.useState(templates[0]?.id || '');
   const [text, setText] = React.useState('');
@@ -47,17 +49,17 @@ const LeadOutreachComposer: React.FC<Props> = ({ lead, onLogged }) => {
   const clinic = (lead.clinicName || lead.name || 'your clinic').trim();
   const tpl: LeadMessageTemplate | undefined = templates.find(t => t.id === tplId) || templates[0];
   const ctx = React.useMemo(
-    () => ({ greeting: greetingFor(lead), clinic, town: (lead.town || '').trim(), sign: sign.trim() || '[Your name]', link: link.trim() || 'https://vethubcore.com' }),
-    [lead, clinic, sign, link],
+    () => ({ greeting: greetingFor(lead), clinic, town: (lead.town || '').trim(), sign: sign.trim() || '[Your name]', signFull: signFull.trim() || '[Your full name]', site: 'https://vethubcore.com/', link: link.trim() || 'https://vethubcore.com' }),
+    [lead, clinic, sign, signFull, link],
   );
 
   // A template change, or a changed name/link, rewrites the text. Hand edits
   // are kept until one of those happens, which is what a person editing wants.
-  React.useEffect(() => { if (tpl) setText(tpl.body(ctx)); }, [tpl?.id, ctx.sign, ctx.link, lead.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  React.useEffect(() => { if (tpl) setText(tpl.body(ctx)); }, [tpl?.id, ctx.sign, ctx.signFull, ctx.link, lead.id]); // eslint-disable-line react-hooks/exhaustive-deps
   React.useEffect(() => { setPending(null); }, [lead.id, tplId]);
 
   const wa = whatsappNumber(lead.phone, lead.country);
-  const missingName = !sign.trim() || text.includes('[Your name]');
+  const missingName = !sign.trim() || !signFull.trim() || text.includes('[Your name]') || text.includes('[Your full name]');
 
   const guard = (): boolean => {
     if (!text.trim()) { toast.error('Write a message first'); return false; }
@@ -121,14 +123,14 @@ const LeadOutreachComposer: React.FC<Props> = ({ lead, onLogged }) => {
       <textarea
         value={text}
         onChange={e => setText(e.target.value)}
-        rows={11}
+        rows={15}
         data-testid="outreach-text"
         className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-[12px] text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30 resize-y leading-relaxed"
       />
 
-      <div className="grid sm:grid-cols-2 gap-2">
+      <div className="grid sm:grid-cols-3 gap-2">
         <div>
-          <label className="field-label">Your name (signs the message)</label>
+          <label className="field-label">First name ("I'm John")</label>
           <input
             className="field-input"
             value={sign}
@@ -141,7 +143,20 @@ const LeadOutreachComposer: React.FC<Props> = ({ lead, onLogged }) => {
           />
         </div>
         <div>
-          <label className="field-label">Video / demo link</label>
+          <label className="field-label">Sign-off name</label>
+          <input
+            className="field-input"
+            value={signFull}
+            name="outreach-signoff-name"
+            autoComplete="off"
+            data-1p-ignore="true"
+            onChange={e => setSignFull(e.target.value)}
+            onBlur={() => save(LS_FULL, signFull.trim())}
+            placeholder="Kabiu John"
+          />
+        </div>
+        <div>
+          <label className="field-label">Demo / overview link</label>
           <input
             className="field-input"
             value={link}
