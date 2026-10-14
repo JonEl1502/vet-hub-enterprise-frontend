@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect } from 'react';
+import React, { ReactNode, useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 
 /**
@@ -46,15 +46,32 @@ const CpModal: React.FC<{
     return () => { document.body.style.overflow = prev; };
   }, []);
 
+  // ⚠️ `dvh` follows the browser toolbars but NOT the on-screen keyboard on
+  // Android Chrome, and not reliably on iOS either: open a field in a sheet and
+  // the keyboard covers its bottom third — including the Save button, which the
+  // user reported as "not seen at all". The VISUAL viewport is the part of the
+  // screen actually showing, so the sheet is sized to it and pinned to its top.
+  // Falls back to `dvh` where `visualViewport` does not exist.
+  const [vv, setVv] = useState<{ h: number; top: number } | null>(null);
+  useEffect(() => {
+    const v = window.visualViewport;
+    if (!v) return;
+    const sync = () => setVv({ h: v.height, top: v.offsetTop });
+    sync();
+    v.addEventListener('resize', sync);
+    v.addEventListener('scroll', sync);
+    return () => { v.removeEventListener('resize', sync); v.removeEventListener('scroll', sync); };
+  }, []);
+
   return (
     <div
-      className="client-portal fixed inset-x-0 top-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
-      style={{ background: 'rgba(31,61,57,0.4)', height: '100dvh' }}
+      className="client-portal fixed inset-x-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
+      style={{ background: 'rgba(31,61,57,0.4)', height: vv ? `${vv.h}px` : '100dvh', top: vv ? `${vv.top}px` : 0 }}
       onClick={onClose}
     >
       <div
         className="cp-card w-full overflow-hidden flex flex-col rounded-b-none sm:rounded-3xl"
-        style={{ maxWidth, maxHeight: '92dvh' }}
+        style={{ maxWidth, maxHeight: vv ? `${Math.round(vv.h * 0.94)}px` : '92dvh' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div
@@ -75,7 +92,7 @@ const CpModal: React.FC<{
           // The extra bottom inset is what keeps a submit button clear of the
           // home indicator on a notched phone, where the sheet's own rounded
           // edge already eats a few pixels.
-          style={{ paddingBottom: 'calc(1.25rem + env(safe-area-inset-bottom, 0px))' }}
+          style={{ paddingBottom: 'calc(1.75rem + env(safe-area-inset-bottom, 0px))' }}
         >
           {children}
         </div>

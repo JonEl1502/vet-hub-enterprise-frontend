@@ -14,6 +14,7 @@ import NotificationBell from './NotificationBell';
 import { usePortalMode } from './usePortalMode';
 import PortalSideChooser from './PortalSideChooser';
 import { useFarmerPlan } from './useFarmerPlan';
+import { useNoAutofill } from './useNoAutofill';
 import QuickRecordWheel, { type WheelAction } from './QuickRecordWheel';
 
 /**
@@ -92,6 +93,7 @@ const ClientLayout: React.FC = () => {
   const { pathname } = useLocation();
   const [moreOpen, setMoreOpen] = useState(false);
   useEffect(() => { setMoreOpen(false); }, [pathname]);
+  useNoAutofill();
 
   /**
    * Keep the ROUTE and the MODE agreeing — they could not, before this.

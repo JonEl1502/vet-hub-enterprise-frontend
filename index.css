@@ -1361,7 +1361,9 @@ body {
  * the final card. */
 @media (max-width: 767px) {
   .client-portal #cp-main-scroll.cp-main {
-    padding: 0.5rem 0.5rem calc(7.5rem + env(safe-area-inset-bottom, 0px));
+    padding: 0.5rem 0.5rem calc(10rem + env(safe-area-inset-bottom, 0px));
+    /* a focused field or button scrolled into view stops clear of the bar and the C button */
+    scroll-padding-bottom: 10rem;
   }
   /* section rhythm */
   .client-portal .space-y-5 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.875rem; }
