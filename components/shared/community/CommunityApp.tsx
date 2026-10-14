@@ -97,8 +97,11 @@ const CommunityApp: React.FC<Props> = ({
    * kind. This only decides whether to show the composer or the offer, so it
    * fails OPEN: an account whose plan we cannot read is not nagged.
    *
-   * A CLIENT never sees the composer (they reply, they do not broadcast), and a
-   * PRACTITIONER needs nothing — organising a meet-up is not advertising.
+   * `canPost` is the BUSINESS composer (articles, deals, meet-ups under a
+   * clinic's or supplier's name). A CLIENT does not have it, but is NOT shut
+   * out: they get their own, smaller composer — a plain post or an adoption
+   * listing, free — via `isClient` in CommunityFeed. A PRACTITIONER needs
+   * nothing — organising a meet-up is not advertising.
    */
   const canPost = !isClient && (
     !access
@@ -125,7 +128,11 @@ const CommunityApp: React.FC<Props> = ({
    * only for 15 seconds before returning them to work, rather than fully
    * free forever or an outright block.
    */
+  // A CLIENT is in the room by right (they read, reply, react and post), so they
+  // are never put on the preview timer — that was cutting pet owners and
+  // farmers out of Community after 15 seconds.
   const hasCommunityAccess = isPractitioner
+    || isClient
     || !!access?.featureKeys?.includes('*')
     || !!access?.featureKeys?.includes('view:community')
     || !!access?.featureKeys?.includes('community:participate')
@@ -251,14 +258,16 @@ const CommunityApp: React.FC<Props> = ({
         <div className="mx-0.5 mt-3 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50 dark:bg-zinc-900/60 p-2.5">
           <p className="flex items-center gap-1.5 text-[9px] font-display font-extrabold uppercase tracking-widest text-seafoam">
             <i className="w-1.5 h-1.5 rounded-full bg-seafoam" />
-            {canPost ? 'Community Access · active' : 'Reading & replying · free'}
+            {canPost ? 'Community Access · active' : isClient ? 'Posting & replying · free' : 'Reading & replying · free'}
           </p>
           <p className="mt-1.5 text-[10.5px] font-semibold text-slate-400 leading-relaxed">
             {canPost
               ? 'Reading and replying are free for everyone; this is what lets you publish.'
+              : isClient
+              ? 'Post, reply, follow and save — all free. Deals and meet-ups are for clinics and suppliers.'
               : 'Reply to anyone for free, and post a pet for adoption any time — that one is always free. This is what adds articles, deals and meet-ups.'}
           </p>
-          {!canPost && (
+          {!canPost && !isClient && (
             <button onClick={onGoToBilling} className="mt-2 w-full rounded-lg bg-gradient-to-r from-pine to-seafoam py-1.5 text-[8.5px] font-display font-extrabold uppercase tracking-widest text-white">
               Get access
             </button>
@@ -345,6 +354,7 @@ const CommunityApp: React.FC<Props> = ({
                 onOrder={onOrder}
                 canPost={canPost}
                 isPractitioner={isPractitioner}
+                isClient={isClient}
                 currentUserId={userId}
                 onGetAccess={onGoToBilling}
                 avatarLetter={(user?.name || 'V').charAt(0).toUpperCase()}

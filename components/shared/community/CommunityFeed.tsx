@@ -49,6 +49,8 @@ interface Props {
   /** False when the account holds no add-on — shows the offer, not a wall. */
   canPost: boolean;
   isPractitioner: boolean;
+  /** A pet owner or farmer: may post a plain post or an adoption listing, free. */
+  isClient?: boolean;
   currentUserId?: string;
   onGetAccess: () => void;
   avatarLetter: string;
@@ -56,13 +58,13 @@ interface Props {
 
 const CommunityFeed: React.FC<Props> = ({
   view, onChangeView, onOpenPost, onOpenAuthor, onOrder,
-  canPost, isPractitioner, currentUserId, onGetAccess, avatarLetter,
+  canPost, isPractitioner, isClient = false, currentUserId, onGetAccess, avatarLetter,
 }) => {
   const [posts, setPosts] = useState<CommunityPost[]>([]);
   const [loading, setLoading] = useState(true);
   const [emptyReason, setEmptyReason] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<Mode>(canPost ? (isPractitioner ? 'MEET' : 'POST') : 'ADOPTION');
+  const [mode, setMode] = useState<Mode>(canPost ? (isPractitioner ? 'MEET' : 'POST') : isClient ? 'POST' : 'ADOPTION');
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [form, setForm] = useState({
@@ -182,7 +184,7 @@ const CommunityFeed: React.FC<Props> = ({
   // Community Access add-on. See community.controller.ts's resolveAuthor().
   const modes: Mode[] = canPost
     ? (isPractitioner ? ['POST', 'MEET', 'ADOPTION'] : ['POST', 'ARTICLE', 'DEAL', 'MEET', 'ADOPTION'])
-    : ['ADOPTION'];
+    : isClient ? ['POST', 'ADOPTION'] : ['ADOPTION'];
 
   return (
     <div className="flex flex-col gap-3.5 min-w-0">
@@ -381,7 +383,7 @@ const CommunityFeed: React.FC<Props> = ({
         </div>
 
       {/* ── the offer, never a wall: the feed below still reads normally (288) ── */}
-      {!canPost && (
+      {!canPost && !isClient && (
         <section className="rounded-2xl border border-pine/25 dark:border-seafoam/25 bg-gradient-to-br from-pine/[0.06] to-seafoam/[0.06] dark:from-pine/15 dark:to-seafoam/10 p-5">
           <p className="text-[9px] font-display font-extrabold uppercase tracking-widest text-pine dark:text-seafoam">
             Adoption posting is free · everything else is the add-on
@@ -444,6 +446,7 @@ const CommunityFeed: React.FC<Props> = ({
               : view === 'saved' ? 'The bookmark on any post keeps it here. Only you can see this.'
               : view === 'ADOPTION' ? 'Be the first — post a pet that needs a home.'
               : canPost ? 'Be the first — post an article, a deal, or a meet-up.'
+              : isClient ? 'Be the first — share a post, a question or a pet that needs a home.'
               : 'Clinics and suppliers post here. Check back soon, or post a pet for adoption — that one is free.'}
           </p>
         </div>

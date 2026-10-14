@@ -11,13 +11,12 @@ import { usePortalMode } from './usePortalMode';
  * they were here as an audience that could not make a sound: the old composer
  * was closed to CLIENT outright and there was nothing else to do but read.
  *
- * They still cannot BROADCAST an advert — originating a post that reaches the
- * room is what the add-on sells, and a client has no business to advertise.
- * But they can now reply, react, follow and save, all free, plus ONE
- * exception (307): post a pet up for adoption, free, no add-on, because
- * rehoming your own pet is not advertising a business. That is the
- * difference between an audience and a community, and it is why the
- * clinics' add-on is worth anything.
+ * (2026-10-14) Clients can now POST too: a plain post, or a pet up for adoption
+ * (both free, no add-on). What they still cannot do is originate a DEAL or a
+ * MEET — those are an advert or an event under a business's name, and stay with
+ * clinics, suppliers and practitioners. The rule lives in
+ * `community.controller.ts` (`resolveAuthor`) and `community.service.ts`
+ * (`create`); `CommunityFeed`'s `isClient` composer only mirrors it.
  *
  * ⚠️ "Back to work" says "Back to my pets" / "Back to my farm" here. A pet
  * owner has no work to return to, and borrowing the clinic's word would make
