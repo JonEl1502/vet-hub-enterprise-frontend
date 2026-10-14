@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import demoRequestsAPI, { DemoRequest, DemoRequestStatus, LeadNote } from '../../../services/modules/demoRequests.api';
 import LeadConvertDialog from './LeadConvertDialog';
+import LeadOutreachComposer from './LeadOutreachComposer';
 
 /**
  * One lead, in full.
@@ -189,6 +190,10 @@ const LeadDetailPage: React.FC<Props> = ({ leadId, onBack }) => {
       </div>
 
       <div className="grid lg:grid-cols-[1fr_320px] gap-4 items-start">
+        <div className="space-y-4 min-w-0">
+        {lead.status !== 'CONVERTED' && lead.status !== 'DISMISSED' && (
+          <LeadOutreachComposer lead={lead} onLogged={load} />
+        )}
         {/* ── Notes ──────────────────────────────────────────────────────── */}
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-4">
           <div className="flex items-center justify-between">
@@ -260,6 +265,8 @@ const LeadDetailPage: React.FC<Props> = ({ leadId, onBack }) => {
               })}
             </div>
           )}
+        </div>
+
         </div>
 
         {/* ── The record ─────────────────────────────────────────────────── */}
