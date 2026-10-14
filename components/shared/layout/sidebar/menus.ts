@@ -175,6 +175,7 @@ const ADMIN_ITEMS: MenuItem[] = [
       { id: 'freelancer-categories', label: 'Freelancer Categories', icon: Layers },
       { id: 'support-tickets',       label: 'Support Tickets',       icon: LifeBuoy },
       { id: 'demo-requests',         label: 'Demo Requests',         icon: Mail },
+      { id: 'demo-call-script',      label: 'Demo Call Script',      icon: ClipboardList },
       { id: 'platform-settings',     label: 'Platform Settings',     icon: ShieldCheck },
       { id: 'internal-manual',       label: 'Internal Manual',       icon: BookLock },
     ],

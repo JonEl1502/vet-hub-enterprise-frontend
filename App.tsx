@@ -124,6 +124,7 @@ import SubscriptionPaymentsAdminPage from './components/admin/subscriptions/Subs
 import SupportTicketsAdminPage from './components/admin/support/SupportTicketsAdminPage';
 import DemoRequestsAdminPage from './components/admin/support/DemoRequestsAdminPage';
 import LeadDetailPage from './components/admin/support/LeadDetailPage';
+import DemoCallScriptPage from './components/admin/support/DemoCallScriptPage';
 import SalesRepsAdminPage from './components/admin/sales-reps/SalesRepsAdminPage';
 import PlatformSettingsPage from './components/admin/platform/PlatformSettingsPage';
 import PartnerTypesPage from './components/admin/partners/PartnerTypesPage';
@@ -3345,6 +3346,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             onBack={goBack}
           />
         );
+      case 'demo-call-script':
+        return <DemoCallScriptPage />;
       case 'sales-reps':
         return <SalesRepsAdminPage />;
       case 'platform-settings':
