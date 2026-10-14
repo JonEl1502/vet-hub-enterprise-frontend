@@ -90,7 +90,6 @@ The first month is full-access and free, with no card, so you can test it on one
     id: 'follow3',
     label: 'Follow-up, day 3',
     forClinic: true,
-    forSupplier: true,
     subject: c => `Following up: ${c.clinic}`,
     body: c =>
 `${c.greeting}
@@ -103,7 +102,6 @@ Happy to answer anything. ${stopLine}`,
     id: 'follow7',
     label: 'Follow-up, day 7',
     forClinic: true,
-    forSupplier: true,
     subject: c => `Last note about ${c.clinic}`,
     body: c =>
 `${c.greeting}
@@ -147,6 +145,32 @@ ${c.sign} from Nairobi here. I run VetHubCore, and vet clinics on it can order f
 
 ${stopLine}`,
   },
+  {
+    id: 'supplier_follow3',
+    label: 'Supplier: follow-up, day 3',
+    forSupplier: true,
+    subject: c => `Following up: ${c.clinic} and vet clinics`,
+    body: c =>
+`${c.greeting}
+
+Following up on my note about listing ${c.clinic}'s products for vet clinics on VetHubCore. Clinics on the platform can order from suppliers there, so it is a way to put your products in front of them.
+
+Would a short call be worth it, or shall I send the details here?
+
+${stopLine}`,
+  },
+  {
+    id: 'supplier_follow7',
+    label: 'Supplier: follow-up, day 7',
+    forSupplier: true,
+    subject: c => `Last note about ${c.clinic}`,
+    body: c =>
+`${c.greeting}
+
+Last note from me on this. If it would help, I can send a short outline of how suppliers are listed and how clinics order from them. If it is not the right time, I will leave you be.
+
+${c.sign}`,
+  },
 ];
 
 const SUPPLIER_TYPES = new Set(['MANUFACTURER', 'DISTRIBUTOR', 'RETAILER', 'LAB_EQUIPMENT']);
@@ -156,9 +180,14 @@ export const isSupplierLead = (lead: Pick<DemoRequest, 'orgType'>) =>
 
 export function templatesFor(lead: Pick<DemoRequest, 'orgType'>): LeadMessageTemplate[] {
   const noSite = hasNoWebsite(lead);
-  return LEAD_TEMPLATES
+  const list = LEAD_TEMPLATES
     .filter(t => (isSupplierLead(lead) ? t.forSupplier : t.forClinic))
     .filter(t => !t.needsNoWebsite || noSite);
+  if (!isSupplierLead(lead)) return list;
+  // The first template in the list is the one the panel opens on, so a supplier
+  // must start at the supplier first message and not at the shared closing note.
+  const order = ['supplier', 'supplier_follow3', 'supplier_follow7', 'last'];
+  return [...list].sort((a, b) => order.indexOf(a.id) - order.indexOf(b.id));
 }
 
 /**
