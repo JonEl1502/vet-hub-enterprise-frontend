@@ -13,9 +13,11 @@ import type { DemoRequest } from '../../../services/modules/demoRequests.api';
  */
 
 export interface MessageContext {
-  /** "Hi Dr Wanjiru," / "Hello Royal Crest Veterinary Clinic team," */
+  /** "Hi Dr Wanjiru," / "Hi Royal Crest Veterinary Clinic team," */
   greeting: string;
   clinic: string;
+  /** Town, when the research has one — "people searching for a vet in Kitengela". */
+  town: string;
   sign: string;
   link: string;
 }
@@ -23,6 +25,8 @@ export interface MessageContext {
 export interface LeadMessageTemplate {
   id: string;
   label: string;
+  /** Only offered (and listed first) when the clinic has no website. */
+  needsNoWebsite?: boolean;
   /** Email subject line (WhatsApp ignores it). */
   subject: (c: MessageContext) => string;
   body: (c: MessageContext) => string;
@@ -34,6 +38,21 @@ const stopLine = 'If this isn\'t for you, just say and I won\'t message again.';
 
 export const LEAD_TEMPLATES: LeadMessageTemplate[] = [
   {
+    id: 'first_site',
+    label: 'First message (no website)',
+    forClinic: true,
+    needsNoWebsite: true,
+    subject: c => `A website for ${c.clinic}`,
+    body: c =>
+`${c.greeting}
+
+I'm ${c.sign} from VetHubCore. We make practice software for vet clinics in Kenya, with M-Pesa built into the billing, and we build websites for clinics too.
+
+I noticed ${c.clinic} doesn't have a website yet. We can build and host one for you${c.town ? `, so people searching for a vet in ${c.town} can find you and book` : ''}, and VetHubCore keeps your bookings, records and bills in one place.
+
+Would a 2-minute video of how it works be useful? If not, no problem.`,
+  },
+  {
     id: 'first',
     label: 'First message',
     forClinic: true,
@@ -41,7 +60,7 @@ export const LEAD_TEMPLATES: LeadMessageTemplate[] = [
     body: c =>
 `${c.greeting}
 
-This is ${c.sign} from Nairobi. I build VetHubCore, practice software for vet clinics here, with M-Pesa built into the billing.
+I'm ${c.sign} from VetHubCore. We make practice software for vet clinics in Kenya, with M-Pesa built into the billing.
 
 I saw ${c.clinic} and thought of all the booking messages that must pile up in WhatsApp. Would a 2-minute video of how other clinics handle that be useful? If not, no problem.`,
   },
@@ -124,7 +143,24 @@ export const isSupplierLead = (lead: Pick<DemoRequest, 'orgType'>) =>
   !!lead.orgType && SUPPLIER_TYPES.has(String(lead.orgType));
 
 export function templatesFor(lead: Pick<DemoRequest, 'orgType'>): LeadMessageTemplate[] {
-  return LEAD_TEMPLATES.filter(t => (isSupplierLead(lead) ? t.forSupplier : t.forClinic));
+  const noSite = hasNoWebsite(lead);
+  return LEAD_TEMPLATES
+    .filter(t => (isSupplierLead(lead) ? t.forSupplier : t.forClinic))
+    .filter(t => !t.needsNoWebsite || noSite);
+}
+
+/**
+ * True when the research says there is no site: an empty website field, or the
+ * sheet's own note ("Website Status: None", "No website"). Suppliers are never
+ * pitched a website here.
+ */
+export function hasNoWebsite(lead: Pick<DemoRequest, 'website' | 'message' | 'orgType'>): boolean {
+  if (isSupplierLead(lead)) return false;
+  if ((lead.website || '').trim()) return false;
+  const msg = String(lead.message || '');
+  // Researched leads carry a status line; an inbound request with no website
+  // field is not evidence of anything, so only trust the explicit note.
+  return /website status:\s*none|no website/i.test(msg);
 }
 
 /** "Hi Dr Wanjiru," when there is a person's name, otherwise a team greeting. */
@@ -133,7 +169,7 @@ export function greetingFor(lead: Pick<DemoRequest, 'name' | 'clinicName'>): str
   const name = (lead.name || '').trim();
   const isPerson = name && name.toLowerCase() !== clinic.toLowerCase() && !/clinic|vet|hospital|animal|ltd|limited|centre|center|agrovet|pharm/i.test(name);
   if (isPerson) return `Hi ${name.split(/\s+/).slice(0, 2).join(' ')},`;
-  return `Hello ${clinic || name || 'there'} team,`;
+  return `Hi ${clinic || name || 'there'} team,`;
 }
 
 const DIAL: Record<string, string> = {

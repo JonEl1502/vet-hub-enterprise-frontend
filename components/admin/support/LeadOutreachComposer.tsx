@@ -2,7 +2,6 @@ import React from 'react';
 import toast from 'react-hot-toast';
 import { MessageCircle, Mail, Copy, Check, Send } from 'lucide-react';
 import demoRequestsAPI, { DemoRequest } from '../../../services/modules/demoRequests.api';
-import { useAuth } from '../../../contexts/AuthContext';
 import { greetingFor, templatesFor, whatsappNumber, LeadMessageTemplate } from './leadMessageTemplates';
 
 /**
@@ -19,7 +18,8 @@ import { greetingFor, templatesFor, whatsappNumber, LeadMessageTemplate } from '
  * message into the lead's notes and moves a NEW lead to CONTACTED.
  */
 
-const LS_SIGN = 'vhc:outreach:sign';
+// v2: an earlier build could save a wrong name here (the clinic's own name), so the key moved on.
+const LS_SIGN = 'vhc:outreach:sign:v2';
 const LS_LINK = 'vhc:outreach:link';
 const read = (k: string, fallback: string) => { try { return localStorage.getItem(k) ?? fallback; } catch { return fallback; } };
 const save = (k: string, v: string) => { try { localStorage.setItem(k, v); } catch { /* not persisted */ } };
@@ -31,14 +31,12 @@ interface Props {
 }
 
 const LeadOutreachComposer: React.FC<Props> = ({ lead, onLogged }) => {
-  const { user } = useAuth();
   const templates = React.useMemo(() => templatesFor(lead), [lead]);
-  const defaultSign = (() => {
-    const f = String((user as any)?.firstName || '').trim();
-    return f && !/^super$/i.test(f) ? f : '';
-  })();
 
-  const [sign, setSign] = React.useState(() => read(LS_SIGN, defaultSign));
+  // The signature is typed once and remembered. It is NOT taken from the
+  // signed-in account: that picked up the wrong name. John is the default
+  // because this is his platform's outreach; anyone else changes it once.
+  const [sign, setSign] = React.useState(() => read(LS_SIGN, 'John'));
   const [link, setLink] = React.useState(() => read(LS_LINK, 'https://vethubcore.com'));
   const [tplId, setTplId] = React.useState(templates[0]?.id || '');
   const [text, setText] = React.useState('');
@@ -49,7 +47,7 @@ const LeadOutreachComposer: React.FC<Props> = ({ lead, onLogged }) => {
   const clinic = (lead.clinicName || lead.name || 'your clinic').trim();
   const tpl: LeadMessageTemplate | undefined = templates.find(t => t.id === tplId) || templates[0];
   const ctx = React.useMemo(
-    () => ({ greeting: greetingFor(lead), clinic, sign: sign.trim() || '[Your name]', link: link.trim() || 'https://vethubcore.com' }),
+    () => ({ greeting: greetingFor(lead), clinic, town: (lead.town || '').trim(), sign: sign.trim() || '[Your name]', link: link.trim() || 'https://vethubcore.com' }),
     [lead, clinic, sign, link],
   );
 
@@ -123,7 +121,7 @@ const LeadOutreachComposer: React.FC<Props> = ({ lead, onLogged }) => {
       <textarea
         value={text}
         onChange={e => setText(e.target.value)}
-        rows={8}
+        rows={11}
         data-testid="outreach-text"
         className="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-[12px] text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/30 resize-y leading-relaxed"
       />
@@ -134,6 +132,9 @@ const LeadOutreachComposer: React.FC<Props> = ({ lead, onLogged }) => {
           <input
             className="field-input"
             value={sign}
+            name="outreach-sender-name"
+            autoComplete="off"
+            data-1p-ignore="true"
             onChange={e => setSign(e.target.value)}
             onBlur={() => save(LS_SIGN, sign.trim())}
             placeholder="John"
@@ -144,6 +145,9 @@ const LeadOutreachComposer: React.FC<Props> = ({ lead, onLogged }) => {
           <input
             className="field-input"
             value={link}
+            name="outreach-demo-link"
+            autoComplete="off"
+            data-1p-ignore="true"
             onChange={e => setLink(e.target.value)}
             onBlur={() => save(LS_LINK, link.trim())}
             placeholder="https://…"
