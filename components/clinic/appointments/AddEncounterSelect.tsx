@@ -29,13 +29,20 @@ interface Props {
   compact?: boolean;
 }
 
-const AddEncounterSelect: React.FC<Props> = ({ visit, availableEntries, onAdd, className = '', compact = false }) => {
+export type AddEncounterType = 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING';
+
+/**
+ * The encounter types this visit can still be handed on to — the ones it does
+ * not already carry. Shared by the select and by the bill bar's menu so the two
+ * can never offer different things.
+ */
+export const addEncounterOptions = (visit: Visit, availableEntries: { key: string }[]) => {
   const has = (...kws: string[]) =>
     (visit.tasks || []).some(t => kws.some(k => String(t.category || '').toLowerCase().includes(k)));
   const entryTaken = (...keys: string[]) => availableEntries.some(e => keys.includes(e.key));
 
   // Hospitalization is NOT here — it has its own 🏥 escalation button.
-  const options = [
+  return [
     {
       value: 'VET_VISIT' as const, label: '🩺 Vet Visit — consultation',
       taken: has('consult')
@@ -54,6 +61,10 @@ const AddEncounterSelect: React.FC<Props> = ({ visit, availableEntries, onAdd, c
       taken: visit.encounterType === 'BOARDING' || has('board') || entryTaken('boarding'),
     },
   ].filter(o => !o.taken);
+};
+
+const AddEncounterSelect: React.FC<Props> = ({ visit, availableEntries, onAdd, className = '', compact = false }) => {
+  const options = addEncounterOptions(visit, availableEntries);
 
   if (options.length === 0) return null;
 

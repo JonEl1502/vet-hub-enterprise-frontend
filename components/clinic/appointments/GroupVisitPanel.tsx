@@ -6,6 +6,8 @@ import type { Wallet as WalletData } from '../../../services';
 import { Visit } from '../../../types';
 import DocumentActions from '../shared/DocumentActions';
 import { buildDocumentMessage } from '../shared/documentShare';
+import GroupInvoiceDocument from '../receipts/GroupInvoiceDocument';
+import { useDocClinic } from '../../shared/common/useDocClinic';
 
 // Wallet → payment-method mapping, mirrored from the single-bill settle modal
 // (VisitDetailView): each wallet "is" a payment method by where money lands.
@@ -72,6 +74,8 @@ interface ClientGroup { clientId: string; clientName: string; visits: any[]; tot
 
 const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavigateToVisit, onSettled }) => {
   const [siblings, setSiblings] = useState<any[]>([]);
+  // The clinic the group invoice is printed under (logo, address, colour, sign-up QR).
+  const docClinic = useDocClinic({ id: (visit as any).clinicId });
   const [open, setOpen] = useState(true);
   // The client whose consolidated invoice is open (null = closed).
   const [invoiceFor, setInvoiceFor] = useState<ClientGroup | null>(null);
@@ -327,76 +331,32 @@ const GroupVisitPanel: React.FC<Props> = ({ visit, currency, clientName, onNavig
                 <button type="button" onClick={() => setInvoiceFor(null)} className="p-1.5 text-slate-400 hover:text-pine"><X size={16} /></button>
               </div>
             </div>
-            <div id="group-invoice-content" className="p-6 space-y-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <p className="text-lg font-black text-pine dark:text-zinc-100 uppercase">Group Visit Invoice</p>
-                  <p className="text-[11px] text-slate-500 font-bold">Ref {visit.groupVisitId}</p>
-                  <p className="text-[11px] text-slate-500 font-bold mt-1">Client: <span className="text-pine dark:text-zinc-100">{invoiceFor.clientName}</span></p>
-                </div>
-                <div className="text-right">
-                  <p className="text-[10px] text-slate-400 font-bold uppercase">Date</p>
-                  <p className="text-[11px] font-bold text-pine dark:text-zinc-100">{new Date(visit.date).toLocaleDateString()}</p>
-                  <p className="text-[10px] text-slate-400 font-bold uppercase mt-1">Animals</p>
-                  <p className="text-[11px] font-bold text-pine dark:text-zinc-100">{invoiceFor.visits.length}{multiClient ? ` of ${siblings.length} in group` : ''}</p>
-                </div>
-              </div>
-
-              {invoiceFor.visits.map(s => (
-                <div key={s.id} className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">
-                  <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 dark:bg-zinc-950">
-                    <p className="text-[11px] font-black uppercase text-pine dark:text-zinc-100">{s.pet?.name || `Visit #${s.id}`} <span className="text-slate-400 font-bold normal-case">— invoice INV-{s.id}</span></p>
-                    <span className="flex items-center gap-1.5">
-                      <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${s.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
-                        {s.isPaid ? `Paid${s.receiptNumber ? ` · ${s.receiptNumber}` : ''}` : 'Outstanding'}
-                      </span>
-                      {/* Settle each bill right from the consolidated invoice. */}
-                      {!s.isPaid && s.status === 'PENDING_PAYMENT' && (
-                        <button
-                          type="button"
-                          onClick={() => { setInvoiceFor(null); onNavigateToVisit?.(Number(s.id), { settle: true }); }}
-                          className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[8px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all"
-                        >
-                          💳 Settle this bill
-                        </button>
-                      )}
-                    </span>
-                  </div>
-                  <table className="w-full text-[11px]">
-                    <tbody>
-                      {(s.tasks || []).map((t: any) => (
-                        <tr key={t.id} className="border-t border-slate-100 dark:border-zinc-800">
-                          <td className="px-3 py-1.5 text-pine dark:text-zinc-100 font-medium">{t.name}</td>
-                          <td className="px-3 py-1.5 text-slate-400 font-bold text-[9px] uppercase">{t.category}</td>
-                          <td className={`px-3 py-1.5 text-right font-bold ${Number(t.price) < 0 ? 'text-emerald-600' : 'text-pine dark:text-zinc-100'}`}>{currency} {Number(t.price || 0).toLocaleString()}</td>
-                        </tr>
-                      ))}
-                      <tr className="border-t-2 border-slate-200 dark:border-zinc-700">
-                        <td className="px-3 py-1.5 font-black uppercase text-[9px] text-slate-500" colSpan={2}>Subtotal — {s.pet?.name || `#${s.id}`}</td>
-                        <td className="px-3 py-1.5 text-right font-black text-pine dark:text-zinc-100">{currency} {(Number(s.totalCost) || 0).toLocaleString()}</td>
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              ))}
-
-              <div className="rounded-xl bg-pine text-white px-4 py-3 flex items-center justify-between">
-                <span className="text-[10px] font-black uppercase tracking-widest">Total — {invoiceFor.clientName} ({invoiceFor.visits.length} animal{invoiceFor.visits.length === 1 ? '' : 's'})</span>
-                <span className="text-base font-black">{currency} {invoiceFor.total.toLocaleString()}</span>
-              </div>
-              {invoiceFor.outstanding > 0 && invoiceFor.outstanding !== invoiceFor.total && (
-                <div className="flex items-center justify-between px-4">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-amber-600">Still outstanding</span>
-                  <span className="text-sm font-black text-amber-600">{currency} {invoiceFor.outstanding.toLocaleString()}</span>
-                </div>
-              )}
-              {invoiceFor.outstanding === 0 && (
-                <div className="flex items-center justify-between px-4">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-emerald-600">Fully settled — this document doubles as the combined receipt</span>
-                  <span className="text-sm font-black text-emerald-600">{currency} {invoiceFor.total.toLocaleString()}</span>
-                </div>
-              )}
-              <p className="text-[9px] text-slate-400">Settlement is per animal on each individual invoice — this document consolidates {multiClient ? `${invoiceFor.clientName}'s animals in the group` : 'the group'} for the client's records and can be regenerated after edits.</p>
+            <div className="p-4">
+              <GroupInvoiceDocument
+                id="group-invoice-content"
+                clinic={docClinic}
+                currency={currency}
+                groupRef={String(visit.groupVisitId)}
+                date={new Date(visit.date).toLocaleDateString()}
+                client={{ name: invoiceFor.clientName, phone: (invoiceFor as any).clientPhone }}
+                visits={invoiceFor.visits}
+                total={invoiceFor.total}
+                outstanding={invoiceFor.outstanding}
+                animalsNote={multiClient ? `of ${siblings.length} in group` : undefined}
+                renderVisitAction={s => (
+                  /* Settle each bill right from the consolidated invoice. */
+                  !s.isPaid && (s as any).status === 'PENDING_PAYMENT' ? (
+                    <button
+                      type="button"
+                      onClick={() => { setInvoiceFor(null); onNavigateToVisit?.(Number(s.id), { settle: true }); }}
+                      className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[8px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all print:hidden"
+                    >
+                      💳 Settle this bill
+                    </button>
+                  ) : null
+                )}
+                footnote={`Settlement is per animal on each individual invoice — this document consolidates ${multiClient ? `${invoiceFor.clientName}'s animals in the group` : 'the group'} for the client's records and can be regenerated after edits.`}
+              />
             </div>
           </div>
         </div>

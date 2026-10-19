@@ -1,7 +1,8 @@
 import React from 'react';
 import { CheckCircle2, FileClock, AlertTriangle, Ban, Receipt as ReceiptIcon } from 'lucide-react';
 import Money from '../../shared/common/Money';
-import DocumentBrand from '../../shared/common/DocumentBrand';
+import { DocLetterhead, DocFooter } from '../../shared/common/DocumentChrome';
+import { useDocClinic } from '../../shared/common/useDocClinic';
 import invoicesAPI from '../../../services/modules/invoices.api';
 import type { VisitReconciliation } from '../../../services/modules/clients.api';
 
@@ -81,6 +82,8 @@ const ReconciliationDocument: React.FC<Props> = ({
   const [loading, setLoading] = React.useState(!provided);
   const [failed, setFailed] = React.useState(false);
   const data = provided ?? fetched;
+  // Letterhead + sign-up QR: the callers hand over a name and logo only.
+  const clinic = useDocClinic({ name: clinicName, logo: clinicLogo });
 
   React.useEffect(() => {
     // Caller already has it — don't ask again.
@@ -204,8 +207,14 @@ const ReconciliationDocument: React.FC<Props> = ({
 
   return (
     <div id={domId} className={`bg-white dark:bg-zinc-900 border ${border} rounded-xl overflow-hidden shadow-sm`}>
-      {/* Header */}
-      <div className={`${head} text-white px-5 py-4 flex items-start justify-between gap-3`}>
+      {/* Letterhead — the clinic's own mark and contact block, then the
+          document's name in the state colour (green receipt, amber slip: the
+          colour IS the state, so it is not the clinic's theme here). White
+          strips on purpose: paper, not screen — see DocumentChrome. */}
+      <div className="bg-white px-4 pt-4 pb-3">
+        <DocLetterhead clinic={clinic} />
+      </div>
+      <div className={`${head} text-white px-5 py-2.5 flex items-start justify-between gap-3`}>
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             {isReceipt ? <CheckCircle2 size={16} /> : <FileClock size={16} />}
@@ -219,12 +228,9 @@ const ReconciliationDocument: React.FC<Props> = ({
             {isReceipt ? data.receipt!.receiptNumber : data.reference} · Visit #{visitRef} · {visitDate}
           </p>
         </div>
-        <div className="text-right shrink-0">
-          <DocumentBrand name={clinicName} logo={clinicLogo} tone="light" align="right" />
-          <p className="text-[9px] text-white/70 mt-1 uppercase tracking-wider">
-            {isReceipt ? 'Settled in full' : settledNoReceipt ? 'Paid in full · receipt pending' : 'Balance outstanding'}
-          </p>
-        </div>
+        <p className="text-[9px] text-white/80 mt-1 uppercase tracking-wider text-right shrink-0">
+          {isReceipt ? 'Settled in full' : settledNoReceipt ? 'Paid in full · receipt pending' : 'Balance outstanding'}
+        </p>
       </div>
 
       {/* Patient & client */}
@@ -409,6 +415,11 @@ const ReconciliationDocument: React.FC<Props> = ({
           </p>
         </div>
       )}
+
+      {/* Sign-up QR + VetHubCore, the same foot every client-facing page wears. */}
+      <div className="bg-white px-4 pb-4">
+        <DocFooter clinic={clinic} />
+      </div>
     </div>
   );
 };

@@ -21,7 +21,9 @@ import { downloadDocumentPdf, shareDocumentOnWhatsapp, buildDocumentMessage } fr
 import ShareDocButton from '../shared/ShareDocButton';
 import DocumentActions from '../shared/DocumentActions';
 import ReconciliationDocument from '../receipts/ReconciliationDocument';
-import DocumentBrand from '../../shared/common/DocumentBrand';
+import InvoiceDocument, { InvoiceRow } from '../receipts/InvoiceDocument';
+import GroupInvoiceDocument from '../receipts/GroupInvoiceDocument';
+import { toDocClinic } from '../../shared/common/DocumentChrome';
 import invoicesAPI from '../../../services/modules/invoices.api';
 import type { VisitReconciliation } from '../../../services/modules/clients.api';
 import { subscribePendingRequests } from '../../../services/api/client';
@@ -52,7 +54,7 @@ import AppliedProcedurePanel from '../shared/AppliedProcedurePanel';
 import { ServiceInjectProvider } from '../shared/ServiceInjectContext';
 import BillPanel from './BillPanel';
 import BillBalanceCard from './BillBalanceCard';
-import AddEncounterSelect from './AddEncounterSelect';
+import { addEncounterOptions } from './AddEncounterSelect';
 import type { Bill } from '../../../services/modules/bills.api';
 import DewormingAgainst from '../shared/DewormingAgainst';
 import Money from '../../shared/common/Money';
@@ -721,6 +723,21 @@ const VisitDetailInner: React.FC<Props> = ({
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
   }, [printMenuFor]);
+
+  // The bill bar's "Go to" menu — opens UPWARD (the bar is pinned to the
+  // bottom edge). Closes on an outside press or Escape.
+  const [showGoMenu, setShowGoMenu] = useState(false);
+  const goMenuRef = useRef<HTMLDivElement | null>(null);
+  useEffect(() => {
+    if (!showGoMenu) return;
+    const onDown = (e: MouseEvent) => {
+      if (goMenuRef.current && !goMenuRef.current.contains(e.target as Node)) setShowGoMenu(false);
+    };
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setShowGoMenu(false); };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => { document.removeEventListener('mousedown', onDown); document.removeEventListener('keydown', onKey); };
+  }, [showGoMenu]);
 
   // Pin the bill action bar FIXED to the viewport bottom on the Records &
   // Billing tab (sticky is inert here — an ancestor has overflow), measuring
@@ -4449,6 +4466,48 @@ const VisitDetailInner: React.FC<Props> = ({
         );
       })() : null;
 
+  // ONE list of the visit's top-level tabs, used by the tab strip AND the bill
+  // bar's "Go to" menu — so what the menu offers can never differ from the
+  // strip. (The strip scrolls sideways on a small screen, which is how a vet
+  // came to "not see" Bill & Invoice at all — user, 2026-10-19.)
+  const visitTabs: { id: string; label: string }[] = [
+            /* ADMISSION / BOARDING LEAD (user, 2026-08-22). The gate is the first
+               thing that happens to an in-patient or a boarder, and it was buried
+               as step 1 inside Clinical Workflow — reachable only after landing on
+               another tab first. A visit whose gate is unfilled should open ON it. */
+            ...(hasInpatientGate ? [{ id: 'admission', label: `🏥 Admission${gateNeedsFilling ? ' ·' : ''}` }] : []),
+            ...(hasBoardingGate ? [{ id: 'boardingGate', label: '🛏️ Boarding' }] : []),
+            ...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), ...(isTransferVisit ? [{ id: 'transfer', label: '🔁 Clinical Transfer' }] : []), { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [] : [{ id: 'shares', label: '🤝 Shares & Partners' }]), ...(isTransferVisit ? [] /* follow-up is the requester clinic's job — hidden on transfers (user, 2026-08-02) */ : [{ id: 'followup', label: '🔔 Follow-Up & Reminders' }]),...(isTransferVisit ? [{ id: 'partnerbill', label: '🧾 Partner Bill & Receipt' }] : [{ id: 'billing', label: 'Bill & Invoice' }]),
+            /* SETTLE IS A TOP-LEVEL TAB (user, 2026-08-21: "Settle tab to be
+               upto not next to invoice n bill"). Beside Bill and Invoice it read
+               as one more document to browse; up here it reads as the act it is.
+               It exists only while a payment is open — switching away closes it,
+               so the strip goes back to normal until Settle invoice is pressed
+               again ("if user switches from it it shhould close"). */
+            ...(showSettleModal ? [{ id: 'settle', label: `💳 ${billStage === 'PAY_FIRST' ? 'Collect Payment' : 'Settle Invoice'}` }] : [])];
+
+  // The "Go to" menu: every tab, then the documents inside Bill & Invoice, then
+  // the hand-offs that used to take up room on the bar itself.
+  const hasInvoiceDoc = (liveBill && ['INVOICED', 'PAID', 'RECONCILED'].includes(String(liveBill.status))) || appointment.isPaid;
+  const goToBill = (doc: 'bill' | 'invoice' | 'receipt') => { setWorkflowTab('billing'); setActiveBottomTab(doc); };
+  const goMenuDocs: { id: string; label: string; icon: React.ComponentType<any>; active: boolean; disabled?: boolean; go: () => void }[] = isTransferVisit ? [] : [
+    { id: 'doc-bill', label: 'View bill', icon: ReceiptText, active: workflowTab === 'billing' && activeBottomTab === 'bill', go: () => goToBill('bill') },
+    ...(hasInvoiceDoc ? [
+      { id: 'doc-invoice', label: 'View invoice', icon: Printer, active: workflowTab === 'billing' && activeBottomTab === 'invoice', go: () => goToBill('invoice') },
+      {
+        id: 'doc-receipt',
+        label: reconciliationState && !reconciliationState.settled ? 'View reconciliation' : 'View receipt',
+        icon: Receipt,
+        active: workflowTab === 'billing' && activeBottomTab === 'receipt',
+        disabled: !appointment.isPaid && !hasMoneyActivity,
+        go: () => goToBill('receipt'),
+      },
+    ] : []),
+    { id: 'doc-report', label: 'Medical report', icon: FileText, active: workflowTab === 'records' && activeBottomTab === 'report', go: () => { setWorkflowTab('records'); setActiveBottomTab('report'); } },
+    { id: 'doc-meds', label: 'Meds & consumables', icon: Pill, active: workflowTab === 'records' && activeBottomTab === 'medications', go: () => { setWorkflowTab('records'); setActiveBottomTab('medications'); } },
+  ];
+  const goMenuEncounters = appointment.isPaid ? [] : addEncounterOptions(appointment, wiz.availableEntries);
+
   return (
     <div ref={billBarRootRef} className="space-y-6 animate-in slide-in-from-bottom-2 duration-300 pb-20">
       {/* Pay-gate before boarding/in-patient (spec 7b): settle in full first;
@@ -5140,25 +5199,11 @@ const VisitDetailInner: React.FC<Props> = ({
           Records now precedes Follow-Up — you write up what happened before you
           decide what comes next. */}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-max overflow-x-auto">
+        <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-max max-w-full overflow-x-auto scrollbar-none">
           {/* On an emergency visit, Triage leads — it IS the workflow's front
               door. Diagnostics-only visits (auto-created from New lab/imaging)
               skip the clinical wizard entirely. */}
-          {[
-            /* ADMISSION / BOARDING LEAD (user, 2026-08-22). The gate is the first
-               thing that happens to an in-patient or a boarder, and it was buried
-               as step 1 inside Clinical Workflow — reachable only after landing on
-               another tab first. A visit whose gate is unfilled should open ON it. */
-            ...(hasInpatientGate ? [{ id: 'admission', label: `🏥 Admission${gateNeedsFilling ? ' ·' : ''}` }] : []),
-            ...(hasBoardingGate ? [{ id: 'boardingGate', label: '🛏️ Boarding' }] : []),
-            ...(isEmergency ? [{ id: 'triage', label: '🚨 Emergency Triage' }] : []), ...(diagnosticOnly ? [] : [{ id: 'clinical', label: `${wiz.entry.icon} Clinical Workflow` }]), ...(!isEmergency && closedTriageExists ? [{ id: 'triage', label: '🚨 Emergency Triage · closed' }] : []), ...(isTransferVisit ? [{ id: 'transfer', label: '🔁 Clinical Transfer' }] : []), { id: 'records', label: 'Records & Reports' }, ...(isTransferVisit ? [] : [{ id: 'shares', label: '🤝 Shares & Partners' }]), ...(isTransferVisit ? [] /* follow-up is the requester clinic's job — hidden on transfers (user, 2026-08-02) */ : [{ id: 'followup', label: '🔔 Follow-Up & Reminders' }]),...(isTransferVisit ? [{ id: 'partnerbill', label: '🧾 Partner Bill & Receipt' }] : [{ id: 'billing', label: 'Bill & Invoice' }]),
-            /* SETTLE IS A TOP-LEVEL TAB (user, 2026-08-21: "Settle tab to be
-               upto not next to invoice n bill"). Beside Bill and Invoice it read
-               as one more document to browse; up here it reads as the act it is.
-               It exists only while a payment is open — switching away closes it,
-               so the strip goes back to normal until Settle invoice is pressed
-               again ("if user switches from it it shhould close"). */
-            ...(showSettleModal ? [{ id: 'settle', label: `💳 ${billStage === 'PAY_FIRST' ? 'Collect Payment' : 'Settle Invoice'}` }] : [])].map(t => (
+          {visitTabs.map(t => (
             <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
           ))}
           {/* Badge only for auto-created diagnostics visits — transfers have a
@@ -7436,209 +7481,118 @@ const VisitDetailInner: React.FC<Props> = ({
                              )}
                            </div>
                         </div>
-                        <div id="invoice-content" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl overflow-hidden shadow-sm">
-                           {/* Invoice Header */}
-                           <div className="bg-pine text-white p-5 flex justify-between items-start">
-                             <div>
-                               <p className="text-2xl font-black uppercase tracking-tighter">INVOICE</p>
-                               <p className="text-[9px] font-bold text-white/50 mt-0.5">REF #{appointment.id} • {formatDate(appointment.date)}</p>
-                             </div>
-                             {/* The clinic's own mark, not just its name — this
-                                 document leaves the building. */}
-                             <DocumentBrand
-                               name={activeClinic.name}
-                               logo={(activeClinic as any).logo}
-                               slogan={activeClinic.slogan}
-                               contact={[(activeClinic as any).phone, (activeClinic as any).email]}
-                               tone="light"
-                               align="right"
-                             />
-                           </div>
-                           {/* Patient & Client Info */}
-                           <div className="grid grid-cols-3 divide-x divide-slate-200 dark:divide-zinc-700 border-b border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800/50">
-                             <div className="px-4 py-2">
-                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Patient</p>
-                               {onNavigateToPet ? (
-                                 <button onClick={() => onNavigateToPet(pet.id)} className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight hover:text-seafoam transition-colors text-left print:text-pine print:hover:text-pine">
-                                   {pet.name}
-                                 </button>
-                               ) : (
-                                 <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{pet.name}</p>
-                               )}
-                               <p className="text-[9px] text-slate-400 leading-tight">{pet.species} • {pet.breed}</p>
-                             </div>
-                             <div className="px-4 py-2">
-                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Client</p>
-                               {client && onNavigateToClient ? (
-                                 <button onClick={() => onNavigateToClient(client.id)} className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight hover:text-seafoam transition-colors text-left print:text-pine print:hover:text-pine">
-                                   {client.name}
-                                 </button>
-                               ) : (
-                                 <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{client?.name || '—'}</p>
-                               )}
-                               <p className="text-[9px] text-slate-400 leading-tight">{client?.phone}</p>
-                             </div>
-                             <div className="px-4 py-2">
-                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-0.5">Clinic</p>
-                               <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase leading-tight">{activeClinic.name}</p>
-                               <p className="text-[9px] text-slate-400 leading-tight">{activeClinic.phone || activeClinic.email || ''}</p>
-                             </div>
-                           </div>
-                           {/* Services */}
-                           <div className="p-4">
-                             <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Services &amp; items</p>
-                             <div className="space-y-2">
-                               {/* The REAL bill (revenue cycle) is the truth once it exists —
-                                   it carries consumable + custom lines the task list never
-                                   sees (user, 2026-08-02: invoice showed 3,000 vs bill 5,209). */}
-                               {liveBill && docLines.length > 0 ? docLines.map((l: any) => (
-                                 <div key={`bl-${l.id}`} className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
-                                   <div>
-                                     <span className={`text-sm font-bold ${l.lineTotal < 0 ? 'text-emerald-600' : 'text-pine dark:text-zinc-200'}`}>{l.name}</span>
-                                     {(l.category || l.kind) && <span className="ml-2 text-[8px] font-black text-slate-400 uppercase tracking-wider">{l.category || l.kind}</span>}
-                                     {l.quantity !== 1 && <span className="ml-2 text-[9px] text-slate-400">× {l.quantity}</span>}
-                                   </div>
-                                   <Money amount={l.lineTotal} currency={sourceCurrency} target={printCurrency} hideOriginal showCode primaryClassName="text-sm font-black text-pine dark:text-zinc-100 font-mono" />
-                                 </div>
-                               )) : appointment.tasks.map(t => {
-                                 const isAdjustment = (t.price || 0) < 0;
-                                 return (
-                                 <div key={t.id} className="flex justify-between items-center py-2 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
-                                   <div>
-                                     <span className={`text-sm font-bold ${isAdjustment ? 'text-emerald-600' : 'text-pine dark:text-zinc-200'}`}>{t.name}</span>
-                                     {t.category && <span className="ml-2 text-[8px] font-black text-slate-400 uppercase tracking-wider">{t.category}</span>}
-                                   </div>
-                                   <span className="flex items-center gap-2">
-                                     {/* Reopened (un-finalized) bill: the amount is
-                                         editable in place — blur/Enter saves. */}
-                                     {!isFinalized && !isAdjustment ? (
-                                       <span className="flex items-center gap-1 print:hidden">
-                                         <span className="text-[9px] font-black text-slate-400 uppercase">{sourceCurrency}</span>
-                                         <input
-                                           type="number"
-                                           min={0}
-                                           defaultValue={t.price || 0}
-                                           key={`${t.id}-${t.price}`}
-                                           onBlur={e => {
-                                             const v = Number(e.target.value);
-                                             if (!Number.isNaN(v) && v !== (t.price || 0)) onUpdateTaskDetails(appointment.id, t.id, { price: v } as any);
-                                           }}
-                                           onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                                           className="w-24 field-input !py-1 text-right font-mono font-black text-sm"
-                                         />
-                                         {printCurrency !== sourceCurrency && (
-                                           <Money
-                                             amount={t.price || 0}
-                                             currency={sourceCurrency}
-                                             target={printCurrency}
-                                             hideOriginal
-                                             showCode
-                                             primaryClassName="text-[9px] font-bold text-slate-400"
-                                           />
-                                         )}
-                                       </span>
-                                     ) : (
-                                       <Money
-                                         amount={t.price || 0}
-                                         currency={sourceCurrency}
-                                         target={printCurrency}
-                                         hideOriginal
-                                         showCode
-                                         primaryClassName={`text-sm font-black font-mono ${isAdjustment ? 'text-emerald-600' : 'text-pine dark:text-zinc-100'}`}
-                                       />
-                                     )}
-                                     {/* Adjustments live only on the bill (no service card),
-                                         so they're removable HERE until payment. */}
-                                     {isAdjustment && !visitClosed && (
-                                       <button
-                                         onClick={() => onDeleteTask(appointment.id, t.id)}
-                                         title="Remove this discount/adjustment"
-                                         className="p-1 rounded text-slate-300 hover:text-rose-500 transition-colors print:hidden"
-                                       ><Trash2 size={12} /></button>
-                                     )}
-                                   </span>
-                                 </div>
-                                 );
-                               })}
-                             </div>
-                           </div>
-                           {/* Medications if any */}
-                           {appointment.tasks.some(t => t.medications && t.medications.length > 0) && (
-                             <div className="p-4 border-t border-slate-200 dark:border-zinc-700">
-                               <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-2">Medications Dispensed</p>
-                               <div className="space-y-1.5">
-                                 {appointment.tasks.flatMap(t => (t.medications || []).map(m => (
-                                   <div key={`${t.id}-${m.inventoryItemId}`} className="flex justify-between items-center py-1.5 border-b border-slate-100 dark:border-zinc-800 last:border-b-0">
-                                     <div>
-                                       <span className="text-sm font-bold text-pine dark:text-zinc-200">{m.inventoryItem?.name || m.inventoryItemId}</span>
-                                       <span className="ml-2 text-[9px] text-slate-400">× {m.quantity} {m.inventoryItem?.unit || ''}</span>
-                                     </div>
-                                     {m.inventoryItem?.unitPrice ? (
-                                       <Money
-                                         amount={m.inventoryItem.unitPrice * m.quantity}
-                                         currency={sourceCurrency}
-                                         target={printCurrency}
-                                         hideOriginal
-                                         showCode
-                                         primaryClassName="text-sm font-black text-pine dark:text-zinc-100 font-mono"
-                                       />
-                                     ) : <span className="text-[9px] text-slate-400">—</span>}
-                                   </div>
-                                 )))}
-                               </div>
-                             </div>
-                           )}
-                           {/**
-                             * DISCOUNT ON THE INVOICE, not only the receipt.
-                             *
-                             * The receipt already broke out Amount → Discount
-                             * applied → Final amount, but the invoice printed a
-                             * single "Total Settlement" — so the document the
-                             * CLIENT is given to check never showed the money
-                             * they were let off, and the two papers for the same
-                             * visit did not tally on their face (user,
-                             * 2026-08-21: "invoice show discounts too there").
-                             *
-                             * Only rendered when there IS one; an invoice with no
-                             * discount keeps its single clean line.
-                             */}
-                           {(() => {
-                             const invDiscount = Number(selectedInv?.discount ?? 0);
-                             if (!(invDiscount > 0.005)) return null;
-                             const invSubtotal = Number(selectedInv?.subtotal ?? docTotal + invDiscount);
-                             return (
-                               <div className="px-4 pt-3 space-y-1.5 border-t border-slate-100 dark:border-zinc-800">
-                                 <div className="flex justify-between items-baseline">
-                                   <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Subtotal</span>
-                                   <Money amount={invSubtotal} currency={sourceCurrency} target={printCurrency} hideOriginal showCode
-                                     primaryClassName="text-[13px] font-black text-pine dark:text-zinc-100 font-mono" />
-                                 </div>
-                                 <div className="flex justify-between items-baseline">
-                                   <span className="text-[10px] font-black uppercase text-emerald-600 dark:text-emerald-400 tracking-widest">Discount applied</span>
-                                   <Money amount={-invDiscount} currency={sourceCurrency} target={printCurrency} hideOriginal showCode
-                                     primaryClassName="text-[13px] font-black text-emerald-600 dark:text-emerald-400 font-mono" />
-                                 </div>
-                               </div>
-                             );
-                           })()}
-                           {/* Total */}
-                           <div className="p-4 bg-pine/5 dark:bg-pine/10 border-t-2 border-pine flex justify-between items-end">
-                             <span className="text-[10px] font-black uppercase text-slate-400 tracking-widest">Total Settlement</span>
-                             <Money
-                               amount={docTotal}
-                               currency={sourceCurrency}
-                               target={printCurrency}
-                               hideOriginal
-                               showCode
-                               primaryClassName="text-2xl font-black tracking-tighter text-pine dark:text-zinc-100 font-mono"
-                             />
-                           </div>
-                           {/* Previous outstanding balance carried forward (077).
-                               Settlement stays per-visit — this shows the client's
-                               full position; the unpaid visits are jumpable from
-                               the Bill & Balance rail card. */}
+                        {/* The client-facing page: clinic logo left, contact right,
+                            a themed INVOICE bar, customer + invoice facts, items
+                            grouped by category, total, money received, and a
+                            sign-up QR with "Powered by VetHubCore" underneath
+                            (user, 2026-10-19). The markup lives in InvoiceDocument;
+                            this block only resolves WHICH figures it prints. */}
+                        {(() => {
+                          const invDiscount = Number(selectedInv?.discount ?? 0);
+                          const kindLabel = (k: any) => (k ? String(k).charAt(0) + String(k).slice(1).toLowerCase() : null);
+                          // The REAL bill (revenue cycle) is the truth once it exists —
+                          // it carries consumable + custom lines the task list never
+                          // sees (user, 2026-08-02: invoice showed 3,000 vs bill 5,209).
+                          const invoiceRows: InvoiceRow[] = liveBill && docLines.length > 0
+                            ? docLines.map((l: any) => {
+                                const amt = Number(l.lineTotal ?? 0);
+                                return {
+                                  id: l.id,
+                                  name: l.name,
+                                  category: l.category || kindLabel(l.kind),
+                                  unitPrice: Number(l.unitPrice ?? amt),
+                                  discount: Number(l.discount ?? 0),
+                                  quantity: Number(l.quantity ?? 1),
+                                  amount: amt,
+                                  adjustment: amt < 0,
+                                };
+                              })
+                            : [
+                                ...appointment.tasks.map((t): InvoiceRow => {
+                                  const price = Number(t.price || 0);
+                                  const isAdjustment = price < 0;
+                                  return {
+                                    id: t.id,
+                                    name: t.name,
+                                    category: t.category,
+                                    unitPrice: price,
+                                    discount: 0,
+                                    quantity: 1,
+                                    amount: price,
+                                    adjustment: isAdjustment,
+                                    // Reopened (un-finalized) bill: the amount is editable
+                                    // in place — blur/Enter saves. Adjustments live only on
+                                    // the bill (no service card), so they are removable HERE
+                                    // until payment.
+                                    editable: !isFinalized && !isAdjustment,
+                                    removable: isAdjustment && !visitClosed,
+                                  };
+                                }),
+                                // No bill yet: what was dispensed, priced from stock.
+                                ...appointment.tasks.flatMap(t => (t.medications || []).map((m): InvoiceRow => ({
+                                  id: `${t.id}-${m.inventoryItemId}`,
+                                  name: m.inventoryItem?.name || String(m.inventoryItemId),
+                                  group: 'Medications dispensed',
+                                  unitPrice: m.inventoryItem?.unitPrice ?? null,
+                                  discount: 0,
+                                  quantity: Number(m.quantity ?? 1),
+                                  amount: m.inventoryItem?.unitPrice ? m.inventoryItem.unitPrice * m.quantity : null,
+                                }))),
+                              ];
+                          // Money received. The invoice's own figures when it is issued
+                          // (the server derives them — never stored), else the visit's
+                          // reconciliation. Hidden while the bill is still a draft.
+                          const rec = reconciliationState;
+                          const paidRaw = selectedInv ? Number(selectedInv.amountPaid ?? 0) : Number(rec?.paidSoFar ?? 0);
+                          const paid = appointment.isPaid && paidRaw < 0.005 ? Number(docTotal) : paidRaw;
+                          const balance = appointment.isPaid && paid >= Number(docTotal) - 0.005
+                            ? 0
+                            : selectedInv?.outstanding != null ? Number(selectedInv.outstanding)
+                            : rec ? Number(rec.balance)
+                            : Math.max(Number(docTotal) - paid, 0);
+                          const payments = invoiceReady || selectedInv
+                            ? {
+                                paid,
+                                balance,
+                                // A scoped invoice (CLINICAL / STAY) covers part of the
+                                // visit; the visit-wide payment list would not tally.
+                                list: !docScope && rec
+                                  ? rec.payments.map((pm, i) => ({
+                                      key: pm.transactionId ?? String(i),
+                                      date: new Date(pm.paidAt).toLocaleDateString(),
+                                      method: pm.fromCredit ? 'CLIENT CREDIT' : String(pm.method).replace('_', ' '),
+                                      amount: pm.amount,
+                                      ref: pm.receiptNumber || null,
+                                    }))
+                                  : undefined,
+                              }
+                            : null;
+                          return (
+                            <InvoiceDocument
+                              clinic={toDocClinic(activeClinic)}
+                              invoiceNo={selectedInv?.number || `INV-${appointment.id}`}
+                              billDate={formatDate(selectedInv?.issuedAt || appointment.date)}
+                              dueDate={selectedInv?.dueDate ? formatDate(selectedInv.dueDate) : 'On receipt'}
+                              client={{
+                                name: client?.name ?? appointment.client?.name,
+                                phone: client?.phone ?? appointment.client?.phone,
+                                address: (client as any)?.address ?? null,
+                              }}
+                              patient={{ name: pet.name, species: pet.species, breed: pet.breed }}
+                              onOpenPet={onNavigateToPet ? () => onNavigateToPet(pet.id) : undefined}
+                              onOpenClient={client && onNavigateToClient ? () => onNavigateToClient(client.id) : undefined}
+                              rows={invoiceRows}
+                              sourceCurrency={sourceCurrency}
+                              printCurrency={printCurrency}
+                              subtotal={invDiscount > 0.005 ? Number(selectedInv?.subtotal ?? Number(docTotal) + invDiscount) : null}
+                              discount={invDiscount}
+                              total={Number(docTotal)}
+                              payments={payments}
+                              onEditPrice={!isFinalized ? (rowId, price) => onUpdateTaskDetails(appointment.id, rowId as any, { price } as any) : undefined}
+                              onRemoveRow={!visitClosed ? (rowId) => onDeleteTask(appointment.id, rowId as any) : undefined}
+                            >
                            {includePrevBalance && (prevBalance?.total ?? 0) > 0 && (
-                             <div className="border-t border-amber-200 dark:border-amber-900/50 bg-amber-50/60 dark:bg-amber-950/20">
+                             <div className="border border-amber-200 rounded-lg overflow-hidden bg-amber-50/60">
                                <div className="px-4 pt-3">
                                  <p className="text-[8px] font-black text-amber-600 uppercase tracking-widest mb-1.5">Previous outstanding balance — brought forward</p>
                                  {(prevBalance?.items ?? []).map(it => (
@@ -7668,7 +7622,9 @@ const VisitDetailInner: React.FC<Props> = ({
                                </div>
                              </div>
                            )}
-                        </div>
+                            </InvoiceDocument>
+                          );
+                        })()}
                         {(prevBalance?.total ?? 0) > 0 && (
                           <label className="flex items-center gap-2 mt-2 cursor-pointer select-none print:hidden">
                             <input type="checkbox" checked={includePrevBalance} onChange={e => setIncludePrevBalance(e.target.checked)} className="w-3.5 h-3.5 rounded border-slate-300 text-seafoam" />
@@ -7700,61 +7656,42 @@ const VisitDetailInner: React.FC<Props> = ({
                                 <Download size={13} /> Download PDF
                               </button>
                             </div>
-                            <div id="group-invoice-inline" className="bg-white dark:bg-zinc-900 border border-violet-200 dark:border-violet-900/50 rounded-xl overflow-hidden shadow-sm">
-                              <div className="bg-violet-700 text-white p-4 flex justify-between items-start">
-                                <div>
-                                  <p className="text-lg font-black uppercase tracking-tighter">Group Visit Invoice</p>
-                                  <p className="text-[9px] font-bold text-white/60 mt-0.5">REF {appointment.groupVisitId} • {formatDate(appointment.date)} • {client?.name}</p>
-                                </div>
-                                <p className="text-[10px] font-black uppercase">{activeClinic.name}</p>
-                              </div>
-                              <div className="p-4 space-y-3">
-                                {clientGroupVisits.map((s: any) => (
-                                  <div key={s.id} className="border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden">
-                                    <div className="flex items-center justify-between gap-2 px-3 py-2 bg-slate-50 dark:bg-zinc-950">
-                                      {/* Animal header links to that visit's workflow. */}
-                                      <button
-                                        onClick={() => String(s.id) !== String(appointment.id) && onNavigateToVisit(Number(s.id))}
-                                        title={String(s.id) === String(appointment.id) ? 'This visit' : `Open ${s.pet?.name || 'this visit'}'s workflow`}
-                                        className={`text-[11px] font-black uppercase text-pine dark:text-zinc-100 text-left ${String(s.id) === String(appointment.id) ? 'cursor-default' : 'hover:text-seafoam transition-colors'}`}
-                                      >
-                                        {s.pet?.name || `Visit #${s.id}`} <span className="text-slate-400 font-bold normal-case">— invoice INV-{s.id}</span>
-                                        {String(s.id) !== String(appointment.id) && <span className="text-seafoam print:hidden"> →</span>}
-                                      </button>
-                                      <span className="flex items-center gap-1.5">
-                                        <span className={`px-2 py-0.5 rounded-md text-[8px] font-black uppercase ${s.isPaid ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{s.isPaid ? `Paid${s.receiptNumber ? ` · ${s.receiptNumber}` : ''}` : 'Outstanding'}</span>
-                                        {/* Settle each animal's bill from here: this
-                                            visit opens its settle modal directly,
-                                            siblings jump over with it pre-opened. */}
-                                        {!s.isPaid && s.status === 'PENDING_PAYMENT' && (
-                                          <button
-                                            onClick={() => String(s.id) === String(appointment.id) ? openSettleModal() : onNavigateToVisit(Number(s.id), { settle: true })}
-                                            className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[8px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all print:hidden"
-                                          >
-                                            💳 Settle this bill
-                                          </button>
-                                        )}
-                                      </span>
-                                    </div>
-                                    {(s.tasks || []).map((t: any) => (
-                                      <div key={t.id} className="flex justify-between items-center px-3 py-1.5 border-t border-slate-100 dark:border-zinc-800 text-[11px]">
-                                        <span className="text-pine dark:text-zinc-100 font-medium">{t.name} <span className="text-[8px] font-black text-slate-400 uppercase ml-1">{t.category}</span></span>
-                                        <span className={`font-bold ${Number(t.price) < 0 ? 'text-emerald-600' : 'text-pine dark:text-zinc-100'}`}>{activeClinic.currency} {Number(t.price || 0).toLocaleString()}</span>
-                                      </div>
-                                    ))}
-                                    <div className="flex justify-between items-center px-3 py-1.5 border-t-2 border-slate-200 dark:border-zinc-700 text-[11px]">
-                                      <span className="font-black uppercase text-[9px] text-slate-500">Subtotal — {s.pet?.name || `#${s.id}`}</span>
-                                      <span className="font-black text-pine dark:text-zinc-100">{activeClinic.currency} {(Number(s.totalCost) || 0).toLocaleString()}</span>
-                                    </div>
-                                  </div>
-                                ))}
-                                <div className="rounded-xl bg-violet-700 text-white px-4 py-3 flex items-center justify-between">
-                                  <span className="text-[10px] font-black uppercase tracking-widest">Total — {client?.name} ({clientGroupVisits.length} animals)</span>
-                                  <span className="text-base font-black">{activeClinic.currency} {clientGroupVisits.reduce((sum: number, s: any) => sum + (Number(s.totalCost) || 0), 0).toLocaleString()}</span>
-                                </div>
-                                <p className="text-[9px] text-slate-400">Settlement is per animal on each individual invoice — this document consolidates this client's animals in the group and regenerates after edits.</p>
-                              </div>
-                            </div>
+                            <GroupInvoiceDocument
+                              id="group-invoice-inline"
+                              clinic={toDocClinic(activeClinic)}
+                              currency={activeClinic.currency}
+                              groupRef={String(appointment.groupVisitId)}
+                              date={formatDate(appointment.date)}
+                              client={{ name: client?.name, phone: client?.phone ?? appointment.client?.phone, address: (client as any)?.address ?? null }}
+                              visits={clientGroupVisits}
+                              total={clientGroupVisits.reduce((sum: number, s: any) => sum + (Number(s.totalCost) || 0), 0)}
+                              outstanding={clientGroupVisits.reduce((sum: number, s: any) => (!s.isPaid && s.status !== 'CANCELLED' ? sum + (Number(s.totalCost) || 0) : sum), 0)}
+                              renderVisitTitle={(s, defaultTitle) => (
+                                /* Animal header links to that visit's workflow. */
+                                <button
+                                  type="button"
+                                  onClick={() => String(s.id) !== String(appointment.id) && onNavigateToVisit(Number(s.id))}
+                                  title={String(s.id) === String(appointment.id) ? 'This visit' : `Open ${s.pet?.name || 'this visit'}'s workflow`}
+                                  className={`uppercase text-left ${String(s.id) === String(appointment.id) ? 'cursor-default' : 'hover:underline print:no-underline'}`}
+                                >
+                                  {defaultTitle}
+                                  {String(s.id) !== String(appointment.id) && <span className="text-seafoam print:hidden"> →</span>}
+                                </button>
+                              )}
+                              renderVisitAction={(s: any) => (
+                                /* Settle each animal's bill from here: this visit opens its
+                                   settle modal directly, siblings jump over with it pre-opened. */
+                                !s.isPaid && s.status === 'PENDING_PAYMENT' ? (
+                                  <button
+                                    onClick={() => String(s.id) === String(appointment.id) ? openSettleModal() : onNavigateToVisit(Number(s.id), { settle: true })}
+                                    className="px-2 py-0.5 rounded-md bg-emerald-600 text-white text-[8px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all print:hidden"
+                                  >
+                                    💳 Settle this bill
+                                  </button>
+                                ) : null
+                              )}
+                              footnote="Settlement is per animal on each individual invoice — this document consolidates this client's animals in the group and regenerates after edits."
+                            />
                           </div>
                         )}
                         </>
@@ -9326,11 +9263,11 @@ const VisitDetailInner: React.FC<Props> = ({
         <>
           {/* Spacer must clear the bar's real height (py-3 + button ≈ 68px
               desktop) or the last content row hides under it — h-16 didn't. */}
-          <div className="h-24 sm:h-20" aria-hidden />
+          <div className="h-16 sm:h-14" aria-hidden />
           <div
             style={billBarRect ? { left: billBarRect.left, width: billBarRect.width, right: 'auto' } : undefined}
-            className="fixed bottom-0 inset-x-0 z-40 px-4 sm:px-6 py-2 sm:py-3 pb-[max(0.5rem,env(safe-area-inset-bottom))] sm:pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[0_-4px_16px_rgba(0,0,0,0.10)]">
-            <div className="flex items-center gap-3">
+            className="fixed bottom-0 inset-x-0 z-40 px-3 sm:px-5 py-1.5 sm:py-2 pb-[max(0.375rem,env(safe-area-inset-bottom))] sm:pb-[max(0.5rem,env(safe-area-inset-bottom))] border-t border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 shadow-[0_-4px_16px_rgba(0,0,0,0.10)]">
+            <div className="flex items-center gap-2">
               <div className="min-w-0">
                 {/* The live BILL total wins when a bill exists — the task total
                     misses consumable/custom lines (3,000 vs 5,209, visit 133). */}
@@ -9338,8 +9275,8 @@ const VisitDetailInner: React.FC<Props> = ({
                     bill that was still a DRAFT (user, 2026-08-04: "status
                     inconsistencies"). It now names the actual stage of
                     Bill → Invoice → Payment → Receipt. */}
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{billStageLabel}</p>
-                <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{activeClinic.currency} {Number(liveBill && (liveBill.lines?.length ?? 0) > 0 ? liveBill.total : appointment.totalCost).toLocaleString()}</p>
+                <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 leading-tight">{billStageLabel}</p>
+                <p className="text-xs font-black text-pine dark:text-zinc-100 truncate leading-tight">{activeClinic.currency} {Number(liveBill && (liveBill.lines?.length ?? 0) > 0 ? liveBill.total : appointment.totalCost).toLocaleString()}</p>
               </div>
               <div className="flex-1" />
               {/* Hand-off lives HERE now (user, 2026-08-02) — beside finalize /
@@ -9350,27 +9287,90 @@ const VisitDetailInner: React.FC<Props> = ({
                   than one responsive class: a native <select> renders one label
                   at every width, and "＋ Transfer / add encounter…" does not fit
                   a phone bill bar beside the total and the primary action. */}
-              {!appointment.isPaid && (
-                <>
-                  <AddEncounterSelect
-                    visit={appointment}
-                    availableEntries={wiz.availableEntries}
-                    onAdd={handleAddEncounter}
-                    compact
-                    className="sm:hidden"
-                  />
-                  <AddEncounterSelect
-                    visit={appointment}
-                    availableEntries={wiz.availableEntries}
-                    onAdd={handleAddEncounter}
-                    className="hidden sm:block"
-                  />
-                </>
-              )}
+              {/* GO TO — an up-opening menu to every tab and document, plus the
+                  hand-off that used to be a wide select on this bar
+                  (user, 2026-10-19: "some vets dont see some button and tabs …
+                  smaller buttons and an up-opening menu list that can nav to
+                  view bill, view invoice etc"). The tab strip scrolls sideways on
+                  a small screen; this does not. */}
+              <div className="relative" ref={goMenuRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowGoMenu(o => !o)}
+                  aria-haspopup="menu"
+                  aria-expanded={showGoMenu}
+                  title="Go to a tab, the bill, the invoice…"
+                  className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all ${showGoMenu ? 'border-pine text-pine dark:text-zinc-100 bg-slate-50 dark:bg-zinc-900' : 'border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100'}`}
+                >
+                  <Layers size={11} /> Go to <ChevronUp size={11} className={`transition-transform ${showGoMenu ? 'rotate-180' : ''}`} />
+                </button>
+                {showGoMenu && (
+                  <div role="menu" className="absolute bottom-full right-0 mb-2 w-60 max-h-[70vh] overflow-y-auto rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl py-1 z-50 animate-in fade-in slide-in-from-bottom-1 duration-100">
+                    <p className="px-3 pt-1.5 pb-1 text-[8px] font-black uppercase tracking-widest text-slate-400">Tabs</p>
+                    {visitTabs.map(t => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => { setWorkflowTab(t.id as any); setShowGoMenu(false); }}
+                        className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-800 ${workflowTab === t.id ? 'text-seafoam' : 'text-pine dark:text-zinc-100'}`}
+                      >
+                        <span className="truncate">{t.label}</span>
+                        {workflowTab === t.id && <Check size={11} className="ml-auto shrink-0" />}
+                      </button>
+                    ))}
+                    {goMenuDocs.length > 0 && (
+                      <>
+                        <p className="px-3 pt-2 pb-1 mt-1 border-t border-slate-100 dark:border-zinc-800 text-[8px] font-black uppercase tracking-widest text-slate-400">Documents</p>
+                        {goMenuDocs.map(d => (
+                          <button
+                            key={d.id}
+                            type="button"
+                            role="menuitem"
+                            disabled={d.disabled}
+                            onClick={() => { d.go(); setShowGoMenu(false); }}
+                            className={`w-full flex items-center gap-2 px-3 py-1.5 text-left text-[10px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-40 disabled:hover:bg-transparent ${d.active ? 'text-seafoam' : 'text-pine dark:text-zinc-100'}`}
+                          >
+                            <d.icon size={12} className="shrink-0" />
+                            <span className="truncate">{d.label}</span>
+                            {d.active && <Check size={11} className="ml-auto shrink-0" />}
+                          </button>
+                        ))}
+                      </>
+                    )}
+                    <p className="px-3 pt-2 pb-1 mt-1 border-t border-slate-100 dark:border-zinc-800 text-[8px] font-black uppercase tracking-widest text-slate-400">Visit</p>
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => { setShowJourney(true); void wiz.reloadEvents(); setShowGoMenu(false); }}
+                      className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                    >
+                      <span className="shrink-0">🧭</span> <span className="truncate">Journey · {wiz.events.length}</span>
+                    </button>
+                    {goMenuEncounters.length > 0 && (
+                      <>
+                        <p className="px-3 pt-2 pb-1 mt-1 border-t border-slate-100 dark:border-zinc-800 text-[8px] font-black uppercase tracking-widest text-slate-400">Transfer / add encounter</p>
+                        {goMenuEncounters.map(o => (
+                          <button
+                            key={o.value}
+                            type="button"
+                            role="menuitem"
+                            onClick={() => { handleAddEncounter(o.value); setShowGoMenu(false); }}
+                            title="Hand this patient on to another encounter type — its service & fee land on this bill"
+                            className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                          >
+                            <span className="truncate">{o.label}</span>
+                          </button>
+                        ))}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
               {isFinalized && canUnlock && (
                 <button onClick={() => onUpdateApptStatus(appointment.id, ApptStatus.IN_PROGRESS, '', false)} title="Reopen the clinical workflow — steps, procedures and records become editable again. The bill has its own Reopen."
-                  className="flex items-center gap-1.5 px-3 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 transition-all">
-                  <Lock size={12} /> Unlock workflow
+                  className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border border-slate-200 dark:border-zinc-800 text-slate-500 hover:text-pine dark:hover:text-zinc-100 transition-all">
+                  <Lock size={11} /> <span className="hidden sm:inline">Unlock workflow</span><span className="sm:hidden">Unlock</span>
                 </button>
               )}
               {/* An APPROVED/INVOICED bill means generation already happened —
@@ -9380,32 +9380,32 @@ const VisitDetailInner: React.FC<Props> = ({
               {billStage === 'APPROVE' ? (
                 <button onClick={approveBillFromFooter} disabled={approvingBill}
                   title="Approve the bill — the vet's sign-off"
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 disabled:opacity-40 transition-all active:scale-95">
-                  <FileText size={13} /> {approvingBill ? 'Approving…' : 'Approve bill'}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 disabled:opacity-40 transition-all active:scale-95">
+                  <FileText size={12} /> {approvingBill ? 'Approving…' : 'Approve bill'}
                 </button>
               ) : billStage === 'INVOICE' ? (
                 <button onClick={generateInvoiceFromFooter} disabled={generatingInvoice}
                   title="Turn the approved bill into an invoice"
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 transition-all active:scale-95">
-                  <FileText size={13} /> {generatingInvoice ? 'Generating…' : 'Generate invoice'}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-white bg-indigo-500 hover:bg-indigo-600 disabled:opacity-40 transition-all active:scale-95">
+                  <FileText size={12} /> {generatingInvoice ? 'Generating…' : 'Generate invoice'}
                 </button>
               ) : billStage === 'SETTLE' ? (
                 <button onClick={openSettleModal} disabled={isSettlingBill}
                   title="Take payment against this invoice"
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-seafoam hover:bg-pine disabled:opacity-40 transition-all active:scale-95">
-                  <CreditCard size={13} /> Settle invoice
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-white bg-seafoam hover:bg-pine disabled:opacity-40 transition-all active:scale-95">
+                  <CreditCard size={12} /> Settle invoice
                 </button>
               ) : billStage === 'PAY_FIRST' ? (
                 <button onClick={openSettleModal} disabled={isSettlingBill}
                   title="Pay-first: this bill was issued as a quote"
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-seafoam hover:bg-pine disabled:opacity-40 transition-all active:scale-95">
-                  <CreditCard size={13} /> Collect pay-first
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-white bg-seafoam hover:bg-pine disabled:opacity-40 transition-all active:scale-95">
+                  <CreditCard size={12} /> Collect pay-first
                 </button>
               ) : !isFinalized ? (
                 <button onClick={openFinalizeGate} disabled={isFinalizing}
                   title="Generate the bill for this visit — this finalizes it"
-                  className="flex items-center gap-1.5 px-5 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95">
-                  <FileText size={13} /> {workflowTab === 'followup' ? 'Finalize visit & bill' : 'Generate bill'}
+                  className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest text-white bg-pine hover:bg-pine/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all active:scale-95">
+                  <FileText size={12} /> {workflowTab === 'followup' ? 'Finalize visit & bill' : 'Generate bill'}
                 </button>
               ) : null}
             </div>

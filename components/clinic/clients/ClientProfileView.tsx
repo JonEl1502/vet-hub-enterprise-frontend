@@ -53,7 +53,7 @@ const MESSAGE_STATUS_LABEL: Record<string, string> = {
 };
 import { dialog } from '../../../services/utils/dialog';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
-import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, MoreVertical, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell, Star, ScrollText, FolderOpen, Camera, Loader2, Paperclip, Sprout } from 'lucide-react';
+import { Mail, Phone, MapPin, CreditCard, PawPrint, Calendar, ArrowLeft, ChevronRight, ChevronDown, Play, MessageSquare, Activity, MessageCircle, FileText, Receipt, Edit2, Save, X, Plus, TrendingUp, Clock, Printer, Eye, CheckCircle2, Map, Shield, Stethoscope, Award, Globe, User, Tag, Percent, Trash2, Bell, Star, ScrollText, FolderOpen, Camera, Loader2, Paperclip, Sprout, ReceiptText } from 'lucide-react';
 import RemindersApptsTab from '../shared/RemindersApptsTab';
 import ClientPaymentsTab from './ClientPaymentsTab';
 import PetAvatar from '../shared/PetAvatar';
@@ -187,7 +187,6 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [selectedApptId, setSelectedApptId] = useState<number | null>(null);
   const [docModal, setDocModal] = useState<{ type: 'invoice' | 'receipt' | 'medical_record' | 'notes'; appt: Visit } | null>(null);
-  const [openMenuId, setOpenMenuId] = useState<number | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editedClient, setEditedClient] = useState<Partial<Client>>(client);
   const [isSaving, setIsSaving] = useState(false);
@@ -1456,61 +1455,96 @@ const renderOverview = () => (
               {pets.length > 0 ? pets.map(pet => {
                 const petVisits = appointments.filter(a => a.petId === pet.id);
                 const petScheduled = petVisits.filter(a => a.status === ApptStatus.SCHEDULED);
+                // Visits that actually happened (not booked-for-later, not cancelled).
+                const petDone = petVisits.filter(a => a.status !== ApptStatus.SCHEDULED && a.status !== ApptStatus.CANCELLED);
+                const petUnpaid = petDone.filter(a => !a.isPaid).length;
+                const lastVisit = [...petDone].sort((x, y) => new Date(y.date).getTime() - new Date(x.date).getTime())[0];
                 const alerts = [...(pet.allergies ?? []), ...(pet.chronicConditions ?? []), ...((pet as any).healthAlerts ?? [])];
+                // One look per kind of animal, so the grid reads at a glance
+                // (user, 2026-10-19: "the pet cards are so generic"). Class names
+                // are spelled out — Tailwind cannot see built ones.
+                const sp = String(pet.species || '').toLowerCase();
+                const look = /dog|canine/.test(sp)
+                  ? { emoji: '🐕', band: 'from-amber-200/70 to-orange-50 dark:from-amber-900/40 dark:to-orange-950/20', tag: 'text-amber-700 dark:text-amber-400' }
+                  : /cat|feline/.test(sp)
+                  ? { emoji: '🐈', band: 'from-violet-200/70 to-fuchsia-50 dark:from-violet-900/40 dark:to-fuchsia-950/20', tag: 'text-violet-700 dark:text-violet-400' }
+                  : /bird|avian|parrot|chicken|poultry|duck/.test(sp)
+                  ? { emoji: '🦜', band: 'from-sky-200/70 to-cyan-50 dark:from-sky-900/40 dark:to-cyan-950/20', tag: 'text-sky-700 dark:text-sky-400' }
+                  : /rabbit|rodent|hamster|guinea|rat|mouse|ferret/.test(sp)
+                  ? { emoji: '🐇', band: 'from-rose-200/70 to-pink-50 dark:from-rose-900/40 dark:to-pink-950/20', tag: 'text-rose-700 dark:text-rose-400' }
+                  : /horse|cattle|cow|goat|sheep|pig|donkey|camel|livestock/.test(sp)
+                  ? { emoji: '🐄', band: 'from-lime-200/70 to-emerald-50 dark:from-lime-900/40 dark:to-emerald-950/20', tag: 'text-emerald-700 dark:text-emerald-400' }
+                  : { emoji: '🐾', band: 'from-teal-200/70 to-emerald-50 dark:from-teal-900/40 dark:to-emerald-950/20', tag: 'text-seafoam' };
+                const facts = [pet.gender, pet.age, pet.weight].filter(Boolean) as string[];
                 return (
                 <div key={pet.id} onClick={() => onViewPet(pet.id)}
-                  className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 hover:border-seafoam hover:shadow-md transition-all cursor-pointer group shadow-sm">
-                   {/* Identity — photo, name, and what it IS, on one line. The
-                       card used to spend a third of its height on an avatar and
-                       then list four key/value rows (user, 2026-08-04). */}
-                   <div className="flex items-start gap-3">
-                      <PetAvatar pet={pet} size={44} rounded="rounded-xl" className="group-hover:scale-105 transition-transform" />
-                      <div className="min-w-0 flex-1">
-                         <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="text-pine dark:text-zinc-100 font-black text-base truncate uppercase leading-none">{pet.name}</p>
-                            {pet.isAlive === false && (
-                              <span className="px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-500 text-[8px] font-black uppercase tracking-widest">Deceased</span>
-                            )}
-                            {petScheduled.length > 0 && (
-                              <span className="px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/40 text-amber-600 text-[8px] font-black uppercase tracking-widest">
-                                {petScheduled.length} scheduled
-                              </span>
-                            )}
-                         </div>
-                         <p className="text-[9px] font-black uppercase tracking-widest text-seafoam mt-1 truncate">
-                           {[pet.breed, pet.species].filter(Boolean).join(' · ')}
-                         </p>
-                         <p className="text-[9px] font-bold text-slate-400 mt-0.5 truncate">
-                           {[pet.gender, pet.age, pet.weight].filter(Boolean).join(' · ') || '—'}
-                         </p>
+                  className="group relative bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden hover:border-seafoam hover:shadow-lg hover:-translate-y-0.5 transition-all cursor-pointer shadow-sm">
+                   {/* Banner — coloured by species, with the status chips on it. */}
+                   <div className={`relative h-20 bg-gradient-to-br ${look.band}`}>
+                      <span aria-hidden className="absolute -right-1 -bottom-3 text-7xl opacity-25 select-none leading-none">{look.emoji}</span>
+                      <div className="absolute top-2.5 right-2.5 flex flex-wrap justify-end gap-1">
+                         {pet.isAlive === false && (
+                           <span className="px-1.5 py-0.5 rounded-md bg-slate-800/80 text-white text-[8px] font-black uppercase tracking-widest">Deceased</span>
+                         )}
+                         {petScheduled.length > 0 && (
+                           <span className="px-1.5 py-0.5 rounded-md bg-white/90 dark:bg-zinc-900/80 text-amber-600 text-[8px] font-black uppercase tracking-widest">
+                             {petScheduled.length} scheduled
+                           </span>
+                         )}
+                         {petUnpaid > 0 && (
+                           <span className="px-1.5 py-0.5 rounded-md bg-rose-600 text-white text-[8px] font-black uppercase tracking-widest">
+                             {petUnpaid} unpaid
+                           </span>
+                         )}
                       </div>
-                      <ChevronRight size={14} className="text-slate-200 dark:text-zinc-700 group-hover:text-seafoam shrink-0 mt-1" />
                    </div>
 
-                   {/* The numbers a client's pet card should answer for. */}
-                   <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
-                      {[
-                        { l: 'Visits', v: String(petVisits.length), cls: 'text-pine dark:text-zinc-100' },
-                        { l: 'Vaccines', v: String((pet as any).vaccinationCount ?? pet.vaccinations?.length ?? 0), cls: 'text-indigo-600 dark:text-indigo-400' },
-                        { l: 'Weight', v: pet.weight || '—', cls: 'text-emerald-600 dark:text-emerald-400' },
-                      ].map(t => (
-                        <div key={t.l} className="bg-slate-50 dark:bg-zinc-800/60 rounded-xl px-2 py-2 text-center">
-                           <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{t.l}</p>
-                           <p className={`text-sm font-black truncate ${t.cls}`}>{t.v}</p>
-                        </div>
-                      ))}
-                   </div>
-
-                   {alerts.length > 0 && (
-                     <div className="flex flex-wrap gap-1 mt-2">
-                       {alerts.slice(0, 3).map(a => (
-                         <span key={a} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 ring-1 ring-amber-200/70 dark:ring-amber-800/40 text-[8px] font-black uppercase tracking-wider">
-                           {a}
+                   <div className="px-4 pb-4">
+                      <div className="-mt-9 flex items-end justify-between">
+                         <PetAvatar pet={pet} size={64} rounded="rounded-2xl" className="ring-4 ring-white dark:ring-zinc-900 shadow-md group-hover:scale-105 transition-transform" />
+                         <span className="mb-1 flex items-center gap-0.5 text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600 group-hover:text-seafoam transition-colors">
+                           Open <ChevronRight size={12} />
                          </span>
-                       ))}
-                       {alerts.length > 3 && <span className="text-[8px] font-black text-slate-400">+{alerts.length - 3}</span>}
-                     </div>
-                   )}
+                      </div>
+
+                      <p className="text-pine dark:text-zinc-100 font-black text-lg truncate uppercase leading-tight mt-2">{pet.name}</p>
+                      <p className={`text-[10px] font-black uppercase tracking-widest mt-0.5 truncate ${look.tag}`}>
+                        {[pet.breed, pet.species].filter(Boolean).join(' · ') || 'Species not set'}
+                      </p>
+
+                      {facts.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {facts.map(f => (
+                            <span key={f} className="px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[9px] font-bold">{f}</span>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* The numbers a client's pet card should answer for. */}
+                      <div className="grid grid-cols-3 gap-1.5 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+                         {[
+                           { l: 'Visits', v: String(petVisits.length), cls: 'text-pine dark:text-zinc-100' },
+                           { l: 'Vaccines', v: String((pet as any).vaccinationCount ?? pet.vaccinations?.length ?? 0), cls: 'text-indigo-600 dark:text-indigo-400' },
+                           { l: 'Last visit', v: lastVisit ? formatDate(lastVisit.date) : '—', cls: 'text-emerald-600 dark:text-emerald-400' },
+                         ].map(t => (
+                           <div key={t.l} className="bg-slate-50 dark:bg-zinc-800/60 rounded-xl px-2 py-2 text-center">
+                              <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-0.5">{t.l}</p>
+                              <p className={`text-xs font-black truncate ${t.cls}`}>{t.v}</p>
+                           </div>
+                         ))}
+                      </div>
+
+                      {alerts.length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-2">
+                          {alerts.slice(0, 3).map(a => (
+                            <span key={a} className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-amber-50 dark:bg-amber-950/30 text-amber-700 dark:text-amber-400 ring-1 ring-amber-200/70 dark:ring-amber-800/40 text-[8px] font-black uppercase tracking-wider">
+                              {a}
+                            </span>
+                          ))}
+                          {alerts.length > 3 && <span className="text-[8px] font-black text-slate-400">+{alerts.length - 3}</span>}
+                        </div>
+                      )}
+                   </div>
                 </div>
                 );
               }) : (
@@ -1526,6 +1560,23 @@ const renderOverview = () => (
                      </button>
                    )}
                  </div>
+              )}
+              {/* ADD A PET — the same grid, one card on. Only once there are pets:
+                  an empty profile already has its own "Add Patient" prompt. */}
+              {pets.length > 0 && onAddPet && (
+                <button
+                  type="button"
+                  onClick={onAddPet}
+                  className="group min-h-[16rem] flex flex-col items-center justify-center gap-3 p-6 text-center rounded-2xl border-2 border-dashed border-slate-200 dark:border-zinc-700 hover:border-seafoam hover:bg-seafoam/5 transition-all"
+                >
+                  <span className="w-14 h-14 rounded-2xl bg-seafoam/10 text-seafoam flex items-center justify-center group-hover:bg-seafoam group-hover:text-white group-hover:scale-110 transition-all">
+                    <Plus size={26} strokeWidth={2.5} />
+                  </span>
+                  <span>
+                    <span className="block text-sm font-black uppercase tracking-wide text-pine dark:text-zinc-100">Add new pet</span>
+                    <span className="block text-[10px] font-bold text-slate-400 mt-1">Register another pet for {String(client.name || 'this client').split(' ')[0]}</span>
+                  </span>
+                </button>
               )}
            </div>
         )}
@@ -1566,79 +1617,6 @@ const renderOverview = () => (
                             <p className="text-slate-400 text-[9px] font-black uppercase mt-0.5">Visit #{getVisitNumber(appt)} • {formatDate(appt.date)}</p>
                          </div>
                       </div>
-                      {/* Action Menu */}
-                      <div className="relative shrink-0 ml-2">
-                        <button
-                          onClick={() => setOpenMenuId(openMenuId === appt.id ? null : appt.id)}
-                          className="w-8 h-8 flex items-center justify-center rounded-lg text-slate-400 hover:text-pine hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all"
-                        >
-                          <MoreVertical size={16} />
-                        </button>
-                        {openMenuId === appt.id && (
-                          <div className="absolute right-0 top-9 w-48 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl z-20 py-1 animate-in fade-in slide-in-from-top-2 duration-150">
-                            {onViewAppointment && (
-                              <button onClick={() => { onViewAppointment(appt.id); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-seafoam/10 hover:text-seafoam transition-all">
-                                <Eye size={13} /> View Visit
-                              </button>
-                            )}
-                            {/* ONE money action, and it is the next act in the
-                                chain for THIS visit — not every action at once. */}
-                            {canTakeMoney && (() => {
-                              const row = billRowFor(appt.id);
-                              const settled = row ? isSettled(row as any) : !!appt.isPaid;
-                              const invoiced = (row?.invoices?.length ?? 0) > 0;
-                              const finalized = !!row?.collectable || settled;
-                              const item = (icon: any, label: string, cls: string, run: () => void) => (
-                                <button onClick={() => { run(); setOpenMenuId(null); }}
-                                  className={`w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest transition-all ${cls}`}>
-                                  {React.createElement(icon, { size: 13 })} {label}
-                                </button>
-                              );
-                              if (settled) {
-                                return (
-                                  <>
-                                    <div className="mx-3 my-1 border-t border-slate-100 dark:border-zinc-800" />
-                                    {item(Receipt, 'Receipt', 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20',
-                                      () => setDocModal({ type: 'receipt', appt }))}
-                                    {item(Printer, 'Invoice', 'text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800',
-                                      () => setDocModal({ type: 'invoice', appt }))}
-                                  </>
-                                );
-                              }
-                              if (!finalized) {
-                                // Nothing to bill against yet — say so instead of
-                                // offering payment on an unfinalized visit.
-                                return (
-                                  <>
-                                    <div className="mx-3 my-1 border-t border-slate-100 dark:border-zinc-800" />
-                                    <p className="px-3 py-2 text-[9px] font-bold text-slate-400 leading-relaxed">
-                                      Not finalized — finish the visit to raise its bill.
-                                    </p>
-                                  </>
-                                );
-                              }
-                              return (
-                                <>
-                                  <div className="mx-3 my-1 border-t border-slate-100 dark:border-zinc-800" />
-                                  {invoiced
-                                    ? item(CreditCard, 'Settle invoice', 'text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/20',
-                                        () => setActiveTab('invoices'))
-                                    : item(FileText, 'Generate invoice', 'text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20',
-                                        () => (onOpenVisitBill ?? onViewAppointment)?.(appt.id))}
-                                  {invoiced && item(Printer, 'Invoice', 'text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800',
-                                    () => setDocModal({ type: 'invoice', appt }))}
-                                </>
-                              );
-                            })()}
-                            <button onClick={() => { setDocModal({ type: 'medical_record', appt }); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-cyan hover:bg-cyan/10 transition-all">
-                              <Award size={13} /> Health Certificate
-                            </button>
-                            <button onClick={() => { setDocModal({ type: 'notes', appt }); setOpenMenuId(null); }} className="w-full flex items-center gap-2.5 px-3 py-2.5 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800 transition-all">
-                              <MessageSquare size={13} /> Notes
-                            </button>
-                          </div>
-                        )}
-                      </div>
                    </div>
 
                    {/* Body */}
@@ -1665,14 +1643,52 @@ const renderOverview = () => (
                         <p className="text-[9px] font-bold text-slate-400 uppercase">Staff: {appt.assignedStaff.name}</p>
                       )}
                    </div>
-                   {/* View Certificate */}
-                   <button
-                     onClick={() => setDocModal({ type: 'medical_record', appt })}
-                     className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 w-full flex items-center justify-between text-[9px] font-black text-slate-400 dark:text-zinc-500 uppercase tracking-widest hover:text-seafoam dark:hover:text-seafoam transition-colors group"
-                   >
-                     <span className="flex items-center gap-1.5"><Award size={11} className="group-hover:scale-110 transition-transform" /> View Health Certificate</span>
-                     <ChevronRight size={11} className="group-hover:translate-x-0.5 transition-transform" />
-                   </button>
+                   {/* ACTIONS — a row at the foot of the card instead of a ⋮ menu
+                       (user, 2026-10-19: "remove dropdown and set buttons in the
+                       bottom of the card, horizontal, to view Bill / invoice /
+                       settle, accordingly"). Same rule as the menu had: the money
+                       buttons are the NEXT acts for THIS visit, not every act. */}
+                   {(() => {
+                     const base = 'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest border transition-all active:scale-95';
+                     const quiet = `${base} border-slate-200 dark:border-zinc-700 text-slate-500 dark:text-zinc-400 hover:text-pine hover:border-pine/40 dark:hover:text-zinc-100`;
+                     const solid = (tone: string) => `${base} border-transparent text-white shadow-sm ${tone}`;
+                     const btn = (key: string, icon: any, label: string, cls: string, run: () => void) => (
+                       <button key={key} type="button" onClick={run} className={cls}>
+                         {React.createElement(icon, { size: 12 })} {label}
+                       </button>
+                     );
+                     const openBill = () => (onOpenVisitBill ?? onViewAppointment)?.(appt.id);
+                     const row = canTakeMoney ? billRowFor(appt.id) : undefined;
+                     const settled = row ? isSettled(row as any) : !!appt.isPaid;
+                     const invoiced = (row?.invoices?.length ?? 0) > 0;
+                     const finalized = !!row?.collectable || settled;
+                     const buttons: React.ReactNode[] = [];
+                     if (onViewAppointment) buttons.push(btn('visit', Eye, 'Visit', quiet, () => onViewAppointment(appt.id)));
+                     if (canTakeMoney) {
+                       if (settled) {
+                         buttons.push(btn('receipt', Receipt, 'Receipt', solid('bg-emerald-600 hover:bg-emerald-700'), () => setDocModal({ type: 'receipt', appt })));
+                         buttons.push(btn('invoice', Printer, 'Invoice', quiet, () => setDocModal({ type: 'invoice', appt })));
+                         buttons.push(btn('bill', ReceiptText, 'Bill', quiet, openBill));
+                       } else if (!finalized) {
+                         // Nothing to bill against yet — the bill is all there is.
+                         buttons.push(btn('bill', ReceiptText, 'View bill', quiet, openBill));
+                       } else if (invoiced) {
+                         buttons.push(btn('settle', CreditCard, 'Settle', solid('bg-emerald-600 hover:bg-emerald-700'), () => setActiveTab('invoices')));
+                         buttons.push(btn('invoice', Printer, 'Invoice', quiet, () => setDocModal({ type: 'invoice', appt })));
+                         buttons.push(btn('bill', ReceiptText, 'Bill', quiet, openBill));
+                       } else {
+                         buttons.push(btn('generate', FileText, 'Generate invoice', solid('bg-indigo-600 hover:bg-indigo-700'), openBill));
+                         buttons.push(btn('bill', ReceiptText, 'Bill', quiet, openBill));
+                       }
+                     }
+                     buttons.push(btn('cert', Award, 'Certificate', quiet, () => setDocModal({ type: 'medical_record', appt })));
+                     buttons.push(btn('notes', MessageSquare, 'Notes', quiet, () => setDocModal({ type: 'notes', appt })));
+                     return (
+                       <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 flex flex-wrap items-center gap-1.5">
+                         {buttons}
+                       </div>
+                     );
+                   })()}
                 </div>
               )})}</div>) : (
                  <div className="py-16 flex flex-col items-center justify-center gap-4 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">
@@ -2092,11 +2108,6 @@ const renderOverview = () => (
         )}
         {/* Rest of tabs logic mapped to existing profile views */}
       </div>
-
-      {/* Click-outside overlay for action menus */}
-      {openMenuId !== null && (
-        <div className="fixed inset-0 z-10" onClick={() => setOpenMenuId(null)} />
-      )}
 
       {/* Document Modal */}
       {docModal && (
