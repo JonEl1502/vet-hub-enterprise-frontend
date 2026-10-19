@@ -8,6 +8,7 @@ import UpcomingForPet from '../shared/UpcomingForPet';
 import type { AppointmentSource } from '../../../services/modules/appointmentBookings.api';
 import { loadVisitFees, entryFeeFor } from '../shared/visitFees';
 import { GateCheckForm } from './wizard/steps/EntrySteps';
+import { mergeGatePatch } from './wizard/gatePatch';
 import { localYMD } from '../../../services/utils/dateFormatter';
 
 const nowTime = () => { const n = new Date(); return `${String(n.getHours()).padStart(2, '0')}:${String(n.getMinutes()).padStart(2, '0')}`; };
@@ -294,7 +295,7 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
             </button>
             {gateOpen && (
               <div className="p-3">
-                <GateCheckForm formKey={gateFormKey} data={gateData} setData={p => setGateData((d: any) => ({ ...d, ...p }))} petId={petId} pet={pets.find((p: any) => String(p.id) === String(petId))} />
+                <GateCheckForm formKey={gateFormKey} data={gateData} setData={p => setGateData((d: any) => mergeGatePatch(d, p))} petId={petId} pet={pets.find((p: any) => String(p.id) === String(petId))} />
               </div>
             )}
           </div>

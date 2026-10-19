@@ -14,6 +14,7 @@ import PhoneInput from '../../shared/common/PhoneInput';
 import StepIndicator from '../../shared/common/StepIndicator';
 import DateTimePicker from '../../shared/common/DateTimePicker';
 import { GateCheckForm } from './wizard/steps/EntrySteps';
+import { mergeGatePatch } from './wizard/gatePatch';
 import { loadVisitFees, entryFeeFor, loadVisitFeeMeta, HOUSE_CALL_DISTANCE_KEY, VISIT_FEE_CATEGORY } from '../shared/visitFees';
 import PetAvatar from '../shared/PetAvatar';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -2479,7 +2480,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                     Skipped at registration — the gate check still runs as the first step of the visit workflow (mandatory there).
                   </p>
                 ) : (
-                  <GateCheckForm flat formKey={gateFormKey} data={gateData} setData={patch => setGateData((d: any) => ({ ...d, ...patch }))} petId={selectedPetId} pet={pets.find((p: any) => String(p.id) === String(selectedPetId))} />
+                  <GateCheckForm flat formKey={gateFormKey} data={gateData} setData={patch => setGateData((d: any) => mergeGatePatch(d, patch))} petId={selectedPetId} pet={pets.find((p: any) => String(p.id) === String(selectedPetId))} />
                 )}
              </div>
            )}
