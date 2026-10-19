@@ -1500,7 +1500,8 @@ const renderOverview = () => (
                    </div>
 
                    <div className="px-4 pb-4">
-                      <div className="-mt-9 flex items-end justify-between">
+                      {/* relative z-10: the banner is positioned, so without it the banner paints OVER the avatar that overlaps it. */}
+                      <div className="relative z-10 -mt-9 flex items-end justify-between">
                          <PetAvatar pet={pet} size={64} rounded="rounded-2xl" className="ring-4 ring-white dark:ring-zinc-900 shadow-md group-hover:scale-105 transition-transform" />
                          <span className="mb-1 flex items-center gap-0.5 text-[9px] font-black uppercase tracking-widest text-slate-300 dark:text-zinc-600 group-hover:text-seafoam transition-colors">
                            Open <ChevronRight size={12} />

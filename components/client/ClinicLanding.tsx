@@ -107,7 +107,9 @@ const ClinicLanding: React.FC = () => {
         <div className="max-w-3xl mx-auto">
           <div className="flex items-center gap-4">
             <span className="w-14 h-14 rounded-2xl bg-white/15 grid place-items-center text-2xl overflow-hidden shrink-0">
-              {clinic.logo && clinic.logo.startsWith('http')
+              {/* A clinic's uploaded logo is often a data: URI, not an http one — treating only
+                  http as an image printed the literal text "data:" in the tile. */}
+              {clinic.logo && (clinic.logo.startsWith('http') || clinic.logo.startsWith('data:image/'))
                 ? <img src={clinic.logo} alt="" className="w-full h-full object-cover" />
                 : (clinic.logo || clinic.name.charAt(0))}
             </span>
