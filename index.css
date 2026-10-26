@@ -822,6 +822,62 @@ body {
   .needs-attention { animation: none; box-shadow: 0 0 0 1px rgba(245, 158, 11, 0.9) inset; }
 }
 
+/*
+ * "Money is waiting" chase — a bright arc of glow that travels around the
+ * border. Used on Select all and on each unpaid invoice row in the collect
+ * panel while there is something pending to collect (user, 2026-10-26).
+ *
+ * Two pseudo-elements share one rotating conic gradient, masked down to a
+ * ring: ::before is the crisp arc, ::after the same arc blurred into a glow.
+ * `--chase-angle` is a registered property so the gradient angle can animate.
+ *
+ * ⚠️ The host must not clip overflow, or the blurred halo is cut off.
+ */
+@property --chase-angle {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes chaseSpin {
+  to { --chase-angle: 360deg; }
+}
+
+.chase-glow {
+  position: relative;
+}
+
+.chase-glow::before,
+.chase-glow::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  padding: 2px;
+  border-radius: inherit;
+  background: conic-gradient(from var(--chase-angle),
+    transparent 0deg 230deg,
+    rgba(245, 158, 11, 0.25) 280deg,
+    rgba(245, 158, 11, 0.95) 335deg,
+    #fde68a 352deg,
+    transparent 360deg);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: chaseSpin 2.8s linear infinite;
+  pointer-events: none;
+}
+
+.chase-glow::after {
+  filter: blur(6px);
+  opacity: 0.85;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chase-glow::before,
+  .chase-glow::after { animation: none; background: rgba(245, 158, 11, 0.7); }
+  .chase-glow::after { display: none; }
+}
+
 /* =========================================================================
  * Supplier POS — the till.
  *

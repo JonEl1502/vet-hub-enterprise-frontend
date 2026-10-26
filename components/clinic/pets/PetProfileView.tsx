@@ -113,7 +113,7 @@ const PetProfileView: React.FC<Props> = ({
   useEffect(() => { onTabChange?.(activeTab); }, [activeTab, onTabChange]);
   const [vaccineTab, setVaccineTab] = useState<'timeline' | 'history'>('timeline');
   // Financials sub-views — the same five the client profile has.
-  const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'bills' | 'invoices' | 'payments' | 'receipts' | 'credits' | 'refunds' | 'statements' | 'discounts'>('overview');
+  const [financeSubTab, setFinanceSubTab] = useState<'overview' | 'bills' | 'invoices' | 'payments' | 'receipts' | 'credits' | 'refunds' | 'statements' | 'discounts'>('invoices');
   const [accountFilters, setAccountFilters] = useAccountFilters();
   const [topUpOpen, setTopUpOpen] = useState(false);
   // Records sub-tabs: all visits · clinical records · vaccinations ·
@@ -323,6 +323,11 @@ const PetProfileView: React.FC<Props> = ({
   // account to read — the tab says so rather than showing zeroes.
   const { user } = useAuth();
   const hasFullAccess = FULL_ACCESS_ROLES.includes(user?.role as UserRole);
+  // The profile opens on Financials by default; a role that cannot see it
+  // falls back to Overview instead of a blank page.
+  useEffect(() => {
+    if (!hasFullAccess && activeTab === 'financials') setActiveTab('overview');
+  }, [hasFullAccess, activeTab]);
   const currency = owner?.currency || 'KES';
   const [billing, setBilling] = useState<ClientBilling | null>(null);
   const [creditBalance, setCreditBalance] = useState(0);
@@ -1654,6 +1659,10 @@ const PetProfileView: React.FC<Props> = ({
         <div data-tour="pet-tabs" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth">
           <div className="flex min-w-max px-2">
             {[
+              // ONE money tab, same as the client page: the account hub scoped
+              // to this patient's bills.
+              // First, opening on Invoices (user, 2026-10-26).
+              ...(hasFullAccess ? [{ id: 'financials', label: 'Financials', icon: CreditCard }] : []),
               { id: 'overview', label: 'Overview', icon: Heart },
               { id: 'timeline', label: 'Timeline', icon: Clock },
               // VISITS (user, 2026-08-22): the timeline is a narrative; this is
@@ -1665,9 +1674,6 @@ const PetProfileView: React.FC<Props> = ({
               // of the same patient — they are sub-views in there, not a row of
               // competing top-level tabs.
               { id: 'records', label: 'Records', icon: Clipboard },
-              // ONE money tab, same as the client page: the account hub scoped
-              // to this patient's bills.
-              ...(hasFullAccess ? [{ id: 'financials', label: 'Financials', icon: CreditCard }] : []),
               // CERTIFICATES (user, 2026-08-24). The clinic-issued documents
               // for a patient were scattered — birth/death behind two buttons
               // in the overview hero, the vaccine passport behind a third

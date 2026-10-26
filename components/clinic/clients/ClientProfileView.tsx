@@ -252,6 +252,11 @@ const ClientProfileView: React.FC<Props> = ({ client, pets, transactions, appoin
   const hasFullAccess = FULL_ACCESS_ROLES.includes(user?.role as UserRole);
   const canSeeMoney = can(user, 'finance:view');
   const canTakeMoney = can(user, 'finance:collect');
+  // The profile opens on Financials → Invoices by default; a role without
+  // finance:view falls back to Overview instead of an empty money tab.
+  useEffect(() => {
+    if (!canSeeMoney && FINANCE_TABS.some(t => t.id === activeTab)) setActiveTab('overview');
+  }, [canSeeMoney, activeTab]);
 
   // Account money for the header strip + the Payments hub: one fetch feeds
   // both (the collect flow in ClientPaymentsTab keeps its own copy and calls
@@ -1353,6 +1358,13 @@ const renderOverview = () => (
         <div data-tour="client-tabs" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-x-auto overflow-y-hidden no-scrollbar scroll-smooth">
            <div className="flex min-w-max px-2">
              {[
+               // ONE money tab (user, 2026-08-03). Invoices / Payments /
+               // Receipts / Statements / Discounts sat alongside each other AND
+               // were repeated as filters inside Payments — five top-level tabs
+               // for one subject. They are sub-tabs of Financials now.
+               // First, and it opens on Invoices (user, 2026-10-26): money owed
+               // is what the front desk opens a client for most.
+               ...(canSeeMoney ? [{ id: 'transactions', label: 'Financials', icon: CreditCard }] : []),
                { id: 'overview', label: 'Overview', icon: Activity },
                { id: 'pets', label: `Pets (${pets.length})`, icon: PawPrint },
                // Only when this client actually has one — a Farms tab reading
@@ -1361,11 +1373,6 @@ const renderOverview = () => (
                  ? [{ id: 'farms', label: farms.length > 0 ? `Farms (${farms.length})` : 'Farms', icon: Sprout }]
                  : []),
                { id: 'appointments', label: 'Visits', icon: Calendar },
-               // ONE money tab (user, 2026-08-03). Invoices / Payments /
-               // Receipts / Statements / Discounts sat alongside each other AND
-               // were repeated as filters inside Payments — five top-level tabs
-               // for one subject. They are sub-tabs of Financials now.
-               ...(canSeeMoney ? [{ id: 'transactions', label: 'Financials', icon: CreditCard }] : []),
                { id: 'outreach', label: 'Communication', icon: MessageCircle },
                { id: 'files', label: 'Files', icon: FolderOpen },
                { id: 'schedule', label: 'Reminders & Appts', icon: Bell },
@@ -1373,9 +1380,9 @@ const renderOverview = () => (
              ].map(tab => (
                <button
                  key={tab.id}
-                 onClick={() => setActiveTab(tab.id)}
+                 onClick={() => setActiveTab(tab.id === 'transactions' ? 'invoices' : tab.id)}
                  className={`flex items-center gap-2 px-4 py-3.5 text-[9px] font-black uppercase tracking-widest whitespace-nowrap border-b-2 -mb-px transition-all ${
-                   activeTab === tab.id
+                   activeTab === tab.id || (tab.id === 'transactions' && FINANCE_TABS.some(t => t.id === activeTab))
                      ? 'border-seafoam text-seafoam'
                      : 'border-transparent text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-200'
                  }`}
