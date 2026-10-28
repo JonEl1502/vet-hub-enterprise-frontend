@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload, ChevronDown, Eye, EyeOff, Tag, Sprout, Home, Store } from 'lucide-react';
+import { User, Building2, CheckCircle, ArrowLeft, ArrowRight, Upload, ChevronDown, Eye, EyeOff, Tag, Sprout, Home, Store, Footprints, Scissors } from 'lucide-react';
 import { authAPI } from '../../../services';
 import { salesRepAPI } from '../../../services/modules/salesRep.api';
 import CountrySelect from '../common/CountrySelect';
@@ -21,7 +21,7 @@ interface SignupWizardProps {
 }
 
 /** 283 — the shells an org can land on. */
-export type OrgShell = 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER';
+export type OrgShell = 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER' | 'WALKING' | 'GROOMING';
 
 const TITLES = ['', 'Mr', 'Mrs', 'Ms', 'Miss', 'Dr', 'Prof', 'Rev', 'Eng', 'Hon', 'Sir'];
 
@@ -123,7 +123,9 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
   // Every "Clinic X" label reads "Farm X" for a farm business. One word, so the
   // wizard can't half-switch and ask a farmer for their clinic email.
   const isFarm = clinicData.accountType === 'FARM';
-  const orgWord = isFarm ? 'Farm' : 'Clinic';
+  // 320 — a walker or groomer signs up as their own small business.
+  const isFreelance = clinicData.shell === 'WALKING' || clinicData.shell === 'GROOMING';
+  const orgWord = isFarm ? 'Farm' : isFreelance ? 'Business' : 'Clinic';
 
   // Auto-detect the user's country once on mount and lock it onto state.
   // The user can override via the dropdown.
@@ -503,6 +505,10 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                 { id: 'FARM' as const, icon: Sprout, title: 'Farm or field practice', blurb: 'Herds, flocks, feeding, crops and produce.' },
                 { id: 'BOARDING' as const, icon: Home, title: 'Boarding or grooming', blurb: 'Stays, day-care and grooming, with real animal records.' },
                 { id: 'COUNTER' as const, icon: Store, title: 'Agrovet counter', blurb: 'A till, stock and suppliers. No patients.' },
+                // 320 — freelancers running their own business. Simple sheet on
+                // the entry plan; the package decides how much more opens up.
+                { id: 'WALKING' as const, icon: Footprints, title: 'Dog walker', blurb: 'Your clients, their dogs and every walk on one sheet.' },
+                { id: 'GROOMING' as const, icon: Scissors, title: 'Freelance groomer', blurb: 'Bookings, grooms and payments — just you, or a small team.' },
               ]).map((opt) => {
                 const Icon = opt.icon;
                 const selected = clinicData.shell === opt.id;
@@ -542,7 +548,10 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
                   value={clinicData.name}
                   onChange={(e) => setClinicData({ ...clinicData, name: e.target.value })}
                   className="w-full bg-[#f4f7f7] border border-[#CFE6D8] rounded-xl px-4 py-3 text-sm text-[#144E35] focus:ring-2 focus:ring-[#1C7A5B]/20 outline-none font-bold transition-all"
-                  placeholder={isFarm ? "Green Acres Farm" : "VetHubCore Veterinary Clinic"}
+                  placeholder={isFarm ? "Green Acres Farm"
+                    : clinicData.shell === 'WALKING' ? "Happy Paws Dog Walking"
+                    : clinicData.shell === 'GROOMING' ? "Wanjiku's Mobile Grooming"
+                    : "VetHubCore Veterinary Clinic"}
                 />
               </div>
 

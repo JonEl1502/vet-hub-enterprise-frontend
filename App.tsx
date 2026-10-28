@@ -560,7 +560,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
    */
   const signupShellFromUrl = useMemo(() => {
     const t = new URLSearchParams(window.location.search).get('type')?.toUpperCase();
-    return (['CLINIC', 'FARM', 'BOARDING', 'COUNTER'] as const).find((v) => v === t);
+    return (['CLINIC', 'FARM', 'BOARDING', 'COUNTER', 'WALKING', 'GROOMING'] as const).find((v) => v === t);
   }, []);
 
   const [authView, setAuthView] = useState<'landing' | 'login' | 'forgot-password' | 'otp-verify' | 'reset-password' | 'signup' | 'demo-signup' | 'supplier-signup' | 'pricing' | 'terms' | 'privacy' | 'security'>(initialAuthView);

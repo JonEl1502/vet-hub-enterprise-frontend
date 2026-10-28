@@ -180,7 +180,7 @@ export interface Clinic {
   /** 283 — the SHELL: which navigation, home screen and vocabulary this org
    *  gets. `CLINIC | FARM | BOARDING | COUNTER`. Supersedes the isLivestock
    *  boolean, which stays as a lockstep mirror of `shell === 'FARM'`. */
-  shell?: 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER';
+  shell?: 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER' | 'WALKING' | 'GROOMING';
   latitude?: number | null;
   longitude?: number | null;
   countryCode?: string | null;

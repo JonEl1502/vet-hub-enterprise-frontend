@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### flow: walkers and groomers sign up as their own business  —  2026-10-28
+- **What changed:** Sign-up offers "Dog walker" and "Freelance groomer" (shells `WALKING` / `GROOMING`); those orgs get a short "My Business" sidebar (Today, Bookings, Jobs, Clients, Pets, Invoices, Payments, Earnings, settings/helpers/billing) instead of the clinic nav. Admin Freelancers shows each one's kind (own business vs locum) and Add can create either.
+- **Record impact:** 🟢 None.
+- **Data dependency:** Requires backend migration 320 and commit c929155 (`/users/freelancers/business`, `kind` on the list). Older backend: business freelancers simply don't appear.
+- **Rollback:** revert the commit and rebuild.
+
+### page: Admin Freelancers rebuilt — tiles, charts, directory, Add  —  2026-10-28
+- **What changed:** KPI tiles, scope dropdown, Charts | Directory, Add Freelancer modal (the page had no create path).
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert 83781f02.
+
 ### page: Admin dashboard is platform-only; Clinics and Suppliers carry their own dashboards  —  2026-10-28
 - **What changed:** SUPER_ADMIN's Dashboard drops the Platform / Clinic / Supplier toggle and shows one Platform Dashboard (clinics, marketplace, freelancers, subscriptions; side tiles click through). Tenants → Clinics gains a Dashboard tab (the old Clinic View) and Clinics + Suppliers both get a search dropdown in the header that scopes the page (same scope as the sidebar switcher). `SupplierMetricsDashboard` and `ScopePickerModal` removed (orphaned).
 - **Record impact:** 🟢 None — read-only views.

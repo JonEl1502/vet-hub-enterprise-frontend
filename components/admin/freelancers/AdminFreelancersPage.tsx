@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Loader2, Building2, RefreshCw, Plus, X, Mail, Phone, UserCog, Layers, UserRound,
-  CheckCircle, XCircle, Link2, Unlink, BarChart3, LayoutGrid, Search, KeyRound, Copy, ChevronRight,
+  CheckCircle, XCircle, Link2, Briefcase, Footprints, Scissors, BarChart3, LayoutGrid, Search, KeyRound, Copy, ChevronRight,
 } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RTooltip, PieChart, Pie, Cell, Legend } from 'recharts';
 import apiClient from '../../../services/api/client';
@@ -20,9 +20,14 @@ interface Freelancer {
   profile: { firstName?: string; secondName?: string | null; surname?: string; phone?: string | null; avatarUrl?: string | null } | null;
   clinics: Array<{ id: string; name: string; clinicRole?: string | null }>;
   categories?: Array<{ id: string; name: string }>;
+  /** 320 — BUSINESS owns a solo walker/groomer org; LOCUM works inside clinics. */
+  kind?: 'BUSINESS' | 'LOCUM';
+  business?: { id: string; name: string; shell: string; isActive: boolean; trialEndsAt: string | null } | null;
 }
 
-type Drill = 'all' | 'active' | 'inactive' | 'assigned' | 'unassigned';
+const SHELL_LABEL: Record<string, string> = { WALKING: 'Dog walker', GROOMING: 'Groomer' };
+
+type Drill = 'all' | 'active' | 'inactive' | 'assigned' | 'unassigned' | 'business' | 'locum';
 
 const nameOf = (f: Freelancer) =>
   [f.profile?.firstName, f.profile?.secondName, f.profile?.surname].filter(Boolean).join(' ') || f.email;
@@ -181,6 +186,7 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
       inactive: list.length - active,
       assigned,
       unassigned: list.length - assigned,
+      business: list.filter(f => f.kind === 'BUSINESS').length,
       services: allCategories.filter(c => c.isActive).length,
     };
   }, [list, allCategories]);
@@ -192,9 +198,11 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
         : drill === 'active' ? f.isActive
         : drill === 'inactive' ? !f.isActive
         : drill === 'assigned' ? f.clinics.length > 0
+        : drill === 'business' ? f.kind === 'BUSINESS'
+        : drill === 'locum' ? f.kind !== 'BUSINESS'
         : f.clinics.length === 0)
       .filter(f => !catFilter || (f.categories || []).some(c => c.id === catFilter))
-      .filter(f => !q || `${nameOf(f)} ${f.email} ${f.profile?.phone ?? ''} ${(f.categories || []).map(c => c.name).join(' ')} ${f.clinics.map(c => c.name).join(' ')}`
+      .filter(f => !q || `${nameOf(f)} ${f.email} ${f.profile?.phone ?? ''} ${f.business?.name ?? ''} ${(f.categories || []).map(c => c.name).join(' ')} ${f.clinics.map(c => c.name).join(' ')}`
         .toLowerCase().includes(q));
   }, [list, drill, query, catFilter]);
 
@@ -229,8 +237,8 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
     { key: 'all', label: 'Total', value: stats.total, icon: UserRound, tone: 'text-blue-500 bg-blue-500/10' },
     { key: 'active', label: 'Active', value: stats.active, icon: CheckCircle, tone: 'text-green-500 bg-green-500/10' },
     { key: 'inactive', label: 'Inactive', value: stats.inactive, icon: XCircle, tone: 'text-red-500 bg-red-500/10' },
+    { key: 'business', label: 'Own business', value: stats.business, icon: Briefcase, tone: 'text-amber-500 bg-amber-500/10' },
     { key: 'assigned', label: 'Working with clinics', value: stats.assigned, icon: Link2, tone: 'text-cyan-500 bg-cyan-500/10' },
-    { key: 'unassigned', label: 'Independent', value: stats.unassigned, icon: Unlink, tone: 'text-amber-500 bg-amber-500/10' },
     { key: null, label: 'Services offered', value: stats.services, icon: Layers, tone: 'text-fuchsia-500 bg-fuchsia-500/10' },
   ];
 
@@ -450,6 +458,18 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
                           <span className="flex items-center gap-1 truncate"><Mail size={10} /> {f.email}</span>
                           {f.profile?.phone && <span className="flex items-center gap-1"><Phone size={10} /> {f.profile.phone}</span>}
                         </div>
+                        {f.kind === 'BUSINESS' && f.business ? (
+                          <button type="button" onClick={() => onNavigate?.('admin-clinic-detail', { clinicId: f.business!.id })}
+                            title="Open their business account"
+                            className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300 text-[10px] font-black uppercase tracking-widest hover:underline">
+                            {f.business.shell === 'WALKING' ? <Footprints size={9} /> : <Scissors size={9} />}
+                            {SHELL_LABEL[f.business.shell] ?? 'Business'} · {f.business.name}
+                          </button>
+                        ) : (
+                          <span className="mt-1.5 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-zinc-800 text-slate-500 text-[10px] font-black uppercase tracking-widest">
+                            <UserCog size={9} /> Locum · works inside clinics
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -610,7 +630,11 @@ const AddFreelancerModal: React.FC<{
   onCreated: () => void;
   onManageCategories?: () => void;
 }> = ({ categories, clinics, onClose, onCreated, onManageCategories }) => {
-  const [form, setForm] = useState({ firstName: '', surname: '', email: '', phone: '', password: makePassword(), clinicId: '' });
+  // 320 — BUSINESS: a walker/groomer who runs their own account (solo org,
+  // own plan). LOCUM: a login that works inside the clinics it is attached to.
+  const [kind, setKind] = useState<'BUSINESS' | 'LOCUM'>('BUSINESS');
+  const [shell, setShell] = useState<'WALKING' | 'GROOMING'>('WALKING');
+  const [form, setForm] = useState({ firstName: '', surname: '', email: '', phone: '', password: makePassword(), clinicId: '', businessName: '' });
   const [catIds, setCatIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState<{ email: string; password: string } | null>(null);
@@ -623,6 +647,22 @@ const AddFreelancerModal: React.FC<{
     if (!canSave) return;
     setBusy(true);
     try {
+      if (kind === 'BUSINESS') {
+        const res: any = await apiClient.post('/users/freelancers/business', {
+          firstName: form.firstName.trim(),
+          surname: form.surname.trim(),
+          email: form.email.trim().toLowerCase(),
+          phone: form.phone.trim() || undefined,
+          password: form.password,
+          shell,
+          businessName: form.businessName.trim() || undefined,
+          categoryIds: catIds,
+        });
+        if (!res?.success) throw new Error(res?.message || 'Could not create the business');
+        toast.success('Freelancer business added');
+        setDone({ email: form.email.trim().toLowerCase(), password: form.password });
+        return;
+      }
       const res: any = await usersAPI.create({
         email: form.email.trim().toLowerCase(),
         firstName: form.firstName.trim(),
@@ -672,6 +712,38 @@ const AddFreelancerModal: React.FC<{
           {busy ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Add freelancer
         </button>
       )}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        {([
+          ['BUSINESS', Briefcase, 'Runs their own business', 'Dog walker or groomer with their own account, clients and plan.'],
+          ['LOCUM', UserCog, 'Works inside clinics', 'A locum login that only sees the clinics it is attached to.'],
+        ] as const).map(([id, Icon, title, blurb]) => (
+          <button key={id} type="button" onClick={() => setKind(id)}
+            className={`text-left rounded-xl border p-3 transition-all ${kind === id ? 'border-seafoam bg-seafoam/5 ring-2 ring-seafoam/20' : 'border-slate-200 dark:border-zinc-700 hover:border-seafoam/50'}`}>
+            <p className="flex items-center gap-1.5 text-xs font-black text-pine dark:text-zinc-100"><Icon size={13} className="text-seafoam" /> {title}</p>
+            <p className="text-[10px] text-slate-500 mt-1 leading-snug">{blurb}</p>
+          </button>
+        ))}
+      </div>
+      {kind === 'BUSINESS' && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="field-label">What they do *</label>
+            <div className="flex gap-2">
+              {([['WALKING', Footprints, 'Dog walker'], ['GROOMING', Scissors, 'Groomer']] as const).map(([id, Icon, label]) => (
+                <button key={id} type="button" onClick={() => setShell(id)}
+                  className={`flex-1 flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl border text-[10px] font-black uppercase tracking-widest ${shell === id ? 'bg-seafoam text-white border-seafoam' : 'border-slate-200 dark:border-zinc-700 text-slate-500'}`}>
+                  <Icon size={12} /> {label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="field-label">Business name</label>
+            <input className="field-input" value={form.businessName} onChange={set('businessName')}
+              placeholder={`${form.firstName || 'Their'} ${shell === 'WALKING' ? 'Dog Walking' : 'Grooming'}`} />
+          </div>
+        </div>
+      )}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="field-label">First name *</label>
@@ -701,14 +773,19 @@ const AddFreelancerModal: React.FC<{
           </div>
           {form.password.length > 0 && form.password.length < 8 && <p className="text-[10px] text-red-500 mt-1">At least 8 characters</p>}
         </div>
-        <div>
+        {kind === 'LOCUM' && <div>
           <label className="field-label">Attach to a clinic (optional)</label>
           <select className="field-select" value={form.clinicId} onChange={set('clinicId')}>
             <option value="">Independent — no clinic</option>
             {clinics.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-        </div>
+        </div>}
       </div>
+      {kind === 'BUSINESS' && (
+        <p className="text-[10px] text-slate-500">
+          They start on the {shell === 'WALKING' ? 'Walker' : 'Groomer'} trial and choose a plan from their own Plan &amp; Billing page.
+        </p>
+      )}
       <div>
         <label className="field-label">Services they offer</label>
         <CategoryPicker categories={categories} picked={catIds} onChange={setCatIds} onManage={onManageCategories} />

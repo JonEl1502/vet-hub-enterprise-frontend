@@ -55,9 +55,9 @@ import {
   Pill,
   ArrowRightLeft,
   type LucideIcon,
-  MessageCircle, Gift } from 'lucide-react';
+  MessageCircle, Gift, Footprints } from 'lucide-react';
 
-export type AudienceId = 'admin' | 'clinic' | 'supplier' | 'freelancer' | 'livestock';
+export type AudienceId = 'admin' | 'clinic' | 'supplier' | 'freelancer' | 'livestock' | 'solo';
 
 export interface MenuSubItem {
   id: string;
@@ -380,6 +380,37 @@ const FREELANCER_ITEMS: MenuItem[] = [
   { id: 'settings',     label: 'Profile',      icon: Settings2 },
 ];
 
+// ─── Solo: a walker or groomer running their own business (320) ─────────────
+// The org is theirs (shell WALKING / GROOMING), so this is a business nav, not
+// the locum's list above. Short on purpose — the entry plan is "a simple
+// sheet" (user, 2026-10-28). What a plan does not include still SHOWS, locked
+// with its price (feedback: sell the lock, never hide it); the shell only
+// decides which few things are worth listing at all.
+const SOLO_ITEMS: MenuItem[] = [
+  { id: 'dashboard',            label: 'Today',       icon: LayoutDashboard },
+  COMMUNITY_ITEM,
+  { id: 'appointment-bookings', label: 'Bookings',    icon: CalendarClock },
+  { id: 'appointments',         label: 'Jobs',        icon: Footprints },
+  { id: 'clients',              label: 'Clients',     icon: Users },
+  { id: 'patients',             label: 'Pets',        icon: Dog },
+  { id: 'reminders',            label: 'Reminders',   icon: BellRing },
+  { id: 'grooming',             label: 'Grooming',    icon: Scissors },
+  { id: 'boarding',             label: 'Pet sitting', icon: Home },
+  { id: 'revenue-desk',         label: 'Invoices',    icon: ReceiptText },
+  { id: 'transactions',         label: 'Payments',    icon: Receipt },
+  { id: 'reports-analytics',    label: 'Earnings',    icon: BarChart3 },
+  {
+    id: 'solo_mgmt',
+    label: 'My Business',
+    icon: Briefcase,
+    subItems: [
+      { id: 'settings', label: 'Business Settings', icon: Settings2 },
+      { id: 'staff',    label: 'Helpers',           icon: ShieldCheck },
+      { id: 'billing',  label: 'Plan & Billing',    icon: CreditCard },
+    ],
+  },
+];
+
 // Billable Items taxonomy groups (M4) — swapped in for `inventory_menu` on
 // prod_test clinics by applyBillableItemsLayout below.
 export const BILLABLE_ITEMS_MENU: MenuItem = {
@@ -458,6 +489,7 @@ export const AUDIENCES: Audience[] = [
   { id: 'supplier',    label: 'Supplier',    hint: 'Marketplace seller',  icon: Truck,       items: SUPPLIER_ITEMS },
   { id: 'freelancer',  label: 'Freelancer',  hint: 'Independent vet',     icon: Users,       items: FREELANCER_ITEMS },
   { id: 'livestock',   label: 'Livestock',   hint: 'Farms & produce',     icon: Sprout,      items: LIVESTOCK_ITEMS },
+  { id: 'solo',        label: 'My Business', hint: 'Walker / groomer',    icon: Footprints,  items: SOLO_ITEMS },
 ];
 
 export const getAudience = (id: AudienceId): Audience =>
@@ -481,11 +513,11 @@ export interface OrgContext {
    * that phase adds their signup paths, so this is unreachable today — it is
    * here so the mapping is stated rather than assumed.
    */
-  shell?: 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER';
+  shell?: 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER' | 'WALKING' | 'GROOMING';
 }
 
 /** The org's shell, tolerating a payload cached before 283 (no shell field). */
-function shellOf(org?: OrgContext): 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER' {
+function shellOf(org?: OrgContext): 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER' | 'WALKING' | 'GROOMING' {
   if (org?.shell) return org.shell;
   return org?.isLivestock ? 'FARM' : 'CLINIC';
 }
@@ -501,9 +533,11 @@ export function audiencesForRole(role: string, org?: OrgContext): AudienceId[] {
   // A farm org has no clinical side at all — no patients, no consultations —
   // so it gets the livestock nav INSTEAD of the clinic one, not alongside it.
   if (shellOf(org) === 'FARM' && !isPlatformRole(role)) return ['livestock'];
+  // 320 — a walker/groomer's own business gets the solo nav instead of the clinic one.
+  if (isSoloShell(org) && !isPlatformRole(role)) return ['solo'];
   switch (role) {
-    case 'SUPER_ADMIN':    return ['admin', 'clinic', 'supplier', 'freelancer', 'livestock'];
-    case 'MERCHANT_ADMIN': return ['admin', 'clinic', 'supplier', 'freelancer', 'livestock'];
+    case 'SUPER_ADMIN':    return ['admin', 'clinic', 'supplier', 'freelancer', 'livestock', 'solo'];
+    case 'MERCHANT_ADMIN': return ['admin', 'clinic', 'supplier', 'freelancer', 'livestock', 'solo'];
     case 'CLINIC_OWNER':
     case 'VET':
     case 'STAFF':          return ['clinic'];
@@ -511,6 +545,12 @@ export function audiencesForRole(role: string, org?: OrgContext): AudienceId[] {
     case 'FREELANCER':     return ['freelancer'];
     default:               return ['clinic'];
   }
+}
+
+/** 320 — the shells of a freelancer's own business. */
+function isSoloShell(org?: OrgContext): boolean {
+  const s = shellOf(org);
+  return s === 'WALKING' || s === 'GROOMING';
 }
 
 /** Platform staff keep every audience and the switcher, whatever org they view. */
@@ -525,6 +565,7 @@ function isPlatformRole(role: string): boolean {
  */
 export function defaultAudienceForRole(role: string, org?: OrgContext): AudienceId {
   if (shellOf(org) === 'FARM' && !isPlatformRole(role)) return 'livestock';
+  if (isSoloShell(org) && !isPlatformRole(role)) return 'solo';
   switch (role) {
     case 'SUPER_ADMIN':    return 'admin';
     case 'MERCHANT_ADMIN': return 'admin';

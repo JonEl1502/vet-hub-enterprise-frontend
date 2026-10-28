@@ -55,7 +55,7 @@ export interface SignupRequest {
      * `CLINIC | FARM | BOARDING | COUNTER`. Carried in from the marketing
      * site's persona picker via `/signup?type=…`.
      */
-    shell?: 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER';
+    shell?: 'CLINIC' | 'FARM' | 'BOARDING' | 'COUNTER' | 'WALKING' | 'GROOMING';
     address?: string;
     city?: string;
     country?: string;
