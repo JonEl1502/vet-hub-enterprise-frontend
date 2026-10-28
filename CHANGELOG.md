@@ -59,6 +59,13 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### config: homepage readable by crawlers — real HTML in #root, shorter meta description  —  2026-10-28
+- **What changed:** `index.html` fallback moved out of `<noscript>` into a plain `#seo-home` block (H1/H2s, feature list, nav + footer linking About, Contact, the country pages, signup/login). Seobility read the apex as 0 words / no H1 / no internal links. Meta description cut to 148 chars. An inline head script hides the block on any path but `/`.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** this is the home page's crawlable copy — keep it in step with the landing page's claims.
+
 ### flow: walkers and groomers sign up as their own business  —  2026-10-28
 - **What changed:** Sign-up offers "Dog walker" and "Freelance groomer" (shells `WALKING` / `GROOMING`); those orgs get a short "My Business" sidebar (Today, Bookings, Jobs, Clients, Pets, Invoices, Payments, Earnings, settings/helpers/billing) instead of the clinic nav. Admin Freelancers shows each one's kind (own business vs locum) and Add can create either.
 - **Record impact:** 🟢 None.

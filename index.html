@@ -7,13 +7,15 @@
 
   <!-- ── SEO ───────────────────────────────────────────────────────── -->
   <title>VetHubCore — The Operating System for Veterinary Practice</title>
-  <meta name="description" content="The operating system for veterinary practice. Every clinic · Every pet · Every team. Visits, records, inventory, and billing — one connected platform with 24/7 support. Start your 1-month free demo: full access, no card required.">
+  <meta name="description" content="Veterinary practice management software for clinics across Africa: appointments, medical records, inventory, billing and M-Pesa. Free for one month.">
   <meta name="author" content="VetHubCore">
   <meta name="application-name" content="VetHubCore">
   <meta name="apple-mobile-web-app-title" content="VetHubCore">
   <!-- This app is now served directly at the apex (vethubcore.com, since
        2026-09-17) and is the indexable home of the brand — no noindex. -->
   <meta name="theme-color" content="#144E35">
+  <style>.app-route #seo-home{display:none}</style>
+  <script>if (location.pathname !== '/') document.documentElement.classList.add('app-route');</script>
   <link rel="canonical" href="https://vethubcore.com/">
   <link rel="icon" type="image/svg+xml" href="/vethubcore-favicon.svg">
   <link rel="icon" type="image/png" sizes="64x64" href="/favicon-64.png">
@@ -151,38 +153,71 @@
 </head>
 <body class="bg-slate-50 text-slate-900 dark:bg-zinc-950 dark:text-zinc-100">
   <div id="root">
-    <!-- Crawler-visible content fallback (replaced by the React app on load). -->
-    <noscript>
-      <h1>VetHubCore — The operating system for veterinary practice</h1>
-      <p>
-        VetHubCore is veterinary practice management software that runs your whole
-        clinic in one place: appointment scheduling, patient and medical records,
-        inventory, invoicing, and M-Pesa &amp; card payments — plus a pet-owner portal
-        for booking, messaging and paying online.
-      </p>
-      <h2>One connected platform for every clinic, every pet, every team</h2>
-      <ul>
-        <li><strong>Appointments &amp; visits</strong> — scheduling, reminders and a full visit workflow.</li>
-        <li><strong>Patient &amp; medical records</strong> — a complete clinical history for every pet.</li>
-        <li><strong>Boarding</strong> — manage pet boarding stays, cages and daily care.</li>
-        <li><strong>Laboratory</strong> — order tests and record lab results in the patient file.</li>
-        <li><strong>Surgery</strong> — schedule procedures and track surgical records.</li>
-        <li><strong>Imaging &amp; radiology</strong> — attach X-rays, ultrasound and scans to records.</li>
-        <li><strong>Inpatient</strong> — admit, chart and monitor hospitalized animals.</li>
-        <li><strong>Emergency</strong> — fast intake and triage for urgent cases.</li>
-        <li><strong>Grooming</strong> — bookings and grooming service records.</li>
-        <li><strong>Vaccinations</strong> — vaccine packages and automatic reminders.</li>
-        <li><strong>Pharmacy &amp; inventory</strong> — track stock, batches and expiry across branches.</li>
-        <li><strong>Invoicing &amp; billing</strong> — quotes, invoices and settled payments.</li>
-        <li><strong>Payments</strong> — M-Pesa and card payments built in.</li>
-        <li><strong>Pet-owner portal</strong> — clients book, message and pay online.</li>
-      </ul>
-      <p>
-        <a href="https://app.vethubcore.com/signup">Create a clinic account</a> ·
-        <a href="https://app.vethubcore.com/supplier-signup">List a veterinary supply business</a> ·
-        <a href="https://app.vethubcore.com/login">Log in</a>
-      </p>
-    </noscript>
+    <!-- Crawler-visible homepage (2026-10-28). Plain HTML, NOT <noscript>:
+         SEO checkers and non-JS crawlers ignore <noscript>, so the page read
+         as 0 words, no H1, no internal links. createRoot() replaces all of
+         this on mount. Hidden off "/" (see the head script) so app routes
+         don't flash marketing copy before React loads. -->
+    <div id="seo-home" style="max-width:960px;margin:0 auto;padding:24px 16px;font-family:system-ui,sans-serif;line-height:1.55">
+      <header>
+        <a href="/" style="font-weight:700;font-size:20px;color:#144E35;text-decoration:none">VetHub<span style="color:#F2A41C">Core</span></a>
+        <nav aria-label="Main">
+          <a href="/about/">About</a> ·
+          <a href="/contact/">Contact</a> ·
+          <a href="/login">Log in</a> ·
+          <a href="/signup">Start free trial</a>
+        </nav>
+      </header>
+      <main>
+        <h1>The operating system for veterinary practice</h1>
+        <p>
+          VetHubCore is veterinary practice management software that runs your whole
+          clinic in one place: appointment scheduling, patient and medical records,
+          inventory, invoicing, and M-Pesa &amp; card payments — plus a pet-owner portal
+          for booking, messaging and paying online.
+        </p>
+        <h2>One connected platform for every clinic, every pet, every team</h2>
+        <ul>
+          <li><strong>Appointments &amp; visits</strong> — scheduling, reminders and a full visit workflow.</li>
+          <li><strong>Patient &amp; medical records</strong> — a complete clinical history for every pet.</li>
+          <li><strong>Boarding</strong> — manage pet boarding stays, cages and daily care.</li>
+          <li><strong>Laboratory</strong> — order tests and record lab results in the patient file.</li>
+          <li><strong>Surgery</strong> — schedule procedures and track surgical records.</li>
+          <li><strong>Imaging &amp; radiology</strong> — attach X-rays, ultrasound and scans to records.</li>
+          <li><strong>Inpatient</strong> — admit, chart and monitor hospitalized animals.</li>
+          <li><strong>Emergency</strong> — fast intake and triage for urgent cases.</li>
+          <li><strong>Grooming</strong> — bookings and grooming service records.</li>
+          <li><strong>Vaccinations</strong> — vaccine packages and automatic reminders.</li>
+          <li><strong>Pharmacy &amp; inventory</strong> — track stock, batches and expiry across branches.</li>
+          <li><strong>Invoicing &amp; billing</strong> — quotes, invoices and settled payments.</li>
+          <li><strong>Payments</strong> — M-Pesa and card payments built in.</li>
+          <li><strong>Pet-owner portal</strong> — clients book, message and pay online.</li>
+        </ul>
+        <h2>Built for every kind of veterinary business</h2>
+        <p>
+          Small-animal clinics, farm and livestock vets, boarding kennels and
+          veterinary suppliers each get a workspace shaped to how they work.
+          <a href="/signup">Create a clinic account</a> or
+          <a href="/supplier-signup">list a veterinary supply business</a>.
+        </p>
+        <h2>Veterinary software across Africa</h2>
+        <p>
+          VetHubCore is built in Nairobi for practices in
+          <a href="/veterinary-software-kenya/">Kenya</a>,
+          <a href="/veterinary-software-uganda/">Uganda</a>,
+          <a href="/veterinary-software-tanzania/">Tanzania</a> and
+          <a href="/veterinary-software-nigeria/">Nigeria</a>, with M-Pesa built
+          into billing. Every new clinic gets one month of full access, no card required.
+        </p>
+      </main>
+      <footer>
+        <p>
+          <a href="/about/">About VetHubCore</a> ·
+          <a href="/contact/">Contact us</a> ·
+          <a href="/signup">Start your free month</a>
+        </p>
+      </footer>
+    </div>
   </div>
   <div id="date-picker-portal"></div>
   <script type="module" src="./index.tsx"></script>
