@@ -3,18 +3,27 @@ import { motion } from 'framer-motion';
 import {
   Building2, Truck, UserCog, CreditCard, TrendingUp, RefreshCw,
   Loader2, MapPin, Globe, Activity, Layers, Wallet, Users, Dog, Trophy,
+  Package, Receipt, ShoppingCart, Tag, ChevronRight,
 } from 'lucide-react';
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
-import { platformMetricsAPI, PlatformMetrics } from '../../../services';
+import { platformMetricsAPI, PlatformMetrics, supplierMetricsAPI, SupplierMetrics } from '../../../services';
 import { SignupsTimeseriesRow } from '../../../services/modules/platformMetrics.api';
 import { useClinic } from '../../../contexts/ClinicContext';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import AdminPageHeader from '../shared/AdminPageHeader';
 
-const PlatformDashboard: React.FC = () => {
+/**
+ * SUPER_ADMIN's one dashboard (user, 2026-10-28): every side of the platform —
+ * clinics, marketplace/suppliers, freelancers, subscriptions — on one page.
+ * The per-clinic and per-supplier dashboards live on Tenants → Clinics and
+ * Tenants → Suppliers; the side KPIs here click through to them.
+ */
+const PlatformDashboard: React.FC<{ onNavigate?: (view: string, params?: any) => void }> = ({ onNavigate }) => {
   const [metrics, setMetrics] = useState<PlatformMetrics | null>(null);
+  // Marketplace side. Optional: the platform view still renders if this fails.
+  const [market, setMarket] = useState<SupplierMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -29,10 +38,12 @@ const PlatformDashboard: React.FC = () => {
     else setLoading(true);
     setError(null);
     try {
-      const [res, signupsRes] = await Promise.all([
+      const [res, signupsRes, marketRes] = await Promise.all([
         platformMetricsAPI.get(),
         platformMetricsAPI.signupsTimeseries({ bucket: 'month' }).catch(() => null),
+        supplierMetricsAPI.get().catch(() => null),
       ]);
+      if (marketRes?.success) setMarket(marketRes.data);
       if (res.success) setMetrics(res.data);
       else setError('Failed to load metrics');
       if (signupsRes?.success && signupsRes.data) setSignups(signupsRes.data);
@@ -88,8 +99,8 @@ const PlatformDashboard: React.FC = () => {
           and from dashboard tiles alike, and every one of those was a dead end.
           AdminPageHeader carries the back affordance by default. */}
       <AdminPageHeader
-        title="Platform Super View"
-        subtitle="VetHubCore-level revenue & entity counts"
+        title="Platform Dashboard"
+        subtitle="Clinics, suppliers, freelancers and subscriptions — every side at a glance"
         icon={Layers}
         actions={(
           <button
@@ -118,6 +129,7 @@ const PlatformDashboard: React.FC = () => {
           sub={`${metrics.clinics.active} active · ${metrics.clinics.inactive} inactive`}
           icon={<Building2 size={18} />}
           accent="seafoam"
+          onClick={onNavigate ? () => onNavigate('clinics') : undefined}
         />
         <KpiCard
           label="Suppliers"
@@ -125,6 +137,7 @@ const PlatformDashboard: React.FC = () => {
           sub={`${metrics.suppliers.active} active`}
           icon={<Truck size={18} />}
           accent="amber"
+          onClick={onNavigate ? () => onNavigate('admin-suppliers') : undefined}
         />
         <KpiCard
           label="Freelancers"
@@ -132,6 +145,7 @@ const PlatformDashboard: React.FC = () => {
           sub={`${metrics.freelancers.active} active`}
           icon={<UserCog size={18} />}
           accent="indigo"
+          onClick={onNavigate ? () => onNavigate('admin-freelancers') : undefined}
         />
       </div>
 
@@ -163,6 +177,106 @@ const PlatformDashboard: React.FC = () => {
           />
         </div>
       )}
+
+      {/* Marketplace — what the old Supplier View toggle showed, folded in so
+          the platform page covers every side. */}
+      {market && (
+        <div className="space-y-4">
+          <SectionLabel icon={<ShoppingCart size={13} />} label="Marketplace" />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <KpiCard
+              label="GMV (orders)"
+              value={fmtMoney(market.orders.gmv)}
+              sub={`${fmt(market.orders.total)} counted orders`}
+              icon={<TrendingUp size={18} />}
+              accent="emerald"
+            />
+            <KpiCard
+              label="Orders"
+              value={fmt(market.orders.total)}
+              sub={`${market.orders.fulfilled} fulfilled · ${market.orders.open} open`}
+              icon={<Receipt size={18} />}
+              accent="seafoam"
+            />
+            <KpiCard
+              label="Products"
+              value={fmt(market.products.total)}
+              sub="catalogue items"
+              icon={<Package size={18} />}
+              accent="indigo"
+            />
+            <KpiCard
+              label="Active Suppliers"
+              value={fmt(market.suppliers.active)}
+              sub={`${market.suppliers.inactive} inactive${market.suppliers.pending != null ? ` · ${market.suppliers.pending} pending` : ''}`}
+              icon={<Truck size={18} />}
+              accent="amber"
+              onClick={onNavigate ? () => onNavigate('admin-suppliers') : undefined}
+            />
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4 text-seafoam">
+                <Trophy size={14} />
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Top suppliers · by GMV</h4>
+              </div>
+              {market.suppliers.top.length === 0 ? (
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No order activity yet</p>
+              ) : (
+                <div className="space-y-2.5">
+                  {(() => {
+                    const max = Math.max(...market.suppliers.top.map(t => t.gmv), 1);
+                    return market.suppliers.top.slice(0, 6).map(t => (
+                      <button key={t.supplierId} type="button"
+                        onClick={() => onNavigate?.('supplier-detail', { supplierId: t.supplierId })}
+                        className="block w-full text-left group">
+                        <div className="flex justify-between gap-2 text-[10px] font-black uppercase tracking-widest mb-1">
+                          <span className="text-pine dark:text-zinc-100 truncate group-hover:text-seafoam">{t.supplierName}</span>
+                          <span className="text-seafoam font-mono shrink-0">{fmtMoney(t.gmv)}</span>
+                        </div>
+                        <div className="h-1.5 bg-slate-100 dark:bg-zinc-800 rounded-full overflow-hidden">
+                          <div className="h-full bg-seafoam rounded-full" style={{ width: `${Math.round((t.gmv / max) * 100)}%` }} />
+                        </div>
+                      </button>
+                    ));
+                  })()}
+                </div>
+              )}
+            </div>
+            <DistributionCard
+              title="Suppliers · by category"
+              icon={<Tag size={14} />}
+              items={market.suppliers.byCategory.map(r => ({ label: r.category || 'Unknown', count: r.count }))}
+              total={market.suppliers.total}
+            />
+            <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
+              <div className="flex items-center gap-2 mb-4 text-seafoam">
+                <ShoppingCart size={14} />
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">Recent orders</h4>
+              </div>
+              {market.orders.recent.length === 0 ? (
+                <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">No recent orders</p>
+              ) : (
+                <div className="space-y-1">
+                  {market.orders.recent.slice(0, 6).map(o => (
+                    <div key={o.id} className="flex items-center justify-between gap-2 py-1.5">
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-pine dark:text-zinc-100 truncate">{o.supplierName}</p>
+                        <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest truncate">
+                          {o.clinicName} · {o.status.toLowerCase().replace(/_/g, ' ')}
+                        </p>
+                      </div>
+                      <p className="text-xs font-mono font-black text-emerald-600 shrink-0">{fmtMoney(o.amount)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <SectionLabel icon={<Layers size={13} />} label="Subscriptions & clinics" />
 
       {/* Plan breakdown */}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
@@ -293,9 +407,18 @@ interface KpiCardProps {
   sub: string;
   icon: React.ReactNode;
   accent: 'emerald' | 'seafoam' | 'amber' | 'indigo';
+  /** Click-through to that side's own dashboard page. */
+  onClick?: () => void;
 }
 
-const KpiCard: React.FC<KpiCardProps> = ({ label, value, sub, icon, accent }) => {
+const SectionLabel: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon, label }) => (
+  <div className="flex items-center gap-2 pt-2 text-seafoam">
+    {icon}
+    <p className="text-[10px] font-black uppercase tracking-[0.25em]">{label}</p>
+  </div>
+);
+
+const KpiCard: React.FC<KpiCardProps> = ({ label, value, sub, icon, accent, onClick }) => {
   // Uniform card chrome — accent lives only on the icon badge so every tile is
   // the same shape/size; the grid + h-full keeps widths and heights equal.
   const iconAccent: Record<string, string> = {
@@ -305,7 +428,14 @@ const KpiCard: React.FC<KpiCardProps> = ({ label, value, sub, icon, accent }) =>
     indigo: 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600',
   };
   return (
-    <div className="h-full flex flex-col bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm">
+    <div
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
+      className={`h-full flex flex-col bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm transition-all ${
+        onClick ? 'cursor-pointer hover:border-seafoam hover:shadow-md' : ''
+      }`}>
       <div className="flex items-center justify-between mb-3">
         <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest truncate pr-2">{label}</p>
         <div className={`p-2 rounded-lg shrink-0 ${iconAccent[accent]}`}>{icon}</div>
@@ -314,6 +444,11 @@ const KpiCard: React.FC<KpiCardProps> = ({ label, value, sub, icon, accent }) =>
         {value}
       </h3>
       <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">{sub}</p>
+      {onClick && (
+        <p className="text-[9px] font-black text-seafoam uppercase tracking-widest mt-2 flex items-center gap-0.5">
+          Open dashboard <ChevronRight size={10} />
+        </p>
+      )}
     </div>
   );
 };

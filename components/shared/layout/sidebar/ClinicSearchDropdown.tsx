@@ -8,9 +8,12 @@ import ClinicLogo from '../../../clinic/clinic-mgmt/ClinicLogo';
 interface Props {
   /** When true, render the icon-only / collapsed-sidebar variant. */
   isCollapsed: boolean;
+  /** 'page' drops the sidebar padding and divider so the same picker can sit
+   *  in a page header (admin Clinics / Suppliers dashboards, 2026-10-28). */
+  variant?: 'sidebar' | 'page';
 }
 
-const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
+const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed, variant = 'sidebar' }) => {
   const { clinics, selectedClinicIds, selectClinic, selectMultipleClinics, canMultiSelect } = useClinic();
   const { access } = usePlanAccess();
   /**
@@ -192,7 +195,7 @@ const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
   }
 
   return (
-    <div ref={ref} className="relative px-3 py-2 border-b border-seafoam/10 dark:border-zinc-800 shrink-0">
+    <div ref={ref} className={variant === 'page' ? 'relative w-full sm:w-80' : 'relative px-3 py-2 border-b border-seafoam/10 dark:border-zinc-800 shrink-0'}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         title={triggerLabel}
@@ -208,7 +211,7 @@ const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
       </button>
       {isOpen && (
         <DropdownPanel
-          anchor="expanded"
+          anchor={variant === 'page' ? 'page' : 'expanded'}
           query={query}
           setQuery={setQuery}
           filtered={filtered}
@@ -226,7 +229,7 @@ const ClinicSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
 };
 
 interface PanelProps {
-  anchor: 'expanded' | 'collapsed';
+  anchor: 'expanded' | 'collapsed' | 'page';
   query: string;
   setQuery: (q: string) => void;
   /** Parent-then-branches order, each row tagged with what it is. */
@@ -249,7 +252,9 @@ const DropdownPanel: React.FC<PanelProps> = ({
   // the collapsed sidebar otherwise (sidebar is 80px wide when collapsed).
   const positionClass = anchor === 'collapsed'
     ? 'fixed left-20 top-32 w-[280px]'
-    : 'absolute left-3 right-3 top-full mt-1';
+    : anchor === 'page'
+      ? 'absolute left-0 right-0 top-full mt-1'
+      : 'absolute left-3 right-3 top-full mt-1';
 
   // Draft selection. Local to the dropdown so the user can toggle several
   // rows before committing via Apply — nothing reloads until they click it.

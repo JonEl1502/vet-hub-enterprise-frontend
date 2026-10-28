@@ -59,6 +59,18 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: Admin dashboard is platform-only; Clinics and Suppliers carry their own dashboards  —  2026-10-28
+- **What changed:** SUPER_ADMIN's Dashboard drops the Platform / Clinic / Supplier toggle and shows one Platform Dashboard (clinics, marketplace, freelancers, subscriptions; side tiles click through). Tenants → Clinics gains a Dashboard tab (the old Clinic View) and Clinics + Suppliers both get a search dropdown in the header that scopes the page (same scope as the sidebar switcher). `SupplierMetricsDashboard` and `ScopePickerModal` removed (orphaned).
+- **Record impact:** 🟢 None — read-only views.
+- **Data dependency:** None — existing `/admin/platform-metrics` and `/admin/supplier-metrics`.
+- **Rollback:** revert the commit and rebuild.
+
+### component: Collect panel chase glow; profiles open on Financials → Invoices  —  2026-10-26
+- **What changed:** amber travelling-border glow (`.chase-glow`) on Select all and unpaid untick'd invoice rows; client and pet profiles put Financials first and land on Invoices.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert a833d3e2.
+
 ### component: "Ask a vet to inspect" — buyer request flow + clinic inbox  —  2026-09-29
 - **What changed:** redesign slice 5. New `RequestInspectionModal.tsx` — buyer
   filters by expertise ('Livestock'/'Poultry', new `specialties` values) or

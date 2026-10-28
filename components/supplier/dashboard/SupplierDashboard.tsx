@@ -19,6 +19,7 @@ import {
 } from 'recharts';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
+import SupplierSearchDropdown from '../../shared/layout/sidebar/SupplierSearchDropdown';
 import { supplierProductsAPI } from '../../../services/modules/supplierProducts.api';
 import { supplierOrdersAPI } from '../../../services/modules/supplierOrders.api';
 import { supplierSubscriptionAPI, type SupplierSubscription } from '../../../services/modules/supplierSubscription.api';
@@ -498,15 +499,20 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
               <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1">
                 {selectedSupplierIds.length === 0
                   ? 'Showing aggregated metrics across every supplier on the platform.'
-                  : 'Use the context switcher in the header to widen or narrow this view.'}
+                  : 'Use the search dropdown to widen or narrow this view.'}
               </p>
             </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="flex items-center gap-2 px-4 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-sm"
-            >
-              <Plus size={13} /> New Supplier
-            </button>
+            <div className="flex flex-wrap items-center gap-2 justify-end">
+              {/* Search & scope: all suppliers, one, or several (user,
+                  2026-10-28). Same scope as the sidebar switcher. */}
+              <SupplierSearchDropdown isCollapsed={false} variant="page" />
+              <button
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 px-4 py-2.5 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl text-[10px] font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-sm"
+              >
+                <Plus size={13} /> New Supplier
+              </button>
+            </div>
           </div>
 
           {/* KPI cards — count-based, currency-agnostic so they hold up across

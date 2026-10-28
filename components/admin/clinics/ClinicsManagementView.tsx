@@ -10,9 +10,10 @@ import ClinicLogo from '../../clinic/clinic-mgmt/ClinicLogo';
 import { toast, dialog, cache } from '../../../services';
 import { useAuth } from '../../../contexts/AuthContext';
 import { CLINIC_SPECIALTIES } from '../../../constants';
-import { Power, Loader2, ShieldCheck, Clock, PawPrint, CircleDollarSign, UserCheck, Sparkles, LayoutGrid, Table as TableIcon, BarChart3 } from 'lucide-react';
+import { Power, Loader2, ShieldCheck, Clock, PawPrint, CircleDollarSign, UserCheck, Sparkles, LayoutGrid, Table as TableIcon, BarChart3, LayoutDashboard } from 'lucide-react';
 import { ResponsiveContainer, PieChart, Pie, Cell, Legend, Tooltip as RTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import AdminPageHeader from '../shared/AdminPageHeader';
+import ClinicSearchDropdown from '../../shared/layout/sidebar/ClinicSearchDropdown';
 
 interface ClinicsManagementViewProps {
   /**
@@ -21,9 +22,15 @@ interface ClinicsManagementViewProps {
    * don't pass this prop keep the modal flow.
    */
   onNavigate?: (view: string, params?: any) => void;
+  /**
+   * The clinic dashboard (today's work, finance & BI, B2B), scoped by the
+   * clinic selection. It was the "Clinic View" toggle on the admin home; it
+   * lives here now, under the search dropdown that scopes it (user, 2026-10-28).
+   */
+  renderDashboard?: () => React.ReactNode;
 }
 
-const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigate }) => {
+const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigate, renderDashboard }) => {
   const { user } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   // Attribution filter: 'all' | 'self' (self-registered) | a sales-rep id.
@@ -120,7 +127,7 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
   // MRR). Best-effort: silent fetch, tiles fall back to the local clinic counts.
   const [metrics, setMetrics] = useState<PlatformMetrics | null>(null);
   // Charts (graphs) vs Directory (cards/table list of clinics).
-  const [adminTab, setAdminTab] = useState<'charts' | 'directory'>('charts');
+  const [adminTab, setAdminTab] = useState<'dashboard' | 'charts' | 'directory'>(renderDashboard ? 'dashboard' : 'charts');
   const [directoryView, setDirectoryView] = useState<'cards' | 'table'>('cards');
   useEffect(() => {
     platformMetricsAPI.get({ silent: true }).then((r) => setMetrics(r.data ?? null)).catch(() => {});
@@ -318,15 +325,22 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
             title="All Clinics"
             subtitle="Every clinic on the platform — counts, verification and subscription value at a glance."
             icon={Building2}
-            actions={isAdmin ? (
-              <button
-                onClick={handleOpenCreateModal}
-                className="bg-pine dark:bg-zinc-100 text-white dark:text-pine px-6 py-3 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
-              >
-                <Plus size={18} />
-                Create Clinic
-              </button>
-            ) : undefined}
+            actions={(
+              <div className="flex flex-wrap items-center gap-2 justify-end">
+                {/* Search & scope: all clinics, one, or several. Drives the
+                    Dashboard tab below (and every clinic page). */}
+                <ClinicSearchDropdown isCollapsed={false} variant="page" />
+                {isAdmin && (
+                  <button
+                    onClick={handleOpenCreateModal}
+                    className="bg-pine dark:bg-zinc-100 text-white dark:text-pine px-6 py-3 rounded-xl font-bold text-sm shadow-lg hover:shadow-xl transition-all flex items-center gap-2"
+                  >
+                    <Plus size={18} />
+                    Create Clinic
+                  </button>
+                )}
+              </div>
+            )}
           />
         </div>
 
@@ -512,10 +526,16 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
 
       {/* Charts (graphs) | Directory (cards/table list) */}
       <div className="flex gap-1 mb-5 bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-max">
-        {([['charts', 'Charts', BarChart3], ['directory', 'Directory', LayoutGrid]] as const).map(([id, label, Icon]) => (
+        {([
+          ...(renderDashboard ? [['dashboard', 'Dashboard', LayoutDashboard] as const] : []),
+          ['charts', 'Charts', BarChart3] as const,
+          ['directory', 'Directory', LayoutGrid] as const,
+        ]).map(([id, label, Icon]) => (
           <button key={id} onClick={() => setAdminTab(id)} className={`flex items-center gap-1.5 px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${adminTab === id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-pine'}`}><Icon size={12} /> {label}</button>
         ))}
       </div>
+
+      {adminTab === 'dashboard' && renderDashboard?.()}
 
       {adminTab === 'charts' && (
         <ClinicsChartsPanel metrics={metrics} onOpen={(id) => onNavigate?.('admin-clinic-detail', { clinicId: id })} />

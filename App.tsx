@@ -81,8 +81,6 @@ import RoleDashboard, { ROLE_DASHBOARD_ROLES } from './components/clinic/dashboa
 import ReferralsView from './components/clinic/partnerships/ReferralsView';
 import ClinicWallet from './components/clinic/clinic-mgmt/ClinicWallet';
 import PlatformDashboard from './components/admin/platform/PlatformDashboard';
-import SupplierMetricsDashboard from './components/admin/platform/SupplierMetricsDashboard';
-import ScopePickerModal, { type PickItem } from './components/admin/platform/ScopePickerModal';
 import ClinicManagementView from './components/clinic/clinic-mgmt/ClinicManagementView';
 import ImportDataView from './components/shared/common/ImportDataView';
 import PetFetchGate from './components/clinic/pets/PetFetchGate';
@@ -772,12 +770,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   }, [navStack.length]);
 
   const [dashboardTab, setDashboardTab] = useState<'finance-overview' | 'wallet' | 'b2b' | 'today'>('today');
-  // SUPER_ADMIN sees a Platform / Clinic toggle. Defaults to PLATFORM so the
-  // admin lands on VetHub's own KPIs first; they can flip to CLINIC to drill
-  // into the active clinic context.
-  const [dashboardMode, setDashboardMode] = useState<'platform' | 'clinic' | 'supplier'>('platform');
-  // Drill-down scope picker (admin dashboard): pick a clinic/supplier to scope into.
-  const [scopePicker, setScopePicker] = useState<'clinic' | 'supplier' | null>(null);
   const [loadingAi, setLoadingAi] = useState(false);
   const [aiSummary, setAiSummary] = useState<string | null>(null);
   const [isDesktopCollapsed, setIsDesktopCollapsed] = useState(false);
@@ -2091,67 +2083,23 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     );
   };
 
-  // SUPER_ADMIN dashboard mode toggle — Platform = VetHub-level metrics,
-  // Clinic = per-clinic dashboard scoped to the active clinic selection.
-  const DashboardModeToggle: React.FC<{
-    mode: 'platform' | 'clinic' | 'supplier';
-    onChange: (m: 'platform' | 'clinic' | 'supplier') => void;
-  }> = ({ mode, onChange }) => (
-    <div className="flex w-full sm:w-auto bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 shadow-sm">
-      {([
-        { id: 'platform' as const, label: 'Platform Super View' },
-        { id: 'clinic' as const, label: 'Clinic View' },
-        { id: 'supplier' as const, label: 'Supplier View' },
-      ]).map(opt => (
-        <button
-          key={opt.id}
-          onClick={() => onChange(opt.id)}
-          className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-            mode === opt.id
-              ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700'
-              : 'text-slate-400 hover:text-pine'
-          }`}
-        >
-          {opt.label}
-        </button>
-      ))}
-    </div>
-  );
-
+  // SUPER_ADMIN's Dashboard is the platform view ONLY (user, 2026-10-28): the
+  // Platform / Clinic / Supplier toggle stacked three dashboards on one page.
+  // The clinic dashboard now lives on Tenants → Clinics and the supplier one on
+  // Tenants → Suppliers, each with its own search dropdown to scope it.
   const renderDashboard = () => {
+    if (user?.role === UserRole.SUPER_ADMIN) {
+      return (
+        <div className="space-y-6 animate-in fade-in duration-300">
+          <PlatformDashboard onNavigate={navigateTo} />
+        </div>
+      );
+    }
+    return renderClinicDashboard();
+  };
+
+  const renderClinicDashboard = () => {
     const isSuperAdmin = user?.role === UserRole.SUPER_ADMIN;
-    // SUPER_ADMIN gets the Platform Super View by default. Anyone else
-    // (or the admin after flipping the toggle) sees the per-clinic dashboard.
-    if (isSuperAdmin && dashboardMode === 'platform') {
-      return (
-        <div className="space-y-6 animate-in fade-in duration-300">
-          <DashboardModeToggle mode={dashboardMode} onChange={setDashboardMode} />
-          <PlatformDashboard />
-        </div>
-      );
-    }
-    // Supplier super-view — aggregate marketplace metrics, or a single
-    // supplier's stats once one is picked (scoped via X-Supplier-Id).
-    if (isSuperAdmin && dashboardMode === 'supplier') {
-      return (
-        <div className="space-y-6 animate-in fade-in duration-300">
-          <DashboardModeToggle mode={dashboardMode} onChange={setDashboardMode} />
-          {managedSupplierId ? (
-            <div className="space-y-3">
-              <button
-                onClick={() => setManagedSupplier(null)}
-                className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-colors"
-              >
-                ← All suppliers
-              </button>
-              <SupplierDashboard setView={navigateTo} />
-            </div>
-          ) : (
-            <SupplierMetricsDashboard onPickSupplier={() => setScopePicker('supplier')} onOpenSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} />
-          )}
-        </div>
-      );
-    }
     // Demo trial card computation
     const isClinicDemo = firstActiveClinic?.isDemo === true;
     const DEMO_TRIAL_DAYS = 40;
@@ -2183,49 +2131,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           onSubscribe={() => navigateTo('billing')}
         />
       )}
-      {isSuperAdmin && (
-        <DashboardModeToggle mode={dashboardMode} onChange={setDashboardMode} />
-      )}
-      {/* Clinics-in-scope KPI strip — visible to admin roles, shows how
-          many clinics the current selection covers + active/inactive split.
-          Quick at-a-glance answer to "how big is my fleet right now?". */}
-      {isSuperAdmin && (() => {
-        const total = allClinics.length;
-        const inScope = selectedClinicIds.length || total;
-        const active = allClinics.filter(c => c.isActive !== false).length;
-        const inactive = total - active;
-        return (
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <button
-              type="button"
-              onClick={() => setScopePicker('clinic')}
-              title="Search & open a single clinic's dashboard"
-              className="compact-card text-left cursor-pointer hover:border-seafoam hover:shadow-md transition-all"
-            >
-              <p className="card-subtitle mb-1 flex items-center gap-1"><Search size={9}/> Clinics in Scope</p>
-              <h3 className="text-xl font-black text-seafoam tracking-tighter font-mono">{inScope}</h3>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">of {total} total · tap to open one</p>
-            </button>
-            <div className="compact-card">
-              <p className="card-subtitle mb-1">Active</p>
-              <h3 className="text-xl font-black text-emerald-600 tracking-tighter font-mono">{active}</h3>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">live clinics</p>
-            </div>
-            <div className="compact-card">
-              <p className="card-subtitle mb-1">Inactive</p>
-              <h3 className="text-xl font-black text-pine/40 dark:text-zinc-600 tracking-tighter font-mono">{inactive}</h3>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">paused / off</p>
-            </div>
-            <div className="compact-card">
-              <p className="card-subtitle mb-1">Active Clinic</p>
-              <h3 className="text-sm font-black text-pine dark:text-zinc-100 tracking-tight truncate" title={firstActiveClinic?.name}>
-                {firstActiveClinic?.name || '—'}
-              </h3>
-              <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest mt-1">primary scope</p>
-            </div>
-          </div>
-        );
-      })()}
       {/* Demo Trial Card */}
       {demoTrialInfo && (
         <div className={`relative overflow-hidden rounded-3xl border p-6 shadow-sm ${
@@ -3166,7 +3071,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         if (!staffMember) return null;
         return <StaffProfileView staff={staffMember} clinics={store.clinics} appointments={appointments} onBack={goBack} onUpdate={() => { refreshStaff(); }} />;
       case 'clinics':
-        return <ClinicsManagementView onNavigate={navigateTo} />;
+        return <ClinicsManagementView onNavigate={navigateTo} renderDashboard={renderClinicDashboard} />;
       case 'admin-clinic-new':
         return <AdminClinicWizard onClose={() => navigateTo('clinics')} />;
       case 'admin-clinic-detail':
@@ -3857,40 +3762,6 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         warning={deleteDialogConfig?.warning}
         tone={deleteDialogConfig?.tone}
       />
-
-      {/* Admin dashboard drill-down: pick a clinic/supplier to scope into. */}
-      {scopePicker === 'clinic' && (
-        <ScopePickerModal
-          title="Open a clinic"
-          placeholder="Search clinics by name or subdomain…"
-          loader={async () => allClinics.map((c): PickItem => ({
-            id: String(c.id),
-            name: c.name,
-            sub: (c as any).subdomain || c.email || null,
-            logo: typeof c.logo === 'string' && c.logo.length <= 4 ? c.logo : null,
-          }))}
-          onSelect={(item) => { selectClinic(item.id); setDashboardMode('clinic'); }}
-          onClose={() => setScopePicker(null)}
-        />
-      )}
-      {scopePicker === 'supplier' && (
-        <ScopePickerModal
-          title="Open a supplier"
-          placeholder="Search suppliers by name or category…"
-          loader={async () => {
-            const res = await suppliersAPI.getAll({ page: 1, limit: 200 } as any, { cache: false } as any);
-            const rows: any[] = (res as any)?.data?.data || (res as any)?.data?.suppliers || [];
-            return rows.map((s): PickItem => ({
-              id: String(s.id),
-              name: s.name,
-              sub: s.category || s.contactEmail || null,
-              logo: typeof s.logoUrl === 'string' && s.logoUrl.length <= 4 ? s.logoUrl : null,
-            }));
-          }}
-          onSelect={(item) => { setManagedSupplier(item.id); setDashboardMode('supplier'); }}
-          onClose={() => setScopePicker(null)}
-        />
-      )}
 
       {/* Tour overlay + module picker */}
       <TourOverlay />

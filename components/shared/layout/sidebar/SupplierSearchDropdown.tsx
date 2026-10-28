@@ -6,6 +6,9 @@ import { useAuth } from '../../../../contexts/AuthContext';
 interface Props {
   /** When true, render the icon-only / collapsed-sidebar variant. */
   isCollapsed: boolean;
+  /** 'page' drops the sidebar padding and divider so the same picker can sit
+   *  in a page header (admin Clinics / Suppliers dashboards, 2026-10-28). */
+  variant?: 'sidebar' | 'page';
 }
 
 /**
@@ -17,7 +20,7 @@ interface Props {
  * omits the X-Supplier-Id(s) header and the backend returns aggregated
  * data across every supplier.
  */
-const SupplierSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
+const SupplierSearchDropdown: React.FC<Props> = ({ isCollapsed, variant = 'sidebar' }) => {
   const { user } = useAuth();
   const role = user?.role;
   const isAdmin = role === 'SUPER_ADMIN' || role === 'MERCHANT_ADMIN';
@@ -106,7 +109,7 @@ const SupplierSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
   }
 
   return (
-    <div ref={ref} className="relative px-3 py-2 border-b border-purple-500/10 dark:border-zinc-800 shrink-0">
+    <div ref={ref} className={variant === 'page' ? 'relative w-full sm:w-80' : 'relative px-3 py-2 border-b border-purple-500/10 dark:border-zinc-800 shrink-0'}>
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="w-full flex items-center justify-between gap-2 px-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 hover:border-purple-500 rounded-xl text-left transition-colors"
@@ -121,7 +124,7 @@ const SupplierSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
       </button>
       {isOpen && (
         <DropdownPanel
-          anchor="expanded"
+          anchor={variant === 'page' ? 'page' : 'expanded'}
           query={query}
           setQuery={setQuery}
           filtered={filtered}
@@ -139,7 +142,7 @@ const SupplierSearchDropdown: React.FC<Props> = ({ isCollapsed }) => {
 };
 
 interface PanelProps {
-  anchor: 'expanded' | 'collapsed';
+  anchor: 'expanded' | 'collapsed' | 'page';
   query: string;
   setQuery: (q: string) => void;
   filtered: any[];
@@ -158,7 +161,9 @@ const DropdownPanel: React.FC<PanelProps> = ({
 }) => {
   const positionClass = anchor === 'collapsed'
     ? 'fixed left-20 top-32 w-[280px]'
-    : 'absolute left-3 right-3 top-full mt-1';
+    : anchor === 'page'
+      ? 'absolute left-0 right-0 top-full mt-1'
+      : 'absolute left-3 right-3 top-full mt-1';
 
   // DRAFT selection, local to the dropdown — same pattern as
   // ClinicSearchDropdown. Ticking a box used to mutate the live scope
