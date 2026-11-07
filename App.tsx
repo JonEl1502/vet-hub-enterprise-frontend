@@ -169,6 +169,7 @@ import OwnerDashboard from './components/clinic/dashboard/roles/OwnerDashboard';
 // Grouped module permissions — "access page + create/edit/delete", named the
 // way the sidebar names the page (user, 2026-08-04).
 import { VIEW_TO_MODULE, canOpenView, can } from './constants/modulePermissions';
+import { FRONT_DESK_ROLES } from './constants/roles';
 import LoadingSpinner from './components/shared/common/LoadingSpinner';
 import TourOverlay from './components/shared/common/tours/TourOverlay';
 import TourMenu from './components/shared/common/tours/TourMenu';
@@ -2298,8 +2299,10 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     // with a bespoke role dashboard, which is their own workspace.
     if (view === 'dashboard') return hasPerm(Permission.VIEW_DASHBOARD) || ROLE_DASHBOARD_ROLES.has(String(role));
 
+    // Open to clinic staff, except the front desk unless granted Suppliers
+    // (user, 2026-11-07). Mirrors the sidebar's desk filter.
     if (['purchase-orders', 'purchase-order-detail', 'purchase-order-form'].includes(view))
-      return true;
+      return !FRONT_DESK_ROLES.has(String(role)) || hasPerm(Permission.VIEW_SUPPLIERS);
 
     // Finance group — now owned by the `finance` module (216) and decided by
     // the `VIEW_TO_MODULE` branch at the top of this function, which runs first.

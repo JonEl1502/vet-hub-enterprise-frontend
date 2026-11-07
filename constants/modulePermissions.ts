@@ -381,6 +381,13 @@ const DESK_WRITE: string[] = [
   'visits:create', 'visits:edit',
   'reminders:create', 'reminders:edit', 'reminders:delete',
 ];
+/**
+ * The desk's page set: everything except the catalog pages (user, 2026-11-07).
+ * `billables` stays because it also owns the `bills` queue the desk works from;
+ * its menu group is hidden in the sidebar instead (DESK_HIDDEN_MENUS).
+ */
+const DESK_HIDDEN_MODULES = new Set(['products', 'services', 'procedures', 'workflows', 'packages']);
+const DESK_VIEW: string[] = VIEW_ALL.filter(g => !DESK_HIDDEN_MODULES.has(g.split(':')[0]));
 const writes = (moduleId: string, ...actions: ModuleActionId[]) =>
   actions.map(a => `${moduleId}:${a}`);
 
@@ -425,8 +432,8 @@ export const MODULE_ROLE_PRESETS: Partial<Record<UserRole, string[]>> = {
   // day — but the clinical record is read-only. Booking visits and working
   // reminders stay full write; billing lives in the legacy catalog for now and
   // is untouched, so invoicing keeps working exactly as it does today.
-  [UserRole.FRONT_OFFICE]: [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...DESK_WRITE, ...writes('bills', 'raise'), ...MONEY_FULL],
-  [UserRole.RECEPTIONIST]: [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...DESK_WRITE, ...writes('bills', 'raise'), ...MONEY_FULL],
+  [UserRole.FRONT_OFFICE]: [...DESK_VIEW, ...CLINICAL_READ_ONLY, ...DESK_WRITE, ...writes('bills', 'raise'), ...MONEY_FULL],
+  [UserRole.RECEPTIONIST]: [...DESK_VIEW, ...CLINICAL_READ_ONLY, ...DESK_WRITE, ...writes('bills', 'raise'), ...MONEY_FULL],
   // The till IS the job for these two — they carried the legacy VIEW_FINANCE
   // token for exactly this reason.
   [UserRole.CASHIER]:      [...VIEW_ALL, ...CLINICAL_READ_ONLY, ...writes('bills', 'raise'), ...MONEY_FULL],

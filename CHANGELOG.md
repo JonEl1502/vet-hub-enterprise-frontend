@@ -59,6 +59,13 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: front desk sidebar shows only patient and client work  —  2026-11-07
+- **What changed:** Front Office and Receptionist no longer see Farm, Inventory & Billables, or Suppliers & Orders (Suppliers & Orders returns with the Suppliers grant). Their role preset drops page access to products, services, procedures, workflows and packages, and `canAccess` blocks purchase orders for them. Emergency, boarding, grooming, petshop, pharmacy, medical, inpatient, bills and taking payment are unchanged.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+- ⚠️ **Watch out:** a desk person whose role is set to Manager still sees everything; change their role. `clinic-billables` still opens by direct link, because the `billables` grant also owns the `bills` queue.
+
 ### config: homepage readable by crawlers — real HTML in #root, shorter meta description  —  2026-10-28
 - **What changed:** `index.html` fallback moved out of `<noscript>` into a plain `#seo-home` block (H1/H2s, feature list, nav + footer linking About, Contact, the country pages, signup/login). Seobility read the apex as 0 words / no H1 / no internal links. Meta description cut to 148 chars. An inline head script hides the block on any path but `/`.
 - **Record impact:** 🟢 None.

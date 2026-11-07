@@ -44,6 +44,19 @@ const DEFAULT_BADGE = 'bg-slate-500/15 text-slate-500 dark:text-slate-300 border
 export const isPlatformAdmin = (role?: string | null): boolean =>
   role === UserRole.SUPER_ADMIN || role === UserRole.MERCHANT_ADMIN;
 
+/**
+ * The front desk works patients, clients, bookings and the till — not the farm,
+ * the catalog or procurement (user, 2026-11-07: "they should see just things
+ * related to patients and clients"). Finance and Clinic Management are already
+ * off for these roles by their page preset; this covers the groups that had no
+ * gate at all.
+ */
+export const FRONT_DESK_ROLES = new Set<string>([UserRole.FRONT_OFFICE, UserRole.RECEPTIONIST]);
+/** Sidebar groups the front desk never sees, whatever else they are granted. */
+export const DESK_HIDDEN_MENUS = new Set(['farm_menu', 'billable_menu']);
+/** Procurement pages. Hidden from the desk unless the owner grants Suppliers. */
+export const PROCUREMENT_VIEWS = new Set(['purchase-orders', 'purchase-order-detail', 'purchase-order-form', 'payables', 'suppliers', 'supplier-detail']);
+
 export const roleLabel = (role?: UserRole | string): string =>
   (role && ROLE_META[role as UserRole]?.label) || String(role || '').replace(/_/g, ' ');
 
