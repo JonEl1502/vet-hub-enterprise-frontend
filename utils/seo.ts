@@ -21,8 +21,10 @@ const DEFAULT_DESCRIPTION =
 
 export const SEO_BY_VIEW: Record<string, Seo> = {
   landing: {
-    title: 'VetHub Core — Veterinary Practice Management Software & Pet-Owner Portal',
-    description: DEFAULT_DESCRIPTION,
+    // Matches index.html and the hero (user, 2026-11-11).
+    title: 'VetHubCore — Vet Clinic Software for Records and M-Pesa Billing',
+    description: 'Vet clinic software for bookings, medical records, pharmacy and stock, and billing with M-Pesa. ' +
+      'Your clients get a free portal with reminders. One month free, no card.',
     path: '/',
   },
   pricing: {

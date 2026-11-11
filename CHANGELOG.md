@@ -59,6 +59,12 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: homepage hero says what VetHubCore does  —  2026-11-11
+- **What changed:** the hero headline types its last words for three audiences: "Vet clinic software for" bookings / medical records / pharmacy and stock / billing with M-Pesa; "Know your herd:" health records / vaccinations / vet visits; "Never miss a" vaccine / check-up / deworming. A plain line under it says what the product does. Title, share tags, `utils/seo.ts` and the `index.html` fallback match. Screen readers get the full sentences; reduced motion shows the first phrase still.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### component: front desk sidebar shows only patient and client work  —  2026-11-07
 - **What changed:** Front Office and Receptionist no longer see Farm, Inventory & Billables, or Suppliers & Orders (Suppliers & Orders returns with the Suppliers grant). Their role preset drops page access to products, services, procedures, workflows and packages, and `canAccess` blocks purchase orders for them. Emergency, boarding, grooming, petshop, pharmacy, medical, inpatient, bills and taking payment are unchanged.
 - **Record impact:** 🟢 None.

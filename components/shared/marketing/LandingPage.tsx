@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { partnerTypeAPI, type FeaturedClinic } from '../../../services/modules/partnerType.api';
-import { motion, AnimatePresence, useScroll, useTransform, useInView } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform, useInView, useReducedMotion } from 'framer-motion';
 import desktopImg from '../../../assets/device-desktop.png';
 import tabletImg from '../../../assets/device-tablet.png';
 import mobileImg from '../../../assets/device-mobile.png';
@@ -38,6 +38,77 @@ const HERO_SLIDE_MS = 6000;
 const WARM_MODULES_BG   = 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=1920&q=80'; // happy dog, bright & airy
 const WARM_PLATFORMS_BG = 'https://images.unsplash.com/photo-1560743641-3914f2c45636?auto=format&fit=crop&w=1920&q=80';    // two joyful dogs bounding through grass
 const WARM_WELCOME_BG   = 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=1920&q=80'; // golden-hour puppy heading home
+
+/**
+ * The hero says what VetHubCore DOES (user, 2026-11-11: "its about marketing
+ * message telling new user what the product does"). The lead names who it is
+ * for; the typed words name real things the product handles. Clinics first,
+ * because they pay. Herd records sit on the paid Farmer plans, so the farmer
+ * line describes them without calling them free.
+ */
+const HERO_LINES = [
+  { lead: 'Vet clinic software for', words: ['bookings.', 'medical records.', 'pharmacy and stock.', 'billing with M-Pesa.'] },
+  { lead: 'Know your herd:', words: ['health records.', 'vaccinations.', 'vet visits.'] },
+  { lead: 'Never miss a', words: ['vaccine.', 'check-up.', 'deworming.'] },
+];
+const TYPE_MS = 75;
+const DELETE_MS = 40;
+const HOLD_MS = 1500;
+
+/** Fixed lead, last words typed in and out. Reduced motion shows the first phrase still. */
+function TypedHeadline({ className }: { className: string }) {
+  const still = useReducedMotion();
+  const [line, setLine] = useState(0);
+  const [word, setWord] = useState(0);
+  const [chars, setChars] = useState(0);
+  const [deleting, setDeleting] = useState(false);
+  const target = HERO_LINES[line].words[word];
+
+  useEffect(() => {
+    if (still) return;
+    let wait = deleting ? DELETE_MS : TYPE_MS;
+    let next: () => void;
+    if (!deleting && chars < target.length) next = () => setChars(chars + 1);
+    else if (!deleting) { wait = HOLD_MS; next = () => setDeleting(true); }
+    else if (chars > 0) next = () => setChars(chars - 1);
+    else next = () => {
+      setDeleting(false);
+      const words = HERO_LINES[line].words;
+      if (word + 1 < words.length) setWord(word + 1);
+      else { setWord(0); setLine((line + 1) % HERO_LINES.length); }
+    };
+    const id = window.setTimeout(next, wait);
+    return () => window.clearTimeout(id);
+  }, [still, chars, deleting, line, word, target]);
+
+  const shown = still ? HERO_LINES[0].words[0] : target.slice(0, chars);
+  const lead = still ? HERO_LINES[0].lead : HERO_LINES[line].lead;
+  return (
+    <motion.h1
+      initial={{ opacity: 0, y: 24 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
+      className={className}
+      aria-label={HERO_LINES.map(l => `${l.lead} ${l.words.join(' ')}`).join(' ')}
+    >
+      <AnimatePresence mode="wait" initial={false}>
+        {/* Two lines kept below lg: the clinic lead wraps there and the others
+            don't, which would make everything under the headline jump. */}
+        <motion.span key={lead} aria-hidden className="block min-h-[1.96em] lg:min-h-0"
+          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+          {lead}
+        </motion.span>
+      </AnimatePresence>
+      <span aria-hidden className="block min-h-[1.05em] text-[#F2A41C]">
+        {shown}
+        {!still && (
+          <motion.span className="inline-block w-[0.08em] h-[0.85em] ml-[0.06em] align-[-0.05em] bg-[#F2A41C]"
+            animate={{ opacity: [1, 1, 0, 0] }} transition={{ duration: 1, repeat: Infinity, times: [0, 0.5, 0.5, 1] }} />
+        )}
+      </span>
+    </motion.h1>
+  );
+}
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -400,29 +471,9 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             </span>
           </motion.div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
-            className="text-[32px] sm:text-[42px] md:text-[56px] lg:text-[68px] xl:text-[76px] font-black tracking-tight text-white leading-[0.98] max-w-[16ch] md:max-w-[20ch] lg:max-w-[24ch]"
-          >
-            {/* MEASURE WIDENED (user, 2026-08-12: "spread the text").
-                `max-w-[15ch]` and the smaller sizes existed to keep the copy
-                clear of the parallax tablet on the right. That device is now
-                commented out, so the headline was sitting in the left third of
-                an empty hero, broken across four short lines. It runs to ~24ch
-                and larger from `lg` up — still a measure, not the full 1280px
-                container: past roughly 25ch a display headline stops scanning
-                in one glance, and the body below stays under ~65ch for the
-                same reason. */}
-            {/* The subject carries the brand amber, exactly as the OG card and
-                the share image do ("...for veterinary clinics." in #F2A41C).
-                The headline was flat white here, so the one piece of art the
-                clinic actually sees first did not match the ad they arrived
-                from (user, 2026-08-05). */}
-            The operating system for{' '}
-            <span className="text-[#F2A41C]">veterinary practice.</span>
-          </motion.h1>
+          {/* Typed headline (user, 2026-11-11), replacing "The operating system
+              for veterinary practice." Same size and measure as before. */}
+          <TypedHeadline className="text-[32px] sm:text-[42px] md:text-[56px] lg:text-[68px] xl:text-[76px] font-black tracking-tight text-white leading-[0.98] max-w-[16ch] md:max-w-[20ch] lg:max-w-[24ch]" />
 
           <motion.div
             initial={{ opacity: 0, y: 16 }}
@@ -430,11 +481,10 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             transition={{ duration: 0.6, ease: EASE, delay: 0.2 }}
             className="mt-7 max-w-xl lg:max-w-2xl"
           >
-            <p className="text-white font-bold text-base md:text-lg tracking-wide">
-              Every clinic · Every pet · Every team
-            </p>
-            <p className="mt-2 text-white/70 text-base md:text-lg leading-relaxed">
-              Visits, records, inventory, and billing — one connected platform with 24/7 support.
+            {/* The plain version of the headline: what it does, for whom. */}
+            <p className="text-white/85 text-base md:text-lg leading-relaxed">
+              VetHubCore runs your vet clinic: appointments, medical records, lab, pharmacy, stock and billing with M-Pesa.
+              Your clients get a free portal for their pets, with reminders and online payment. Farmers can add their herds on a farm plan.
             </p>
           </motion.div>
 
