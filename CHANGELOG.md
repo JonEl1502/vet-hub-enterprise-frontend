@@ -60,7 +60,7 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 ## [Unreleased]
 
 ### page: homepage hero says what VetHubCore does  —  2026-11-11
-- **What changed:** the hero headline types its last words for three audiences: "Vet clinic software for" bookings / medical records / pharmacy and stock / billing with M-Pesa; "Know your herd:" health records / vaccinations / vet visits; "Never miss a" vaccine / check-up / deworming. A plain line under it says what the product does. Title, share tags, `utils/seo.ts` and the `index.html` fallback match. Screen readers get the full sentences; reduced motion shows the first phrase still.
+- **What changed:** the hero headline now reads "Vet clinic software for bookings, records and M-Pesa billing." in place of "The operating system for veterinary practice." A plain line under it says what the product does for clinics, pet owners and farmers. Title, share tags, `utils/seo.ts` and the `index.html` fallback match.
 - **Record impact:** 🟢 None.
 - **Data dependency:** None.
 - **Rollback:** revert the commit and rebuild.

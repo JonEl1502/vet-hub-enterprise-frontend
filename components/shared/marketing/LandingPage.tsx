@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { partnerTypeAPI, type FeaturedClinic } from '../../../services/modules/partnerType.api';
-import { motion, AnimatePresence, useScroll, useTransform, useInView, useReducedMotion } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform, useInView } from 'framer-motion';
 import desktopImg from '../../../assets/device-desktop.png';
 import tabletImg from '../../../assets/device-tablet.png';
 import mobileImg from '../../../assets/device-mobile.png';
@@ -38,77 +38,6 @@ const HERO_SLIDE_MS = 6000;
 const WARM_MODULES_BG   = 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?auto=format&fit=crop&w=1920&q=80'; // happy dog, bright & airy
 const WARM_PLATFORMS_BG = 'https://images.unsplash.com/photo-1560743641-3914f2c45636?auto=format&fit=crop&w=1920&q=80';    // two joyful dogs bounding through grass
 const WARM_WELCOME_BG   = 'https://images.unsplash.com/photo-1576201836106-db1758fd1c97?auto=format&fit=crop&w=1920&q=80'; // golden-hour puppy heading home
-
-/**
- * The hero says what VetHubCore DOES (user, 2026-11-11: "its about marketing
- * message telling new user what the product does"). The lead names who it is
- * for; the typed words name real things the product handles. Clinics first,
- * because they pay. Herd records sit on the paid Farmer plans, so the farmer
- * line describes them without calling them free.
- */
-const HERO_LINES = [
-  { lead: 'Vet clinic software for', words: ['bookings.', 'medical records.', 'pharmacy and stock.', 'billing with M-Pesa.'] },
-  { lead: 'Know your herd:', words: ['health records.', 'vaccinations.', 'vet visits.'] },
-  { lead: 'Never miss a', words: ['vaccine.', 'check-up.', 'deworming.'] },
-];
-const TYPE_MS = 75;
-const DELETE_MS = 40;
-const HOLD_MS = 1500;
-
-/** Fixed lead, last words typed in and out. Reduced motion shows the first phrase still. */
-function TypedHeadline({ className }: { className: string }) {
-  const still = useReducedMotion();
-  const [line, setLine] = useState(0);
-  const [word, setWord] = useState(0);
-  const [chars, setChars] = useState(0);
-  const [deleting, setDeleting] = useState(false);
-  const target = HERO_LINES[line].words[word];
-
-  useEffect(() => {
-    if (still) return;
-    let wait = deleting ? DELETE_MS : TYPE_MS;
-    let next: () => void;
-    if (!deleting && chars < target.length) next = () => setChars(chars + 1);
-    else if (!deleting) { wait = HOLD_MS; next = () => setDeleting(true); }
-    else if (chars > 0) next = () => setChars(chars - 1);
-    else next = () => {
-      setDeleting(false);
-      const words = HERO_LINES[line].words;
-      if (word + 1 < words.length) setWord(word + 1);
-      else { setWord(0); setLine((line + 1) % HERO_LINES.length); }
-    };
-    const id = window.setTimeout(next, wait);
-    return () => window.clearTimeout(id);
-  }, [still, chars, deleting, line, word, target]);
-
-  const shown = still ? HERO_LINES[0].words[0] : target.slice(0, chars);
-  const lead = still ? HERO_LINES[0].lead : HERO_LINES[line].lead;
-  return (
-    <motion.h1
-      initial={{ opacity: 0, y: 24 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
-      className={className}
-      aria-label={HERO_LINES.map(l => `${l.lead} ${l.words.join(' ')}`).join(' ')}
-    >
-      <AnimatePresence mode="wait" initial={false}>
-        {/* Two lines kept below lg: the clinic lead wraps there and the others
-            don't, which would make everything under the headline jump. */}
-        <motion.span key={lead} aria-hidden className="block min-h-[1.96em] lg:min-h-0"
-          initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
-          {lead}
-        </motion.span>
-      </AnimatePresence>
-      <span aria-hidden className="block min-h-[1.05em] text-[#F2A41C]">
-        {shown}
-        {!still && (
-          <motion.span className="inline-block w-[0.08em] h-[0.85em] ml-[0.06em] align-[-0.05em] bg-[#F2A41C]"
-            animate={{ opacity: [1, 1, 0, 0] }} transition={{ duration: 1, repeat: Infinity, times: [0, 0.5, 0.5, 1] }} />
-        )}
-      </span>
-    </motion.h1>
-  );
-}
 
 interface LandingPageProps {
   onLogin: () => void;
@@ -471,9 +400,19 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             </span>
           </motion.div>
 
-          {/* Typed headline (user, 2026-11-11), replacing "The operating system
-              for veterinary practice." Same size and measure as before. */}
-          <TypedHeadline className="text-[32px] sm:text-[42px] md:text-[56px] lg:text-[68px] xl:text-[76px] font-black tracking-tight text-white leading-[0.98] max-w-[16ch] md:max-w-[20ch] lg:max-w-[24ch]" />
+          {/* Says what VetHubCore DOES (user, 2026-11-11: "its about marketing
+              message telling new user what the product does"). A typed version
+              was tried and removed the same day. Same size and measure as the
+              old "operating system for veterinary practice" headline. */}
+          <motion.h1
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
+            className="text-[32px] sm:text-[42px] md:text-[56px] lg:text-[68px] xl:text-[76px] font-black tracking-tight text-white leading-[0.98] max-w-[16ch] md:max-w-[20ch] lg:max-w-[24ch]"
+          >
+            Vet clinic software for{' '}
+            <span className="text-[#F2A41C]">bookings, records and M-Pesa billing.</span>
+          </motion.h1>
 
           <motion.div
             initial={{ opacity: 0, y: 16 }}
