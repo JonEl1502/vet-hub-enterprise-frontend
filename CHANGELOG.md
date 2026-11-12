@@ -59,11 +59,11 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
-### page: homepage hero says what VetHubCore does  —  2026-11-11
-- **What changed:** the hero headline now reads "Vet clinic software for bookings, records and billing." in place of "The operating system for veterinary practice." A plain line under it says what the product does for clinics, pet owners and farmers. Title, share tags, `utils/seo.ts` and the `index.html` fallback match. No M-Pesa in the headline, title or previews, because VetHubCore sells beyond Kenya; it stays in the payments FAQ and feature list.
+### page: homepage hero says what VetHubCore does  —  2026-11-12
+- **What changed:** the hero headline now reads "Everything your [Vet Clinic / Agrovet / Pet Boarding] runs on. All in one place." in place of "The operating system for veterinary practice." The business type drops in like a slot reel every 3 seconds (`SlotWord`; no movement under reduced motion). Under it, one line each for vets, pet and farm owners, and suppliers. The "Welcome to VetHubCore" line and logo lockup are gone, the "Run with confidence" section is hidden, and the modules section is retitled "Every room in the clinic. One system." Title, share tags, `utils/seo.ts` and the `index.html` fallback say "Vet clinic software for bookings, records and billing". No M-Pesa in the headline, title or previews, because VetHubCore sells beyond Kenya; it stays in the payments FAQ and feature list.
 - **Record impact:** 🟢 None.
 - **Data dependency:** None.
-- **Rollback:** revert the commit and rebuild.
+- **Rollback:** revert the commits and rebuild.
 
 ### component: front desk sidebar shows only patient and client work  —  2026-11-07
 - **What changed:** Front Office and Receptionist no longer see Farm, Inventory & Billables, or Suppliers & Orders (Suppliers & Orders returns with the Suppliers grant). Their role preset drops page access to products, services, procedures, workflows and packages, and `canAccess` blocks purchase orders for them. Emergency, boarding, grooming, petshop, pharmacy, medical, inpatient, bills and taking payment are unchanged.
