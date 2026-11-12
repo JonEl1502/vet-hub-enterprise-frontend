@@ -169,7 +169,7 @@ const plural = (raw: string) => {
 /**
  * The "!" note beside a field (user, 2026-11-12: "for a new user so fields to
  * have ! notes"). Hover or focus shows it on desktop; a tap toggles it on a
- * phone, where there is no hover.
+ * phone, where there is no hover; tapping anywhere else closes it.
  */
 const Hint: React.FC<{ text: string }> = ({ text }) => {
   const [open, setOpen] = useState(false);
@@ -179,7 +179,9 @@ const Hint: React.FC<{ text: string }> = ({ text }) => {
         type="button"
         aria-label="What is this?"
         aria-expanded={open}
-        onClick={() => setOpen(o => !o)}
+        // Open, never toggle: with a mouse, hover has already opened it, and a
+        // toggle would shut it on the very click meant to read it.
+        onClick={() => setOpen(true)}
         onMouseEnter={() => setOpen(true)}
         onMouseLeave={() => setOpen(false)}
         onBlur={() => setOpen(false)}
