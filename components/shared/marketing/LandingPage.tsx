@@ -1313,7 +1313,8 @@ export default function LandingPage({ onLogin, onRegister, onDemo, onPricing, on
     <div className="min-h-screen bg-white text-[#144E35] antialiased">
       <Nav onLogin={onLogin} onRegister={onRegister} onPricing={onPricing} />
       <Hero onRegister={onRegister} onDemo={onDemo} />
-      <TrustConfidence />
+      {/* "Run with confidence" (24/7, always-on) hidden on John's ask, 2026-11-12. */}
+      {/* <TrustConfidence /> */}
       <Modules />
       <Platforms />
       <Integrations />
