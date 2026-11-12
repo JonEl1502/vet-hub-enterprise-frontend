@@ -59,6 +59,10 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### fix: supplier dashboard counts till sales; Products shows live stock — 2026-11-12
+- Dashboard revenue (total, this month, sparkline) now includes completed till sales from every branch, cut by the date range. Shops with a till get a "Today" card; "Completed sales" counts till sales.
+- Products page re-reads stock every time it opens (it showed a 30-minute saved copy), and a till sale clears saved product/stock lists.
+
 ### page: till payment screen, sales table, Shift hidden — 2026-11-12
 - Payment: "Amount due" hero, Cash / M-Pesa / Card cards, a received/change panel ("Change to give" in green, "Still to pay" in red), note buttons, "Complete sale · KES …".
 - Sales: a table on a desk (time, receipt, items, paid by, customer, cashier, status, total) under Takings / Sales / Average, with search; cards on a phone.
