@@ -59,6 +59,12 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: supplier Add Product is quick-add first, with "!" notes  —  2026-11-12
+- **What changed:** "The basics" card holds name (typing searches the medicines catalogue in place; the separate Medical Products picker is gone), category, "You sell it by the…", "Price per <unit>", "How many <units> do you have?" and "Show it to clinics?". Everything else (cost and profit, packs, minimum order, low-stock alert, Medicine/Consumable + sub-groups, SKU, maker, country, photo, description) sits under a collapsed "More details (optional)", open by default when editing. Every field has a plain-words heading and an amber "!" note. A blank SKU is generated (`NAME-XXXX`). Catalogue units are matched to the unit list ("Tablets" → `tablet`); "each" reads as "item". Preview prices format as money.
+- **Record impact:** 🟢 None. Same payload; SKU is filled in when left blank.
+- **Data dependency:** None (`@@unique([supplierId, sku])` already live).
+- **Rollback:** revert the commits and rebuild.
+
 ### component: supplier dashboard redesign  —  2026-11-12
 - **What changed:** for suppliers, the Overview/Wallet tabs, the plan banner and the listings-used strip are gone. The page opens on the date range; a Wallet button sits at the far right and shows only to the supplier's OWNER (no `supplierRole` counts as owner). Money cards are full-colour gradients (pine, ocean, gold, violet) with a 6-month sparkline; count tiles are tinted per colour and click through; panels get coloured icon chips, illustrated empty states, a gradient revenue line, a donut with the order total in the middle, gradient bars for top clinics and multi-colour category bars. Admins keep their Charts / Suppliers / Wallet tabs.
 - **Record impact:** 🟢 None.
