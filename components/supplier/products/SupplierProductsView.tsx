@@ -189,17 +189,21 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = ({ setView }) 
       // load reads fresh from network too.
       cache.invalidatePattern(/supplier-products/);
     } else {
+      // Show the saved copy at once, then ALWAYS re-read from the server.
+      // ⚠️ This used to return on a cache hit, so for 30 minutes the page
+      // showed whatever stock it last saw — a till sale took a bottle off
+      // and Products still said 12 (user, 2026-11-12). Stock is live data.
       const cached = cache.get<SupplierProduct[]>(PRODUCTS_CACHE_KEY, PRODUCTS_CACHE_PARAMS);
       if (cached) {
         setProducts(cached);
         setLoading(false);
-        return;
+      } else {
+        setLoading(true);
       }
-      setLoading(true);
     }
     if (silent) setRefreshing(true);
     try {
-      const res = await supplierProductsAPI.getMyProducts({ limit: 500 });
+      const res = await supplierProductsAPI.getMyProducts({ limit: 500 }, { cache: false });
       const data = res.data.data || [];
       cache.set(PRODUCTS_CACHE_KEY, data, PRODUCTS_CACHE_PARAMS, 30 * 60 * 1000);
       setProducts(data);

@@ -137,6 +137,15 @@ export interface PosShift {
   byMethod: Partial<Record<PosPaymentMethod, number>>;
 }
 
+/** Till takings for the supplier dashboard: every branch, completed sales. */
+export interface PosTotals {
+  currency: string;
+  timeZone: string;
+  allTime: { total: number; count: number };
+  /** One row per day with sales, last 13 months, in `timeZone`. Day = YYYY-MM-DD. */
+  days: { day: string; total: number; count: number }[];
+}
+
 export const supplierPosAPI = {
   /**
    * Who is on the till, and where they may sell. The FIRST call the POS makes —
@@ -226,4 +235,10 @@ export const supplierPosAPI = {
     options?: RequestOptions
   ): Promise<ApiResponse<{ summary: PosShift; scope: 'me' | 'branch' }>> =>
     get(`${ENDPOINTS.SUPPLIER_POS.SHIFT}?branchId=${branchId}${mine ? '&mine=true' : ''}`, options),
+
+  getTotals: async (options?: RequestOptions): Promise<ApiResponse<PosTotals>> => {
+    let tz = 'Africa/Nairobi';
+    try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone || tz; } catch { /* default */ }
+    return get(`${ENDPOINTS.SUPPLIER_POS.TOTALS}?tz=${encodeURIComponent(tz)}`, { cache: false, ...options });
+  },
 };

@@ -22,6 +22,7 @@ import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import SupplierSearchDropdown from '../../shared/layout/sidebar/SupplierSearchDropdown';
 import { supplierProductsAPI } from '../../../services/modules/supplierProducts.api';
 import { supplierOrdersAPI } from '../../../services/modules/supplierOrders.api';
+import { supplierPosAPI, type PosTotals } from '../../../services/modules/supplierPos.api';
 import { supplierSubscriptionAPI, type SupplierSubscription } from '../../../services/modules/supplierSubscription.api';
 import { suppliersAPI, CreateSupplierData } from '../../../services/modules/suppliers.api';
 import { toast } from '../../../services/utils/toast';
@@ -175,6 +176,12 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
   const [orders, setOrders] = useState<PurchaseOrder[]>([]);
   const [products, setProducts] = useState<SupplierProduct[]>([]);
   const [subscription, setSubscription] = useState<SupplierSubscription | null>(null);
+  /**
+   * Over-the-counter takings from the till. Without these the dashboard read
+   * clinic orders only and showed KES 0.00 on a day the till took KES 10,890
+   * (user, 2026-11-12). Null = not loaded / not allowed (cashier, admin).
+   */
+  const [till, setTill] = useState<PosTotals | null>(null);
   const [allSuppliers, setAllSuppliers] = useState<Supplier[]>([]);
   // Admin Suppliers-directory tab: cards vs table.
   const [supplierDirView, setSupplierDirView] = useState<'cards' | 'table'>('cards');
@@ -241,12 +248,18 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
         ? supplierSubscriptionAPI.getActive(String(user.supplier.id)).catch(() => null)
         : Promise.resolve(null as any);
 
-      const [ordersRes, productsRes, suppliersRes, subRes] = await Promise.all([
+      const tillPromise = (!isAdmin && user?.supplier?.id)
+        ? supplierPosAPI.getTotals({ silent: true, showError: false } as any).catch(() => null)
+        : Promise.resolve(null as any);
+
+      const [ordersRes, productsRes, suppliersRes, subRes, tillRes] = await Promise.all([
         ordersPromise,
         productsPromise,
         suppliersPromise,
         subscriptionPromise,
+        tillPromise,
       ]);
+      setTill(tillRes && (tillRes as any).success ? (tillRes as any).data : null);
       setOrders(ordersRes.data.data || []);
       setProducts(productsRes.data.data || []);
       if (suppliersRes) {
@@ -316,7 +329,38 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
     });
   }, [orders, activeBranchIds, branches, dateRange]);
 
-  // Stats derived from filteredOrders
+  /**
+   * Till takings, cut the same way the orders are: by the dashboard's date
+   * range when one is picked, all time when not. Days are YYYY-MM-DD in the
+   * shop's zone, compared as strings against the range's local dates.
+   */
+  const dayKey = (d: Date) =>
+    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+  const tillStats = useMemo(() => {
+    const days = till?.days ?? [];
+    const now = new Date();
+    const today = dayKey(now);
+    const thisMonth = today.slice(0, 7);
+    const lm = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonth = dayKey(lm).slice(0, 7);
+    const from = dateRange?.start ? dayKey(new Date(dateRange.start)) : null;
+    const to = dateRange?.end ? dayKey(new Date(dateRange.end)) : null;
+    const sum = (rows: typeof days) => rows.reduce((n, r) => n + r.total, 0);
+    const cnt = (rows: typeof days) => rows.reduce((n, r) => n + r.count, 0);
+    const inRange = from || to ? days.filter((r) => (!from || r.day >= from) && (!to || r.day <= to)) : null;
+    const todayRows = days.filter((r) => r.day === today);
+    return {
+      range: inRange ? sum(inRange) : (till?.allTime.total ?? 0),
+      rangeCount: inRange ? cnt(inRange) : (till?.allTime.count ?? 0),
+      today: sum(todayRows),
+      todayCount: cnt(todayRows),
+      thisMonth: sum(days.filter((r) => r.day.startsWith(thisMonth))),
+      lastMonth: sum(days.filter((r) => r.day.startsWith(lastMonth))),
+      byMonth: (key: string) => sum(days.filter((r) => r.day.startsWith(key))),
+    };
+  }, [till, dateRange]);
+
+  // Stats derived from filteredOrders + the till
   const stats = useMemo(() => {
     const active = filteredOrders.filter(o =>
       ['SUBMITTED', 'APPROVED', 'ORDERED', 'PARTIALLY_RECEIVED'].includes(o.status)
@@ -348,22 +392,39 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
       })
       .reduce((sum, o) => sum + parseFloat((o as any).totalAmount?.toString() || '0'), 0);
     const avgOrderValue = completed.length > 0 ? totalRevenue / completed.length : 0;
-    const monthGrowth = revenueLastMonth > 0
-      ? ((revenueThisMonth - revenueLastMonth) / revenueLastMonth) * 100
+    // Orders completed today, to sit beside the till's today.
+    const todayKey = dayKey(now);
+    const ordersToday = completed
+      .filter(o => dayKey(new Date((o as any).createdAt || 0)) === todayKey)
+      .reduce((sum, o) => sum + parseFloat((o as any).totalAmount?.toString() || '0'), 0);
+    const allThisMonth = revenueThisMonth + tillStats.thisMonth;
+    const allLastMonth = revenueLastMonth + tillStats.lastMonth;
+    const monthGrowth = allLastMonth > 0
+      ? ((allThisMonth - allLastMonth) / allLastMonth) * 100
       : null;
     return {
-      totalRevenue,
+      ordersRevenue: totalRevenue,
+      tillRevenue: tillStats.range,
+      totalRevenue: totalRevenue + tillStats.range,
+      ordersThisMonth: revenueThisMonth,
+      tillThisMonth: tillStats.thisMonth,
+      todayRevenue: ordersToday + tillStats.today,
+      tillToday: tillStats.today,
+      tillTodayCount: tillStats.todayCount,
+      ordersToday,
+      completedSales: completed.length + tillStats.rangeCount,
       pendingPayments,
       totalProducts: products.length,
       activeOrders: active.length,
       completedOrders: completed.length,
       cancelledOrders: cancelled.length,
-      revenueThisMonth,
-      revenueLastMonth,
+      revenueThisMonth: allThisMonth,
+      revenueLastMonth: allLastMonth,
       avgOrderValue,
       monthGrowth,
     };
-  }, [filteredOrders, products]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredOrders, products, tillStats]);
 
   // Revenue by month for last 6 months
   const revenueByMonth = useMemo(() => {
@@ -382,8 +443,15 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
         months[key] += parseFloat((o as any).totalAmount?.toString() || '0');
       }
     });
+    // ...plus the till's takings for the same months.
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      const key = d.toLocaleString('default', { month: 'short', year: '2-digit' });
+      months[key] += tillStats.byMonth(dayKey(d).slice(0, 7));
+    }
     return Object.entries(months).map(([month, revenue]) => ({ month, revenue }));
-  }, [filteredOrders]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filteredOrders, tillStats]);
 
   // Orders by status for PieChart
   const ordersByStatus = useMemo(() => {
@@ -822,7 +890,10 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
             <KpiCard
               tone="pine" icon={DollarSign} label="Total revenue"
               value={money(stats.totalRevenue)} currency={currency}
-              foot="All time · completed orders" spark={revenueByMonth}
+              foot={till
+                ? `${dateRange ? 'This range' : 'All time'} · till ${money(stats.tillRevenue)} + orders ${money(stats.ordersRevenue)}`
+                : `${dateRange ? 'This range' : 'All time'} · completed orders`}
+              spark={revenueByMonth}
             />
             <KpiCard
               tone="ocean" icon={TrendingUp} label="This month"
@@ -837,17 +908,28 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
               value={money(stats.pendingPayments)} currency={currency}
               foot={`${stats.activeOrders} active order${stats.activeOrders !== 1 ? 's' : ''}`}
             />
-            <KpiCard
-              tone="violet" icon={Activity} label="Avg order value"
-              value={money(stats.avgOrderValue)} currency={currency}
-              foot="Per completed order"
-            />
+            {till ? (
+              /* Today — the number an agrovet owner opens the dashboard for.
+                 Replaces "Avg order value" for a shop with a till; a shop
+                 with clinic orders only still gets the average. */
+              <KpiCard
+                tone="violet" icon={Activity} label="Today"
+                value={money(stats.todayRevenue)} currency={currency}
+                foot={`${stats.tillTodayCount} till sale${stats.tillTodayCount === 1 ? '' : 's'}${stats.ordersToday > 0 ? ` + orders ${money(stats.ordersToday)}` : ''}`}
+              />
+            ) : (
+              <KpiCard
+                tone="violet" icon={Activity} label="Avg order value"
+                value={money(stats.avgOrderValue)} currency={currency}
+                foot="Per completed order"
+              />
+            )}
           </div>
 
           {/* Count tiles — tinted, each its own colour */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
             <StatTile tone="violet" icon={ShoppingCart} label="Active orders" value={stats.activeOrders} onClick={() => setView?.('supplier-orders')} />
-            <StatTile tone="emerald" icon={CheckCircle2} label="Completed" value={stats.completedOrders} onClick={() => setView?.('supplier-orders')} />
+            <StatTile tone="emerald" icon={CheckCircle2} label={till ? 'Completed sales' : 'Completed'} value={till ? stats.completedSales : stats.completedOrders} onClick={() => setView?.('supplier-orders')} />
             <StatTile tone="sky" icon={PackageIcon} label="Products" value={stats.totalProducts} onClick={() => setView?.('supplier-products')} />
             <StatTile tone="rose" icon={XCircle} label="Cancelled" value={stats.cancelledOrders} onClick={() => setView?.('supplier-orders')} />
           </div>

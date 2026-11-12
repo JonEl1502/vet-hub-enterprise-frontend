@@ -448,6 +448,7 @@ export const ENDPOINTS = {
     SALE_BY_ID: (id: string) => `/supplier-pos/sales/${id}`,
     VOID: (id: string) => `/supplier-pos/sales/${id}/void`,
     SHIFT: '/supplier-pos/shift',
+    TOTALS: '/supplier-pos/totals',
   },
 
   // Purchase Orders

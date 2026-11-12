@@ -119,6 +119,9 @@ const makeRequest = async <T = any>(
       if (method !== 'get') {
         const resource = url.split('?')[0].split('/').filter(Boolean)[0];
         if (resource) cache.invalidatePattern(resource.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+        // A till sale (or void) moves stock that the product and stock lists
+        // show, under a different top-level path — clear those too.
+        if (resource === 'supplier-pos') cache.invalidatePattern(/supplier-products|supplier-stock/);
       }
 
       // Clear loading state
