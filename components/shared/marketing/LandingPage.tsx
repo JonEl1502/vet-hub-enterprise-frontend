@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { partnerTypeAPI, type FeaturedClinic } from '../../../services/modules/partnerType.api';
-import { motion, AnimatePresence, useScroll, useTransform, useInView } from 'framer-motion';
+import { motion, AnimatePresence, useScroll, useTransform, useInView, useReducedMotion } from 'framer-motion';
 import desktopImg from '../../../assets/device-desktop.png';
 import tabletImg from '../../../assets/device-tablet.png';
 import mobileImg from '../../../assets/device-mobile.png';
@@ -273,6 +273,79 @@ const Nav: React.FC<{ onLogin: () => void; onRegister: () => void; onPricing: ()
 };
 
 // ── HERO ── Full-bleed dark hero with parallax bg + stacked headline + QR card + review strip.
+// Slot-machine word in the hero (John, 2026-11-12: "drop like casino slot,
+// 3sec"). Each new business type drops in from above every 3 seconds, with a
+// little bounce, and the window's width follows the word so "runs on." never
+// sits after a gap. Reduced-motion users get the swap with no movement.
+const SLOT_WORDS = ['Vet Clinic', 'Agrovet', 'Pet Boarding'];
+const SLOT_H = 1.08; // em, one reel row
+const SlotWord: React.FC = () => {
+  const reduce = useReducedMotion();
+  const n = SLOT_WORDS.length;
+  const seq = [...SLOT_WORDS, SLOT_WORDS[0]]; // last row repeats the first, for a seamless loop
+  const [i, setI] = useState(0);
+  const [animate, setAnimate] = useState(true);
+  const sizers = useRef<(HTMLSpanElement | null)[]>([]);
+  const [widths, setWidths] = useState<number[]>([]);
+
+  useEffect(() => {
+    const measure = () => setWidths(sizers.current.map(el => (el ? el.getBoundingClientRect().width : 0)));
+    measure();
+    (document as any).fonts?.ready?.then(measure);
+    window.addEventListener('resize', measure);
+    return () => window.removeEventListener('resize', measure);
+  }, []);
+
+  useEffect(() => {
+    const t = setInterval(() => { setAnimate(true); setI(x => x + 1); }, 3000);
+    return () => clearInterval(t);
+  }, []);
+
+  // After landing on the repeated first word, jump back to row 0 unseen.
+  useEffect(() => {
+    if (i !== n) return;
+    const t = setTimeout(() => { setAnimate(false); setI(0); }, 750);
+    return () => clearTimeout(t);
+  }, [i, n]);
+
+  const rows = [...seq].reverse(); // bottom row is the first word, so new words come from above
+  const offset = -(rows.length - 1 - i) * SLOT_H;
+  const w = widths[i % n];
+  const moving = animate && !reduce;
+
+  return (
+    <span className="relative inline-block align-bottom whitespace-nowrap">
+      <span className="sr-only">{SLOT_WORDS.join(', ')}</span>
+      {/* Hidden copies, only to measure each word's width */}
+      <span aria-hidden className="absolute invisible pointer-events-none left-0 top-0">
+        {SLOT_WORDS.map((word, k) => (
+          <span key={word} ref={el => { sizers.current[k] = el; }} className="absolute whitespace-nowrap">{word}</span>
+        ))}
+      </span>
+      <span
+        aria-hidden
+        className="inline-block overflow-hidden rounded-[0.18em] bg-white/10 ring-1 ring-white/25 px-[0.16em] align-bottom"
+        style={{ height: `${SLOT_H}em` }}
+      >
+        <span
+          className="block"
+          style={{
+            width: w ? `${w}px` : undefined,
+            transform: `translateY(${offset}em)`,
+            transition: moving
+              ? 'transform 700ms cubic-bezier(0.34, 1.45, 0.64, 1), width 450ms ease'
+              : 'none',
+          }}
+        >
+          {rows.map((word, k) => (
+            <span key={k} className="block text-[#F2A41C]" style={{ height: `${SLOT_H}em`, lineHeight: `${SLOT_H}em` }}>{word}</span>
+          ))}
+        </span>
+      </span>
+    </span>
+  );
+};
+
 const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegister, onDemo }) => {
   const { scrollY } = useScroll();
   // Parallax layers — each transforms at a different rate to create depth.
@@ -375,8 +448,9 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
       {/* Content */}
       <motion.div style={{ y: contentY, opacity: fadeOut }} className="relative z-10 h-full">
         <div className="max-w-[1280px] mx-auto px-5 md:px-8 h-full flex flex-col justify-center pt-36 pb-32">
-          {/* Headline picked by John (2026-11-12): "Everything your clinic runs
-              on. All in one place." It replaced "All in one. Where vets, owners
+          {/* Headline picked by John (2026-11-12): "Everything your [Vet Clinic /
+              Agrovet / Pet Boarding] runs on. All in one place.", the
+              business type on a slot reel (SlotWord). It replaced "All in one. Where vets, owners
               and suppliers meet." the same day; the three lines below keep the
               who-meets-here idea.
               The "Welcome to" line and logo lockup were removed so the pitch
@@ -388,8 +462,8 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
             className="font-black tracking-tight text-white leading-[1.02] max-w-full md:max-w-4xl lg:max-w-6xl"
           >
-            <span className="block text-[44px] sm:text-[56px] md:text-[72px] lg:text-[84px] leading-[0.95]">Everything your clinic runs on.</span>
-            <span className="block mt-2 md:mt-3 text-[44px] sm:text-[56px] md:text-[72px] lg:text-[84px] leading-[0.95] text-[#F2A41C]">All in one place.</span>
+            <span className="block text-[40px] sm:text-[54px] md:text-[68px] lg:text-[80px] leading-[1.12]">Everything your <SlotWord /> runs on.</span>
+            <span className="block mt-2 md:mt-3 text-[40px] sm:text-[54px] md:text-[68px] lg:text-[80px] leading-[0.95] text-[#F2A41C]">All in one place.</span>
           </motion.h1>
 
           <motion.div
