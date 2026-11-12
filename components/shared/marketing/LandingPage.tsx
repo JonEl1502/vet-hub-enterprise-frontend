@@ -384,10 +384,10 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
-            className="font-black tracking-tight text-white leading-[1.02] max-w-[18ch] md:max-w-[22ch] lg:max-w-[24ch]"
+            className="font-black tracking-tight text-white leading-[1.02] max-w-full md:max-w-3xl lg:max-w-4xl"
           >
-            <span className="block text-[44px] sm:text-[56px] md:text-[76px] lg:text-[92px] xl:text-[100px] leading-[0.95]">All in one.</span>
-            <span className="block mt-3 md:mt-4 text-[26px] sm:text-[32px] md:text-[42px] lg:text-[50px] xl:text-[54px] text-[#F2A41C]">
+            <span className="block text-[48px] sm:text-[60px] md:text-[76px] lg:text-[88px] leading-[0.95]">All in one.</span>
+            <span className="block mt-3 md:mt-4 text-[26px] sm:text-[32px] md:text-[40px] lg:text-[48px] text-[#F2A41C]">
               Where veterinarians, pet &amp; farm animal owners and suppliers meet.
             </span>
           </motion.h1>
