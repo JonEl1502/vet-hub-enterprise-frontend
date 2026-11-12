@@ -1336,6 +1336,345 @@ body {
 .supplier-pos .sp-key:active { transform: scale(0.95); background: var(--sp-surface-2); }
 
 /* =========================================================================
+ * Till v2 — the sell screen redesign (2026-11-12).
+ *
+ * The first till was correct but read as a prototype: a grey canvas of white
+ * rectangles with small type. These rules give it what Square and Shopify POS
+ * sell screens have — a colour block per product, categories as cards, a price
+ * you can read from a metre away, a live header — without giving up any of the
+ * rules above (48px targets, words beside every colour, 16px inputs).
+ * ======================================================================= */
+
+/* ── Search: the busiest control, so it is the biggest ───────────────── */
+.supplier-pos .sp-search {
+  min-height: 3.5rem;
+  border-radius: 1.1rem;
+  font-size: 16px;
+}
+.supplier-pos .sp-scan-btn {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--sp-accent-soft);
+  color: var(--sp-accent);
+}
+.supplier-pos .sp-flash {
+  display: inline-flex;
+  margin-top: 0.5rem;
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.supplier-pos .sp-flash-good { background: color-mix(in srgb, var(--sp-good) 14%, transparent); color: var(--sp-good); }
+.supplier-pos .sp-flash-bad  { background: color-mix(in srgb, var(--sp-bad) 12%, transparent);  color: var(--sp-bad); }
+
+/* ── Category cards ──────────────────────────────────────────────────── */
+.supplier-pos .sp-cat {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.5rem 0.9rem 0.5rem 0.5rem;
+  min-height: 3.25rem;
+  border-radius: 1rem;
+  background: var(--sp-surface);
+  border: 1px solid var(--sp-border);
+  color: var(--sp-ink);
+  box-shadow: 0 1px 2px rgba(16, 21, 28, 0.04);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, transform 0.08s ease;
+}
+.supplier-pos .sp-cat:active { transform: scale(0.97); }
+@media (hover: hover) {
+  .supplier-pos .sp-cat:hover { border-color: color-mix(in srgb, var(--sp-accent) 50%, var(--sp-border)); }
+}
+.supplier-pos .sp-cat-on {
+  border-color: var(--sp-accent);
+  background: var(--sp-accent-soft);
+  box-shadow: inset 0 0 0 1px var(--sp-accent), 0 6px 16px -10px color-mix(in srgb, var(--sp-accent) 70%, transparent);
+}
+.supplier-pos .sp-cat-icon {
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+/* Smart filters: a quieter second row. */
+.supplier-pos .sp-chip-sm {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem 0.5rem 0.4rem 0.75rem;
+  font-size: 0.76rem;
+  min-height: 2.25rem;
+}
+.supplier-pos .sp-chip-count {
+  min-width: 1.4rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--sp-surface-2);
+  color: var(--sp-ink-2);
+  font-size: 0.68rem;
+  font-weight: 900;
+  text-align: center;
+}
+.supplier-pos .sp-chip-on .sp-chip-count { background: rgba(255, 255, 255, 0.22); color: inherit; }
+
+/* ── The product card ────────────────────────────────────────────────── */
+.supplier-pos .sp-ptile {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  text-align: left;
+  background: var(--sp-surface);
+  border: 1px solid var(--sp-border);
+  border-radius: 1.1rem;
+  box-shadow:
+    0 1px 2px rgba(16, 21, 28, 0.04),
+    0 12px 26px -20px rgba(16, 21, 28, 0.4);
+  transition: transform 0.08s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+}
+@media (hover: hover) {
+  .supplier-pos .sp-ptile:hover:not(:disabled) {
+    border-color: var(--sp-accent);
+    box-shadow:
+      0 1px 2px rgba(16, 21, 28, 0.05),
+      0 18px 34px -20px rgba(16, 21, 28, 0.5);
+  }
+  .supplier-pos .sp-ptile:hover:not(:disabled) .sp-add { transform: scale(1.08); }
+}
+/* A press must be felt instantly — anything slower reads as a missed tap. */
+.supplier-pos .sp-ptile:active:not(:disabled) { transform: scale(0.97); border-color: var(--sp-accent); }
+.supplier-pos .sp-ptile:disabled { cursor: not-allowed; }
+.supplier-pos .sp-ptile-out { opacity: 0.55; }
+.supplier-pos .sp-ptile-out .sp-ptile-art { filter: grayscale(0.9); }
+.supplier-pos .sp-ptile-in {
+  border-color: var(--sp-accent);
+  box-shadow:
+    inset 0 0 0 1.5px var(--sp-accent),
+    0 14px 28px -18px color-mix(in srgb, var(--sp-accent) 80%, transparent);
+}
+
+.supplier-pos .sp-ptile-art {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 4.75rem;
+  width: 100%;
+  overflow: hidden;
+  background: var(--sp-surface-2);
+}
+/* A soft light in the corner so a flat swatch reads as a surface, not a fill. */
+.supplier-pos .sp-ptile-art::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(9rem 5rem at 85% 0%, rgba(255, 255, 255, 0.55), transparent 70%),
+    radial-gradient(6rem 4rem at 0% 100%, rgba(0, 0, 0, 0.04), transparent 70%);
+  pointer-events: none;
+}
+.dark .supplier-pos .sp-ptile-art::before { background: none; }
+.supplier-pos .sp-ptile-art > svg { position: relative; }
+@media (min-width: 1024px) {
+  .supplier-pos .sp-ptile-art { height: 5.25rem; }
+}
+
+.supplier-pos .sp-flag {
+  position: absolute;
+  top: 0.45rem;
+  left: 0.45rem;
+  padding: 0.14rem 0.45rem;
+  border-radius: 999px;
+  font-size: 0.6rem;
+  font-weight: 900;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.supplier-pos .sp-flag-top { background: #fff4d6; color: #8a5a0b; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.supplier-pos .sp-flag-bad { background: #fde3e1; color: #a2231f; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+.supplier-pos .sp-qty-lg {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  min-width: 1.75rem;
+  height: 1.75rem;
+  font-size: 0.8rem;
+  border: 2px solid var(--sp-surface);
+}
+
+.supplier-pos .sp-stock {
+  position: absolute;
+  left: 0.45rem;
+  bottom: 0.45rem;
+  padding: 0.14rem 0.5rem;
+  border-radius: 999px;
+  font-size: 0.64rem;
+  font-weight: 800;
+  white-space: nowrap;
+  max-width: calc(100% - 0.9rem);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 1px 3px rgba(16, 21, 28, 0.12);
+}
+.supplier-pos .sp-stock-ok   { color: #3d4655; }
+.supplier-pos .sp-stock-warn { color: #9a520a; background: #fff1dc; }
+.supplier-pos .sp-stock-bad  { color: #a2231f; background: #fde3e1; }
+
+/* The price: the number a cashier hunts for, sized to be read from a metre. */
+.supplier-pos .sp-price {
+  display: block;
+  font-size: 1.05rem;
+  font-weight: 900;
+  line-height: 1;
+  letter-spacing: -0.01em;
+  color: var(--sp-ink);
+}
+@media (min-width: 1024px) {
+  .supplier-pos .sp-price { font-size: 1.15rem; }
+}
+.supplier-pos .sp-add {
+  flex: 0 0 auto;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 0.7rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--sp-accent);
+  color: var(--sp-accent-ink);
+  box-shadow: 0 4px 10px -4px color-mix(in srgb, var(--sp-accent) 80%, transparent);
+  transition: transform 0.12s ease;
+}
+
+/* Wider tiles on a desk now that each has an art block to fill. */
+@media (min-width: 1024px) {
+  .supplier-pos .sp-grid { grid-template-columns: repeat(auto-fill, minmax(11.5rem, 1fr)); }
+}
+
+/* ── Loading + empty ─────────────────────────────────────────────────── */
+.supplier-pos .sp-skel .sp-ptile-art,
+.supplier-pos .sp-skel-bar {
+  background: linear-gradient(90deg, var(--sp-surface-2) 0%, var(--sp-border) 50%, var(--sp-surface-2) 100%);
+  background-size: 200% 100%;
+  animation: sp-shimmer 1.3s ease-in-out infinite;
+}
+.supplier-pos .sp-skel .sp-ptile-art::before { display: none; }
+.supplier-pos .sp-skel { min-height: 9.5rem; }
+.supplier-pos .sp-skel-bar { height: 0.7rem; border-radius: 999px; }
+@keyframes sp-shimmer { 0% { background-position: 100% 0; } 100% { background-position: -100% 0; } }
+@media (prefers-reduced-motion: reduce) {
+  .supplier-pos .sp-skel .sp-ptile-art, .supplier-pos .sp-skel-bar { animation: none; }
+}
+.supplier-pos .sp-empty-icon {
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--sp-accent-soft);
+  color: var(--sp-accent);
+}
+
+/* ── Header pieces ───────────────────────────────────────────────────── */
+.supplier-pos .sp-hpill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(242, 245, 249, 0.85);
+  white-space: nowrap;
+}
+.supplier-pos .sp-hpill b { color: #fff; font-weight: 900; }
+.supplier-pos .sp-dot { width: 0.45rem; height: 0.45rem; border-radius: 999px; flex: 0 0 auto; }
+.supplier-pos .sp-logo {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.8rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--sp-accent);
+  color: var(--sp-accent-ink);
+  font-weight: 900;
+  font-size: 0.95rem;
+  box-shadow: 0 6px 16px -8px color-mix(in srgb, var(--sp-accent) 80%, transparent);
+}
+.supplier-pos .sp-logo img { width: 100%; height: 100%; object-fit: cover; background: #fff; }
+
+/* ── Cart lines ──────────────────────────────────────────────────────── */
+.supplier-pos .sp-line {
+  display: flex;
+  gap: 0.75rem;
+  padding: 0.8rem 1rem;
+  border-bottom: 1px solid var(--sp-border);
+}
+.supplier-pos .sp-line-swatch {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  overflow: hidden;
+}
+.supplier-pos .sp-stepper {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--sp-border);
+  border-radius: 0.8rem;
+  background: var(--sp-surface);
+  overflow: hidden;
+}
+.supplier-pos .sp-stepper button {
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--sp-ink-2);
+}
+.supplier-pos .sp-stepper button:active { background: var(--sp-surface-2); }
+.supplier-pos .sp-stepper span {
+  min-width: 2rem;
+  text-align: center;
+  font-weight: 900;
+  font-size: 15px;
+}
+.supplier-pos .sp-charge {
+  width: 100%;
+  min-height: 3.75rem;
+  border-radius: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0 1.25rem;
+  font-size: 1.05rem;
+}
+
+/* =========================================================================
  * Supplier stockroom controls.
  *
  * Small, unscoped-by-design utilities used only under components/supplier/

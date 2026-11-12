@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ShoppingBag, Receipt, Wallet, LogOut, ChevronDown, ShoppingCart, LayoutGrid } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
+import { supplierPosAPI, type PosShift } from '../../../services';
 import BottomSheet from '../../shared/common/mobile/BottomSheet';
 import { usePos, type PosController } from './usePos';
 import { useIsDesktop } from './useIsDesktop';
@@ -79,6 +80,29 @@ const SupplierPosApp: React.FC = () => {
   /** Bumped after a void so the list re-reads without the cashier tapping refresh. */
   const [salesVersion, setSalesVersion] = useState(0);
 
+  /**
+   * Today's takings in the header — the number every shop owner asks the till
+   * for first. Same endpoint as the Shift tab, re-read after every sale and
+   * void, so it moves the moment money does.
+   */
+  const [today, setToday] = useState<PosShift | null>(null);
+  useEffect(() => {
+    if (pos.phase !== 'ready' || !pos.branchId) return;
+    let alive = true;
+    supplierPosAPI
+      .getShift(pos.branchId)
+      .then((r) => alive && setToday(r.data.summary))
+      .catch(() => { /* the header simply leaves it out */ });
+    return () => { alive = false; };
+  }, [pos.phase, pos.branchId, salesVersion]);
+
+  /** A wall clock. A till is where people ask "what time is it" most. */
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => {
+    const t = window.setInterval(() => setNow(new Date()), 15_000);
+    return () => window.clearInterval(t);
+  }, []);
+
   if (pos.phase === 'loading') {
     return (
       <div className="supplier-pos sp-root flex items-center justify-center" style={{ height: '100dvh' }}>
@@ -106,6 +130,7 @@ const SupplierPosApp: React.FC = () => {
     setChangeDue(cash?.tendered ? Number(cash.tendered) - Number(sale.total) : undefined);
     setLastSale(sale);
     setStep('receipt');
+    setSalesVersion((v) => v + 1);
   };
 
   const newSale = () => { setLastSale(null); setChangeDue(undefined); setStep('shopping'); };
@@ -200,6 +225,19 @@ const SupplierPosApp: React.FC = () => {
     </>
   );
 
+  const clock = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+  const dateText = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
+  const roleText = (pos.till?.supplierRole ?? '').toLowerCase().replace(/_/g, ' ');
+  const todayPill = today ? (
+    <span className="sp-hpill" title="Completed sales since midnight">
+      Today
+      <b className="sp-num">{money(today.gross, today.currency || pos.currency)}</b>
+      <span style={{ opacity: 0.6 }} className="sp-num">
+        · {today.salesCount} sale{today.salesCount === 1 ? '' : 's'}
+      </span>
+    </span>
+  ) : null;
+
   const branchLine = (
     <div className="flex items-center gap-1.5">
       {pos.canSwitchBranch && pos.branches.length > 1 ? (
@@ -250,13 +288,13 @@ const SupplierPosApp: React.FC = () => {
           className="sp-chrome shrink-0 flex flex-col items-center gap-1 pb-3 w-[4.5rem] border-r"
           style={{ borderColor: 'rgba(255,255,255,0.06)' }}
         >
-          <div className="flex items-center justify-center shrink-0" style={{ height: '3.5rem' }}>
-            <div
-              className="w-9 h-9 rounded-xl flex items-center justify-center text-base"
-              style={{ background: 'rgba(255,255,255,0.08)' }}
-              title={pos.shop?.name ?? 'Till'}
-            >
-              🌾
+          <div className="flex items-center justify-center shrink-0" style={{ height: '4rem' }}>
+            <div className="sp-logo" title={pos.shop?.name ?? 'Till'}>
+              {pos.shop?.logoUrl || shopLogo ? (
+                <img src={(pos.shop?.logoUrl || shopLogo) as string} alt="" />
+              ) : (
+                initialsOf(pos.shop?.name || shopName || 'Till')
+              )}
             </div>
           </div>
 
@@ -285,23 +323,32 @@ const SupplierPosApp: React.FC = () => {
         {/* Catalogue */}
         <main className="flex-1 min-w-0 flex flex-col">
           <header
-            className="sp-chrome shrink-0 flex items-center gap-3 px-5 border-b"
-            /* h matched to the rail header below — a stepped top edge where the
-               two panes meet is the sort of thing you cannot un-see. */
-            style={{ borderColor: 'rgba(255,255,255,0.06)', height: '3.5rem' }}
+            className="sp-chrome shrink-0 flex items-center gap-4 px-5 border-b"
+            /* h matched to the rail header — a stepped top edge where the two
+               panes meet is the sort of thing you cannot un-see. */
+            style={{ borderColor: 'rgba(255,255,255,0.06)', height: '4rem' }}
           >
             <div className="min-w-0">
-              <p className="text-[14px] font-black leading-tight truncate">
+              <p className="text-[16px] font-black leading-tight truncate">
                 {pos.shop?.name ?? 'Till'}
               </p>
               {branchLine}
             </div>
-            <p
-              className="ml-auto text-[11px] font-bold hidden lg:block"
-              style={{ color: 'rgba(242,245,249,0.4)' }}
-            >
-              Scanner ready — just scan, no need to click the box
-            </p>
+            <div className="ml-auto flex items-center gap-2">
+              {todayPill}
+              <span className="sp-hpill hidden xl:inline-flex" title="The barcode scanner types straight into the search">
+                <span className="sp-dot" style={{ background: pos.online ? '#3fbf90' : '#e0a458' }} />
+                {pos.online ? 'Online · scanner ready' : 'Offline · last catalogue'}
+              </span>
+              <span className="sp-hpill">
+                <b className="sp-num">{clock}</b>
+                <span className="hidden lg:inline">{dateText}</span>
+              </span>
+              <span className="sp-hpill" title={pos.till?.supplierRole ?? ''}>
+                {user?.name?.split(' ')[0] || 'Cashier'}
+                <span style={{ opacity: 0.6 }}>· {roleText}</span>
+              </span>
+            </div>
           </header>
 
           {tab === 'sell' && <PosSellView pos={pos} />}
@@ -337,12 +384,17 @@ const SupplierPosApp: React.FC = () => {
               <>
                 <div
                   className="px-4 border-b flex items-center justify-between shrink-0"
-                  style={{ borderColor: 'var(--sp-border)', height: '3.5rem' }}
+                  style={{ borderColor: 'var(--sp-border)', height: '4rem' }}
                 >
-                  <h2 className="text-[13px] font-black uppercase tracking-wide">Current sale</h2>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-[15px] font-black">Current sale</h2>
+                    {pos.itemCount > 0 && (
+                      <span className="sp-qty sp-num">{pos.itemCount}</span>
+                    )}
+                  </div>
                   {pos.cart.length > 0 && (
-                    <button onClick={pos.clearCart} className="text-[12px] font-bold sp-muted">
-                      Clear
+                    <button onClick={pos.clearCart} className="sp-btn sp-btn-quiet px-3 text-[12px]">
+                      Clear sale
                     </button>
                   )}
                 </div>
@@ -365,11 +417,17 @@ const SupplierPosApp: React.FC = () => {
         style={{ paddingTop: 'calc(0.6rem + var(--sp-safe-top))', paddingBottom: '0.6rem' }}
       >
         <div className="min-w-0 flex-1">
-          <p className="text-[14px] font-black leading-tight truncate">
+          <p className="text-[15px] font-black leading-tight truncate">
             {pos.shop?.name ?? 'Till'}
           </p>
           {branchLine}
         </div>
+        {today && (
+          <span className="text-right leading-tight shrink-0">
+            <span className="block text-[10px] font-bold" style={{ color: 'rgba(242,245,249,0.6)' }}>Today</span>
+            <span className="block text-[13px] font-black sp-num">{money(today.gross, today.currency || pos.currency)}</span>
+          </span>
+        )}
         {identity}
       </header>
 
@@ -463,7 +521,7 @@ const SupplierPosApp: React.FC = () => {
               Clear
             </button>
             <button onClick={goTender} disabled={!pos.canTender} className="sp-btn flex-1">
-              {pos.pricing ? 'Pricing…' : `Take ${money(pos.preview?.total ?? 0, pos.currency)}`}
+              {pos.pricing ? 'Pricing…' : `Charge ${money(pos.preview?.total ?? 0, pos.currency)}`}
             </button>
           </div>
         </div>

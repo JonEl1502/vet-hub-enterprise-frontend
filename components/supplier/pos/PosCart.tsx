@@ -1,5 +1,7 @@
 import React from 'react';
-import { Minus, Plus, Trash2, AlertTriangle } from 'lucide-react';
+import { Minus, Plus, Trash2, AlertTriangle, ShoppingBasket, ScanLine, ArrowRight } from 'lucide-react';
+import { categoryTheme } from './categoryTheme';
+import { qtyText } from './format';
 import type { PosController } from './usePos';
 
 /**
@@ -28,7 +30,7 @@ interface Props {
 const PosCart: React.FC<Props> = ({ pos, onTender, compact }) => {
   // `compact` = rendered inside the bottom sheet, which supplies its own frame
   // and its own footer. The rail version owns both.
-  const { cart, preview, pricing, priceError, currency, bump, removeLine, clearCart, canTender } = pos;
+  const { cart, preview, pricing, priceError, currency, bump, removeLine, canTender, products, itemCount } = pos;
 
   const shortLines = new Set(
     (preview?.items ?? []).filter((i) => i.insufficientStock).map((i) => i.supplierProductId)
@@ -36,9 +38,18 @@ const PosCart: React.FC<Props> = ({ pos, onTender, compact }) => {
 
   if (cart.length === 0) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 text-center">
-        <p className="text-sm font-bold sp-muted">Nothing in the sale yet</p>
-        <p className="text-[12px] sp-muted mt-1">Scan an item, or tap it in the grid</p>
+      <div className="flex-1 flex flex-col items-center justify-center px-8 py-12 text-center">
+        <span className="sp-empty-icon">
+          <ShoppingBasket size={30} strokeWidth={1.8} />
+        </span>
+        <p className="text-[15px] font-black mt-4">Nothing in the sale yet</p>
+        <p className="text-[12px] sp-muted mt-1 max-w-[15rem]">
+          Tap a product to add it, or scan its barcode. You do not need to click the search box
+          first.
+        </p>
+        <p className="text-[11px] font-bold sp-muted mt-4 flex items-center gap-1.5">
+          <ScanLine size={13} /> Scanner ready
+        </p>
       </div>
     );
   }
@@ -50,61 +61,67 @@ const PosCart: React.FC<Props> = ({ pos, onTender, compact }) => {
         {cart.map((line) => {
           const priced = preview?.items.find((i) => i.supplierProductId === line.productId);
           const short = shortLines.has(line.productId);
+          const product = products.find((p) => p.id === line.productId);
+          const theme = categoryTheme(product?.category);
+          const unitPrice = priced?.unitPrice ?? line.displayPrice;
           return (
-            <div
-              key={line.productId}
-              className="px-4 py-3 border-b"
-              style={{ borderColor: 'var(--sp-border)' }}
-            >
-              <div className="flex items-start gap-3">
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-bold leading-tight">{line.name}</p>
-                  <p className="text-[11px] sp-muted sp-num mt-0.5">
-                    {money(priced?.unitPrice ?? line.displayPrice, currency)} each
-                  </p>
-                  {short && (
-                    <p className="text-[11px] font-bold sp-bad mt-1 flex items-center gap-1">
-                      <AlertTriangle size={12} />
-                      Only {priced?.available ?? 0} left
-                    </p>
-                  )}
-                </div>
+            <div key={line.productId} className="sp-line">
+              <span
+                className="sp-line-swatch"
+                style={product?.imageUrl ? undefined : { background: theme.bg, color: theme.fg }}
+                aria-hidden="true"
+              >
+                {product?.imageUrl ? (
+                  <img src={product.imageUrl} alt="" className="w-full h-full object-cover" />
+                ) : (
+                  <theme.Icon size={18} strokeWidth={2} />
+                )}
+              </span>
 
-                <div className="text-right shrink-0">
-                  <p className="text-[14px] font-black sp-num">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start gap-2">
+                  <p className="text-[13px] font-bold leading-snug flex-1 min-w-0">{line.name}</p>
+                  <p className="text-[14px] font-black sp-num shrink-0">
                     {money(priced?.lineTotal ?? line.displayPrice * line.quantity, currency)}
                   </p>
                 </div>
-              </div>
+                <p className="text-[11px] sp-muted sp-num mt-0.5">
+                  {money(unitPrice, currency)} × {qtyText(line.quantity)}
+                </p>
+                {short && (
+                  <p className="text-[11px] font-bold sp-bad mt-1 flex items-center gap-1">
+                    <AlertTriangle size={12} />
+                    Only {priced?.available ?? 0} left
+                  </p>
+                )}
 
-              {/* Stepper. 40px targets — this is tapped more than anything
-                  except the tiles themselves. */}
-              <div className="flex items-center gap-2 mt-2.5">
-                <button
-                  onClick={() => bump(line.productId, -1)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center sp-btn-ghost"
-                  aria-label={`One less ${line.name}`}
-                >
-                  <Minus size={16} />
-                </button>
-                <span className="w-10 text-center text-[15px] font-black sp-num">
-                  {line.quantity}
-                </span>
-                <button
-                  onClick={() => bump(line.productId, 1)}
-                  className="w-10 h-10 rounded-xl flex items-center justify-center sp-btn-ghost"
-                  aria-label={`One more ${line.name}`}
-                >
-                  <Plus size={16} />
-                </button>
-                <button
-                  onClick={() => removeLine(line.productId)}
-                  className="ml-auto w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{ color: 'var(--sp-muted)' }}
-                  aria-label={`Remove ${line.name}`}
-                >
-                  <Trash2 size={16} />
-                </button>
+                {/* Stepper. At 1 the minus becomes a bin — one control, and no
+                    separate delete button competing for the thumb. */}
+                <div className="mt-2 flex items-center">
+                  <div className="sp-stepper">
+                    <button
+                      onClick={() => (line.quantity <= 1 ? removeLine(line.productId) : bump(line.productId, -1))}
+                      aria-label={line.quantity <= 1 ? `Remove ${line.name}` : `One less ${line.name}`}
+                      style={line.quantity <= 1 ? { color: 'var(--sp-bad)' } : undefined}
+                    >
+                      {line.quantity <= 1 ? <Trash2 size={15} /> : <Minus size={16} />}
+                    </button>
+                    <span className="sp-num">{qtyText(line.quantity)}</span>
+                    <button onClick={() => bump(line.productId, 1)} aria-label={`One more ${line.name}`}>
+                      <Plus size={16} />
+                    </button>
+                  </div>
+                  {line.quantity > 1 && (
+                    <button
+                      onClick={() => removeLine(line.productId)}
+                      className="ml-auto w-10 h-10 rounded-xl flex items-center justify-center"
+                      style={{ color: 'var(--sp-muted)' }}
+                      aria-label={`Remove ${line.name}`}
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -113,18 +130,19 @@ const PosCart: React.FC<Props> = ({ pos, onTender, compact }) => {
 
       {/* Totals */}
       <div
-        className="shrink-0 border-t px-4 py-3"
+        className="shrink-0 border-t px-4 pt-3 pb-4"
         style={{ borderColor: 'var(--sp-border)', background: 'var(--sp-surface)' }}
       >
-        <Row label="Subtotal" value={money(preview?.subtotal ?? 0, currency)} muted />
+        <Row label={`Subtotal · ${qtyText(itemCount)} item${itemCount === 1 ? '' : 's'}`} value={money(preview?.subtotal ?? 0, currency)} muted />
         {(preview?.discount ?? 0) > 0 && (
           <Row label="Discount" value={`− ${money(preview!.discount, currency)}`} good />
         )}
-        <div className="flex justify-between items-baseline pt-1.5 mt-1.5 border-t"
+        {(preview?.tax ?? 0) > 0 && <Row label="Tax" value={money(preview!.tax, currency)} muted />}
+        <div className="flex justify-between items-baseline pt-2 mt-2 border-t"
              style={{ borderColor: 'var(--sp-border)' }}>
           <span className="text-[13px] font-black uppercase tracking-wide">Total</span>
-          <span className="text-[22px] font-black sp-num">
-            {money(preview?.total ?? 0, currency)}
+          <span className="text-[26px] font-black sp-num leading-none">
+            {pricing && !preview ? '…' : money(preview?.total ?? 0, currency)}
           </span>
         </div>
 
@@ -133,18 +151,17 @@ const PosCart: React.FC<Props> = ({ pos, onTender, compact }) => {
         )}
 
         {!compact && (
-          <div className="flex gap-2 mt-3">
-            <button onClick={clearCart} className="sp-btn sp-btn-ghost px-4">
-              Clear
-            </button>
-            <button
-              onClick={onTender}
-              disabled={!canTender}
-              className="sp-btn flex-1"
-            >
-              {pricing ? 'Pricing…' : 'Take payment'}
-            </button>
-          </div>
+          <button
+            onClick={onTender}
+            disabled={!canTender}
+            className="sp-btn sp-charge mt-3"
+          >
+            <span>{pricing ? 'Pricing…' : 'Charge'}</span>
+            <span className="flex items-center gap-2 sp-num">
+              {money(preview?.total ?? 0, currency)}
+              <ArrowRight size={18} strokeWidth={2.6} />
+            </span>
+          </button>
         )}
       </div>
     </div>

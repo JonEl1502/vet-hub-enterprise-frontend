@@ -82,6 +82,13 @@ export function usePos() {
   const [stats, setStats] = useState<Record<string, PosProductStat>>({});
   const [categories, setCategories] = useState<{ id: string; name: string; count: number }[]>([]);
   const [online, setOnline] = useState(true);
+  /**
+   * True once the catalogue has an answer — from the cache or the network, or
+   * the network failed. Without it an EMPTY shop and a LOADING shop look the
+   * same (`products.length === 0`), and a new supplier with no products sat
+   * on "Loading the catalogue…" forever (user, 2026-11-12).
+   */
+  const [catalogLoaded, setCatalogLoaded] = useState(false);
 
   const [cart, setCart] = useState<CartLine[]>([]);
   const [preview, setPreview] = useState<PosPreview | null>(null);
@@ -164,6 +171,8 @@ export function usePos() {
         // Offline or the server is down. Whatever is on screen stays on screen —
         // a stale grid still sells, a blank one does not.
         setOnline(false);
+      } finally {
+        setCatalogLoaded(true);
       }
     },
     [branchId]
@@ -171,7 +180,9 @@ export function usePos() {
 
   useEffect(() => {
     if (phase !== 'ready' || !branchId) return;
-    setProducts(readCache(branchId) ?? []);
+    const cached = readCache(branchId);
+    setProducts(cached ?? []);
+    setCatalogLoaded(!!cached?.length);
     loadCatalog({ silent: true });
   }, [phase, branchId, loadCatalog]);
 
@@ -388,6 +399,7 @@ export function usePos() {
     switchBranch,
     online,
     products,
+    catalogLoaded,
     stats,
     categories,
     reload: loadCatalog,
