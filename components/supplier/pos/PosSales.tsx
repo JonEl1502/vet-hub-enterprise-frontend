@@ -117,7 +117,7 @@ const PosSales: React.FC<{ pos: PosController; onOpenSale: (id: string) => void;
               aria-label="Find a sale"
             />
           </div>
-          <button onClick={load} className="sp-btn sp-btn-ghost w-11 px-0" aria-label="Refresh" title="Refresh">
+          <button onClick={load} className="w-11 h-11 rounded-xl flex items-center justify-center sp-btn-ghost shrink-0" aria-label="Refresh" title="Refresh">
             <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
           </button>
         </div>

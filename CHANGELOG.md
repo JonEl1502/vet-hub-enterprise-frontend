@@ -59,6 +59,12 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: till payment screen, sales table, Shift hidden — 2026-11-12
+- Payment: "Amount due" hero, Cash / M-Pesa / Card cards, a received/change panel ("Change to give" in green, "Still to pay" in red), note buttons, "Complete sale · KES …".
+- Sales: a table on a desk (time, receipt, items, paid by, customer, cashier, status, total) under Takings / Sales / Average, with search; cards on a phone.
+- Shift tab hidden. The header shows who is signed in, and the role only to the owner.
+- Branches follow the plan: without Supplier Pro the till sells from the main branch and shows the others as "+N branch · Pro" (backend refuses other branch ids).
+
 ### page: supplier till (POS) sell screen redesigned — 2026-11-12
 - Product cards carry a colour block by category (or the shop's photo), the stock left, a large price "per bag/bottle", and an add button.
 - Categories are counted cards in their shelf colour; Best sellers / Low stock / Sold out / Never sold carry counts.
