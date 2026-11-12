@@ -462,7 +462,14 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
             className="font-black tracking-tight text-white leading-[1.02] max-w-full md:max-w-4xl lg:max-w-6xl"
           >
-            <span className="block text-[40px] sm:text-[54px] md:text-[68px] lg:text-[80px] leading-[1.12]">Everything your <SlotWord /> runs on.</span>
+            {/* Fixed lines so the reel's width change never re-wraps the
+                headline: "Everything your" / [reel] runs on. On phones
+                "runs on." gets its own line, because "Pet Boarding runs on."
+                is too wide for one. */}
+            <span className="block text-[40px] sm:text-[54px] md:text-[68px] lg:text-[80px] leading-[1.12]">
+              Everything your<br />
+              <SlotWord /><br className="sm:hidden" /><span className="hidden sm:inline"> </span>runs on.
+            </span>
             <span className="block mt-2 md:mt-3 text-[40px] sm:text-[54px] md:text-[68px] lg:text-[80px] leading-[0.95] text-[#F2A41C]">All in one place.</span>
           </motion.h1>
 
