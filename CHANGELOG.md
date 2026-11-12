@@ -59,6 +59,14 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### page: supplier till (POS) sell screen redesigned — 2026-11-12
+- Product cards carry a colour block by category (or the shop's photo), the stock left, a large price "per bag/bottle", and an add button.
+- Categories are counted cards in their shelf colour; Best sellers / Low stock / Sold out / Never sold carry counts.
+- Header: shop logo, today's takings, online and scanner state, clock, who is on the till.
+- Cart lines show the product swatch, "price × qty", a stepper whose minus becomes a bin at one; one big Charge button with the total.
+- Fixed: an empty shop showed "Loading the catalogue…" forever; it now shows skeletons while loading and "Your shelf is empty" with an Add products link.
+- Fixed: the search text ran under the search icon ("Scan" read as "Sean").
+
 ### page: supplier Add Product is quick-add first, with "!" notes  —  2026-11-12
 - **What changed:** "The basics" card holds name (typing searches the medicines catalogue in place; the separate Medical Products picker is gone), category, "You sell it by the…", "Price per <unit>", "How many <units> do you have?" and "Show it to clinics?". Everything else (cost and profit, packs, minimum order, low-stock alert, Medicine/Consumable + sub-groups, SKU, maker, country, photo, description) sits under a collapsed "More details (optional)", open by default when editing. Every field has a plain-words heading and an amber "!" note. A blank SKU is generated (`NAME-XXXX`). Catalogue units are matched to the unit list ("Tablets" → `tablet`); "each" reads as "item". Preview prices format as money.
 - **Record impact:** 🟢 None. Same payload; SKU is filled in when left blank.

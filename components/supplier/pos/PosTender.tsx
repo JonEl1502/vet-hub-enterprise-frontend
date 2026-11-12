@@ -117,7 +117,8 @@ const PosTender: React.FC<Props> = ({ pos, onDone, onBack }) => {
   return (
     <div className="flex flex-col h-full min-h-0" style={{ background: 'var(--sp-bg)' }}>
       {/* Header */}
-      <div className="flex items-center gap-3 px-3 py-3 shrink-0">
+      {/* 4rem: level with the till header beside it on a desk. */}
+      <div className="flex items-center gap-3 px-3 py-2 shrink-0" style={{ minHeight: '4rem' }}>
         <button
           onClick={onBack}
           className="w-10 h-10 rounded-xl flex items-center justify-center sp-btn-ghost"

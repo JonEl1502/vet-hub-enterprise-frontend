@@ -1350,6 +1350,11 @@ body {
   min-height: 3.5rem;
   border-radius: 1.1rem;
   font-size: 16px;
+  /* ⚠️ Here, not as Tailwind pl-/pr- on the element: `.supplier-pos .sp-input`
+   * sets `padding` at (0,2,0), which beats a utility's (0,1,0), so the text
+   * ran under the search icon ("Scan" read as "Sean"). */
+  padding-left: 3rem;
+  padding-right: 3.5rem;
 }
 .supplier-pos .sp-scan-btn {
   width: 2.6rem;
