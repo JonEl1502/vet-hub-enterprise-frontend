@@ -375,44 +375,21 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
       {/* Content */}
       <motion.div style={{ y: contentY, opacity: fadeOut }} className="relative z-10 h-full">
         <div className="max-w-[1280px] mx-auto px-5 md:px-8 h-full flex flex-col justify-center pt-36 pb-32">
-          {/* Eyebrow */}
-          <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, ease: EASE }}
-            className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-white mb-4"
-          >
-            Welcome to
-          </motion.p>
-
-          {/* Brand lockup — paw mark + VetHubCore wordmark (indented from left) */}
-          <motion.div
-            initial={{ opacity: 0, y: 16 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: EASE, delay: 0.08 }}
-            className="flex items-center gap-3 mb-6 md:mb-8 pl-12 md:pl-16"
-          >
-            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/10 ring-1 ring-white/20 backdrop-blur grid place-items-center shadow-lg p-2.5">
-              <img src="/vethubcore-mark-white.svg" alt="VetHubCore" className="w-full h-full object-contain" />
-            </div>
-            <span className="text-3xl md:text-4xl font-black tracking-tight text-white">
-              VetHub<span className="text-[#F2A41C]">Core</span>
-            </span>
-          </motion.div>
-
-          {/* Says what VetHubCore DOES (user, 2026-11-11: "its about marketing
-              message telling new user what the product does"). A typed version
-              was tried and removed the same day. Same size and measure as the
-              old "operating system for veterinary practice" headline. No M-Pesa
-              here: VetHubCore sells beyond Kenya (user, 2026-11-12). */}
+          {/* The pitch is John's own words (2026-11-12): "All in One. Where
+              veterinarians, Pet & Farm Animal owners and suppliers meet."
+              The "Welcome to" line and logo lockup were removed so the pitch
+              is the first thing read; the navbar carries the logo. No M-Pesa
+              here: VetHubCore sells beyond Kenya. */}
           <motion.h1
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
-            className="text-[32px] sm:text-[42px] md:text-[56px] lg:text-[68px] xl:text-[76px] font-black tracking-tight text-white leading-[0.98] max-w-[16ch] md:max-w-[20ch] lg:max-w-[24ch]"
+            className="font-black tracking-tight text-white leading-[1.02] max-w-[18ch] md:max-w-[22ch] lg:max-w-[24ch]"
           >
-            Vet clinic software for{' '}
-            <span className="text-[#F2A41C]">bookings, records and billing.</span>
+            <span className="block text-[44px] sm:text-[56px] md:text-[76px] lg:text-[92px] xl:text-[100px] leading-[0.95]">All in one.</span>
+            <span className="block mt-3 md:mt-4 text-[26px] sm:text-[32px] md:text-[42px] lg:text-[50px] xl:text-[54px] text-[#F2A41C]">
+              Where veterinarians, pet &amp; farm animal owners and suppliers meet.
+            </span>
           </motion.h1>
 
           <motion.div
@@ -421,11 +398,12 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             transition={{ duration: 0.6, ease: EASE, delay: 0.2 }}
             className="mt-7 max-w-xl lg:max-w-2xl"
           >
-            {/* The plain version of the headline: what it does, for whom. */}
-            <p className="text-white/85 text-base md:text-lg leading-relaxed">
-              VetHubCore runs your vet clinic: appointments, medical records, lab, pharmacy, stock, billing and payments.
-              Your clients get a free portal for their pets, with reminders and online payment. Farmers can add their herds on a farm plan.
-            </p>
+            {/* What each side gets, in one line each. */}
+            <ul className="text-white/85 text-base md:text-lg leading-relaxed space-y-1.5">
+              <li><span className="font-bold text-white">Vets</span> run the whole clinic: bookings, records, lab, pharmacy, stock and billing.</li>
+              <li><span className="font-bold text-white">Pet and farm owners</span> get a free app with records, reminders and online payment.</li>
+              <li><span className="font-bold text-white">Suppliers</span> list drugs and equipment for clinics to order.</li>
+            </ul>
           </motion.div>
 
           <motion.div
