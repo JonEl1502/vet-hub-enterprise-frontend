@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, Banknote, Smartphone, CreditCard, Delete, Check } from 'lucide-react';
+import { ArrowLeft, Banknote, Smartphone, CreditCard, Delete, Check, Phone, CircleCheck } from 'lucide-react';
 import type { PosController } from './usePos';
 import type { PosPaymentMethod } from '../../../services';
 
@@ -16,10 +16,10 @@ import type { PosPaymentMethod } from '../../../services';
  * visible while the cashier types.
  */
 
-const METHODS: { id: PosPaymentMethod; label: string; icon: React.FC<any> }[] = [
-  { id: 'CASH', label: 'Cash', icon: Banknote },
-  { id: 'MPESA', label: 'M-Pesa', icon: Smartphone },
-  { id: 'CARD', label: 'Card', icon: CreditCard },
+const METHODS: { id: PosPaymentMethod; label: string; hint: string; icon: React.FC<any> }[] = [
+  { id: 'CASH', label: 'Cash', hint: 'Notes and coins', icon: Banknote },
+  { id: 'MPESA', label: 'M-Pesa', hint: 'Till or paybill', icon: Smartphone },
+  { id: 'CARD', label: 'Card', hint: 'Card machine', icon: CreditCard },
 ];
 
 /** "5000" -> "5,000"; "5000.5" -> "5,000.5"; "5000." -> "5,000." */
@@ -114,11 +114,16 @@ const PosTender: React.FC<Props> = ({ pos, onDone, onBack }) => {
     }
   };
 
+  const lines = preview?.items.length ?? 0;
+  const units = (preview?.items ?? []).reduce((n, i) => n + Number(i.quantity), 0);
+
   return (
     <div className="flex flex-col h-full min-h-0" style={{ background: 'var(--sp-bg)' }}>
-      {/* Header */}
-      {/* 4rem: level with the till header beside it on a desk. */}
-      <div className="flex items-center gap-3 px-3 py-2 shrink-0" style={{ minHeight: '4rem' }}>
+      {/* Header — 4rem, level with the till header beside it on a desk. */}
+      <div
+        className="flex items-center gap-3 px-3 shrink-0 border-b"
+        style={{ minHeight: '4rem', borderColor: 'var(--sp-border)', background: 'var(--sp-surface)', paddingTop: 'var(--sp-safe-top)' }}
+      >
         <button
           onClick={onBack}
           className="w-10 h-10 rounded-xl flex items-center justify-center sp-btn-ghost"
@@ -126,36 +131,50 @@ const PosTender: React.FC<Props> = ({ pos, onDone, onBack }) => {
         >
           <ArrowLeft size={18} />
         </button>
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-wider sp-muted">Amount due</p>
-          <p className="text-[26px] font-black leading-none sp-num">{money(total, currency)}</p>
+        <div className="min-w-0">
+          <p className="text-[15px] font-black leading-tight">Take payment</p>
+          <p className="text-[11px] font-semibold sp-muted">
+            {units} item{units === 1 ? '' : 's'} · {lines} line{lines === 1 ? '' : 's'}
+          </p>
         </div>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-y-auto px-3 pb-3 space-y-3">
+      <div className="flex-1 min-h-0 overflow-y-auto px-3 pt-3 pb-3 space-y-3">
+        {/* The number the customer is paying — the hero of this screen. */}
+        <div className="sp-due">
+          <p className="text-[11px] font-black uppercase tracking-wider" style={{ opacity: 0.8 }}>Amount due</p>
+          <p className="text-[32px] font-black leading-none sp-num mt-1.5">{money(total, currency)}</p>
+        </div>
+
         {/* How they are paying */}
-        <div className="grid grid-cols-3 gap-2">
-          {METHODS.map((m) => (
-            <button
-              key={m.id}
-              onClick={() => { setMethod(m.id); setEntry(''); }}
-              className={`sp-btn ${method === m.id ? '' : 'sp-btn-ghost'} flex-col gap-1 py-3`}
-              style={{ minHeight: '4.25rem' }}
-            >
-              <m.icon size={18} />
-              <span className="text-[11px] font-bold">{m.label}</span>
-            </button>
-          ))}
+        <div>
+          <p className="sp-tender-label">Paid by</p>
+          <div className="grid grid-cols-3 gap-2">
+            {METHODS.map((m) => {
+              const on = method === m.id;
+              return (
+                <button
+                  key={m.id}
+                  onClick={() => { setMethod(m.id); setEntry(''); setError(null); }}
+                  className={`sp-method ${on ? 'sp-method-on' : ''}`}
+                  aria-pressed={on}
+                >
+                  {on && <CircleCheck size={15} className="sp-method-tick" />}
+                  <span className="sp-method-icon"><m.icon size={19} /></span>
+                  <span className="text-[13px] font-black leading-tight">{m.label}</span>
+                  <span className="text-[10px] font-semibold sp-muted leading-tight">{m.hint}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {method === 'CASH' ? (
           <>
-            {/* What was handed over */}
-            <div className="sp-card p-3.5">
-              <div className="flex items-baseline justify-between">
-                <span className="text-[11px] font-bold uppercase tracking-wider sp-muted">
-                  Cash received
-                </span>
+            {/* What was handed over, and what goes back. */}
+            <div className="sp-card overflow-hidden">
+              <div className="flex items-baseline justify-between px-4 pt-3.5 pb-3">
+                <span className="text-[12px] font-bold sp-muted">Cash received</span>
                 {/*
                   Grouped while typing, but ONLY the whole part, and the raw
                   tail is kept verbatim — reformatting "5000." to "5,000.00"
@@ -166,32 +185,30 @@ const PosTender: React.FC<Props> = ({ pos, onDone, onBack }) => {
                   {entry === '' ? money(total, currency) : `${currency} ${groupWhileTyping(entry)}`}
                 </span>
               </div>
-              <div
-                className="flex items-baseline justify-between mt-2.5 pt-2.5 border-t"
-                style={{ borderColor: 'var(--sp-border)' }}
-              >
-                <span className="text-[13px] font-black uppercase tracking-wide">Change</span>
-                <span
-                  className={`text-[28px] font-black sp-num ${short ? 'sp-bad' : change > 0 ? 'sp-good' : ''}`}
-                >
-                  {short ? 'Short' : money(change, currency)}
+              <div className={`sp-change ${short ? 'sp-change-short' : change > 0 ? 'sp-change-give' : ''}`}>
+                <span className="text-[12px] font-black uppercase tracking-wide">
+                  {short ? 'Still to pay' : 'Change to give'}
+                </span>
+                <span className="text-[26px] font-black sp-num">
+                  {short ? money(total - tendered, currency) : money(change, currency)}
                 </span>
               </div>
             </div>
 
+            {/* The notes a customer actually hands over. */}
             {quickCash.length > 0 && (
-              <div className="sp-rail">
+              <div className="grid grid-cols-4 gap-2">
                 <button
                   onClick={() => setEntry('')}
-                  className={`sp-chip ${entry === '' ? 'sp-chip-on' : ''}`}
+                  className={`sp-note ${entry === '' ? 'sp-note-on' : ''}`}
                 >
                   Exact
                 </button>
-                {quickCash.map((n) => (
+                {quickCash.slice(0, 3).map((n) => (
                   <button
                     key={n}
                     onClick={() => setEntry(String(n))}
-                    className={`sp-chip sp-num ${entry === String(n) ? 'sp-chip-on' : ''}`}
+                    className={`sp-note sp-num ${entry === String(n) ? 'sp-note-on' : ''}`}
                   >
                     {n.toLocaleString()}
                   </button>
@@ -211,39 +228,42 @@ const PosTender: React.FC<Props> = ({ pos, onDone, onBack }) => {
             </div>
           </>
         ) : (
-          <div className="sp-card p-3.5 space-y-2.5">
+          <div className="sp-card p-4 space-y-2.5">
             <label className="block">
-              <span className="text-[11px] font-bold uppercase tracking-wider sp-muted">
-                {method === 'MPESA' ? 'M-Pesa code' : 'Card slip reference'}
+              <span className="sp-tender-label">
+                {method === 'MPESA' ? 'M-Pesa code' : 'Card slip number'}
               </span>
               <input
                 value={reference}
                 onChange={(e) => setReference(e.target.value.toUpperCase())}
-                className="sp-input mt-1.5"
+                className="sp-input sp-input-big"
                 placeholder={method === 'MPESA' ? 'e.g. SJ12AB34CD' : 'Slip number'}
                 autoComplete="off"
+                autoFocus
               />
             </label>
-            <p className="text-[11px] sp-muted">
-              Recorded against the sale. The payment itself is taken on the
-              {method === 'MPESA' ? ' till number' : ' card machine'} as usual.
+            <p className="text-[12px] sp-muted">
+              Optional, but it is how you match this sale to the
+              {method === 'MPESA' ? ' M-Pesa message' : ' card machine slip'} later. Take the
+              money on the {method === 'MPESA' ? 'till number' : 'card machine'} as usual first.
             </p>
           </div>
         )}
 
         {/* Optional — a phone number is what makes a receipt findable later. */}
         <label className="block">
-          <span className="text-[11px] font-bold uppercase tracking-wider sp-muted">
-            Customer phone (optional)
+          <span className="sp-tender-label">Customer phone <span className="normal-case font-semibold">(optional)</span></span>
+          <span className="relative block">
+            <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--sp-muted)' }} />
+            <input
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="sp-input sp-input-icon"
+              placeholder="07…"
+              inputMode="tel"
+              autoComplete="off"
+            />
           </span>
-          <input
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            className="sp-input mt-1.5"
-            placeholder="07…"
-            inputMode="tel"
-            autoComplete="off"
-          />
         </label>
 
         {error && (
@@ -255,15 +275,22 @@ const PosTender: React.FC<Props> = ({ pos, onDone, onBack }) => {
 
       {/* The commit. Pinned above the home indicator. */}
       <div
-        className="shrink-0 px-3 pt-2.5 border-t"
+        className="shrink-0 px-3 pt-3 border-t"
         style={{
           borderColor: 'var(--sp-border)',
           background: 'var(--sp-surface)',
           paddingBottom: 'calc(0.75rem + var(--sp-safe-bottom))',
         }}
       >
-        <button onClick={submit} disabled={busy || short} className="sp-btn w-full text-[15px]">
-          {busy ? 'Completing…' : <><Check size={18} /> Complete sale</>}
+        <button onClick={submit} disabled={busy || short} className="sp-btn sp-charge">
+          {busy ? (
+            <span className="mx-auto">Completing…</span>
+          ) : (
+            <>
+              <span className="flex items-center gap-2"><Check size={19} strokeWidth={2.8} /> Complete sale</span>
+              <span className="sp-num">{money(total, currency)}</span>
+            </>
+          )}
         </button>
       </div>
     </div>

@@ -144,7 +144,7 @@ export const supplierPosAPI = {
    */
   whoAmI: async (
     options?: RequestOptions
-  ): Promise<ApiResponse<{ till: PosTill; branches: { supplier: PosShopBrand; branches: PosBranch[]; canSwitchBranch: boolean } }>> =>
+  ): Promise<ApiResponse<{ till: PosTill; branches: { supplier: PosShopBrand; branches: PosBranch[]; canSwitchBranch: boolean; lockedBranches?: { id: string; name: string }[]; branchesFeature?: boolean } }>> =>
     get(ENDPOINTS.SUPPLIER_POS.ME, options),
 
   getCatalog: async (

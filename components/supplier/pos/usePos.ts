@@ -76,6 +76,8 @@ export function usePos() {
   const [shop, setShop] = useState<PosShopBrand | null>(null);
   const [branches, setBranches] = useState<PosBranch[]>([]);
   const [canSwitchBranch, setCanSwitchBranch] = useState(false);
+  /** Branches the shop has but its plan does not open — shown locked, never hidden. */
+  const [lockedBranches, setLockedBranches] = useState<{ id: string; name: string }[]>([]);
   const [branchId, setBranchId] = useState<string>(() => localStorage.getItem(BRANCH_KEY) || '');
 
   const [products, setProducts] = useState<PosProduct[]>([]);
@@ -110,6 +112,17 @@ export function usePos() {
         setShop(branchInfo.supplier);
         setBranches(branchInfo.branches);
         setCanSwitchBranch(branchInfo.canSwitchBranch);
+        setLockedBranches(branchInfo.lockedBranches ?? []);
+
+        // A cashier pinned to a branch the plan no longer opens: say so, rather
+        // than opening a till whose every request the server will refuse.
+        if (me.boundBranchId && !branchInfo.branches.some((b) => b.id === me.boundBranchId)) {
+          setError(
+            'Your branch is not on this shop\'s current plan, so its till is closed. Ask the owner — more than one branch needs Supplier Pro.'
+          );
+          setPhase('error');
+          return;
+        }
 
         // A bound employee's branch always wins over a remembered one — they
         // may have been moved since they last opened the till.
@@ -396,6 +409,7 @@ export function usePos() {
     branchId,
     branch: branches.find((b) => b.id === branchId) ?? null,
     canSwitchBranch,
+    lockedBranches,
     switchBranch,
     online,
     products,

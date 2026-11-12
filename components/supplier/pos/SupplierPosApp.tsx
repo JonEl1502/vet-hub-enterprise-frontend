@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { ShoppingBag, Receipt, Wallet, LogOut, ChevronDown, ShoppingCart, LayoutGrid } from 'lucide-react';
+import { ShoppingBag, Receipt, LogOut, ChevronDown, ShoppingCart, LayoutGrid, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../../contexts/AuthContext';
 import { supplierPosAPI, type PosShift } from '../../../services';
@@ -11,7 +11,6 @@ import PosCart from './PosCart';
 import PosTender from './PosTender';
 import PosReceipt from './PosReceipt';
 import PosSales from './PosSales';
-import PosShiftView from './PosShift';
 import PosSaleDetail from './PosSaleDetail';
 
 /**
@@ -40,13 +39,18 @@ import PosSaleDetail from './PosSaleDetail';
  * on its own URL.
  */
 
-type Tab = 'sell' | 'sales' | 'shift';
+/**
+ * ⚠️ No Shift tab. It was an X-report of the same numbers the header's "Today"
+ * pill and the Sales table already show, and the user asked for it gone
+ * (2026-11-12). `PosShift.tsx` stays in the tree, unrouted, in case a real
+ * drawer count (opening float, counted cash, variance) is wanted later.
+ */
+type Tab = 'sell' | 'sales';
 type Step = 'shopping' | 'tender' | 'receipt';
 
 const TABS = [
   { id: 'sell', label: 'Sell', icon: ShoppingBag },
   { id: 'sales', label: 'Sales', icon: Receipt },
-  { id: 'shift', label: 'Shift', icon: Wallet },
 ] as const;
 
 const money = (n: number, currency: string) =>
@@ -137,6 +141,13 @@ const SupplierPosApp: React.FC = () => {
 
   const canVoid = pos.till?.supplierRole === 'OWNER' || pos.till?.supplierRole === 'MANAGER';
 
+  /**
+   * Who is on the till: the name, for everyone. The ROLE only for the owner —
+   * "you are the owner" is useful to them, while a cashier's screen saying
+   * "cashier" to the customer across the counter is not (user, 2026-11-12).
+   */
+  const isOwner = pos.till?.supplierRole === 'OWNER';
+
   const afterVoid = () => {
     setOpenSaleId(null);
     setSalesVersion((v) => v + 1);
@@ -145,7 +156,7 @@ const SupplierPosApp: React.FC = () => {
   };
 
   const salesTab = (
-    <PosSales pos={pos} onOpenSale={setOpenSaleId} reloadKey={salesVersion} />
+    <PosSales pos={pos} onOpenSale={setOpenSaleId} reloadKey={salesVersion} openSaleId={openSaleId} />
   );
 
   const saleDetail = openSaleId ? (
@@ -210,7 +221,7 @@ const SupplierPosApp: React.FC = () => {
       <div
         className="w-9 h-9 rounded-full flex items-center justify-center text-[11px] font-black shrink-0"
         style={{ background: 'var(--sp-accent)', color: 'var(--sp-accent-ink)' }}
-        title={`${user?.name || user?.email} — ${pos.till?.supplierRole ?? ''}`}
+        title={`${user?.name || user?.email}${isOwner ? ' — owner' : ''}`}
       >
         {initialsOf(user?.name || user?.email)}
       </div>
@@ -227,7 +238,6 @@ const SupplierPosApp: React.FC = () => {
 
   const clock = now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
   const dateText = now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' });
-  const roleText = (pos.till?.supplierRole ?? '').toLowerCase().replace(/_/g, ' ');
   const todayPill = today ? (
     <span className="sp-hpill" title="Completed sales since midnight">
       Today
@@ -265,6 +275,19 @@ const SupplierPosApp: React.FC = () => {
         <p className="text-[11px] font-bold" style={{ color: 'rgba(242,245,249,0.65)' }}>
           {pos.branch?.name ?? '—'}
         </p>
+      )}
+      {/* The shop's other branches, when the plan does not open them: named,
+          locked, and priced — never silently missing, never a picker that
+          fails. Owners and managers only; a cashier has nothing to buy. */}
+      {pos.lockedBranches.length > 0 && !pos.till?.boundBranchId && (
+        <span
+          className="inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+          style={{ background: 'rgba(255,255,255,0.1)', color: 'rgba(242,245,249,0.75)' }}
+          title={`${pos.lockedBranches.map((b) => b.name).join(', ')}: selling from more than one branch is on Supplier Pro`}
+        >
+          <Lock size={9} strokeWidth={2.6} />
+          +{pos.lockedBranches.length} branch{pos.lockedBranches.length === 1 ? '' : 'es'} · Pro
+        </span>
       )}
       {/* Green when the catalogue last refreshed cleanly, amber when the grid
           on screen is cached and possibly stale. */}
@@ -344,16 +367,15 @@ const SupplierPosApp: React.FC = () => {
                 <b className="sp-num">{clock}</b>
                 <span className="hidden lg:inline">{dateText}</span>
               </span>
-              <span className="sp-hpill" title={pos.till?.supplierRole ?? ''}>
-                {user?.name?.split(' ')[0] || 'Cashier'}
-                <span style={{ opacity: 0.6 }}>· {roleText}</span>
+              <span className="sp-hpill" title={user?.name || user?.email || ''}>
+                {user?.name?.split(' ')[0] || user?.email?.split('@')[0] || 'Signed in'}
+                {isOwner && <span style={{ opacity: 0.6 }}>· owner</span>}
               </span>
             </div>
           </header>
 
           {tab === 'sell' && <PosSellView pos={pos} />}
           {tab === 'sales' && salesTab}
-          {tab === 'shift' && <PosShiftView pos={pos} />}
         </main>
 
         {/* The rail. Cart, then tender, then receipt — the catalogue stays put
@@ -434,7 +456,6 @@ const SupplierPosApp: React.FC = () => {
       <div className="flex-1 min-h-0 flex flex-col">
         {tab === 'sell' && <PosSellView pos={pos} />}
         {tab === 'sales' && salesTab}
-        {tab === 'shift' && <PosShiftView pos={pos} />}
       </div>
 
       {/* The mobile answer to the desktop rail: the running total stays visible
