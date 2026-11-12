@@ -60,7 +60,7 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 ## [Unreleased]
 
 ### page: homepage hero says what VetHubCore does  —  2026-11-11
-- **What changed:** the hero headline now reads "Vet clinic software for bookings, records and M-Pesa billing." in place of "The operating system for veterinary practice." A plain line under it says what the product does for clinics, pet owners and farmers. Title, share tags, `utils/seo.ts` and the `index.html` fallback match.
+- **What changed:** the hero headline now reads "Vet clinic software for bookings, records and billing." in place of "The operating system for veterinary practice." A plain line under it says what the product does for clinics, pet owners and farmers. Title, share tags, `utils/seo.ts` and the `index.html` fallback match. No M-Pesa in the headline, title or previews, because VetHubCore sells beyond Kenya; it stays in the payments FAQ and feature list.
 - **Record impact:** 🟢 None.
 - **Data dependency:** None.
 - **Rollback:** revert the commit and rebuild.

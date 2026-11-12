@@ -403,7 +403,8 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
           {/* Says what VetHubCore DOES (user, 2026-11-11: "its about marketing
               message telling new user what the product does"). A typed version
               was tried and removed the same day. Same size and measure as the
-              old "operating system for veterinary practice" headline. */}
+              old "operating system for veterinary practice" headline. No M-Pesa
+              here: VetHubCore sells beyond Kenya (user, 2026-11-12). */}
           <motion.h1
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
@@ -411,7 +412,7 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             className="text-[32px] sm:text-[42px] md:text-[56px] lg:text-[68px] xl:text-[76px] font-black tracking-tight text-white leading-[0.98] max-w-[16ch] md:max-w-[20ch] lg:max-w-[24ch]"
           >
             Vet clinic software for{' '}
-            <span className="text-[#F2A41C]">bookings, records and M-Pesa billing.</span>
+            <span className="text-[#F2A41C]">bookings, records and billing.</span>
           </motion.h1>
 
           <motion.div
@@ -422,7 +423,7 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
           >
             {/* The plain version of the headline: what it does, for whom. */}
             <p className="text-white/85 text-base md:text-lg leading-relaxed">
-              VetHubCore runs your vet clinic: appointments, medical records, lab, pharmacy, stock and billing with M-Pesa.
+              VetHubCore runs your vet clinic: appointments, medical records, lab, pharmacy, stock, billing and payments.
               Your clients get a free portal for their pets, with reminders and online payment. Farmers can add their herds on a farm plan.
             </p>
           </motion.div>
