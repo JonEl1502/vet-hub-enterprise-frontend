@@ -375,8 +375,10 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
       {/* Content */}
       <motion.div style={{ y: contentY, opacity: fadeOut }} className="relative z-10 h-full">
         <div className="max-w-[1280px] mx-auto px-5 md:px-8 h-full flex flex-col justify-center pt-36 pb-32">
-          {/* The pitch is John's own words (2026-11-12): "All in One. Where
-              veterinarians, Pet & Farm Animal owners and suppliers meet."
+          {/* Headline picked by John (2026-11-12): "Everything your clinic runs
+              on. All in one place." It replaced "All in one. Where vets, owners
+              and suppliers meet." the same day; the three lines below keep the
+              who-meets-here idea.
               The "Welcome to" line and logo lockup were removed so the pitch
               is the first thing read; the navbar carries the logo. No M-Pesa
               here: VetHubCore sells beyond Kenya. */}
@@ -384,12 +386,10 @@ const Hero: React.FC<{ onRegister: () => void; onDemo: () => void }> = ({ onRegi
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.8, ease: EASE, delay: 0.05 }}
-            className="font-black tracking-tight text-white leading-[1.02] max-w-full md:max-w-3xl lg:max-w-4xl"
+            className="font-black tracking-tight text-white leading-[1.02] max-w-full md:max-w-4xl lg:max-w-6xl"
           >
-            <span className="block text-[48px] sm:text-[60px] md:text-[76px] lg:text-[88px] leading-[0.95]">All in one.</span>
-            <span className="block mt-3 md:mt-4 text-[26px] sm:text-[32px] md:text-[40px] lg:text-[48px] text-[#F2A41C]">
-              Where veterinarians, pet &amp; farm animal owners and suppliers meet.
-            </span>
+            <span className="block text-[44px] sm:text-[56px] md:text-[72px] lg:text-[84px] leading-[0.95]">Everything your clinic runs on.</span>
+            <span className="block mt-2 md:mt-3 text-[44px] sm:text-[56px] md:text-[72px] lg:text-[84px] leading-[0.95] text-[#F2A41C]">All in one place.</span>
           </motion.h1>
 
           <motion.div
@@ -625,7 +625,7 @@ const Modules: React.FC = () => {
       <div className="relative z-10 max-w-[1280px] mx-auto px-6">
         <SectionHeading
           eyebrow="Platform"
-          title={<>Everything your clinic runs on.<br /><span className="text-[#5c616d]">All in one place.</span></>}
+          title={<>Every room in the clinic.<br /><span className="text-[#5c616d]">One system.</span></>}
           sub="Six tightly integrated modules, designed for the way veterinary teams actually work."
         />
         <div className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
