@@ -124,7 +124,7 @@ const StatTile: React.FC<{ tone: SoftTone; icon: React.FC<any>; label: string; v
       <span className={`w-12 h-12 rounded-2xl grid place-items-center shadow-sm shrink-0 ${t.icon}`}><Icon size={20} /></span>
       <span className="min-w-0">
         <span className={`block text-[28px] font-black leading-none tabular-nums ${t.num}`}>{value}</span>
-        <span className="block mt-1.5 text-[11px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 truncate">{label}</span>
+        <span className="block mt-1.5 text-[11px] leading-tight font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400">{label}</span>
       </span>
     </button>
   );

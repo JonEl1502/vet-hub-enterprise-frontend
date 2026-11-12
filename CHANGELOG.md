@@ -59,6 +59,12 @@ journey), `data-shape` (a change in the API response the UI consumes), `config`
 
 ## [Unreleased]
 
+### component: supplier dashboard redesign  —  2026-11-12
+- **What changed:** for suppliers, the Overview/Wallet tabs, the plan banner and the listings-used strip are gone. The page opens on the date range; a Wallet button sits at the far right and shows only to the supplier's OWNER (no `supplierRole` counts as owner). Money cards are full-colour gradients (pine, ocean, gold, violet) with a 6-month sparkline; count tiles are tinted per colour and click through; panels get coloured icon chips, illustrated empty states, a gradient revenue line, a donut with the order total in the middle, gradient bars for top clinics and multi-colour category bars. Admins keep their Charts / Suppliers / Wallet tabs.
+- **Record impact:** 🟢 None.
+- **Data dependency:** None.
+- **Rollback:** revert the commit and rebuild.
+
 ### page: homepage hero says what VetHubCore does  —  2026-11-12
 - **What changed:** the hero headline now reads "Everything your [Vet Clinic / Agrovet / Pet Boarding] runs on. All in one place." in place of "The operating system for veterinary practice." The business type drops in like a slot reel every 3 seconds (`SlotWord`; no movement under reduced motion). Under it, one line each for vets, pet and farm owners, and suppliers. The "Welcome to VetHubCore" line and logo lockup are gone, the "Run with confidence" section is hidden, and the modules section is retitled "Every room in the clinic. One system." Title, share tags, `utils/seo.ts` and the `index.html` fallback say "Vet clinic software for bookings, records and billing". No M-Pesa in the headline, title or previews, because VetHubCore sells beyond Kenya; it stays in the payments FAQ and feature list.
 - **Record impact:** 🟢 None.
