@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Search, Pill, ChevronDown, ChevronUp, RefreshCw, X, Check, Package,
+  Search, Pill, ChevronDown, ChevronUp, RefreshCw, Check, Package,
 } from 'lucide-react';
 import ProductStructureFields, { type MainCategory } from '../../shared/common/ProductStructureFields';
 import PageHeader from '../../shared/common/PageHeader';
@@ -64,6 +64,9 @@ const BASE_CATEGORIES = [
 ];
 
 const UNITS = ['each', 'box', 'pack', 'bottle', 'vial', 'ampoule', 'tablet', 'capsule', 'sachet', 'tube', 'dose', 'pair', 'set', 'mg', 'g', 'kg', 'ml', 'L'];
+
+/** "0.5" → "0.50", "" → "0.00" — the preview showed a raw ".5". */
+const money = (v: string) => (Number(v) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
 const getCurrencySymbol = (code: string) => CURRENCIES.find(c => c.code === code)?.symbol ?? code;
 
@@ -137,6 +140,55 @@ interface DrugResult {
   unit: string;
 }
 
+const INPUT = 'w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm';
+
+/** "box" → "boxes", "pack" → "packs"; measures (mg, ml, L…) stay as they are. */
+const plural = (u: string) => {
+  if (!u || ['mg', 'g', 'kg', 'ml', 'L'].includes(u)) return u;
+  if (/(s|x|ch|sh)$/.test(u)) return `${u}es`;
+  return `${u}s`;
+};
+
+/**
+ * The "!" note beside a field (user, 2026-11-12: "for a new user so fields to
+ * have ! notes"). Hover or focus shows it on desktop; a tap toggles it on a
+ * phone, where there is no hover.
+ */
+const Hint: React.FC<{ text: string }> = ({ text }) => {
+  const [open, setOpen] = useState(false);
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        aria-label="What is this?"
+        aria-expanded={open}
+        onClick={() => setOpen(o => !o)}
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onBlur={() => setOpen(false)}
+        className="w-4 h-4 rounded-full bg-amber-400 hover:bg-amber-500 text-white text-[10px] font-black leading-none flex items-center justify-center focus:outline-none focus:ring-2 focus:ring-amber-300"
+      >
+        !
+      </button>
+      {open && (
+        <span role="tooltip" className="absolute z-30 left-0 top-6 w-64 max-w-[75vw] rounded-xl bg-pine dark:bg-zinc-700 text-white text-xs font-medium leading-snug px-3 py-2 shadow-xl">
+          {text}
+        </span>
+      )}
+    </span>
+  );
+};
+
+/** A plain-words field heading with its "!" note. */
+const FieldLabel: React.FC<{ children: React.ReactNode; hint: string; required?: boolean; htmlFor?: string }> = ({ children, hint, required, htmlFor }) => (
+  <div className="flex items-center gap-1.5 px-1">
+    <label htmlFor={htmlFor} className="text-xs font-bold text-pine dark:text-zinc-200">
+      {children}{required && <span className="text-red-500"> *</span>}
+    </label>
+    <Hint text={hint} />
+  </div>
+);
+
 interface Props {
   productId?: string;
   setView?: (view: string, params?: any) => void;
@@ -158,7 +210,8 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
   const [showDrugSearch, setShowDrugSearch] = useState(false);
   const [drugResults, setDrugResults] = useState<DrugResult[]>([]);
   const [isSearchingDrugs, setIsSearchingDrugs] = useState(false);
-  const drugSearchRef = useRef<HTMLInputElement>(null);
+  // Collapsed for a new listing; open when editing, where the details already exist.
+  const [showMore, setShowMore] = useState(isEdit);
 
   // Hydrate the form when editing — fetch the product so deep-linked edits
   // (someone opening /supplier-product-edit cold) get a populated form.
@@ -259,12 +312,112 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
     return 'bg-cyan-100 dark:bg-cyan-500/10 text-cyan-700 dark:text-cyan-300';
   };
 
+  // What one sell price covers: "pack", or "10 vial" when a price is for a bundle.
+  const sellLabel = `${Number(form.sellQty) > 0 && Number(form.sellQty) !== 1 ? `${form.sellQty} ` : ''}${form.sellUnit || form.unit}`;
+
+  /**
+   * A blank SKU is made for the supplier: a new user does not know what one is,
+   * and it only has to be unique per supplier (@@unique([supplierId, sku])).
+   */
+  const autoSku = (name: string) => {
+    const stem = name.toUpperCase().replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 12) || 'ITEM';
+    return `${stem}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  };
+
+  /* Margin readout — what this listing makes, live, while it is priced. */
+  const marginReadout = (() => {
+          const mm = unitMath({
+            unit: form.unit,
+            sellUnit: form.sellUnit || form.unit,
+            costUnit: form.costUnit || form.unit,
+            packSize: Number(form.packSize) || 0,
+            quantity: form.stockQty,
+            price: form.unitPrice,
+            costPrice: form.buyPrice,
+            sellQty: form.sellQty,
+          });
+          const sale = mm.salePerSell;
+          if (sale <= 0) return null;
+          const cur = form.currency;
+          const n = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 2 });
+
+          if (mm.cost <= 0) {
+            return (
+              <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 px-1">
+                Add a buy price to see what you make on this listing.
+              </p>
+            );
+          }
+          // ⚠️ NO NUMBER rather than a confident wrong one. If cost is quoted in
+          // a unit that is neither the stock nor the sell unit, or a split has
+          // no pack size to bridge it, the subtraction is meaningless.
+          if (mm.costPerSell === null || !mm.resolvable) {
+            return (
+              <div className="px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900">
+                <p className="text-[10px] font-bold text-amber-800 dark:text-amber-300">
+                  {mm.split && mm.sellPerStock === 0
+                    ? <>Set <strong>Single items in one {mm.stockU}</strong> below — without it there is no way to work out a per-{mm.sellU} margin from a price quoted per {mm.stockU}.</>
+                    : <>The buy price is quoted per <strong>{mm.costU}</strong>, which is neither the stock unit ({mm.stockU}) nor the sell unit ({mm.sellU}) — no margin shown.</>}
+                </p>
+              </div>
+            );
+          }
+
+          const profit = sale - mm.costPerSell;
+          const markup = mm.costPerSell > 0 ? (profit / mm.costPerSell) * 100 : 0;
+          const marginPct = (profit / sale) * 100;
+          const stockProfit = profit * mm.qtyInSell;
+          const loss = profit < 0;
+
+          return (
+            <div className={`px-3 py-2.5 rounded-xl border ${loss
+              ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900'
+              : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900'}`}>
+              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
+                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">
+                  {loss ? 'Selling at a loss' : 'Profit'}
+                </span>
+                <span className={`text-sm font-black font-mono ${loss ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>
+                  {cur} {n(profit)}<span className="text-[10px] font-bold text-slate-400"> / {mm.sellU}</span>
+                </span>
+                <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                  Markup <strong className={loss ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}>{n(markup)}%</strong>
+                  {' · '}Margin <strong className={loss ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}>{n(marginPct)}%</strong> of sale
+                </span>
+                {mm.qty > 0 && (
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
+                    On {n(mm.qty)} {mm.stockU}
+                    {mm.qtyInSell !== mm.qty ? ` (${n(mm.qtyInSell)} ${mm.sellU})` : ''}
+                    : <strong className={loss ? 'text-red-600' : 'text-pine dark:text-zinc-100'}>{cur} {n(stockProfit)}</strong>
+                  </span>
+                )}
+              </div>
+              {mm.split && (
+                <p className="text-[9px] font-bold text-slate-400 mt-1">
+                  1 {mm.stockU} = {n(mm.sellPerStock)} {mm.sellU}
+                  {mm.costIsStock && <> · buy {cur} {n(mm.cost)} per {mm.costU} ÷ {n(mm.pack)} = {cur} {n(mm.costPerSell)} per {mm.sellU}</>}
+                  {mm.costIsSell && <> · buy {cur} {n(mm.cost)} per {mm.sellU}</>}
+                </p>
+              )}
+              {/* The supplier's own margin is not the clinic's. Say so, or the
+                  suggested resale price reads as part of this sum. */}
+              {Number(form.suggestedSellPrice) > 0 && (
+                <p className="text-[9px] font-bold text-slate-400 mt-0.5">
+                  Your suggested resale of {cur} {n(Number(form.suggestedSellPrice))} would leave the clinic{' '}
+                  <strong className="text-pine dark:text-zinc-100">
+                    {cur} {n(Number(form.suggestedSellPrice) - sale)}
+                  </strong>{' '} per {mm.sellU} — their margin, not yours.
+                </p>
+              )}
+            </div>
+          );
+  })();
+
   const handleSave = async () => {
-    if (!form.name.trim()) return toast.error('Product name is required');
-    if (!form.category.trim()) return toast.error('Category is required');
-    if (!form.sku.trim()) return toast.error('SKU is required');
+    if (!form.name.trim()) return toast.error('Add the product name');
+    if (!form.category.trim()) return toast.error('Choose a category');
     const sellPrice = parseFloat(form.unitPrice);
-    if (isNaN(sellPrice) || sellPrice < 0) return toast.error('Enter a valid sell price');
+    if (isNaN(sellPrice) || sellPrice < 0) return toast.error(`Add the price per ${sellLabel}`);
     const buyPrice = parseFloat(form.buyPrice || '0');
     if (isNaN(buyPrice) || buyPrice < 0) return toast.error('Enter a valid buy price');
     const minQty = parseInt(form.minOrderQty, 10);
@@ -280,7 +433,7 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
         name: form.name.trim(),
         description: form.description.trim() || undefined,
         category: form.category.trim(),
-        sku: form.sku.trim(),
+        sku: form.sku.trim() || autoSku(form.name),
         unitPrice: sellPrice,
         buyPrice,
         currency: form.currency,
@@ -351,499 +504,387 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
         title={editingProduct ? 'Edit product' : 'Add new product'}
         subtitle={editingProduct
           ? 'Changes take effect on your catalogue as soon as you save.'
-          : 'It appears in your catalogue once In catalogue is on and a sell price is set.'}
+          : 'Fill in the basics and add it. Everything under More details is optional.'}
         icon={Package}
         onBack={() => setView?.('supplier-products')}
       />
 
-      {/* Medical Products picker */}
-      <div className="rounded-2xl border border-seafoam/30 dark:border-seafoam/20 overflow-hidden bg-white dark:bg-zinc-900">
-        <button
-          type="button"
-          onClick={() => {
-            setShowDrugSearch(!showDrugSearch);
-            if (!showDrugSearch) setTimeout(() => drugSearchRef.current?.focus(), 100);
-          }}
-          className="w-full flex items-center justify-between px-4 py-3 bg-seafoam/5 dark:bg-seafoam/10 hover:bg-seafoam/10 dark:hover:bg-seafoam/15 transition-colors"
-        >
-          <div className="flex items-center gap-2">
-            <Pill size={14} className="text-seafoam" />
-            <span className="text-xs font-black uppercase tracking-wider text-seafoam">Medical Products</span>
-            <span className="text-[10px] text-slate-400 dark:text-zinc-500 font-semibold">— click to auto-fill name & category</span>
-          </div>
-          {showDrugSearch ? <ChevronUp size={14} className="text-seafoam" /> : <ChevronDown size={14} className="text-seafoam" />}
-        </button>
+      {/* ── QUICK ADD (user, 2026-11-12: "Add new product is a bit difficult") ──
+          Everything a clinic needs to find and order the product sits in ONE
+          short card: name, category, the unit it is sold by, the price per that
+          unit and how many are in stock. Every other field is still here, under
+          "More details", collapsed for a new listing. Each field carries a "!"
+          note in plain words for a supplier who has never used the system
+          ("for a new user so fields to have ! notes"). */}
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-4 items-start">
+      <div className="space-y-4 min-w-0">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 space-y-5">
+        <div>
+          <p className="text-sm font-black text-pine dark:text-zinc-100">The basics</p>
+          <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">This is all a clinic needs to find and order it. Tap a <span className="inline-flex w-3.5 h-3.5 rounded-full bg-amber-400 text-white text-[9px] font-black items-center justify-center align-middle">!</span> for help with any field.</p>
+        </div>
 
-        {showDrugSearch && (
-          <div className="border-t border-seafoam/20 dark:border-seafoam/10">
-            <div className="relative px-3 pt-3">
-              <Search size={12} className="absolute left-6 top-1/2 translate-y-0.5 text-slate-400 dark:text-zinc-500" />
-              <input
-                ref={drugSearchRef}
-                type="text"
-                placeholder="Search 6000+ medical products (type 2+ chars)..."
-                value={drugSearch}
-                onChange={e => setDrugSearch(e.target.value)}
-                className="w-full pl-8 pr-8 py-2 text-xs font-semibold bg-slate-50 dark:bg-zinc-800 text-pine dark:text-zinc-200 rounded-xl border border-slate-200 dark:border-zinc-700 focus:outline-none focus:ring-2 focus:ring-seafoam/50 placeholder-slate-400"
-              />
-              {drugSearch && (
-                <button type="button" onClick={() => { setDrugSearch(''); setDrugResults([]); }} className="absolute right-6 top-1/2 translate-y-0.5 text-slate-400 hover:text-pine transition-colors">
-                  <X size={12} />
-                </button>
-              )}
-            </div>
-            <div className="px-3 pb-3 pt-2 max-h-64 overflow-y-auto space-y-1">
+        {/* Name — typing searches the medicines catalogue in place of the old
+            separate "Medical Products" picker. */}
+        <div className="space-y-1.5 relative">
+          <FieldLabel htmlFor="sp-name" required hint="The name clinics will search for. Start typing to pick from 6,000+ known medicines: picking one fills in the category and unit for you. You can also type any name of your own.">
+            Product name
+          </FieldLabel>
+          <div className="relative">
+            <Search size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+            <input
+              id="sp-name"
+              type="text"
+              autoComplete="off"
+              value={form.name}
+              onChange={e => {
+                setForm({ ...form, name: e.target.value });
+                if (!isEdit) { setDrugSearch(e.target.value); setShowDrugSearch(true); }
+              }}
+              onFocus={() => { if (!isEdit && form.name.length >= 2) setShowDrugSearch(true); }}
+              onBlur={() => setTimeout(() => setShowDrugSearch(false), 150)}
+              placeholder="e.g. Amoxicillin 250mg"
+              className={`${INPUT} pl-9`}
+            />
+          </div>
+          {showDrugSearch && drugSearch.length >= 2 && (isSearchingDrugs || drugResults.length > 0) && (
+            <div className="absolute z-20 left-0 right-0 top-full mt-1 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-xl shadow-xl max-h-64 overflow-y-auto p-1.5 space-y-0.5">
+              <p className="px-2 pt-1 pb-1.5 text-[10px] font-bold text-slate-400 dark:text-zinc-500">Pick one to fill in the details, or keep typing your own name</p>
               {isSearchingDrugs ? (
-                <div className="flex items-center justify-center gap-2 py-4">
+                <div className="flex items-center gap-2 px-2 py-3">
                   <RefreshCw size={12} className="animate-spin text-seafoam" />
-                  <p className="text-xs text-slate-400 dark:text-zinc-500 font-semibold">Searching...</p>
+                  <span className="text-xs text-slate-400 font-semibold">Searching…</span>
                 </div>
-              ) : drugSearch.length >= 2 && drugResults.length === 0 ? (
-                <p className="text-xs text-slate-400 dark:text-zinc-500 py-2 text-center font-semibold">No products found</p>
-              ) : drugSearch.length < 2 ? (
-                <p className="text-xs text-slate-400 dark:text-zinc-500 py-2 text-center font-semibold">Type 2+ characters to search</p>
               ) : drugResults.map((drug) => (
                 <button
                   key={drug.id}
                   type="button"
+                  onMouseDown={e => e.preventDefault()}
                   onClick={() => selectDrug(drug)}
-                  className="w-full flex items-start justify-between gap-3 px-3 py-2 rounded-xl hover:bg-seafoam/10 dark:hover:bg-seafoam/15 transition-colors text-left group"
+                  className="w-full flex items-start justify-between gap-3 px-2.5 py-2 rounded-lg hover:bg-seafoam/10 transition-colors text-left"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-black text-pine dark:text-zinc-200 truncate group-hover:text-seafoam transition-colors">{drug.name}</p>
+                    <p className="text-xs font-black text-pine dark:text-zinc-200 truncate">{drug.name}</p>
                     {drug.genericName && drug.genericName !== drug.name && (
                       <p className="text-[10px] text-slate-400 dark:text-zinc-500 truncate">{drug.genericName}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded-md ${speciesBadgeClass(drug.species)}`}>{speciesLabel(drug.species)}</span>
-                    <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded-md max-w-[80px] truncate">{drug.category}</span>
+                    <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 bg-slate-100 dark:bg-zinc-800 px-1.5 py-0.5 rounded-md max-w-[90px] truncate">{drug.category}</span>
                   </div>
                 </button>
               ))}
             </div>
-          </div>
-        )}
-      </div>
-
-      {/* Form body — numbered section cards + live listing preview (design-mockup parity) */}
-      <div className="grid grid-cols-1 lg:grid-cols-[1fr_290px] gap-4 items-start">
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl min-w-0 divide-y divide-slate-100 dark:divide-zinc-800">
-      <div className="p-5 space-y-4">
-        <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
-          <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">1</span> Basic Information
-        </p>
-        {/* Name */}
-        <div className="space-y-1">
-          <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Product Name *</label>
-          <input
-            type="text"
-            value={form.name}
-            onChange={e => setForm({ ...form, name: e.target.value })}
-            placeholder="e.g. Amoxicillin 250mg"
-            className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
-          />
+          )}
         </div>
 
-        {/* SKU + Category */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">SKU *</label>
-            <input
-              type="text"
-              value={form.sku}
-              onChange={e => setForm({ ...form, sku: e.target.value })}
-              placeholder="e.g. AMOX-250"
-              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Category *</label>
-            <select
-              value={form.category}
-              onChange={e => setForm({ ...form, category: e.target.value })}
-              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-            >
-              <option value="">Select…</option>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <FieldLabel htmlFor="sp-category" required hint="What kind of product this is. It groups the item in your catalogue and helps clinics find it.">
+              Category
+            </FieldLabel>
+            <select id="sp-category" value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} className={INPUT}>
+              <option value="">Choose a category…</option>
               {allCategories.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
+          <div className="space-y-1.5">
+            <FieldLabel htmlFor="sp-unit" hint="How a clinic orders it from you: one box, one bottle, one vial, or one single tablet. The price and the stock count below are both counted in this unit.">
+              You sell it by the…
+            </FieldLabel>
+            <select id="sp-unit" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} className={INPUT}>
+              {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <FieldLabel htmlFor="sp-price" required hint={`What a clinic pays you for ${sellLabel === form.unit ? `one ${form.unit}` : sellLabel}. Use your selling price, not what it cost you. Your cost goes under More details.`}>
+              Price per {sellLabel}
+            </FieldLabel>
+            <div className="relative">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">{getCurrencySymbol(form.currency)}</span>
+              <input
+                id="sp-price"
+                type="number" inputMode="decimal" min="0" step="0.01"
+                value={form.unitPrice}
+                onChange={e => setForm({ ...form, unitPrice: e.target.value })}
+                placeholder="0.00"
+                className={`${INPUT} pl-12`}
+              />
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel htmlFor="sp-stock" hint={`Count what you have on hand right now, in ${plural(form.unit)}${form.unit === 'tablet' || form.unit === 'capsule' ? '' : ' (not single tablets inside them)'}. Enter 0 if you are waiting for new stock.`}>
+              How many {plural(form.unit)} do you have?
+            </FieldLabel>
+            <div className="relative">
+              <input
+                id="sp-stock"
+                type="number" inputMode="numeric" min="0"
+                value={form.stockQty}
+                onChange={e => setForm({ ...form, stockQty: e.target.value })}
+                placeholder="0"
+                className={`${INPUT} pr-20`}
+              />
+              <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">{plural(form.unit)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-1.5">
+          <FieldLabel hint="On: clinics can see and order it. Off: it is saved but hidden from clinics, handy while you are still setting it up.">
+            Show it to clinics?
+          </FieldLabel>
+          <button
+            type="button"
+            onClick={() => setForm({ ...form, isAvailable: !form.isAvailable })}
+            className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-colors ${
+              form.isAvailable
+                ? 'border-seafoam bg-seafoam/5 text-seafoam'
+                : 'border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-400'
+            }`}
+          >
+            <span className="text-sm font-bold">{form.isAvailable ? 'Yes, show it in my catalogue' : 'No, keep it hidden for now'}</span>
+            <span className={`relative w-10 h-5 rounded-full transition-colors ${form.isAvailable ? 'bg-seafoam' : 'bg-slate-300 dark:bg-zinc-700'}`}>
+              <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.isAvailable ? 'translate-x-5' : 'translate-x-0.5'}`} />
+            </span>
+          </button>
         </div>
       </div>
 
-      <div className="p-5 space-y-4">
-        <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
-          <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">2</span> Pricing
-        </p>
-        {/* Shared product structure (155) — the SAME controls the clinic uses, so
-            a listing carries its category and subcategories onto clinic stock on
-            PO receive instead of being retyped there. */}
-        <div className="space-y-3 p-3 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-slate-50/50 dark:bg-zinc-900/50">
+      {/* ── MORE DETAILS — optional, collapsed for a new listing ── */}
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden">
+        <button
+          type="button"
+          onClick={() => setShowMore(v => !v)}
+          aria-expanded={showMore}
+          className="w-full flex items-center justify-between gap-3 px-5 py-4 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/50 transition-colors"
+        >
+          <div className="min-w-0">
+            <p className="text-sm font-black text-pine dark:text-zinc-100">More details <span className="font-semibold text-slate-400">(optional)</span></p>
+            <p className="text-xs text-slate-500 dark:text-zinc-400 mt-0.5">Your cost and profit, pack size, minimum order, low-stock alert, product code, maker, photo and description.</p>
+          </div>
+          {showMore ? <ChevronUp size={18} className="text-seafoam shrink-0" /> : <ChevronDown size={18} className="text-seafoam shrink-0" />}
+        </button>
+
+        {showMore && (
+        <div className="border-t border-slate-100 dark:border-zinc-800 divide-y divide-slate-100 dark:divide-zinc-800">
+
+        {/* Cost and profit */}
+        <div className="p-5 space-y-4">
+          <p className="text-xs font-black text-pine dark:text-zinc-100">Your cost and profit</p>
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_auto] gap-4">
+            <div className="space-y-1.5">
+              <FieldLabel htmlFor="sp-buy" hint="What one costs YOU from your own supplier or maker. Clinics never see this. It is only used to show your profit below.">
+                What you paid for it
+              </FieldLabel>
+              <div className="flex gap-2">
+                <div className="relative flex-1 min-w-0">
+                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">{getCurrencySymbol(form.currency)}</span>
+                  <input
+                    id="sp-buy"
+                    type="number" inputMode="decimal" min="0" step="0.01"
+                    value={form.buyPrice}
+                    onChange={e => setForm({ ...form, buyPrice: e.target.value })}
+                    placeholder="0.00"
+                    className={`${INPUT} pl-12`}
+                  />
+                </div>
+                <select
+                  value={form.costUnit || form.unit}
+                  onChange={e => setForm({ ...form, costUnit: e.target.value })}
+                  aria-label="The unit your cost is for"
+                  className={`${INPUT} w-auto`}
+                >
+                  {Array.from(new Set([form.unit, ...UNITS])).map(u => <option key={u} value={u}>per {u}</option>)}
+                </select>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel htmlFor="sp-currency" hint="The money your prices are in. It starts as your business currency.">
+                Currency
+              </FieldLabel>
+              <select id="sp-currency" value={form.currency} onChange={e => setForm({ ...form, currency: e.target.value })} className={`${INPUT} sm:w-32`}>
+                {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
+              </select>
+            </div>
+          </div>
+          {marginReadout}
+        </div>
+
+        {/* Packs and single items */}
+        <div className="p-5 space-y-4">
+          <p className="text-xs font-black text-pine dark:text-zinc-100">Packs and single items</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <FieldLabel htmlFor="sp-pack" hint={`For example 100 if one ${form.unit} holds 100 tablets. Leave it blank if you sell single items. A clinic that resells by the tablet needs this to price each one.`}>
+                Single items in one {form.unit}
+              </FieldLabel>
+              <input
+                id="sp-pack"
+                type="number" inputMode="numeric" min="1" step="1"
+                value={form.packSize}
+                onChange={e => setForm({ ...form, packSize: e.target.value })}
+                placeholder="e.g. 100"
+                className={INPUT}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel hint={`Usually 1 ${form.unit}. Change it only if one price covers more, for example one price for 10 vials, or if you price by the single tablet out of a box.`}>
+                Your price covers
+              </FieldLabel>
+              <div className="flex gap-2">
+                <input
+                  type="number" min="0.01" step="any"
+                  aria-label="How many units one price covers"
+                  value={form.sellQty}
+                  onChange={e => setForm({ ...form, sellQty: e.target.value })}
+                  className={`${INPUT} w-24`}
+                />
+                <select
+                  value={form.sellUnit || form.unit}
+                  onChange={e => setForm({ ...form, sellUnit: e.target.value })}
+                  aria-label="The unit your price covers"
+                  className={`${INPUT} flex-1`}
+                >
+                  {Array.from(new Set([form.unit, ...UNITS])).map(u => <option key={u} value={u}>{u}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+          <div className="space-y-1.5">
+            <FieldLabel htmlFor="sp-resale" hint="Optional. What you suggest clinics charge their own clients (pet and farm owners). Advisory only: the clinic can keep it or set its own.">
+              Suggested price for the clinic's clients
+            </FieldLabel>
+            <div className="relative sm:max-w-xs">
+              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">{getCurrencySymbol(form.currency)}</span>
+              <input
+                id="sp-resale"
+                type="number" inputMode="decimal" min="0" step="0.01"
+                value={form.suggestedSellPrice}
+                onChange={e => setForm({ ...form, suggestedSellPrice: e.target.value })}
+                placeholder="0.00"
+                className={`${INPUT} pl-12`}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Ordering and stock alerts */}
+        <div className="p-5 space-y-4">
+          <p className="text-xs font-black text-pine dark:text-zinc-100">Ordering and stock alerts</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <FieldLabel htmlFor="sp-min" hint={`The fewest ${plural(form.unit)} a clinic can order at once. 1 means no minimum.`}>
+                Smallest order you accept
+              </FieldLabel>
+              <div className="relative">
+                <input id="sp-min" type="number" inputMode="numeric" min="1" value={form.minOrderQty} onChange={e => setForm({ ...form, minOrderQty: e.target.value })} placeholder="1" className={`${INPUT} pr-20`} />
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">{plural(form.unit)}</span>
+              </div>
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel htmlFor="sp-low" hint="When your stock drops to this number you get a low-stock alert, so you can restock before you run out.">
+                Warn me when stock drops to
+              </FieldLabel>
+              <div className="relative">
+                <input id="sp-low" type="number" inputMode="numeric" min="0" value={form.lowStockThreshold} onChange={e => setForm({ ...form, lowStockThreshold: e.target.value })} placeholder="10" className={`${INPUT} pr-20`} />
+                <span className="absolute right-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">{plural(form.unit)}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Type and sub-groups — the shared product structure (155), the SAME
+            controls the clinic uses, so a listing carries its category and
+            subcategories onto clinic stock on PO receive. */}
+        <div className="p-5 space-y-3">
+          <div className="flex items-center gap-1.5">
+            <p className="text-xs font-black text-pine dark:text-zinc-100">Medicine or consumable, and sub-groups</p>
+            <Hint text="Copied onto the clinic's own stock when they receive your order, so they do not have to type it again. Sub-groups are optional, for example Antibiotic → Cephalosporin." />
+          </div>
           <ProductStructureFields
             idPrefix="supplier-product"
             value={{ mainCategory: form.mainCategory, subcategories: form.subcategories }}
             onChange={(next) => setForm({ ...form, mainCategory: next.mainCategory, subcategories: next.subcategories })}
           />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
-                Units per pack
-              </label>
-              <input
-                type="number" min="1" step="1"
-                value={form.packSize}
-                onChange={e => setForm({ ...form, packSize: e.target.value })}
-                placeholder="e.g. 100 tablets in a box"
-                className="w-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
-              />
-              <p className="text-[9px] font-bold text-slate-400 px-1">
-                Leave blank if the product is sold as a single unit. A clinic that resells per
-                tablet needs this to price correctly.
-              </p>
-            </div>
-            <div className="space-y-1">
-              <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">
-                Suggested resale price
-              </label>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">{getCurrencySymbol(form.currency)}</span>
-                <input
-                  type="number" min="0" step="0.01"
-                  value={form.suggestedSellPrice}
-                  onChange={e => setForm({ ...form, suggestedSellPrice: e.target.value })}
-                  placeholder="0.00"
-                  className="w-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-9 pr-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
-                />
-              </div>
-              <p className="text-[9px] font-bold text-slate-400 px-1">
-                What you suggest clinics charge their clients. Advisory only — a clinic may
-                inherit it when it receives the order, or set its own.
-              </p>
-            </div>
-          </div>
         </div>
 
-        {/* ── Buy + Sell + Currency ────────────────────────────────────────
-            The clinic's inventory treatment, on the supplier's catalogue (user,
-            2026-09-12: *"the same UI … because it just works, and show the
-            profit margins too"*).
-
-            Each price carries ITS OWN unit, because buying a Box and selling a
-            Tablet out of it is the normal case in this trade. `unitMath` (the
-            shared helper both forms now import) bridges them through the pack
-            size and refuses to guess when it cannot — a wrong margin is worse
-            than no margin. */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Buy Price — what you paid</label>
-            <div className="flex gap-2">
-              <div className="relative flex-1 min-w-0">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">{getCurrencySymbol(form.currency)}</span>
-                <input
-                  type="number"
-                  value={form.buyPrice}
-                  onChange={e => setForm({ ...form, buyPrice: e.target.value })}
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-9 pr-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
-                />
-              </div>
-              <select
-                className="w-28 shrink-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-2 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-xs"
-                value={form.costUnit || form.unit}
-                onChange={e => setForm({ ...form, costUnit: e.target.value })}
-                title="The buy price is per this unit"
-              >
-                {Array.from(new Set([form.unit, ...UNITS])).map(u => <option key={u} value={u}>per {u}</option>)}
-              </select>
+        {/* Identification and details */}
+        <div className="p-5 space-y-4">
+          <p className="text-xs font-black text-pine dark:text-zinc-100">Product code, maker and photo</p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <FieldLabel htmlFor="sp-sku" hint="Your own stock code for this product. Leave it blank and we make one for you. Each product needs a different code.">
+                Product code (SKU)
+              </FieldLabel>
+              <input id="sp-sku" type="text" value={form.sku} onChange={e => setForm({ ...form, sku: e.target.value })} placeholder="Leave blank to make one" className={INPUT} />
             </div>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Sell Price — what the clinic pays *</label>
-            <div className="flex gap-2 items-center">
-              <div className="relative flex-1 min-w-0">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-slate-400">{getCurrencySymbol(form.currency)}</span>
-                <input
-                  type="number"
-                  value={form.unitPrice}
-                  onChange={e => setForm({ ...form, unitPrice: e.target.value })}
-                  placeholder="0.00"
-                  step="0.01"
-                  min="0"
-                  className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl pl-9 pr-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
-                />
-              </div>
-              <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 shrink-0">per</span>
-              <input
-                type="number" min="0.01" step="any"
-                title="The sell price covers this many sell units"
-                value={form.sellQty}
-                onChange={e => setForm({ ...form, sellQty: e.target.value })}
-                className="w-14 shrink-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-2 py-3 text-pine dark:text-zinc-100 font-black text-center outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-              />
-              <select
-                className="w-24 shrink-0 bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-2 py-3 text-pine dark:text-zinc-100 font-bold outline-none focus:ring-2 focus:ring-seafoam/20 text-xs"
-                value={form.sellUnit || form.unit}
-                onChange={e => setForm({ ...form, sellUnit: e.target.value })}
-                title="The unit the clinic buys in"
-              >
-                {Array.from(new Set([form.unit, ...UNITS])).map(u => <option key={u} value={u}>{u}</option>)}
-              </select>
+            <div className="space-y-1.5">
+              <FieldLabel htmlFor="sp-maker" hint="The company that made it. Clinics see it, and it is copied onto their stock.">
+                Made by
+              </FieldLabel>
+              <input id="sp-maker" value={form.manufacturer} onChange={e => setForm({ ...form, manufacturer: e.target.value })} placeholder="e.g. Rekodi Pharmaceuticals" className={INPUT} />
             </div>
-          </div>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Currency</label>
-            <select
-              value={form.currency}
-              onChange={e => setForm({ ...form, currency: e.target.value })}
-              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-            >
-              {CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.code}</option>)}
-            </select>
-          </div>
-        </div>
-
-        {/* ── Margin readout ───────────────────────────────────────────────
-            What this listing actually makes, live, while it is being priced —
-            per unit, as markup, as margin of sale, and across the whole stock
-            quantity. Word for word the clinic's treatment; the only difference
-            is whose money it is. */}
-        {(() => {
-          const mm = unitMath({
-            unit: form.unit,
-            sellUnit: form.sellUnit || form.unit,
-            costUnit: form.costUnit || form.unit,
-            packSize: Number(form.packSize) || 0,
-            quantity: form.stockQty,
-            price: form.unitPrice,
-            costPrice: form.buyPrice,
-            sellQty: form.sellQty,
-          });
-          const sale = mm.salePerSell;
-          if (sale <= 0) return null;
-          const cur = form.currency;
-          const n = (v: number) => v.toLocaleString(undefined, { maximumFractionDigits: 2 });
-
-          if (mm.cost <= 0) {
-            return (
-              <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 px-1">
-                Add a buy price to see what you make on this listing.
-              </p>
-            );
-          }
-          // ⚠️ NO NUMBER rather than a confident wrong one. If cost is quoted in
-          // a unit that is neither the stock nor the sell unit, or a split has
-          // no pack size to bridge it, the subtraction is meaningless.
-          if (mm.costPerSell === null || !mm.resolvable) {
-            return (
-              <div className="px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900">
-                <p className="text-[10px] font-bold text-amber-800 dark:text-amber-300">
-                  {mm.split && mm.sellPerStock === 0
-                    ? <>Set <strong>Units per pack</strong> above — without it there is no way to work out a per-{mm.sellU} margin from a price quoted per {mm.stockU}.</>
-                    : <>The buy price is quoted per <strong>{mm.costU}</strong>, which is neither the stock unit ({mm.stockU}) nor the sell unit ({mm.sellU}) — no margin shown.</>}
-                </p>
-              </div>
-            );
-          }
-
-          const profit = sale - mm.costPerSell;
-          const markup = mm.costPerSell > 0 ? (profit / mm.costPerSell) * 100 : 0;
-          const marginPct = (profit / sale) * 100;
-          const stockProfit = profit * mm.qtyInSell;
-          const loss = profit < 0;
-
-          return (
-            <div className={`px-3 py-2.5 rounded-xl border ${loss
-              ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-900'
-              : 'bg-emerald-50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-900'}`}>
-              <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
-                <span className="text-[8px] font-black uppercase tracking-widest text-slate-400">
-                  {loss ? 'Selling at a loss' : 'Profit'}
-                </span>
-                <span className={`text-sm font-black font-mono ${loss ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}`}>
-                  {cur} {n(profit)}<span className="text-[10px] font-bold text-slate-400"> / {mm.sellU}</span>
-                </span>
-                <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
-                  Markup <strong className={loss ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}>{n(markup)}%</strong>
-                  {' · '}Margin <strong className={loss ? 'text-red-600' : 'text-emerald-700 dark:text-emerald-400'}>{n(marginPct)}%</strong> of sale
-                </span>
-                {mm.qty > 0 && (
-                  <span className="text-[10px] font-bold text-slate-500 dark:text-zinc-400">
-                    On {n(mm.qty)} {mm.stockU}
-                    {mm.qtyInSell !== mm.qty ? ` (${n(mm.qtyInSell)} ${mm.sellU})` : ''}
-                    : <strong className={loss ? 'text-red-600' : 'text-pine dark:text-zinc-100'}>{cur} {n(stockProfit)}</strong>
-                  </span>
+            <div className="space-y-1.5">
+              <FieldLabel htmlFor="sp-country" hint="The country it was made in. Some clinics prefer or must record this.">
+                Country it was made in
+              </FieldLabel>
+              <input id="sp-country" value={form.countryOfOrigin} onChange={e => setForm({ ...form, countryOfOrigin: e.target.value })} placeholder="e.g. Kenya" className={INPUT} />
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel hint="A clear photo helps clinics recognise the product at a glance. Up to 2 MB.">
+                Photo
+              </FieldLabel>
+              <div className="flex items-center gap-2">
+                {form.imageUrl && (
+                  <div className="relative shrink-0">
+                    <img src={form.imageUrl} alt="Product" className="w-11 h-11 rounded-lg object-cover border border-slate-200 dark:border-zinc-700" />
+                    <button type="button" onClick={() => setForm({ ...form, imageUrl: '' })} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full px-1 text-[9px] font-black" title="Remove image">×</button>
+                  </div>
                 )}
+                <label className={`flex-1 cursor-pointer bg-slate-50 dark:bg-zinc-800 border border-dashed border-slate-300 dark:border-zinc-600 rounded-xl px-3 py-3 text-center text-xs font-bold ${imageUploading ? 'text-slate-300' : 'text-seafoam hover:text-pine hover:border-seafoam'} transition-colors`}>
+                  {imageUploading ? 'Uploading…' : form.imageUrl ? 'Replace photo' : 'Upload a photo'}
+                  <input
+                    type="file" accept="image/*" className="hidden" disabled={imageUploading}
+                    onChange={async e => {
+                      const file = e.target.files?.[0];
+                      e.target.value = '';
+                      if (!file) return;
+                      if (file.size > 2 * 1024 * 1024) { toast.error('Image must be under 2MB'); return; }
+                      setImageUploading(true);
+                      try {
+                        const res = await uploadsAPI.upload(file, 'misc');
+                        setForm(f => ({ ...f, imageUrl: res.publicUrl }));
+                      } catch (err: any) { toast.error(err?.message || 'Image upload failed'); }
+                      finally { setImageUploading(false); }
+                    }}
+                  />
+                </label>
               </div>
-              {mm.split && (
-                <p className="text-[9px] font-bold text-slate-400 mt-1">
-                  1 {mm.stockU} = {n(mm.sellPerStock)} {mm.sellU}
-                  {mm.costIsStock && <> · buy {cur} {n(mm.cost)} per {mm.costU} ÷ {n(mm.pack)} = {cur} {n(mm.costPerSell)} per {mm.sellU}</>}
-                  {mm.costIsSell && <> · buy {cur} {n(mm.cost)} per {mm.sellU}</>}
-                </p>
-              )}
-              {/* The supplier's own margin is not the clinic's. Say so, or the
-                  suggested resale price reads as part of this sum. */}
-              {Number(form.suggestedSellPrice) > 0 && (
-                <p className="text-[9px] font-bold text-slate-400 mt-0.5">
-                  Your suggested resale of {cur} {n(Number(form.suggestedSellPrice))} would leave the clinic{' '}
-                  <strong className="text-pine dark:text-zinc-100">
-                    {cur} {n(Number(form.suggestedSellPrice) - sale)}
-                  </strong>{' '} per {mm.sellU} — their margin, not yours.
-                </p>
-              )}
-            </div>
-          );
-        })()}
-      </div>
-
-      <div className="p-5 space-y-4">
-        <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
-          <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">3</span> Stock & Ordering
-        </p>
-        {/* Unit + Min Order + Stock */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Unit</label>
-            <select
-              value={form.unit}
-              onChange={e => setForm({ ...form, unit: e.target.value })}
-              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm"
-            >
-              {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
-            </select>
-          </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Min Order</label>
-            <input
-              type="number"
-              value={form.minOrderQty}
-              onChange={e => setForm({ ...form, minOrderQty: e.target.value })}
-              placeholder="1"
-              min="1"
-              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Stock Qty</label>
-            <input
-              type="number"
-              value={form.stockQty}
-              onChange={e => setForm({ ...form, stockQty: e.target.value })}
-              placeholder="0"
-              min="0"
-              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
-            />
-          </div>
-        </div>
-
-        {/* Low stock + Available */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Low Stock Threshold</label>
-            <input
-              type="number"
-              value={form.lowStockThreshold}
-              onChange={e => setForm({ ...form, lowStockThreshold: e.target.value })}
-              placeholder="10"
-              min="0"
-              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Available</label>
-            <button
-              type="button"
-              onClick={() => setForm({ ...form, isAvailable: !form.isAvailable })}
-              className={`w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-colors ${
-                form.isAvailable
-                  ? 'border-seafoam bg-seafoam/5 text-seafoam'
-                  : 'border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-400'
-              }`}
-            >
-              <span className="text-xs font-black uppercase tracking-widest">{form.isAvailable ? 'In catalogue' : 'Hidden from clinics'}</span>
-              <span className={`relative w-10 h-5 rounded-full transition-colors ${form.isAvailable ? 'bg-seafoam' : 'bg-slate-300 dark:bg-zinc-700'}`}>
-                <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${form.isAvailable ? 'translate-x-5' : 'translate-x-0.5'}`} />
-              </span>
-            </button>
-          </div>
-        </div>
-
-      </div>
-
-      <div className="p-5 space-y-4">
-        <p className="flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100">
-          <span className="w-5 h-5 rounded-lg bg-seafoam/15 text-seafoam flex items-center justify-center">4</span> Provenance & Details
-        </p>
-        {/* Manufacturer + country + product image — flows into
-            clinic inventory when a PO from this listing is received. */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Manufacturer</label>
-            <input
-              value={form.manufacturer}
-              onChange={e => setForm({ ...form, manufacturer: e.target.value })}
-              placeholder="e.g. Rekodi Pharmaceuticals"
-              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Country of Origin</label>
-            <input
-              value={form.countryOfOrigin}
-              onChange={e => setForm({ ...form, countryOfOrigin: e.target.value })}
-              placeholder="e.g. Kenya"
-              className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm"
-            />
-          </div>
-          <div className="space-y-1">
-            <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Product Image</label>
-            <div className="flex items-center gap-2">
-              {form.imageUrl && (
-                <div className="relative shrink-0">
-                  <img src={form.imageUrl} alt="Product" className="w-11 h-11 rounded-lg object-cover border border-slate-200 dark:border-zinc-700" />
-                  <button type="button" onClick={() => setForm({ ...form, imageUrl: '' })} className="absolute -top-1.5 -right-1.5 bg-red-500 text-white rounded-full px-1 text-[9px] font-black" title="Remove image">×</button>
-                </div>
-              )}
-              <label className={`flex-1 cursor-pointer bg-slate-50 dark:bg-zinc-800 border border-dashed border-slate-300 dark:border-zinc-600 rounded-xl px-3 py-3 text-center text-[10px] font-black uppercase tracking-wider ${imageUploading ? 'text-slate-300' : 'text-seafoam hover:text-pine hover:border-seafoam'} transition-colors`}>
-                {imageUploading ? 'Uploading…' : form.imageUrl ? 'Replace' : 'Upload (≤2MB)'}
-                <input
-                  type="file" accept="image/*" className="hidden" disabled={imageUploading}
-                  onChange={async e => {
-                    const file = e.target.files?.[0];
-                    e.target.value = '';
-                    if (!file) return;
-                    if (file.size > 2 * 1024 * 1024) { toast.error('Image must be under 2MB'); return; }
-                    setImageUploading(true);
-                    try {
-                      const res = await uploadsAPI.upload(file, 'misc');
-                      setForm(f => ({ ...f, imageUrl: res.publicUrl }));
-                    } catch (err: any) { toast.error(err?.message || 'Image upload failed'); }
-                    finally { setImageUploading(false); }
-                  }}
-                />
-              </label>
             </div>
           </div>
+          <div className="space-y-1.5">
+            <FieldLabel htmlFor="sp-desc" hint="Anything a clinic should know before ordering: strength, dosage, ingredients, storage.">
+              Description
+            </FieldLabel>
+            <textarea
+              id="sp-desc"
+              value={form.description}
+              onChange={e => setForm({ ...form, description: e.target.value })}
+              placeholder="Optional: strength, dosage, ingredients, storage…"
+              rows={3}
+              className={`${INPUT} resize-none`}
+            />
+          </div>
         </div>
-
-        {/* Description */}
-        <div className="space-y-1">
-          <label className="text-[9px] font-black text-seafoam uppercase tracking-widest px-1">Description</label>
-          <textarea
-            value={form.description}
-            onChange={e => setForm({ ...form, description: e.target.value })}
-            placeholder="Optional product details, dosage, ingredients…"
-            rows={3}
-            className="w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm resize-none"
-          />
         </div>
+        )}
       </div>
       </div>
-
       {/* Listing preview — how this product reads in the clinic-facing catalogue */}
       <aside className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl overflow-hidden lg:sticky lg:top-20">
         <div className="bg-pine text-white px-4 py-3"><p className="text-[10px] font-black uppercase tracking-widest">Listing preview</p></div>
@@ -864,11 +905,11 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
             </div>
           </div>
           <div className="space-y-1 text-[11px] font-bold">
-            <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>Unit</span><span>{form.unit}</span></div>
-            <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>Buy price</span><span>{getCurrencySymbol(form.currency)} {form.buyPrice || '0.00'}</span></div>
-            <div className="flex justify-between text-pine dark:text-zinc-100"><span>Sell price</span><span className="font-black">{getCurrencySymbol(form.currency)} {form.unitPrice || '0.00'}</span></div>
-            <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>Stock</span><span>{form.stockQty || 0} {form.unit}</span></div>
-            <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>Min order</span><span>{form.minOrderQty || 1}</span></div>
+            <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>Sold by the</span><span>{form.unit}</span></div>
+            <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>Your cost</span><span>{getCurrencySymbol(form.currency)} {money(form.buyPrice)}</span></div>
+            <div className="flex justify-between text-pine dark:text-zinc-100"><span>Price per {sellLabel}</span><span className="font-black">{getCurrencySymbol(form.currency)} {money(form.unitPrice)}</span></div>
+            <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>In stock</span><span>{form.stockQty || 0} {plural(form.unit)}</span></div>
+            <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>Smallest order</span><span>{form.minOrderQty || 1}</span></div>
           </div>
           <span className={`inline-block px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${form.isAvailable ? 'bg-emerald-500/10 text-emerald-600' : 'bg-slate-100 dark:bg-zinc-800 text-slate-400'}`}>
             {form.isAvailable ? 'Visible in catalogue' : 'Hidden from clinics'}
