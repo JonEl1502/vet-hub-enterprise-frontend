@@ -142,9 +142,26 @@ interface DrugResult {
 
 const INPUT = 'w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 placeholder-slate-300 dark:placeholder-zinc-600 text-sm';
 
-/** "box" → "boxes", "pack" → "packs"; measures (mg, ml, L…) stay as they are. */
-const plural = (u: string) => {
-  if (!u || ['mg', 'g', 'kg', 'ml', 'L'].includes(u)) return u;
+/** How a unit reads in a sentence: "each" is "item" ("Price per item", not "per each"). */
+const unitWord = (u: string) => (!u || u === 'each' ? 'item' : u);
+
+/**
+ * The catalogue's own unit spelling ("Tablets") onto this form's list ("tablet"),
+ * so the dropdown shows what was picked and nothing reads "tabletses".
+ */
+const normUnit = (raw: string | undefined, fallback: string) => {
+  const u = (raw || '').trim().toLowerCase();
+  if (!u) return fallback;
+  if (UNITS.includes(u)) return u;
+  if (u.endsWith('es') && UNITS.includes(u.slice(0, -2))) return u.slice(0, -2);
+  if (u.endsWith('s') && UNITS.includes(u.slice(0, -1))) return u.slice(0, -1);
+  return u;
+};
+
+/** "box" → "boxes", "pack" → "packs", "each" → "items"; measures (mg, ml, L…) stay as they are. */
+const plural = (raw: string) => {
+  const u = unitWord(raw);
+  if (['mg', 'g', 'kg', 'ml', 'L'].includes(u) || u.endsWith('s')) return u;
   if (/(s|x|ch|sh)$/.test(u)) return `${u}es`;
   return `${u}s`;
 };
@@ -297,7 +314,7 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
       ...f,
       name: drug.name,
       category: drug.category,
-      unit: drug.unit?.toLowerCase() || f.unit,
+      unit: normUnit(drug.unit, f.unit),
     }));
     setShowDrugSearch(false);
     setDrugSearch('');
@@ -313,7 +330,7 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
   };
 
   // What one sell price covers: "pack", or "10 vial" when a price is for a bundle.
-  const sellLabel = `${Number(form.sellQty) > 0 && Number(form.sellQty) !== 1 ? `${form.sellQty} ` : ''}${form.sellUnit || form.unit}`;
+  const sellLabel = `${Number(form.sellQty) > 0 && Number(form.sellQty) !== 1 ? `${form.sellQty} ` : ''}${unitWord(form.sellUnit || form.unit)}`;
 
   /**
    * A blank SKU is made for the supplier: a new user does not know what one is,
@@ -594,14 +611,14 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
               You sell it by the…
             </FieldLabel>
             <select id="sp-unit" value={form.unit} onChange={e => setForm({ ...form, unit: e.target.value })} className={INPUT}>
-              {UNITS.map(u => <option key={u} value={u}>{u}</option>)}
+              {Array.from(new Set([form.unit, ...UNITS])).map(u => <option key={u} value={u}>{u === 'each' ? 'item (each)' : u}</option>)}
             </select>
           </div>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <FieldLabel htmlFor="sp-price" required hint={`What a clinic pays you for ${sellLabel === form.unit ? `one ${form.unit}` : sellLabel}. Use your selling price, not what it cost you. Your cost goes under More details.`}>
+            <FieldLabel htmlFor="sp-price" required hint={`What a clinic pays you for ${sellLabel === unitWord(form.unit) ? `one ${sellLabel}` : sellLabel}. Use your selling price, not what it cost you. Your cost goes under More details.`}>
               Price per {sellLabel}
             </FieldLabel>
             <div className="relative">
@@ -617,7 +634,7 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
             </div>
           </div>
           <div className="space-y-1.5">
-            <FieldLabel htmlFor="sp-stock" hint={`Count what you have on hand right now, in ${plural(form.unit)}${form.unit === 'tablet' || form.unit === 'capsule' ? '' : ' (not single tablets inside them)'}. Enter 0 if you are waiting for new stock.`}>
+            <FieldLabel htmlFor="sp-stock" hint={`Count what you have on hand right now, in ${plural(form.unit)}${['box', 'pack', 'bottle', 'set'].includes(form.unit) ? ` (whole ${plural(form.unit)}, not the items inside them)` : ''}. Enter 0 if you are waiting for new stock.`}>
               How many {plural(form.unit)} do you have?
             </FieldLabel>
             <div className="relative">
@@ -720,8 +737,8 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
           <p className="text-xs font-black text-pine dark:text-zinc-100">Packs and single items</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-1.5">
-              <FieldLabel htmlFor="sp-pack" hint={`For example 100 if one ${form.unit} holds 100 tablets. Leave it blank if you sell single items. A clinic that resells by the tablet needs this to price each one.`}>
-                Single items in one {form.unit}
+              <FieldLabel htmlFor="sp-pack" hint={`For example 100 if one ${unitWord(form.unit)} holds 100 tablets. Leave it blank if you sell single items. A clinic that resells by the tablet needs this to price each one.`}>
+                Single items in one {unitWord(form.unit)}
               </FieldLabel>
               <input
                 id="sp-pack"
@@ -733,7 +750,7 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
               />
             </div>
             <div className="space-y-1.5">
-              <FieldLabel hint={`Usually 1 ${form.unit}. Change it only if one price covers more, for example one price for 10 vials, or if you price by the single tablet out of a box.`}>
+              <FieldLabel hint={`Usually 1 ${unitWord(form.unit)}. Change it only if one price covers more, for example one price for 10 vials, or if you price by the single tablet out of a box.`}>
                 Your price covers
               </FieldLabel>
               <div className="flex gap-2">
@@ -905,7 +922,7 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
             </div>
           </div>
           <div className="space-y-1 text-[11px] font-bold">
-            <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>Sold by the</span><span>{form.unit}</span></div>
+            <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>Sold by the</span><span>{unitWord(form.unit)}</span></div>
             <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>Your cost</span><span>{getCurrencySymbol(form.currency)} {money(form.buyPrice)}</span></div>
             <div className="flex justify-between text-pine dark:text-zinc-100"><span>Price per {sellLabel}</span><span className="font-black">{getCurrencySymbol(form.currency)} {money(form.unitPrice)}</span></div>
             <div className="flex justify-between text-slate-500 dark:text-zinc-400"><span>In stock</span><span>{form.stockQty || 0} {plural(form.unit)}</span></div>
