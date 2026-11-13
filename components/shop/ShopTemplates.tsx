@@ -124,7 +124,7 @@ const SectionHead: React.FC<{ title: string; count?: number; serif?: boolean; da
  * slot is visible and saleable rather than an empty gap. Hidden below xl.
  */
 export const AdRail: React.FC<{ dark?: boolean; className?: string }> = ({ dark, className = '' }) => (
-  <aside className={`hidden xl:block w-72 shrink-0 ${className}`} aria-label="Sponsored">
+  <aside className={`hidden xl:block w-72 shrink-0 self-stretch ${className}`} aria-label="Sponsored">
     <div className="sticky top-4 space-y-3">
       <p className={`text-[10px] font-bold uppercase tracking-[0.06em] ${dark ? 'text-white/40' : 'text-slate-400'}`}>Sponsored</p>
       <a

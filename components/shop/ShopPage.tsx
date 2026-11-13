@@ -27,6 +27,8 @@ const DEFAULT_ACCENT: Record<ShopTemplate, string> = {
   vetshop: '#0f766e',
 };
 
+const TEMPLATE_NAMES: Record<string, string> = { market: 'Market', boutique: 'Boutique', bold: 'Bold', counter: 'Counter', vetshop: 'Vet Shop' };
+
 const hex6 = (c: string) => (c.length === 4 ? '#' + c.slice(1).split('').map((x) => x + x).join('') : c);
 
 const ShopPage: React.FC = () => {
@@ -137,7 +139,7 @@ const ShopPage: React.FC = () => {
     <ShopCtx.Provider value={shop}>
       {preview && preview !== shop.template && (
         <div className="fixed top-0 inset-x-0 z-[60] bg-amber-400 text-amber-950 text-center text-[12.5px] font-bold py-1.5 px-3">
-          Preview of the {preview.charAt(0).toUpperCase() + preview.slice(1)} template. Customers see your saved template.
+          Preview of the {TEMPLATE_NAMES[preview] ?? preview} template. Customers see your saved template.
         </div>
       )}
       {preview && preview !== shop.template && <div className="h-[30px]" />}
