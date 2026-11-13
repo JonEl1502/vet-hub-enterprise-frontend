@@ -86,6 +86,25 @@ export const AddControl: React.FC<{
       <span className={`${h} px-3 inline-flex items-center text-[12px] font-bold text-slate-400`}>Ask in store</span>
     );
   }
+  // Prescription only: never into a basket. The customer sends the prescription.
+  if (p.rx) {
+    const n = shop ? whatsappNumber(shop.whatsapp, shop.currency) : null;
+    const href = n ? `https://wa.me/${n}?text=${encodeURIComponent(`Hello ${shop!.name}, I have a prescription for ${p.name}. I'll send a photo here.`)}` : null;
+    return href ? (
+      <a
+        href={href}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => e.stopPropagation()}
+        className={`${h} ${r} px-3.5 inline-flex items-center gap-1.5 text-[12.5px] font-semibold border bg-white active:scale-95 transition-transform`}
+        style={{ borderColor: accent, color: accent }}
+      >
+        <MessageCircle size={14} /> Send prescription
+      </a>
+    ) : (
+      <span className={`${h} px-3 inline-flex items-center text-[12px] font-bold text-slate-400`}>Prescription needed</span>
+    );
+  }
   if (p.stock === 'out') {
     return <span className={`${h} px-3 inline-flex items-center text-[12px] font-bold text-slate-400`}>Unavailable</span>;
   }
@@ -153,6 +172,11 @@ export const ProductSheet: React.FC<{
       <p className="text-[11px] font-black uppercase tracking-widest" style={{ color: accent }}>{p.category}</p>
       <h2 className="text-[22px] font-black leading-tight mt-1">{p.name}</h2>
       {p.maker && <p className="text-[13px] text-slate-500 mt-1">by {p.maker}</p>}
+      {p.rx && (
+        <p className="mt-3 text-[13px] rounded-xl px-3 py-2 bg-rose-50 text-rose-800">
+          This needs a vet's prescription. Send a photo of it on WhatsApp and the shop will get it ready.
+        </p>
+      )}
       {p.description && <p className="text-[14px] text-slate-600 mt-3 leading-relaxed whitespace-pre-line">{p.description}</p>}
       <div className="mt-5 flex items-end justify-between gap-4">
         <div>

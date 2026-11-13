@@ -19,12 +19,33 @@ interface Props {
   setView: (view: string) => void;
 }
 
-const TEMPLATES: { id: ShopTemplate; name: string; blurb: string; pro: boolean }[] = [
-  { id: 'market', name: 'Market', blurb: 'Bright and busy, like your till. Big photos, quick Add buttons.', pro: false },
-  { id: 'boutique', name: 'Boutique', blurb: 'Calm and elegant. Cream paper, large photos, room to breathe.', pro: true },
-  { id: 'bold', name: 'Bold', blurb: 'Your colour and cover photo up top, products in aisles by category.', pro: true },
-  { id: 'counter', name: 'Counter', blurb: 'A trade price list: departments down the side, quick rows, "send your list" up top.', pro: true },
-  { id: 'vetshop', name: 'Vet Shop', blurb: 'Search first, with a box for vet prescriptions. Clean and calm.', pro: true },
+/**
+ * What differs between an agrovet's shop page and a clinic's pet shop (324).
+ * One screen, two configurations, so they can never drift apart.
+ */
+export interface ShopSettingsConfig {
+  kind: 'supplier' | 'clinic';
+  load: () => Promise<ShopSettings | undefined>;
+  save: (patch: Record<string, any>) => Promise<ShopSettings | undefined>;
+  /** Where Upgrade / See plans goes. */
+  billingView: string;
+  /** The feature key whose cheapest plan prices the locked extras. */
+  proKey: string;
+  /** What to call that plan when its price cannot be read. */
+  proName: string;
+  /** Clinics: the key that opens the page at all, and its name. */
+  baseKey?: string;
+  baseName?: string;
+  /** The "What shows" card. Suppliers link to Products; clinics get a picker. */
+  productsCard: React.ReactNode;
+}
+
+const TEMPLATES: { id: ShopTemplate; name: string; blurb: string }[] = [
+  { id: 'market', name: 'Market', blurb: 'Bright and busy, like your till. Big photos, quick Add buttons.' },
+  { id: 'vetshop', name: 'Vet Shop', blurb: 'Search first, with a box for vet prescriptions. Clean and calm.' },
+  { id: 'boutique', name: 'Boutique', blurb: 'Calm and elegant. Cream paper, large photos, room to breathe.' },
+  { id: 'bold', name: 'Bold', blurb: 'Your colour and cover photo up top, products in aisles by category.' },
+  { id: 'counter', name: 'Counter', blurb: 'A trade price list: departments down the side, quick rows, "send your list" up top.' },
 ];
 
 const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -107,7 +128,7 @@ const Card: React.FC<{ title: string; hint?: string; children: React.ReactNode; 
 
 const INPUT = 'w-full bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-xl px-4 py-3 text-pine dark:text-zinc-100 font-semibold outline-none focus:ring-2 focus:ring-seafoam/20 text-sm';
 
-const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
+export const ShopSettingsView: React.FC<Props & { cfg: ShopSettingsConfig }> = ({ setView, cfg }) => {
   const [s, setS] = useState<ShopSettings | null>(null);
   const [saving, setSaving] = useState<string | null>(null);
   const [slug, setSlug] = useState('');
@@ -117,6 +138,7 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
   const [copied, setCopied] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [proPrice, setProPrice] = useState<string | null>(null);
+  const [basePrice, setBasePrice] = useState<string | null>(null);
   const [headline, setHeadline] = useState('');
   const [intro, setIntro] = useState('');
   const [deliveryNote, setDeliveryNote] = useState('');
@@ -139,25 +161,28 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
   };
 
   useEffect(() => {
-    supplierShopAPI.getSettings().then((r) => r.data && load(r.data)).catch(() => {});
+    cfg.load().then((d) => d && load(d)).catch(() => {});
     subscriptionPackagesAPI
       .list({ silent: true, showError: false })
       .then((r) => {
-        const plans = (r.data?.packages ?? []).filter(
-          (p) => (p.featureKeys ?? []).includes('supplier:shop-pro') && Number(p.price) > 0,
-        );
-        plans.sort((a, b) => Number(a.price) - Number(b.price));
-        const p = plans.find((x) => x.currency === 'KES') ?? plans[0];
-        if (p) setProPrice(`${p.name} · ${p.currency} ${Number(p.price).toLocaleString()}`);
+        const cheapest = (key: string) => {
+          const plans = (r.data?.packages ?? []).filter((p) => (p.featureKeys ?? []).includes(key) && Number(p.price) > 0);
+          plans.sort((a, b) => Number(a.price) - Number(b.price));
+          const p = plans.find((x) => x.currency === 'KES') ?? plans[0];
+          return p ? `${p.name} · ${p.currency} ${Number(p.price).toLocaleString()}` : null;
+        };
+        setProPrice(cheapest(cfg.proKey));
+        if (cfg.baseKey) setBasePrice(cheapest(cfg.baseKey));
       })
       .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const save = async (what: string, patch: Parameters<typeof supplierShopAPI.updateSettings>[0], ok = 'Saved') => {
+  const save = async (what: string, patch: Record<string, any>, ok = 'Saved') => {
     setSaving(what);
     try {
-      const r = await supplierShopAPI.updateSettings(patch);
-      if (r.data) load(r.data);
+      const d = await cfg.save(patch);
+      if (d) load(d);
       toast.success(ok);
     } catch (e: any) {
       toast.error(e?.message || 'Could not save');
@@ -176,7 +201,10 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
 
   const url = `${ORIGIN}/shop/${s.slug}`;
   const accentPreview = s.pro && s.primaryColor ? s.primaryColor : '#1c7a5b';
-  const lockNote = proPrice ? `Comes with ${proPrice}` : 'Comes with Supplier Pro';
+  const lockNote = proPrice ? `Comes with ${proPrice}` : `Comes with ${cfg.proName}`;
+  const free = s.freeTemplate ?? 'market';
+  const isPro = (id: ShopTemplate) => id !== free;
+  const baseLocked = cfg.kind === 'clinic' && s.base === false;
 
   const copy = async () => {
     try {
@@ -201,6 +229,18 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
           <ExternalLink size={14} /> Open my shop
         </a>
       </header>
+
+      {baseLocked && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-5 py-4">
+          <div>
+            <p className="text-sm font-black text-amber-900 dark:text-amber-200">Your shop page is ready to switch on</p>
+            <p className="text-xs text-amber-800 dark:text-amber-300 mt-0.5">
+              It comes with {basePrice ?? cfg.baseName}. Set it up below; it goes live when you switch it on.
+            </p>
+          </div>
+          <button onClick={() => setView(cfg.billingView)} className="px-4 py-2 rounded-xl bg-amber-500 text-white text-[11px] font-black uppercase tracking-widest">See plans</button>
+        </div>
+      )}
 
       {/* The link: the thing they will share. */}
       <section className="rounded-2xl p-5 text-white relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${accentPreview}, ${accentPreview}cc)` }}>
@@ -230,13 +270,13 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
             <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {TEMPLATES.map((t) => {
                 const on = s.template === t.id;
-                const locked = t.pro && !s.pro;
+                const locked = isPro(t.id) && !s.pro;
                 return (
                   <div key={t.id} className={`rounded-2xl border-2 p-3 transition-colors ${on ? 'border-pine dark:border-seafoam' : 'border-slate-200 dark:border-zinc-800'}`}>
                     <Mini id={t.id} accent={accentPreview} />
                     <div className="mt-3 flex items-center justify-between gap-2">
                       <p className="text-sm font-black text-pine dark:text-zinc-100">{t.name}</p>
-                      {t.pro ? (
+                      {isPro(t.id) ? (
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider">
                           {locked && <Lock size={10} />} Pro
                         </span>
@@ -253,7 +293,7 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
                       {on ? (
                         <span className="flex-1 text-center px-3 py-2 rounded-xl bg-pine/10 dark:bg-seafoam/10 text-pine dark:text-seafoam text-[11px] font-black uppercase tracking-widest">In use</span>
                       ) : locked ? (
-                        <button onClick={() => setView('supplier-billing')} className="flex-1 px-3 py-2 rounded-xl bg-amber-500 text-white text-[11px] font-black uppercase tracking-widest hover:bg-amber-600">
+                        <button onClick={() => setView(cfg.billingView)} className="flex-1 px-3 py-2 rounded-xl bg-amber-500 text-white text-[11px] font-black uppercase tracking-widest hover:bg-amber-600">
                           Upgrade
                         </button>
                       ) : (
@@ -352,6 +392,15 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
             right={!s.pro ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider"><Lock size={10} /> Pro</span> : undefined}
           >
             <div className={`grid sm:grid-cols-2 gap-4 ${!s.pro ? 'opacity-60 pointer-events-none select-none' : ''}`}>
+              {cfg.kind === 'clinic' ? (
+                <div>
+                  <span className="text-xs font-bold text-slate-600 dark:text-zinc-300 inline-flex items-center gap-1.5"><Palette size={13} /> Brand colour</span>
+                  <div className="mt-1.5 flex items-center gap-2">
+                    <span className="w-11 h-11 rounded-xl border border-slate-200" style={{ background: s.primaryColor || '#438883' }} />
+                    <p className="text-xs text-slate-500 dark:text-zinc-400">Your clinic's own colour, from Settings → Branding. The shop page uses it too.</p>
+                  </div>
+                </div>
+              ) : (
               <div>
                 <span className="text-xs font-bold text-slate-600 dark:text-zinc-300 inline-flex items-center gap-1.5"><Palette size={13} /> Brand colour</span>
                 <div className="mt-1.5 flex gap-2">
@@ -362,6 +411,7 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
                   {saving === 'color' ? 'Saving…' : 'Save colour'}
                 </button>
               </div>
+              )}
               <div>
                 <span className="text-xs font-bold text-slate-600 dark:text-zinc-300 inline-flex items-center gap-1.5"><ImageIcon size={13} /> Cover photo (Bold template)</span>
                 <div className="mt-1.5 h-24 rounded-xl border border-dashed border-slate-300 dark:border-zinc-700 overflow-hidden flex items-center justify-center bg-slate-50 dark:bg-zinc-800">
@@ -400,11 +450,12 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
             </div>
             {!s.pro && (
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3">
-                <p className="text-xs font-bold text-amber-800 dark:text-amber-300">{lockNote}, with the Boutique, Bold, Counter and Vet Shop templates.</p>
-                <button onClick={() => setView('supplier-billing')} className="px-4 py-2 rounded-xl bg-amber-500 text-white text-[11px] font-black uppercase tracking-widest">See plans</button>
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-300">{lockNote}, with the {TEMPLATES.filter((t) => isPro(t.id)).map((t) => t.name).join(', ')} templates.</p>
+                <button onClick={() => setView(cfg.billingView)} className="px-4 py-2 rounded-xl bg-amber-500 text-white text-[11px] font-black uppercase tracking-widest">See plans</button>
               </div>
             )}
           </Card>
+          {cfg.kind === 'clinic' && cfg.productsCard}
         </div>
 
         <div className="space-y-5">
@@ -420,6 +471,11 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
           </Card>
 
           <Card title="On or off" hint="Switch the page off without losing your settings.">
+            {baseLocked && !s.enabled ? (
+              <button onClick={() => setView(cfg.billingView)} className="w-full px-4 py-3 rounded-xl text-xs font-black uppercase tracking-widest bg-amber-500 text-white">
+                See plans to switch it on
+              </button>
+            ) : (
             <button
               onClick={() => save('enabled', { enabled: !s.enabled }, s.enabled ? 'Shop page switched off' : 'Shop page is live')}
               disabled={!!saving}
@@ -427,18 +483,37 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
             >
               {s.enabled ? 'Switch the page off' : 'Switch the page on'}
             </button>
+            )}
           </Card>
 
-          <Card title="What shows" hint="Every product you have marked available, with its photo, price and whether it is in stock.">
-            <p className="text-xs text-slate-500 dark:text-zinc-400">Customers never see your buying prices or exact stock counts.</p>
-            <button onClick={() => setView('supplier-products')} className="mt-3 inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-pine dark:text-seafoam">
-              <Store size={14} /> Manage products
-            </button>
-          </Card>
+          {cfg.kind === 'supplier' && cfg.productsCard}
         </div>
       </div>
     </div>
   );
 };
+
+/** The agrovet / supplier configuration. */
+const SupplierShopSettings: React.FC<Props> = ({ setView }) => (
+  <ShopSettingsView
+    setView={setView}
+    cfg={{
+      kind: 'supplier',
+      load: () => supplierShopAPI.getSettings().then((r) => r.data),
+      save: (patch) => supplierShopAPI.updateSettings(patch).then((r) => r.data),
+      billingView: 'supplier-billing',
+      proKey: 'supplier:shop-pro',
+      proName: 'Supplier Pro',
+      productsCard: (
+                  <Card title="What shows" hint="Every product you have marked available, with its photo, price and whether it is in stock.">
+                    <p className="text-xs text-slate-500 dark:text-zinc-400">Customers never see your buying prices or exact stock counts.</p>
+                    <button onClick={() => setView('supplier-products')} className="mt-3 inline-flex items-center gap-2 text-xs font-black uppercase tracking-widest text-pine dark:text-seafoam">
+                      <Store size={14} /> Manage products
+                    </button>
+                  </Card>
+      ),
+    }}
+  />
+);
 
 export default SupplierShopSettings;

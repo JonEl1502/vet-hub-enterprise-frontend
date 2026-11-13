@@ -1,4 +1,4 @@
-import { get, put } from '../api/client';
+import { get, patch as patch_, put } from '../api/client';
 import { ApiResponse, RequestOptions } from '../api/types';
 
 /**
@@ -12,6 +12,8 @@ export type ShopTemplate = 'market' | 'boutique' | 'bold' | 'counter' | 'vetshop
 export interface ShopHours { days: number[]; open: string; close: string }
 
 export interface PublicShop {
+  /** Who runs it: an agrovet/supplier, or a clinic's pet shop. */
+  kind?: 'supplier' | 'clinic';
   slug: string;
   name: string;
   logoUrl: string | null;
@@ -47,6 +49,8 @@ export interface PublicShopProduct {
   offerPrice: number | null;
   /** Short promo lines ("Free delivery over 5 bags"). */
   promo: string[];
+  /** Prescription only: shown, but ordered by sending the prescription, never added. */
+  rx?: boolean;
 }
 
 export interface ShopSettings {
@@ -67,6 +71,11 @@ export interface ShopSettings {
   pickup: boolean;
   /** Whether the plan includes the other templates, colour and cover. */
   pro: boolean;
+  /** Clinics only: whether the plan includes the shop page at all (Pet shop module). */
+  base?: boolean;
+  kind?: 'supplier' | 'clinic';
+  /** The template every plan gets: Market for suppliers, Vet Shop for clinics. */
+  freeTemplate?: ShopTemplate;
   productCount: number;
 }
 
@@ -81,4 +90,34 @@ export const supplierShopAPI = {
     patch: Partial<Pick<ShopSettings, 'slug' | 'template' | 'tagline' | 'coverUrl' | 'whatsapp' | 'enabled' | 'primaryColor' | 'headline' | 'intro' | 'hours' | 'deliveryNote' | 'pickup'>>,
     options?: RequestOptions,
   ): Promise<ApiResponse<ShopSettings>> => put('/supplier-shop/settings', patch, options),
+};
+
+/** One clinic inventory item, as the shop page picker sees it. */
+export interface ClinicShopProduct {
+  id: string;
+  name: string;
+  category: string;
+  unit: string;
+  price: number;
+  quantity: number;
+  imageUrl: string | null;
+  rx: boolean;
+  visible: boolean;
+  offerPrice: number | null;
+  promo: string;
+}
+
+/** 324 — a clinic's pet shop page. */
+export const clinicShopAPI = {
+  getSettings: (options?: RequestOptions): Promise<ApiResponse<ShopSettings>> =>
+    get('/clinic-shop/settings', { cache: false, ...options }),
+  updateSettings: (patch: Record<string, any>, options?: RequestOptions): Promise<ApiResponse<ShopSettings>> =>
+    put('/clinic-shop/settings', patch, options),
+  listProducts: (q?: string, options?: RequestOptions): Promise<ApiResponse<{ products: ClinicShopProduct[] }>> =>
+    get(`/clinic-shop/products${q ? `?q=${encodeURIComponent(q)}` : ''}`, { cache: false, ...options }),
+  updateProduct: (
+    id: string,
+    patch: { visible?: boolean; offerPrice?: number | null | ''; promo?: string; imageUrl?: string | null },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<{ product: ClinicShopProduct }>> => patch_(`/clinic-shop/products/${id}`, patch, options),
 };

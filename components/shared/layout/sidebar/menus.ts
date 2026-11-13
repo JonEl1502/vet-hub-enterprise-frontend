@@ -55,7 +55,8 @@ import {
   Pill,
   ArrowRightLeft,
   type LucideIcon,
-  MessageCircle, Gift, Footprints } from 'lucide-react';
+  MessageCircle, Gift, Footprints, Store,
+} from 'lucide-react';
 
 export type AudienceId = 'admin' | 'clinic' | 'supplier' | 'freelancer' | 'livestock' | 'solo';
 
@@ -215,6 +216,8 @@ const CLINIC_ITEMS: MenuItem[] = [
     ],
   },
   { id: 'petshop',      label: 'Petshop',      icon: ShoppingCart },
+  // 324 — the public pet shop page (vethubcore.com/shop/<slug>).
+  { id: 'shop-page',    label: 'Shop page',    icon: Store },
   { id: 'pharmacy',     label: 'Pharmacy',     icon: Pill },
   {
     id: 'inventory_menu',

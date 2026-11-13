@@ -382,6 +382,7 @@ const Navbar: React.FC<NavbarProps> = ({
        */
       'supplier-products': 'Products',
       'supplier-shop': 'Shop page',
+      'shop-page': 'Shop page',
       'supplier-product-new': 'Add Product',
       'supplier-product-edit': 'Edit Product',
       'supplier-orders': 'Orders',

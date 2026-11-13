@@ -26,6 +26,7 @@ import SupplierSidebar from './components/supplier/layout/SupplierSidebar';
 import SupplierDashboard from './components/supplier/dashboard/SupplierDashboard';
 import SupplierProductsView from './components/supplier/products/SupplierProductsView';
 import SupplierShopSettings from './components/supplier/shop/SupplierShopSettings';
+import ClinicShopSettings from './components/clinic/shop/ClinicShopSettings';
 import SupplierInventoryView from './components/supplier/inventory/SupplierInventoryView';
 import SupplierProductFormPage from './components/supplier/products/SupplierProductFormPage';
 import SupplierOrdersView from './components/supplier/orders/SupplierOrdersView';
@@ -300,7 +301,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders', 'payables',
     'billing', 'referrals', 'settings', 'import-data', 'broadcasts', 'community', 'supplier-dashboard',
     'supplier-products', 'supplier-orders', 'supplier-branches',
-    'supplier-staff', 'supplier-management', 'supplier-import', 'supplier-shop',
+    'supplier-staff', 'supplier-management', 'supplier-import', 'supplier-shop', 'shop-page',
   ]);
   const VIEW_STORAGE_KEY = 'vethub_active_view';
   const VIEW_URL_PREFIX = '/app/';
@@ -3070,6 +3071,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
           })}
         />;
       case 'petshop': return <PetshopView activeClinic={firstActiveClinic} />;
+      /* 324 — the clinic's public pet shop page settings. */
+      case 'shop-page': return <ClinicShopSettings setView={navigateTo} />;
       case 'pharmacy': return <PharmacyView activeClinic={firstActiveClinic} />;
       case 'staff-profile':
         const sId = currentNav.params?.staffId;
