@@ -2,6 +2,7 @@ import React from 'react';
 import { Check, Plus } from 'lucide-react';
 import DocumentActions from '../../clinic/shared/DocumentActions';
 import DocumentBrand from '../../shared/common/DocumentBrand';
+import PosReceiptDocument, { OffscreenPaper, ReceiptBranch } from './PosReceiptDocument';
 
 /**
  * The confirmation.
@@ -24,9 +25,16 @@ interface Props {
   /** The shop this receipt is from. */
   shopName?: string;
   shopLogo?: string | null;
+  shopColor?: string | null;
+  /** The till's branch: the sale-complete response carries no address. */
+  branch?: ReceiptBranch | null;
+  /** Who is on the till: the sale-complete response carries no cashier. */
+  cashierName?: string | null;
 }
 
-const PosReceipt: React.FC<Props> = ({ sale, currency, changeDue, onNewSale, shopName, shopLogo }) => (
+const PosReceipt: React.FC<Props> = ({
+  sale, currency, changeDue, onNewSale, shopName, shopLogo, shopColor, branch, cashierName,
+}) => (
   <div className="flex flex-col h-full min-h-0" style={{ background: 'var(--sp-bg)' }}>
     <div id="pos-receipt-doc" className="flex-1 min-h-0 overflow-y-auto px-4 py-6">
       {/* ⚠️ WHO WAS PAID. The downloaded PDF said "SALE COMPLETE · KES 2,260"
@@ -85,11 +93,22 @@ const PosReceipt: React.FC<Props> = ({ sale, currency, changeDue, onNewSale, sho
     </div>
 
     <div className="shrink-0 px-3 pt-2" data-nopdf>
+      {/* The PDF is the paper receipt, not this screen (see PosReceiptDocument). */}
+      <OffscreenPaper>
+        <PosReceiptDocument
+          id="pos-receipt-paper"
+          sale={sale}
+          currency={currency}
+          shop={{ name: shopName || '', logoUrl: shopLogo, primaryColor: shopColor }}
+          branch={branch}
+          cashierName={cashierName}
+        />
+      </OffscreenPaper>
       <DocumentActions
         size="sm"
         showPrint
         className="justify-center"
-        elementId="pos-receipt-doc"
+        elementId="pos-receipt-paper"
         title={`Receipt ${sale.saleNumber}`}
         phone={sale.customerPhone ?? sale.customer?.phone}
         message={`Here is your receipt ${sale.saleNumber} — ${money(sale.total, sale.currency || currency)}. Thank you.`}

@@ -4,6 +4,7 @@ import { ArrowLeft, Ban, Phone, User, Clock, AlertTriangle } from 'lucide-react'
 import { supplierPosAPI, toast } from '../../../services';
 import { money, unitFor, qtyText } from './format';
 import DocumentBrand from '../../shared/common/DocumentBrand';
+import PosReceiptDocument, { OffscreenPaper } from './PosReceiptDocument';
 
 /**
  * One sale, opened.
@@ -33,9 +34,11 @@ interface Props {
    */
   shopName?: string;
   shopLogo?: string | null;
+  /** The shop's brand colour, the accent on the paper receipt. */
+  shopColor?: string | null;
 }
 
-const PosSaleDetail: React.FC<Props> = ({ saleId, currency, canVoid, onBack, onVoided, shopName, shopLogo }) => {
+const PosSaleDetail: React.FC<Props> = ({ saleId, currency, canVoid, onBack, onVoided, shopName, shopLogo, shopColor }) => {
   const [sale, setSale] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [voiding, setVoiding] = useState(false);
@@ -296,10 +299,20 @@ const PosSaleDetail: React.FC<Props> = ({ saleId, currency, canVoid, onBack, onV
             paddingBottom: 'calc(0.75rem + var(--sp-safe-bottom))',
           }}
         >
+          {/* The PDF is the paper receipt, not this panel (see PosReceiptDocument). */}
+          <OffscreenPaper>
+            <PosReceiptDocument
+              id="pos-sale-paper"
+              sale={sale}
+              currency={currency}
+              shop={{ name: shopName || '', logoUrl: shopLogo, primaryColor: shopColor }}
+            />
+          </OffscreenPaper>
           <DocumentActions
             size="sm"
+            showPrint
             className="justify-center"
-            elementId="pos-sale-doc"
+            elementId="pos-sale-paper"
             title={`Receipt ${sale.saleNumber}`}
             phone={sale.customerPhone ?? sale.customer?.phone}
             message={`Here is your receipt ${sale.saleNumber}. Thank you.`}

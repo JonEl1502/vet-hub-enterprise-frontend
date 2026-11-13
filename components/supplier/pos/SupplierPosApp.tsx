@@ -155,6 +155,13 @@ const SupplierPosApp: React.FC = () => {
     pos.reload({ silent: true });
   };
 
+  // What the paper receipt needs beyond the sale itself.
+  const paperProps = {
+    shopColor: pos.shop?.primaryColor ?? null,
+    branch: pos.branch ? { name: pos.branch.name, address: (pos.branch as any).address, phone: (pos.branch as any).phone } : null,
+    cashierName: user?.name || null,
+  };
+
   const salesTab = (
     <PosSales pos={pos} onOpenSale={setOpenSaleId} reloadKey={salesVersion} openSaleId={openSaleId} />
   );
@@ -168,6 +175,7 @@ const SupplierPosApp: React.FC = () => {
       onVoided={afterVoid}
       shopName={shopName}
       shopLogo={shopLogo}
+      shopColor={pos.shop?.primaryColor ?? null}
     />
   ) : null;
 
@@ -190,7 +198,7 @@ const SupplierPosApp: React.FC = () => {
     return (
       <div className="supplier-pos sp-root" style={{ height: '100dvh' }}>
         <PosReceipt sale={lastSale} currency={pos.currency} changeDue={changeDue} onNewSale={newSale}
-          shopName={shopName} shopLogo={shopLogo} />
+          shopName={shopName} shopLogo={shopLogo} {...paperProps} />
       </div>
     );
   }
@@ -399,6 +407,7 @@ const SupplierPosApp: React.FC = () => {
                 onNewSale={newSale}
                 shopName={shopName}
                 shopLogo={shopLogo}
+                {...paperProps}
               />
             ) : step === 'tender' ? (
               <PosTender pos={pos} onDone={onSaleDone} onBack={() => setStep('shopping')} />
