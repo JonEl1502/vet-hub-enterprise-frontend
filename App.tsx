@@ -25,6 +25,7 @@ import Sidebar from './components/shared/layout/sidebar/Sidebar';
 import SupplierSidebar from './components/supplier/layout/SupplierSidebar';
 import SupplierDashboard from './components/supplier/dashboard/SupplierDashboard';
 import SupplierProductsView from './components/supplier/products/SupplierProductsView';
+import SupplierShopSettings from './components/supplier/shop/SupplierShopSettings';
 import SupplierInventoryView from './components/supplier/inventory/SupplierInventoryView';
 import SupplierProductFormPage from './components/supplier/products/SupplierProductFormPage';
 import SupplierOrdersView from './components/supplier/orders/SupplierOrdersView';
@@ -299,7 +300,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     'finance', 'transactions', 'staff', 'suppliers', 'purchase-orders', 'payables',
     'billing', 'referrals', 'settings', 'import-data', 'broadcasts', 'community', 'supplier-dashboard',
     'supplier-products', 'supplier-orders', 'supplier-branches',
-    'supplier-staff', 'supplier-management', 'supplier-import',
+    'supplier-staff', 'supplier-management', 'supplier-import', 'supplier-shop',
   ]);
   const VIEW_STORAGE_KEY = 'vethub_active_view';
   const VIEW_URL_PREFIX = '/app/';
@@ -2425,6 +2426,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             }}
           />;
         case 'supplier-products': return <SupplierProductsView setView={navigateTo} />;
+        /* 322 — the public shop page's settings (vethubcore.com/shop/<slug>). */
+        case 'supplier-shop': return <SupplierShopSettings setView={navigateTo} />;
         /**
          * The stockroom, not the catalogue. These were the same screen until
          * 261 gave a supplier real per-branch stock — "Inventory" pointing at

@@ -4,6 +4,8 @@ import App from './App';
 import ClientApp from './components/client/ClientApp';
 import ClinicLanding from './components/client/ClinicLanding';
 import PosRoute from './components/supplier/pos/PosRoute';
+// The public shop page is opened by customers, not staff: keep it out of the main bundle.
+const ShopPage = React.lazy(() => import('./components/shop/ShopPage'));
 import { storeMode } from './components/client/usePortalMode';
 import LegalPage, { type LegalKind } from './components/shared/marketing/LegalPage';
 import { useAuth } from './contexts/AuthContext';
@@ -78,6 +80,8 @@ const RoutedApp: React.FC = () => {
           and this is read by someone who has no account yet. Short path because
           it gets printed on posters and collar tags. */}
       <Route path="/c/:slug" element={<ClinicLanding />} />
+      {/* 322 — a supplier's public shop page. */}
+      <Route path="/shop/:slug" element={<React.Suspense fallback={null}><ShopPage /></React.Suspense>} />
 
       {/* The supplier till. Its own full-bleed route, not a view inside App:
           a cashier signs in here and never sees the supplier portal, and the

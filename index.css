@@ -2020,3 +2020,7 @@ body {
   .client-portal :is(.cp-card, .cp-card-soft).py-6 { padding-top: 1rem; padding-bottom: 1rem; }
   .client-portal .cp-card { border-radius: 1rem; }
 }
+
+/* Horizontal chip rows that scroll without a visible bar (shop pages). */
+.no-scrollbar { scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }

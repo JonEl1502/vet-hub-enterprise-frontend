@@ -113,6 +113,11 @@ const SupplierSidebar: React.FC<SupplierSidebarProps> = ({
   const mainItems = [
     { id: 'supplier-dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'supplier-products', label: 'Products', icon: Package },
+    // 322 — the public shop page. Owner and managers only: it edits what the
+    // public sees, and the settings API refuses anyone else.
+    ...(!(user as any)?.supplierRole || ['OWNER', 'MANAGER'].includes(String((user as any).supplierRole))
+      ? [{ id: 'supplier-shop', label: 'Shop page', icon: Store }]
+      : []),
     { id: 'supplier-inventory', label: 'Inventory', icon: ShoppingCart },
     { id: 'supplier-orders', label: 'Orders', icon: Receipt },
     { id: 'supplier-analytics', label: 'Analytics', icon: BarChart3 },

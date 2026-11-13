@@ -253,6 +253,8 @@ export const ALWAYS_SUPPLIER_VIEWS = new Set([
   // the nav entry was silently filtered out (found 2026-08-05 by opening it as
   // a real supplier; the API worked all along, which is why it looked fine).
   'supplier-import',
+  // 322 — every plan gets a shop page; Pro only changes how it looks.
+  'supplier-shop',
 ]);
 
 /** Views reachable on ANY livestock plan, including LOCKED. */

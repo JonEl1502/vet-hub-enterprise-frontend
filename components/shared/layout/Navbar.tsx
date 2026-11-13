@@ -381,6 +381,7 @@ const Navbar: React.FC<NavbarProps> = ({
        * "Import" rather than a route name, but a real label still belongs here.
        */
       'supplier-products': 'Products',
+      'supplier-shop': 'Shop page',
       'supplier-product-new': 'Add Product',
       'supplier-product-edit': 'Edit Product',
       'supplier-orders': 'Orders',
