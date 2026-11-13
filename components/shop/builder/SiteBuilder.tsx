@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ArrowDown, ArrowUp, Copy, GripVertical, Home, Loader2, Lock, Plus, Trash2, Upload, X,
 } from 'lucide-react';
@@ -296,7 +297,9 @@ const SiteBuilder: React.FC<Props> = ({ initial, shop, products, popularIds, acc
     />
   );
 
-  return (
+  // On <body>: the settings screen sits inside a scrolling, transformed
+  // container that would clip a fixed overlay and show the app above it.
+  return createPortal(
     <ShopCtx.Provider value={shop}>
     <div className="fixed inset-0 z-[400] bg-slate-100 text-slate-900 flex flex-col" style={{ height: '100dvh' }}>
       {/* Top bar: pages and save. */}
@@ -357,7 +360,6 @@ const SiteBuilder: React.FC<Props> = ({ initial, shop, products, popularIds, acc
                 onDragEnd={() => setDropAt(null)}
                 onClick={() => addBlock(d.type)}
                 className="shrink-0 lg:w-full text-left rounded-xl border border-slate-200 bg-white hover:border-slate-400 px-3 py-2.5 flex items-start gap-2.5 cursor-grab active:cursor-grabbing active:scale-[0.98] transition"
-                title={d.hint}
               >
                 <d.icon size={16} className="mt-0.5 shrink-0" style={{ color: accent }} />
                 <span className="min-w-0">
@@ -480,7 +482,8 @@ const SiteBuilder: React.FC<Props> = ({ initial, shop, products, popularIds, acc
         </aside>
       </div>
     </div>
-    </ShopCtx.Provider>
+    </ShopCtx.Provider>,
+    document.body,
   );
 };
 
