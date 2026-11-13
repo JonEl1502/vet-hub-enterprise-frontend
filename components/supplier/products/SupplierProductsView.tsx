@@ -544,7 +544,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = ({ setView }) 
                   {/* Identity: image + name + category/SKU */}
                   <div className="flex items-start gap-3">
                     {(p as any).imageUrl ? (
-                      <img src={(p as any).imageUrl} alt="" className="w-12 h-12 rounded-xl object-cover border border-slate-100 dark:border-zinc-700 shrink-0" />
+                      <img src={(p as any).imageUrl} alt="" className="w-12 h-12 rounded-xl object-contain bg-white p-0.5 border border-slate-100 dark:border-zinc-700 shrink-0" />
                     ) : (
                       <div className="w-12 h-12 rounded-xl bg-seafoam/10 flex items-center justify-center text-seafoam shrink-0"><Pill size={20} /></div>
                     )}

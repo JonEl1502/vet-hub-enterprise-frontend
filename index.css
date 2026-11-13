@@ -1494,6 +1494,19 @@ body {
 @media (min-width: 1024px) {
   .supplier-pos .sp-ptile-art { height: 5.25rem; }
 }
+/* A real product photo: taller, white, the whole pack visible. */
+.supplier-pos .sp-ptile-art.sp-ptile-photo { height: 8.5rem; background: #fff; }
+.supplier-pos .sp-ptile-photo::before { display: none; }
+.supplier-pos .sp-ptile-photo > img {
+  position: absolute;
+  inset: 0.55rem 0.55rem 1.9rem;
+  width: calc(100% - 1.1rem);
+  height: calc(100% - 2.45rem);
+  object-fit: contain;
+}
+@media (min-width: 1024px) {
+  .supplier-pos .sp-ptile-art.sp-ptile-photo { height: 9.5rem; }
+}
 
 .supplier-pos .sp-flag {
   position: absolute;

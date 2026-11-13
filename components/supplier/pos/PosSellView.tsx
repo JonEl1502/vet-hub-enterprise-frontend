@@ -402,11 +402,13 @@ const Tile: React.FC<{
           which for an agrovet that will never photograph 200 bags of feed is
           almost always. It is what makes the grid recognisable at a glance. */}
       <span
-        className="sp-ptile-art"
+        className={`sp-ptile-art ${p.imageUrl ? 'sp-ptile-photo' : ''}`}
         style={p.imageUrl ? undefined : { background: theme.bg, color: theme.fg }}
       >
         {p.imageUrl ? (
-          <img src={p.imageUrl} alt="" loading="lazy" className="absolute inset-0 w-full h-full object-cover" />
+          /* Contain, not cover: a pack shot cropped to a strip shows "mycin"
+             of "Alamycin". The photo sits whole on white. */
+          <img src={p.imageUrl} alt="" loading="lazy" />
         ) : (
           <theme.Icon size={30} strokeWidth={1.8} />
         )}
