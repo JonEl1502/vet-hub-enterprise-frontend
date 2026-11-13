@@ -1,8 +1,8 @@
 import React from 'react';
-import { Check, Plus } from 'lucide-react';
+import { Check, Plus, Banknote } from 'lucide-react';
 import DocumentActions from '../../clinic/shared/DocumentActions';
-import DocumentBrand from '../../shared/common/DocumentBrand';
-import PosReceiptDocument, { OffscreenPaper, ReceiptBranch } from './PosReceiptDocument';
+import PosReceiptDocument, { ReceiptBranch, ScaledPaper } from './PosReceiptDocument';
+import { money } from './format';
 
 /**
  * The confirmation.
@@ -12,10 +12,12 @@ import PosReceiptDocument, { OffscreenPaper, ReceiptBranch } from './PosReceiptD
  * counted out — a notification that fades after three seconds is none of those.
  * The only prominent action is "New sale", because that is what happens next
  * ninety-nine times out of a hundred.
+ *
+ * Below the confirmation sits the receipt itself, the same A4 sheet the PDF,
+ * Print and WhatsApp share produce, shrunk to fit. What the cashier sees is
+ * what the customer gets (user, 2026-11-13: "do the same for the sale complete
+ * screen"). It names the shop, so the old letterhead block went with it.
  */
-
-const money = (n: number, currency: string) =>
-  `${currency} ${Number(n).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
 interface Props {
   sale: any;
@@ -34,99 +36,87 @@ interface Props {
 
 const PosReceipt: React.FC<Props> = ({
   sale, currency, changeDue, onNewSale, shopName, shopLogo, shopColor, branch, cashierName,
-}) => (
-  <div className="flex flex-col h-full min-h-0" style={{ background: 'var(--sp-bg)' }}>
-    <div id="pos-receipt-doc" className="flex-1 min-h-0 overflow-y-auto px-4 py-6">
-      {/* ⚠️ WHO WAS PAID. The downloaded PDF said "SALE COMPLETE · KES 2,260"
-          and never named the shop — a receipt that cannot identify the seller
-          is not a receipt to anyone holding it a month later (user,
-          2026-09-12). On screen it is redundant chrome; on the PDF it is the
-          whole point, and the PDF is taken from this element. */}
-      {shopName && (
-        <div className="flex justify-center pb-4 mb-2 border-b" style={{ borderColor: 'var(--sp-border)' }}>
-          <DocumentBrand name={shopName} logo={shopLogo} />
-        </div>
-      )}
-      <div className="flex flex-col items-center text-center">
-        <div
-          className="w-16 h-16 rounded-full flex items-center justify-center mb-3"
-          style={{ background: 'var(--sp-accent-soft)', color: 'var(--sp-good)' }}
-        >
-          <Check size={30} strokeWidth={3} />
-        </div>
-        <p className="text-[12px] font-bold uppercase tracking-wider sp-muted">Sale complete</p>
-        <p className="text-[34px] font-black leading-none mt-1 sp-num">
-          {money(sale.total, sale.currency || currency)}
-        </p>
-        <p className="text-[12px] sp-muted font-semibold mt-1.5 font-mono">{sale.saleNumber}</p>
-      </div>
+}) => {
+  const cur = sale.currency || currency;
+  const lines = (sale.items ?? []).length;
+  const method = (sale.payments ?? [])
+    .map((p: any) => String(p.method).toUpperCase())
+    .map((m: string) => (m === 'MPESA' || m === 'M_PESA' ? 'M-Pesa' : m.charAt(0) + m.slice(1).toLowerCase().replace(/_/g, ' ')))
+    .join(' + ');
 
-      {changeDue != null && changeDue > 0 && (
-        <div
-          className="sp-card mt-5 p-4 text-center"
-          style={{ borderColor: 'var(--sp-good)' }}
-        >
-          <p className="text-[11px] font-bold uppercase tracking-wider sp-muted">Change to give</p>
-          <p className="text-[32px] font-black sp-good sp-num leading-tight">
-            {money(changeDue, currency)}
-          </p>
-        </div>
-      )}
-
-      <div className="sp-card mt-4">
-        {(sale.items ?? []).map((it: any) => (
-          <div
-            key={it.id ?? it.sku}
-            className="flex justify-between gap-3 px-4 py-2.5 border-b last:border-b-0 text-[13px]"
-            style={{ borderColor: 'var(--sp-border)' }}
-          >
-            <span className="font-semibold min-w-0 truncate">
-              <span className="sp-muted sp-num mr-1.5">{Number(it.quantity)}×</span>
-              {it.name}
-            </span>
-            <span className="font-bold sp-num shrink-0">
-              {money(it.lineTotal, sale.currency || currency)}
-            </span>
+  return (
+    <div className="flex flex-col h-full min-h-0" style={{ background: 'var(--sp-bg)' }}>
+      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-5 space-y-4">
+        {/* The confirmation: did it land, for how much. */}
+        <div className="sp-done">
+          <div className="sp-done-tick">
+            <Check size={26} strokeWidth={3} />
           </div>
-        ))}
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-widest" style={{ opacity: 0.8 }}>
+              Sale complete
+            </p>
+            <p className="text-[28px] font-black leading-none mt-1 sp-num">{money(sale.total, cur)}</p>
+            <p className="text-[12px] font-semibold mt-1.5" style={{ opacity: 0.85 }}>
+              <span className="font-mono">{sale.saleNumber}</span>
+              {` · ${lines} item${lines === 1 ? '' : 's'}`}
+              {method ? ` · ${method}` : ''}
+            </p>
+          </div>
+        </div>
+
+        {/* Change: the one number the cashier must act on right now. */}
+        {changeDue != null && changeDue > 0 && (
+          <div className="sp-done-change">
+            <span className="sp-done-change-icon"><Banknote size={20} /></span>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-black uppercase tracking-widest sp-muted">Give change</p>
+              <p className="text-[30px] font-black sp-good sp-num leading-tight">{money(changeDue, currency)}</p>
+            </div>
+          </div>
+        )}
+
+        {/* The receipt, as it prints. */}
+        <div>
+          <p className="text-[11px] font-black uppercase tracking-widest sp-muted mb-2 px-1">Receipt</p>
+          <div className="sp-paper">
+            <ScaledPaper>
+              <PosReceiptDocument
+                id="pos-receipt-paper"
+                sale={sale}
+                currency={currency}
+                shop={{ name: shopName || '', logoUrl: shopLogo, primaryColor: shopColor }}
+                branch={branch}
+                cashierName={cashierName}
+              />
+            </ScaledPaper>
+          </div>
+        </div>
+      </div>
+
+      <div
+        className="shrink-0 px-3 pt-2.5 border-t space-y-2.5"
+        style={{
+          borderColor: 'var(--sp-border)',
+          background: 'var(--sp-surface)',
+          paddingBottom: 'calc(0.75rem + var(--sp-safe-bottom))',
+        }}
+      >
+        <DocumentActions
+          size="sm"
+          showPrint
+          className="justify-center"
+          elementId="pos-receipt-paper"
+          title={`Receipt ${sale.saleNumber}`}
+          phone={sale.customerPhone ?? sale.customer?.phone}
+          message={`Here is your receipt ${sale.saleNumber} — ${money(sale.total, cur)}. Thank you.`}
+        />
+        <button onClick={onNewSale} className="sp-btn sp-charge w-full text-[15px]" style={{ justifyContent: 'center' }}>
+          <Plus size={18} /> New sale
+        </button>
       </div>
     </div>
-
-    <div className="shrink-0 px-3 pt-2" data-nopdf>
-      {/* The PDF is the paper receipt, not this screen (see PosReceiptDocument). */}
-      <OffscreenPaper>
-        <PosReceiptDocument
-          id="pos-receipt-paper"
-          sale={sale}
-          currency={currency}
-          shop={{ name: shopName || '', logoUrl: shopLogo, primaryColor: shopColor }}
-          branch={branch}
-          cashierName={cashierName}
-        />
-      </OffscreenPaper>
-      <DocumentActions
-        size="sm"
-        showPrint
-        className="justify-center"
-        elementId="pos-receipt-paper"
-        title={`Receipt ${sale.saleNumber}`}
-        phone={sale.customerPhone ?? sale.customer?.phone}
-        message={`Here is your receipt ${sale.saleNumber} — ${money(sale.total, sale.currency || currency)}. Thank you.`}
-      />
-    </div>
-    <div
-      className="shrink-0 px-3 pt-2.5 border-t flex gap-2"
-      style={{
-        borderColor: 'var(--sp-border)',
-        background: 'var(--sp-surface)',
-        paddingBottom: 'calc(0.75rem + var(--sp-safe-bottom))',
-      }}
-    >
-      <button onClick={onNewSale} className="sp-btn flex-1 text-[15px]">
-        <Plus size={18} /> New sale
-      </button>
-    </div>
-  </div>
-);
+  );
+};
 
 export default PosReceipt;

@@ -322,4 +322,40 @@ export const OffscreenPaper: React.FC<{ children: React.ReactNode }> = ({ childr
   </div>
 );
 
+/**
+ * The paper receipt, shrunk to fit a narrow column.
+ *
+ * It is laid out at 794px (A4) so the screen shows exactly what prints, then
+ * scaled down to the column width. The wrapper takes the scaled height, or the
+ * page would scroll over a gap the size of the unscaled sheet. The PDF helper
+ * clones the receipt itself, never this wrapper, so the transform does not
+ * reach the PDF.
+ */
+export const ScaledPaper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const outer = React.useRef<HTMLDivElement>(null);
+  const inner = React.useRef<HTMLDivElement>(null);
+  const [box, setBox] = React.useState({ scale: 0.45, height: 0 });
+
+  React.useLayoutEffect(() => {
+    const measure = () => {
+      if (!outer.current || !inner.current) return;
+      const scale = Math.min(1, outer.current.clientWidth / 794);
+      setBox({ scale, height: inner.current.offsetHeight * scale });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    if (outer.current) ro.observe(outer.current);
+    if (inner.current) ro.observe(inner.current);
+    return () => ro.disconnect();
+  }, []);
+
+  return (
+    <div ref={outer} style={{ width: '100%', height: box.height || undefined, overflow: 'hidden' }}>
+      <div ref={inner} style={{ width: 794, transform: `scale(${box.scale})`, transformOrigin: 'top left' }}>
+        {children}
+      </div>
+    </div>
+  );
+};
+
 export default PosReceiptDocument;
