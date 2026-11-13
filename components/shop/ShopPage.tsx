@@ -1,9 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useParams, useSearchParams } from 'react-router-dom';
+import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Loader2, Store } from 'lucide-react';
 import { supplierShopAPI, type PublicShop, type PublicShopProduct, type ShopTemplate } from '../../services/modules/supplierShop.api';
 import { useShopBasket } from './useShopBasket';
-import { BasketBar, BasketSheet, ProductSheet, ShopCtx } from './ShopParts';
+import { BasketBar, ProductSheet, ShopCtx } from './ShopParts';
+import BasketPage from './BasketPage';
 import { TEMPLATE_COMPONENTS as TEMPLATES } from './ShopTemplates';
 
 /**
@@ -38,7 +39,16 @@ const ShopPage: React.FC = () => {
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
   const [viewing, setViewing] = useState<PublicShopProduct | null>(null);
-  const [basketOpen, setBasketOpen] = useState(false);
+  // The basket is its own page: /shop/<slug>/basket (user, 2026-11-14).
+  const location = useLocation();
+  const navigate = useNavigate();
+  const onBasket = /\/basket\/?$/.test(location.pathname);
+  const openBasket = () => navigate(`/shop/${slug}/basket${location.search}`);
+  const backToShop = () => {
+    // Back to where they were when they came from the shop; the shop itself otherwise.
+    if (window.history.state?.idx > 0) navigate(-1);
+    else navigate(`/shop/${slug}${location.search}`);
+  };
 
   useEffect(() => {
     let alive = true;
@@ -107,6 +117,22 @@ const ShopPage: React.FC = () => {
 
   const Template = TEMPLATES[template];
 
+  if (onBasket) {
+    return (
+      <ShopCtx.Provider value={shop}>
+        <BasketPage
+          shop={shop}
+          lines={basket.lines}
+          total={basket.total}
+          accent={accent}
+          onSet={basket.setQty}
+          onClear={basket.clear}
+          onBack={backToShop}
+        />
+      </ShopCtx.Provider>
+    );
+  }
+
   return (
     <ShopCtx.Provider value={shop}>
       {preview && preview !== shop.template && (
@@ -131,9 +157,9 @@ const ShopPage: React.FC = () => {
         setQty={basket.setQty}
         open={setViewing}
         basketCount={basket.count}
-        openBasket={() => setBasketOpen(true)}
+        openBasket={openBasket}
       />
-      <BasketBar count={basket.count} total={basket.total} currency={shop.currency} accent={accent} onOpen={() => setBasketOpen(true)} />
+      <BasketBar count={basket.count} total={basket.total} currency={shop.currency} accent={accent} onOpen={openBasket} />
       <p className={`text-center text-[11.5px] py-6 ${template === 'bold' ? 'bg-[#0f1512] text-white/40' : template === 'boutique' ? 'bg-[#faf7f2] text-[#8a958d]' : template === 'vetshop' ? 'bg-white text-slate-400' : template === 'counter' ? 'bg-[#f4f4f5] text-slate-400' : 'bg-[#f3f5f4] text-slate-400'} ${basket.count ? 'pb-24' : ''}`}>
         Shop page by <a href="/" className="underline underline-offset-2">VetHubCore</a>
       </p>
@@ -144,17 +170,6 @@ const ShopPage: React.FC = () => {
           accent={accent}
           onSet={(q) => basket.setQty(viewing.id, q)}
           onClose={() => setViewing(null)}
-        />
-      )}
-      {basketOpen && (
-        <BasketSheet
-          shop={shop}
-          lines={basket.lines}
-          total={basket.total}
-          accent={accent}
-          onSet={basket.setQty}
-          onClear={basket.clear}
-          onClose={() => setBasketOpen(false)}
         />
       )}
     </ShopCtx.Provider>

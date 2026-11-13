@@ -81,7 +81,8 @@ const RoutedApp: React.FC = () => {
           it gets printed on posters and collar tags. */}
       <Route path="/c/:slug" element={<ClinicLanding />} />
       {/* 322 — a supplier's public shop page. */}
-      <Route path="/shop/:slug" element={<React.Suspense fallback={null}><ShopPage /></React.Suspense>} />
+      {/* One route for the shop and its pages (/basket), so moving between them keeps the shop loaded. */}
+      <Route path="/shop/:slug/*" element={<React.Suspense fallback={null}><ShopPage /></React.Suspense>} />
 
       {/* The supplier till. Its own full-bleed route, not a view inside App:
           a cashier signs in here and never sees the supplier portal, and the

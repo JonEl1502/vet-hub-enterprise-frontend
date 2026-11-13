@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState } from 'react';
 import { Clock, FileText, MessageCircle, Minus, Package, Phone, Plus, Store, Trash2, Truck, X } from 'lucide-react';
 import type { PublicShop, PublicShopProduct, ShopHours } from '../../services/modules/supplierShop.api';
-import { orderMessage, shopMoney, unitPriceOf, whatsappNumber } from './useShopBasket';
+import { shopMoney, unitPriceOf, whatsappNumber } from './useShopBasket';
 
 /**
  * Pieces every shop template shares: the product picture, the add button and
@@ -164,106 +164,6 @@ export const ProductSheet: React.FC<{
     </div>
   </Sheet>
 );
-
-export const BasketSheet: React.FC<{
-  shop: PublicShop;
-  lines: { product: PublicShopProduct; qty: number }[];
-  total: number;
-  accent: string;
-  onSet: (id: string, q: number) => void;
-  onClear: () => void;
-  onClose: () => void;
-}> = ({ shop, lines, total, accent, onSet, onClear, onClose }) => {
-  const [name, setName] = useState('');
-  const [branch, setBranch] = useState(shop.branches.length === 1 ? shop.branches[0].name : '');
-  const [note, setNote] = useState('');
-  const number = whatsappNumber(shop.whatsapp, shop.currency);
-  const href = number
-    ? `https://wa.me/${number}?text=${encodeURIComponent(orderMessage(shop, lines, total, { name, branch, note }))}`
-    : null;
-
-  return (
-    <Sheet onClose={onClose} label="Your basket">
-      <div className="sticky top-0 bg-white px-6 pt-5 pb-3 border-b border-slate-100 flex items-center justify-between z-10">
-        <div>
-          <h2 className="text-[19px] font-black">Your basket</h2>
-          <p className="text-[12px] text-slate-500">{lines.length} item{lines.length === 1 ? '' : 's'} from {shop.name}</p>
-        </div>
-        <button onClick={onClose} className="w-10 h-10 rounded-full bg-slate-100 flex items-center justify-center" aria-label="Close">
-          <X size={18} />
-        </button>
-      </div>
-
-      {lines.length === 0 ? (
-        <div className="px-6 py-14 text-center">
-          <p className="text-[15px] font-bold">Your basket is empty</p>
-          <p className="text-[13px] text-slate-500 mt-1">Tap Add on any product to start an order.</p>
-        </div>
-      ) : (
-        <div className="px-6 py-4">
-          <div className="divide-y divide-slate-100">
-            {lines.map(({ product: p, qty }) => (
-              <div key={p.id} className="py-3 flex items-center gap-3">
-                <ProductArt p={p} className="w-16 h-16 rounded-xl border border-slate-100 shrink-0" tint={accent} />
-                <div className="min-w-0 flex-1">
-                  <p className="text-[14px] font-bold leading-tight">{p.name}</p>
-                  <p className="text-[12px] text-slate-500 tabular-nums mt-0.5">
-                    {shopMoney(unitPriceOf(p), p.currency)} per {lowerUnit(p.unit)}
-                  </p>
-                  <p className="text-[13px] font-black tabular-nums mt-1">{shopMoney(unitPriceOf(p) * qty, p.currency)}</p>
-                </div>
-                <AddControl p={p} qty={qty} accent={accent} onSet={(q) => onSet(p.id, q)} size="sm" />
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-4 rounded-2xl px-4 py-3 flex items-baseline justify-between" style={{ background: `${accent}12` }}>
-            <span className="text-[12px] font-black uppercase tracking-widest" style={{ color: accent }}>Total</span>
-            <span className="text-[24px] font-black tabular-nums" style={{ color: accent }}>{shopMoney(total, shop.currency)}</span>
-          </div>
-
-          <div className="mt-5 space-y-3">
-            <label className="block">
-              <span className="text-[12px] font-bold text-slate-600">Your name (optional)</span>
-              <input value={name} onChange={(e) => setName(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-slate-200 px-3 text-[14px] outline-none focus:border-slate-400" placeholder="So the shop knows who is ordering" />
-            </label>
-            {shop.branches.length > 1 && (
-              <label className="block">
-                <span className="text-[12px] font-bold text-slate-600">Collect from</span>
-                <select value={branch} onChange={(e) => setBranch(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-slate-200 px-3 text-[14px] bg-white outline-none">
-                  <option value="">Any branch</option>
-                  {shop.branches.map((b) => <option key={b.id} value={b.name}>{b.name}</option>)}
-                </select>
-              </label>
-            )}
-            <label className="block">
-              <span className="text-[12px] font-bold text-slate-600">Note (optional)</span>
-              <input value={note} onChange={(e) => setNote(e.target.value)} className="mt-1 w-full h-11 rounded-xl border border-slate-200 px-3 text-[14px] outline-none focus:border-slate-400" placeholder="Delivery, a question, anything" />
-            </label>
-          </div>
-
-          {href ? (
-            <a
-              href={href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="mt-5 w-full h-14 rounded-2xl flex items-center justify-center gap-2 text-white text-[16px] font-black shadow-lg active:scale-[0.98] transition-transform"
-              style={{ background: '#25D366' }}
-            >
-              <MessageCircle size={20} /> Send order on WhatsApp
-            </a>
-          ) : (
-            <p className="mt-5 text-center text-[13px] text-slate-500">This shop has not added a WhatsApp number yet. Please call or visit them.</p>
-          )}
-          <p className="text-center text-[11.5px] text-slate-400 mt-2">
-            WhatsApp opens with your order typed out. The shop confirms the price and how you pay.
-          </p>
-          <button onClick={onClear} className="mt-3 w-full text-[12px] font-bold text-slate-400 hover:text-slate-600">Empty the basket</button>
-        </div>
-      )}
-    </Sheet>
-  );
-};
 
 /** The floating "view basket" bar every template shows once something is in it. */
 export const BasketBar: React.FC<{ count: number; total: number; currency: string; accent: string; onOpen: () => void }> = ({
