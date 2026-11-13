@@ -6,7 +6,7 @@ import {
 import type {
   PublicShop, PublicShopProduct, ShopSite, SiteBlock, SitePage, BlockType,
 } from '../../../services/modules/supplierShop.api';
-import { toast, uploadsAPI } from '../../../services';
+import { dialog, toast, uploadsAPI } from '../../../services';
 import { BLOCK_DEFS, BlockView, blockDef, type BlockCtx } from '../blocks';
 import { ShopCtx } from '../ShopParts';
 
@@ -270,12 +270,31 @@ const SiteBuilder: React.FC<Props> = ({ initial, shop, products, popularIds, acc
 
   const doSave = async () => {
     setSaving(true);
-    const ok = await save(site);
-    setSaving(false);
-    if (ok) setDirty(false);
+    try {
+      // Save always ends: whatever happens to the request, the button comes back.
+      const ok = await Promise.race([
+        save(site),
+        new Promise<boolean>((resolve) => setTimeout(() => {
+          toast.error('Saving is taking too long. Your changes are still here; please try Save again.');
+          resolve(false);
+        }, 35000)),
+      ]);
+      if (ok) setDirty(false);
+    } finally {
+      setSaving(false);
+    }
   };
-  const close = () => {
-    if (dirty && !window.confirm('You have changes that are not saved. Close anyway?')) return;
+  const close = async () => {
+    if (dirty) {
+      const ok = await dialog.confirm({
+        title: 'Close without saving?',
+        message: 'Your changes to these pages are not saved yet. If you close now they are lost.',
+        confirmLabel: 'Close without saving',
+        cancelLabel: 'Keep editing',
+        variant: 'warning',
+      });
+      if (!ok) return;
+    }
     onClose();
   };
 
@@ -393,8 +412,14 @@ const SiteBuilder: React.FC<Props> = ({ initial, shop, products, popularIds, acc
                   <input type="checkbox" checked={site.home === page.id} onChange={(e) => update((s) => { s.home = e.target.checked ? page.id : null; return s; })} className="w-4 h-4" /> Home page
                 </label>
                 <button
-                  onClick={() => {
-                    if (!window.confirm(`Delete the page "${page.title}"?`)) return;
+                  onClick={async () => {
+                    const ok = await dialog.confirm({
+                      title: `Delete "${page.title}"?`,
+                      message: 'The page and its blocks are removed when you save.',
+                      confirmLabel: 'Delete page',
+                      variant: 'danger',
+                    });
+                    if (!ok) return;
                     update((s) => { s.pages = s.pages.filter((p) => p.id !== page.id); if (s.home === page.id) s.home = null; return s; });
                     setPageId(site.pages.find((p) => p.id !== page.id)?.id ?? '');
                   }}

@@ -568,7 +568,13 @@ export const ShopSettingsView: React.FC<Props & { cfg: ShopSettingsConfig }> = (
               toast.success('Pages saved. They are live on your shop.');
               return true;
             } catch (e: any) {
-              toast.error(e?.message || 'Could not save the pages');
+              // The plan changed while the builder was open: reload so it
+              // shows "Upgrade to publish" instead of a Save that cannot work.
+              if (e?.code === 'PLAN_FEATURE_REQUIRED' || e?.status === 403 || e?.statusCode === 403 || e?.response?.status === 403) {
+                cfg.load().then((d) => d && load(d)).catch(() => {});
+              } else {
+                toast.error(e?.message || 'Could not save the pages. Your changes are still here; try again.');
+              }
               return false;
             }
           }}

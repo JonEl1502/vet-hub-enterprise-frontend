@@ -102,8 +102,10 @@ export const supplierShopAPI = {
     options?: RequestOptions,
   ): Promise<ApiResponse<ShopSettings>> => put('/supplier-shop/settings', patch, options),
 
+  // 30s, not the app-wide 7-minute timeout: a save caught by a server
+  // restart sat on "Saving…" until the user gave up (2026-11-14).
   saveSite: (site: ShopSite, options?: RequestOptions): Promise<ApiResponse<ShopSettings>> =>
-    put('/supplier-shop/site', { site }, options),
+    put('/supplier-shop/site', { site }, { timeout: 30000, ...options }),
 };
 
 /** One clinic inventory item, as the shop page picker sees it. */
@@ -128,7 +130,7 @@ export const clinicShopAPI = {
   updateSettings: (patch: Record<string, any>, options?: RequestOptions): Promise<ApiResponse<ShopSettings>> =>
     put('/clinic-shop/settings', patch, options),
   saveSite: (site: ShopSite, options?: RequestOptions): Promise<ApiResponse<ShopSettings>> =>
-    put('/clinic-shop/site', { site }, options),
+    put('/clinic-shop/site', { site }, { timeout: 30000, ...options }),
   listProducts: (q?: string, options?: RequestOptions): Promise<ApiResponse<{ products: ClinicShopProduct[] }>> =>
     get(`/clinic-shop/products${q ? `?q=${encodeURIComponent(q)}` : ''}`, { cache: false, ...options }),
   updateProduct: (
