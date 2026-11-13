@@ -1893,6 +1893,34 @@ body {
 }
 @media (prefers-reduced-motion: reduce) { .supplier-pos .sp-done-tick { animation: none; } }
 
+/* Receipt style switch */
+.supplier-pos .sp-seg {
+  display: flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 0.85rem;
+  background: var(--sp-surface-2);
+  border: 1px solid var(--sp-border);
+}
+.supplier-pos .sp-seg-btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  min-height: 2.4rem;
+  border-radius: 0.65rem;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: var(--sp-muted);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.supplier-pos .sp-seg-on {
+  background: var(--sp-surface);
+  color: var(--sp-ink);
+  box-shadow: 0 1px 2px rgba(16, 21, 28, 0.08), 0 0 0 1px var(--sp-border);
+}
+
 /* =========================================================================
  * Supplier stockroom controls.
  *

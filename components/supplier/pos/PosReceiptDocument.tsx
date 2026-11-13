@@ -44,14 +44,16 @@ interface Props {
   branch?: ReceiptBranch | null;
   /** Falls back to `sale.cashier.profile`. */
   cashierName?: string | null;
+  /** The product photo for a sale line, from the till's catalogue. */
+  imageFor?: (item: any) => string | null | undefined;
 }
 
-const DEFAULT_ACCENT = '#1f5c45';
+export const DEFAULT_ACCENT = '#1f5c45';
 
-const isHex = (v?: string | null): v is string => !!v && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v.trim());
+export const isHex = (v?: string | null): v is string => !!v && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(v.trim());
 
 /** White text on a dark brand colour, near-black on a light one (a yellow shop). */
-const inkFor = (hex: string): string => {
+export const inkFor = (hex: string): string => {
   let h = hex.replace('#', '');
   if (h.length === 3) h = h.split('').map((c) => c + c).join('');
   const [r, g, b] = [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255);
@@ -59,7 +61,7 @@ const inkFor = (hex: string): string => {
   return lum > 0.6 ? '#0f172a' : '#ffffff';
 };
 
-const isImage = (v?: string | null): boolean =>
+export const isImage = (v?: string | null): boolean =>
   !!v && (v.startsWith('http://') || v.startsWith('https://') || v.startsWith('data:') || v.startsWith('/'));
 
 const METHOD_LABEL: Record<string, string> = {
@@ -70,16 +72,16 @@ const METHOD_LABEL: Record<string, string> = {
   BANK_TRANSFER: 'Bank transfer',
   CREDIT: 'On account',
 };
-const methodLabel = (m: string) =>
+export const methodLabel = (m: string) =>
   METHOD_LABEL[String(m).toUpperCase()] ??
   String(m).toLowerCase().replace(/_/g, ' ').replace(/^\w/, (c) => c.toUpperCase());
 
-const fmtDate = (d: string | Date) =>
+export const fmtDate = (d: string | Date) =>
   new Date(d).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-const fmtTime = (d: string | Date) =>
+export const fmtTime = (d: string | Date) =>
   new Date(d).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
-const PosReceiptDocument: React.FC<Props> = ({ id, sale, currency, shop, branch, cashierName }) => {
+const PosReceiptDocument: React.FC<Props> = ({ id, sale, currency, shop, branch, cashierName, imageFor }) => {
   const [logoBroken, setLogoBroken] = React.useState(false);
   const cur = sale?.currency || currency;
   const accent = isHex(shop.primaryColor) ? shop.primaryColor.trim() : DEFAULT_ACCENT;
@@ -204,23 +206,39 @@ const PosReceiptDocument: React.FC<Props> = ({ id, sale, currency, shop, branch,
           <tbody>
             {items.map((it, i) => (
               <tr key={it.id ?? `${it.sku}-${i}`} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                <td className="py-3 px-3 text-[13px] text-slate-400 font-bold align-top">{i + 1}</td>
+                <td className={`py-3 px-3 text-[13px] text-slate-400 font-bold ${imageFor ? 'align-middle' : 'align-top'}`}>{i + 1}</td>
                 <td className="py-3 px-3 align-top">
-                  <p className="text-[14px] font-bold leading-tight">{it.name}</p>
+                  <div className="flex items-center gap-3.5">
+                  {imageFor && (
+                    <span
+                      className="w-20 h-20 rounded-2xl shrink-0 flex items-center justify-center overflow-hidden"
+                      style={{ border: '1px solid #e2e8f0', background: '#fff' }}
+                    >
+                      {imageFor(it) ? (
+                        <img src={imageFor(it)!} alt="" crossOrigin="anonymous" className="w-full h-full object-contain p-1" />
+                      ) : (
+                        <span className="text-[18px] font-black text-slate-300">{String(it.name || '?').charAt(0).toUpperCase()}</span>
+                      )}
+                    </span>
+                  )}
+                  <div className="min-w-0">
+                  <p className={`${imageFor ? "text-[15px]" : "text-[14px]"} font-bold leading-tight`}>{it.name}</p>
                   {it.sku && <p className="text-[11px] text-slate-400 font-mono mt-0.5">{it.sku}</p>}
                   {Number(it.discount) > 0 && (
                     <p className="text-[11px] font-bold mt-0.5" style={{ color: '#15803d' }}>
                       {money(it.discount, cur)} off
                     </p>
                   )}
+                  </div>
+                  </div>
                 </td>
-                <td className="py-3 px-3 text-right text-[13px] font-semibold align-top whitespace-nowrap tabular-nums">
+                <td className={`py-3 px-3 text-right text-[13px] font-semibold ${imageFor ? 'align-middle' : 'align-top'} whitespace-nowrap tabular-nums`}>
                   {qtyText(it.quantity)} {unitFor(it.quantity, it.unit)}
                 </td>
-                <td className="py-3 px-3 text-right text-[13px] text-slate-600 align-top whitespace-nowrap tabular-nums">
+                <td className={`py-3 px-3 text-right text-[13px] text-slate-600 ${imageFor ? 'align-middle' : 'align-top'} whitespace-nowrap tabular-nums`}>
                   {money(it.unitPrice, cur)}
                 </td>
-                <td className="py-3 px-3 text-right text-[14px] font-black align-top whitespace-nowrap tabular-nums">
+                <td className={`py-3 px-3 text-right text-[14px] font-black ${imageFor ? 'align-middle' : 'align-top'} whitespace-nowrap tabular-nums`}>
                   {money(it.lineTotal, cur)}
                 </td>
               </tr>
@@ -308,6 +326,22 @@ const PosReceiptDocument: React.FC<Props> = ({ id, sale, currency, shop, branch,
   );
 };
 
+/** The two receipts a sale can print: the A4 sheet with photos, or a till slip. */
+export type ReceiptStyle = 'photos' | 'slip';
+const STYLE_KEY = 'pos.receiptStyle';
+
+/** Remembers the cashier's pick on this device. */
+export const useReceiptStyle = (): [ReceiptStyle, (s: ReceiptStyle) => void] => {
+  const [style, setStyle] = React.useState<ReceiptStyle>(() => {
+    try { return localStorage.getItem(STYLE_KEY) === 'slip' ? 'slip' : 'photos'; } catch { return 'photos'; }
+  });
+  const set = (s: ReceiptStyle) => {
+    setStyle(s);
+    try { localStorage.setItem(STYLE_KEY, s); } catch { /* private mode: keep it for this screen */ }
+  };
+  return [style, set];
+};
+
 /**
  * Holds the paper receipt off screen. Not `display:none`: the PDF helper clones
  * the element, and the logo should already be loaded when it does.
@@ -331,7 +365,7 @@ export const OffscreenPaper: React.FC<{ children: React.ReactNode }> = ({ childr
  * clones the receipt itself, never this wrapper, so the transform does not
  * reach the PDF.
  */
-export const ScaledPaper: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+export const ScaledPaper: React.FC<{ children: React.ReactNode; width?: number }> = ({ children, width = 794 }) => {
   const outer = React.useRef<HTMLDivElement>(null);
   const inner = React.useRef<HTMLDivElement>(null);
   const [box, setBox] = React.useState({ scale: 0.45, height: 0 });
@@ -339,7 +373,7 @@ export const ScaledPaper: React.FC<{ children: React.ReactNode }> = ({ children 
   React.useLayoutEffect(() => {
     const measure = () => {
       if (!outer.current || !inner.current) return;
-      const scale = Math.min(1, outer.current.clientWidth / 794);
+      const scale = Math.min(1, outer.current.clientWidth / width);
       setBox({ scale, height: inner.current.offsetHeight * scale });
     };
     measure();
@@ -347,11 +381,11 @@ export const ScaledPaper: React.FC<{ children: React.ReactNode }> = ({ children 
     if (outer.current) ro.observe(outer.current);
     if (inner.current) ro.observe(inner.current);
     return () => ro.disconnect();
-  }, []);
+  }, [width]);
 
   return (
     <div ref={outer} style={{ width: '100%', height: box.height || undefined, overflow: 'hidden' }}>
-      <div ref={inner} style={{ width: 794, transform: `scale(${box.scale})`, transformOrigin: 'top left' }}>
+      <div ref={inner} style={{ width, transform: `scale(${box.scale})`, transformOrigin: 'top left' }}>
         {children}
       </div>
     </div>

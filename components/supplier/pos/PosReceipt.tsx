@@ -1,7 +1,9 @@
 import React from 'react';
 import { Check, Plus, Banknote } from 'lucide-react';
 import DocumentActions from '../../clinic/shared/DocumentActions';
-import PosReceiptDocument, { ReceiptBranch, ScaledPaper } from './PosReceiptDocument';
+import { ReceiptBranch, ScaledPaper, useReceiptStyle } from './PosReceiptDocument';
+import { ReceiptPaper, ReceiptStyleToggle } from './PosReceiptPaper';
+import { SLIP_WIDTH } from './PosTillSlip';
 import { money } from './format';
 
 /**
@@ -32,11 +34,14 @@ interface Props {
   branch?: ReceiptBranch | null;
   /** Who is on the till: the sale-complete response carries no cashier. */
   cashierName?: string | null;
+  /** The product photo for a sale line, from the till's catalogue. */
+  imageFor?: (item: any) => string | null | undefined;
 }
 
 const PosReceipt: React.FC<Props> = ({
-  sale, currency, changeDue, onNewSale, shopName, shopLogo, shopColor, branch, cashierName,
+  sale, currency, changeDue, onNewSale, shopName, shopLogo, shopColor, branch, cashierName, imageFor,
 }) => {
+  const [style, setStyle] = useReceiptStyle();
   const cur = sale.currency || currency;
   const lines = (sale.items ?? []).length;
   const method = (sale.payments ?? [])
@@ -76,18 +81,23 @@ const PosReceipt: React.FC<Props> = ({
           </div>
         )}
 
-        {/* The receipt, as it prints. */}
+        {/* The receipt, as it prints: the photo sheet or the till slip. */}
         <div>
-          <p className="text-[11px] font-black uppercase tracking-widest sp-muted mb-2 px-1">Receipt</p>
-          <div className="sp-paper">
-            <ScaledPaper>
-              <PosReceiptDocument
+          <div className="flex items-center justify-between gap-3 mb-2 px-1">
+            <p className="text-[11px] font-black uppercase tracking-widest sp-muted">Receipt</p>
+          </div>
+          <div className="mb-3"><ReceiptStyleToggle value={style} onChange={setStyle} /></div>
+          <div className={style === 'slip' ? '' : 'sp-paper'}>
+            <ScaledPaper width={style === 'slip' ? SLIP_WIDTH : 794}>
+              <ReceiptPaper
                 id="pos-receipt-paper"
+                style={style}
                 sale={sale}
                 currency={currency}
                 shop={{ name: shopName || '', logoUrl: shopLogo, primaryColor: shopColor }}
                 branch={branch}
                 cashierName={cashierName}
+                imageFor={imageFor}
               />
             </ScaledPaper>
           </div>

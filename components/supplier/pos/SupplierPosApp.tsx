@@ -107,6 +107,17 @@ const SupplierPosApp: React.FC = () => {
     return () => window.clearInterval(t);
   }, []);
 
+  // Sale lines carry the product id, not its photo; the catalogue has both.
+  const photoById = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of pos.products ?? []) if (p.imageUrl) m.set(String(p.id), p.imageUrl);
+    return m;
+  }, [pos.products]);
+  const imageFor = React.useCallback(
+    (it: any) => photoById.get(String(it?.supplierProductId ?? it?.productId ?? '')) ?? null,
+    [photoById],
+  );
+
   if (pos.phase === 'loading') {
     return (
       <div className="supplier-pos sp-root flex items-center justify-center" style={{ height: '100dvh' }}>
@@ -157,6 +168,7 @@ const SupplierPosApp: React.FC = () => {
 
   // What the paper receipt needs beyond the sale itself.
   const paperProps = {
+    imageFor,
     shopColor: pos.shop?.primaryColor ?? null,
     branch: pos.branch ? { name: pos.branch.name, address: (pos.branch as any).address, phone: (pos.branch as any).phone } : null,
     cashierName: user?.name || null,
@@ -176,6 +188,7 @@ const SupplierPosApp: React.FC = () => {
       shopName={shopName}
       shopLogo={shopLogo}
       shopColor={pos.shop?.primaryColor ?? null}
+      imageFor={imageFor}
     />
   ) : null;
 

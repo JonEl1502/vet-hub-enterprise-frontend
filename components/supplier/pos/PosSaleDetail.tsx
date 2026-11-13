@@ -4,7 +4,8 @@ import { ArrowLeft, Ban, Phone, User, Clock, AlertTriangle } from 'lucide-react'
 import { supplierPosAPI, toast } from '../../../services';
 import { money, unitFor, qtyText } from './format';
 import DocumentBrand from '../../shared/common/DocumentBrand';
-import PosReceiptDocument, { OffscreenPaper } from './PosReceiptDocument';
+import { OffscreenPaper, useReceiptStyle } from './PosReceiptDocument';
+import { ReceiptPaper, ReceiptStyleToggle } from './PosReceiptPaper';
 
 /**
  * One sale, opened.
@@ -36,9 +37,12 @@ interface Props {
   shopLogo?: string | null;
   /** The shop's brand colour, the accent on the paper receipt. */
   shopColor?: string | null;
+  /** The product photo for a sale line, from the till's catalogue. */
+  imageFor?: (item: any) => string | null | undefined;
 }
 
-const PosSaleDetail: React.FC<Props> = ({ saleId, currency, canVoid, onBack, onVoided, shopName, shopLogo, shopColor }) => {
+const PosSaleDetail: React.FC<Props> = ({ saleId, currency, canVoid, onBack, onVoided, shopName, shopLogo, shopColor, imageFor }) => {
+  const [receiptStyle, setReceiptStyle] = useReceiptStyle();
   const [sale, setSale] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [voiding, setVoiding] = useState(false);
@@ -301,13 +305,16 @@ const PosSaleDetail: React.FC<Props> = ({ saleId, currency, canVoid, onBack, onV
         >
           {/* The PDF is the paper receipt, not this panel (see PosReceiptDocument). */}
           <OffscreenPaper>
-            <PosReceiptDocument
+            <ReceiptPaper
               id="pos-sale-paper"
+              style={receiptStyle}
               sale={sale}
               currency={currency}
               shop={{ name: shopName || '', logoUrl: shopLogo, primaryColor: shopColor }}
+              imageFor={imageFor}
             />
           </OffscreenPaper>
+          <div className="mb-2.5"><ReceiptStyleToggle value={receiptStyle} onChange={setReceiptStyle} /></div>
           <DocumentActions
             size="sm"
             showPrint
