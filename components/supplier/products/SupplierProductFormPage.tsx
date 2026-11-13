@@ -92,6 +92,9 @@ interface ProductFormData {
   packSize: string;
   /** What the SUPPLIER suggests clinics resell at. Advisory — they may inherit it. */
   suggestedSellPrice: string;
+  /** 323 — shop page offer price and promo line. */
+  websitePrice: string;
+  promo: string;
   /**
    * The three fields that let buy and sell be quoted in DIFFERENT units — the
    * same contract the clinic's inventory form uses, carried in `metadata` so it
@@ -124,6 +127,8 @@ const emptyForm = (defaultCurrency = 'KES'): ProductFormData => ({
   subcategories: [] as string[],
   packSize: '',
   suggestedSellPrice: '',
+  websitePrice: '',
+  promo: '',
   sellUnit: '',
   costUnit: '',
   sellQty: '1',
@@ -271,6 +276,8 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
           subcategories: (p as any).metadata?.subcategories ?? [],
           packSize: (p as any).packSize != null ? String((p as any).packSize) : '',
           suggestedSellPrice: (p as any).suggestedSellPrice != null ? String((p as any).suggestedSellPrice) : '',
+          websitePrice: (p as any).websitePrice != null ? String((p as any).websitePrice) : '',
+          promo: ((p as any).websiteHighlights ?? [])[0] ?? '',
           // Blank means "same as the stock unit" — never invent a split that
           // the product does not have.
           sellUnit: (p as any).metadata?.sellUnit ?? '',
@@ -476,7 +483,10 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
         },
         packSize: form.packSize ? Number(form.packSize) : undefined,
         suggestedSellPrice: form.suggestedSellPrice ? Number(form.suggestedSellPrice) : undefined,
-      };
+        // Empty sends null so a removed offer is really removed.
+        websitePrice: form.websitePrice ? Number(form.websitePrice) : null,
+        websiteHighlights: form.promo.trim() ? [form.promo.trim()] : [],
+      } as any;
 
       if (editingProduct) {
         await supplierProductsAPI.update(Number(editingProduct.id), basePayload as UpdateSupplierProductData);
@@ -789,6 +799,54 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
                 onChange={e => setForm({ ...form, suggestedSellPrice: e.target.value })}
                 placeholder="0.00"
                 className={`${INPUT} pl-12`}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* 323 — the shop page: an offer price and a promo line. */}
+        <div className="p-5 space-y-4">
+          <div>
+            <p className="text-xs font-black text-pine dark:text-zinc-100">On your shop page</p>
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">Put this product on offer, or add a short line customers see under it.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <FieldLabel htmlFor="sp-offer" hint="Lower than your normal price. The shop page shows it on a highlight with the normal price struck through and the percentage off. Leave blank for no offer.">
+                Offer price
+              </FieldLabel>
+              <div className="relative">
+                <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">{getCurrencySymbol(form.currency)}</span>
+                <input
+                  id="sp-offer"
+                  type="number" inputMode="decimal" min="0" step="0.01"
+                  value={form.websitePrice}
+                  onChange={e => setForm({ ...form, websitePrice: e.target.value })}
+                  placeholder="No offer"
+                  className={`${INPUT} pl-12`}
+                />
+              </div>
+              {Number(form.websitePrice) > 0 && Number(form.unitPrice) > 0 && (
+                Number(form.websitePrice) < Number(form.unitPrice) ? (
+                  <p className="text-[11px] font-bold text-emerald-600">
+                    {Math.round((1 - Number(form.websitePrice) / Number(form.unitPrice)) * 100)}% off on your shop page
+                  </p>
+                ) : (
+                  <p className="text-[11px] font-bold text-amber-600">Not shown: an offer must be lower than your price.</p>
+                )
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <FieldLabel htmlFor="sp-promo" hint="One short line under the product, like 'Free delivery over 5 bags' or 'New stock in'.">
+                Promo line
+              </FieldLabel>
+              <input
+                id="sp-promo"
+                value={form.promo}
+                maxLength={80}
+                onChange={e => setForm({ ...form, promo: e.target.value })}
+                placeholder="e.g. Free delivery over 5 bags"
+                className={INPUT}
               />
             </div>
           </div>

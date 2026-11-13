@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   Check, Copy, ExternalLink, Image as ImageIcon, Loader2, Lock, MessageCircle, Palette, Store,
 } from 'lucide-react';
-import { supplierShopAPI, type ShopSettings, type ShopTemplate } from '../../../services/modules/supplierShop.api';
+import { supplierShopAPI, type ShopHours, type ShopSettings, type ShopTemplate } from '../../../services/modules/supplierShop.api';
 import { subscriptionPackagesAPI } from '../../../services/modules/subscriptionPackages.api';
 import { toast, uploadsAPI } from '../../../services';
 
@@ -23,7 +23,11 @@ const TEMPLATES: { id: ShopTemplate; name: string; blurb: string; pro: boolean }
   { id: 'market', name: 'Market', blurb: 'Bright and busy, like your till. Big photos, quick Add buttons.', pro: false },
   { id: 'boutique', name: 'Boutique', blurb: 'Calm and elegant. Cream paper, large photos, room to breathe.', pro: true },
   { id: 'bold', name: 'Bold', blurb: 'Your colour and cover photo up top, products in aisles by category.', pro: true },
+  { id: 'counter', name: 'Counter', blurb: 'A trade price list: departments down the side, quick rows, "send your list" up top.', pro: true },
+  { id: 'vetshop', name: 'Vet Shop', blurb: 'Search first, with a box for vet prescriptions. Clean and calm.', pro: true },
 ];
+
+const DAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 const ORIGIN = typeof window !== 'undefined' ? window.location.origin : 'https://vethubcore.com';
 const displayHost = (o: string) => o.replace(/^https?:\/\//, '');
@@ -49,6 +53,28 @@ const Mini: React.FC<{ id: ShopTemplate; accent: string }> = ({ id, accent }) =>
         <div className="grid grid-cols-3 gap-2 px-3 mt-3 w-full">
           {Array.from({ length: 3 }).map((_, i) => <div key={i} className="h-12 rounded-lg bg-white border border-[#ece5d8]" />)}
         </div>
+      </div>
+    );
+  }
+  if (id === 'counter') {
+    return (
+      <div className="h-28 rounded-xl overflow-hidden bg-[#f4f4f5] border border-slate-200">
+        <div className="h-9 bg-[#1C1F24] px-2 pt-2"><div className="h-2 w-16 rounded bg-white/80" /></div>
+        <div className="flex gap-1.5 p-2">
+          <div className="w-8 space-y-1">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-2 rounded bg-slate-300" />)}</div>
+          <div className="flex-1 space-y-1">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-3.5 rounded bg-white border border-slate-200 flex items-center justify-end pr-1"><span className="h-1.5 w-3 rounded" style={{ background: accent }} /></div>)}</div>
+        </div>
+      </div>
+    );
+  }
+  if (id === 'vetshop') {
+    return (
+      <div className="h-28 rounded-xl overflow-hidden bg-white border border-slate-200 p-2">
+        <div className="rounded-lg p-2" style={{ background: `${accent}14` }}>
+          <div className="h-2 w-20 rounded bg-slate-700" />
+          <div className="h-3 rounded bg-white mt-1.5 border border-slate-200" />
+        </div>
+        <div className="grid grid-cols-4 gap-1.5 mt-2">{Array.from({ length: 4 }).map((_, i) => <div key={i} className="h-7 rounded-md bg-slate-50 border border-slate-200" />)}</div>
       </div>
     );
   }
@@ -91,6 +117,12 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
   const [copied, setCopied] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [proPrice, setProPrice] = useState<string | null>(null);
+  const [headline, setHeadline] = useState('');
+  const [intro, setIntro] = useState('');
+  const [deliveryNote, setDeliveryNote] = useState('');
+  const [pickup, setPickup] = useState(true);
+  const [hoursOn, setHoursOn] = useState(false);
+  const [hours, setHours] = useState<ShopHours>({ days: [1, 2, 3, 4, 5, 6], open: '08:00', close: '18:00' });
 
   const load = (next: ShopSettings) => {
     setS(next);
@@ -98,6 +130,12 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
     setTagline(next.tagline ?? '');
     setWhatsapp(next.whatsapp ?? '');
     setColor(next.primaryColor || '#1c7a5b');
+    setHeadline(next.headline ?? '');
+    setIntro(next.intro ?? '');
+    setDeliveryNote(next.deliveryNote ?? '');
+    setPickup(next.pickup ?? true);
+    setHoursOn(!!next.hours);
+    if (next.hours) setHours(next.hours);
   };
 
   useEffect(() => {
@@ -189,7 +227,7 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
       <div className="grid lg:grid-cols-[1fr_20rem] gap-5 items-start">
         <div className="space-y-5">
           <Card title="Template" hint="How your shop looks. Preview any of them before you choose.">
-            <div className="grid sm:grid-cols-3 gap-3">
+            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
               {TEMPLATES.map((t) => {
                 const on = s.template === t.id;
                 const locked = t.pro && !s.pro;
@@ -243,6 +281,67 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
               </label>
               <button onClick={() => save('details', { tagline, whatsapp })} disabled={!!saving} className="px-5 py-2.5 rounded-xl bg-pine text-white text-xs font-black uppercase tracking-widest hover:opacity-90 disabled:opacity-60">
                 {saving === 'details' ? 'Saving…' : 'Save details'}
+              </button>
+            </div>
+          </Card>
+
+          <Card title="Top of the page" hint="A headline and the practical facts customers check before they order or visit.">
+            <div className="space-y-4">
+              <label className="block">
+                <span className="text-xs font-bold text-slate-600 dark:text-zinc-300">Headline</span>
+                <input value={headline} onChange={(e) => setHeadline(e.target.value)} maxLength={160} className={`${INPUT} mt-1.5`} placeholder="e.g. Feeds, seeds and animal health. Fair prices for farmers." />
+              </label>
+              <label className="block">
+                <span className="text-xs font-bold text-slate-600 dark:text-zinc-300">Short intro</span>
+                <textarea value={intro} onChange={(e) => setIntro(e.target.value)} maxLength={600} rows={3} className={`${INPUT} mt-1.5 resize-none`} placeholder="Who you are, where you are, what you are good at. Two or three sentences." />
+              </label>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <label className="block">
+                  <span className="text-xs font-bold text-slate-600 dark:text-zinc-300">Delivery</span>
+                  <input value={deliveryNote} onChange={(e) => setDeliveryNote(e.target.value)} maxLength={160} className={`${INPUT} mt-1.5`} placeholder="e.g. Delivery within 10 km · KES 200" />
+                </label>
+                <label className="flex items-center gap-3 sm:pt-6 cursor-pointer select-none">
+                  <input type="checkbox" checked={pickup} onChange={(e) => setPickup(e.target.checked)} className="w-5 h-5 accent-pine" />
+                  <span className="text-sm font-semibold text-pine dark:text-zinc-100">Customers can collect in store</span>
+                </label>
+              </div>
+              <div>
+                <label className="flex items-center gap-3 cursor-pointer select-none">
+                  <input type="checkbox" checked={hoursOn} onChange={(e) => setHoursOn(e.target.checked)} className="w-5 h-5 accent-pine" />
+                  <span className="text-sm font-semibold text-pine dark:text-zinc-100">Show opening hours ("Open now · closes 6pm")</span>
+                </label>
+                {hoursOn && (
+                  <div className="mt-3 rounded-xl border border-slate-200 dark:border-zinc-700 p-3 space-y-3">
+                    <div className="flex flex-wrap gap-1.5">
+                      {DAYS.map((d, i) => {
+                        const on = hours.days.includes(i);
+                        return (
+                          <button
+                            key={d}
+                            type="button"
+                            onClick={() => setHours({ ...hours, days: on ? hours.days.filter((x) => x !== i) : [...hours.days, i].sort() })}
+                            className={`w-12 h-9 rounded-lg text-xs font-bold border transition-colors ${on ? 'bg-pine text-white border-pine' : 'bg-white dark:bg-zinc-900 text-slate-500 border-slate-200 dark:border-zinc-700'}`}
+                          >
+                            {d}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm">
+                      <span className="text-xs font-bold text-slate-500">Opens</span>
+                      <input type="time" value={hours.open} onChange={(e) => setHours({ ...hours, open: e.target.value })} className={`${INPUT} w-32`} />
+                      <span className="text-xs font-bold text-slate-500">closes</span>
+                      <input type="time" value={hours.close} onChange={(e) => setHours({ ...hours, close: e.target.value })} className={`${INPUT} w-32`} />
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => save('hero', { headline, intro, deliveryNote, pickup, hours: hoursOn ? hours : null }, 'Saved')}
+                disabled={!!saving}
+                className="px-5 py-2.5 rounded-xl bg-pine text-white text-xs font-black uppercase tracking-widest hover:opacity-90 disabled:opacity-60"
+              >
+                {saving === 'hero' ? 'Saving…' : 'Save'}
               </button>
             </div>
           </Card>
@@ -301,7 +400,7 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => {
             </div>
             {!s.pro && (
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 px-4 py-3">
-                <p className="text-xs font-bold text-amber-800 dark:text-amber-300">{lockNote}, with the Boutique and Bold templates.</p>
+                <p className="text-xs font-bold text-amber-800 dark:text-amber-300">{lockNote}, with the Boutique, Bold, Counter and Vet Shop templates.</p>
                 <button onClick={() => setView('supplier-billing')} className="px-4 py-2 rounded-xl bg-amber-500 text-white text-[11px] font-black uppercase tracking-widest">See plans</button>
               </div>
             )}

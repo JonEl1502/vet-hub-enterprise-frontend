@@ -30,7 +30,7 @@ export const useShopBasket = (slug: string, products: PublicShopProduct[]) => {
     [basket, byId],
   );
   const count = lines.reduce((t, l) => t + l.qty, 0);
-  const total = lines.reduce((t, l) => t + l.qty * l.product.price, 0);
+  const total = lines.reduce((t, l) => t + l.qty * unitPriceOf(l.product), 0);
 
   const setQty = (id: string, qty: number) =>
     setBasket((b) => {
@@ -44,6 +44,9 @@ export const useShopBasket = (slug: string, products: PublicShopProduct[]) => {
 
   return { basket, lines, count, total, setQty, add, clear };
 };
+
+/** What one costs right now: the offer price when there is one. */
+export const unitPriceOf = (p: PublicShopProduct) => p.offerPrice ?? p.price;
 
 export const shopMoney = (n: number, currency: string) =>
   `${currency} ${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
@@ -69,7 +72,7 @@ export const orderMessage = (
   extra: { name?: string; branch?: string; note?: string },
 ) => {
   const rows = lines.map(
-    (l) => `• ${l.qty} × ${l.product.name} — ${shopMoney(l.qty * l.product.price, l.product.currency)}`,
+    (l) => `• ${l.qty} × ${l.product.name} — ${shopMoney(l.qty * unitPriceOf(l.product), l.product.currency)}`,
   );
   return [
     `Hello ${shop.name}, I would like to order:`,

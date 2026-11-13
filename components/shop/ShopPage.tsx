@@ -3,8 +3,8 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { Loader2, Store } from 'lucide-react';
 import { supplierShopAPI, type PublicShop, type PublicShopProduct, type ShopTemplate } from '../../services/modules/supplierShop.api';
 import { useShopBasket } from './useShopBasket';
-import { BasketBar, BasketSheet, ProductSheet } from './ShopParts';
-import { BoldTemplate, BoutiqueTemplate, MarketTemplate, type TemplateProps } from './ShopTemplates';
+import { BasketBar, BasketSheet, ProductSheet, ShopCtx } from './ShopParts';
+import { TEMPLATE_COMPONENTS as TEMPLATES } from './ShopTemplates';
 
 /**
  * vethubcore.com/shop/<slug> — a supplier's public shop page.
@@ -22,12 +22,8 @@ const DEFAULT_ACCENT: Record<ShopTemplate, string> = {
   market: '#1c7a5b',
   boutique: '#7a5c2e',
   bold: '#16a34a',
-};
-
-const TEMPLATES: Record<ShopTemplate, React.FC<TemplateProps>> = {
-  market: MarketTemplate,
-  boutique: BoutiqueTemplate,
-  bold: BoldTemplate,
+  counter: '#ea580c',
+  vetshop: '#0f766e',
 };
 
 const hex6 = (c: string) => (c.length === 4 ? '#' + c.slice(1).split('').map((x) => x + x).join('') : c);
@@ -38,6 +34,7 @@ const ShopPage: React.FC = () => {
   const [state, setState] = useState<'loading' | 'ready' | 'missing'>('loading');
   const [shop, setShop] = useState<PublicShop | null>(null);
   const [products, setProducts] = useState<PublicShopProduct[]>([]);
+  const [popularIds, setPopularIds] = useState<string[]>([]);
   const [query, setQuery] = useState('');
   const [category, setCategory] = useState('All');
   const [viewing, setViewing] = useState<PublicShopProduct | null>(null);
@@ -53,6 +50,7 @@ const ShopPage: React.FC = () => {
         if (r.success && r.data?.shop) {
           setShop(r.data.shop);
           setProducts(r.data.products ?? []);
+          setPopularIds(r.data.popular ?? []);
           setState('ready');
         } else setState('missing');
       })
@@ -74,6 +72,12 @@ const ShopPage: React.FC = () => {
     () => Array.from(new Set(products.map((p) => p.category))).sort((a, b) => a.localeCompare(b)),
     [products],
   );
+  const offers = useMemo(() => products.filter((p) => p.offerPrice != null && p.stock !== 'out'), [products]);
+  const popular = useMemo(() => {
+    const byId = new Map(products.map((p) => [p.id, p]));
+    return popularIds.map((id) => byId.get(id)).filter((p): p is PublicShopProduct => !!p && p.stock !== 'out');
+  }, [products, popularIds]);
+
   const shown = useMemo(() => {
     const q = query.trim().toLowerCase();
     return products.filter(
@@ -104,7 +108,7 @@ const ShopPage: React.FC = () => {
   const Template = TEMPLATES[template];
 
   return (
-    <>
+    <ShopCtx.Provider value={shop}>
       {preview && preview !== shop.template && (
         <div className="fixed top-0 inset-x-0 z-[60] bg-amber-400 text-amber-950 text-center text-[12.5px] font-bold py-1.5 px-3">
           Preview of the {preview.charAt(0).toUpperCase() + preview.slice(1)} template. Customers see your saved template.
@@ -115,6 +119,8 @@ const ShopPage: React.FC = () => {
         shop={shop}
         products={products}
         shown={shown}
+        offers={offers}
+        popular={popular}
         categories={categories}
         category={category}
         setCategory={setCategory}
@@ -128,7 +134,7 @@ const ShopPage: React.FC = () => {
         openBasket={() => setBasketOpen(true)}
       />
       <BasketBar count={basket.count} total={basket.total} currency={shop.currency} accent={accent} onOpen={() => setBasketOpen(true)} />
-      <p className={`text-center text-[11.5px] py-6 ${template === 'bold' ? 'bg-[#0f1512] text-white/40' : template === 'boutique' ? 'bg-[#faf7f2] text-[#8a958d]' : 'bg-[#f3f5f4] text-slate-400'} ${basket.count ? 'pb-24' : ''}`}>
+      <p className={`text-center text-[11.5px] py-6 ${template === 'bold' ? 'bg-[#0f1512] text-white/40' : template === 'boutique' ? 'bg-[#faf7f2] text-[#8a958d]' : template === 'vetshop' ? 'bg-white text-slate-400' : template === 'counter' ? 'bg-[#f4f4f5] text-slate-400' : 'bg-[#f3f5f4] text-slate-400'} ${basket.count ? 'pb-24' : ''}`}>
         Shop page by <a href="/" className="underline underline-offset-2">VetHubCore</a>
       </p>
       {viewing && (
@@ -151,7 +157,7 @@ const ShopPage: React.FC = () => {
           onClose={() => setBasketOpen(false)}
         />
       )}
-    </>
+    </ShopCtx.Provider>
   );
 };
 
