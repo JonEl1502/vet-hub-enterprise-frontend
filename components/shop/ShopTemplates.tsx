@@ -74,25 +74,56 @@ const Empty: React.FC<{ query: string }> = ({ query }) => (
   </div>
 );
 
+// ─── Advertising rail ──────────────────────────────────────────────────────
+
+/**
+ * The right-hand column on wide screens, held for advertising (user,
+ * 2026-11-13: "on the right panel we can leave it for future advertising").
+ * Until real ads are sold it carries one quiet "advertise here" card, so the
+ * slot is visible and saleable rather than an empty gap. Hidden below xl.
+ */
+export const AdRail: React.FC<{ dark?: boolean; className?: string }> = ({ dark, className = '' }) => (
+  <aside className={`hidden xl:block w-72 shrink-0 ${className}`} aria-label="Sponsored">
+    <div className="sticky top-4 space-y-3">
+      <p className={`text-[10px] font-black uppercase tracking-[0.2em] ${dark ? 'text-white/40' : 'text-slate-400'}`}>Sponsored</p>
+      <a
+        href="/"
+        className={`block rounded-3xl p-5 border-2 border-dashed transition-colors ${
+          dark ? 'border-white/15 hover:border-white/30 text-white/80' : 'border-slate-200 hover:border-slate-300 text-slate-600 bg-white/60'
+        }`}
+      >
+        <div className={`h-28 rounded-2xl mb-4 flex items-center justify-center text-[12px] font-bold ${dark ? 'bg-white/5 text-white/40' : 'bg-slate-100 text-slate-400'}`}>
+          Your brand here
+        </div>
+        <p className="text-[14px] font-black leading-snug">Reach farmers while they shop</p>
+        <p className="text-[12px] mt-1 opacity-75">Advertise your feeds, seeds or animal health products on agrovet shop pages.</p>
+        <p className="text-[12px] font-black mt-3 underline underline-offset-4">Advertise with VetHubCore</p>
+      </a>
+    </div>
+  </aside>
+);
+
 // ─── Market ─────────────────────────────────────────────────────────────────
 
 export const MarketTemplate: React.FC<TemplateProps> = (t) => {
   const { shop, accent } = t;
   const links = contactLinks(shop);
+  const counts = t.products.reduce<Record<string, number>>((m, p) => ((m[p.category] = (m[p.category] ?? 0) + 1), m), {});
+
   return (
     <div className="min-h-screen bg-[#f3f5f4] text-slate-900 pb-28">
-      <header className="relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${accent} 0%, ${accent}dd 60%, ${accent}aa 100%)` }}>
-        <div className="absolute -right-20 -top-24 w-72 h-72 rounded-full bg-white/10" />
-        <div className="absolute right-24 -bottom-28 w-56 h-56 rounded-full bg-white/10" />
-        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 pt-8 pb-16 text-white">
-          <div className="flex items-center gap-4">
-            <Logo shop={shop} accent="#ffffff33" className="w-16 h-16 ring-4 ring-white/20" />
+      {/* Slim header: name and contact, not a billboard. */}
+      <header className="relative overflow-hidden" style={{ background: `linear-gradient(120deg, ${accent} 0%, ${accent}e6 70%, ${accent}bb 100%)` }}>
+        <div className="absolute -right-16 -top-20 w-60 h-60 rounded-full bg-white/10" />
+        <div className="relative max-w-[1600px] mx-auto px-4 lg:px-6 py-4 flex flex-wrap items-center justify-between gap-3 text-white">
+          <div className="flex items-center gap-3 min-w-0">
+            <Logo shop={shop} accent="#ffffff33" className="w-12 h-12 ring-2 ring-white/20" />
             <div className="min-w-0">
-              <h1 className="text-[26px] sm:text-[32px] font-black leading-tight tracking-tight">{shop.name}</h1>
-              {shop.tagline && <p className="text-[14px] text-white/85 mt-0.5">{shop.tagline}</p>}
+              <h1 className="text-[20px] sm:text-[24px] font-black leading-tight tracking-tight truncate">{shop.name}</h1>
+              {shop.tagline && <p className="text-[13px] text-white/85 truncate">{shop.tagline}</p>}
             </div>
           </div>
-          <div className="mt-5 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2">
             {shop.branches.slice(0, 3).map((b) => (
               <span key={b.id} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-white/15 text-[12.5px] font-bold">
                 <MapPin size={13} /> {b.name}
@@ -112,56 +143,98 @@ export const MarketTemplate: React.FC<TemplateProps> = (t) => {
         </div>
       </header>
 
-      <div className="sticky top-0 z-30 -mt-8">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6">
-          <div className="bg-white rounded-3xl shadow-xl shadow-slate-900/5 p-3 border border-slate-100">
+      {/* Phone and tablet: search and categories as a sticky bar on top. */}
+      <div className="lg:hidden sticky top-0 z-30 bg-[#f3f5f4]/95 backdrop-blur px-4 pt-3 pb-2 border-b border-slate-200">
+        <SearchBox query={t.query} setQuery={t.setQuery} placeholder={`Search ${t.products.length} products`} />
+        <div className="mt-2.5 flex gap-2 overflow-x-auto no-scrollbar">
+          {['All', ...t.categories].map((c) => {
+            const on = t.category === c;
+            return (
+              <button
+                key={c}
+                onClick={() => t.setCategory(c)}
+                className="shrink-0 h-9 px-4 rounded-full text-[13px] font-bold border"
+                style={on ? { background: accent, borderColor: accent, color: '#fff' } : { background: '#fff', borderColor: '#e2e8f0', color: '#334155' }}
+              >
+                {c}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="max-w-[1600px] mx-auto px-4 lg:px-6 pt-4 lg:pt-6 flex gap-6 items-start">
+        {/* Desktop: search and categories in a pinned left panel. */}
+        <aside className="hidden lg:block w-64 shrink-0 sticky top-4">
+          <div className="bg-white rounded-3xl border border-slate-100 p-3 shadow-sm">
             <SearchBox query={t.query} setQuery={t.setQuery} placeholder={`Search ${t.products.length} products`} />
-            <div className="mt-3 flex gap-2 overflow-x-auto no-scrollbar pb-0.5">
+            <p className="text-[10.5px] font-black uppercase tracking-[0.18em] text-slate-400 mt-4 mb-1.5 px-2">Categories</p>
+            <nav className="space-y-0.5">
               {['All', ...t.categories].map((c) => {
                 const on = t.category === c;
+                const n = c === 'All' ? t.products.length : counts[c] ?? 0;
                 return (
                   <button
                     key={c}
                     onClick={() => t.setCategory(c)}
-                    className="shrink-0 h-9 px-4 rounded-full text-[13px] font-bold border transition-colors"
-                    style={on ? { background: accent, borderColor: accent, color: '#fff' } : { background: '#fff', borderColor: '#e2e8f0', color: '#334155' }}
+                    className="w-full h-10 px-3 rounded-xl flex items-center justify-between text-[14px] font-bold transition-colors"
+                    style={on ? { background: `${accent}14`, color: accent } : { color: '#334155' }}
                   >
-                    {c}
+                    <span className="truncate">{c === 'All' ? 'All products' : c}</span>
+                    <span className="text-[12px] tabular-nums opacity-60">{n}</span>
                   </button>
                 );
               })}
-            </div>
+            </nav>
           </div>
-        </div>
-      </div>
-
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 mt-6">
-        {t.shown.length === 0 ? <Empty query={t.query} /> : (
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
-            {t.shown.map((p) => (
-              <article
-                key={p.id}
-                onClick={() => t.open(p)}
-                className="group bg-white rounded-3xl overflow-hidden border border-slate-100 hover:shadow-xl hover:shadow-slate-900/5 hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col"
-              >
-                <ProductArt p={p} className="aspect-square" tint={accent} />
-                <div className="p-3.5 pt-2 flex flex-col flex-1">
-                  <p className="text-[10.5px] font-black uppercase tracking-wider" style={{ color: accent }}>{p.category}</p>
-                  <h3 className="text-[14px] font-bold leading-snug mt-0.5 line-clamp-2">{p.name}</h3>
-                  {p.maker && <p className="text-[11.5px] text-slate-400 truncate mt-0.5">{p.maker}</p>}
-                  <div className="mt-auto pt-3 flex flex-wrap items-end justify-between gap-2">
-                    <div>
-                      <p className="text-[16px] font-black tabular-nums leading-none whitespace-nowrap">{shopMoney(p.price, p.currency)}</p>
-                      <p className="text-[11px] text-slate-400 mt-1">per {lowerUnit(p.unit)}</p>
-                    </div>
-                    <AddControl p={p} qty={t.qtyOf(p.id)} accent={accent} onSet={(q) => t.setQty(p.id, q)} size="sm" label="Add" />
-                  </div>
+          {shop.branches.length > 0 && (
+            <div className="mt-3 bg-white rounded-3xl border border-slate-100 p-4 shadow-sm">
+              <p className="text-[10.5px] font-black uppercase tracking-[0.18em] text-slate-400 mb-2">Find us</p>
+              {shop.branches.map((b) => (
+                <div key={b.id} className="py-1.5">
+                  <p className="text-[13px] font-bold flex items-center gap-1.5"><MapPin size={13} style={{ color: accent }} /> {b.name}</p>
+                  {b.address && <p className="text-[12px] text-slate-500 pl-5">{b.address}</p>}
+                  {b.phone && <a href={`tel:${b.phone.replace(/\s+/g, '')}`} className="text-[12px] text-slate-500 pl-5 underline underline-offset-2">{b.phone}</a>}
                 </div>
-              </article>
-            ))}
+              ))}
+            </div>
+          )}
+        </aside>
+
+        <main className="flex-1 min-w-0">
+          <div className="flex items-baseline justify-between mb-3 px-1">
+            <h2 className="text-[18px] font-black">{t.query ? `Results for "${t.query}"` : t.category === 'All' ? 'All products' : t.category}</h2>
+            <span className="text-[12.5px] text-slate-500 font-semibold">{t.shown.length} item{t.shown.length === 1 ? '' : 's'}</span>
           </div>
-        )}
-      </main>
+          {t.shown.length === 0 ? <Empty query={t.query} /> : (
+            <div className="grid grid-cols-2 sm:grid-cols-3 2xl:grid-cols-4 gap-3 sm:gap-4">
+              {t.shown.map((p) => (
+                <article
+                  key={p.id}
+                  onClick={() => t.open(p)}
+                  className="group bg-white rounded-3xl overflow-hidden border border-slate-100 hover:shadow-xl hover:shadow-slate-900/5 hover:-translate-y-0.5 transition-all cursor-pointer flex flex-col"
+                >
+                  <ProductArt p={p} className="aspect-[5/4]" tint={accent} />
+                  <div className="p-3.5 pt-2 flex flex-col flex-1">
+                    <p className="text-[10.5px] font-black uppercase tracking-wider" style={{ color: accent }}>{p.category}</p>
+                    <h3 className="text-[14px] font-bold leading-snug mt-0.5 line-clamp-2">{p.name}</h3>
+                    {p.maker && <p className="text-[11.5px] text-slate-400 truncate mt-0.5">{p.maker}</p>}
+                    <div className="mt-auto pt-3 flex flex-wrap items-end justify-between gap-2">
+                      <div>
+                        <p className="text-[16px] font-black tabular-nums leading-none whitespace-nowrap">{shopMoney(p.price, p.currency)}</p>
+                        <p className="text-[11px] text-slate-400 mt-1">per {lowerUnit(p.unit)}</p>
+                      </div>
+                      <AddControl p={p} qty={t.qtyOf(p.id)} accent={accent} onSet={(q) => t.setQty(p.id, q)} size="sm" label="Add" />
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          )}
+        </main>
+
+        <AdRail />
+      </div>
     </div>
   );
 };
@@ -176,7 +249,7 @@ export const BoutiqueTemplate: React.FC<TemplateProps> = (t) => {
   return (
     <div className="min-h-screen bg-[#faf7f2] text-[#1d2a22] pb-28">
       <header className="border-b border-[#e8e1d4]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 min-w-0">
             <Logo shop={shop} accent={accent} className="w-9 h-9" round />
             <span className="text-[15px] font-bold truncate">{shop.name}</span>
@@ -190,9 +263,9 @@ export const BoutiqueTemplate: React.FC<TemplateProps> = (t) => {
         </div>
       </header>
 
-      <section className="max-w-6xl mx-auto px-4 sm:px-6 pt-14 pb-10 text-center">
+      <section className="max-w-[1600px] mx-auto px-4 sm:px-6 pt-8 pb-6 text-center">
         <p className="text-[11px] font-bold uppercase tracking-[0.35em]" style={{ color: accent }}>The shop</p>
-        <h1 className="text-[40px] sm:text-[56px] leading-[1.05] mt-3" style={SERIF}>{shop.name}</h1>
+        <h1 className="text-[34px] sm:text-[46px] leading-[1.05] mt-2" style={SERIF}>{shop.name}</h1>
         {shop.tagline && <p className="text-[16px] text-[#5b6b60] mt-4 max-w-xl mx-auto" style={SERIF}><em>{shop.tagline}</em></p>}
         <div className="mt-6 flex flex-wrap justify-center gap-x-5 gap-y-2 text-[13px] text-[#5b6b60]">
           {shop.branches.slice(0, 3).map((b) => <span key={b.id} className="inline-flex items-center gap-1.5"><MapPin size={13} /> {b.name}</span>)}
@@ -202,7 +275,7 @@ export const BoutiqueTemplate: React.FC<TemplateProps> = (t) => {
       </section>
 
       <div className="sticky top-0 z-30 bg-[#faf7f2]/95 backdrop-blur border-y border-[#e8e1d4]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row gap-3 sm:items-center">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row gap-3 sm:items-center">
           <div className="flex gap-5 overflow-x-auto no-scrollbar flex-1">
             {['All', ...t.categories].map((c) => (
               <button
@@ -219,9 +292,10 @@ export const BoutiqueTemplate: React.FC<TemplateProps> = (t) => {
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6 mt-10">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 mt-8 flex gap-8 items-start">
+      <main className="flex-1 min-w-0">
         {t.shown.length === 0 ? <Empty query={t.query} /> : (
-          <div className="grid grid-cols-2 lg:grid-cols-3 gap-x-5 gap-y-12 sm:gap-x-8">
+          <div className="grid grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-x-5 gap-y-10 sm:gap-x-7">
             {t.shown.map((p) => (
               <article key={p.id} onClick={() => t.open(p)} className="group cursor-pointer">
                 <div className="rounded-[1.75rem] overflow-hidden border border-[#ece5d8] group-hover:shadow-2xl group-hover:shadow-[#1d2a22]/10 transition-shadow">
@@ -240,8 +314,10 @@ export const BoutiqueTemplate: React.FC<TemplateProps> = (t) => {
           </div>
         )}
       </main>
+      <AdRail />
+      </div>
 
-      <footer className="max-w-6xl mx-auto px-4 sm:px-6 mt-20 pt-8 border-t border-[#e8e1d4] text-center text-[12px] text-[#8a958d]">
+      <footer className="max-w-[1600px] mx-auto px-4 sm:px-6 mt-20 pt-8 border-t border-[#e8e1d4] text-center text-[12px] text-[#8a958d]">
         {shop.address && <p>{shop.address}</p>}
       </footer>
     </div>
@@ -259,16 +335,16 @@ export const BoldTemplate: React.FC<TemplateProps> = (t) => {
 
   return (
     <div className="min-h-screen bg-[#0f1512] text-white pb-28">
-      <header className="relative min-h-[22rem] sm:min-h-[26rem] flex items-end overflow-hidden">
+      <header className="relative min-h-[16rem] sm:min-h-[19rem] flex items-end overflow-hidden">
         {shop.coverUrl ? (
           <img src={shop.coverUrl} alt="" className="absolute inset-0 w-full h-full object-cover" />
         ) : (
           <div className="absolute inset-0" style={{ background: `radial-gradient(60rem 30rem at 85% -10%, ${accent}, transparent 60%), radial-gradient(40rem 25rem at 0% 120%, ${accent}aa, transparent 60%), #0f1512` }} />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-[#0f1512] via-[#0f1512]/60 to-transparent" />
-        <div className="relative max-w-6xl w-full mx-auto px-4 sm:px-6 pb-10">
+        <div className="relative max-w-[1600px] w-full mx-auto px-4 sm:px-6 pb-10">
           <Logo shop={shop} accent={accent} className="w-16 h-16 ring-4 ring-white/10" />
-          <h1 className="text-[40px] sm:text-[64px] font-black leading-[0.95] tracking-tight mt-5 uppercase">{shop.name}</h1>
+          <h1 className="text-[34px] sm:text-[52px] font-black leading-[0.95] tracking-tight mt-4 uppercase">{shop.name}</h1>
           {shop.tagline && <p className="text-[16px] sm:text-[18px] text-white/75 mt-3 max-w-2xl">{shop.tagline}</p>}
           <div className="mt-6 flex flex-wrap gap-2.5">
             {links.wa && (
@@ -291,7 +367,7 @@ export const BoldTemplate: React.FC<TemplateProps> = (t) => {
       </header>
 
       <div className="sticky top-0 z-30 bg-[#0f1512]/90 backdrop-blur border-b border-white/10">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row gap-3 sm:items-center">
+        <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row gap-3 sm:items-center">
           <SearchBox query={t.query} setQuery={t.setQuery} className="sm:w-80" />
           <div className="flex gap-2 overflow-x-auto no-scrollbar flex-1">
             {['All', ...t.categories].map((c) => {
@@ -311,9 +387,10 @@ export const BoldTemplate: React.FC<TemplateProps> = (t) => {
         </div>
       </div>
 
-      <main className="max-w-6xl mx-auto px-4 sm:px-6">
+      <div className="max-w-[1600px] mx-auto px-4 sm:px-6 flex gap-8 items-start">
+      <main className="flex-1 min-w-0">
         {t.shown.length === 0 ? <div className="text-white/70"><Empty query={t.query} /></div> : aisles.map((a) => (
-          <section key={a.name} className="mt-12">
+          <section key={a.name} className="mt-8">
             <div className="flex items-end justify-between gap-3 mb-5">
               <h2 className="text-[28px] sm:text-[34px] font-black uppercase tracking-tight leading-none">
                 {a.name}
@@ -341,6 +418,8 @@ export const BoldTemplate: React.FC<TemplateProps> = (t) => {
           </section>
         ))}
       </main>
+      <AdRail dark className="pt-8" />
+      </div>
     </div>
   );
 };
