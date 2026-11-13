@@ -191,6 +191,7 @@ const ClinicShopSettings: React.FC<Props> = ({ setView }) => (
       kind: 'clinic',
       load: () => clinicShopAPI.getSettings().then((r) => r.data),
       save: (patch) => clinicShopAPI.updateSettings(patch).then((r) => r.data),
+      saveSite: (site) => clinicShopAPI.saveSite(site).then((r) => r.data),
       billingView: 'billing',
       proKey: 'capability:website-integration',
       proName: 'the Website add-on',

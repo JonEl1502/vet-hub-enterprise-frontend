@@ -5,6 +5,8 @@ import { supplierShopAPI, type PublicShop, type PublicShopProduct, type ShopTemp
 import { useShopBasket } from './useShopBasket';
 import { BasketBar, ProductSheet, ShopCtx } from './ShopParts';
 import BasketPage from './BasketPage';
+import SitePageView, { SiteNav, navItems } from './SitePage';
+import type { BlockCtx } from './blocks';
 import { TEMPLATE_COMPONENTS as TEMPLATES } from './ShopTemplates';
 
 /**
@@ -44,7 +46,9 @@ const ShopPage: React.FC = () => {
   // The basket is its own page: /shop/<slug>/basket (user, 2026-11-14).
   const location = useLocation();
   const navigate = useNavigate();
-  const onBasket = /\/basket\/?$/.test(location.pathname);
+  // What follows /shop/<slug>/: '', 'products', 'basket', or one of the shop's own pages (325).
+  const sub = (location.pathname.split('/')[3] || '').toLowerCase();
+  const onBasket = sub === 'basket';
   const openBasket = () => navigate(`/shop/${slug}/basket${location.search}`);
   const backToShop = () => {
     // Back to where they were when they came from the shop; the shop itself otherwise.
@@ -119,6 +123,38 @@ const ShopPage: React.FC = () => {
 
   const Template = TEMPLATES[template];
 
+  // 325 — the shop's own pages, when its plan includes them.
+  const site = shop.site ?? null;
+  const homePage = site?.pages.find((p) => p.id === site.home) ?? null;
+  const productsKey = homePage ? 'products' : '';
+  const customPage =
+    sub === '' ? homePage : sub && sub !== 'products' && sub !== 'basket' ? site?.pages.find((p) => p.slug === sub) ?? null : null;
+  const nav = navItems(site);
+  const go = (key: string, cat?: string) => {
+    if (cat !== undefined) { setCategory(cat || 'All'); setQuery(''); }
+    const target = cat !== undefined && key === 'products' ? productsKey : key;
+    navigate(`/shop/${slug}${target ? `/${target}` : ''}${location.search}`);
+    window.scrollTo(0, 0);
+  };
+  const ctx: BlockCtx = {
+    shop, products, offers, popular, categories, accent,
+    qtyOf: (id) => basket.basket[id] ?? 0,
+    setQty: basket.setQty,
+    open: setViewing,
+    go,
+  };
+  const navBar = (
+    <SiteNav
+      shop={shop}
+      items={nav}
+      active={customPage ? (customPage.id === site?.home ? '' : customPage.slug) : productsKey}
+      accent={accent}
+      basketCount={basket.count}
+      go={(k) => go(k)}
+      openBasket={openBasket}
+    />
+  );
+
   if (onBasket) {
     return (
       <ShopCtx.Provider value={shop}>
@@ -137,12 +173,23 @@ const ShopPage: React.FC = () => {
 
   return (
     <ShopCtx.Provider value={shop}>
+      {/* With the menu bar on top, the templates' sticky bars sit under it. */}
+      <div style={nav.length ? ({ '--shop-nav-h': '3.5rem' } as React.CSSProperties) : undefined}>
       {preview && preview !== shop.template && (
         <div className="fixed top-0 inset-x-0 z-[60] bg-amber-400 text-amber-950 text-center text-[12.5px] font-bold py-1.5 px-3">
           Preview of the {TEMPLATE_NAMES[preview] ?? preview} template. Customers see your saved template.
         </div>
       )}
       {preview && preview !== shop.template && <div className="h-[30px]" />}
+      {navBar}
+      {customPage ? (
+        <SitePageView page={customPage} ctx={ctx} />
+      ) : sub && sub !== 'products' && !customPage ? (
+        <div className="py-24 text-center text-slate-500 bg-[#f6f7f6]">
+          <p className="text-[16px] font-semibold">That page is not here</p>
+          <button onClick={() => go('')} className="mt-3 text-[14px] font-semibold underline underline-offset-4" style={{ color: accent }}>Back to the shop</button>
+        </div>
+      ) : (
       <Template
         shop={shop}
         products={products}
@@ -161,6 +208,8 @@ const ShopPage: React.FC = () => {
         basketCount={basket.count}
         openBasket={openBasket}
       />
+      )}
+      </div>
       <BasketBar count={basket.count} total={basket.total} currency={shop.currency} accent={accent} onOpen={openBasket} />
       <p className={`text-center text-[11.5px] py-6 ${template === 'bold' ? 'bg-[#0f1512] text-white/40' : template === 'boutique' ? 'bg-[#faf7f2] text-[#8a958d]' : template === 'vetshop' ? 'bg-white text-slate-400' : template === 'counter' ? 'bg-[#f4f4f5] text-slate-400' : 'bg-[#f3f5f4] text-slate-400'} ${basket.count ? 'pb-24' : ''}`}>
         Shop page by <a href="/" className="underline underline-offset-2">VetHubCore</a>

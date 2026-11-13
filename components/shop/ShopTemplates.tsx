@@ -125,7 +125,7 @@ const SectionHead: React.FC<{ title: string; count?: number; serif?: boolean; da
  */
 export const AdRail: React.FC<{ dark?: boolean; className?: string }> = ({ dark, className = '' }) => (
   <aside className={`hidden xl:block w-72 shrink-0 self-stretch ${className}`} aria-label="Sponsored">
-    <div className="sticky top-4 space-y-3">
+    <div className="sticky top-[calc(var(--shop-nav-h,0px)+1rem)] space-y-3">
       <p className={`text-[10px] font-bold uppercase tracking-[0.06em] ${dark ? 'text-white/40' : 'text-slate-400'}`}>Sponsored</p>
       <a
         href="/"
@@ -220,7 +220,7 @@ export const MarketTemplate: React.FC<TemplateProps> = (t) => {
       </header>
 
       {/* Phone and tablet: search and categories as a sticky bar. */}
-      <div className="lg:hidden sticky top-0 z-30 bg-[#f3f5f4]/95 backdrop-blur px-4 pt-3 pb-2 border-b border-slate-200">
+      <div className="lg:hidden sticky top-[var(--shop-nav-h,0px)] z-30 bg-[#f3f5f4]/95 backdrop-blur px-4 pt-3 pb-2 border-b border-slate-200">
         <SearchBox query={t.query} setQuery={t.setQuery} placeholder={`Search ${t.products.length} products`} />
         <div className="mt-2.5 flex gap-2 overflow-x-auto no-scrollbar">
           {['All', ...t.categories].map((c) => {
@@ -240,7 +240,7 @@ export const MarketTemplate: React.FC<TemplateProps> = (t) => {
       </div>
 
       <div className="max-w-[1600px] mx-auto px-4 lg:px-6 pt-4 lg:pt-6 flex gap-6 items-start">
-        <aside className="hidden lg:block w-64 shrink-0 sticky top-4 space-y-3">
+        <aside className="hidden lg:block w-64 shrink-0 sticky top-[calc(var(--shop-nav-h,0px)+1rem)] space-y-3">
           <div className="bg-white rounded-3xl border border-slate-200/70 p-3 shadow-[0_2px_8px_rgb(15_23_42/0.04)]">
             <SearchBox query={t.query} setQuery={t.setQuery} placeholder={`Search ${t.products.length} products`} />
             <p className="text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400 mt-4 mb-1.5 px-2">Categories</p>
@@ -379,7 +379,7 @@ export const BoutiqueTemplate: React.FC<TemplateProps> = (t) => {
         </div>
       </section>
 
-      <div className="sticky top-0 z-30 bg-[#faf7f2]/95 backdrop-blur border-y border-[#e8e1d4]">
+      <div className="sticky top-[var(--shop-nav-h,0px)] z-30 bg-[#faf7f2]/95 backdrop-blur border-y border-[#e8e1d4]">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row gap-3 sm:items-center">
           <div className="flex gap-5 overflow-x-auto no-scrollbar flex-1">
             {['All', ...t.categories].map((c) => (
@@ -494,7 +494,7 @@ export const BoldTemplate: React.FC<TemplateProps> = (t) => {
         </div>
       </header>
 
-      <div className="sticky top-0 z-30 bg-[#0f1512]/90 backdrop-blur border-b border-white/10">
+      <div className="sticky top-[var(--shop-nav-h,0px)] z-30 bg-[#0f1512]/90 backdrop-blur border-b border-white/10">
         <div className="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-col sm:flex-row gap-3 sm:items-center">
           <SearchBox query={t.query} setQuery={t.setQuery} className="sm:w-80" />
           <div className="flex gap-2 overflow-x-auto no-scrollbar flex-1">
@@ -597,7 +597,7 @@ export const CounterTemplate: React.FC<TemplateProps> = (t) => {
         <div className="md:hidden px-4 pb-4"><SearchBox query={t.query} setQuery={t.setQuery} placeholder={`Search ${shop.name}`} /></div>
       </header>
 
-      <div className="lg:hidden sticky top-0 z-30 bg-[#f4f4f5]/95 backdrop-blur border-b border-slate-200 px-4 py-2.5 flex gap-2 overflow-x-auto no-scrollbar">
+      <div className="lg:hidden sticky top-[var(--shop-nav-h,0px)] z-30 bg-[#f4f4f5]/95 backdrop-blur border-b border-slate-200 px-4 py-2.5 flex gap-2 overflow-x-auto no-scrollbar">
         {['All', ...t.categories].map((c) => (
           <button
             key={c}
@@ -611,7 +611,7 @@ export const CounterTemplate: React.FC<TemplateProps> = (t) => {
       </div>
 
       <div className="max-w-[1600px] mx-auto px-4 lg:px-6 pt-5 flex gap-6 items-start">
-        <aside className="hidden lg:block w-56 shrink-0 sticky top-4">
+        <aside className="hidden lg:block w-56 shrink-0 sticky top-[calc(var(--shop-nav-h,0px)+1rem)]">
           <p className="text-[10px] font-bold uppercase tracking-[0.06em] text-slate-400 mb-2 px-2">Departments</p>
           <nav className="space-y-0.5">
             {['All', ...t.categories].map((c) => {

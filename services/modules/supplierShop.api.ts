@@ -6,6 +6,14 @@ import { ApiResponse, RequestOptions } from '../api/types';
  * The public call needs no login; the settings calls are the owner's.
  */
 
+/** 325 — the page builder. Mirrors backend src/services/shopSite.ts. */
+export type BlockType =
+  | 'hero' | 'text' | 'image' | 'offers' | 'popular' | 'products' | 'categories'
+  | 'contact' | 'faq' | 'quotes' | 'sendList' | 'divider';
+export interface SiteBlock { id: string; type: BlockType; props: Record<string, any> }
+export interface SitePage { id: string; slug: string; title: string; inNav: boolean; blocks: SiteBlock[] }
+export interface ShopSite { pages: SitePage[]; home: string | null }
+
 export type ShopTemplate = 'market' | 'boutique' | 'bold' | 'counter' | 'vetshop';
 
 /** Opening hours: days 0 = Sunday … 6 = Saturday, times as HH:MM. */
@@ -14,6 +22,8 @@ export interface ShopHours { days: number[]; open: string; close: string }
 export interface PublicShop {
   /** Who runs it: an agrovet/supplier, or a clinic's pet shop. */
   kind?: 'supplier' | 'clinic';
+  /** The shop's own pages (page builder), when its plan includes them. */
+  site?: ShopSite | null;
   slug: string;
   name: string;
   logoUrl: string | null;
@@ -71,6 +81,7 @@ export interface ShopSettings {
   pickup: boolean;
   /** Whether the plan includes the other templates, colour and cover. */
   pro: boolean;
+  site?: ShopSite | null;
   /** Clinics only: whether the plan includes the shop page at all (Pet shop module). */
   base?: boolean;
   kind?: 'supplier' | 'clinic';
@@ -90,6 +101,9 @@ export const supplierShopAPI = {
     patch: Partial<Pick<ShopSettings, 'slug' | 'template' | 'tagline' | 'coverUrl' | 'whatsapp' | 'enabled' | 'primaryColor' | 'headline' | 'intro' | 'hours' | 'deliveryNote' | 'pickup'>>,
     options?: RequestOptions,
   ): Promise<ApiResponse<ShopSettings>> => put('/supplier-shop/settings', patch, options),
+
+  saveSite: (site: ShopSite, options?: RequestOptions): Promise<ApiResponse<ShopSettings>> =>
+    put('/supplier-shop/site', { site }, options),
 };
 
 /** One clinic inventory item, as the shop page picker sees it. */
@@ -113,6 +127,8 @@ export const clinicShopAPI = {
     get('/clinic-shop/settings', { cache: false, ...options }),
   updateSettings: (patch: Record<string, any>, options?: RequestOptions): Promise<ApiResponse<ShopSettings>> =>
     put('/clinic-shop/settings', patch, options),
+  saveSite: (site: ShopSite, options?: RequestOptions): Promise<ApiResponse<ShopSettings>> =>
+    put('/clinic-shop/site', { site }, options),
   listProducts: (q?: string, options?: RequestOptions): Promise<ApiResponse<{ products: ClinicShopProduct[] }>> =>
     get(`/clinic-shop/products${q ? `?q=${encodeURIComponent(q)}` : ''}`, { cache: false, ...options }),
   updateProduct: (

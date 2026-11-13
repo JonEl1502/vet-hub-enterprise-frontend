@@ -4,6 +4,8 @@ import {
 } from 'lucide-react';
 import { supplierShopAPI, type ShopHours, type ShopSettings, type ShopTemplate } from '../../../services/modules/supplierShop.api';
 import { subscriptionPackagesAPI } from '../../../services/modules/subscriptionPackages.api';
+import SiteBuilder from '../../shop/builder/SiteBuilder';
+import type { PublicShop, PublicShopProduct, ShopSite } from '../../../services/modules/supplierShop.api';
 import { toast, uploadsAPI } from '../../../services';
 
 /**
@@ -36,6 +38,8 @@ export interface ShopSettingsConfig {
   /** Clinics: the key that opens the page at all, and its name. */
   baseKey?: string;
   baseName?: string;
+  /** 325 — save the page builder's pages. */
+  saveSite: (site: ShopSite) => Promise<ShopSettings | undefined>;
   /** The "What shows" card. Suppliers link to Products; clinics get a picker. */
   productsCard: React.ReactNode;
 }
@@ -139,6 +143,9 @@ export const ShopSettingsView: React.FC<Props & { cfg: ShopSettingsConfig }> = (
   const [uploading, setUploading] = useState(false);
   const [proPrice, setProPrice] = useState<string | null>(null);
   const [basePrice, setBasePrice] = useState<string | null>(null);
+  // 325 — the page builder and the data it previews with.
+  const [building, setBuilding] = useState(false);
+  const [preview, setPreview] = useState<{ shop: PublicShop; products: PublicShopProduct[]; popular: string[] } | null>(null);
   const [headline, setHeadline] = useState('');
   const [intro, setIntro] = useState('');
   const [deliveryNote, setDeliveryNote] = useState('');
@@ -217,6 +224,32 @@ export const ShopSettingsView: React.FC<Props & { cfg: ShopSettingsConfig }> = (
   };
 
   const shareText = encodeURIComponent(`Shop with ${s.name} online: ${url}`);
+
+  const openBuilder = async () => {
+    // The builder previews with the real catalogue when the page is public;
+    // a page that is switched off previews with the shop's details only.
+    let data = preview;
+    if (!data) {
+      try {
+        const r = await supplierShopAPI.getPublic(s.slug);
+        if (r.data?.shop) data = { shop: r.data.shop, products: r.data.products ?? [], popular: r.data.popular ?? [] };
+      } catch { /* switched off or not public yet */ }
+      if (!data) {
+        data = {
+          shop: {
+            kind: cfg.kind, slug: s.slug, name: s.name, logoUrl: s.logoUrl, tagline: s.tagline, template: s.template,
+            color: s.primaryColor, coverUrl: s.coverUrl, currency: 'KES', whatsapp: s.whatsapp || s.fallbackPhone,
+            phone: s.fallbackPhone, address: null, headline: s.headline, intro: s.intro, hours: s.hours,
+            deliveryNote: s.deliveryNote, pickup: s.pickup, branches: [],
+          },
+          products: [],
+          popular: [],
+        };
+      }
+      setPreview(data);
+    }
+    setBuilding(true);
+  };
 
   return (
     <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-5">
@@ -387,6 +420,35 @@ export const ShopSettingsView: React.FC<Props & { cfg: ShopSettingsConfig }> = (
           </Card>
 
           <Card
+            title="Your own pages"
+            hint="Build an About us, Services or Contact page from blocks you drag into place. Any of them can be your home page."
+            right={!s.pro ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider"><Lock size={10} /> Pro</span> : undefined}
+          >
+            {s.site?.pages?.length ? (
+              <ul className="divide-y divide-slate-100 dark:divide-zinc-800 rounded-xl border border-slate-200 dark:border-zinc-700 mb-3">
+                {s.site.pages.map((pg) => (
+                  <li key={pg.id} className="px-3 py-2.5 flex items-center justify-between gap-3 text-sm">
+                    <span className="font-semibold text-pine dark:text-zinc-100">
+                      {pg.title}{s.site?.home === pg.id && <span className="ml-2 text-[10px] font-bold text-emerald-600">HOME</span>}
+                    </span>
+                    <a href={`${url}${s.site?.home === pg.id ? '' : `/${pg.slug}`}`} target="_blank" rel="noopener noreferrer" className="text-xs text-slate-500 underline underline-offset-2">
+                      /{pg.slug}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="text-xs text-slate-500 dark:text-zinc-400 mb-3">No pages yet. The builder starts you with an About us page.</p>
+            )}
+            <div className="flex flex-wrap items-center gap-3">
+              <button onClick={openBuilder} className="px-5 py-2.5 rounded-xl bg-pine text-white text-xs font-black uppercase tracking-widest hover:opacity-90">
+                Open the page builder
+              </button>
+              {!s.pro && <span className="text-[11px] font-bold text-amber-700">{lockNote}. Try the builder now; publishing needs it.</span>}
+            </div>
+          </Card>
+
+          <Card
             title="Brand colour and cover photo"
             hint="Make the page yours. The Market template uses VetHubCore green unless you have Pro."
             right={!s.pro ? <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider"><Lock size={10} /> Pro</span> : undefined}
@@ -489,6 +551,30 @@ export const ShopSettingsView: React.FC<Props & { cfg: ShopSettingsConfig }> = (
           {cfg.kind === 'supplier' && cfg.productsCard}
         </div>
       </div>
+      {building && preview && (
+        <SiteBuilder
+          initial={s.site ?? null}
+          shop={preview.shop}
+          products={preview.products}
+          popularIds={preview.popular}
+          accent={accentPreview}
+          canSave={s.pro}
+          lockNote={lockNote}
+          onUpgrade={() => { setBuilding(false); setView(cfg.billingView); }}
+          save={async (site) => {
+            try {
+              const d = await cfg.saveSite(site);
+              if (d) load(d);
+              toast.success('Pages saved. They are live on your shop.');
+              return true;
+            } catch (e: any) {
+              toast.error(e?.message || 'Could not save the pages');
+              return false;
+            }
+          }}
+          onClose={() => setBuilding(false)}
+        />
+      )}
     </div>
   );
 };
@@ -501,6 +587,7 @@ const SupplierShopSettings: React.FC<Props> = ({ setView }) => (
       kind: 'supplier',
       load: () => supplierShopAPI.getSettings().then((r) => r.data),
       save: (patch) => supplierShopAPI.updateSettings(patch).then((r) => r.data),
+      saveSite: (site) => supplierShopAPI.saveSite(site).then((r) => r.data),
       billingView: 'supplier-billing',
       proKey: 'supplier:shop-pro',
       proName: 'Supplier Pro',
