@@ -149,9 +149,9 @@ export const MarketTemplate: React.FC<TemplateProps> = (t) => {
                   <p className="text-[10.5px] font-black uppercase tracking-wider" style={{ color: accent }}>{p.category}</p>
                   <h3 className="text-[14px] font-bold leading-snug mt-0.5 line-clamp-2">{p.name}</h3>
                   {p.maker && <p className="text-[11.5px] text-slate-400 truncate mt-0.5">{p.maker}</p>}
-                  <div className="mt-auto pt-3 flex items-end justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-[16px] font-black tabular-nums leading-none">{shopMoney(p.price, p.currency)}</p>
+                  <div className="mt-auto pt-3 flex flex-wrap items-end justify-between gap-2">
+                    <div>
+                      <p className="text-[16px] font-black tabular-nums leading-none whitespace-nowrap">{shopMoney(p.price, p.currency)}</p>
                       <p className="text-[11px] text-slate-400 mt-1">per {lowerUnit(p.unit)}</p>
                     </div>
                     <AddControl p={p} qty={t.qtyOf(p.id)} accent={accent} onSet={(q) => t.setQty(p.id, q)} size="sm" label="Add" />
@@ -328,8 +328,8 @@ export const BoldTemplate: React.FC<TemplateProps> = (t) => {
                   <div className="p-4 flex flex-col flex-1">
                     <h3 className="text-[15px] font-bold leading-snug line-clamp-2">{p.name}</h3>
                     <p className="text-[12px] mt-1"><StockNote p={p} /></p>
-                    <div className="mt-auto pt-3 flex items-center justify-between gap-2">
-                      <span className="px-2.5 py-1 rounded-lg text-[14px] font-black tabular-nums" style={{ background: `${accent}33`, color: '#fff' }}>
+                    <div className="mt-auto pt-3 flex flex-wrap items-center justify-between gap-2">
+                      <span className="px-2.5 py-1 rounded-lg text-[14px] font-black tabular-nums whitespace-nowrap" style={{ background: `${accent}33`, color: '#fff' }}>
                         {shopMoney(p.price, p.currency)}
                       </span>
                       <AddControl p={p} qty={t.qtyOf(p.id)} accent={accent} onSet={(q) => t.setQty(p.id, q)} size="sm" shape="square" label="Add" />

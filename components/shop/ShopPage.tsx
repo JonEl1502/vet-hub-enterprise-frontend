@@ -110,6 +110,7 @@ const ShopPage: React.FC = () => {
           Preview of the {preview.charAt(0).toUpperCase() + preview.slice(1)} template. Customers see your saved template.
         </div>
       )}
+      {preview && preview !== shop.template && <div className="h-[30px]" />}
       <Template
         shop={shop}
         products={products}
