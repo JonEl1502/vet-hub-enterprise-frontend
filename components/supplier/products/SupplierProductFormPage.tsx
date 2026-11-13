@@ -763,13 +763,13 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
                   aria-label="How many units one price covers"
                   value={form.sellQty}
                   onChange={e => setForm({ ...form, sellQty: e.target.value })}
-                  className={`${INPUT} w-24`}
+                  className={`${INPUT.replace('w-full ', '')} w-24 shrink-0`}
                 />
                 <select
                   value={form.sellUnit || form.unit}
                   onChange={e => setForm({ ...form, sellUnit: e.target.value })}
                   aria-label="The unit your price covers"
-                  className={`${INPUT} flex-1`}
+                  className={`${INPUT} flex-1 min-w-0`}
                 >
                   {Array.from(new Set([form.unit, ...UNITS])).map(u => <option key={u} value={u}>{u}</option>)}
                 </select>
