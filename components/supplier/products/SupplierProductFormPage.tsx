@@ -701,8 +701,8 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
                 What you paid for it
               </FieldLabel>
               <div className="flex gap-2">
-                <div className="relative flex-1 min-w-0">
-                  <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">{getCurrencySymbol(form.currency)}</span>
+                <div className="relative flex-1 min-w-[9rem]">
+                  <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-400">{getCurrencySymbol(form.currency)}</span>
                   <input
                     id="sp-buy"
                     type="number" inputMode="decimal" min="0" step="0.01"
@@ -716,7 +716,9 @@ const SupplierProductFormPage: React.FC<Props> = ({ productId, setView }) => {
                   value={form.costUnit || form.unit}
                   onChange={e => setForm({ ...form, costUnit: e.target.value })}
                   aria-label="The unit your cost is for"
-                  className={`${INPUT} w-auto`}
+                  // INPUT carries w-full, which beats w-auto and squeezed the cost box
+                  // down to its currency label. Drop it so the select sizes to its text.
+                  className={`${INPUT.replace('w-full ', '')} w-auto shrink-0 max-w-[50%]`}
                 >
                   {Array.from(new Set([form.unit, ...UNITS])).map(u => <option key={u} value={u}>per {u}</option>)}
                 </select>
