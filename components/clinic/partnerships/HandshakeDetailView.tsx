@@ -11,6 +11,7 @@ import {
 import { CLINIC_SPECIALTIES } from '../../../constants';
 import { handshakesAPI, toast } from '../../../services';
 import type { HandshakeServicePrice } from '../../../services/modules/handshakes.api';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 // Escrow-style per-category price negotiation between the two clinics. One side
 // proposes/counters an amount; the other agrees. Only an agreed price is usable
@@ -57,7 +58,7 @@ const NegotiatedPricing: React.FC<{ handshakeId: string; activeClinicId: string;
     } catch (e: any) { toast.error(e?.message || 'Failed to agree'); } finally { setBusy(null); }
   };
 
-  if (loading) return <div className="flex items-center justify-center py-8"><Loader2 size={18} className="animate-spin text-seafoam" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-8"><LoadingSpinner size="sm" /></div>;
 
   return (
     <div className="space-y-3">
@@ -557,7 +558,7 @@ export const HandshakeDetailPage: React.FC<Omit<Props, 'handshake'> & {
     return (
       <div className="flex flex-col items-center justify-center py-24 gap-3">
         {loading ? (
-          <Loader2 size={22} className="animate-spin text-seafoam" />
+          <LoadingSpinner size="md" />
         ) : (
           <>
             <p className="text-sm font-bold text-slate-400">Partnership not found.</p>

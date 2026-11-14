@@ -9,6 +9,7 @@ import ClinicLogo from '../clinic-mgmt/ClinicLogo';
 import VisitJobTracker from './VisitJobTracker';
 import { MapPin, ExternalLink } from 'lucide-react';
 import { resolveCategoryMenuId } from '../../../services/modules/staffScope.api';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const TONE: Record<string, string> = {
   REQUESTED: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
@@ -242,7 +243,7 @@ const VisitJobsInbox: React.FC = () => {
     );
   };
 
-  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 size={22} className="animate-spin text-seafoam" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-16"><LoadingSpinner size="md" /></div>;
 
   return (
     <div className="space-y-6">

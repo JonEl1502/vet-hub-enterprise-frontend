@@ -10,6 +10,7 @@ import { clientsAPI, uploadsAPI, dialog, transactionsAPI, petshopAPI } from '../
 import { ClientBilling, ClientAttachment } from '../../../services/modules/clients.api';
 import { PetshopSaleRecord } from '../../../services/modules/petshop.api';
 import RevenueStatusChip, { revenueStatusOf } from '../shared/RevenueStatusChip';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * Client → Payments tab, account-hub layout (user reference design, 2026-08-02).
@@ -434,7 +435,7 @@ const ClientAccountHub: React.FC<Props> = ({
   ];
 
   if (loading) {
-    return <div className="flex items-center justify-center py-16"><Loader2 size={20} className="animate-spin text-seafoam" /></div>;
+    return <div className="flex items-center justify-center py-16"><LoadingSpinner size="md" /></div>;
   }
 
   const STAT_CARDS = [
@@ -861,7 +862,7 @@ export const ClientStatementTab: React.FC<{
   }, [clientId, petVisitIds]);
 
   if (loading) {
-    return <div className="flex items-center justify-center py-16"><Loader2 size={20} className="animate-spin text-seafoam" /></div>;
+    return <div className="flex items-center justify-center py-16"><LoadingSpinner size="md" /></div>;
   }
 
   return (
@@ -944,7 +945,7 @@ export const ClientPetshopTab: React.FC<{ clientId: string | number; currency: s
   }, [clientId]);
 
   if (loading) {
-    return <div className="flex items-center justify-center py-16"><Loader2 size={20} className="animate-spin text-seafoam" /></div>;
+    return <div className="flex items-center justify-center py-16"><LoadingSpinner size="md" /></div>;
   }
 
   const totalSpent = sales.reduce((s, sale) => s + sale.total, 0);
@@ -1067,7 +1068,7 @@ export const ClientFilesTab: React.FC<{ clientId: number | string; canEdit?: boo
         </div>
       )}
 
-      {loading && <div className="py-12 flex items-center justify-center"><Loader2 size={18} className="animate-spin text-seafoam" /></div>}
+      {loading && <div className="py-12 flex items-center justify-center"><LoadingSpinner size="sm" /></div>}
 
       {!loading && files.length === 0 && (
         <div className="py-24 flex flex-col items-center justify-center gap-4 border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem]">

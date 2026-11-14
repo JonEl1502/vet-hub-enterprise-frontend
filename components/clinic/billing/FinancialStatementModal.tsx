@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import toast from 'react-hot-toast';
-import { X, Loader2, FileText, BarChart3 } from 'lucide-react';
+import { X, FileText, BarChart3 } from 'lucide-react';
 import { summariesAPI, ProfitAndLoss, CashFlow } from '../../../services/modules/summaries.api';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * Profit & Loss / Cash Flow — the two "Quick Reports" pills that used to fall
@@ -169,7 +170,7 @@ const FinancialStatementModal: React.FC<Props> = ({ isOpen, onClose, kind, clini
 
         {loading ? (
           <div className="flex items-center justify-center py-12 text-slate-400">
-            <Loader2 size={20} className="animate-spin" />
+            <LoadingSpinner size="sm" />
           </div>
         ) : kind === 'PNL' ? (
           pnl && <PnlBody data={pnl} money={money} />

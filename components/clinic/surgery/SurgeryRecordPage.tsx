@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Slice, Loader2, X, ExternalLink, ImagePlus, CheckCircle2, Share2, Lock, PencilLine , Receipt} from 'lucide-react';
+import { ArrowLeft, Slice, X, ExternalLink, ImagePlus, CheckCircle2, Share2, Lock, PencilLine , Receipt} from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { surgeryAPI, SurgeryRecord, visitsAPI } from '../../../services';
@@ -13,6 +13,7 @@ import { renderFormatted } from './SurgeryView';
 import UpgradeGate from '../../shared/common/UpgradeGate';
 import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBar';
 import { STICKY_RAIL } from '../shared/RecordPageHeader';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 // Full-page surgery workflow — converted from the old right-side drawer.
 // Multiple surgeries on the same visit render as TABS; a COMPLETED record
@@ -219,7 +220,7 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
       )}
 
       {loading && !rec ? (
-        <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
+        <div className="flex items-center justify-center py-20"><LoadingSpinner size="md" /></div>
       ) : rec ? (
         <div className="space-y-4">
           {/* MAIN — clinical narrative */}

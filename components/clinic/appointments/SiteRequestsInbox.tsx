@@ -340,7 +340,7 @@ const SiteRequestsInbox: React.FC<Props> = ({ onAccepted }) => {
               {openId === r.id && (
                 <div className="border-t border-slate-100 dark:border-zinc-800 p-3 space-y-3">
                   {detailLoading || !detail ? (
-                    <div className="flex justify-center py-8"><Loader2 size={16} className="animate-spin text-seafoam" /></div>
+                    <div className="flex justify-center py-8"><LoadingSpinner size="sm" /></div>
                   ) : (
                     <>
                       {/* What they actually sent */}

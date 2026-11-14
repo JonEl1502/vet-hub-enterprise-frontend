@@ -216,7 +216,7 @@ const PayModal: React.FC<{ invoice: PortalInvoice; onClose: () => void }> = ({ i
 
       {state === 'waiting' && (
         <div className="text-center py-6">
-          <Loader2 className="w-8 h-8 animate-spin cp-accent-text mx-auto mb-3" />
+          <LoadingSpinner size="md" />
           <p className="font-bold" style={{ color: 'var(--cp-ink)' }}>Check your phone</p>
           <p className="text-sm cp-muted">Enter your M-Pesa PIN to approve the payment. This window will update automatically.</p>
         </div>

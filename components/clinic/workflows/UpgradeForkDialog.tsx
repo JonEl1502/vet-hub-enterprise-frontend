@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { X, Loader2, ArrowDownToLine, AlertTriangle, Check } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { workflowTemplatesAPI } from '../../../services';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * "The workflow you copied has moved on" — review, then decide.
@@ -66,7 +67,7 @@ const UpgradeForkDialog: React.FC<Props> = ({ templateId, templateName, onClose,
         </div>
 
         <div className="p-4 space-y-3">
-          {loading && <div className="flex justify-center py-6"><Loader2 size={18} className="animate-spin text-slate-400" /></div>}
+          {loading && <div className="flex justify-center py-6"><LoadingSpinner size="sm" /></div>}
 
           {!loading && info && !info.available && (
             <p className="text-[12px] text-slate-500 dark:text-zinc-400">

@@ -10,6 +10,7 @@ import { usePartnerJobs } from '../partnerships/B2BJobsStats';
 import { Send, Users } from 'lucide-react';
 import FarmInviteNotice from './FarmInviteNotice';
 import FarmRemindersCard from './FarmRemindersCard';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * The day the dashboard is pointed at. Structurally the role dashboards'
@@ -420,7 +421,7 @@ const ClinicTodayView: React.FC<Props> = ({ onOpenVisit, onOpenBookings, onOpenR
       {cards}
 
       {loading ? (
-        <div className="flex items-center justify-center py-16"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
+        <div className="flex items-center justify-center py-16"><LoadingSpinner size="md" /></div>
       ) : rows.length === 0 ? (
         <div className="flex flex-col items-center justify-center text-center py-16">
           <CalendarDays size={28} className="text-slate-300 dark:text-zinc-700 mb-3" />

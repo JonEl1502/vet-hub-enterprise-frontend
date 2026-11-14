@@ -6,6 +6,7 @@ import { useData } from '../../../contexts/DataContext';
 import { consumablesAPI, AppointmentConsumable, vaccinePackagesAPI, VaccinePackage, billsAPI } from '../../../services';
 import { sellUnitOf, stockPerSellUnit, isSplitUnit } from './QtyUnitControl';
 import GlobalCatalogPicker from './GlobalCatalogPicker';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 interface Props {
   appointmentId: string | number;
@@ -461,7 +462,7 @@ const ConsumablePicker: React.FC<Props> = ({ appointmentId, onChanged, title = '
 
       {/* Logged lines — suppressed when the host prints them itself. */}
       {hideLoggedList ? null : loading ? (
-        <div className="flex items-center justify-center py-6"><Loader2 size={18} className="animate-spin text-seafoam" /></div>
+        <div className="flex items-center justify-center py-6"><LoadingSpinner size="sm" /></div>
       ) : items.length === 0 ? (
         <p className="text-[11px] text-slate-400 text-center py-3">No items logged yet.</p>
       ) : (

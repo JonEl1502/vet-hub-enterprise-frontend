@@ -6,6 +6,7 @@ import {
   Card, Empty, Field, INPUT, BTN_PRIMARY, BTN_GHOST, Pill, PersonChip,
   EMPLOYMENT_TONE, CONTRACT_LABEL, titleCase, prettyDate,
 } from './hrShared';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const CONTRACTS: HrContractType[] = ['PERMANENT', 'FIXED_TERM', 'LOCUM', 'CASUAL', 'INTERN', 'ATTACHMENT'];
 const STATUSES: HrEmploymentStatus[] = ['PROBATION', 'ACTIVE', 'SUSPENDED', 'ON_NOTICE', 'RESIGNED', 'TERMINATED'];
@@ -46,7 +47,7 @@ const HrPeopleTab: React.FC = () => {
   const missing = people.filter(p => !p.hasRecord).length;
 
   if (loading) {
-    return <div className="py-20 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" /></div>;
+    return <div className="py-20 text-center"><LoadingSpinner size="md" /></div>;
   }
 
   return (

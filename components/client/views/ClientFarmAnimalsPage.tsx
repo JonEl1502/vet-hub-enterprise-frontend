@@ -8,12 +8,13 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Loader2, MapPin } from 'lucide-react';
+import { MapPin } from 'lucide-react';
 import {
   clientPortalAPI,
   type PortalFarm, type PortalAnimalGroup, type PortalHoldings,
 } from '../../../services/modules/clientPortal.api';
 import ClientFarmAnimals from './ClientFarmAnimals';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const ClientFarmAnimalsPage: React.FC = () => {
   const [farms, setFarms] = useState<PortalFarm[]>([]);
@@ -45,7 +46,7 @@ const ClientFarmAnimalsPage: React.FC = () => {
   useEffect(() => { loadGroups(activeId); }, [activeId, loadGroups]);
 
   if (loading) {
-    return <div className="cp-card px-5 py-12 text-center text-sm text-slate-400"><Loader2 size={16} className="animate-spin mx-auto" /></div>;
+    return <div className="cp-card px-5 py-12 text-center text-sm text-slate-400"><LoadingSpinner size="sm" /></div>;
   }
 
   if (farms.length === 0) {

@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   CalendarClock, BellRing, Stethoscope, UserPlus, PawPrint, BedDouble, Home, Scissors,
-  Receipt, CircleDollarSign, Loader2, SlidersHorizontal, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Minus,
-} from 'lucide-react';
+  Receipt, CircleDollarSign, SlidersHorizontal, ChevronDown, ChevronUp, ArrowUp, ArrowDown, Minus } from 'lucide-react';
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
 import {
   startOfWeek, endOfWeek, subWeeks, startOfMonth, endOfMonth, subMonths, subDays,
@@ -11,6 +10,7 @@ import DateRangePicker from '../../shared/common/DateRangePicker';
 import { summariesAPI } from '../../../services/modules/summaries.api';
 import { localYMD } from '../../../services/utils/dateFormatter';
 import type { ClinicStats } from '../../../services/modules/summaries.api';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 type Range = { start: Date | null; end: Date | null };
 // LOCAL calendar date — toISOString() shifts EAT midnight to the previous
@@ -220,7 +220,7 @@ const ClinicStatistics: React.FC<{ clinicId?: string | number; currency?: string
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
+        <div className="flex items-center justify-center py-20"><LoadingSpinner size="md" /></div>
       ) : (
         <>
           {/* Highlighted cards */}

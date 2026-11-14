@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Search, Loader2, PawPrint, ShieldCheck } from 'lucide-react';
+import { Search, PawPrint, ShieldCheck } from 'lucide-react';
 import CpModal from './CpModal';
 import { clientPortalAPI, PortalFarm, FarmAnimal, FarmTreatment } from '../../services/modules/clientPortal.api';
+import LoadingSpinner from '../shared/common/LoadingSpinner';
 
 /**
  * "Pick from My Farm" (redesign brief §2) — prefill species/breed/sex/age/
@@ -97,7 +98,7 @@ const PickFromFarmModal: React.FC<{
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-10"><Loader2 className="w-5 h-5 animate-spin cp-accent-text" /></div>
+          <div className="flex justify-center py-10"><LoadingSpinner size="sm" /></div>
         ) : filtered.length === 0 ? (
           <p className="text-sm cp-muted text-center py-6">
             {animals.length === 0 ? 'No named animals on this farm yet.' : 'Nothing matches that search.'}

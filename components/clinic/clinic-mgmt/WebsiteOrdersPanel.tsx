@@ -6,6 +6,7 @@ import {
   siteConnectAPI, type SiteOrder, type SiteOrderStatus, type OrderStockCheck,
 } from '../../../services/modules/siteConnect.api';
 import { toast, dialog } from '../../../services';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * WEBSITE → ORDERS (271).
@@ -132,7 +133,7 @@ const WebsiteOrdersPanel: React.FC<Props> = ({ enabled }) => {
     );
   }
 
-  if (loading) return <div className="flex justify-center py-10"><Loader2 size={16} className="animate-spin text-seafoam" /></div>;
+  if (loading) return <div className="flex justify-center py-10"><LoadingSpinner size="sm" /></div>;
 
   if (orders.length === 0) {
     return (

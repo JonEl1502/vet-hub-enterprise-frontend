@@ -1,7 +1,8 @@
 import React from 'react';
-import { Loader2, CalendarDays } from 'lucide-react';
+import { CalendarDays } from 'lucide-react';
 import { Visit, ApptStatus } from '../../../../types';
 import DateRangePicker from '../../../shared/common/DateRangePicker';
+import LoadingSpinner from '../../../shared/common/LoadingSpinner';
 
 /**
  * Shared furniture for the role dashboards (Front Office / Groomer / Vet).
@@ -187,7 +188,7 @@ export const EmptyNote: React.FC<{ children: React.ReactNode }> = ({ children })
 );
 
 export const Spinner: React.FC = () => (
-  <div className="py-10 flex items-center justify-center"><Loader2 size={18} className="animate-spin text-seafoam" /></div>
+  <div className="py-10 flex items-center justify-center"><LoadingSpinner size="sm" /></div>
 );
 
 // ── Queue column (waiting / in progress / completed) ───────────────────────

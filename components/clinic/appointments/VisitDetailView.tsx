@@ -4560,7 +4560,7 @@ const VisitDetailInner: React.FC<Props> = ({
       {isManualSaving && (
         <div className="fixed inset-0 z-[100] bg-black/30 flex items-center justify-center">
           <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-2xl flex items-center gap-3">
-            <Loader2 size={24} className="animate-spin text-seafoam" />
+            <LoadingSpinner size="sm" />
             <p className="font-black text-pine dark:text-zinc-100 uppercase tracking-widest text-sm">Saving changes...</p>
           </div>
         </div>
@@ -4569,7 +4569,7 @@ const VisitDetailInner: React.FC<Props> = ({
       {isFinalizing && (
         <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center">
           <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-2xl flex items-center gap-3">
-            <Loader2 size={24} className="animate-spin text-pine" />
+            <LoadingSpinner size="sm" />
             <p className="font-black text-pine dark:text-zinc-100 uppercase tracking-widest text-sm">Finalizing visit...</p>
           </div>
         </div>
@@ -4578,7 +4578,7 @@ const VisitDetailInner: React.FC<Props> = ({
       {isSettlingBill && (
         <div className="fixed inset-0 z-[100] bg-black/40 flex items-center justify-center">
           <div className="bg-white dark:bg-zinc-900 rounded-2xl p-6 shadow-2xl flex items-center gap-3">
-            <Loader2 size={24} className="animate-spin text-seafoam" />
+            <LoadingSpinner size="sm" />
             <p className="font-black text-pine dark:text-zinc-100 uppercase tracking-widest text-sm">Settling bill...</p>
           </div>
         </div>

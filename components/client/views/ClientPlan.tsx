@@ -6,6 +6,7 @@ import {
 import { clientPortalAPI, PortalCommunityAddOn, PortalPlan, PortalPlanState } from '../../../services';
 import { CLIENT_FEATURE_CATALOG } from '../../../services/modules/subscriptionPackages.api';
 import { KEY_LABEL, BASELINE_KEYS } from '../../../services/entitlements';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * 231 — the client's own plan.
@@ -218,7 +219,7 @@ const ClientPlan: React.FC = () => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 className="w-5 h-5 animate-spin cp-accent-text" />
+        <LoadingSpinner size="sm" />
       </div>
     );
   }

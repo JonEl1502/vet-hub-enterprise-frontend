@@ -8,6 +8,7 @@ import {
   Card, Empty, Field, INPUT, BTN_PRIMARY, BTN_GHOST, Pill, PersonChip,
   LEAVE_TONE, titleCase, prettyDate, today,
 } from './hrShared';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 type Pane = 'requests' | 'balances' | 'policy';
 
@@ -99,7 +100,7 @@ const Requests: React.FC<{ onChanged: () => void }> = ({ onChanged }) => {
         {['PENDING', 'APPROVED', 'DECLINED', 'CANCELLED', 'ALL'].map(s => <option key={s} value={s}>{titleCase(s)}</option>)}
       </select>
 
-      {loading ? <div className="py-16 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" /></div>
+      {loading ? <div className="py-16 text-center"><LoadingSpinner size="md" /></div>
       : rows.length === 0 ? (
         <Empty icon={CalendarOff} title={status === 'PENDING' ? 'Nothing waiting' : 'No requests'}
           hint={status === 'PENDING' ? 'Every request has been decided.' : undefined} />
@@ -162,7 +163,7 @@ const Balances: React.FC = () => {
 
   const years = [year - 1, year, year + 1];
 
-  if (loading) return <div className="py-16 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" /></div>;
+  if (loading) return <div className="py-16 text-center"><LoadingSpinner size="md" /></div>;
 
   return (
     <div className="space-y-3">

@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import ClinicLogo from '../clinic-mgmt/ClinicLogo';
 import { clinicsAPI, recordSharingAPI, ShareableRecordType, RecordAccessLogEntry } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 interface Props {
   recordType: ShareableRecordType;
@@ -82,7 +83,7 @@ const ShareWithClinics: React.FC<Props> = ({ recordType, recordId, allowedClinic
           </div>
 
           {loading ? (
-            <div className="py-8 flex justify-center"><Loader2 size={20} className="animate-spin text-seafoam" /></div>
+            <div className="py-8 flex justify-center"><LoadingSpinner size="sm" /></div>
           ) : (
             <div className="space-y-1.5 max-h-56 overflow-y-auto">
               {filtered.length === 0 && <p className="text-[11px] text-slate-400 text-center py-4">No partner clinics found.</p>}

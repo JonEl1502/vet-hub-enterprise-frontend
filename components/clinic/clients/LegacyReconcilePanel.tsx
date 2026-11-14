@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Loader2, FileText, Check, AlertTriangle, ExternalLink, Search } from 'lucide-react';
 import { clientsAPI, toast, dialog } from '../../../services';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * Reconciling a carried-over balance against the documents behind it (221).
@@ -134,7 +135,7 @@ const LegacyReconcilePanel: React.FC<Props> = ({ clientId, clientName, currency 
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center py-10"><Loader2 size={18} className="animate-spin text-seafoam" /></div>;
+    return <div className="flex items-center justify-center py-10"><LoadingSpinner size="sm" /></div>;
   }
   if (!rows.length) {
     return (

@@ -6,6 +6,7 @@ import {
   Card, Empty, Field, INPUT, BTN_PRIMARY, BTN_GHOST, Pill, PersonChip,
   ATTENDANCE_TONE, titleCase, prettyDate, prettyTime, hoursMins, today, addDays, isoDay,
 } from './hrShared';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const STATUSES: HrAttendanceStatus[] = ['PRESENT', 'LATE', 'ABSENT', 'HALF_DAY', 'ON_LEAVE', 'OFF_DUTY'];
 
@@ -93,7 +94,7 @@ const ByDay: React.FC = () => {
         {date !== today() && <button className={BTN_GHOST} onClick={() => setDate(today())}>Today</button>}
       </div>
 
-      {loading ? <div className="py-16 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" /></div>
+      {loading ? <div className="py-16 text-center"><LoadingSpinner size="md" /></div>
       : rows.length === 0 ? <Empty icon={UserCheck} title="No staff" />
       : (
         <div className="space-y-2">
@@ -166,7 +167,7 @@ const Timesheet: React.FC = () => {
         <Field label="To"><input type="date" className={`${INPUT} max-w-[150px]`} value={to} min={from} onChange={e => setTo(e.target.value)} /></Field>
       </div>
 
-      {loading ? <div className="py-16 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" /></div>
+      {loading ? <div className="py-16 text-center"><LoadingSpinner size="md" /></div>
       : rows.length === 0 ? (
         <Empty icon={FileSpreadsheet} title="Nothing recorded"
           hint="No attendance was marked in this window. Mark a day under “By day” and it will total up here." />

@@ -9,6 +9,7 @@ import AdminPageHeader from '../shared/AdminPageHeader';
 import LeadImportModal from './LeadImportModal';
 import LeadConvertDialog from './LeadConvertDialog';
 import RowActionsMenu from './RowActionsMenu';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * The lead inbox — both directions (backend 146, 234).
@@ -261,7 +262,7 @@ const DemoRequestsAdminPage: React.FC<Props> = ({
       </div>
 
       {loading ? (
-        <div className="py-12 flex justify-center"><Loader2 className="animate-spin text-slate-400" /></div>
+        <div className="py-12 flex justify-center"><LoadingSpinner size="sm" /></div>
       ) : rows.length === 0 ? (
         <div className="py-16 text-center border-2 border-dashed border-slate-200 dark:border-zinc-800 rounded-2xl space-y-2">
           <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">

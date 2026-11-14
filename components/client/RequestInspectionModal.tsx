@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Search, Loader2, Stethoscope, MapPin, Star } from 'lucide-react';
+import { Search, Stethoscope, MapPin, Star } from 'lucide-react';
 import CpModal from './CpModal';
 import { toast } from '../../services';
 import { clientPortalAPI, PortalClinic } from '../../services/modules/clientPortal.api';
 import { marketplaceAPI } from '../../services/modules/marketplace.api';
+import LoadingSpinner from '../shared/common/LoadingSpinner';
 
 /** Matches the two new `specialties` values added 2026-09-29 for this exact flow. */
 const EXPERTISE_FILTERS = [
@@ -110,7 +111,7 @@ const RequestInspectionModal: React.FC<{ listingId: string; onClose: () => void;
         </div>
 
         {searching ? (
-          <div className="flex justify-center py-8"><Loader2 className="w-5 h-5 animate-spin cp-accent-text" /></div>
+          <div className="flex justify-center py-8"><LoadingSpinner size="sm" /></div>
         ) : clinics.length === 0 ? (
           <p className="text-sm cp-muted text-center py-8">
             {q.trim() || expertise ? 'No clinics match yet — try a different name or town.' : 'Search by name, town, or pick an expertise above.'}

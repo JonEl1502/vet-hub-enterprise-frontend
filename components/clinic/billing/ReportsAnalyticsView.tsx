@@ -7,10 +7,9 @@ import {
 } from 'recharts';
 import {
   TrendingUp, TrendingDown, Wallet, Receipt, CircleDollarSign, Percent, FileText,
-  CreditCard, ChevronRight, ChevronDown, Phone, Plus, Star, Loader2,
+  CreditCard, ChevronRight, ChevronDown, Phone, Plus, Star,
   AlertTriangle, PackageOpen, Sparkles, BarChart3, Info,
-  Users, UserPlus, UserMinus, UserCheck, Landmark, PiggyBank,
-} from 'lucide-react';
+  Users, UserPlus, UserMinus, UserCheck, Landmark, PiggyBank } from 'lucide-react';
 import PageHeader from '../../shared/common/PageHeader';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
 import FinancialStatementModal from './FinancialStatementModal';
@@ -18,6 +17,7 @@ import { summariesAPI, FinanceBI, SummaryResponse } from '../../../services/modu
 import { receivablesAPI, ArAgeing } from '../../../services/modules/receivables.api';
 import { supplierApAPI, SupplierInvoice } from '../../../services/modules/supplierAp.api';
 import { walletAPI, Wallet as WalletT } from '../../../services/modules/wallet.api';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * Finance → Reports & Analytics — the BI dashboard (user reference design,
@@ -532,7 +532,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
       />
 
       {loading ? (
-        <div className="flex items-center justify-center py-24"><Loader2 size={22} className="animate-spin text-seafoam" /></div>
+        <div className="flex items-center justify-center py-24"><LoadingSpinner size="md" /></div>
       ) : (
         <>
           {/* ── KPI cards — 3 / 2 / 2 rows (user, 2026-08-03) so the money

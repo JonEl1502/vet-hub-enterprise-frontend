@@ -7,6 +7,7 @@ import { STABILIZATION, billableKey, EmergencyBillablesConfig } from './emergenc
 import { useData } from '../../../contexts/DataContext';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { notifyTriageChanged } from './triageEvents';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 interface StaffOpt { id: number | string; name: string }
 interface Props {
@@ -355,7 +356,7 @@ const EmergencyTriagePanel: React.FC<Props> = ({ appointmentId, clinicId, petId,
   const timeLog = useMemo(() => [...(record?.timeLog ?? [])].sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime()), [record]);
   const sectionTitle = 'text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5';
 
-  if (loading) return <div className="py-16 flex justify-center"><Loader2 className="animate-spin text-seafoam" /></div>;
+  if (loading) return <div className="py-16 flex justify-center"><LoadingSpinner size="md" /></div>;
 
   return (
     <div className={`space-y-6 ${readOnly ? 'pointer-events-none select-none' : ''}`}>

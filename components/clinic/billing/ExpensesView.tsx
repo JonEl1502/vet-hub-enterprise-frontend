@@ -5,6 +5,7 @@ import PageHeader from '../../shared/common/PageHeader';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
 import { expensesAPI, Expense } from '../../../services/modules/expenses.api';
 import { toast } from '../../../services/utils/toast';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * Finance → Expenses (backend 112) — clinic operating spend: rent, salaries,
@@ -139,7 +140,7 @@ const ExpensesView: React.FC<Props> = ({ currency = 'KES' }) => {
       </div>
 
       {loading ? (
-        <div className="flex items-center justify-center py-16"><Loader2 size={20} className="animate-spin text-seafoam" /></div>
+        <div className="flex items-center justify-center py-16"><LoadingSpinner size="md" /></div>
       ) : (
         <>
           {/* ── Totals ── */}

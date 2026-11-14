@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Loader2, Plus, Search, MapPin, Tag, ShieldCheck, Store, Eye,
+  ArrowLeft, Plus, Search, MapPin, Tag, ShieldCheck, Store, Eye,
   MessageSquare, Phone, MessageCircle, PawPrint, LayoutGrid, List as ListIcon,
-  Stethoscope, FileCheck,
-} from 'lucide-react';
+  Stethoscope, FileCheck } from 'lucide-react';
 // ⚠️ NOT 'react-hot-toast'. That library's <Toaster/> is never mounted
 // anywhere in this app — every toast.success/error call through it renders
 // nothing, including the "Listed" success message this file used to fire on
@@ -20,6 +19,7 @@ import ListingPhotoUploader from '../ListingPhotoUploader';
 import PickFromFarmModal, { FarmPrefill } from '../PickFromFarmModal';
 import RequestInspectionModal from '../RequestInspectionModal';
 import { InspectionReport, InspectionRequest } from '../../../services/modules/marketplace.api';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * 296 — the farm marketplace.
@@ -966,7 +966,7 @@ const ClientMarket: React.FC = () => {
           )}
 
           {loading ? (
-            <div className="flex justify-center py-16"><Loader2 className="w-5 h-5 animate-spin cp-accent-text" /></div>
+            <div className="flex justify-center py-16"><LoadingSpinner size="md" /></div>
           ) : listings.length === 0 ? (
             <div className="cp-card px-5 py-12 text-center">
               <Store className="w-6 h-6 mx-auto cp-muted mb-2" />

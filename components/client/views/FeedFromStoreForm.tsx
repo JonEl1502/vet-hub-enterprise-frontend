@@ -8,13 +8,14 @@
  * for the whole farm or a herd, which is all a free record book ever tracked.
  */
 import React, { useEffect, useMemo, useState } from 'react';
-import { Plus, AlertTriangle, Loader2 } from 'lucide-react';
+import { Plus, AlertTriangle } from 'lucide-react';
 import {
   clientPortalAPI, type FarmStockItem, type PortalAnimalGroup, type FarmAnimal, type StockCategory,
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import { Chip, WhenRow, SubmitButton, onEnter, localToday } from './AnimalRecordForms';
 import { STOCK_CATEGORIES, catOf, unitChoices, fmtQty } from './farmStock';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const TIMES = [
   { label: 'Morning', value: '06:30' },
@@ -113,7 +114,7 @@ const FeedFromStoreForm: React.FC<Props> = ({ farmId, groups, animals, isFull, a
     } finally { setSaving(false); }
   };
 
-  if (items === null) return <div className="py-8 text-center"><Loader2 size={16} className="animate-spin mx-auto text-slate-400" /></div>;
+  if (items === null) return <div className="py-8 text-center"><LoadingSpinner size="sm" /></div>;
 
   return (
     <div className="space-y-3.5">

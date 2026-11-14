@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Layers, Loader2, Save, Lock } from 'lucide-react';
 import { staffScopeAPI, toast } from '../../../services';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * Epic C — assign a staff member to clinical categories and optionally restrict
@@ -47,7 +48,7 @@ const StaffCategoryAccess: React.FC<{ userId: string | number }> = ({ userId }) 
       </div>
       <p className="text-[11px] text-slate-400 dark:text-zinc-500 mb-4">Assign the categories this staff member handles. Optionally restrict their navigation to only those module pages.</p>
 
-      {loading ? <div className="flex items-center justify-center py-8"><Loader2 size={18} className="animate-spin text-seafoam" /></div> : (
+      {loading ? <div className="flex items-center justify-center py-8"><LoadingSpinner size="sm" /></div> : (
         <>
           <label className="flex items-center justify-between gap-3 p-3 mb-4 rounded-xl border border-slate-200 dark:border-zinc-800 bg-slate-50/60 dark:bg-zinc-950/30">
             <span className="flex items-center gap-2">

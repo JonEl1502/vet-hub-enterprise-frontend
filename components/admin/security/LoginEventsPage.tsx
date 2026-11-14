@@ -14,10 +14,10 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  ShieldCheck, RefreshCw, Loader2, Search, X, AlertTriangle, Globe, Monitor, Plane,
-} from 'lucide-react';
+  ShieldCheck, RefreshCw, Search, X, AlertTriangle, Globe, Monitor, Plane } from 'lucide-react';
 import { loginEventsAPI, type LoginEvent, type SuspiciousOrigin, type ImpossibleTravel } from '../../../services';
 import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const OUTCOME: Record<string, { label: string; cls: string }> = {
   SUCCESS:      { label: 'Signed in',      cls: 'text-emerald-600 dark:text-emerald-400' },
@@ -202,7 +202,7 @@ const LoginEventsPage: React.FC = () => {
         </div>
 
         {loading ? (
-          <div className="flex justify-center py-8"><Loader2 size={16} className="animate-spin text-slate-400" /></div>
+          <div className="flex justify-center py-8"><LoadingSpinner size="sm" /></div>
         ) : events.length === 0 ? (
           <p className="text-[11px] text-slate-400 dark:text-zinc-600 py-6 text-center">
             Nothing recorded yet. The trail starts from the deploy that added it — earlier sign-ins

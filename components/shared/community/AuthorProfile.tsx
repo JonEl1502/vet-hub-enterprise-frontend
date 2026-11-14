@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { communityAPI, CommunityPost, CommunityProfile, FollowSubject } from '../../../services';
 import PostCard from './PostCard';
 import { useCommunityAccessGate } from './CommunityAccessGate';
+import LoadingSpinner from '../common/LoadingSpinner';
 
 /**
  * An author's own page (297).
@@ -168,7 +169,7 @@ const AuthorProfile: React.FC<Props> = ({ subject, onBack, onOpenPost, onOpenTag
           </div>
 
           {loading ? (
-            <div className="py-12 text-center"><Loader2 size={18} className="animate-spin mx-auto text-slate-300" /></div>
+            <div className="py-12 text-center"><LoadingSpinner size="sm" /></div>
           ) : posts.length === 0 ? (
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-10 text-center">
               <p className="text-[12px] font-semibold text-slate-400">Nothing published under this yet.</p>

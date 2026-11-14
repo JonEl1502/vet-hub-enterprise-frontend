@@ -7,6 +7,7 @@ import {
   Card, Empty, Field, INPUT, BTN_PRIMARY, BTN_GHOST, Pill, PersonChip,
   titleCase, prettyDate, today,
 } from './hrShared';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const money = (n: number, c = 'KES') =>
   `${c} ${Number(n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -62,7 +63,7 @@ const HrBonusesPane: React.FC = () => {
     load();
   };
 
-  if (loading) return <div className="py-16 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" /></div>;
+  if (loading) return <div className="py-16 text-center"><LoadingSpinner size="md" /></div>;
 
   return (
     <div className="space-y-3">

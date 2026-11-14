@@ -5,6 +5,7 @@ import {
 import { siteConnectAPI, type PublishedProduct } from '../../../services/modules/siteConnect.api';
 import { inventoryAPI } from '../../../services/modules/inventory.api';
 import { toast } from '../../../services';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * WEBSITE → PRODUCTS (270). What of the clinic's stock is on its public site.
@@ -142,7 +143,7 @@ const WebsiteCatalogPanel: React.FC<Props> = ({ enabled }) => {
 
       {/* Published */}
       {loading ? (
-        <div className="flex justify-center py-10"><Loader2 size={16} className="animate-spin text-seafoam" /></div>
+        <div className="flex justify-center py-10"><LoadingSpinner size="sm" /></div>
       ) : items.length === 0 ? (
         <div className="text-center py-8 border border-dashed border-slate-200 dark:border-zinc-800 rounded-xl">
           <ShoppingBag size={22} className="text-slate-300 dark:text-zinc-700 mx-auto mb-2" />

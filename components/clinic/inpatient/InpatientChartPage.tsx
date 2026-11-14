@@ -18,6 +18,7 @@ import RecordActionBar, { RecordActionBarSpacer } from '../shared/RecordActionBa
 import { useData } from '../../../contexts/DataContext';
 import { useClinic } from '../../../contexts/ClinicContext';
 import UpgradeGate from '../../shared/common/UpgradeGate';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 // Full-page inpatient chart — converted from the old right-side drawer so the
 // chart is a real navigable page (deep-linkable via nav param hospId).
@@ -919,7 +920,7 @@ const InpatientChartPage: React.FC<Props> = ({ hospId, onBack, onChanged, onOpen
       />
 
       {loading && !h ? (
-        <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
+        <div className="flex items-center justify-center py-20"><LoadingSpinner size="md" /></div>
       ) : h ? (
         <div className={pane ? 'space-y-4' : 'grid grid-cols-1 lg:grid-cols-3 gap-4 items-start'}>
           {/* MAIN — vitals + daily sheet */}

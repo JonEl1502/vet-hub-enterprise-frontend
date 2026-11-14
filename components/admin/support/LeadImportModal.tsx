@@ -8,6 +8,7 @@ import demoRequestsAPI, { LeadImportRow } from '../../../services/modules/demoRe
 import { parseFile, listSheetNames, ParsedFile } from '../../../utils/import/parse';
 import { parsePasted } from '../../../utils/import/paste';
 import { mapLeadRows, looksLikeLeads, FIELD_LABELS, MappedSheet } from './leadSheetMapping';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * Import a researched prospect list into the "Potential clients" queue.
@@ -230,7 +231,7 @@ const LeadImportModal: React.FC<Props> = ({ onClose, onImported }) => {
             )}
 
             {reading && (
-              <div className="py-6 flex justify-center"><Loader2 className="animate-spin text-slate-400" size={18} /></div>
+              <div className="py-6 flex justify-center"><LoadingSpinner size="sm" /></div>
             )}
 
             {error && (

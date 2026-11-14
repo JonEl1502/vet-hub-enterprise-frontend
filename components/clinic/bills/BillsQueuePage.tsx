@@ -4,6 +4,7 @@ import { ReceiptText, Loader2, RefreshCw, AlertTriangle, FileText } from 'lucide
 import { billsAPI, invoicesAPI } from '../../../services';
 import { BillQueueRow } from '../../../services/modules/bills.api';
 import { useClinic } from '../../../contexts/ClinicContext';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * Bills — the reception worklist (Revenue Cycle P1).
@@ -79,7 +80,7 @@ const BillsQueuePage: React.FC<Props> = ({ onOpenVisit }) => {
 
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm overflow-hidden">
         {loading ? (
-          <div className="py-16 flex justify-center"><Loader2 size={20} className="animate-spin text-seafoam" /></div>
+          <div className="py-16 flex justify-center"><LoadingSpinner size="md" /></div>
         ) : rows.length === 0 ? (
           <div className="py-20 text-center">
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-300 dark:text-zinc-600">No results</p>

@@ -14,6 +14,7 @@ import { isSettled } from './ClientAccountHub';
 import RevenueStatusChip from '../shared/RevenueStatusChip';
 import ReconciliationDocument from '../receipts/ReconciliationDocument';
 import { useClinic } from '../../../contexts/ClinicContext';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * Client → Payments tab (backend migration 097).
@@ -652,7 +653,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center py-16"><Loader2 size={20} className="animate-spin text-seafoam" /></div>;
+    return <div className="flex items-center justify-center py-16"><LoadingSpinner size="md" /></div>;
   }
 
   const SUBS = [

@@ -1,12 +1,12 @@
 import React from 'react';
 import toast from 'react-hot-toast';
 import {
-  ArrowLeft, Mail, Phone, Globe, MapPin, Building2, Loader2, CheckCircle2,
-  AlertTriangle, Trash2, Settings2, MessageSquare, Hash, Target, Inbox,
-} from 'lucide-react';
+  ArrowLeft, Mail, Phone, Globe, MapPin, Building2, CheckCircle2,
+  AlertTriangle, Trash2, Settings2, MessageSquare, Hash, Target, Inbox } from 'lucide-react';
 import demoRequestsAPI, { DemoRequest, DemoRequestStatus, LeadNote } from '../../../services/modules/demoRequests.api';
 import LeadConvertDialog from './LeadConvertDialog';
 import LeadOutreachComposer from './LeadOutreachComposer';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * One lead, in full.
@@ -90,7 +90,7 @@ const LeadDetailPage: React.FC<Props> = ({ leadId, onBack }) => {
     } finally { setBusy(false); }
   };
 
-  if (loading) return <div className="py-20 flex justify-center"><Loader2 className="animate-spin text-slate-400" /></div>;
+  if (loading) return <div className="py-20 flex justify-center"><LoadingSpinner size="md" /></div>;
   if (!lead) {
     return (
       <div className="py-16 text-center space-y-3">

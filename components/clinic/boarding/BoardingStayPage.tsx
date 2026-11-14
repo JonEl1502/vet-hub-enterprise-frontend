@@ -16,6 +16,7 @@ import FinalizeReminderGate, { ReminderDraft } from '../appointments/FinalizeRem
 import UpgradeGate from '../../shared/common/UpgradeGate';
 import { useClinic } from '../../../contexts/ClinicContext';
 import AddCategoryService from '../shared/AddCategoryService';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 // Full-page boarding stay — converted from the old right-side drawer so the
 // stay is a real navigable page (deep-linkable via nav param stayId).
@@ -619,7 +620,7 @@ const BoardingStayPage: React.FC<Props> = ({ stayId, onBack, onChanged, onOpenAp
       />
 
       {loading && !stay ? (
-        <div className="flex items-center justify-center py-20"><Loader2 size={24} className="animate-spin text-seafoam" /></div>
+        <div className="flex items-center justify-center py-20"><LoadingSpinner size="md" /></div>
       ) : stay ? (
         // One column (user, 2026-08-03): the stay context / actions / checkout
         // column used to sit beside the care sheet, squeezing the thing staff

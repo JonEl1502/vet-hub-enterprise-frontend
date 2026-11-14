@@ -17,9 +17,8 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Stethoscope, Building2, Phone, Mail, Search, Loader2, Sparkles, X, MapPin, Siren, ShieldCheck,
-  Plus, AlertTriangle, Trash2,
-} from 'lucide-react';
+  Stethoscope, Building2, Phone, Mail, Search, Sparkles, X, MapPin, Siren, ShieldCheck,
+  Plus, AlertTriangle, Trash2 } from 'lucide-react';
 import {
   clientPortalAPI, TREATMENT_KINDS, TREATMENT_ROUTES, ADMINISTERED_BY,
   type PortalFarm, type FarmMedical, type PortalClinic, type PortalHoldings,
@@ -30,6 +29,7 @@ import CpModal from '../CpModal';
 import CpPage from '../CpPage';
 import { speciesConfig } from './farmSpecies';
 import { useFarmerPlan } from '../useFarmerPlan';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const KES = (n: number) => `KES ${Math.round(n).toLocaleString('en-KE')}`;
 const day = (d?: string | null) =>
@@ -198,7 +198,7 @@ const ClientFarmMedical: React.FC = () => {
   };
 
   if (loading) {
-    return <div className="cp-card px-5 py-12 text-center"><Loader2 size={16} className="animate-spin mx-auto text-slate-400" /></div>;
+    return <div className="cp-card px-5 py-12 text-center"><LoadingSpinner size="sm" /></div>;
   }
   if (farms.length === 0) {
     return (

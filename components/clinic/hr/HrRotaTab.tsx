@@ -6,6 +6,7 @@ import {
   Card, Empty, Field, INPUT, BTN_PRIMARY, BTN_GHOST, Pill, Avatar,
   weekStart, addDays, isoDay, today, prettyDate, titleCase,
 } from './hrShared';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const DOW = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -106,7 +107,7 @@ const HrRotaTab: React.FC = () => {
         </div>
       </div>
 
-      {loading ? <div className="py-20 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" /></div>
+      {loading ? <div className="py-20 text-center"><LoadingSpinner size="md" /></div>
       : rows.length === 0 ? <Empty icon={CalendarDays} title="No staff to roster" hint="Add staff to this clinic first." />
       : (
         <div className="overflow-x-auto">

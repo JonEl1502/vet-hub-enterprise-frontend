@@ -1,8 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useParams, Link } from 'react-router-dom';
-import { Loader2, PawPrint, CalendarCheck, BellRing, Receipt, ArrowRight, MapPin } from 'lucide-react';
+import { PawPrint, CalendarCheck, BellRing, Receipt, ArrowRight, MapPin } from 'lucide-react';
 import { publicAPI, type PublicClinic } from '../../services/modules/public.api';
 import BrandMark from '../shared/common/BrandMark';
+import LoadingSpinner from '../shared/common/LoadingSpinner';
 
 /**
  * 297 — WHERE A CLINIC'S QR CODE LANDS.
@@ -65,7 +66,7 @@ const ClinicLanding: React.FC = () => {
   if (state === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#faf7f2]">
-        <Loader2 className="w-6 h-6 animate-spin text-pine" />
+        <LoadingSpinner size="md" />
       </div>
     );
   }

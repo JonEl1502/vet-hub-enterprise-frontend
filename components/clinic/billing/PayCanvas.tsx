@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Smartphone, CreditCard, Loader2, X, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { vethubPaystackAPI, type PaystackInitiateResult } from '../../../services/modules/vethubPaystack.api';
 import { toast } from '../../../services';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * THE PAYMENT CANVAS — ours for mobile money, Paystack's for cards.
@@ -256,7 +257,7 @@ const PayCanvas: React.FC<Props> = ({
           </div>
         ) : phase === 'waiting' ? (
           <div className="p-8 text-center">
-            <Loader2 size={34} className="mx-auto text-seafoam animate-spin" />
+            <LoadingSpinner size="md" />
             <p className="mt-3 text-sm font-bold text-pine dark:text-zinc-100">
               {isMobile ? 'Waiting for you to approve on your phone' : 'Completing the card payment'}
             </p>

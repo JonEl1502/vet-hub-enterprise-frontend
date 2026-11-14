@@ -9,6 +9,7 @@ import { Bill } from '../../../services/modules/bills.api';
 import { Invoice } from '../../../services/modules/invoices.api';
 import { isSettled } from './ClientAccountHub';
 import RevenueStatusChip, { revenueStatusOf } from '../shared/RevenueStatusChip';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * Financials → BILLS (user, 2026-08-03: "Bills tab b4 Invoice … and can
@@ -123,7 +124,7 @@ const ClientBillsTab: React.FC<Props> = ({
   };
 
   if (loading) {
-    return <div className="flex items-center justify-center py-16"><Loader2 size={20} className="animate-spin text-seafoam" /></div>;
+    return <div className="flex items-center justify-center py-16"><LoadingSpinner size="md" /></div>;
   }
 
   return (

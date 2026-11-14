@@ -7,6 +7,7 @@ import type { VisitJob, EligiblePartner } from '../../../services/modules/visitJ
 import { toast } from '../../../services/utils/toast';
 import ClinicLogo from '../clinic-mgmt/ClinicLogo';
 import VisitJobTracker from '../partnerships/VisitJobTracker';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const STATUS_TONE: Record<string, string> = {
   REQUESTED: 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400',
@@ -97,7 +98,7 @@ export const OutsourceServiceButton: React.FC<{
             </div>
             <div className="p-5">
               {loading ? (
-                <div className="flex items-center justify-center py-8"><Loader2 size={18} className="animate-spin text-seafoam" /></div>
+                <div className="flex items-center justify-center py-8"><LoadingSpinner size="sm" /></div>
               ) : partners.length === 0 ? (
                 <div className="text-center py-6">
                   <Building2 size={28} className="mx-auto mb-2 text-slate-300" />
@@ -166,7 +167,7 @@ export const TransferBillPanel: React.FC<{
     return () => { alive = false; };
   }, [visitId]);
 
-  if (loading) return <div className="flex items-center justify-center py-10"><Loader2 size={18} className="animate-spin text-seafoam" /></div>;
+  if (loading) return <div className="flex items-center justify-center py-10"><LoadingSpinner size="sm" /></div>;
   if (jobs.length === 0) return <p className="text-[11px] text-slate-400 text-center py-8">No partner jobs on this visit.</p>;
 
   const requester = jobs[0].requesterClinic;

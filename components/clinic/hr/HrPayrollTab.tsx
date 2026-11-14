@@ -11,6 +11,7 @@ import {
   Card, Empty, Field, INPUT, BTN_PRIMARY, BTN_GHOST, Pill, titleCase, prettyDate, isoDay,
 } from './hrShared';
 import HrBonusesPane from './HrBonusesPane';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const RUN_TONE: Record<string, any> = {
   DRAFT: 'amber', APPROVED: 'sky', PAID: 'emerald', CANCELLED: 'slate',
@@ -67,7 +68,7 @@ const Runs: React.FC<{ onOpen: (id: string) => void }> = ({ onOpen }) => {
   }, []);
   useEffect(load, [load]);
 
-  if (loading) return <div className="py-16 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" /></div>;
+  if (loading) return <div className="py-16 text-center"><LoadingSpinner size="md" /></div>;
 
   return (
     <div className="space-y-3">
@@ -182,7 +183,7 @@ const RunDetail: React.FC<{ id: string; onBack: () => void }> = ({ id, onBack })
     try { await fn(); load(); } finally { setBusy(null); }
   };
 
-  if (loading) return <div className="py-20 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" /></div>;
+  if (loading) return <div className="py-20 text-center"><LoadingSpinner size="md" /></div>;
   if (!run) return <Empty icon={Wallet} title="Pay run not found" />;
 
   const isDraft = run.status === 'DRAFT';
@@ -453,7 +454,7 @@ const Rates: React.FC = () => {
     finally { setBusy(false); }
   };
 
-  if (loading) return <div className="py-16 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" /></div>;
+  if (loading) return <div className="py-16 text-center"><LoadingSpinner size="md" /></div>;
 
   if (tables.length === 0) {
     return (

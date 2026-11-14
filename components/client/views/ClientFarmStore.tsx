@@ -6,7 +6,7 @@
  */
 import React, { useCallback, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Loader2, AlertTriangle, ArrowDownToLine, ClipboardCheck, Wheat } from 'lucide-react';
+import { Plus, AlertTriangle, ArrowDownToLine, ClipboardCheck, Wheat } from 'lucide-react';
 import {
   clientPortalAPI, type PortalFarm, type FarmStockItem, type FarmStockMovement, type StockCategory,
 } from '../../../services/modules/clientPortal.api';
@@ -15,6 +15,7 @@ import CpModal from '../CpModal';
 import CpPage from '../CpPage';
 import { Chip, onEnter, localToday } from './AnimalRecordForms';
 import { STOCK_CATEGORIES, catOf, unitChoices, fmtQty, packHint } from './farmStock';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /** The store as a short list for the farm home: what is low first, then the rest. */
 export const FarmStoreCard: React.FC<{ farmId: string }> = ({ farmId }) => {
@@ -151,7 +152,7 @@ const ClientFarmStore: React.FC = () => {
     } finally { setSaving(false); }
   };
 
-  if (loading) return <div className="cp-card px-5 py-12 text-center"><Loader2 size={16} className="animate-spin mx-auto text-slate-400" /></div>;
+  if (loading) return <div className="cp-card px-5 py-12 text-center"><LoadingSpinner size="sm" /></div>;
   if (farms.length === 0) {
     return (
       <div className="cp-card px-5 py-12 text-center">
@@ -296,7 +297,7 @@ const ClientFarmStore: React.FC = () => {
 
       {dialog?.kind === 'HISTORY' && (
         <CpModal title={dialog.item.name} onClose={() => setDialog(null)}>
-          {history === null ? <div className="py-6 text-center"><Loader2 size={16} className="animate-spin mx-auto text-slate-400" /></div>
+          {history === null ? <div className="py-6 text-center"><LoadingSpinner size="sm" /></div>
             : history.length === 0 ? <p className="text-xs text-slate-500 py-4 text-center">Nothing recorded yet.</p>
             : (
               <div className="divide-y divide-slate-100 dark:divide-zinc-800">

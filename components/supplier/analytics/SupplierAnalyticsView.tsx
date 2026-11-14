@@ -4,12 +4,12 @@ import {
   BarChart, Bar, Cell,
 } from 'recharts';
 import {
-  TrendingUp, TrendingDown, Minus, Loader2, PhoneCall, PackageX, AlertTriangle,
-  Timer, Layers, Building2, Lock, RefreshCw,
-} from 'lucide-react';
+  TrendingUp, TrendingDown, Minus, PhoneCall, PackageX, AlertTriangle,
+  Timer, Layers, Building2, Lock, RefreshCw } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import { supplierBiAPI, SupplierBiReport } from '../../../services/modules/supplierBi.api';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * 298 — business intelligence for the supplier side.
@@ -143,7 +143,7 @@ const SupplierAnalyticsView: React.FC<{ setView?: (v: string) => void }> = ({ se
   }
 
   if (loading && !data) {
-    return <div className="flex justify-center py-24"><Loader2 className="w-6 h-6 animate-spin text-slate-300" /></div>;
+    return <div className="flex justify-center py-24"><LoadingSpinner size="md" /></div>;
   }
   if (!data) return null;
 

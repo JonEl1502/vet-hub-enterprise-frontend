@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { whatsappAPI, type UnmatchedSender } from '../../../services/modules/whatsapp.api';
 import { toast } from '../../../services';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * WHATSAPP ENQUIRIES — people who messaged the clinic and are not in the CRM.
@@ -130,7 +131,7 @@ const WhatsappEnquiriesView: React.FC<{ onOpenClient?: (clientId: string) => voi
       </div>
 
       {loading ? (
-        <div className="py-16 flex justify-center"><Loader2 className="animate-spin text-seafoam" size={22} /></div>
+        <div className="py-16 flex justify-center"><LoadingSpinner size="md" /></div>
       ) : senders.length === 0 ? (
         <div className="py-16 flex flex-col items-center gap-3">
           <Inbox size={28} className="text-slate-200 dark:text-zinc-700" />

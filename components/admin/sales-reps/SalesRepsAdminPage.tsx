@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import {
   Users, Plus, RefreshCw, Copy, Trash2, Edit3, Save, X, CheckCircle2,
-  Building2, Loader2, CheckCircle, XCircle, BadgeDollarSign,
-} from 'lucide-react';
+  Building2, CheckCircle, XCircle, BadgeDollarSign } from 'lucide-react';
 import { salesRepAPI, type SalesRep, type ReferredClinic } from '../../../services/modules/salesRep.api';
 import { toast, dialog } from '../../../services';
 import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const SalesRepsAdminPage: React.FC = () => {
   const [reps, setReps] = useState<SalesRep[]>([]);
@@ -209,7 +209,7 @@ const ClinicsModal: React.FC<{ rep: SalesRep; onClose: () => void }> = ({ rep, o
 
         <div className="overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center py-16 text-slate-400"><Loader2 className="animate-spin" size={20}/></div>
+            <div className="flex items-center justify-center py-16 text-slate-400"><LoadingSpinner size="md" /></div>
           ) : clinics.length === 0 ? (
             <p className="text-center py-16 text-sm text-slate-400 dark:text-zinc-500">No clinics attributed yet.</p>
           ) : (

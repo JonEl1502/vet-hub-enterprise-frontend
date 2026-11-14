@@ -5,6 +5,7 @@ import {
 } from 'lucide-react';
 import { whatsappAPI, type WhatsappConfigView, type WhatsappPurpose } from '../../../services/modules/whatsapp.api';
 import { toast } from '../../../services';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * WHATSAPP — this clinic's own WhatsApp Business number, or VetHub's.
@@ -151,7 +152,7 @@ const WhatsappTab: React.FC = () => {
   if (loading) {
     return (
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-10 flex justify-center">
-        <Loader2 className="animate-spin text-seafoam" size={22} />
+        <LoadingSpinner size="md" />
       </div>
     );
   }

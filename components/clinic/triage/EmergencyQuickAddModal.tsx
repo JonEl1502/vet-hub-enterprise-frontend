@@ -7,6 +7,7 @@ import { useData } from '../../../contexts/DataContext';
 import { loadVisitFees, entryFeeFor } from '../shared/visitFees';
 import { localYMD } from '../../../services/utils/dateFormatter';
 import BrandMark from '../../shared/common/BrandMark';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * EMERGENCY QUICK ADD (user, 2026-08-24).
@@ -249,7 +250,7 @@ const EmergencyQuickAddModal: React.FC<Props> = ({ open, onClose, onCreated }) =
     if (searching && !hasResults) {
       return (
         <div className="px-4 py-10 text-center">
-          <Loader2 size={20} className="mx-auto animate-spin text-seafoam" />
+          <LoadingSpinner size="sm" />
         </div>
       );
     }

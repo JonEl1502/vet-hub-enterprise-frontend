@@ -1,8 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
-  Users, CalendarOff, CalendarDays, UserCheck, Loader2, AlertTriangle,
-  BadgeCheck, ShieldAlert, Briefcase, Wallet,
-} from 'lucide-react';
+  Users, CalendarOff, CalendarDays, UserCheck, AlertTriangle,
+  BadgeCheck, ShieldAlert, Briefcase, Wallet } from 'lucide-react';
 import PageHeader from '../../shared/common/PageHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { hrAPI, HrOverview } from '../../../services/modules/hr.api';
@@ -12,6 +11,7 @@ import HrLeaveTab from './HrLeaveTab';
 import HrRotaTab from './HrRotaTab';
 import HrAttendanceTab from './HrAttendanceTab';
 import HrPayrollTab from './HrPayrollTab';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 type Tab = 'overview' | 'people' | 'leave' | 'rota' | 'attendance' | 'payroll';
 
@@ -93,7 +93,7 @@ const Overview: React.FC<{ onGo: (t: Tab) => void }> = ({ onGo }) => {
   }, []);
   useEffect(load, [load]);
 
-  if (loading) return <div className="py-20 text-center"><Loader2 className="w-5 h-5 animate-spin mx-auto text-slate-400" /></div>;
+  if (loading) return <div className="py-20 text-center"><LoadingSpinner size="md" /></div>;
   if (!data) return <Empty icon={Briefcase} title="HR could not load" hint="Try again in a moment." />;
 
   return (
