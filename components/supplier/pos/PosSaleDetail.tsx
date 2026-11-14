@@ -6,6 +6,7 @@ import { money, unitFor, qtyText } from './format';
 import DocumentBrand from '../../shared/common/DocumentBrand';
 import { OffscreenPaper, useReceiptStyle } from './PosReceiptDocument';
 import { ReceiptPaper, ReceiptStyleToggle } from './PosReceiptPaper';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * One sale, opened.
@@ -125,7 +126,7 @@ const PosSaleDetail: React.FC<Props> = ({ saleId, currency, canVoid, onBack, onV
             </div>
           </div>
         )}
-        {loading && <p className="text-center text-sm sp-muted py-12">Opening…</p>}
+        {loading && <div className="py-16"><LoadingSpinner /></div>}
 
         {!loading && sale && (
           <>

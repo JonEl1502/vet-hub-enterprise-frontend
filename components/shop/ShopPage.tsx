@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Loader2, Store } from 'lucide-react';
+import { Store } from 'lucide-react';
 import { supplierShopAPI, type PublicShop, type PublicShopProduct, type ShopTemplate } from '../../services/modules/supplierShop.api';
 import { useShopBasket } from './useShopBasket';
 import { BasketBar, ProductSheet, ShopCtx } from './ShopParts';
@@ -8,6 +8,7 @@ import BasketPage from './BasketPage';
 import SitePageView, { SiteNav, navItems } from './SitePage';
 import type { BlockCtx } from './blocks';
 import { TEMPLATE_COMPONENTS as TEMPLATES } from './ShopTemplates';
+import LoadingSpinner from '../shared/common/LoadingSpinner';
 
 /**
  * vethubcore.com/shop/<slug> — a supplier's public shop page.
@@ -106,7 +107,7 @@ const ShopPage: React.FC = () => {
   if (state === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-[#f3f5f4]">
-        <Loader2 className="w-7 h-7 animate-spin text-slate-400" />
+        <LoadingSpinner size="lg" />
       </div>
     );
   }

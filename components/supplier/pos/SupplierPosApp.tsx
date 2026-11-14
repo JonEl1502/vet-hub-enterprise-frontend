@@ -12,6 +12,7 @@ import PosTender from './PosTender';
 import PosReceipt from './PosReceipt';
 import PosSales from './PosSales';
 import PosSaleDetail from './PosSaleDetail';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * The till, whole.
@@ -121,7 +122,7 @@ const SupplierPosApp: React.FC = () => {
   if (pos.phase === 'loading') {
     return (
       <div className="supplier-pos sp-root flex items-center justify-center" style={{ height: '100dvh' }}>
-        <p className="text-sm font-bold sp-muted">Opening the till…</p>
+        <LoadingSpinner size="lg" message="Opening the till…" />
       </div>
     );
   }

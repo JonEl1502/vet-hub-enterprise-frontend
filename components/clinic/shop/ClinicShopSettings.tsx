@@ -1,8 +1,9 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Camera, Loader2, Pill, Search } from 'lucide-react';
+import { Camera, Pill, Search } from 'lucide-react';
 import { clinicShopAPI, type ClinicShopProduct } from '../../../services/modules/supplierShop.api';
 import { toast, uploadsAPI } from '../../../services';
 import { ShopSettingsView } from '../../supplier/shop/SupplierShopSettings';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * A clinic's pet shop page (324): the same settings screen agrovets use, plus
@@ -171,7 +172,7 @@ const ProductPicker: React.FC = () => {
       </div>
       <div className="max-h-[32rem] overflow-y-auto overscroll-contain divide-y divide-slate-100 dark:divide-zinc-800 border-t border-slate-100 dark:border-zinc-800">
         {items === null ? (
-          <div className="py-10 flex justify-center"><Loader2 className="w-5 h-5 animate-spin text-slate-400" /></div>
+          <div className="py-10 flex justify-center"><LoadingSpinner size="sm" /></div>
         ) : shown.length === 0 ? (
           <p className="py-10 text-center text-sm text-slate-500">{items.length ? 'Nothing matches.' : 'No stock yet. Add products in Inventory first.'}</p>
         ) : (

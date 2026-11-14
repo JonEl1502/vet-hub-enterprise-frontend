@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Check, Copy, ExternalLink, Image as ImageIcon, Loader2, Lock, MessageCircle, Palette, Store,
+  Check, Copy, ExternalLink, Image as ImageIcon, Lock, MessageCircle, Palette, Store,
 } from 'lucide-react';
 import { supplierShopAPI, type ShopHours, type ShopSettings, type ShopTemplate } from '../../../services/modules/supplierShop.api';
 import { subscriptionPackagesAPI } from '../../../services/modules/subscriptionPackages.api';
 import SiteBuilder from '../../shop/builder/SiteBuilder';
 import type { PublicShop, PublicShopProduct, ShopSite } from '../../../services/modules/supplierShop.api';
 import { toast, uploadsAPI } from '../../../services';
+import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /**
  * Shop page settings: the owner's side of vethubcore.com/shop/<slug>.
@@ -201,7 +202,7 @@ export const ShopSettingsView: React.FC<Props & { cfg: ShopSettingsConfig }> = (
   if (!s) {
     return (
       <div className="flex items-center justify-center py-24">
-        <Loader2 className="w-6 h-6 animate-spin text-slate-400" />
+        <LoadingSpinner contentArea />
       </div>
     );
   }
@@ -252,7 +253,7 @@ export const ShopSettingsView: React.FC<Props & { cfg: ShopSettingsConfig }> = (
   };
 
   return (
-    <div className="max-w-5xl mx-auto p-4 sm:p-6 space-y-5">
+    <div className="w-full max-w-[1600px] mx-auto space-y-5">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-black text-pine dark:text-zinc-100 uppercase tracking-tight">Shop page</h1>
@@ -297,10 +298,10 @@ export const ShopSettingsView: React.FC<Props & { cfg: ShopSettingsConfig }> = (
         </div>
       </section>
 
-      <div className="grid lg:grid-cols-[1fr_20rem] gap-5 items-start">
+      <div className="grid lg:grid-cols-[1fr_22rem] gap-5 items-start">
         <div className="space-y-5">
           <Card title="Template" hint="How your shop looks. Preview any of them before you choose.">
-            <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className="grid sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-5 gap-3">
               {TEMPLATES.map((t) => {
                 const on = s.template === t.id;
                 const locked = isPro(t.id) && !s.pro;
@@ -320,17 +321,17 @@ export const ShopSettingsView: React.FC<Props & { cfg: ShopSettingsConfig }> = (
                     <p className="text-xs text-slate-500 dark:text-zinc-400 mt-1 min-h-[2.5rem]">{t.blurb}</p>
                     {locked && <p className="text-[11px] font-bold text-amber-700 mt-1">{lockNote}</p>}
                     <div className="mt-3 flex gap-2">
-                      <a href={`${url}?template=${t.id}`} target="_blank" rel="noopener noreferrer" className="flex-1 text-center px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[11px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300 hover:border-seafoam">
+                      <a href={`${url}?template=${t.id}`} target="_blank" rel="noopener noreferrer" className="flex-1 text-center px-3 py-2 rounded-xl border border-slate-200 dark:border-zinc-700 text-[11px] font-black uppercase tracking-widest whitespace-nowrap text-slate-600 dark:text-zinc-300 hover:border-seafoam">
                         Preview
                       </a>
                       {on ? (
-                        <span className="flex-1 text-center px-3 py-2 rounded-xl bg-pine/10 dark:bg-seafoam/10 text-pine dark:text-seafoam text-[11px] font-black uppercase tracking-widest">In use</span>
+                        <span className="flex-1 text-center px-3 py-2 rounded-xl whitespace-nowrap bg-pine/10 dark:bg-seafoam/10 text-pine dark:text-seafoam text-[11px] font-black uppercase tracking-widest">In use</span>
                       ) : locked ? (
-                        <button onClick={() => setView(cfg.billingView)} className="flex-1 px-3 py-2 rounded-xl bg-amber-500 text-white text-[11px] font-black uppercase tracking-widest hover:bg-amber-600">
+                        <button onClick={() => setView(cfg.billingView)} className="flex-1 px-3 py-2 rounded-xl bg-amber-500 text-white text-[11px] font-black uppercase tracking-widest whitespace-nowrap hover:bg-amber-600">
                           Upgrade
                         </button>
                       ) : (
-                        <button onClick={() => save('template', { template: t.id }, `${t.name} template is live`)} disabled={!!saving} className="flex-1 px-3 py-2 rounded-xl bg-pine text-white text-[11px] font-black uppercase tracking-widest hover:opacity-90 disabled:opacity-60">
+                        <button onClick={() => save('template', { template: t.id }, `${t.name} template is live`)} disabled={!!saving} className="flex-1 px-3 py-2 rounded-xl bg-pine text-white text-[11px] font-black uppercase tracking-widest whitespace-nowrap hover:opacity-90 disabled:opacity-60">
                           {saving === 'template' ? '…' : 'Use this'}
                         </button>
                       )}
