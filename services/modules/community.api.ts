@@ -8,7 +8,8 @@ import { get, post, put, del } from '../api/client';
 import { RequestOptions, ApiResponse } from '../api/types';
 
 export type CommunityKind = 'ARTICLE' | 'DEAL' | 'MEET' | 'ADOPTION';
-export type CommunityAuthorKind = 'CLINIC' | 'SUPPLIER' | 'PRACTITIONER' | 'CLIENT';
+/** VETHUB = VetHubCore's own official account ("VetHubCore Library"). */
+export type CommunityAuthorKind = 'CLINIC' | 'SUPPLIER' | 'PRACTITIONER' | 'CLIENT' | 'VETHUB';
 
 export interface CommunityPost {
   id: string;

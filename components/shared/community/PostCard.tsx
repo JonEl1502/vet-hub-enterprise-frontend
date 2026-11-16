@@ -168,7 +168,9 @@ const PostCard: React.FC<Props> = ({
     } catch { /* toasted by the API layer */ }
   };
 
-  const authorRole = post.authorKind === 'PRACTITIONER'
+  const authorRole = post.authorKind === 'VETHUB'
+    ? 'Official · VetHubCore'
+    : post.authorKind === 'PRACTITIONER'
     ? 'Practitioner'
     : post.authorKind.charAt(0) + post.authorKind.slice(1).toLowerCase();
 

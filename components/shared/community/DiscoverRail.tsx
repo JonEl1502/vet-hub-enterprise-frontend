@@ -211,7 +211,7 @@ const DiscoverRail: React.FC<Props> = ({ onOpenTag, onOpenPost, reach }) => {
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-[12px] font-bold text-pine dark:text-zinc-100 truncate">{p.authorName}</span>
-                  <span className="block text-[10.5px] font-semibold text-slate-400 capitalize">{p.authorKind.toLowerCase()}</span>
+                  <span className="block text-[10.5px] font-semibold text-slate-400 capitalize">{p.authorKind === 'VETHUB' ? 'Official' : p.authorKind.toLowerCase()}</span>
                 </span>
                 <button
                   onClick={() => toggleFollow(p)}
