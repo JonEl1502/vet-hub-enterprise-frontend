@@ -1017,8 +1017,8 @@ const BillingView: React.FC = () => {
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {([
-              { label: 'Patients', used: usage.usage.patients, limit: usage.limits.maxPatients, cap: usage.unlimited.patients },
-              { label: 'Clients',  used: usage.usage.clients,  limit: usage.limits.maxClients,  cap: usage.unlimited.clients },
+              // Clients and patients are not limited (2026-11-19): plans are
+              // set apart by features and staff, so only staff is metered here.
               { label: 'Staff',    used: usage.usage.staff,    limit: usage.limits.maxStaff,    cap: usage.unlimited.staff },
             ]).map(({ label, used, limit, cap }) => {
               const unlimited = limit >= cap;
@@ -1762,8 +1762,8 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
         {sub.package && (
           <div className="mt-4 grid grid-cols-3 gap-3">
             {[
-              { label: 'Patients', value: sub.package.maxPatients.toLocaleString() },
-              { label: 'Staff', value: sub.package.maxStaff.toLocaleString() },
+              { label: 'Patients', value: 'Unlimited' },
+              { label: 'Staff', value: sub.package.maxStaff >= 9999 ? 'Unlimited' : sub.package.maxStaff.toLocaleString() },
               { label: 'Storage', value: `${sub.package.storageGb} GB` },
             ].map(({ label, value }) => (
               <div key={label} className="text-center p-2.5 rounded-xl bg-slate-50 dark:bg-zinc-800/60">
