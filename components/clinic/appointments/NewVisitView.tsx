@@ -2199,7 +2199,12 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                also appears when services were pre-staged (module-page /
                booking flows). Grooming/boarding/admission run a gate check
                instead (below). */}
-           {(isVaccinationVisit || encounterType === 'RETAIL' || selectedCategories.some(c => c.services.length > 0)) && (
+           {/* Vaccination no longer picks vaccines here (user, 2026-11-19: "in
+               vaccination remove this part, let it be added in the treatment
+               part in the wizard"). The vaccine is chosen and billed on the
+               visit wizard's Treatment → Vaccinations tab. The card still
+               shows if services were pre-staged elsewhere. */}
+           {(encounterType === 'RETAIL' || selectedCategories.some(c => c.services.length > 0)) && (
            <div data-tour="appointment-services" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm space-y-4">
               <div className="flex items-center justify-between border-b border-slate-100 dark:border-zinc-800 pb-2">
                  <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight">{encounterType === 'GROOMING' ? 'Grooming Services' : encounterType === 'BOARDING' ? 'Boarding Services' : encounterType === 'RETAIL' ? 'Items' : encounterType === 'VET_VISIT' ? 'Staged Services' : 'Visit Workflow'}</h2>
