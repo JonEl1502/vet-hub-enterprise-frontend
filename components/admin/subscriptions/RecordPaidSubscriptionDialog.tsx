@@ -72,7 +72,7 @@ const field = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-sla
  * audience is FREELANCER.
  */
 const FREELANCER_SHELLS = ['GROOMING', 'WALKING'];
-const fitsOwner = (p: any, kind: Props['ownerKind'], shell?: string | null) => {
+export const fitsOwner = (p: any, kind: Props['ownerKind'], shell?: string | null) => {
   const aud: string[] = Array.isArray(p.audiences) ? p.audiences : [];
   const s = shell ? String(shell).toUpperCase() : null;
   const want = kind === 'SUPPLIER' ? ['SUPPLIER']

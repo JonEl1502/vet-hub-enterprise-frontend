@@ -959,6 +959,8 @@ const BillingView: React.FC = () => {
           <p className="text-sm font-bold">
             {isOpenEndedTrial(info.trialDaysLeft)
               ? 'Complimentary access — no expiry date. Nothing below is required to keep it.'
+              : info.complimentary
+              ? `Complimentary ${info.complimentaryPlan ?? 'access'} — ${info.trialDaysLeft ?? 0} day${(info.trialDaysLeft ?? 0) === 1 ? '' : 's'} left. Choose a plan below to keep it afterwards.`
               : `Free trial — ${info.trialDaysLeft ?? 0} day${(info.trialDaysLeft ?? 0) === 1 ? '' : 's'} left.
                  Choose a plan below to keep your access after the trial ends.`}
           </p>

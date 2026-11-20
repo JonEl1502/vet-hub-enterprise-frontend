@@ -32,6 +32,8 @@ export interface PlanAccess {
    * plan with nothing running out.
    */
   trialEndsAt?: string | null;
+  /** 328 — an admin-granted complimentary plan; `packageName` names it. */
+  complimentary?: boolean;
   /** Active add-ons layering over the base plan (e.g. AI Assist). */
   addOns?: Array<{ name: string | null; expiresAt: string }>;
   /**
@@ -79,6 +81,12 @@ export function planLabel(access: PlanAccess | null): {
 
   if (access.state === 'TRIAL') {
     const days = trialDaysLeft(access);
+    // 328 — a complimentary plan is a gift, not a trial: "Complimentary Enterprise".
+    if (access.complimentary) {
+      const name = access.packageName ? `Complimentary ${access.packageName}` : 'Complimentary';
+      if (days == null || isOpenEndedTrial(days)) return { text: name, tone: 'trial' };
+      return { text: `${name} — ${days} day${days === 1 ? '' : 's'} left`, tone: 'trial' };
+    }
     // An open-ended trial has no countdown worth showing — see
     // OPEN_ENDED_TRIAL_DAYS for why those exist.
     if (days == null || isOpenEndedTrial(days)) return { text: 'Free trial', tone: 'trial' };

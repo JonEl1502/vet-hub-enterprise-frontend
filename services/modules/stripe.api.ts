@@ -78,6 +78,9 @@ export interface BillingInfo {
   // and the active subscription. hasAccess === false when both are gone.
   trialEndsAt?: string | null;
   isInTrial?: boolean;
+  /** 328 — the trial is an admin-granted full-access one ("Complimentary"). */
+  complimentary?: boolean;
+  complimentaryPlan?: string | null;
   trialDaysLeft?: number;
   subscriptionDaysLeft?: number;
   hasAccess?: boolean;

@@ -7,6 +7,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import ClinicEmailVerify from './ClinicEmailVerify';
 import EditUserDialog from '../shared/EditUserDialog';
 import RecordPaidSubscriptionDialog from '../subscriptions/RecordPaidSubscriptionDialog';
+import ComplimentaryTrialCard from './ComplimentaryTrialCard';
 import { adminOrgAPI, ClinicSummary } from '../../../services/modules/adminOrg.api';
 import { OrgSwitcher, FigureTiles, WarningsPanel, TabBar, RecordsTable, Pill, money, day as fmtDay, ago, statusTone, statusLabel } from '../orgs/OrgParts';
 
@@ -474,6 +475,21 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
                   </button>
                 </div>
               </div>
+            )}
+            {/* 328 — a branch follows its main clinic's trial, so the gift is
+                given on the main clinic only. */}
+            {summary && !summary.parent && (
+              <ComplimentaryTrialCard
+                clinicId={String(c.id)}
+                clinicName={c.name}
+                currency={summary.currency}
+                shell={summary.shell}
+                trialEndsAt={summary.trialEndsAt}
+                complimentary={summary.complimentary ?? null}
+                onChanged={() => {
+                  adminOrgAPI.clinicSummary(String(clinicId)).then((r) => { if (r.success && r.data) setSummary(r.data); }).catch(() => {});
+                }}
+              />
             )}
           </div>
         )}

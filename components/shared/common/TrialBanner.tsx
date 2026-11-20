@@ -46,7 +46,9 @@ const TrialBanner: React.FC<TrialBannerProps> = ({ clinicId, onSubscribe, showWh
         <p className="text-sm font-bold flex-1">
           {isOpenEndedTrial(trialDays)
             ? 'Complimentary access — no expiry date.'
-            : `Free trial — ${trialDays} day${trialDays === 1 ? '' : 's'} left.`}
+            : info.complimentary
+              ? `Complimentary ${info.complimentaryPlan ?? 'access'} — ${trialDays} day${trialDays === 1 ? '' : 's'} left.`
+              : `Free trial — ${trialDays} day${trialDays === 1 ? '' : 's'} left.`}
         </p>
         {/* Nothing is running out, so there is nothing to convert. Showing
             "Choose plan" beside open-ended access invites a clinic to pay for

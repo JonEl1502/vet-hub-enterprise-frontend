@@ -6,8 +6,8 @@ export type TrialEntity = 'clinic' | 'supplier' | 'user';
 export const trialAPI = {
   // Set the free-trial window to now + `days` (null/0 clears it).
   set: (
-    data: { entity: TrialEntity; entityId: string | number; days: number | null },
+    data: { entity: TrialEntity; entityId: string | number; days: number | null; complimentaryPackageId?: string | null },
     options?: RequestOptions
-  ): Promise<ApiResponse<{ entity: string; id: string; trialEndsAt: string | null }>> =>
+  ): Promise<ApiResponse<{ entity: string; id: string; trialEndsAt: string | null; complimentaryPackageId?: string | null }>> =>
     post('/admin/trial', data, { showError: true, ...options }),
 };

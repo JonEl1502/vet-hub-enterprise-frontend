@@ -19,6 +19,8 @@ export interface ClinicSummary {
   parent: { id: string; name: string } | null;
   plan: { name: string; expiresAt: string; isTrial: boolean; inheritedFrom: { id: string; name: string } | null } | null;
   trialEndsAt: string | null;
+  /** 328 — an admin-granted complimentary plan (e.g. Enterprise for a month). */
+  complimentary?: { packageId: string; name: string } | null;
   figures: { clients: number; patients: number; visitsThisMonth: number; revenueThisMonth: number; staff: number; openInvoices: number; lastLoginAt: string | null };
   warnings: OrgWarning[];
 }
