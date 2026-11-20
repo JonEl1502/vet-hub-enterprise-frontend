@@ -69,7 +69,7 @@ const field = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-sla
  * 326 — which packages fit this owner (user, 2026-11-20: recording a clinic's
  * payment listed walker, groomer, farmer and supplier plans too).
  * A freelancer business is a clinic row on a GROOMING/WALKING shell, so its
- * audience is FREELANCER; a shell-specific package only fits that shell.
+ * audience is FREELANCER.
  */
 const FREELANCER_SHELLS = ['GROOMING', 'WALKING'];
 const fitsOwner = (p: any, kind: Props['ownerKind'], shell?: string | null) => {
@@ -78,9 +78,9 @@ const fitsOwner = (p: any, kind: Props['ownerKind'], shell?: string | null) => {
   const want = kind === 'SUPPLIER' ? ['SUPPLIER']
     : kind === 'CLIENT' ? ['CLIENT', 'LIVESTOCK']
     : s && FREELANCER_SHELLS.includes(s) ? ['FREELANCER'] : ['CLINIC'];
-  if (aud.length && !aud.some((a) => want.includes(a))) return false;
-  if (kind === 'CLINIC' && p.shell && s && p.shell !== s) return false;
-  return true;
+  // Audience only: a package's `shell` is the shell it MOVES the org into
+  // (286), not who may buy it, so it must not filter here.
+  return !aud.length || aud.some((a) => want.includes(a));
 };
 
 const RecordPaidSubscriptionDialog: React.FC<Props> = ({ ownerKind, ownerId, ownerName, ownerShell, prefill, onClose, onGranted }) => {
