@@ -7,6 +7,8 @@ import { useAuth } from '../../../contexts/AuthContext';
 import ClinicEmailVerify from './ClinicEmailVerify';
 import EditUserDialog from '../shared/EditUserDialog';
 import RecordPaidSubscriptionDialog from '../subscriptions/RecordPaidSubscriptionDialog';
+import { adminOrgAPI, ClinicSummary } from '../../../services/modules/adminOrg.api';
+import { OrgSwitcher, FigureTiles, WarningsPanel, TabBar, RecordsTable, Pill, money, day as fmtDay, ago, statusTone, statusLabel } from '../orgs/OrgParts';
 
 // Full-page admin clinic detail — converted from the tabbed modal on the
 // Clinics management page so the drill-down is a real navigable page
@@ -18,7 +20,7 @@ interface Props {
   onNavigate?: (view: string, params?: any) => void;
 }
 
-type Tab = 'overview' | 'billing' | 'users' | 'branches' | 'partners';
+type Tab = 'overview' | 'clients' | 'patients' | 'visits' | 'invoices' | 'products' | 'billing' | 'users' | 'branches' | 'partners';
 
 const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }) => {
   const { user } = useAuth();
@@ -35,10 +37,32 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
   const [editUser, setEditUser] = useState<any | null>(null);
   /** 302 — recording a subscription paid for outside the gateways. */
   const [grantOpen, setGrantOpen] = useState(false);
+  /** 326 — figures, plan and "needs attention", from /admin/orgs. */
+  const [summary, setSummary] = useState<ClinicSummary | null>(null);
+  const [allClinics, setAllClinics] = useState<Array<{ id: string; name: string; hint?: string; isActive?: boolean }>>([]);
+
+  useEffect(() => {
+    clinicsAPI.getAll()
+      .then((res: any) => {
+        const list = (res?.data?.clinics ?? res?.clinics ?? []) as any[];
+        const flat: any[] = [];
+        const walk = (arr: any[], parent?: string) => arr.forEach((x) => {
+          flat.push({ id: String(x.id), name: x.name, isActive: x.isActive !== false, hint: parent ? `Branch of ${parent}` : (x.city || undefined) });
+          if (Array.isArray(x.branches) && x.branches.length) walk(x.branches, x.name);
+        });
+        walk(list);
+        const seen = new Set<string>();
+        setAllClinics(flat.filter((x) => (seen.has(x.id) ? false : (seen.add(x.id), true))).sort((a, b) => a.name.localeCompare(b.name)));
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let alive = true;
-    setClinic(null); setDetails(null); setTab('overview'); setConfirmStatus(false);
+    setClinic(null); setDetails(null); setSummary(null); setTab('overview'); setConfirmStatus(false);
+    adminOrgAPI.clinicSummary(String(clinicId))
+      .then(r => { if (alive && r.success && r.data) setSummary(r.data); })
+      .catch(() => {});
     clinicsAPI.getById(Number(clinicId), { cache: false })
       .then(r => { if (alive && r.success && r.data?.clinic) setClinic(r.data.clinic); })
       .catch(() => {});
@@ -110,9 +134,15 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
 
   return (
     <div className="space-y-4 animate-in fade-in duration-300">
-      <button onClick={onBack} className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-seafoam transition-all">
-        <ArrowLeft size={13} /> Clinics
-      </button>
+      <div className="flex items-center justify-between gap-3">
+        <button onClick={onBack} className="flex items-center gap-1.5 text-[13px] font-semibold text-slate-400 hover:text-seafoam transition-all">
+          <ArrowLeft size={14} /> Clinics
+        </button>
+        {allClinics.length > 1 && (
+          <OrgSwitcher label="clinic" current={String(c.id)} options={allClinics}
+            onPick={(id) => onNavigate?.('admin-clinic-detail', { clinicId: id })} />
+        )}
+      </div>
 
       {/* Header banner */}
       <div className="bg-gradient-to-br from-pine to-pine/90 text-white rounded-2xl p-5 flex flex-wrap items-center gap-4 shadow-lg">
@@ -124,23 +154,68 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
           <h1 className="text-xl font-black tracking-tight truncate">{c.name}</h1>
           {c.slogan && <p className="text-[11px] text-white/70 italic truncate">"{c.slogan}"</p>}
         </div>
-        <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 ${c.isActive ? 'bg-green-400/20 text-green-100' : 'bg-red-400/20 text-red-100'}`}>
-          <Power size={12} /> {c.isActive ? 'Active' : 'Inactive'}
-        </span>
+        <div className="flex flex-col items-end gap-1.5">
+          <span className={`px-2.5 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest flex items-center gap-1.5 ${c.isActive ? 'bg-green-400/20 text-green-100' : 'bg-red-400/20 text-red-100'}`}>
+            <Power size={12} /> {c.isActive ? 'Active' : 'Inactive'}
+          </span>
+          {summary && (
+            <span className="text-[12px] font-semibold text-white/80">
+              {summary.plan ? `${summary.plan.name} to ${fmtDay(summary.plan.expiresAt)}` : 'No active plan'}
+            </span>
+          )}
+        </div>
       </div>
+
+      {/* 326 — the branch line: a branch takes the main clinic's plan, so
+          say whose it is before anyone records a payment here. */}
+      {summary?.parent && (
+        <div className="flex flex-wrap items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[13px] text-slate-600 dark:text-zinc-300">
+          <Building2 size={15} className="text-seafoam" />
+          This is a branch of
+          <button onClick={() => onNavigate?.('admin-clinic-detail', { clinicId: summary.parent!.id })} className="font-semibold text-seafoam hover:underline">{summary.parent.name}</button>
+          and uses its plan.
+        </div>
+      )}
+
+      {summary && (
+        <FigureTiles figures={[
+          { label: 'Clients', value: summary.figures.clients.toLocaleString(), onClick: () => setTab('clients') },
+          { label: 'Patients', value: summary.figures.patients.toLocaleString(), onClick: () => setTab('patients') },
+          { label: 'Visits this month', value: summary.figures.visitsThisMonth.toLocaleString(), onClick: () => setTab('visits') },
+          { label: 'Billed this month', value: money(summary.currency, summary.figures.revenueThisMonth), hint: `${summary.figures.openInvoices} open invoice${summary.figures.openInvoices === 1 ? '' : 's'}`, onClick: () => setTab('invoices') },
+          { label: 'Staff', value: summary.figures.staff.toLocaleString(), onClick: () => setTab('users') },
+          { label: 'Last sign-in', value: ago(summary.figures.lastLoginAt) },
+        ]} />
+      )}
+      {summary && (
+        <WarningsPanel warnings={summary.warnings} onAction={(a) => {
+          if (a.kind === 'open-clinic' && a.id) onNavigate?.('admin-clinic-detail', { clinicId: a.id });
+          else if (a.kind === 'open-billing') setTab('billing');
+          else if (a.kind === 'open-users') setTab('users');
+          else if (a.kind === 'open-products') setTab('products');
+          else if (a.kind === 'edit') onNavigate?.('admin-clinic-edit', { clinicId: String(c.id) });
+        }} />
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-start">
         {/* Main — tabbed detail */}
         <div className="lg:col-span-8 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm">
-          <div className="px-5 pt-4 flex flex-wrap gap-1.5 border-b border-slate-100 dark:border-zinc-800 pb-3">
-            {([['overview', 'Overview'], ['billing', 'Billing'], ['users', `Users${details ? ` · ${details.users.length}` : ''}`], ['branches', `Branches${details ? ` · ${details.branches.length}` : ''}`], ['partners', `Partners${details ? ` · ${details.partners.length}` : ''}`]] as const).map(([id, label]) => (
-              <button key={id} onClick={() => setTab(id)}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${tab === id ? 'bg-pine text-white dark:bg-zinc-100 dark:text-pine' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-pine'}`}>
-                {label}
-              </button>
-            ))}
-          </div>
-          <div className="p-5">
+          <TabBar value={tab} onChange={(id) => setTab(id as Tab)} tabs={[
+            { id: 'overview', label: 'Overview' },
+            { id: 'clients', label: 'Clients', count: summary?.figures.clients ?? null },
+            { id: 'patients', label: 'Patients', count: summary?.figures.patients ?? null },
+            { id: 'visits', label: 'Visits' },
+            { id: 'invoices', label: 'Invoices' },
+            { id: 'products', label: 'Products' },
+            { id: 'users', label: 'Users', count: details ? details.users.length : null },
+            { id: 'branches', label: 'Branches', count: details ? details.branches.length : null },
+            { id: 'partners', label: 'Partners', count: details ? details.partners.length : null },
+            { id: 'billing', label: 'Billing' },
+          ]} />
+          {RECORD_TABS.includes(tab) && (
+            <ClinicRecords clinicId={String(c.id)} kind={tab} currency={c.currency || 'KES'} />
+          )}
+          <div className={RECORD_TABS.includes(tab) ? 'hidden' : 'p-5'}>
             {tab === 'overview' && (
               <>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
@@ -163,7 +238,7 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
                 )}
               </>
             )}
-            {tab !== 'overview' && !details && (
+            {['billing', 'users', 'branches', 'partners'].includes(tab) && !details && (
               <div className="py-10 flex justify-center"><LoadingSpinner contentArea message="Loading…" /></div>
             )}
             {/* 299 — WHAT THIS CLINIC IS PAYING FOR.
@@ -183,9 +258,14 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
               };
               return (
                 <div className="space-y-4">
+                  {summary?.plan?.inheritedFrom && (
+                    <div className="rounded-xl border border-seafoam/30 bg-seafoam/[0.05] p-3 text-[13px] text-slate-600 dark:text-zinc-300">
+                      Uses <b className="text-pine dark:text-zinc-100">{summary.plan.name}</b> from {summary.plan.inheritedFrom.name}, to {fmtDay(summary.plan.expiresAt)}. Plans for this branch are recorded on the main clinic.
+                    </div>
+                  )}
                   <div className="flex flex-wrap items-start gap-3">
                     <div className="flex-1 min-w-[240px] rounded-xl border border-slate-200 dark:border-zinc-800 p-4">
-                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">Current plan</p>
+                      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{summary?.parent ? 'Plan saved on this branch' : 'Current plan'}</p>
                       {b.plan ? (
                         <>
                           <p className="text-base font-black text-pine dark:text-zinc-100 mt-1">{b.plan.name}</p>
@@ -229,10 +309,11 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
                           attempt behind it. The dialog itself steers to Reconcile
                           first, because that one asks the gateway. */}
                       <button
-                        onClick={() => setGrantOpen(true)}
+                        onClick={() => (summary?.parent ? onNavigate?.('admin-clinic-detail', { clinicId: summary.parent.id }) : setGrantOpen(true))}
+                        title={summary?.parent ? `Record it on ${summary.parent.name}: a branch uses the main clinic's plan` : undefined}
                         className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-zinc-700 text-[9px] font-black uppercase tracking-widest text-slate-600 dark:text-zinc-300 hover:border-pine/40 transition-colors"
                       >
-                        Record a paid subscription
+                        {summary?.parent ? `Record on ${summary.parent.name}` : 'Record a paid subscription'}
                       </button>
                     </div>
                     {b.payments.length === 0 ? (
@@ -407,6 +488,7 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
           ownerName={clinic.name}
           onClose={() => setGrantOpen(false)}
           onGranted={() => {
+            adminOrgAPI.clinicSummary(String(clinicId)).then((r) => { if (r.success && r.data) setSummary(r.data); }).catch(() => {});
             clinicsAPI.adminDetails(Number(clinicId))
               .then((r) => { if (r.success && r.data) setDetails(r.data as any); })
               .catch(() => {});
@@ -437,6 +519,74 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
       )}
     </div>
   );
+};
+
+const RECORD_TABS: string[] = ['clients', 'patients', 'visits', 'invoices', 'products'];
+
+/** 326 — one searchable, paged table per kind of record the clinic owns. */
+const ClinicRecords: React.FC<{ clinicId: string; kind: string; currency: string }> = ({ clinicId, kind, currency }) => {
+  const load = (q: { page: number; search: string; status?: string }) =>
+    adminOrgAPI.clinicRecords(clinicId, kind, q).then((r) => {
+      if (!r.success || !r.data) throw new Error('Could not load.');
+      return r.data;
+    });
+  const cur = (v: number) => money(currency, v);
+  const common = { load, scopeKey: `${clinicId}:${kind}` };
+  switch (kind) {
+    case 'clients':
+      return <RecordsTable key={kind} {...common} searchPlaceholder="Search name, phone, email or code" empty="No clients yet."
+        columns={[
+          { key: 'name', label: 'Client', primary: true, render: (r) => <>{r.name}{r.code && <span className="ml-1.5 text-[11px] font-mono text-slate-400">{r.code}</span>}</> },
+          { key: 'phone', label: 'Phone', render: (r) => r.phone || '—' },
+          { key: 'pets', label: 'Pets', align: 'right', render: (r) => r.pets },
+          { key: 'spent', label: 'Spent', align: 'right', render: (r) => cur(r.totalSpent) },
+          { key: 'last', label: 'Last visit', render: (r) => fmtDay(r.lastVisitAt) },
+          { key: 'portal', label: 'Portal', render: (r) => (r.hasPortal ? <Pill tone="violet">Portal</Pill> : '—') },
+          { key: 'joined', label: 'Joined', render: (r) => fmtDay(r.joinedAt) },
+        ]} />;
+    case 'patients':
+      return <RecordsTable key={kind} {...common} searchPlaceholder="Search name, species, breed, code or chip" empty="No patients yet."
+        columns={[
+          { key: 'name', label: 'Patient', primary: true, render: (r) => <>{r.name}{r.code && <span className="ml-1.5 text-[11px] font-mono text-slate-400">{r.code}</span>}</> },
+          { key: 'species', label: 'Species', render: (r) => [r.species, r.breed].filter(Boolean).join(' · ') || '—' },
+          { key: 'gender', label: 'Sex', render: (r) => r.gender || '—' },
+          { key: 'owner', label: 'Owner', render: (r) => r.owner || '—' },
+          { key: 'status', label: 'Status', render: (r) => (!r.isAlive ? <Pill tone="slate">Deceased</Pill> : r.isActive ? <Pill tone="green">Active</Pill> : <Pill tone="red">Inactive</Pill>) },
+          { key: 'added', label: 'Added', render: (r) => fmtDay(r.createdAt) },
+        ]} />;
+    case 'visits':
+      return <RecordsTable key={kind} {...common} searchPlaceholder="Search patient or client" empty="No visits yet."
+        columns={[
+          { key: 'when', label: 'Date', primary: true, render: (r) => fmtDay(r.scheduledAt) },
+          { key: 'pet', label: 'Patient', render: (r) => r.pet },
+          { key: 'client', label: 'Client', render: (r) => r.client || '—' },
+          { key: 'type', label: 'Type', render: (r) => statusLabel(r.type) },
+          { key: 'vet', label: 'Vet', render: (r) => r.vet || '—' },
+          { key: 'status', label: 'Status', render: (r) => <Pill tone={statusTone(r.status)}>{statusLabel(r.status)}</Pill> },
+          { key: 'total', label: 'Total', align: 'right', render: (r) => <>{cur(r.total)}{r.isPaid && <span className="ml-1 text-emerald-500">✓</span>}</> },
+        ]} />;
+    case 'invoices':
+      return <RecordsTable key={kind} {...common} searchPlaceholder="Search invoice number" empty="No invoices yet."
+        statusOptions={[{ value: 'OPEN', label: 'Open' }, { value: 'PARTIAL', label: 'Part paid' }, { value: 'PAID', label: 'Paid' }, { value: 'VOID', label: 'Void' }]}
+        columns={[
+          { key: 'no', label: 'Invoice', primary: true, render: (r) => <span className="font-mono">{r.number}</span> },
+          { key: 'client', label: 'Client', render: (r) => r.client },
+          { key: 'date', label: 'Issued', render: (r) => fmtDay(r.issuedAt) },
+          { key: 'status', label: 'Status', render: (r) => <Pill tone={statusTone(r.status)}>{statusLabel(r.status)}</Pill> },
+          { key: 'total', label: 'Total', align: 'right', render: (r) => cur(r.total) },
+        ]} />;
+    case 'products':
+      return <RecordsTable key={kind} {...common} searchPlaceholder="Search product or category" empty="No products in stock records."
+        columns={[
+          { key: 'name', label: 'Product', primary: true, render: (r) => r.name },
+          { key: 'cat', label: 'Category', render: (r) => r.category || '—' },
+          { key: 'qty', label: 'In stock', align: 'right', render: (r) => <span className={r.quantity <= 0 ? 'text-red-500 font-semibold' : ''}>{r.quantity.toLocaleString()}</span> },
+          { key: 'price', label: 'Price', align: 'right', render: (r) => cur(r.price) },
+          { key: 'exp', label: 'Expires', render: (r) => fmtDay(r.expiryDate) },
+        ]} />;
+    default:
+      return null;
+  }
 };
 
 export default AdminClinicDetailPage;

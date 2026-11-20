@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { MailCheck, Loader2, RefreshCw, Search, Mail, Building2, Shield, KeyRound, X, Eye, EyeOff, Users, Pencil } from 'lucide-react';
+import { MailCheck, Loader2, RefreshCw, Search, Mail, Building2, Store, Clock, Shield, KeyRound, X, Eye, EyeOff, Users, Pencil } from 'lucide-react';
 import { usersAPI, clinicsAPI, toast, dialog } from '../../../services';
 import type {
   AdminUserRow as ApiUser,
@@ -55,7 +55,7 @@ const roleBadge = (role: string) => {
   }
 };
 
-const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => void }> = () => {
+const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => void }> = ({ onNavigate }) => {
   const { user } = useAuth();
   const currentUserId = user ? Number(user.id) : undefined;
 
@@ -276,13 +276,23 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
                   </div>
                   <div className="flex flex-wrap gap-3 mt-1 text-[11px] text-slate-500">
                     <span className="flex items-center gap-1"><Mail size={10} /> {u.email}</span>
-                    {(u.clinicIds?.length ?? 0) > 0 && (
-                      <span className="flex items-center gap-1">
-                        <Building2 size={10} />
-                        {(u.clinicIds || []).slice(0, 2).map(clinicName).join(', ')}
-                        {(u.clinicIds?.length ?? 0) > 2 ? ` +${(u.clinicIds!.length - 2)}` : ''}
-                      </span>
-                    )}
+                    {/* 326 — each org is a link to its admin page. */}
+                    {(u.clinicIds || []).slice(0, 3).map((id) => (
+                      <button key={`c${id}`} type="button" onClick={() => onNavigate?.('admin-clinic-detail', { clinicId: id })}
+                        className="flex items-center gap-1 text-seafoam hover:underline">
+                        <Building2 size={10} /> {clinicName(id)}
+                      </button>
+                    ))}
+                    {(u.clinicIds?.length ?? 0) > 3 && <span>+{u.clinicIds!.length - 3} clinics</span>}
+                    {((u as any).suppliers || []).map((sp: { id: string; name: string; role: string }) => (
+                      <button key={`s${sp.id}`} type="button" onClick={() => onNavigate?.('admin-supplier-detail', { supplierId: sp.id })}
+                        className="flex items-center gap-1 text-orange-600 hover:underline">
+                        <Store size={10} /> {sp.name}<span className="text-slate-400 lowercase">· {sp.role.replace(/_/g, ' ')}</span>
+                      </button>
+                    ))}
+                    <span className="flex items-center gap-1 text-slate-400" title="Last sign-in">
+                      <Clock size={10} /> {(u as any).lastLoginAt ? new Date((u as any).lastLoginAt).toLocaleDateString('en-GB') : 'Never signed in'}
+                    </span>
                   </div>
                 </div>
               </div>

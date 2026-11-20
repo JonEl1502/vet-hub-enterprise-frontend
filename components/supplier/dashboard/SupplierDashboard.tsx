@@ -1161,7 +1161,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
           ) : supplierDirView === 'cards' ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {allSuppliers.map((s: any) => (
-                <div key={s.id} onClick={() => setView?.('supplier-detail', { supplierId: String(s.id) })}
+                <div key={s.id} onClick={() => setView?.('admin-supplier-detail', { supplierId: String(s.id) })}
                   className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm text-left hover:border-seafoam/50 hover:shadow-md transition-all flex flex-col h-full cursor-pointer">
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-black text-pine dark:text-zinc-100 truncate">{s.name}</span>
@@ -1176,7 +1176,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
                   <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-1.5 truncate">{s.contactEmail || s.email || s.phone || '—'}</p>
                   <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2 pt-4 mt-auto border-t border-slate-200 dark:border-zinc-800">
                     <button
-                      onClick={() => setView?.('supplier-detail', { supplierId: String(s.id) })}
+                      onClick={() => setView?.('admin-supplier-detail', { supplierId: String(s.id) })}
                       className="flex-1 px-3 py-2 bg-blue-500/10 hover:bg-blue-500/20 text-blue-500 rounded-lg transition-all text-sm font-bold flex items-center justify-center gap-2"
                     >
                       <Edit size={14} />
@@ -1218,7 +1218,7 @@ const SupplierDashboard: React.FC<SupplierDashboardProps> = ({ setView }) => {
                   </thead>
                   <tbody>
                     {allSuppliers.map((s: any) => (
-                      <tr key={s.id} onClick={() => setView?.('supplier-detail', { supplierId: String(s.id) })} className="border-b border-slate-50 dark:border-zinc-800/50 hover:bg-slate-50 dark:hover:bg-zinc-800/40 cursor-pointer transition-colors">
+                      <tr key={s.id} onClick={() => setView?.('admin-supplier-detail', { supplierId: String(s.id) })} className="border-b border-slate-50 dark:border-zinc-800/50 hover:bg-slate-50 dark:hover:bg-zinc-800/40 cursor-pointer transition-colors">
                         <td className="px-4 py-3 font-bold text-pine dark:text-zinc-100 truncate max-w-[200px]">{s.name}</td>
                         <td className="px-4 py-3 text-slate-500 dark:text-zinc-400">{s.category || '—'}</td>
                         <td className="px-4 py-3 text-slate-500 dark:text-zinc-400 truncate max-w-[200px]">{s.contactEmail || s.email || s.phone || '—'}</td>

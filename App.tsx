@@ -131,6 +131,7 @@ import PartnerTypesPage from './components/admin/partners/PartnerTypesPage';
 import AllProtectionView from './components/admin/protection/AllProtectionView';
 import AdminClinicWizard from './components/admin/clinics/AdminClinicWizard';
 import AdminClinicDetailPage from './components/admin/clinics/AdminClinicDetailPage';
+import AdminSupplierDetailPage from './components/admin/suppliers/AdminSupplierDetailPage';
 import AdminFreelancersPage from './components/admin/freelancers/AdminFreelancersPage';
 import AdminUsersPage from './components/admin/users/AdminUsersPage';
 import VerificationQueuePage from './components/admin/verification/VerificationQueuePage';
@@ -3085,6 +3086,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         return <AdminClinicWizard onClose={() => navigateTo('clinics')} />;
       case 'admin-clinic-detail':
         return <AdminClinicDetailPage clinicId={currentNav.params?.clinicId} onBack={goBack} onNavigate={navigateTo} />;
+      case 'admin-supplier-detail':
+        return <AdminSupplierDetailPage supplierId={String(currentNav.params?.supplierId ?? '')} onBack={goBack} onNavigate={navigateTo} />;
       case 'admin-clinic-edit':
         return <AdminClinicWizard clinicId={currentNav.params?.clinicId ?? null} onClose={() => navigateTo('clinics')} />;
       case 'admin-suppliers':
