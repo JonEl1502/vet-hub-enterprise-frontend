@@ -43,8 +43,9 @@ interface SidebarProps {
   isDarkMode: boolean;
   toggleDarkMode: () => void;
   subscription?: ClinicSubscription;
-  /** Plan-tier gate: returns false for views the clinic's plan doesn't include
-   *  (so locked modules are hidden from the nav, not just blocked on click). */
+  /** Plan-tier gate: returns false for views the clinic's plan doesn't include.
+   *  Those stay in the nav WITH A LOCK (user, 2026-11-20: a trial sees every
+   *  page, locked, and keeps the basics) — clicking opens the upgrade screen. */
   planAllows?: (view: string) => boolean;
 }
 
@@ -394,11 +395,12 @@ const SectionBlock: React.FC<SectionBlockProps> = ({
       ? {
           ...i,
           subItems: i.subItems
-            .filter(s => (planOk(s.id) || s.showWhenLocked) && moduleOk(s.id) && deskOk(s.id) && (!s.roles || s.roles.includes(role)))
+            // Sell the lock, never hide it: a page the plan lacks stays, locked.
+            .filter(s => moduleOk(s.id) && deskOk(s.id) && (!s.roles || s.roles.includes(role)))
             .map(s => (planOk(s.id) ? s : { ...s, locked: true })),
         }
-      : i))
-    .filter(i => (i.subItems ? i.subItems.length > 0 : planOk(i.id) && moduleOk(i.id)));
+      : (planOk(i.id) ? i : { ...i, locked: true })))
+    .filter(i => (i.subItems ? i.subItems.length > 0 : moduleOk(i.id)));
   if (visible.length === 0) return null;
 
   // Section header — only shown in "All" mode. Always an icon-only chip when
@@ -511,16 +513,20 @@ const NavItem: React.FC<NavItemProps> = ({
       <button
         data-tour={`nav-${item.id}`}
         onClick={handleClick}
+        title={!item.subItems && item.locked ? 'Not in your plan — click to see how to unlock it' : undefined}
         className={`w-full flex items-center gap-3 p-3 rounded-xl text-[9px] font-black transition-all ${
           isActive
             ? 'bg-seafoam text-white shadow-lg shadow-seafoam/20'
-            : 'text-pine/60 dark:text-zinc-500 hover:text-seafoam hover:bg-white/40 dark:hover:bg-white/5'
+            : !item.subItems && item.locked
+              ? 'text-pine/25 dark:text-zinc-600 hover:text-pine/50 dark:hover:text-zinc-400 hover:bg-white/40 dark:hover:bg-white/5'
+              : 'text-pine/60 dark:text-zinc-500 hover:text-seafoam hover:bg-white/40 dark:hover:bg-white/5'
         }`}
       >
         <item.icon size={16} className="shrink-0 transition-transform group-hover/menuitem:scale-110" />
         {(!isCollapsed || isMobileOpen) && (
           <>
             <span className="uppercase tracking-widest truncate flex-1 text-left">{item.label}</span>
+            {!item.subItems && item.locked && <Lock size={11} className="shrink-0" />}
             {item.subItems && (
               <ChevronDown
                 size={12}

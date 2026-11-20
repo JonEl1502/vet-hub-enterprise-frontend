@@ -12,6 +12,9 @@ import type { DemoRequest } from '../../../services/modules/demoRequests.api';
  * here and in the vault, not just in one place.
  */
 
+/** Where a free-month invite sends the clinic: the account signup. */
+export const SIGNUP_LINK = 'https://vethubcore.com/signup';
+
 export interface MessageContext {
   /** "Hi Dr Wanjiru," / "Hi Royal Crest Veterinary Clinic team," */
   greeting: string;
@@ -53,6 +56,28 @@ const signoff = (c: MessageContext) => `Kind Regards,\n${c.signFull}\n${c.site}`
 const stopLine = 'If this isn\'t for you, just say and I won\'t message again.';
 
 export const LEAD_TEMPLATES: LeadMessageTemplate[] = [
+  /**
+   * 327 — the free-month invite (user, 2026-11-20). Listed FIRST so the panel
+   * opens on it. Short, one offer, the signup link last. A trial is the
+   * entry plan with everything else visible but locked (migration 327), so
+   * the copy only names what that plan does: reminders, bookings, records,
+   * bills, and the community (reading it is free on every plan).
+   */
+  {
+    id: 'trial',
+    label: 'Free month invite',
+    forClinic: true,
+    subject: c => `A free month of VetHubCore for ${c.clinic}`,
+    body: c =>
+`${c.greeting}
+
+This is the VetHubCore team. We'd like to give ${c.clinic} one month of VetHubCore, free.
+
+It's practice software that keeps you close to your clients: reminders and follow-ups go out on time, and bookings, records and bills live in one place. You also join a growing community of vets and pet owners.
+
+Start your free month here:
+${SIGNUP_LINK}`,
+  },
   {
     id: 'first_site',
     label: 'First message (no website)',

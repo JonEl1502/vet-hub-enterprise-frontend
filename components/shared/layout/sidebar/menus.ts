@@ -93,6 +93,8 @@ export interface MenuItem {
   /** Optional permission gate; falsy = always visible to the audience. */
   requiredPerm?: string;
   subItems?: MenuSubItem[];
+  /** Computed at filter time in Sidebar.tsx for a leaf the plan lacks. */
+  locked?: boolean;
 }
 
 export interface Audience {
