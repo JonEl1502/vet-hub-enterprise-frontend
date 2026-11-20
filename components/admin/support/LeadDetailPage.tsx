@@ -302,6 +302,22 @@ const LeadDetailPage: React.FC<Props> = ({ leadId, onBack }) => {
               />
             </div>
 
+            <div>
+              <label className="field-label">Branches</label>
+              <input
+                className="field-input"
+                type="number" min={0} inputMode="numeric"
+                defaultValue={lead.branchCount ?? ''}
+                key={`b${lead.branchCount ?? 'none'}`}
+                onBlur={e => {
+                  const raw = e.target.value.trim();
+                  const v = raw === '' ? null : Math.max(0, Math.round(Number(raw)));
+                  if (v !== (lead.branchCount ?? null) && (v === null || Number.isFinite(v))) patch({ branchCount: v }, 'Branches saved');
+                }}
+                placeholder="How many locations?"
+              />
+            </div>
+
             {facts.length > 0 && (
               <dl className="pt-1 space-y-1.5">
                 {facts.map(f => (

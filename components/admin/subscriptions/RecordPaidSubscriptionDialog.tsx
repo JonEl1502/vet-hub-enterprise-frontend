@@ -33,6 +33,12 @@ interface Props {
   ownerId: string;
   ownerName: string;
   /**
+   * 326 — the org's shell (CLINIC, BOARDING, COUNTER, FARM, GROOMING, WALKING).
+   * With it the picker lists only what this kind of org can hold; without it,
+   * every shell for the owner's audience.
+   */
+  ownerShell?: string | null;
+  /**
    * 303 — opened from a support ticket, prefilled from what the customer
    * already told us.
    *
@@ -59,7 +65,25 @@ const CHANNELS = ['CASH', 'BANK', 'MPESA', 'CARD', 'OTHER'];
 const label = 'block text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-1.5';
 const field = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
 
-const RecordPaidSubscriptionDialog: React.FC<Props> = ({ ownerKind, ownerId, ownerName, prefill, onClose, onGranted }) => {
+/**
+ * 326 — which packages fit this owner (user, 2026-11-20: recording a clinic's
+ * payment listed walker, groomer, farmer and supplier plans too).
+ * A freelancer business is a clinic row on a GROOMING/WALKING shell, so its
+ * audience is FREELANCER; a shell-specific package only fits that shell.
+ */
+const FREELANCER_SHELLS = ['GROOMING', 'WALKING'];
+const fitsOwner = (p: any, kind: Props['ownerKind'], shell?: string | null) => {
+  const aud: string[] = Array.isArray(p.audiences) ? p.audiences : [];
+  const s = shell ? String(shell).toUpperCase() : null;
+  const want = kind === 'SUPPLIER' ? ['SUPPLIER']
+    : kind === 'CLIENT' ? ['CLIENT', 'LIVESTOCK']
+    : s && FREELANCER_SHELLS.includes(s) ? ['FREELANCER'] : ['CLINIC'];
+  if (aud.length && !aud.some((a) => want.includes(a))) return false;
+  if (kind === 'CLINIC' && p.shell && s && p.shell !== s) return false;
+  return true;
+};
+
+const RecordPaidSubscriptionDialog: React.FC<Props> = ({ ownerKind, ownerId, ownerName, ownerShell, prefill, onClose, onGranted }) => {
   const [packages, setPackages] = useState<any[]>([]);
   const [form, setForm] = useState({
     packageId: '',
@@ -87,11 +111,14 @@ const RecordPaidSubscriptionDialog: React.FC<Props> = ({ ownerKind, ownerId, own
       .then((r) => {
         if (!alive || !r.success) return;
         // Trials are resolved, never sold — the server refuses them too.
-        setPackages((r.data?.packages ?? []).filter((p: any) => p.isActive !== false && !p.isTrial));
+        setPackages((r.data?.packages ?? [])
+          .filter((p: any) => p.isActive !== false && !p.isTrial && fitsOwner(p, ownerKind, ownerShell))
+          // Plans first, then add-ons, each by price.
+          .sort((a: any, b: any) => (Number(!!a.isAddon) - Number(!!b.isAddon)) || (Number(a.price ?? a.amount ?? 0) - Number(b.price ?? b.amount ?? 0))));
       })
       .catch(() => { /* the picker just stays empty */ });
     return () => { alive = false; };
-  }, []);
+  }, [ownerKind, ownerShell]);
 
   const chosen = packages.find((p) => String(p.id) === form.packageId);
 
@@ -169,11 +196,18 @@ const RecordPaidSubscriptionDialog: React.FC<Props> = ({ ownerKind, ownerId, own
           <label className={label}>Package they paid for</label>
           <select className={field} value={form.packageId} onChange={(e) => set('packageId', e.target.value)}>
             <option value="">Choose a package…</option>
-            {packages.map((p) => (
-              <option key={p.id} value={String(p.id)}>
-                {p.name}{p.isAddon ? ' (add-on)' : ''} — {p.currency || 'KES'} {Number(p.price ?? p.amount ?? 0).toLocaleString()}
-              </option>
-            ))}
+            {([['Plans', false], ['Add-ons', true]] as const).map(([group, addon]) => {
+              const list = packages.filter((p) => !!p.isAddon === addon);
+              return list.length === 0 ? null : (
+                <optgroup key={group} label={group}>
+                  {list.map((p) => (
+                    <option key={p.id} value={String(p.id)}>
+                      {p.name} — {p.currency || 'KES'} {Number(p.price ?? p.amount ?? 0).toLocaleString()}
+                    </option>
+                  ))}
+                </optgroup>
+              );
+            })}
           </select>
         </div>
 

@@ -284,8 +284,8 @@ const DemoRequestsAdminPage: React.FC<Props> = ({
           <table className="w-full text-[11px]">
             <thead className="bg-slate-50 dark:bg-zinc-950">
               <tr>
-                {['Practice', 'Type', 'Where', 'Contact', 'Score', 'Status', ''].map((h, i) => (
-                  <th key={i} className={`px-3 py-2.5 text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap ${i === 6 ? 'text-right' : 'text-left'}`}>{h}</th>
+                {['Practice', 'Type', 'Where', 'Branches', 'Contact', 'Score', 'Status', ''].map((h, i) => (
+                  <th key={i} className={`px-3 py-2.5 text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap ${i === 7 || i === 3 ? (i === 3 ? 'text-center' : 'text-right') : 'text-left'}`}>{h}</th>
                 ))}
               </tr>
             </thead>
@@ -313,6 +313,12 @@ const DemoRequestsAdminPage: React.FC<Props> = ({
                   <td className="px-3 py-2.5 align-top text-slate-500 dark:text-zinc-400 whitespace-nowrap">
                     <span className="inline-flex items-center gap-1"><MapPin size={10} /> {r.town || r.region || '—'}</span>
                     {r.country && <p className="text-[9px] font-bold uppercase tracking-widest text-slate-400 mt-0.5">{r.country}</p>}
+                  </td>
+                  {/* 326 — locations the practice runs; a group is a bigger sale. */}
+                  <td className="px-3 py-2.5 align-top text-center">
+                    {r.branchCount != null
+                      ? <span className={`inline-flex min-w-[24px] justify-center px-1.5 py-0.5 rounded-md text-[11px] font-bold tabular-nums ${r.branchCount > 1 ? 'bg-seafoam/10 text-seafoam' : 'text-slate-500 dark:text-zinc-400'}`}>{r.branchCount}</span>
+                      : <span className="text-slate-300 dark:text-zinc-600">—</span>}
                   </td>
                   {/* Contact links stay clickable without opening the lead. */}
                   <td className="px-3 py-2.5 align-top" onClick={e => e.stopPropagation()}>
@@ -481,7 +487,7 @@ const DemoRequestsAdminPage: React.FC<Props> = ({
  */
 const AddPotentialClientModal: React.FC<{ onClose: () => void; onAdded: () => void }> = ({ onClose, onAdded }) => {
   const [form, setForm] = React.useState({
-    clinicName: '', name: '', email: '', phone: '', town: '', country: '', segment: '', orgType: '', website: '', notes: '',
+    clinicName: '', name: '', email: '', phone: '', town: '', country: '', segment: '', orgType: '', website: '', notes: '', branchCount: '',
   });
   const [busy, setBusy] = React.useState(false);
   const set = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(f => ({ ...f, [k]: e.target.value }));
@@ -519,6 +525,7 @@ const AddPotentialClientModal: React.FC<{ onClose: () => void; onAdded: () => vo
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div><label className="field-label">Segment</label><input className="field-input" value={form.segment} onChange={set('segment')} placeholder="Mixed Practice" /></div>
+          <div><label className="field-label">Branches</label><input className="field-input" type="number" min={0} inputMode="numeric" value={form.branchCount} onChange={set('branchCount')} placeholder="1" /></div>
           <div>
             <label className="field-label">Type</label>
             <select className="field-input" value={form.orgType} onChange={set('orgType')}>

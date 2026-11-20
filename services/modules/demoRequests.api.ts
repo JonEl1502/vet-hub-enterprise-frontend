@@ -51,6 +51,8 @@ export interface DemoRequest {
   website?: string | null;
   leadScore?: number | null;
   priority?: string | null;
+  /** 326 — how many locations the practice runs. */
+  branchCount?: number | null;
   contactedAt?: string | null;
   contactedBy?: { id: string; email: string } | null;
   createdAt: string;
@@ -86,6 +88,7 @@ export interface LeadImportRow {
   orgType?: string | null;
   priority?: string | null;
   leadScore?: number | string | null;
+  branchCount?: number | string | null;
   message?: string | null;
 }
 
@@ -116,6 +119,7 @@ export const demoRequestsAPI = {
       status?: DemoRequestStatus; notes?: string; email?: string; phone?: string;
       name?: string; clinicName?: string; website?: string;
       country?: string; region?: string; town?: string; segment?: string; orgType?: OrgType | null; priority?: string;
+      branchCount?: number | null;
     },
     options?: RequestOptions,
   ): Promise<ApiResponse<{ id: string; status: DemoRequestStatus; notes: string | null; email: string | null; contactedAt: string | null }>> =>

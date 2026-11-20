@@ -15,6 +15,7 @@ export interface RecordPage<T = any> { rows: T[]; total: number; page: number; p
 export interface ClinicSummary {
   id: string;
   currency: string;
+  shell: string | null;
   parent: { id: string; name: string } | null;
   plan: { name: string; expiresAt: string; isTrial: boolean; inheritedFrom: { id: string; name: string } | null } | null;
   trialEndsAt: string | null;

@@ -55,6 +55,7 @@ const FIELD_ALIASES: Record<keyof LeadImportRow, string[]> = {
   orgType: ['Org Type', 'Organisation Type', 'Organization Type', 'Business Type', 'Type', 'Category'],
   priority: ['Prior Priority', 'Priority'],
   leadScore: ['Lead Score', 'Score'],
+  branchCount: ['Branches', 'No. of Branches', 'Number of Branches', 'Branch Count', 'Locations', 'Outlets'],
   message: [], // built from several columns at once — see EXTRA_COLUMNS.
 };
 
@@ -62,7 +63,7 @@ const FIELD_ALIASES: Record<keyof LeadImportRow, string[]> = {
 export const FIELD_LABELS: Record<string, string> = {
   externalRef: 'Lead ID', clinicName: 'Business', name: 'Contact', email: 'Email',
   phone: 'Phone', website: 'Website', country: 'Country', region: 'Region',
-  town: 'Town', segment: 'Segment', orgType: 'Type', priority: 'Priority', leadScore: 'Lead score',
+  town: 'Town', segment: 'Segment', orgType: 'Type', priority: 'Priority', leadScore: 'Lead score', branchCount: 'Branches',
 };
 
 /**
@@ -194,6 +195,7 @@ export function mapLeadRows(
       orgType: normalizeOrgType(pick(row, 'orgType')),
       priority: pick(row, 'priority') || null,
       leadScore: scoreRaw && Number.isFinite(score) ? score : null,
+      branchCount: (() => { const b = parseInt(pick(row, 'branchCount'), 10); return Number.isFinite(b) ? b : null; })(),
       message: message || null,
     });
   }

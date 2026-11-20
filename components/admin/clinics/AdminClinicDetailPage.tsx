@@ -486,6 +486,7 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
           ownerKind="CLINIC"
           ownerId={String(clinic.id)}
           ownerName={clinic.name}
+          ownerShell={(clinic as any).shell ?? summary?.shell ?? null}
           onClose={() => setGrantOpen(false)}
           onGranted={() => {
             adminOrgAPI.clinicSummary(String(clinicId)).then((r) => { if (r.success && r.data) setSummary(r.data); }).catch(() => {});
