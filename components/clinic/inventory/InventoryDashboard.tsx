@@ -15,17 +15,28 @@ const MOVEMENT_META: Record<string, { label: string; up: boolean }> = {
   DAMAGED: { label: 'Damaged', up: false },
 };
 
-const Stat: React.FC<{ label: string; value: React.ReactNode; icon: React.ComponentType<any>; tone?: string }> = ({ label, value, icon: Icon, tone }) => (
-  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 flex items-center gap-3">
-    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${tone || 'bg-seafoam/10 text-seafoam'}`}><Icon size={16} /></div>
-    <div className="min-w-0">
-      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest truncate">{label}</p>
-      <p className="text-base font-black text-pine dark:text-zinc-100 leading-tight truncate">{value}</p>
+// Bigger tiles (user, 2026-11-21: "make them a little bit bigger"). `action`
+// puts a small link in the tile's corner — Products uses it to open the list.
+const Stat: React.FC<{ label: string; value: React.ReactNode; icon: React.ComponentType<any>; tone?: string; action?: { label: string; onClick: () => void } }> = ({ label, value, icon: Icon, tone, action }) => (
+  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 flex items-center gap-3.5 min-h-[88px]">
+    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${tone || 'bg-seafoam/10 text-seafoam'}`}><Icon size={20} /></div>
+    <div className="min-w-0 flex-1">
+      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">{label}</p>
+      <p className="text-xl font-black text-pine dark:text-zinc-100 leading-tight truncate mt-0.5">{value}</p>
     </div>
+    {action && (
+      <button
+        type="button"
+        onClick={action.onClick}
+        className="self-start shrink-0 px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-colors active:scale-95"
+      >
+        {action.label}
+      </button>
+    )}
   </div>
 );
 
-const InventoryDashboard: React.FC<{ currency?: string; refreshKey?: number }> = ({ currency = 'KES', refreshKey }) => {
+const InventoryDashboard: React.FC<{ currency?: string; refreshKey?: number; onViewProducts?: () => void }> = ({ currency = 'KES', refreshKey, onViewProducts }) => {
   const [data, setData] = useState<Dash | null>(null);
   const [loading, setLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
@@ -45,7 +56,7 @@ const InventoryDashboard: React.FC<{ currency?: string; refreshKey?: number }> =
   const money = (n: number) => `${currency} ${Number(n || 0).toLocaleString()}`;
 
   if (loading && !data) {
-    return <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">{Array.from({ length: 10 }).map((_, i) => <div key={i} className="h-16 rounded-xl bg-slate-100 dark:bg-zinc-800/60 animate-pulse" />)}</div>;
+    return <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">{Array.from({ length: 10 }).map((_, i) => <div key={i} className="h-[88px] rounded-2xl bg-slate-100 dark:bg-zinc-800/60 animate-pulse" />)}</div>;
   }
   if (!data) return null;
 
@@ -61,8 +72,9 @@ const InventoryDashboard: React.FC<{ currency?: string; refreshKey?: number }> =
 
       {!collapsed && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-            <Stat label="Products" value={data.productsCount.toLocaleString()} icon={Boxes} />
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+            <Stat label="Products" value={data.productsCount.toLocaleString()} icon={Boxes}
+              action={onViewProducts ? { label: 'View', onClick: onViewProducts } : undefined} />
             <Stat label="Inventory value" value={money(data.inventoryValue)} icon={Wallet} tone="bg-emerald-500/10 text-emerald-600" />
             <Stat label="Today's consumption" value={money(data.todaysConsumption)} icon={ArrowDownRight} tone="bg-indigo-500/10 text-indigo-500" />
             <Stat label="Supplier payable" value={money(data.supplierPayable)} icon={ClipboardList} tone="bg-amber-500/10 text-amber-600" />

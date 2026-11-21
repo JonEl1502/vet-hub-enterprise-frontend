@@ -2780,7 +2780,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
             </div>
           );
         }
-        return <InventoryView mode={currentNav.view === 'products' ? 'products' : 'overview'} clinic={firstActiveClinic} inventory={inventory} onUpdateStock={handleUpdateStock} onUpdateItem={handleUpdateInventoryItem} onAddItem={handleAddInventoryItem} suppliers={store.suppliers} onTogglePreferredSupplier={()=>{}} onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} refreshInventory={refreshInventory} />;
+        return <InventoryView mode={currentNav.view === 'products' ? 'products' : 'overview'} clinic={firstActiveClinic} inventory={inventory} onUpdateStock={handleUpdateStock} onUpdateItem={handleUpdateInventoryItem} onAddItem={handleAddInventoryItem} suppliers={store.suppliers} onTogglePreferredSupplier={()=>{}} onViewSupplier={(sId) => navigateTo('supplier-detail', { supplierId: sId })} onOpenProducts={() => navigateTo('products')} refreshInventory={refreshInventory} />;
       }
       case 'purchase-orders':
         return <PurchaseOrdersView

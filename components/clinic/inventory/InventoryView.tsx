@@ -31,6 +31,8 @@ interface InventoryViewProps {
   suppliers: Supplier[];
   onTogglePreferredSupplier: (clinicId: number, supplierId: number) => void;
   onViewSupplier: (supplierId: number) => void;
+  /** Opens the Products page (the dashboard's Products tile). */
+  onOpenProducts?: () => void;
   refreshInventory?: () => Promise<void>;
   /**
    * Which half of the old combined page to render.
@@ -101,7 +103,7 @@ const FEE_DEFS: { key: 'feeService' | 'feeAdmin' | 'feeInjection' | 'feePrescrip
   { key: 'feePrescription', label: 'Prescription Fee', hint: 'Fee to write the prescription', default: 0 },
 ];
 
-const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, refreshInventory, mode = 'all' }) => {
+const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpdateStock, onUpdateItem, onAddItem, refreshInventory, onOpenProducts, mode = 'all' }) => {
   const showOverview = mode === 'overview' || mode === 'all';
   const showProducts = mode === 'products' || mode === 'all';
   // Grouped page permissions (user, 2026-08-04). `stock` is deliberately its
@@ -925,7 +927,7 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
       {!isAddModalOpen && !viewItem && showOverview && (
       <>
       {/* Inventory control-center overview (ERP P1) */}
-      <InventoryDashboard currency={clinic.currency} />
+      <InventoryDashboard currency={clinic.currency} onViewProducts={onOpenProducts} />
       {/* Inventory reports (ERP P5) — collapsed by default, lazy-loaded */}
       <InventoryReports currency={clinic.currency} />
       {/* Expiry centre (ERP P4) — collapsed by default, lazy-loaded */}
@@ -1100,10 +1102,17 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                         )}
                       </div>
                     </div>
+                    {/* The product, pictured (user, 2026-11-21). Images are
+                        background-free, so they sit on a soft panel and are
+                        CONTAINED, never cropped. No image yet: the product's
+                        initial on the same panel, so the grid stays even. */}
+                    <button type="button" onClick={() => setViewItem(item)} title="View details"
+                      className="w-full h-32 rounded-xl bg-gradient-to-b from-slate-50 to-slate-100 dark:from-zinc-800 dark:to-zinc-800/60 border border-slate-100 dark:border-zinc-700 flex items-center justify-center overflow-hidden">
+                      {item.imageUrl
+                        ? <img src={item.imageUrl} alt={item.name} loading="lazy" className="max-h-full max-w-full object-contain p-2 drop-shadow-sm transition-transform duration-200 hover:scale-105" />
+                        : <span className="text-3xl font-black text-slate-300 dark:text-zinc-600 select-none">{(item.name || '?').trim().charAt(0).toUpperCase()}</span>}
+                    </button>
                     <button type="button" onClick={() => setViewItem(item)} className="flex items-center gap-2 w-full text-left group/name" title="View details">
-                      {item.imageUrl && (
-                        <img src={item.imageUrl} alt="" className="w-9 h-9 rounded-lg object-cover border border-slate-100 dark:border-zinc-700 shrink-0" />
-                      )}
                       <div className="min-w-0">
                         <h3 className="card-title text-sm leading-tight truncate group-hover/name:text-seafoam transition-colors">{item.name}</h3>
                         <p className="text-seafoam dark:text-zinc-500 text-[7px] font-black uppercase mt-0.5">Batch: {item.batchNumber}</p>
