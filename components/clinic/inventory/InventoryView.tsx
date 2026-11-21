@@ -1,3 +1,4 @@
+import { productImage } from '../../../utils/productFormIcon';
 
 import React, { useState, useMemo, useEffect } from 'react';
 import { unitMath } from '../../../utils/pricing';
@@ -1108,9 +1109,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
                         initial on the same panel, so the grid stays even. */}
                     <button type="button" onClick={() => setViewItem(item)} title="View details"
                       className="w-full h-32 rounded-xl bg-gradient-to-b from-slate-50 to-slate-100 dark:from-zinc-800 dark:to-zinc-800/60 border border-slate-100 dark:border-zinc-700 flex items-center justify-center overflow-hidden">
-                      {item.imageUrl
-                        ? <img src={item.imageUrl} alt={item.name} loading="lazy" className="max-h-full max-w-full object-contain p-2 drop-shadow-sm transition-transform duration-200 hover:scale-105" />
-                        : <span className="text-3xl font-black text-slate-300 dark:text-zinc-600 select-none">{(item.name || '?').trim().charAt(0).toUpperCase()}</span>}
+                      <img src={productImage(item as any)} alt={item.name} loading="lazy"
+                        className={`max-h-full max-w-full object-contain drop-shadow-sm transition-transform duration-200 hover:scale-105 ${item.imageUrl ? 'p-2' : 'p-3 opacity-90'}`} />
                     </button>
                     <button type="button" onClick={() => setViewItem(item)} className="flex items-center gap-2 w-full text-left group/name" title="View details">
                       <div className="min-w-0">
@@ -1188,8 +1188,8 @@ const InventoryView: React.FC<InventoryViewProps> = ({ inventory, clinic, onUpda
 
             <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-5">
               <div className="flex items-start gap-4">
-                {it.imageUrl
-                  ? <img src={it.imageUrl} alt="" className="w-16 h-16 rounded-xl object-cover border border-slate-100 dark:border-zinc-700 shrink-0" />
+                {true
+                  ? <img src={productImage(it as any)} alt="" className="w-16 h-16 rounded-xl object-contain bg-slate-50 dark:bg-zinc-800 p-1 border border-slate-100 dark:border-zinc-700 shrink-0" />
                   : <div className="w-16 h-16 rounded-xl bg-seafoam/10 flex items-center justify-center shrink-0"><Package size={26} className="text-seafoam" /></div>}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2 flex-wrap">

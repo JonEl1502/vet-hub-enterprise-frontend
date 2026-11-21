@@ -1,3 +1,4 @@
+import { productImage } from '../../../utils/productFormIcon';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useData } from '../../../contexts/DataContext';
 import { petshopAPI, walletAPI } from '../../../services';
@@ -61,7 +62,8 @@ const toProduct = (i: InventoryItem, currency: string): PosProduct => {
     price: Number(i.price) || 0,
     currency,
     unit: i.unit || 'units',
-    imageUrl: (i as any).imageUrl ?? null,
+    // The product's photo, or its form drawing (tablets, vial, bottle…).
+    imageUrl: productImage({ imageUrl: (i as any).imageUrl, name: i.name, category: i.category, unit: i.unit }),
     manufacturer: (i as any).manufacturer ?? null,
     stock,
     lowStockThreshold: min,

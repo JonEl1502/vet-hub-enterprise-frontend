@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200"><defs>
+<linearGradient id="b" x1="0" x2="1"><stop offset="0" stop-color="#F8FAFC"/><stop offset=".55" stop-color="#FFFFFF"/><stop offset="1" stop-color="#E2E8F0"/></linearGradient>
+<linearGradient id="g" x1="0" x2="1"><stop offset="0" stop-color="#144E35"/><stop offset="1" stop-color="#1C9A6C"/></linearGradient>
+<linearGradient id="glass" x1="0" x2="1"><stop offset="0" stop-color="#E0F2FE"/><stop offset=".5" stop-color="#F8FAFC"/><stop offset="1" stop-color="#CBD5E1"/></linearGradient>
+<linearGradient id="amber" x1="0" x2="1"><stop offset="0" stop-color="#92400E"/><stop offset=".5" stop-color="#D97706"/><stop offset="1" stop-color="#78350F"/></linearGradient>
+</defs><ellipse cx="100" cy="182" rx="58" ry="7" fill="#0F172A" opacity=".08"/><path d="M100 30l64 28v84l-64 30-64-30V58z" fill="url(#b)" stroke="#C9D3DE" stroke-width="2"/><path d="M36 58l64 28 64-28" fill="none" stroke="#C9D3DE" stroke-width="2"/>
+<path d="M100 86v86" stroke="#C9D3DE" stroke-width="2"/><path d="M36 58l64 28v86l-64-30z" fill="#F1F5F9"/>
+<path d="M112 110l40-17v26l-40 17z" fill="url(#g)"/></svg>

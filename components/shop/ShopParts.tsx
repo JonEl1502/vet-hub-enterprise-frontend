@@ -1,3 +1,4 @@
+import { productFormIcon } from '../../utils/productFormIcon';
 import React, { createContext, useContext, useState } from 'react';
 import { Clock, FileText, MessageCircle, Minus, Package, Phone, Plus, Store, Trash2, Truck, X } from 'lucide-react';
 import type { PublicShop, PublicShopProduct, ShopHours } from '../../services/modules/supplierShop.api';
@@ -39,10 +40,9 @@ export const ProductArt: React.FC<{ p: PublicShopProduct; className?: string; ti
           className="absolute inset-0 w-full h-full object-contain p-[8%]"
         />
       ) : (
-        <div className="flex flex-col items-center gap-2" style={{ color: tint || '#94a3b8' }}>
-          <Package size={34} strokeWidth={1.6} />
-          <span className="text-[11px] font-bold uppercase tracking-widest opacity-70">{p.category}</span>
-        </div>
+        // No photo: the product's form drawing (vial, bottle, bag…), never a blank box.
+        <img src={productFormIcon(p.name, p.category, (p as any).unit)} alt={p.name} loading="lazy"
+          className="absolute inset-0 w-full h-full object-contain p-[14%]" style={tint ? undefined : undefined} />
       )}
       {p.stock === 'out' && (
         <span className="absolute inset-0 bg-white/70 flex items-center justify-center">

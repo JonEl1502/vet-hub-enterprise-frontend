@@ -1,3 +1,4 @@
+import { productImage } from '../../../utils/productFormIcon';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import CollapsibleFilters from '../../shared/common/CollapsibleFilters';
 import {
@@ -543,11 +544,7 @@ const SupplierProductsView: React.FC<SupplierProductsViewProps> = ({ setView }) 
                 >
                   {/* Identity: image + name + category/SKU */}
                   <div className="flex items-start gap-3">
-                    {(p as any).imageUrl ? (
-                      <img src={(p as any).imageUrl} alt="" className="w-12 h-12 rounded-xl object-contain bg-white p-0.5 border border-slate-100 dark:border-zinc-700 shrink-0" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-xl bg-seafoam/10 flex items-center justify-center text-seafoam shrink-0"><Pill size={20} /></div>
-                    )}
+                    <img src={productImage(p as any)} alt="" loading="lazy" className="w-12 h-12 rounded-xl object-contain bg-white p-0.5 border border-slate-100 dark:border-zinc-700 shrink-0" />
                     <div className="min-w-0 flex-1">
                       <p className="font-black text-pine dark:text-zinc-100 text-sm leading-snug line-clamp-2" title={p.name}>{p.name}</p>
                       <div className="flex items-center gap-1.5 mt-1.5 flex-wrap">
