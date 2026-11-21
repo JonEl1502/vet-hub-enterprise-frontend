@@ -345,9 +345,12 @@ const CLINIC_ITEMS: MenuItem[] = [
       // beside Broadcasts because both are outward-facing communication.
       { id: 'wa-enquiries', label: 'WhatsApp Enquiries', icon: MessageCircle },
       { id: 'import-data', label: 'Import Data',     icon: Upload },
-      { id: 'billing',     label: 'Billing',         icon: CreditCard },
     ],
   },
+  // Billing is its own entry now (user, 2026-11-21: "move billing outside of
+  // clinic management … let it be billing and pricing"). Same view, same
+  // gating (ALWAYS_VIEWS — a locked clinic must still reach it to pay).
+  { id: 'billing', label: 'Billing & pricing', icon: CreditCard, requiredPerm: 'VIEW_CLINIC_MGMT' },
 ];
 
 // ─── Supplier: marketplace seller view ─────────────────────────────────────
