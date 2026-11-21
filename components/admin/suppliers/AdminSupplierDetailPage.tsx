@@ -1,3 +1,4 @@
+import { Package, ShoppingCart, UserCog, GitBranch, Clock } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Store, Power, ExternalLink, Loader2, Receipt } from 'lucide-react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
@@ -139,12 +140,12 @@ const AdminSupplierDetailPage: React.FC<Props> = ({ supplierId, onBack, onNaviga
       </div>
 
       <FigureTiles figures={[
-        { label: 'Products', value: f.products.toLocaleString(), hint: f.outOfStock ? `${f.outOfStock} out of stock` : undefined, onClick: () => setTab('products') },
-        { label: 'Till sales this month', value: cur(f.salesTotalThisMonth), hint: `${f.salesThisMonth} sale${f.salesThisMonth === 1 ? '' : 's'}`, onClick: () => setTab('sales') },
-        { label: 'Clinic orders this month', value: cur(f.ordersTotalThisMonth), hint: `${f.ordersThisMonth} order${f.ordersThisMonth === 1 ? '' : 's'}`, onClick: () => setTab('orders') },
-        { label: 'Team', value: f.staff.toLocaleString(), onClick: () => setTab('users') },
-        { label: 'Branches', value: f.branches.toLocaleString(), onClick: () => setTab('branches') },
-        { label: 'Last sign-in', value: ago(f.lastLoginAt) },
+        { label: 'Products', value: f.products.toLocaleString(), hint: f.outOfStock ? `${f.outOfStock} out of stock` : undefined, icon: Package, tone: 'sky', onClick: () => setTab('products') },
+        { label: 'Till sales this month', value: cur(f.salesTotalThisMonth), hint: `${f.salesThisMonth} sale${f.salesThisMonth === 1 ? '' : 's'}`, icon: Receipt, tone: 'pine', onClick: () => setTab('sales') },
+        { label: 'Clinic orders this month', value: cur(f.ordersTotalThisMonth), hint: `${f.ordersThisMonth} order${f.ordersThisMonth === 1 ? '' : 's'}`, icon: ShoppingCart, tone: 'violet', onClick: () => setTab('orders') },
+        { label: 'Team', value: f.staff.toLocaleString(), icon: UserCog, tone: 'amber', onClick: () => setTab('users') },
+        { label: 'Branches', value: f.branches.toLocaleString(), icon: GitBranch, tone: 'indigo', onClick: () => setTab('branches') },
+        { label: 'Last sign-in', value: ago(f.lastLoginAt), icon: Clock, tone: 'teal' },
       ]} />
 
       <WarningsPanel warnings={data.warnings} onAction={(a) => {

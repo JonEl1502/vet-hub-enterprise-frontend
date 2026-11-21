@@ -1,3 +1,4 @@
+import { Users, PawPrint, CalendarCheck, Receipt, UserCog, Clock } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { ArrowLeft, Building2, Edit, Power, UserCheck, Sparkles, Loader2 } from 'lucide-react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
@@ -180,12 +181,12 @@ const AdminClinicDetailPage: React.FC<Props> = ({ clinicId, onBack, onNavigate }
 
       {summary && (
         <FigureTiles figures={[
-          { label: 'Clients', value: summary.figures.clients.toLocaleString(), onClick: () => setTab('clients') },
-          { label: 'Patients', value: summary.figures.patients.toLocaleString(), onClick: () => setTab('patients') },
-          { label: 'Visits this month', value: summary.figures.visitsThisMonth.toLocaleString(), onClick: () => setTab('visits') },
-          { label: 'Billed this month', value: money(summary.currency, summary.figures.revenueThisMonth), hint: `${summary.figures.openInvoices} open invoice${summary.figures.openInvoices === 1 ? '' : 's'}`, onClick: () => setTab('invoices') },
-          { label: 'Staff', value: summary.figures.staff.toLocaleString(), onClick: () => setTab('users') },
-          { label: 'Last sign-in', value: ago(summary.figures.lastLoginAt) },
+          { label: 'Clients', value: summary.figures.clients.toLocaleString(), icon: Users, tone: 'sky', onClick: () => setTab('clients') },
+          { label: 'Patients', value: summary.figures.patients.toLocaleString(), icon: PawPrint, tone: 'violet', onClick: () => setTab('patients') },
+          { label: 'Visits this month', value: summary.figures.visitsThisMonth.toLocaleString(), icon: CalendarCheck, tone: 'indigo', onClick: () => setTab('visits') },
+          { label: 'Billed this month', value: money(summary.currency, summary.figures.revenueThisMonth), hint: `${summary.figures.openInvoices} open invoice${summary.figures.openInvoices === 1 ? '' : 's'}`, icon: Receipt, tone: 'pine', onClick: () => setTab('invoices') },
+          { label: 'Staff', value: summary.figures.staff.toLocaleString(), icon: UserCog, tone: 'amber', onClick: () => setTab('users') },
+          { label: 'Last sign-in', value: ago(summary.figures.lastLoginAt), icon: Clock, tone: 'teal' },
         ]} />
       )}
       {summary && (

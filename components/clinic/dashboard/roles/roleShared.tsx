@@ -1,3 +1,4 @@
+import { SoftTile, SoftTone } from '../../../shared/stats/ColorTiles';
 import React from 'react';
 import { CalendarDays } from 'lucide-react';
 import { Visit, ApptStatus } from '../../../../types';
@@ -133,6 +134,7 @@ export interface StatDef {
   sub?: React.ReactNode;
   tone?: 'default' | 'good' | 'warn' | 'bad';
   onClick?: () => void;
+  icon?: React.ComponentType<any>;
 }
 
 const TONE: Record<string, string> = {
@@ -142,26 +144,27 @@ const TONE: Record<string, string> = {
   bad: 'text-rose-600 dark:text-rose-400',
 };
 
-export const StatRow: React.FC<{ stats: StatDef[] }> = ({ stats }) => (
-  <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
-    {stats.map(s => {
-      const Tag: any = s.onClick ? 'button' : 'div';
-      return (
-        <Tag
-          key={s.label}
-          {...(s.onClick ? { type: 'button', onClick: s.onClick } : {})}
-          className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 text-left transition-all ${
-            s.onClick ? 'hover:border-seafoam hover:shadow-sm cursor-pointer' : ''
-          }`}
-        >
-          <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{s.label}</p>
-          <p className={`text-2xl font-black leading-none tabular-nums ${TONE[s.tone || 'default']}`}>{s.value}</p>
-          {s.sub != null && <p className="text-[9px] font-bold text-slate-400 mt-1.5">{s.sub}</p>}
-        </Tag>
-      );
-    })}
-  </div>
-);
+/**
+ * Coloured like the supplier dashboard (user, 2026-11-21). Meaning keeps its
+ * colour — bad is rose, warn is amber, good is pine — and everything else takes
+ * the next colour in the cycle, so a row never reads as grey boxes.
+ */
+const MEANING: Record<string, SoftTone | undefined> = { bad: 'rose', warn: 'amber', good: 'pine' };
+const NEUTRAL: SoftTone[] = ['sky', 'violet', 'indigo', 'teal', 'emerald'];
+
+export const StatRow: React.FC<{ stats: StatDef[] }> = ({ stats }) => {
+  let n = 0;
+  return (
+    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+      {stats.map(s => {
+        const tone = MEANING[s.tone || 'default'] ?? NEUTRAL[n++ % NEUTRAL.length];
+        return <SoftTile key={s.label} compact label={s.label} value={s.value} sub={s.sub} tone={tone} icon={s.icon} onClick={s.onClick} />;
+      })}
+    </div>
+  );
+};
+// Kept for anything outside this file still reading it.
+void TONE;
 
 // ── Card shell ─────────────────────────────────────────────────────────────
 

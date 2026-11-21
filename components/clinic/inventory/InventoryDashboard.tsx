@@ -1,3 +1,4 @@
+import { SoftTile, SoftTone } from '../../shared/stats/ColorTiles';
 import React, { useEffect, useState } from 'react';
 import { AlertTriangle, ArrowDownRight, ArrowUpRight, Boxes, ClipboardList, Clock, PackageCheck, RefreshCw, Truck, Wallet } from 'lucide-react';
 import { inventoryAPI } from '../../../services';
@@ -15,25 +16,25 @@ const MOVEMENT_META: Record<string, { label: string; up: boolean }> = {
   DAMAGED: { label: 'Damaged', up: false },
 };
 
-// Bigger tiles (user, 2026-11-21: "make them a little bit bigger"). `action`
-// puts a small link in the tile's corner — Products uses it to open the list.
-const Stat: React.FC<{ label: string; value: React.ReactNode; icon: React.ComponentType<any>; tone?: string; action?: { label: string; onClick: () => void } }> = ({ label, value, icon: Icon, tone, action }) => (
-  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 flex items-center gap-3.5 min-h-[88px]">
-    <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${tone || 'bg-seafoam/10 text-seafoam'}`}><Icon size={20} /></div>
-    <div className="min-w-0 flex-1">
-      <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest truncate">{label}</p>
-      <p className="text-xl font-black text-pine dark:text-zinc-100 leading-tight truncate mt-0.5">{value}</p>
-    </div>
-    {action && (
-      <button
-        type="button"
-        onClick={action.onClick}
-        className="self-start shrink-0 px-2.5 py-1 rounded-lg bg-seafoam/10 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-colors active:scale-95"
-      >
+// Coloured like the supplier dashboard (user, 2026-11-21). The tile's tone
+// comes from what it means; `action` puts a small link in its corner.
+const TONE_OF: Record<string, SoftTone> = {
+  'bg-emerald-500/10 text-emerald-600': 'pine',
+  'bg-indigo-500/10 text-indigo-500': 'indigo',
+  'bg-amber-500/10 text-amber-600': 'amber',
+  'bg-rose-500/10 text-rose-600': 'rose',
+};
+const Stat: React.FC<{ label: string; value: React.ReactNode; icon: React.ComponentType<any>; tone?: string; color?: SoftTone; action?: { label: string; onClick: () => void } }> = ({ label, value, icon, tone, color, action }) => (
+  <SoftTile
+    label={label} value={value} icon={icon}
+    tone={color ?? (tone ? TONE_OF[tone] : undefined) ?? 'sky'}
+    action={action ? (
+      <button type="button" onClick={action.onClick}
+        className="px-2.5 py-1 rounded-lg bg-white/70 dark:bg-zinc-900/60 text-slate-600 dark:text-zinc-300 text-[9px] font-black uppercase tracking-widest hover:bg-white transition-colors active:scale-95">
         {action.label}
       </button>
-    )}
-  </div>
+    ) : undefined}
+  />
 );
 
 const InventoryDashboard: React.FC<{ currency?: string; refreshKey?: number; onViewProducts?: () => void }> = ({ currency = 'KES', refreshKey, onViewProducts }) => {
@@ -78,8 +79,8 @@ const InventoryDashboard: React.FC<{ currency?: string; refreshKey?: number; onV
             <Stat label="Inventory value" value={money(data.inventoryValue)} icon={Wallet} tone="bg-emerald-500/10 text-emerald-600" />
             <Stat label="Today's consumption" value={money(data.todaysConsumption)} icon={ArrowDownRight} tone="bg-indigo-500/10 text-indigo-500" />
             <Stat label="Supplier payable" value={money(data.supplierPayable)} icon={ClipboardList} tone="bg-amber-500/10 text-amber-600" />
-            <Stat label="Pending POs" value={data.pendingPOs} icon={ClipboardList} />
-            <Stat label="Awaiting deliveries" value={data.awaitingDeliveries} icon={Truck} />
+            <Stat label="Pending POs" value={data.pendingPOs} icon={ClipboardList} color="violet" />
+            <Stat label="Awaiting deliveries" value={data.awaitingDeliveries} icon={Truck} color="teal" />
             <Stat label="Low stock" value={data.lowStock} icon={AlertTriangle} tone="bg-amber-500/10 text-amber-600" />
             <Stat label="Out of stock" value={data.outOfStock} icon={AlertTriangle} tone="bg-rose-500/10 text-rose-600" />
             <Stat label="Expired" value={data.expired} icon={Clock} tone="bg-rose-500/10 text-rose-600" />

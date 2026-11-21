@@ -1,3 +1,4 @@
+import { SoftTile, SoftTone, toneAt } from '../../shared/stats/ColorTiles';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { AlertOctagon, AlertTriangle, ChevronDown, Info, Search, ArrowRight, Check } from 'lucide-react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
@@ -108,21 +109,15 @@ export const OrgSwitcher: React.FC<{
 
 // ─────────────────────────────── figures ───────────────────────────────
 
-export interface Figure { label: string; value: React.ReactNode; hint?: string; onClick?: () => void }
+export interface Figure { label: string; value: React.ReactNode; hint?: string; onClick?: () => void; icon?: React.ComponentType<any>; tone?: SoftTone }
 
+// Coloured like the supplier dashboard (user, 2026-11-21) — see ColorTiles.
 export const FigureTiles: React.FC<{ figures: Figure[] }> = ({ figures }) => (
   <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
-    {figures.map((f) => {
-      const Tag: any = f.onClick ? 'button' : 'div';
-      return (
-        <Tag key={f.label} onClick={f.onClick}
-          className={`text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl px-4 py-3 shadow-[0_2px_8px_rgb(15_23_42/0.04)] ${f.onClick ? 'hover:border-seafoam/50 active:scale-95 transition' : ''}`}>
-          <p className="text-[10px] font-bold uppercase tracking-[0.05em] text-slate-400">{f.label}</p>
-          <p className="mt-1 text-[20px] leading-tight font-semibold text-pine dark:text-zinc-100 tabular-nums truncate">{f.value}</p>
-          {f.hint && <p className="text-[11px] text-slate-400 truncate mt-0.5">{f.hint}</p>}
-        </Tag>
-      );
-    })}
+    {figures.map((f, i) => (
+      <SoftTile key={f.label} compact label={f.label} value={f.value} sub={f.hint}
+        icon={f.icon} tone={f.tone ?? toneAt(i)} onClick={f.onClick} />
+    ))}
   </div>
 );
 
