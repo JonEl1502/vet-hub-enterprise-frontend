@@ -1,319 +1,305 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ShoppingCart, Search, Plus, Minus, Trash2, Loader2, CheckCircle2, UserPlus, X, Package, Wallet } from 'lucide-react';
-import toast from 'react-hot-toast';
-import ListFilterBar, { inRange } from '../shared/ListFilterBar';
-import { DateRange } from '../../shared/common/DateRangePicker';
+import { Search, UserPlus, X, Percent, Wallet, ChevronDown, ShoppingBasket, ArrowRight } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
-import { petshopAPI, walletAPI } from '../../../services';
-import type { Wallet as WalletData } from '../../../services';
-import type { InventoryItem } from '../../../services/modules/inventory.api';
+import { useAuth } from '../../../contexts/AuthContext';
+import PosSellView from '../../supplier/pos/PosSellView';
+import PosCart from '../../supplier/pos/PosCart';
+import PosTender from '../../supplier/pos/PosTender';
+import { useIsDesktop } from '../../supplier/pos/useIsDesktop';
+import { money } from '../../supplier/pos/format';
+import { useClinicPos, AUTO_WALLET, ClinicBuyer, ClinicDiscount } from './useClinicPos';
+import ClinicSaleDone from './ClinicSaleDone';
 
-interface CartLine { item: InventoryItem; qty: number; unitPrice: number }
-interface Props { activeClinic?: { id: number | string; currency?: string } }
+/**
+ * PET SHOP — the clinic's till.
+ *
+ * Opens straight onto a point of sale (user, 2026-11-21: *"pet shop should open
+ * as a POS … update the UI to be the POS itself. Let's not open a new page"*).
+ * It is the supplier till's own screens — tile grid, scanner-first search,
+ * smart tabs, cash keypad with change, invoice and receipt — fed by the clinic
+ * through `useClinicPos`. Choosing what the public shop shows stays on the
+ * Shop page.
+ *
+ * Desk: catalogue left, the sale on a rail right; the rail turns into the
+ * payment keypad, then into the invoice/receipt, while the grid stays put.
+ * Phone: the grid fills the screen, the sale opens as a sheet, and payment and
+ * the receipt each take the whole screen.
+ */
 
-const CASH_OPTION = '__cash__';
+interface Props {
+  activeClinic?: {
+    id: number | string; name?: string; currency?: string; logo?: string | null;
+    colors?: { primary?: string } | null; address?: string | null; phone?: string | null; city?: string | null;
+  };
+}
 
-// A wallet "is" a payment method by where the money lands.
-const walletTypeToMethod = (t: WalletData['walletType']): string => {
-  switch (t) {
-    case 'MPESA_POCHI': case 'TILL': case 'MPESA_PAYBILL': return 'M_PESA';
-    case 'BANK': case 'BANK_PAYBILL': return 'BANK_TRANSFER';
-    case 'DIGITAL_WALLET': return 'CARD';
-    default: return 'CASH';
-  }
-};
+type Step = 'shopping' | 'tender' | 'done';
+
+const initialsOf = (s?: string | null) =>
+  (s || '?').split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('');
 
 const PetshopView: React.FC<Props> = ({ activeClinic }) => {
-  const { inventory, clients, ensureInventory, ensureClients, refreshInventory } = useData() as any;
-  useEffect(() => { ensureInventory?.(); ensureClients?.(); }, [ensureInventory, ensureClients]);
-
+  const { user } = useAuth() as any;
+  const clinicId = activeClinic?.id != null ? String(activeClinic.id) : null;
   const currency = activeClinic?.currency || 'KES';
+  const isDesktop = useIsDesktop();
+  const { pos, buyer, setBuyer, discount, setDiscount, walletId, setWalletId, wallets } = useClinicPos(clinicId, currency);
 
-  const [search, setSearch] = useState('');
-  // Petshop stock is retail goods: expiry is the date that matters here too
-  // (pet food and treats expire), and it is the only date on the item.
-  const [dateRange, setDateRange] = useState<DateRange | null>(null);
-  const [status, setStatus] = useState('ALL');
-  const [cart, setCart] = useState<CartLine[]>([]);
-  const [discountType, setDiscountType] = useState<'NONE' | 'PERCENTAGE' | 'FIXED'>('NONE');
-  const [discountValue, setDiscountValue] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [lastReceipt, setLastReceipt] = useState<string | null>(null);
+  const [step, setStep] = useState<Step>('shopping');
+  const [lastSale, setLastSale] = useState<any | null>(null);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [now, setNow] = useState(() => new Date());
+  useEffect(() => { const t = window.setInterval(() => setNow(new Date()), 30_000); return () => window.clearInterval(t); }, []);
 
-  // Customer — searchable combobox or walk-in.
-  const [clientId, setClientId] = useState('');
-  const [clientQuery, setClientQuery] = useState('');
-  const [showClientList, setShowClientList] = useState(false);
-  const [walkIn, setWalkIn] = useState(false);
-  const [walkInName, setWalkInName] = useState('');
-  const [walkInPhone, setWalkInPhone] = useState('');
+  // The clinic's own colour on the till, as a supplier's brand paints theirs.
+  const accent = activeClinic?.colors?.primary && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(activeClinic.colors.primary)
+    ? activeClinic.colors.primary : undefined;
 
-  // Wallets — the money destination, which also decides the payment method.
-  const [wallets, setWallets] = useState<WalletData[]>([]);
-  const [selectedWalletId, setSelectedWalletId] = useState<string>(CASH_OPTION);
-
-  useEffect(() => {
-    if (!activeClinic?.id) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        await walletAPI.ensure('CLINIC', String(activeClinic.id)).catch(() => {});
-        const res = await walletAPI.getByEntity('CLINIC', String(activeClinic.id));
-        if (cancelled || !res.success) return;
-        const active = (res.data.wallets || []).filter(w => w.isActive !== false);
-        setWallets(active);
-        const main = active.find(w => (w as any).isMain) || active[0];
-        if (main) setSelectedWalletId(String(main.id));
-      } catch { /* empty state shows Cash only */ }
-    })();
-    return () => { cancelled = true; };
-  }, [activeClinic?.id]);
-
-  const paymentMethod = useMemo(() => {
-    if (selectedWalletId === CASH_OPTION) return 'CASH';
-    const w = wallets.find(x => String(x.id) === selectedWalletId);
-    return w ? walletTypeToMethod(w.walletType) : 'CASH';
-  }, [selectedWalletId, wallets]);
-
-  const sellable = useMemo(() => (inventory || []).filter((i: InventoryItem) => i.billable !== false), [inventory]);
-  const CATALOGUE_CAP = 60;
-  const matching = useMemo(() => {
-    const q = search.trim().toLowerCase();
-    return sellable.filter((i: InventoryItem) => {
-      if (q && !(i.name.toLowerCase().includes(q) || (i.sku || '').toLowerCase().includes(q) || (i.category || '').toLowerCase().includes(q))) return false;
-      if (!inRange(i.expiryDate, dateRange)) return false;
-      const out = i.quantity <= 0;
-      const low = !out && i.quantity <= i.minThreshold;
-      if (status === 'IN' && out) return false;
-      if (status === 'LOW' && !low) return false;
-      if (status === 'OUT' && !out) return false;
-      return true;
-    });
-  }, [sellable, search, dateRange, status]);
-  const filtered = useMemo(() => matching.slice(0, CATALOGUE_CAP), [matching]);
-  // Say when the cap is hiding matches — it always did, silently.
-  const hiddenByCap = Math.max(0, matching.length - filtered.length);
-
-  const clientMatches = useMemo(() => {
-    const q = clientQuery.trim().toLowerCase();
-    if (!q) return (clients || []).slice(0, 8);
-    return (clients || []).filter((c: any) => (c.name || '').toLowerCase().includes(q) || (c.phone || '').toLowerCase().includes(q)).slice(0, 8);
-  }, [clients, clientQuery]);
-  const selectedClient = useMemo(() => (clients || []).find((c: any) => String(c.id) === clientId), [clients, clientId]);
-
-  const inCart = (id: string) => cart.find(l => l.item.id === id);
-  const addToCart = (item: InventoryItem) => {
-    if (item.quantity <= 0) { toast.error(`${item.name} is out of stock`); return; }
-    setCart(prev => {
-      const ex = prev.find(l => l.item.id === item.id);
-      if (ex) {
-        if (ex.qty + 1 > item.quantity) { toast.error(`Only ${item.quantity} ${item.unit} of ${item.name} in stock`); return prev; }
-        return prev.map(l => l.item.id === item.id ? { ...l, qty: l.qty + 1 } : l);
-      }
-      return [...prev, { item, qty: 1, unitPrice: item.price }];
-    });
+  const shop = { name: activeClinic?.name || 'Pet shop', logoUrl: activeClinic?.logo || null, primaryColor: accent ?? null };
+  const branch = {
+    name: null,
+    address: [activeClinic?.address, activeClinic?.city].filter(Boolean).join(', ') || null,
+    phone: activeClinic?.phone || null,
   };
-  const setQty = (id: string, qty: number) => setCart(prev => prev.flatMap(l => {
-    if (l.item.id !== id) return [l];
-    if (qty <= 0) return [];
-    if (qty > l.item.quantity) { toast.error(`Only ${l.item.quantity} in stock`); return [l]; }
-    return [{ ...l, qty }];
-  }));
-  const setLinePrice = (id: string, price: number) => setCart(prev => prev.map(l => l.item.id === id ? { ...l, unitPrice: price } : l));
-  const removeLine = (id: string) => setCart(prev => prev.filter(l => l.item.id !== id));
+  const cashierName: string | null = user?.name || null;
 
-  const subtotal = cart.reduce((s, l) => s + l.unitPrice * l.qty, 0);
-  const discountAmount = useMemo(() => {
-    const v = Number(discountValue) || 0;
-    if (discountType === 'PERCENTAGE') return Math.min(subtotal, (subtotal * v) / 100);
-    if (discountType === 'FIXED') return Math.min(subtotal, v);
-    return 0;
-  }, [discountType, discountValue, subtotal]);
-  const total = subtotal - discountAmount;
+  const goTender = () => { setSheetOpen(false); setStep('tender'); };
+  const onDone = (sale: any) => { setLastSale(sale); setStep('done'); };
+  const newSale = () => { setLastSale(null); setStep('shopping'); };
 
-  const checkout = async () => {
-    if (!cart.length) { toast.error('Cart is empty'); return; }
-    if (walkIn && !walkInName.trim()) { toast.error('Enter the walk-in customer name'); return; }
-    setSaving(true);
-    try {
-      const res = await petshopAPI.checkout({
-        clientId: !walkIn && clientId ? clientId : undefined,
-        walkInData: walkIn ? { firstName: walkInName.trim(), phone: walkInPhone.trim() || undefined } : undefined,
-        items: cart.map(l => ({ inventoryItemId: l.item.id, quantity: l.qty, unitPrice: l.unitPrice })),
-        paymentMethod,
-        walletId: selectedWalletId !== CASH_OPTION ? selectedWalletId : undefined,
-        discountType: discountType === 'NONE' ? undefined : discountType,
-        discountValue: discountType === 'NONE' ? undefined : Number(discountValue) || 0,
-      });
-      if (res.success && res.data) {
-        setLastReceipt(res.data.receiptNumber);
-        toast.success(`Sale complete · ${res.data.receiptNumber}`);
-        setCart([]); setDiscountType('NONE'); setDiscountValue('');
-        setClientId(''); setClientQuery(''); setWalkIn(false); setWalkInName(''); setWalkInPhone('');
-        (refreshInventory || ensureInventory)?.();
-      }
-    } catch (e: any) { toast.error(e?.message || 'Checkout failed'); }
-    finally { setSaving(false); }
-  };
+  const rootStyle = accent ? ({ ['--sp-accent' as any]: accent } as React.CSSProperties) : undefined;
 
-  const fieldCls = 'w-full px-3 py-2.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam';
+  const saleSetup = (
+    <SaleSetup
+      buyer={buyer} setBuyer={setBuyer}
+      discount={discount} setDiscount={setDiscount}
+      walletId={walletId} setWalletId={setWalletId} wallets={wallets}
+      hasItems={pos.cart.length > 0}
+    />
+  );
+
+  const cartHeader = (
+    <div className="px-4 border-b flex items-center justify-between shrink-0" style={{ borderColor: 'var(--sp-border)', height: '3.75rem' }}>
+      <div className="flex items-center gap-2">
+        <h2 className="text-[15px] font-black">Current sale</h2>
+        {pos.itemCount > 0 && <span className="sp-qty sp-num">{pos.itemCount}</span>}
+      </div>
+      {pos.cart.length > 0 && (
+        <button onClick={pos.clearCart} className="sp-btn sp-btn-quiet px-3 text-[12px]">Clear sale</button>
+      )}
+    </div>
+  );
+
+  const header = (
+    <header className="shrink-0 flex items-center gap-3 px-4 lg:px-5 border-b" style={{ borderColor: 'var(--sp-border)', background: 'var(--sp-surface)', height: '3.75rem' }}>
+      <div className="sp-logo shrink-0" title={shop.name}>
+        {shop.logoUrl ? <img src={shop.logoUrl} alt="" /> : initialsOf(shop.name)}
+      </div>
+      <div className="min-w-0">
+        <p className="text-[15px] font-black leading-tight truncate">Pet shop</p>
+        <p className="text-[11px] font-semibold sp-muted truncate">{shop.name} · point of sale</p>
+      </div>
+      <div className="ml-auto hidden sm:flex items-center gap-2 text-[12px] font-semibold sp-muted">
+        <span className="sp-num">{now.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</span>
+        <span className="hidden lg:inline">· {now.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</span>
+        {cashierName && <span className="hidden md:inline">· {cashierName.split(' ')[0]} on the till</span>}
+      </div>
+    </header>
+  );
+
+  // ═══ DESK ═══════════════════════════════════════════════════════════════
+  if (isDesktop) {
+    return (
+      <div
+        className="supplier-pos flex overflow-hidden rounded-2xl border shadow-sm"
+        style={{ ...rootStyle, height: 'calc(100dvh - 8rem)', minHeight: 560, borderColor: 'var(--sp-border)' }}
+      >
+        <main className="flex-1 min-w-0 flex flex-col">
+          {header}
+          <PosSellView pos={pos} />
+        </main>
+        <aside className="w-[24rem] xl:w-[26rem] shrink-0 flex flex-col border-l" style={{ borderColor: 'var(--sp-border)', background: 'var(--sp-surface)' }}>
+          {step === 'done' && lastSale ? (
+            <ClinicSaleDone sale={lastSale} currency={currency} shop={shop} branch={branch} cashierName={cashierName} onNewSale={newSale} />
+          ) : step === 'tender' ? (
+            <PosTender pos={pos} onDone={onDone} onBack={() => setStep('shopping')} />
+          ) : (
+            <>
+              {cartHeader}
+              {saleSetup}
+              <div className="flex-1 min-h-0 flex flex-col"><PosCart pos={pos} onTender={goTender} /></div>
+            </>
+          )}
+        </aside>
+      </div>
+    );
+  }
+
+  // ═══ HAND ═══════════════════════════════════════════════════════════════
+  if (step === 'tender' || (step === 'done' && lastSale)) {
+    return (
+      <div className="supplier-pos sp-root fixed inset-0 z-[150] flex flex-col" style={{ ...rootStyle, height: '100dvh' }}>
+        {step === 'tender'
+          ? <PosTender pos={pos} onDone={onDone} onBack={() => setStep('shopping')} />
+          : <ClinicSaleDone sale={lastSale} currency={currency} shop={shop} branch={branch} cashierName={cashierName} onNewSale={newSale} />}
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 pb-20">
-      <header className="flex items-center gap-3 pb-6 border-b border-slate-200 dark:border-zinc-800">
-        <div className="w-12 h-12 rounded-xl bg-seafoam/10 flex items-center justify-center text-seafoam"><ShoppingCart size={22} /></div>
-        <div>
-          <h1 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter uppercase leading-none">Petshop</h1>
-          <p className="text-slate-400 dark:text-zinc-500 font-black text-[10px] uppercase tracking-widest mt-1">Point of sale {lastReceipt ? `· last: ${lastReceipt}` : ''}</p>
-        </div>
-      </header>
+    <div className="supplier-pos flex flex-col overflow-hidden rounded-2xl border relative" style={{ ...rootStyle, height: 'calc(100dvh - 9rem)', minHeight: 480, borderColor: 'var(--sp-border)' }}>
+      {header}
+      <div className="flex-1 min-h-0 flex flex-col"><PosSellView pos={pos} /></div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Catalogue */}
-        <div className="lg:col-span-2 space-y-3">
-          <ListFilterBar
-            search={search}
-            onSearch={setSearch}
-            dateRange={dateRange}
-            onDateRange={setDateRange}
-            searchPlaceholder="Search products by name, SKU, category…"
-            status={status}
-            onStatus={setStatus}
-            statuses={[
-              { value: 'ALL', label: 'All' },
-              { value: 'IN', label: 'In stock' },
-              { value: 'LOW', label: 'Low' },
-              { value: 'OUT', label: 'Out' },
-            ]}
-          />
-          {dateRange?.start && (
-            <p className="text-[10px] font-bold text-slate-400">Date range filters by <span className="text-pine dark:text-zinc-200">expiry date</span>.</p>
-          )}
-          {hiddenByCap > 0 && (
-            <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400">
-              Showing {filtered.length} of {matching.length} matches — refine the search to see the rest.
-            </p>
-          )}
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-            {filtered.map((item: InventoryItem) => {
-              const out = item.quantity <= 0;
-              const sel = inCart(item.id);
-              return (
-                <button key={item.id} onClick={() => addToCart(item)} disabled={out}
-                  className={`text-left p-3 rounded-xl border transition-all ${out ? 'opacity-40 cursor-not-allowed border-slate-200 dark:border-zinc-800' : sel ? 'border-seafoam bg-seafoam/5' : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 hover:border-seafoam'}`}>
-                  <p className="text-xs font-black text-pine dark:text-zinc-100 truncate">{item.name}</p>
-                  <p className="text-[9px] font-bold text-slate-400 uppercase tracking-wider truncate">{item.category}</p>
-                  <div className="flex items-center justify-between mt-1.5">
-                    <span className="text-sm font-black font-mono text-seafoam">{item.price.toLocaleString()}</span>
-                    <span className={`text-[8px] font-black uppercase ${out ? 'text-rose-500' : item.quantity <= item.minThreshold ? 'text-amber-500' : 'text-slate-400'}`}>{out ? 'Out' : `${item.quantity} ${item.unit}`}</span>
-                  </div>
-                </button>
-              );
-            })}
-            {filtered.length === 0 && <div className="col-span-full py-16 text-center text-[10px] font-black uppercase tracking-widest text-slate-300 flex flex-col items-center gap-2"><Package size={24} /> No products</div>}
+      {/* The sale, docked: what is in it and what it costs, one tap from paying. */}
+      {pos.cart.length > 0 && (
+        <div className="shrink-0 p-2.5 border-t" style={{ borderColor: 'var(--sp-border)', background: 'var(--sp-surface)' }}>
+          <button onClick={() => setSheetOpen(true)} className="sp-btn sp-charge w-full">
+            <span className="flex items-center gap-2"><ShoppingBasket size={18} /> {pos.itemCount} item{pos.itemCount === 1 ? '' : 's'}</span>
+            <span className="flex items-center gap-2 sp-num">{money(pos.preview?.total ?? 0, currency)} <ArrowRight size={18} /></span>
+          </button>
+        </div>
+      )}
+
+      {sheetOpen && (
+        <div className="fixed inset-0 z-[150] flex items-end" onClick={() => setSheetOpen(false)} style={{ background: 'rgba(15,23,42,0.45)' }}>
+          <div
+            className="supplier-pos w-full rounded-t-3xl flex flex-col overflow-hidden"
+            style={{ ...rootStyle, maxHeight: '88dvh', height: '88dvh', background: 'var(--sp-surface)', overscrollBehavior: 'contain', paddingBottom: 'var(--sp-safe-bottom)' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-2"><span className="w-10 h-1 rounded-full" style={{ background: 'var(--sp-border)' }} /></div>
+            {cartHeader}
+            {saleSetup}
+            <div className="flex-1 min-h-0 flex flex-col"><PosCart pos={pos} onTender={goTender} /></div>
           </div>
         </div>
+      )}
+    </div>
+  );
+};
 
-        {/* Cart */}
-        <div className="space-y-3">
-          <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-3">
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest flex items-center gap-1.5"><ShoppingCart size={12} /> Cart ({cart.length})</p>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {cart.length === 0 && <p className="text-[10px] text-slate-400 py-4 text-center">Tap products to add them.</p>}
-              {cart.map(l => (
-                <div key={l.item.id} className="border border-slate-100 dark:border-zinc-800 rounded-xl p-2">
-                  <div className="flex items-center justify-between gap-2">
-                    <p className="text-[11px] font-black text-pine dark:text-zinc-100 truncate flex-1">{l.item.name}</p>
-                    <button onClick={() => removeLine(l.item.id)} className="text-slate-400 hover:text-rose-500"><Trash2 size={12} /></button>
-                  </div>
-                  <div className="flex items-center justify-between gap-2 mt-1.5">
-                    <div className="flex items-center gap-1">
-                      <button onClick={() => setQty(l.item.id, l.qty - 1)} className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-500"><Minus size={11} /></button>
-                      <input value={l.qty} onChange={e => setQty(l.item.id, Number(e.target.value) || 0)} className="w-10 text-center text-xs font-black bg-transparent text-pine dark:text-zinc-100" />
-                      <button onClick={() => setQty(l.item.id, l.qty + 1)} className="w-6 h-6 rounded-lg bg-slate-100 dark:bg-zinc-800 flex items-center justify-center text-slate-500"><Plus size={11} /></button>
-                    </div>
-                    <input type="number" value={l.unitPrice} onChange={e => setLinePrice(l.item.id, Number(e.target.value) || 0)} className="w-20 px-2 py-1 text-right text-xs font-mono font-bold bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg" />
-                    <span className="text-xs font-black font-mono text-pine dark:text-zinc-100 w-16 text-right">{(l.unitPrice * l.qty).toLocaleString()}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
+/**
+ * Who is buying, any discount, and where the money lands — the three things a
+ * clinic till has that a supplier's does not. Folded to one line until opened,
+ * so the cart keeps the room.
+ */
+const SaleSetup: React.FC<{
+  buyer: ClinicBuyer; setBuyer: (b: ClinicBuyer) => void;
+  discount: ClinicDiscount; setDiscount: (d: ClinicDiscount) => void;
+  walletId: string; setWalletId: (id: string) => void; wallets: any[];
+  hasItems: boolean;
+}> = ({ buyer, setBuyer, discount, setDiscount, walletId, setWalletId, wallets, hasItems }) => {
+  const { clients, ensureClients } = useData() as any;
+  useEffect(() => { ensureClients?.(); }, [ensureClients]);
+  const [q, setQ] = useState('');
+  const [listOpen, setListOpen] = useState(false);
+  const [more, setMore] = useState(false);
 
-            {/* Customer — searchable */}
-            <div className="pt-2 border-t border-slate-100 dark:border-zinc-800 space-y-2">
-              {!walkIn ? (
-                selectedClient ? (
-                  <div className="flex items-center justify-between gap-2 px-3 py-2.5 bg-seafoam/10 border border-seafoam/30 rounded-xl">
-                    <span className="text-sm font-bold text-pine dark:text-zinc-100 truncate">{selectedClient.name}</span>
-                    <button onClick={() => { setClientId(''); setClientQuery(''); }} className="text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-rose-500 shrink-0">Change</button>
-                  </div>
-                ) : (
-                  <div className="flex items-center gap-2">
-                    <div className="relative flex-1">
-                      <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                      <input className={`${fieldCls} pl-9`} placeholder="Search client (or leave blank for walk-in)…"
-                        value={clientQuery}
-                        onChange={e => { setClientQuery(e.target.value); setShowClientList(true); }}
-                        onFocus={() => setShowClientList(true)}
-                        onBlur={() => setTimeout(() => setShowClientList(false), 150)} />
-                      {showClientList && clientMatches.length > 0 && (
-                        <div className="absolute z-20 mt-1 w-full max-h-56 overflow-y-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg">
-                          {clientMatches.map((c: any) => (
-                            <button key={c.id} onMouseDown={() => { setClientId(String(c.id)); setShowClientList(false); }}
-                              className="w-full text-left px-3 py-2 text-sm hover:bg-slate-50 dark:hover:bg-zinc-800 font-bold text-pine dark:text-zinc-100">
-                              {c.name} {c.phone && <span className="text-slate-400 text-xs font-normal">· {c.phone}</span>}
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                    <button onClick={() => setWalkIn(true)} title="New walk-in customer" className="p-2.5 bg-slate-100 dark:bg-zinc-800 rounded-xl text-slate-500 shrink-0"><UserPlus size={15} /></button>
-                  </div>
-                )
-              ) : (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">New walk-in customer</span>
-                    <button onClick={() => setWalkIn(false)} className="text-slate-400 hover:text-rose-500"><X size={13} /></button>
-                  </div>
-                  <input className={fieldCls} placeholder="Name" value={walkInName} onChange={e => setWalkInName(e.target.value)} />
-                  <input className={fieldCls} placeholder="Phone (optional)" value={walkInPhone} onChange={e => setWalkInPhone(e.target.value)} />
-                </div>
+  const matches = useMemo(() => {
+    const s = q.trim().toLowerCase();
+    const all = (clients || []) as any[];
+    return (s ? all.filter((c) => (c.name || '').toLowerCase().includes(s) || (c.phone || '').toLowerCase().includes(s)) : all).slice(0, 8);
+  }, [clients, q]);
+
+  const extrasOn = discount.type !== 'NONE' || walletId !== AUTO_WALLET;
+  const walletName = (id: string) => wallets.find((w) => String(w.id) === id)?.name ?? 'Wallet';
+
+  return (
+    <div className="shrink-0 px-4 py-3 border-b space-y-2" style={{ borderColor: 'var(--sp-border)' }}>
+      {buyer.kind === 'client' ? (
+        <div className="flex items-center gap-2.5 px-3 py-2 rounded-xl" style={{ background: 'var(--sp-accent-soft)' }}>
+          <span className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-black shrink-0" style={{ background: 'var(--sp-accent)', color: 'var(--sp-accent-ink)' }}>
+            {initialsOf(buyer.name)}
+          </span>
+          <div className="min-w-0 flex-1">
+            <p className="text-[13px] font-black truncate">{buyer.name}</p>
+            <p className="text-[11px] font-semibold sp-muted truncate">{buyer.phone || 'Client'} · on their record</p>
+          </div>
+          <button onClick={() => setBuyer({ kind: 'none' })} className="w-8 h-8 rounded-lg flex items-center justify-center sp-btn-ghost" aria-label="Remove customer"><X size={15} /></button>
+        </div>
+      ) : buyer.kind === 'walkin' ? (
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-black uppercase tracking-wide sp-muted">New walk-in customer</span>
+            <button onClick={() => setBuyer({ kind: 'none' })} className="sp-btn-ghost rounded-lg p-1" aria-label="Cancel walk-in"><X size={14} /></button>
+          </div>
+          <div className="grid grid-cols-2 gap-1.5">
+            <input className="sp-input sp-input-compact" placeholder="Name" value={buyer.name} autoComplete="off"
+              onChange={(e) => setBuyer({ ...buyer, name: e.target.value })} />
+            <input className="sp-input sp-input-compact" placeholder="Phone" value={buyer.phone} inputMode="tel" autoComplete="off"
+              onChange={(e) => setBuyer({ ...buyer, phone: e.target.value })} />
+          </div>
+        </div>
+      ) : (
+        <div className="flex items-center gap-1.5">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--sp-muted)' }} />
+            <input
+              className="sp-input sp-input-compact sp-input-icon"
+              placeholder="Customer — search, or leave for a counter sale"
+              value={q}
+              autoComplete="off"
+              onChange={(e) => { setQ(e.target.value); setListOpen(true); }}
+              onFocus={() => setListOpen(true)}
+              onBlur={() => setTimeout(() => setListOpen(false), 150)}
+            />
+            {listOpen && matches.length > 0 && (
+              <div className="absolute z-30 mt-1 w-full max-h-60 overflow-y-auto rounded-xl border shadow-lg" style={{ background: 'var(--sp-surface)', borderColor: 'var(--sp-border)' }}>
+                {matches.map((c: any) => (
+                  <button
+                    key={c.id}
+                    onMouseDown={() => { setBuyer({ kind: 'client', id: String(c.id), name: c.name, phone: c.phone }); setQ(''); setListOpen(false); }}
+                    className="w-full text-left px-3 py-2 text-[13px] font-bold hover:opacity-80"
+                  >
+                    {c.name} {c.phone && <span className="sp-muted font-semibold text-[12px]">· {c.phone}</span>}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <button onClick={() => setBuyer({ kind: 'walkin', name: '', phone: '' })} title="New walk-in customer" aria-label="New walk-in customer"
+            className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 sp-btn-ghost border" style={{ borderColor: 'var(--sp-border)' }}>
+            <UserPlus size={16} />
+          </button>
+        </div>
+      )}
+
+      {hasItems && (
+        <>
+          <button onClick={() => setMore((m) => !m)} className="w-full flex items-center justify-between text-[12px] font-bold sp-muted">
+            <span className="flex items-center gap-1.5">
+              <Percent size={12} /> Discount &amp; money goes to
+              {extrasOn && (
+                <span className="sp-chip-count">
+                  {[discount.type !== 'NONE' ? 'discount' : null, walletId !== AUTO_WALLET ? walletName(walletId) : null].filter(Boolean).join(' · ')}
+                </span>
               )}
+            </span>
+            <ChevronDown size={14} style={{ transform: more ? 'rotate(180deg)' : undefined, transition: 'transform 120ms' }} />
+          </button>
+          {more && (
+            <div className="space-y-1.5">
+              <div className="grid grid-cols-2 gap-1.5">
+                <select className="sp-input sp-input-compact" value={discount.type} onChange={(e) => setDiscount({ ...discount, type: e.target.value as any })}>
+                  <option value="NONE">No discount</option>
+                  <option value="PERCENTAGE">% off</option>
+                  <option value="FIXED">Amount off</option>
+                </select>
+                <input className="sp-input sp-input-compact" type="number" inputMode="decimal" placeholder={discount.type === 'PERCENTAGE' ? '%' : 'Amount'}
+                  disabled={discount.type === 'NONE'} value={discount.value} onChange={(e) => setDiscount({ ...discount, value: e.target.value })} />
+              </div>
+              <label className="flex items-center gap-1.5">
+                <Wallet size={13} className="shrink-0" style={{ color: 'var(--sp-muted)' }} />
+                <select className="sp-input sp-input-compact" value={walletId} onChange={(e) => setWalletId(e.target.value)} aria-label="Money goes to">
+                  <option value={AUTO_WALLET}>Match the payment (cash, M-Pesa, card)</option>
+                  {wallets.map((w) => <option key={w.id} value={String(w.id)}>{w.name}</option>)}
+                </select>
+              </label>
             </div>
-
-            {/* Discount */}
-            <div className="grid grid-cols-2 gap-2">
-              <select className={fieldCls} value={discountType} onChange={e => setDiscountType(e.target.value as any)}>
-                <option value="NONE">No discount</option>
-                <option value="PERCENTAGE">% off</option>
-                <option value="FIXED">Amount off</option>
-              </select>
-              <input className={fieldCls} type="number" placeholder="Discount" disabled={discountType === 'NONE'} value={discountValue} onChange={e => setDiscountValue(e.target.value)} />
-            </div>
-
-            {/* Wallet / payment destination */}
-            <div>
-              <label className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 mb-1"><Wallet size={11} /> Pay to wallet</label>
-              <select className={fieldCls} value={selectedWalletId} onChange={e => setSelectedWalletId(e.target.value)}>
-                <option value={CASH_OPTION}>Cash drawer (CASH)</option>
-                {wallets.map(w => <option key={w.id} value={String(w.id)}>{w.name} · {walletTypeToMethod(w.walletType).replace('_', '-')}</option>)}
-              </select>
-            </div>
-
-            {/* Totals */}
-            <div className="space-y-1 pt-2 border-t border-slate-100 dark:border-zinc-800 text-xs">
-              <div className="flex justify-between text-slate-500"><span>Subtotal</span><span className="font-mono font-bold">{currency} {subtotal.toLocaleString()}</span></div>
-              {discountAmount > 0 && <div className="flex justify-between text-amber-600"><span>Discount</span><span className="font-mono font-bold">-{discountAmount.toLocaleString()}</span></div>}
-              <div className="flex justify-between text-pine dark:text-zinc-100 text-base font-black"><span>Total</span><span className="font-mono">{currency} {total.toLocaleString()}</span></div>
-            </div>
-
-            <button onClick={checkout} disabled={saving || cart.length === 0} className="w-full py-3 bg-pine dark:bg-zinc-100 text-white dark:text-pine rounded-xl font-black text-xs uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50">
-              {saving ? <Loader2 size={15} className="animate-spin" /> : <CheckCircle2 size={15} />} Checkout · {currency} {total.toLocaleString()}
-            </button>
-          </div>
-        </div>
-      </div>
+          )}
+        </>
+      )}
     </div>
   );
 };

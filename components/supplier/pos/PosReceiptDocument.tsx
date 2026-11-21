@@ -44,6 +44,8 @@ interface Props {
   branch?: ReceiptBranch | null;
   /** Falls back to `sale.cashier.profile`. */
   cashierName?: string | null;
+  /** The heading on the sheet. "Receipt" by default; the clinic till also prints it as an "Invoice". */
+  docTitle?: string;
   /** The product photo for a sale line, from the till's catalogue. */
   imageFor?: (item: any) => string | null | undefined;
 }
@@ -81,7 +83,7 @@ export const fmtDate = (d: string | Date) =>
 export const fmtTime = (d: string | Date) =>
   new Date(d).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 
-const PosReceiptDocument: React.FC<Props> = ({ id, sale, currency, shop, branch, cashierName, imageFor }) => {
+const PosReceiptDocument: React.FC<Props> = ({ id, sale, currency, shop, branch, cashierName, imageFor, docTitle = 'Receipt' }) => {
   const [logoBroken, setLogoBroken] = React.useState(false);
   const cur = sale?.currency || currency;
   const accent = isHex(shop.primaryColor) ? shop.primaryColor.trim() : DEFAULT_ACCENT;
@@ -135,7 +137,7 @@ const PosReceiptDocument: React.FC<Props> = ({ id, sale, currency, shop, branch,
         </div>
         <div className="text-right shrink-0">
           <p className="text-[30px] font-black uppercase tracking-tight leading-none" style={{ color: accent }}>
-            Receipt
+            {docTitle}
           </p>
           <p className="text-[14px] font-black font-mono mt-2 text-slate-800">{sale?.saleNumber}</p>
           <span
@@ -181,7 +183,7 @@ const PosReceiptDocument: React.FC<Props> = ({ id, sale, currency, shop, branch,
 
       {(sale?.customerName || sale?.customerPhone) && (
         <div className="px-8 pt-6">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Sold to</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{docTitle === 'Invoice' ? 'Bill to' : 'Sold to'}</p>
           <p className="text-[15px] font-bold mt-0.5">{sale.customerName || 'Walk-in customer'}</p>
           {sale.customerPhone && <p className="text-[13px] text-slate-500">{sale.customerPhone}</p>}
         </div>
@@ -316,7 +318,7 @@ const PosReceiptDocument: React.FC<Props> = ({ id, sale, currency, shop, branch,
       <div className="px-8 py-5 text-center" style={{ borderTop: '2px dashed #e2e8f0' }}>
         <p className="text-[15px] font-black" style={{ color: accent }}>Thank you for shopping with us</p>
         <p className="text-[12px] text-slate-500 mt-1">
-          Please keep this receipt. Bring it with you if you need to return or ask about an item.
+          Please keep this {docTitle.toLowerCase()}. Bring it with you if you need to return or ask about an item.
         </p>
         <p className="text-[10px] text-slate-400 mt-3 tracking-wide">
           {sale?.saleNumber} · {when ? `${fmtDate(when)}, ${fmtTime(when)}` : ''} · Powered by VetHubCore

@@ -13,11 +13,18 @@ export interface PetshopSalePayload {
   walletId?: string | number;
   discountType?: 'PERCENTAGE' | 'FIXED';
   discountValue?: number;
+  /** Cash handed over (CASH only) — the receipt shows the change. */
+  tendered?: number;
+  /** M-Pesa code or card slip number. */
+  reference?: string;
 }
 
 export interface PetshopSaleResult {
   receiptNumber: string;
   clientId: string | null;
+  tendered?: number | null;
+  change?: number | null;
+  reference?: string | null;
   subtotal: number;
   discount: number;
   total: number;
@@ -41,6 +48,9 @@ export interface PetshopSaleRecord {
 export const petshopAPI = {
   checkout: async (data: PetshopSalePayload, options?: RequestOptions): Promise<ApiResponse<PetshopSaleResult>> =>
     post(ENDPOINTS.PETSHOP.CHECKOUT, data, { showError: true, ...options }),
+  /** Units sold per item over `days` — the till's Best sellers / Never sold tabs. */
+  stats: async (days = 30, options?: RequestOptions): Promise<ApiResponse<{ stats: { id: string; sold: number }[]; days: number }>> =>
+    get(`${ENDPOINTS.PETSHOP.STATS}?days=${days}`, options),
   clientSales: async (clientId: string | number, options?: RequestOptions): Promise<ApiResponse<PetshopSaleRecord[]>> =>
     get(ENDPOINTS.PETSHOP.CLIENT_SALES(clientId), options),
 };
