@@ -216,7 +216,7 @@ export function useClinicPos(clinicId: string | null, currency: string) {
     const res = await petshopAPI.checkout({
       clientId: buyer.kind === 'client' ? buyer.id : undefined,
       walkInData: buyer.kind === 'walkin'
-        ? { firstName: buyer.name.trim(), phone: (buyer.phone || meta.customerPhone || '').trim() || undefined }
+        ? { firstName: buyer.name.trim(), phone: (meta.customerPhone || buyer.phone || '').trim() || undefined }
         : undefined,
       items: cart.map((l) => ({ inventoryItemId: l.productId, quantity: l.quantity })),
       paymentMethod: method,
@@ -230,7 +230,8 @@ export function useClinicPos(clinicId: string | null, currency: string) {
     const d = res.data;
     const when = d.receipt?.createdAt || new Date().toISOString();
     const customerName = buyer.kind === 'client' ? buyer.name : buyer.kind === 'walkin' ? buyer.name.trim() : meta.customerName || null;
-    const customerPhone = (buyer.kind !== 'none' ? buyer.phone : null) || meta.customerPhone || null;
+    // The number on the payment screen wins: it is the one the cashier last confirmed.
+    const customerPhone = meta.customerPhone?.trim() || (buyer.kind !== 'none' ? buyer.phone : null) || null;
 
     // The sale, in the shape the till's receipt and invoice read.
     const sale = {

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { ArrowLeft, Banknote, Smartphone, CreditCard, Delete, Check, Phone, CircleCheck } from 'lucide-react';
+import { ArrowLeft, Banknote, Smartphone, CreditCard, Delete, Check, Phone, CircleCheck, Pencil } from 'lucide-react';
 import type { PosController } from './usePos';
 import type { PosPaymentMethod } from '../../../services';
 
@@ -36,16 +36,24 @@ interface Props {
   pos: PosController;
   onDone: (sale: any) => void;
   onBack: () => void;
+  /**
+   * The customer's number when the till already knows it (the clinic till's
+   * chosen client or walk-in). Pre-filled and locked behind a small Edit, so
+   * nobody retypes it; empty means ask, as before (user, 2026-11-21).
+   */
+  customerPhone?: string | null;
 }
 
-const PosTender: React.FC<Props> = ({ pos, onDone, onBack }) => {
+const PosTender: React.FC<Props> = ({ pos, onDone, onBack, customerPhone }) => {
   const { preview, currency, completeSale } = pos;
   const total = preview?.total ?? 0;
 
   const [method, setMethod] = useState<PosPaymentMethod>('CASH');
   const [entry, setEntry] = useState('');
   const [reference, setReference] = useState('');
-  const [phone, setPhone] = useState('');
+  const known = (customerPhone ?? '').trim();
+  const [phone, setPhone] = useState(known);
+  const [phoneLocked, setPhoneLocked] = useState(!!known);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -252,7 +260,7 @@ const PosTender: React.FC<Props> = ({ pos, onDone, onBack }) => {
 
         {/* Optional — a phone number is what makes a receipt findable later. */}
         <label className="block">
-          <span className="sp-tender-label">Customer phone <span className="normal-case font-semibold">(optional)</span></span>
+          <span className="sp-tender-label">Customer phone {!known && <span className="normal-case font-semibold">(optional)</span>}</span>
           <span className="relative block">
             <Phone size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" style={{ color: 'var(--sp-muted)' }} />
             <input
@@ -262,7 +270,20 @@ const PosTender: React.FC<Props> = ({ pos, onDone, onBack }) => {
               placeholder="07…"
               inputMode="tel"
               autoComplete="off"
+              disabled={phoneLocked}
+              style={phoneLocked ? { opacity: 0.7, paddingRight: '4.75rem' } : undefined}
             />
+            {phoneLocked && (
+              <button
+                type="button"
+                onClick={() => setPhoneLocked(false)}
+                className="absolute right-2 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-lg text-[12px] font-bold flex items-center gap-1 sp-btn-ghost"
+                style={{ border: '1px solid var(--sp-border)', background: 'var(--sp-surface)' }}
+                aria-label="Edit customer phone"
+              >
+                <Pencil size={12} /> Edit
+              </button>
+            )}
           </span>
         </label>
 

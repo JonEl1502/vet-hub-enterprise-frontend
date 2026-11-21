@@ -122,7 +122,7 @@ const PetshopView: React.FC<Props> = ({ activeClinic }) => {
           {step === 'done' && lastSale ? (
             <ClinicSaleDone sale={lastSale} currency={currency} shop={shop} branch={branch} cashierName={cashierName} onNewSale={newSale} />
           ) : step === 'tender' ? (
-            <PosTender pos={pos} onDone={onDone} onBack={() => setStep('shopping')} />
+            <PosTender pos={pos} onDone={onDone} onBack={() => setStep('shopping')} customerPhone={buyer.kind === 'none' ? null : buyer.phone} />
           ) : (
             <>
               {cartHeader}
@@ -140,7 +140,7 @@ const PetshopView: React.FC<Props> = ({ activeClinic }) => {
     return (
       <div className="supplier-pos sp-root fixed inset-0 z-[150] flex flex-col" style={{ ...rootStyle, height: '100dvh' }}>
         {step === 'tender'
-          ? <PosTender pos={pos} onDone={onDone} onBack={() => setStep('shopping')} />
+          ? <PosTender pos={pos} onDone={onDone} onBack={() => setStep('shopping')} customerPhone={buyer.kind === 'none' ? null : buyer.phone} />
           : <ClinicSaleDone sale={lastSale} currency={currency} shop={shop} branch={branch} cashierName={cashierName} onNewSale={newSale} />}
       </div>
     );
