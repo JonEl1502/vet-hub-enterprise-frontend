@@ -16,6 +16,7 @@ import { StepProps, WizardStepId, StaffOpt } from './types';
 // same control the Diagnostics step uses; context provided by VisitDetailView.
 import InlineServiceSearch from '../../shared/InlineServiceSearch';
 import { useServiceInject } from '../../shared/ServiceInjectContext';
+import VaccinationCertificate from '../VaccinationCertificate';
 import { VisitWizardApi } from './useVisitWizard';
 import { StepActionProvider, useStepActionSlot } from './StepActionContext';
 import HistoryStep from './steps/HistoryStep';
@@ -350,6 +351,18 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
     if (currentStep === 'boardingStay') return <BoardingStayStep {...stepProps} />;
     if (currentStep === 'admission') return <AdmissionEntryStep {...stepProps} />;
     if (currentStep === 'inpatientChart') return <InpatientChartStep {...stepProps} />;
+    // The vaccination visit's last step: the certificate for every dose given.
+    if (currentStep === 'certificate') {
+      return (
+        <VaccinationCertificate
+          visitId={visit.id}
+          pet={pet}
+          client={client}
+          clinic={activeClinic as any}
+          staff={staff}
+        />
+      );
+    }
 
     const Core = CORE_STEPS[currentStep];
 

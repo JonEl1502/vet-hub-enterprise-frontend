@@ -6445,7 +6445,8 @@ const VisitDetailInner: React.FC<Props> = ({
             const adminDate = rec.administeredAt ? new Date(rec.administeredAt) : null;
             const expDate = new Date(rec.expiryDate);
             const issuedDate = new Date();
-            const certSerial = `VC-${String(rec.id).slice(-6).toUpperCase()}-${String(pet.id).padStart(4, '0')}`;
+            // 329 — the serial the server stored for this visit's certificate, when one was issued.
+            const certSerial = rec.certificateSerial || `VC-${String(rec.id).slice(-6).toUpperCase()}-${String(pet.id).padStart(4, '0')}`;
             const statusMeta =
               rec.status === 'ADMINISTERED' ? { bg: 'bg-emerald-100', fg: 'text-emerald-700', label: 'Administered' } :
               rec.status === 'SCHEDULED' ? { bg: 'bg-blue-100', fg: 'text-blue-700', label: 'Scheduled' } :

@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { Syringe, Loader2, Plus, Trash2, Check, Sparkles, CalendarClock, Bell } from 'lucide-react';
+import { Syringe, Loader2, Plus, Trash2, Check, Sparkles, CalendarClock, Bell, Package } from 'lucide-react';
 import { Visit } from '../../../types';
-import { visitsAPI, vaccinationsAPI, servicesAPI } from '../../../services';
+import { visitsAPI, vaccinationsAPI, servicesAPI, inventoryAPI } from '../../../services';
+import { useData } from '../../../contexts/DataContext';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { VACCINES } from '../../../constants/vaccines';
 
@@ -54,6 +55,58 @@ const VaccinationPanel: React.FC<Props> = ({ appointment, petId, onSaved }) => {
       .catch(() => { /* falls back to VACCINES */ });
     return () => { alive = false; };
   }, []);
+  /**
+   * 329 — VACCINE TYPE + BATCH FROM STOCK (clinic spec, 2026-11-21).
+   *
+   * The clinic's vaccine stock suggests what was given: picking a product fills
+   * the vaccine type, the batch and the lot's expiry (earliest-expiring live lot
+   * first, FEFO). It is a SUGGESTION only — nothing is deducted here; stock
+   * linking on vaccination records was removed on 2026-09-18 and the dose's
+   * stock moves with its bill line as before. Typing a batch by hand still works.
+   */
+  const { inventory, ensureInventory } = useData() as any;
+  useEffect(() => { ensureInventory?.(); }, [ensureInventory]);
+  const vaccineStock = React.useMemo(() => ((inventory || []) as any[])
+    .filter(i => /vaccin|immuni/i.test(`${i.category ?? ''} ${i.metadata?.subcategories?.join(' ') ?? ''}`))
+    .sort((a, b) => String(a.name).localeCompare(String(b.name))), [inventory]);
+  const [lots, setLots] = useState<Record<string, { batchNumber: string; expiryDate: string; remaining: number }[]>>({});
+  const stockFor = (name: string) => {
+    const words = name.toLowerCase().split(/[^a-z0-9]+/).filter(w => w.length > 2);
+    const score = (i: any) => words.filter(w => String(i.name).toLowerCase().includes(w)).length;
+    return [...vaccineStock].sort((a, b) => score(b) - score(a));
+  };
+  const saveLot = async (rec: VaccinationRecord, patch: Partial<VaccinationRecord>) => {
+    setRecords(rs => rs.map(r => r.id === rec.id ? { ...r, ...patch } : r));
+    if (locked) return;
+    try {
+      await vaccinationsAPI.update(rec.id, {
+        ...(patch.vaccineType !== undefined ? { vaccineType: patch.vaccineType } : {}),
+        ...(patch.batchNumber !== undefined ? { batchNumber: patch.batchNumber || '' } : {}),
+        ...(patch.batchExpiry !== undefined ? { batchExpiry: patch.batchExpiry } : {}),
+      } as any);
+    } catch { /* non-fatal — the field keeps what was typed */ }
+  };
+  const pickStock = async (rec: VaccinationRecord, itemId: string) => {
+    const item = vaccineStock.find(i => String(i.id) === itemId);
+    if (!item) return;
+    const type = [item.name, item.manufacturer].filter(Boolean).join(' · ');
+    let live: { batchNumber: string; expiryDate: string; remaining: number }[] = [];
+    try {
+      const r = await inventoryAPI.getItemAnalytics(item.id);
+      live = ((r as any)?.data?.batches ?? [])
+        .filter((b: any) => Number(b.remaining) > 0 && b.batchNumber)
+        .sort((a: any, b: any) => String(a.expiryDate).localeCompare(String(b.expiryDate)))
+        .map((b: any) => ({ batchNumber: b.batchNumber, expiryDate: String(b.expiryDate).slice(0, 10), remaining: Number(b.remaining) }));
+    } catch { /* lots unavailable — fall back to the item's current batch */ }
+    setLots(m => ({ ...m, [rec.id]: live }));
+    const first = live[0];
+    await saveLot(rec, {
+      vaccineType: type,
+      batchNumber: first?.batchNumber ?? item.batchNumber ?? rec.batchNumber ?? '',
+      batchExpiry: first?.expiryDate ?? (item.expiryDate ? String(item.expiryDate).slice(0, 10) : rec.batchExpiry ?? null),
+    });
+  };
+
   const priceOf = (name: string) =>
     catalogue.find(c => c.name.trim().toLowerCase() === name.trim().toLowerCase())?.price ?? null;
 
@@ -232,6 +285,59 @@ const VaccinationPanel: React.FC<Props> = ({ appointment, petId, onSaved }) => {
                   <Trash2 size={13} />
                 </button>
               )}
+              </div>
+
+              {/* Vaccine type + lot (329) — from stock, or typed. */}
+              <div className="mt-2 pt-2 border-t border-dashed border-slate-200 dark:border-zinc-800 flex flex-wrap items-center gap-x-2 gap-y-1.5">
+                <span className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400 shrink-0">
+                  <Package size={11} /> Vaccine &amp; batch
+                </span>
+                {!locked && vaccineStock.length > 0 && (
+                  <select
+                    value=""
+                    onChange={e => { if (e.target.value) pickStock(rec, e.target.value); }}
+                    className="px-2 py-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[11px] text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam max-w-[13rem]"
+                    aria-label="Pick the vaccine from stock"
+                  >
+                    <option value="">From stock…</option>
+                    {stockFor(rec.vaccineName).map(i => (
+                      <option key={i.id} value={String(i.id)} disabled={Number(i.quantity) <= 0}>
+                        {i.name}{i.batchNumber ? ` · ${i.batchNumber}` : ''}{Number(i.quantity) <= 0 ? ' · out' : ` · ${i.quantity} left`}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <input
+                  value={rec.vaccineType ?? ''}
+                  disabled={locked}
+                  onChange={e => setRecords(rs => rs.map(r => r.id === rec.id ? { ...r, vaccineType: e.target.value } : r))}
+                  onBlur={() => saveLot(rec, { vaccineType: rec.vaccineType ?? '' })}
+                  placeholder="Vaccine type / brand"
+                  className="flex-1 min-w-[9rem] px-2 py-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[11px] text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam disabled:opacity-60"
+                />
+                {(lots[rec.id]?.length ?? 0) > 1 && !locked && (
+                  <select
+                    value={rec.batchNumber ?? ''}
+                    onChange={e => { const l = lots[rec.id].find(x => x.batchNumber === e.target.value); if (l) saveLot(rec, { batchNumber: l.batchNumber, batchExpiry: l.expiryDate }); }}
+                    className="px-2 py-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[11px] text-pine dark:text-zinc-100"
+                    aria-label="Lot"
+                  >
+                    {lots[rec.id].map(l => <option key={l.batchNumber} value={l.batchNumber}>{l.batchNumber} · exp {l.expiryDate} · {l.remaining} left</option>)}
+                  </select>
+                )}
+                <label className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-slate-400">
+                  Lot exp
+                  <input
+                    type="date"
+                    disabled={locked}
+                    value={(rec.batchExpiry ?? '').slice(0, 10)}
+                    onChange={e => saveLot(rec, { batchExpiry: e.target.value || null })}
+                    className="px-2 py-1 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[11px] text-pine dark:text-zinc-100 normal-case tracking-normal font-normal disabled:opacity-60"
+                  />
+                </label>
+                {rec.batchExpiry && new Date(rec.batchExpiry).getTime() < Date.now() && (
+                  <span className="text-[9px] font-black uppercase tracking-wider text-red-500">Lot expired</span>
+                )}
               </div>
 
               {/* Next dose due — the vet enters it here. Setting it on a given

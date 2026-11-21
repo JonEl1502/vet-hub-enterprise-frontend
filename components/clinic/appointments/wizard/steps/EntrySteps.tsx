@@ -118,6 +118,10 @@ const FORMS: Record<string, EntryFormDef> = {
       { kind: 'seg', key: 'healthyToday', label: 'Healthy today', options: ['Yes', 'No', 'Unsure'] },
       { kind: 'input', key: 'temperature', label: 'Temperature (°C)', type: 'number', placeholder: '38.5' },
       { kind: 'input', key: 'weight', label: 'Weight (kg)', type: 'number' },
+      // Temperament sits with weight and temperature: the clinic's spec asks for
+      // all three at the vaccination triage (2026-11-21), and it tells whoever
+      // holds the animal for the jab whether a muzzle comes out first.
+      { kind: 'seg', key: 'temperament', label: 'Temperament', options: ['Calm', 'Anxious', 'Aggressive', 'Needs muzzle'] },
       { kind: 'seg', key: 'status', label: 'Current vaccine status', options: ['Up to date', 'Overdue', 'Unknown', 'First course'] },
       { kind: 'checks', key: 'contraindications', label: 'Contraindications', items: [
         { k: 'fever', label: 'Fever' }, { k: 'illness', label: 'Current illness' },

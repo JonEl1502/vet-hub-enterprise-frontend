@@ -40,6 +40,8 @@ export const STEP_DEFS: Record<WizardStepId, WizardStepDef> = {
   treatment:             { id: 'treatment', label: 'Treatment', short: 'Treatment' },
   communication:         { id: 'communication', label: 'Client Communication', short: 'Communication' },
   followUp:              { id: 'followUp', label: 'Follow-up / Care Continuity', short: 'Follow up' },
+  // The clinic spec ends a vaccination visit on its certificate (2026-11-21).
+  certificate:           { id: 'certificate', label: 'Vaccination Certificate', short: 'Certificate' },
 };
 
 export interface EntryPointDef {
@@ -57,7 +59,7 @@ const CORE: WizardStepId[] = [
 export const ENTRY_POINTS: Record<string, EntryPointDef> = {
   standard:     { key: 'standard', label: 'Standard Consultation', icon: '🩺', steps: CORE },
   emergency:    { key: 'emergency', label: 'Emergency', icon: '🚨', steps: ['emergencyTriage', ...CORE] },
-  vaccination:  { key: 'vaccination', label: 'Vaccination', icon: '💉', steps: ['vaccinationAssessment', 'examination', 'treatment', 'communication', 'followUp'] },
+  vaccination:  { key: 'vaccination', label: 'Vaccination', icon: '💉', steps: ['vaccinationAssessment', 'examination', 'treatment', 'communication', 'followUp', 'certificate'] },
   // Deworming — a short protocol flow: weigh/assess, give the dewormer, set
   // the next-due follow-up, communicate. Mirrors the vaccination shape.
   deworming:    { key: 'deworming', label: 'Deworming', icon: '🪱', steps: ['dewormingAssessment', 'examination', 'communication', 'followUp'] },

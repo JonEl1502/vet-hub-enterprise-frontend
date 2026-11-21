@@ -51,6 +51,8 @@ export type WizardStepId =
   | 'treatment'
   | 'communication'
   | 'followUp'
+  // the vaccination visit's last step: the visit's certificate (2026-11-21)
+  | 'certificate'
   // A clinic-built workflow (backend 136) contributes its OWN stage keys, which
   // are arbitrary slugs. `string & {}` widens the union to accept them while
   // keeping editor autocomplete for the built-in ids above.

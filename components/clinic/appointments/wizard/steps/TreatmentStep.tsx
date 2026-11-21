@@ -8,7 +8,8 @@ import TreatmentPlanPanel from '../../../inpatient/TreatmentPlanPanel';
 import QtyUnitControl, { sellUnitOf, stockPerSellUnit, defaultSellQty } from '../../../shared/QtyUnitControl';
 import VisitFeeLines from '../../VisitFeeLines';
 import GlobalCatalogPicker from '../../../shared/GlobalCatalogPicker';
-import { billsAPI } from '../../../../../services';
+import { billsAPI, servicesAPI } from '../../../../../services';
+import { useServiceInject } from '../../../shared/ServiceInjectContext';
 import { useData } from '../../../../../contexts/DataContext';
 import { consumablesAPI, toast, procedureTemplatesAPI, ProcedureTemplate, vaccinationsAPI, vaccinePackagesAPI, VaccinePackage } from '../../../../../services';
 
@@ -530,8 +531,25 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
       })()}
 
       {isVaccinationFlow && txTab === 'vaccinations' && (
-        <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 bg-white dark:bg-zinc-900">
+        <div className="border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 bg-white dark:bg-zinc-900 space-y-4">
           <VaccinationPanel appointment={visit} petId={pet.id} onSaved={() => refreshVisit?.()} />
+          {!billPaid && (
+            <OtherBillables
+              currency={currency}
+              inventory={inventory || []}
+              procedures={procTemplates}
+              busy={applyingProc}
+              onProduct={async (it) => {
+                setApplyingProc(true);
+                try {
+                  const res = await consumablesAPI.log(visit.id, { inventoryItemId: String(it.id), quantity: defaultSellQty(it) || 1 });
+                  if (res.success) { emit(`Added — ${it.name} · stock deducted`, 'billing', true); refreshVisit?.(); }
+                } catch (e: any) { toast.error(e?.message || `Could not add ${it.name}`); }
+                finally { setApplyingProc(false); }
+              }}
+              onProcedure={applyProcedure}
+            />
+          )}
         </div>
       )}
       {show('medications') && txTab === 'medications' && (
@@ -926,6 +944,99 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
         </p>
       </Section>
       )}
+    </div>
+  );
+};
+
+/**
+ * "ADD OTHER BILLABLES" — one box for everything else on a vaccination visit.
+ *
+ * The clinic's spec (approved 2026-11-21): after the vaccine, "other billables:
+ * services, products and consumables from a dropdown". They were reachable,
+ * but behind three different controls on three tabs. This is ONE search, and
+ * each pick still lands by its own existing route — a service through the
+ * visit's service injector, a product or consumable through `consumablesAPI`
+ * (deducts stock, itemised bill line), a procedure through its recipe apply —
+ * so nothing here invents a new way to bill.
+ */
+const OtherBillables: React.FC<{
+  currency: string;
+  inventory: any[];
+  procedures: ProcedureTemplate[];
+  busy: boolean;
+  onProduct: (it: any) => void;
+  onProcedure: (t: ProcedureTemplate) => void;
+}> = ({ currency, inventory, procedures, busy, onProduct, onProcedure }) => {
+  const { injectService } = useServiceInject();
+  const [q, setQ] = useState('');
+  const [open, setOpen] = useState(false);
+  const [services, setServices] = useState<any[]>([]);
+  useEffect(() => {
+    servicesAPI.catalog().then(list => setServices((list || []).filter((s: any) => s.enabled))).catch(() => {});
+  }, []);
+  const box = React.useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const off = (e: MouseEvent) => { if (box.current && !box.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', off);
+    return () => document.removeEventListener('mousedown', off);
+  }, [open]);
+
+  const needle = q.trim().toLowerCase();
+  const hit = (txt: string) => !needle || txt.toLowerCase().includes(needle);
+  const isConsumable = (it: any) => it?.metadata?.mainCategory === 'CONSUMABLE' || /consumable/i.test(String(it.category || ''));
+  const notVaccine = (it: any) => !/vaccin|immuni/i.test(`${it.category ?? ''}`);
+  const groups = [
+    { key: 'svc', label: 'Services', rows: (injectService ? services : []).filter(s => hit(`${s.name} ${s.categoryName}`)).slice(0, 6)
+        .map(s => ({ id: `s${s.id}`, name: s.name, hint: s.categoryName, price: s.priceEffective ?? s.defaultPrice, pick: () => injectService?.({ id: Number(s.id), name: s.name, defaultPrice: s.priceEffective ?? s.defaultPrice }, s.categoryName || 'Services') })) },
+    { key: 'prod', label: 'Products', rows: inventory.filter(it => notVaccine(it) && !isConsumable(it) && it.billable !== false && hit(`${it.name} ${it.category ?? ''} ${it.sku ?? ''}`)).slice(0, 6)
+        .map(it => ({ id: `p${it.id}`, name: it.name, hint: `${it.quantity ?? 0} ${it.unit ?? ''} in stock`, price: it.price, disabled: Number(it.quantity) <= 0, pick: () => onProduct(it) })) },
+    { key: 'cons', label: 'Consumables', rows: inventory.filter(it => isConsumable(it) && hit(`${it.name} ${it.category ?? ''} ${it.sku ?? ''}`)).slice(0, 6)
+        .map(it => ({ id: `c${it.id}`, name: it.name, hint: `${it.quantity ?? 0} ${it.unit ?? ''} in stock`, price: it.price, disabled: Number(it.quantity) <= 0, pick: () => onProduct(it) })) },
+    { key: 'proc', label: 'Procedures', rows: procedures.filter(t => t.isActive !== false && hit(`${t.name} ${t.code ?? ''} ${t.categoryName ?? ''}`)).slice(0, 6)
+        .map(t => ({ id: `r${t.id}`, name: t.name, hint: 'Services, products and consumables in one', price: null as number | null, pick: () => onProcedure(t) })) },
+  ].filter(g => g.rows.length > 0);
+
+  return (
+    <div ref={box} className="pt-3 border-t border-slate-200 dark:border-zinc-800">
+      <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5 flex items-center gap-1.5"><Plus size={11} /> Add other billables</p>
+      <div className="relative">
+        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+        <input
+          className="field-input pl-9"
+          placeholder="Service, product, consumable or procedure…"
+          value={q}
+          onChange={e => { setQ(e.target.value); setOpen(true); }}
+          onFocus={() => setOpen(true)}
+          autoComplete="off"
+        />
+        {busy && <Loader2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 animate-spin text-seafoam" />}
+        {open && (
+          <div className="absolute z-30 mt-1 w-full max-h-80 overflow-y-auto bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-lg">
+            {groups.length === 0 && <p className="px-3 py-3 text-[11px] text-slate-400">Nothing matches “{q}”.</p>}
+            {groups.map(g => (
+              <div key={g.key}>
+                <p className="px-3 pt-2 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400 bg-slate-50 dark:bg-zinc-800/60">{g.label}</p>
+                {g.rows.map((r: any) => (
+                  <button
+                    key={r.id}
+                    type="button"
+                    disabled={busy || r.disabled}
+                    onMouseDown={e => { e.preventDefault(); r.pick(); setQ(''); setOpen(false); }}
+                    className="w-full text-left px-3 py-2 flex items-center justify-between gap-3 hover:bg-slate-50 dark:hover:bg-zinc-800 disabled:opacity-40"
+                  >
+                    <span className="min-w-0">
+                      <span className="block text-[12px] font-bold text-pine dark:text-zinc-100 truncate">{r.name}</span>
+                      {r.hint && <span className="block text-[10px] text-slate-400 truncate">{r.hint}</span>}
+                    </span>
+                    {r.price != null && <span className="text-[11px] font-black text-seafoam shrink-0">{currency} {Number(r.price).toLocaleString()}</span>}
+                  </button>
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 };

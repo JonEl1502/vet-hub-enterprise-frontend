@@ -10,7 +10,13 @@ export interface VaccinationRecord {
   // Added directly in a visit (not from the standard schedule) — UI badges these.
   isCustom?: boolean;
   vaccineName: string;
+  /** 329 — the product given, e.g. "Nobivac DHPPi · MSD". */
+  vaccineType?: string | null;
   batchNumber?: string;
+  /** 329 — expiry of the lot the dose came from (YYYY-MM-DD). */
+  batchExpiry?: string | null;
+  /** 329 — the stored serial of this visit's vaccination certificate. */
+  certificateSerial?: string | null;
   // Dispensed vial's SKU. Set on records created before the stock-linking
   // flow was removed (2026-09-18) — new records never carry one.
   sku?: string | null;
@@ -43,6 +49,8 @@ export interface CreateVaccinationData {
   taskId?: string;
   isCustom?: boolean;
   nextDueAt?: string | null;
+  vaccineType?: string | null;
+  batchExpiry?: string | null;
   // Also raise the appointment for the next-due date (the reminder is always
   // created). Action flag — not stored on the record.
   bookFollowUp?: boolean;
@@ -52,6 +60,8 @@ export interface UpdateVaccinationData {
   vaccineName?: string;
   batchNumber?: string;
   sku?: string;
+  vaccineType?: string | null;
+  batchExpiry?: string | null;
   administeredById?: string;
   administeredAt?: string;
   expiryDate?: string;
@@ -84,6 +94,21 @@ export const vaccinationsAPI = {
   createFromAppointment: async (appointmentId: string): Promise<VaccinationRecord[]> => {
     const response = await api.post(`/vaccinations/from-appointment/${appointmentId}`);
     return response.data.vaccinationRecords;
+  },
+
+  /**
+   * 329 — issue (or fetch) the visit's certificate serial. Idempotent: the same
+   * visit always gets the same serial; doses given later join it.
+   */
+  issueCertificate: async (appointmentId: string): Promise<{ serial: string; vaccinationRecords: VaccinationRecord[] }> => {
+    const response = await api.post(`/vaccinations/certificate/by-appointment/${appointmentId}`);
+    return response.data;
+  },
+
+  /** 329 — look a certificate up again by its serial. */
+  getCertificate: async (serial: string): Promise<{ serial: string; appointmentId: string | null; pet: any; vaccinationRecords: VaccinationRecord[] }> => {
+    const response = await api.get(`/vaccinations/certificate/${encodeURIComponent(serial)}`);
+    return response.data;
   },
 
   // Delete a vaccination record (e.g. a custom vaccine added by mistake)

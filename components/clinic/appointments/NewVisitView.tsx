@@ -345,28 +345,67 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // and Walk-in are standalone visit-level toggles (next to Timing, all
   // encounters); Hospitalization is the inpatient escalation toggle within
   // the Vet Visit flow (a consultation can escalate to inpatient).
-  const UI_ENCOUNTERS: { value: string; label: string; icon: string }[] = [...ENCOUNTER_TYPES];
+  /**
+   * FOUR top-level choices (clinic spec, user approved 2026-11-21): Vet visit ·
+   * Vaccination · Boarding · Grooming. Vaccination is still STORED as a vet
+   * visit with visitType VACCINATION (the 077 data model, which every report,
+   * wizard route and plan gate reads) — it is only promoted to a tile here, so
+   * reception picks it in one tap instead of finding it under Vet visit.
+   */
+  const UI_ENCOUNTERS: { value: string; label: string; icon: string }[] = [
+    { value: 'VET_VISIT', label: 'Vet visit', icon: '🩺' },
+    { value: 'VACCINATION', label: 'Vaccination', icon: '💉' },
+    { value: 'BOARDING', label: 'Boarding', icon: '🏠' },
+    { value: 'GROOMING', label: 'Grooming', icon: '✂️' },
+  ];
   const [encounterChip, setEncounterChip] = useState<string>(
     // Legacy nav params may still pass the retired pseudo/encounter chips.
-    initialEncounterType === 'GROOMING' || initialEncounterType === 'BOARDING' ? initialEncounterType : 'VET_VISIT'
+    initialEncounterType === 'GROOMING' || initialEncounterType === 'BOARDING' ? initialEncounterType
+      : initialEncounterType === 'VACCINATION' && !initialParentApptId ? 'VACCINATION'
+      : 'VET_VISIT'
   );
   // Additional encounters stacked on the SAME visit (UI-only): each adds its
   // entry service/fee at creation; the visit's primary encounter still drives
   // the workflow entry point. Per-encounter gate checks run in the workflow.
   const [extraChips, setExtraChips] = useState<string[]>([]);
   const ADDITIVE_ENCOUNTERS = ['VET_VISIT', 'GROOMING', 'BOARDING'];
-  const extraCandidates = ADDITIVE_ENCOUNTERS.filter(c => c !== encounterChip);
+  // A vaccination visit IS a vet visit, so "also add Vet visit" would be the same thing twice.
+  const extraCandidates = ADDITIVE_ENCOUNTERS.filter(c => c !== encounterChip && !(encounterChip === 'VACCINATION' && c === 'VET_VISIT'));
   const toggleExtra = (chip: string) => setExtraChips(prev => prev.includes(chip) ? prev.filter(c => c !== chip) : [...prev, chip]);
 
   const handleEncounterChip = (chip: string) => {
     setEncounterChip(chip);
+    const isVacc = chip === 'VACCINATION';
     // Drop any extra that collides with the new primary so the rows never duplicate.
-    setExtraChips(prev => prev.filter(c => c !== chip));
-    handleEncounterType(chip as EncounterType);
+    setExtraChips(prev => prev.filter(c => c !== chip && !(isVacc && c === 'VET_VISIT')));
+    handleEncounterType((isVacc ? 'VET_VISIT' : chip) as EncounterType);
     setGateData({}); setGateSkipped(false); // gate check is per-encounter — clear on switch
-    // Inpatient escalation only applies to vet visits.
+    // Inpatient is a vet-visit escalation; a vaccination, a groom or a stay is not admitted.
     if (chip !== 'VET_VISIT') setOnboardInpatient(false);
-    if (visitType === 'INPATIENT') setVisitType('CONSULTATION');
+    if (isVacc) setVisitType('VACCINATION');
+    else if (visitType === 'INPATIENT' || visitType === 'VACCINATION') setVisitType('CONSULTATION');
+  };
+
+  /**
+   * WHERE the visit happens — one choice instead of a House Call toggle plus an
+   * admission switch that reception could never reach (user approved
+   * 2026-11-21). Inpatient opens the admission gate below and links a
+   * hospitalization on create (`onboardInpatient`); house call keeps its
+   * call-out fee and location. Inpatient is a vet-visit escalation only.
+   */
+  type Where = 'CLINIC' | 'INPATIENT' | 'HOUSE_CALL';
+  const where: Where = isHouseCall ? 'HOUSE_CALL' : onboardInpatient ? 'INPATIENT' : 'CLINIC';
+  const setWhere = (w: Where) => {
+    if (w === 'HOUSE_CALL') {
+      setIsHouseCall(true); setOnboardInpatient(false);
+      // House call excludes walk-in AND group visit (one animal, one trip).
+      setIsWalkIn(false); setIsGroupVisit(false); setGroupMembers([]);
+    } else {
+      if (isHouseCall) setHouseCallDistance('');
+      setIsHouseCall(false);
+      setOnboardInpatient(w === 'INPATIENT');
+    }
+    setGateData({}); setGateSkipped(false);
   };
 
   // Which gate-check form (if any) this encounter shows above Date & Time.
@@ -1564,7 +1603,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       {/* Encounter type — frames the whole appointment; decides the workflow */}
       <div data-tour="appointment-encounter-type" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm mb-3">
         <p className="text-[9px] font-black text-seafoam uppercase tracking-widest mb-2">Encounter type</p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {UI_ENCOUNTERS.map(et => (
             <button
               key={et.value}
@@ -1611,12 +1650,17 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
           </div>
         )}
 
-        {encounterType === 'VET_VISIT' ? (
+        {encounterChip === 'VACCINATION' ? (
+          <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-2 font-medium">
+            Vaccination visit — health check (weight, temperature, temperament), the vaccine and its batch, the next due date,
+            any other billables, then the vaccination certificate.
+          </p>
+        ) : encounterType === 'VET_VISIT' ? (
           <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
             <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Visit type</span>
             {/* Deworming is no longer a visit type here — it's handled as its own
                 service/module, not a vet-visit typing chip. */}
-            {VISIT_TYPES.filter(vt => vt.value !== 'DEWORMING').map(vt => (
+            {VISIT_TYPES.filter(vt => vt.value !== 'DEWORMING' && vt.value !== 'VACCINATION').map(vt => (
               <button
                 key={vt.value}
                 type="button"
@@ -1685,6 +1729,40 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
           </p>
         )}
 
+        {/* Where — in clinic, admitted, or at the client's. */}
+        <div className="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
+          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Where</span>
+          <div className="inline-flex rounded-lg border border-slate-200 dark:border-zinc-700 overflow-hidden" role="radiogroup" aria-label="Where the visit happens">
+            {([
+              { id: 'CLINIC', label: '🏥 In clinic', title: 'Outpatient — seen at the clinic and sent home' },
+              { id: 'INPATIENT', label: '🛏️ Inpatient', title: encounterChip === 'VET_VISIT' ? 'Admit the patient — opens the admission form below' : 'Only a vet visit can be admitted' },
+              { id: 'HOUSE_CALL', label: '🚗 House call', title: 'The clinic travels out to the client — adds the configured call-out fee (+ trip distance)' },
+            ] as const).map(o => {
+              const disabled = o.id === 'INPATIENT' && encounterChip !== 'VET_VISIT';
+              const on = where === o.id;
+              return (
+                <button
+                  key={o.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  disabled={disabled}
+                  title={o.title}
+                  onClick={() => setWhere(o.id)}
+                  className={`px-3 py-1.5 text-[10px] font-black uppercase tracking-wide transition-all border-l first:border-l-0 border-slate-200 dark:border-zinc-700 whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed ${
+                    on ? 'bg-pine text-white dark:bg-zinc-100 dark:text-pine' : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-seafoam'
+                  }`}
+                >
+                  {o.label}
+                </button>
+              );
+            })}
+          </div>
+          {where === 'INPATIENT' && (
+            <span className="text-[9px] font-bold text-slate-400 dark:text-zinc-500">Admission form below · a hospital record opens with the visit</span>
+          )}
+        </div>
+
         {/* Timing + visit-level toggles — apply to every encounter type.
             House Call & Walk-in sit side by side next to the working-hours
             control; Group Visit (vet visits) registers one visit per animal. */}
@@ -1711,22 +1789,6 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
               Turn off “Start now” to bill against the booked time instead.
             </span>
           )}
-          <button
-            type="button"
-            onClick={() => setIsHouseCall(h => {
-              const next = !h;
-              // House call excludes walk-in AND group visit (one animal, one trip).
-              if (next) { setIsWalkIn(false); setIsGroupVisit(false); setGroupMembers([]); }
-              else setHouseCallDistance('');
-              return next;
-            })}
-            title="The clinic travels out to the client — adds the configured call-out fee (+ trip distance)"
-            className={`px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border whitespace-nowrap ${
-              isHouseCall ? 'bg-emerald-600 !text-white border-emerald-700 shadow-sm' : 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-700 hover:border-emerald-500'
-            }`}
-          >
-            🚗 House Call
-          </button>
           <button
             type="button"
             disabled={isHouseCall}
