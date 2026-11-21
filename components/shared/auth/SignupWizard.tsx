@@ -107,11 +107,14 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
     name: '',
     address: '',
     city: '',
-    country: 'Kenya',
-    countryCode: 'KE',
-    dialCode: '+254',
-    region: 'AFRICA',
-    currency: 'KES',
+    // United States / USD by default (user, 2026-11-21: "let's not just
+    // default to any, let's just default to US and USD"). The clinic picks
+    // its own country below; that choice sets the currency the whole app uses.
+    country: 'United States',
+    countryCode: 'US',
+    dialCode: '+1',
+    region: 'NORTH_AMERICA',
+    currency: 'USD',
     phone: '',
     email: '',
     logo: null,
@@ -129,7 +132,12 @@ export default function SignupWizard({ onBackToLogin, onSignupSuccess, isDemo = 
 
   // Auto-detect the user's country once on mount and lock it onto state.
   // The user can override via the dropdown.
+  // DISABLED 2026-11-21: the form opens on United States / USD and the clinic
+  // picks its own country (user's call). Guessing from the browser timezone
+  // pre-filled a country nobody chose. Kept, not deleted, so it can return.
   useEffect(() => {
+    return;
+    // eslint-disable-next-line no-unreachable
     const detected = detectCountryCode();
     if (!detected) return;
     const c = getCountry(detected);

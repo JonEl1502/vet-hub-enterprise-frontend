@@ -55,6 +55,8 @@ const docNo = (prefix: 'INV' | 'RCP', row: PaymentHistoryRow) =>
 
 const BillingView: React.FC = () => {
   const { selectedClinicIds, clinics } = useClinic();
+  // The clinic's own currency: plan prices read in it, dollars in superscript.
+  const clinicCurrency = (clinics.find((c: any) => String(c.id) === String(selectedClinicIds[0])) as any)?.currency || null;
   const { managedClinicId } = useManagementScope();
   // Scope billing to the clinic chosen in the "Managing" switcher (falls back
   // to the first selected) so it follows the switcher on this page.
@@ -1113,6 +1115,7 @@ const BillingView: React.FC = () => {
               <PlanCard
                 key={pkg.id}
                 pkg={pkg}
+                localCurrency={clinicCurrency}
                 isCurrent={sub?.package?.id === pkg.id}
                 isLoading={actionLoading === (pkg.stripePriceId ?? pkg.id)}
                 onSelect={() => {
@@ -1180,6 +1183,7 @@ const BillingView: React.FC = () => {
                   <PlanCard
                     key={pkg.id}
                     pkg={pkg}
+                    localCurrency={clinicCurrency}
                     isCurrent={sub?.package?.id === pkg.id}
                     isLoading={actionLoading === (pkg.stripePriceId ?? pkg.id)}
                     onSelect={() => { if (pkg.stripePriceId) handleCheckout(pkg.stripePriceId, pkg.id); }}

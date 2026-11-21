@@ -3,11 +3,19 @@ import { motion } from 'framer-motion';
 import { Check, CheckCircle2, RefreshCw } from 'lucide-react';
 import { dialog } from '../../../services';
 import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
+import { useFx } from '../../../contexts/FxContext';
 import type { SubscriptionPackage } from '../../../services/modules/stripe.api';
 import { planHighlights } from '../../../services/entitlements';
 
 interface PlanCardProps {
   pkg: SubscriptionPackage;
+  /**
+   * The org's OWN currency (clinic.currency). When given, the price reads in
+   * it as the main figure with the dollar price in superscript (the Rekodi
+   * model, user 2026-11-21). Omitted (supplier, client portal) keeps the
+   * platform display currency as before.
+   */
+  localCurrency?: string | null;
   isCurrent: boolean;
   isLoading: boolean;
   onSelect: () => void;
@@ -96,9 +104,31 @@ const CYCLE_SUFFIX: Record<'MONTHLY' | 'QUARTERLY' | 'SEMIANNUAL' | 'YEARLY' | '
   ONE_TIME: 'once',
 };
 
-export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, onSelect, onPreview, isPreviewed, onPayWithMpesa, onPayWithPaystack, paystackLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget, inheritsFrom, bundleAddOn, bundleAddOnOwned, bundleChecked, onBundleCheckedChange, audience }) => {
+export const PlanCard: React.FC<PlanCardProps> = ({ pkg, localCurrency, isCurrent, isLoading, onSelect, onPreview, isPreviewed, onPayWithMpesa, onPayWithPaystack, paystackLoading, getPlanIcon, delay, currentSubBillingCycle, currentSubTier, upgradeTarget, upgradeTargetPrice, upgradeTargetCurrency, onUpgradeToTarget, inheritsFrom, bundleAddOn, bundleAddOnOwned, bundleChecked, onBundleCheckedChange, audience }) => {
   const Icon = getPlanIcon(pkg.name);
-  const { formatPrice } = useDisplayCurrency();
+  const { formatPrice, usdToKesRate } = useDisplayCurrency();
+  const { convert } = useFx();
+  /**
+   * { main, usd } for a price stored in KES or USD. Main = the clinic's own
+   * currency; usd = the dollar figure for the superscript (none when the
+   * clinic already works in dollars). Checkout still charges KES, and the pay
+   * button says the charged amount, so this is display only.
+   */
+  const whole = (n: number, c: string) => c === 'USD'
+    ? `$${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : `${c} ${Math.round(n).toLocaleString()}`;
+  const priceParts = (amount: number, cur?: string | null): { main: string; usd: string | null } => {
+    const src = String(cur || 'KES').toUpperCase();
+    if (!localCurrency || (src !== 'KES' && src !== 'USD')) return { main: formatPrice(amount, cur), usd: null };
+    const rate = usdToKesRate || 1;
+    const usd = src === 'USD' ? amount : amount / rate;
+    const kes = src === 'KES' ? amount : amount * rate;
+    const local = localCurrency.toUpperCase();
+    if (local === 'USD') return { main: whole(usd, 'USD'), usd: null };
+    if (local === 'KES') return { main: whole(kes, 'KES'), usd: whole(usd, 'USD') };
+    const conv = convert(usd, 'USD', local);
+    return conv == null ? { main: whole(kes, 'KES'), usd: whole(usd, 'USD') } : { main: whole(conv, local), usd: whole(usd, 'USD') };
+  };
   // "What's included" list — collapsed to the first few, expandable in place.
   const [showAllFeatures, setShowAllFeatures] = useState(false);
   // Branches come from the maxBranches column, not a feature key.
@@ -322,7 +352,13 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
 
       <div>
         <p className="text-2xl font-black text-slate-900 dark:text-white">
-          {formatPrice(selectedOption.price, selectedOption.currency)}
+          {(() => {
+            const pp = priceParts(selectedOption.price, selectedOption.currency);
+            return (<>
+              {pp.main}
+              {pp.usd && <sup className="ml-1 text-[11px] font-bold text-slate-400 dark:text-zinc-500">{pp.usd}</sup>}
+            </>);
+          })()}
           <span className="text-xs font-medium text-slate-400 dark:text-zinc-500 ml-1">
             /{CYCLE_SUFFIX[selectedCycle]}
           </span>
@@ -391,7 +427,7 @@ export const PlanCard: React.FC<PlanCardProps> = ({ pkg, isCurrent, isLoading, o
                           {downgrade && !isUsersCurrentCycle && <span className="text-[9px] uppercase tracking-widest text-slate-400">downgrade</span>}
                         </span>
                         <span className="font-mono">
-                          {formatPrice(o.price, o.currency)}
+                          {(() => { const pp = priceParts(o.price, o.currency); return <>{pp.main}{pp.usd && <sup className="ml-0.5 text-[8px] text-slate-400">{pp.usd}</sup>}</>; })()}
                           {o.discountPct > 0 && !downgrade && !isUsersCurrentCycle && <span className="ml-1.5 text-[9px] text-emerald-500 font-black">−{Math.round(o.discountPct)}%</span>}
                         </span>
                       </button>

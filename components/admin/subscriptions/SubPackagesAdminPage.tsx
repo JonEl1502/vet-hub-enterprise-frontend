@@ -1090,9 +1090,12 @@ const SubPackagesAdminPage: React.FC = () => {
 // and down. Same class drives both, so shrinking here shrinks the whole page.
 const inputCls = 'w-full bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg px-2.5 py-1.5 text-xs font-bold text-pine dark:text-zinc-100 outline-none focus:ring-2 focus:ring-seafoam/20';
 
-// ISO 4217 codes we currently bill in. Keep the most-used local + regional
-// currencies up top so the admin doesn't scroll.
-const CURRENCY_OPTIONS = ['USD', 'KES', 'NGN', 'GHS', 'ZAR', 'EUR', 'GBP'];
+// The two currencies a plan is PRICED in (user, 2026-11-21: "I can set them in
+// dollars, or I can set them in shillings"). Checkout always charges KES — a
+// USD price is converted at the platform rate — and each clinic SEES the price
+// in its own currency with the dollar figure beside it (Rekodi model). Any
+// other code here could never be charged (the gateway refuses it).
+const CURRENCY_OPTIONS = ['USD', 'KES'];
 
 const Field: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
   <div className="space-y-1">
@@ -1200,7 +1203,6 @@ const CustomFeatures: React.FC<{ selected: SubscriptionPackagePlan; onAdd: () =>
 
 const CYCLES: { value: BillingOptionCycle; label: string }[] = [
   { value: 'MONTHLY',    label: 'Monthly' },
-  { value: 'QUARTERLY',  label: 'Quarterly (3 mo)' },
   { value: 'SEMIANNUAL', label: '6 Months' },
   { value: 'YEARLY',     label: 'Yearly' },
   // 217 — multi-year prepay presets (user, 2026-08-22).
@@ -1223,6 +1225,7 @@ const BillingOptionsEditor: React.FC<BillingOptionsEditorProps> = ({ pkg, onSave
         return (
           <BillingOptionRow
             key={c.value}
+            monthlyPrice={Number(options.find((o) => o.cycle === 'MONTHLY')?.price ?? 0)}
             packageId={pkg.id}
             cycleLabel={c.label}
             cycle={c.value}
@@ -1242,12 +1245,25 @@ interface BillingOptionRowProps {
   cycle: BillingOptionCycle;
   existing?: BillingOption;
   defaultCurrency: string;
+  /** The MONTHLY total, for the derived "saves x%". 0 when not set. */
+  monthlyPrice: number;
   onSaved: (option: BillingOption) => void;
 }
 
-const BillingOptionRow: React.FC<BillingOptionRowProps> = ({ packageId, cycleLabel, cycle, existing, defaultCurrency, onSaved }) => {
+const MONTHS: Record<string, number> = { MONTHLY: 1, QUARTERLY: 3, SEMIANNUAL: 6, YEARLY: 12, BIENNIAL: 24, TRIENNIAL: 36 };
+
+/**
+ * One plan length. The price is the TOTAL charged for the whole length — the
+ * Rekodi model. There is no discount field any more: a stored percentage was
+ * being taken off an already-discounted total at checkout (331). The saving
+ * is shown, worked out from the monthly price, so it cannot disagree.
+ */
+const BillingOptionRow: React.FC<BillingOptionRowProps> = ({ packageId, cycleLabel, cycle, existing, defaultCurrency, monthlyPrice, onSaved }) => {
   const [price, setPrice] = useState<string>(existing ? String(existing.price) : '');
-  const [discountPct, setDiscountPct] = useState<string>(existing ? String(existing.discountPct) : '');
+  const months = MONTHS[cycle] ?? 1;
+  const priceNumNow = Number(price) || 0;
+  const savePct = months > 1 && monthlyPrice > 0 && priceNumNow > 0
+    ? Math.round((1 - priceNumNow / (monthlyPrice * months)) * 100) : 0;
   // Optional custom URL. Checkbox toggles visibility; default off so admins
   // don't have to think about it. URL is not used for payment — it's only
   // for shareable marketing pages.
@@ -1261,7 +1277,6 @@ const BillingOptionRow: React.FC<BillingOptionRowProps> = ({ packageId, cycleLab
       const res = await subscriptionPackagesAPI.upsertBillingOption(packageId, cycle, {
         price: priceNum,
         currency: defaultCurrency,
-        discountPct: discountPct ? Number(discountPct) : 0,
         isActive: true,
       });
       if (res.success && res.data?.option) onSaved(res.data.option);
@@ -1279,7 +1294,7 @@ const BillingOptionRow: React.FC<BillingOptionRowProps> = ({ packageId, cycleLab
             {existing && <span className="text-emerald-500 text-[10px] font-black">SET</span>}
           </div>
         </Field>
-        <Field label={`Price (${defaultCurrency})`}>
+        <Field label={months > 1 ? `Total for ${months} months (${defaultCurrency})` : `Price a month (${defaultCurrency})`}>
           <input
             type="number"
             value={price}
@@ -1288,14 +1303,10 @@ const BillingOptionRow: React.FC<BillingOptionRowProps> = ({ packageId, cycleLab
             className={inputCls}
           />
         </Field>
-        <Field label="Discount %">
-          <input
-            type="number"
-            value={discountPct}
-            onChange={(e) => setDiscountPct(e.target.value)}
-            placeholder="0"
-            className={inputCls}
-          />
+        <Field label="Saves">
+          <div className={`${inputCls} ${savePct > 0 ? 'text-emerald-600' : savePct < 0 ? 'text-rose-500' : 'text-slate-400'}`}>
+            {months === 1 ? '—' : monthlyPrice > 0 && priceNumNow > 0 ? (savePct > 0 ? `${savePct}% vs monthly` : savePct < 0 ? `${-savePct}% dearer` : 'no saving') : 'set monthly first'}
+          </div>
         </Field>
         <button
           onClick={save}
