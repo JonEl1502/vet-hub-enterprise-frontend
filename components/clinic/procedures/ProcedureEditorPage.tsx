@@ -1,4 +1,5 @@
 import PageHeader from '../../shared/common/PageHeader';
+import ConditionChips, { uniqConditions } from './ConditionChips';
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ChevronLeft, Loader2, Plus, Trash2, Search, X, Zap, ArrowUp, ArrowDown,
@@ -141,7 +142,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
 
   // Example-patient tester (rules tab)
   const [testWeight, setTestWeight] = useState('');
-  const [testFlags, setTestFlags] = useState<{ inHeat: boolean; pregnant: boolean; emergency: boolean; outOfHours: boolean }>({ inHeat: false, pregnant: false, emergency: false, outOfHours: false });
+  const [testFlags, setTestFlags] = useState<{ inHeat: boolean; pregnant: boolean; emergency: boolean; outOfHours: boolean; custom: string[] }>({ inHeat: false, pregnant: false, emergency: false, outOfHours: false, custom: [] });
   const [testResult, setTestResult] = useState<ProcedurePreview | null>(null);
   const [testing, setTesting] = useState(false);
 
@@ -887,6 +888,13 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                         {label}
                       </button>
                     ))}
+                    {/* The clinic's own conditions — typed once, then a chip (2026-11-21). */}
+                    <ConditionChips
+                      options={uniqConditions(draft.pricingRules.flatMap(x => x.conditions.custom ?? []))}
+                      selected={r.conditions.custom ?? []}
+                      onChange={next => patchRuleCond(idx, { custom: next.length ? next : undefined })}
+                      placeholder="e.g. Obese"
+                    />
                   </div>
                   <div className="flex flex-wrap items-end gap-3 pt-1 border-t border-slate-100 dark:border-zinc-800">
                     <div><label className="field-label">Adjustment ({currency})</label><input type="number" className="field-input w-32" value={r.effects.feeAmount ?? ''} onChange={e => patchRuleEff(idx, { feeAmount: e.target.value === '' ? undefined : Number(e.target.value), feePercent: e.target.value === '' ? r.effects.feePercent : undefined })} placeholder="2000" /></div>
@@ -908,6 +916,12 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                       {label}
                     </button>
                   ))}
+                  <ConditionChips
+                    options={uniqConditions(draft.pricingRules.flatMap(x => x.conditions.custom ?? []))}
+                    selected={testFlags.custom}
+                    onChange={next => setTestFlags(f => ({ ...f, custom: next }))}
+                    allowAdd={false}
+                  />
                   <button onClick={runTest} disabled={testing} className="flex items-center gap-1.5 px-4 py-2 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-seafoam/90 disabled:opacity-50">
                     {testing ? <Loader2 size={12} className="animate-spin" /> : <Calculator size={12} />} Quote
                   </button>

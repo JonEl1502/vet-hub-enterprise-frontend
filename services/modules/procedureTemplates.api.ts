@@ -16,7 +16,7 @@ export type ProcQtyBasis = 'FIXED' | 'PER_KG' | 'MANUAL';
 
 export interface ProcedureStage { key: string; label: string; }
 
-export interface ProcedureFlags { inHeat?: boolean; pregnant?: boolean; emergency?: boolean; outOfHours?: boolean; }
+export interface ProcedureFlags { inHeat?: boolean; pregnant?: boolean; emergency?: boolean; outOfHours?: boolean; /** Staff-typed conditions (2026-11-21). */ custom?: string[]; }
 
 export interface ProcedureTemplateItem {
   id: string;
@@ -58,6 +58,8 @@ export interface ProcedurePricingRule {
     pregnant?: boolean;
     emergency?: boolean;
     outOfHours?: boolean;
+    /** The clinic's own typed conditions — every one must apply (2026-11-21). */
+    custom?: string[];
   };
   effects: { feeAmount?: number; feePercent?: number; label?: string };
   sortOrder?: number;
@@ -157,6 +159,8 @@ export interface ProcedureApplication {
   taskId: string | null;
   weightKg: number | null;
   flags: ProcedureFlags;
+  /** Custom conditions this procedure's rules test, offered as toggles on the visit. */
+  conditionOptions?: string[];
   skippedItems: Array<{ itemId?: string; name: string; reason: string }>;
   snapshot: any;
   createdAt: string;
