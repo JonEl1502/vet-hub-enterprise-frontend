@@ -33,6 +33,20 @@ export interface PetshopSaleResult {
   lines: { inventoryItemId: string; name: string; quantity: number; unitPrice: number; lineTotal: number }[];
 }
 
+export interface PetshopSummary {
+  start: string;
+  end: string;
+  sales: number;
+  revenue: number;
+  discounts: number;
+  averageSale: number;
+  itemsSold: number;
+  monthToDate: number;
+  monthSales: number;
+  byMethod: Record<string, number>;
+  topItems: { id: string; name: string; unit: string; units: number; revenue: number }[];
+}
+
 // A client's own Pet Shop purchase history (314) — separate ledger from
 // visit billing, same shape as a checkout result's lines/totals.
 export interface PetshopSaleRecord {
@@ -48,6 +62,9 @@ export interface PetshopSaleRecord {
 export const petshopAPI = {
   checkout: async (data: PetshopSalePayload, options?: RequestOptions): Promise<ApiResponse<PetshopSaleResult>> =>
     post(ENDPOINTS.PETSHOP.CHECKOUT, data, { showError: true, ...options }),
+  /** Shop takings for a local day range (YYYY-MM-DD, inclusive) — the owner dashboard row. */
+  summary: async (start: string, end: string, options?: RequestOptions): Promise<ApiResponse<PetshopSummary>> =>
+    get(`${ENDPOINTS.PETSHOP.SUMMARY}?start=${start}&end=${end}`, options),
   /** Units sold per item over `days` — the till's Best sellers / Never sold tabs. */
   stats: async (days = 30, options?: RequestOptions): Promise<ApiResponse<{ stats: { id: string; sold: number }[]; days: number }>> =>
     get(`${ENDPOINTS.PETSHOP.STATS}?days=${days}`, options),

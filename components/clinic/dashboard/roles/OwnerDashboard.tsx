@@ -4,7 +4,9 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
 import { Visit, ApptStatus } from '../../../../types';
-import { billsAPI, remindersAPI, Reminder } from '../../../../services';
+import { billsAPI, remindersAPI, Reminder, petshopAPI } from '../../../../services';
+import type { PetshopSummary } from '../../../../services/modules/petshop.api';
+import { usePlanAccess } from '../../../../contexts/PlanAccessContext';
 import { BillQueueRow } from '../../../../services/modules/bills.api';
 import { receivablesAPI, ArAgeing } from '../../../../services/modules/receivables.api';
 import { formatTime } from '../../../../services/utils/dateFormatter';
@@ -67,6 +69,22 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
   const [ar, setAr] = React.useState<ArAgeing | null>(null);
   const [reminders, setReminders] = React.useState<Reminder[]>([]);
   const { tasks, done, toggle } = useDayTasks('owner', TASKS);
+
+  // Pet shop takings for the same day range (user, 2026-11-21: "add shop
+  // sells stats"). Its own read — counter sales are not visits, so nothing
+  // already loaded here knows about them.
+  const { allows } = usePlanAccess();
+  const hasShop = allows('petshop');
+  const [shop, setShop] = React.useState<PetshopSummary | null>(null);
+  React.useEffect(() => {
+    if (!hasShop) return;
+    let alive = true;
+    setShop(null);
+    petshopAPI.summary(range.start, range.end, { silent: true } as any)
+      .then(r => { if (alive && r.success && r.data) setShop(r.data); })
+      .catch(() => { /* the row shows dashes */ });
+    return () => { alive = false; };
+  }, [hasShop, range.start, range.end]);
 
   React.useEffect(() => {
     let alive = true;
@@ -225,6 +243,48 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
           onClick: () => onNavigate?.('inventory'),
         },
       ]} />
+
+      {/* Row 3 — the pet shop counter. Shown locked (not hidden) on a plan
+          without Pet shop, so the owner can see what it would tell them. */}
+      {hasShop ? (
+        <div className="space-y-2">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-0.5">
+            Pet shop · {range.isToday ? 'today' : range.label}
+          </p>
+          <StatRow stats={[
+            {
+              label: range.isToday ? 'Shop sales today' : 'Shop sales', value: shop ? money(shop.revenue) : '—',
+              tone: 'good', sub: shop ? `${shop.sales} sale${shop.sales === 1 ? '' : 's'}` : 'Loading…',
+              onClick: () => onNavigate?.('petshop'),
+            },
+            { label: 'Items sold', value: shop ? shop.itemsSold.toLocaleString() : '—', sub: shop?.discounts ? `${money(shop.discounts)} in discounts` : 'Across all sales' },
+            { label: 'Average sale', value: shop ? money(shop.averageSale) : '—', sub: 'Per receipt' },
+            {
+              label: range.isToday ? 'Shop month to date' : 'Shop, that month', value: shop ? money(shop.monthToDate) : '—',
+              tone: 'good', sub: shop ? `${shop.monthSales} sale${shop.monthSales === 1 ? '' : 's'}` : '',
+            },
+            {
+              label: 'Top seller', value: shop?.topItems[0] ? <span className="text-base leading-tight line-clamp-2">{shop.topItems[0].name}</span> : '—',
+              sub: shop?.topItems[0] ? `${shop.topItems[0].units} ${shop.topItems[0].unit} · ${money(shop.topItems[0].revenue)}` : 'Nothing sold yet',
+            },
+            {
+              label: 'Paid by', value: shop && shop.revenue > 0
+                ? <span className="text-base leading-tight">{Object.entries(shop.byMethod).sort((a, b) => b[1] - a[1])[0][0].replace('M_PESA', 'M-Pesa').replace('_', ' ').toLowerCase().replace(/^\w/, c => c.toUpperCase())}</span>
+                : '—',
+              sub: shop && shop.revenue > 0
+                ? Object.entries(shop.byMethod).sort((a, b) => b[1] - a[1]).map(([m, v]) => `${m === 'M_PESA' ? 'M-Pesa' : m.charAt(0) + m.slice(1).toLowerCase().replace('_', ' ')} ${Math.round((v / shop.revenue) * 100)}%`).join(' · ')
+                : 'Cash, M-Pesa, card',
+            },
+          ]} />
+        </div>
+      ) : (
+        <RoleCard title="Pet shop sales" subtitle="Daily takings, items sold and best sellers from the pet shop till">
+          <div className="flex items-center justify-between gap-3">
+            <p className="text-[12px] text-slate-500 dark:text-zinc-400">Pet shop isn't on your plan yet.</p>
+            <button onClick={() => onNavigate?.('billing')} className="text-[10px] font-black uppercase tracking-widest text-seafoam hover:underline">See plans</button>
+          </div>
+        </RoleCard>
+      )}
 
       <RoleCard title="Last 7 days" subtitle="Revenue and visits, from the visits already loaded">
         <div className="h-56">
