@@ -89,7 +89,7 @@ const EmergencyBoardView: React.FC<Props> = ({ onOpenVisit, onStartVisit }) => {
         <div className="flex items-center gap-2">
           <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800">
             {FILTERS.map(f => (
-              <button key={f.value} onClick={() => setFilter(f.value)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filter === f.value ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{f.label}</button>
+              <button key={f.value} onClick={() => setFilter(f.value)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${filter === f.value ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-slate-600'}`}>{f.label}</button>
             ))}
           </div>
           {/* The board is a list of cases that already exist; the one thing it

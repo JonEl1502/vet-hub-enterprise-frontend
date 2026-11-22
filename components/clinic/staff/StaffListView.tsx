@@ -90,7 +90,7 @@ const StaffListView: React.FC<Props> = ({ staff, clinics, onAddStaff, onEditStaf
            <button
              key={r}
              onClick={() => setRoleFilter(r)}
-             className={`shrink-0 px-3.5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${roleFilter === r ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-md' : 'text-slate-400 hover:text-pine'}`}
+             className={`shrink-0 px-3.5 py-2 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${roleFilter === r ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-pine'}`}
            >
              {r === 'ALL' ? 'All' : roleShort(r)}
            </button>

@@ -727,7 +727,7 @@ const ClientPaymentsTab: React.FC<Props> = ({ clientId, currency, canCollect, on
           {SUBS.map(s => (
             <button key={s.id} onClick={() => setSub(s.id)}
               className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${
-                sub === s.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'
+                sub === s.id ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-slate-600'
               }`}>
               <s.icon size={12} /> {s.label}
               <span className="text-slate-400">({s.count})</span>

@@ -187,7 +187,7 @@ const ClinicStatistics: React.FC<{ clinicId?: string | number; currency?: string
         <div className="flex items-center gap-1 bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800">
           {presets.map(p => (
             <button key={p.id} onClick={() => applyPreset(p.id)}
-              className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${preset === p.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-500 hover:text-pine'}`}>{p.label}</button>
+              className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all ${preset === p.id ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-500 hover:text-pine'}`}>{p.label}</button>
           ))}
         </div>
       </div>

@@ -253,7 +253,7 @@ const PharmacyView: React.FC<Props> = ({ activeClinic }) => {
       <div className="flex gap-1.5 bg-slate-100 dark:bg-zinc-900 rounded-xl p-1 w-fit">
         {([['stock', 'Stock', PackageSearch], ['dispensing', 'Dispensing log', ClipboardList]] as const).map(([id, label, Icon]) => (
           <button key={id} onClick={() => setTab(id)}
-            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${tab === id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>
+            className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-[11px] font-black uppercase tracking-widest transition-all ${tab === id ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300'}`}>
             <Icon size={13} /> {label}
           </button>
         ))}

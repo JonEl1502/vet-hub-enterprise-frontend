@@ -54,6 +54,21 @@ export const toneFromClass = (cls?: string | null): SoftTone | null => {
   return null;
 };
 
+/**
+ * A deep gradient for EVERY tone (2026-11-22: "well coloured like" the supplier
+ * revenue cards). `ink` is the text colour that reads on it.
+ */
+export const GRAD_FOR: Record<SoftTone, { bg: string; ink: string; sub: string; chip: string; rule: string }> = {
+  violet:  { bg: 'bg-gradient-to-br from-[#4c1d95] via-[#6d28d9] to-[#a855f7]', ink: 'text-white',     sub: 'text-violet-100/80',  chip: 'bg-white/15 text-white',     rule: 'border-white/20' },
+  sky:     { bg: 'bg-gradient-to-br from-[#0c4a6e] via-[#0369a1] to-[#0ea5e9]', ink: 'text-white',     sub: 'text-sky-100/80',     chip: 'bg-white/15 text-white',     rule: 'border-white/20' },
+  rose:    { bg: 'bg-gradient-to-br from-[#881337] via-[#be123c] to-[#f43f5e]', ink: 'text-white',     sub: 'text-rose-100/80',    chip: 'bg-white/15 text-white',     rule: 'border-white/20' },
+  teal:    { bg: 'bg-gradient-to-br from-[#134e4a] via-[#0f766e] to-[#14b8a6]', ink: 'text-white',     sub: 'text-teal-100/80',    chip: 'bg-white/15 text-white',     rule: 'border-white/20' },
+  amber:   { bg: 'bg-gradient-to-br from-[#F2A41C] via-[#f59e0b] to-[#fbbf24]', ink: 'text-[#3d2a05]', sub: 'text-[#3d2a05]/70',   chip: 'bg-white/30 text-[#3d2a05]', rule: 'border-[#3d2a05]/15' },
+  pine:    { bg: 'bg-gradient-to-br from-[#0f3d29] via-[#144E35] to-[#1f7a52]', ink: 'text-white',     sub: 'text-emerald-100/80', chip: 'bg-white/15 text-white',     rule: 'border-white/20' },
+  emerald: { bg: 'bg-gradient-to-br from-[#064e3b] via-[#047857] to-[#10b981]', ink: 'text-white',     sub: 'text-emerald-100/80', chip: 'bg-white/15 text-white',     rule: 'border-white/20' },
+  indigo:  { bg: 'bg-gradient-to-br from-[#312e81] via-[#4338ca] to-[#6366f1]', ink: 'text-white',     sub: 'text-indigo-100/80',  chip: 'bg-white/15 text-white',     rule: 'border-white/20' },
+};
+
 export const GRADIENT: Record<GradientTone, { bg: string; text: string; sub: string; chip: string }> = {
   pine:   { bg: 'bg-gradient-to-br from-[#0f3d29] via-[#144E35] to-[#1f7a52]', text: 'text-white',     sub: 'text-emerald-100/80', chip: 'bg-white/15 text-white' },
   ocean:  { bg: 'bg-gradient-to-br from-[#0c4a6e] via-[#0369a1] to-[#0ea5e9]', text: 'text-white',     sub: 'text-sky-100/80',     chip: 'bg-white/15 text-white' },

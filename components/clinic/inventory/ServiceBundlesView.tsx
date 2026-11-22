@@ -181,7 +181,7 @@ const ServiceBundlesView: React.FC = () => {
             <div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl w-max">
               {(['ITEMIZED', 'BATCH'] as BundlePricingMode[]).map(m => (
                 <button key={m} onClick={() => setEditing({ ...editing, pricingMode: m })}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.pricingMode === m ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.pricingMode === m ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300'}`}>
                   {m === 'ITEMIZED' ? 'Sum of services' : 'Bundle price'}
                 </button>
               ))}

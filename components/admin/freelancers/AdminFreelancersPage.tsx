@@ -317,7 +317,7 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
       <div className="flex gap-1 bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 w-max">
         {([['directory', 'Directory', LayoutGrid], ['charts', 'Charts', BarChart3]] as const).map(([id, label, Icon]) => (
           <button key={id} onClick={() => setTab(id)}
-            className={`flex items-center gap-1.5 px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${tab === id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-pine'}`}>
+            className={`flex items-center gap-1.5 px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${tab === id ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-pine'}`}>
             <Icon size={12} /> {label}
           </button>
         ))}

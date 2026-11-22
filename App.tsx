@@ -2209,7 +2209,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
               { id: 'wallet', label: 'Finance & BI' },
               { id: 'b2b', label: 'B2B Stats' }
             ].map(tab => (
-              <button key={tab.id} onClick={() => setDashboardTab(tab.id as any)} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${dashboardTab === tab.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>{tab.label}</button>
+              <button key={tab.id} onClick={() => setDashboardTab(tab.id as any)} className={`flex-1 sm:flex-none px-4 sm:px-6 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${dashboardTab === tab.id ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-pine'}`}>{tab.label}</button>
             ))}
           </div>
           {/* Finance Overview moved into Clinic Finance → Statistics (its first tab). */}

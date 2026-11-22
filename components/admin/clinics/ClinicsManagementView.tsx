@@ -533,7 +533,7 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
           ['charts', 'Charts', BarChart3] as const,
           ['directory', 'Directory', LayoutGrid] as const,
         ]).map(([id, label, Icon]) => (
-          <button key={id} onClick={() => setAdminTab(id)} className={`flex items-center gap-1.5 px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${adminTab === id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-pine'}`}><Icon size={12} /> {label}</button>
+          <button key={id} onClick={() => setAdminTab(id)} className={`flex items-center gap-1.5 px-5 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${adminTab === id ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-pine'}`}><Icon size={12} /> {label}</button>
         ))}
       </div>
 

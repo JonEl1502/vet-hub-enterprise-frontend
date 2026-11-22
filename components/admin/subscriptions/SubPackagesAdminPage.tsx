@@ -408,7 +408,7 @@ const SubPackagesAdminPage: React.FC = () => {
             key={key}
             onClick={() => setAudience(key)}
             className={`px-4 py-2 rounded-lg flex items-center gap-2 text-[10px] font-black uppercase tracking-widest transition-all ${
-              audience === key ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-500 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+              audience === key ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-500 hover:text-pine dark:hover:text-zinc-300'
             }`}
           >
             <Icon size={13} /> {label}
@@ -728,7 +728,7 @@ const SubPackagesAdminPage: React.FC = () => {
                     key={t.id}
                     onClick={() => setTab(t.id)}
                     className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                      tab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-seafoam dark:text-zinc-500'
+                      tab === t.id ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300'
                     }`}
                   >
                     <t.icon size={12}/> {t.label}

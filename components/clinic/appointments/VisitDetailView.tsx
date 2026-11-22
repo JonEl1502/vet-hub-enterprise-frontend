@@ -5219,7 +5219,7 @@ const VisitDetailInner: React.FC<Props> = ({
               door. Diagnostics-only visits (auto-created from New lab/imaging)
               skip the clinical wizard entirely. */}
           {visitTabs.map(t => (
-            <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm ring-1 ring-seafoam/30' : 'text-slate-600 dark:text-zinc-300 hover:text-pine hover:bg-white/60 dark:hover:bg-zinc-800/60'}`}>{t.label}</button>
+            <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-pine hover:bg-white/60 dark:hover:bg-zinc-800/60'}`}>{t.label}</button>
           ))}
           {/* Badge only for auto-created diagnostics visits — transfers have a
               REAL Clinical Transfer tab now (the badge read as an unclickable
@@ -8256,7 +8256,7 @@ const VisitDetailInner: React.FC<Props> = ({
               <button
                 onClick={() => setSummaryPreviewTab('summary')}
                 className={`flex-1 px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                  summaryPreviewTab === 'summary' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-lg dark:shadow-none' : 'text-seafoam dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+                  summaryPreviewTab === 'summary' ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-pine dark:hover:text-zinc-300'
                 }`}
               >
                 Summary
@@ -8264,7 +8264,7 @@ const VisitDetailInner: React.FC<Props> = ({
               <button
                 onClick={() => setSummaryPreviewTab('invoice')}
                 className={`flex-1 px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${
-                  summaryPreviewTab === 'invoice' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-lg dark:shadow-none' : 'text-seafoam dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+                  summaryPreviewTab === 'invoice' ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-pine dark:hover:text-zinc-300'
                 }`}
               >
                 Invoice
@@ -8273,7 +8273,7 @@ const VisitDetailInner: React.FC<Props> = ({
                 onClick={() => setSummaryPreviewTab('receipt')}
                 disabled={!appointment.isPaid}
                 className={`flex-1 px-4 py-2.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all disabled:opacity-30 disabled:cursor-not-allowed ${
-                  summaryPreviewTab === 'receipt' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-lg dark:shadow-none' : 'text-seafoam dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300'
+                  summaryPreviewTab === 'receipt' ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-pine dark:hover:text-zinc-300'
                 }`}
               >
                 Receipt {!appointment.isPaid && '(After Payment)'}

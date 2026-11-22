@@ -1169,8 +1169,8 @@ const PetProfileView: React.FC<Props> = ({
   const renderVaccines = () => (
     <div className="space-y-6 animate-in slide-in-from-bottom-4 duration-500">
       <div className="flex bg-slate-100 dark:bg-zinc-900 p-1.5 rounded-2xl border border-slate-200 dark:border-zinc-800">
-         <button onClick={() => setVaccineTab('timeline')} className={`flex-1 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${vaccineTab === 'timeline' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-xl border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>Immunization Timeline</button>
-         <button onClick={() => setVaccineTab('history')} className={`flex-1 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${vaccineTab === 'history' ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-xl border border-slate-200 dark:border-zinc-700' : 'text-slate-400 hover:text-pine'}`}>Verified Passport</button>
+         <button onClick={() => setVaccineTab('timeline')} className={`flex-1 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${vaccineTab === 'timeline' ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-pine'}`}>Immunization Timeline</button>
+         <button onClick={() => setVaccineTab('history')} className={`flex-1 px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${vaccineTab === 'history' ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-pine'}`}>Verified Passport</button>
       </div>
 
       {vaccineTab === 'timeline' ? (

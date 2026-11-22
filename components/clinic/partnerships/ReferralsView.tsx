@@ -212,7 +212,7 @@ const ReferralsView: React.FC<Props> = ({ referrals, activeClinic, clinics, pets
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${
-                activeTab === tab.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm border border-slate-200 dark:border-zinc-700' : 'text-seafoam dark:text-zinc-500 hover:text-pine'
+                activeTab === tab.id ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-pine'
               }`}
             >
               <tab.icon size={12} /> {tab.label}

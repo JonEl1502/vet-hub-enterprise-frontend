@@ -3,7 +3,7 @@ import { Home, Stethoscope, Scissors, BedDouble, Syringe, CalendarClock, BellRin
 import { Visit, ApptStatus } from '../../../../types';
 import { remindersAPI, Reminder } from '../../../../services';
 import { visitsInRange, hasCategory, inDayRange, DayRange } from './roleShared';
-import { SOFT, toneFromClass } from '../../../shared/stats/ColorTiles';
+import { GRAD_FOR, toneFromClass, SoftTone } from '../../../shared/stats/ColorTiles';
 
 /**
  * "Today's work in progress" — the one strip every role sees, so a groomer and
@@ -130,8 +130,9 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
       {/* Every card has the same three rows (user, 2026-11-22): the title on
           top, the figures in the middle, a footer line at the bottom — and the
           same size, whether or not it has a footer to show. */}
-      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 items-stretch">
-        {BLOCKS.map(b => {
+      {/* Three on the first row, four on the second (user, 2026-11-22: "grid 3 then 4"). */}
+      <div className="grid grid-cols-2 lg:grid-cols-12 gap-3 items-stretch">
+        {BLOCKS.map((b, i) => {
           // Started today (or on the picked day) — the number the strip's own
           // title promises. Carried-over (still open from before today) is
           // shown separately so it can never silently inflate "today"'s count
@@ -143,7 +144,7 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
           const waiting = mine.filter(v => v.status === ApptStatus.SCHEDULED).length;
           const done = mine.filter(v =>
             v.status === ApptStatus.COMPLETED || v.status === ApptStatus.PENDING_PAYMENT).length;
-          const tone = SOFT[toneFromClass(b.tint) ?? 'sky'];
+          const toneKey: SoftTone = toneFromClass(b.tint) ?? 'sky';
           // These counts include visits opened on EARLIER days, so the page they
           // open must not then hide them behind a today-onwards date filter —
           // the tile said 5 and the list it opened said none (user,
@@ -152,15 +153,16 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
           return (
             <WipCard
               key={b.key}
-              tone={tone}
+              span={i < 3 ? 'lg:col-span-4' : 'lg:col-span-3'}
+              tone={toneKey}
               icon={b.icon}
               label={b.label}
               onClick={onOpen ? () => onOpen(b.view, { openOnly: true }) : undefined}
               figures={[
-                { value: startedToday.length, label: 'Total', cls: tone.num, big: true },
-                { value: active, label: 'Active', cls: 'text-amber-600 dark:text-amber-400' },
-                { value: waiting, label: 'Waiting', cls: 'text-slate-500 dark:text-zinc-400' },
-                { value: done, label: 'Done', cls: 'text-emerald-600 dark:text-emerald-400' },
+                { value: startedToday.length, label: 'Total', big: true },
+                { value: active, label: 'Active' },
+                { value: waiting, label: 'Waiting' },
+                { value: done, label: 'Done' },
               ]}
               footer={carriedOver.length > 0 ? `+${carriedOver.length} more from before today` : 'Nothing carried over'}
               footerMuted={carriedOver.length === 0}
@@ -171,13 +173,14 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
         {/* Reminders — not a visit, so no Active/Waiting/Done breakdown; just
             what's due and how much of that is already overdue. Same frame. */}
         <WipCard
-          tone={SOFT.teal}
+          span={BLOCKS.length < 3 ? 'lg:col-span-4' : 'lg:col-span-3'}
+          tone="teal"
           icon={BellRing}
           label="Reminders"
           onClick={onOpen ? () => onOpen('reminders') : undefined}
           figures={[
-            { value: reminders.length, label: 'Due', cls: SOFT.teal.num, big: true },
-            { value: overdueReminders, label: 'Overdue', cls: overdueReminders ? 'text-rose-500' : 'text-slate-500 dark:text-zinc-400' },
+            { value: reminders.length, label: 'Due', big: true },
+            { value: overdueReminders, label: 'Overdue' },
           ]}
           footer={overdueReminders > 0 ? `${overdueReminders} need a call today` : 'All on time'}
           footerMuted={overdueReminders === 0}
@@ -190,39 +193,46 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
 export default WorkInProgressStrip;
 
 
-/** One work-in-progress card: title row, figures row, footer row — fixed frame. */
+/** One work-in-progress card: title row, figures row, footer row — fixed frame,
+ *  on the supplier dashboard's deep gradients (user, 2026-11-22). */
 const WipCard: React.FC<{
-  tone: { tile: string; icon: string; num: string; ring: string };
+  tone: SoftTone;
   icon: React.ComponentType<any>;
   label: string;
   onClick?: () => void;
-  figures: { value: number; label: string; cls: string; big?: boolean }[];
+  figures: { value: number; label: string; big?: boolean }[];
   footer: string;
   footerMuted?: boolean;
-}> = ({ tone, icon: Icon, label, onClick, figures, footer, footerMuted }) => {
+  span?: string;
+}> = ({ tone, icon: Icon, label, onClick, figures, footer, footerMuted, span = '' }) => {
+  const g = GRAD_FOR[tone];
   const Tag: any = onClick ? 'button' : 'div';
   return (
     <Tag
       {...(onClick ? { type: 'button', onClick, title: `Open ${label}` } : {})}
-      className={`h-full min-h-[136px] rounded-2xl border p-3 text-left flex flex-col transition-all ${tone.tile} ${
-        onClick ? `hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${tone.ring}` : ''
+      className={`${span} relative overflow-hidden h-full min-h-[140px] rounded-3xl p-4 text-left flex flex-col shadow-lg shadow-slate-900/10 ${g.bg} ${g.ink} ${
+        onClick ? 'hover:brightness-110 hover:-translate-y-0.5 active:scale-[0.99] transition cursor-pointer' : ''
       }`}
     >
+      {/* Decorative rings, as on the supplier cards */}
+      <span className="absolute -right-10 -top-10 w-32 h-32 rounded-full bg-white/10" />
+      <Icon className="absolute right-3 bottom-3 opacity-[0.12]" size={56} strokeWidth={1.5} />
       {/* Top: the title */}
-      <span className={`self-start inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${tone.icon}`}>
-        <Icon size={11} /> {label}
+      <span className="relative flex items-center justify-between gap-2">
+        <span className={`text-[10px] font-black uppercase tracking-[0.14em] ${g.sub}`}>{label}</span>
+        <span className={`w-8 h-8 rounded-xl grid place-items-center shrink-0 ${g.chip}`}><Icon size={15} /></span>
       </span>
       {/* Middle: the figures, on one baseline in four equal slots */}
-      <div className="flex-1 grid grid-cols-4 items-end gap-1 py-3">
+      <div className="relative flex-1 grid grid-cols-4 items-end gap-1 py-3">
         {figures.map(f => (
           <span key={f.label} className="min-w-0">
-            <span className={`block ${f.big ? 'text-xl' : 'text-sm'} font-black leading-none tabular-nums ${f.cls}`}>{f.value}</span>
-            <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400 mt-1 truncate">{f.label}</span>
+            <span className={`block ${f.big ? 'text-[26px]' : 'text-base'} font-black leading-none tabular-nums`}>{f.value}</span>
+            <span className={`block text-[8px] font-black uppercase tracking-wider mt-1 truncate ${g.sub}`}>{f.label}</span>
           </span>
         ))}
       </div>
       {/* Bottom: the footer line — always there, so every card is the same size */}
-      <p className={`pt-2 border-t border-dashed border-slate-200/70 dark:border-zinc-700 text-[9px] font-bold truncate ${footerMuted ? 'text-slate-300 dark:text-zinc-600' : 'text-slate-500 dark:text-zinc-400'}`}>
+      <p className={`relative pt-2 border-t border-dashed ${g.rule} text-[10px] font-bold truncate ${g.sub} ${footerMuted ? 'opacity-60' : ''}`}>
         {footer}
       </p>
     </Tag>

@@ -232,7 +232,7 @@ const AdminUsersPage: React.FC<{ onNavigate?: (view: string, params?: any) => vo
           <button
             key={s}
             onClick={() => setStatus(s)}
-            className={`px-5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${status === s ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-md' : 'text-slate-400 hover:text-pine'}`}
+            className={`px-5 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all ${status === s ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-pine'}`}
           >
             {s}
           </button>

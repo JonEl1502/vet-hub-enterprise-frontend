@@ -225,7 +225,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
             <div><label className={labelCls}>Specify body part *</label><input className={fieldCls} value={editing.bodyPart} onChange={e => setEditing({ ...editing, bodyPart: e.target.value })} placeholder="e.g. Left tarsus" required /></div>
           )}
           <div className="grid grid-cols-2 gap-3">
-            <div><label className={labelCls}>Source</label><div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl w-max">{(['INTERNAL', 'EXTERNAL'] as DiagSource[]).map(s => <button key={s} onClick={() => setEditing({ ...editing, source: s })} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.source === s ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>{s}</button>)}</div></div>
+            <div><label className={labelCls}>Source</label><div className="flex bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl w-max">{(['INTERNAL', 'EXTERNAL'] as DiagSource[]).map(s => <button key={s} onClick={() => setEditing({ ...editing, source: s })} className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.source === s ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300'}`}>{s}</button>)}</div></div>
             {editing.source === 'EXTERNAL' && (
               <div>
                 <label className={labelCls}>Direction</label>
@@ -235,7 +235,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
                     { v: 'RECEIVED', l: '📥 Results received' },
                   ] as const).map(d => (
                     <button key={d.v} onClick={() => setEditing({ ...editing, direction: d.v })}
-                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.direction === d.v ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>
+                      className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.direction === d.v ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300'}`}>
                       {d.l}
                     </button>
                   ))}
@@ -292,7 +292,7 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
             <div className="flex flex-wrap bg-slate-100 dark:bg-zinc-800 p-1 rounded-xl w-max">
               {[{ v: 'new', l: 'New walk-in' }, { v: 'existing', l: 'Previous visit' }].map(o => (
                 <button key={o.v} type="button" onClick={() => setEditing({ ...editing, linkMode: o.v, ...(o.v !== 'existing' ? { linkApptId: null, linkApptLabel: '' } : {}) })}
-                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.linkMode === o.v ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>{o.l}</button>
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${editing.linkMode === o.v ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300'}`}>{o.l}</button>
               ))}
             </div>
 

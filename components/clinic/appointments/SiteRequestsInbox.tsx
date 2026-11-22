@@ -291,7 +291,7 @@ const SiteRequestsInbox: React.FC<Props> = ({ onAccepted }) => {
         <div className="flex flex-wrap bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800">
           {TABS.map((t) => (
             <button key={t.value} onClick={() => { setTab(t.value); setOpenId(null); setDetail(null); }}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${tab === t.value ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400'}`}>
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest ${tab === t.value ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300'}`}>
               {t.label}
               {t.value && counts[t.value] ? <span className="ml-1.5 text-seafoam">{counts[t.value]}</span> : null}
             </button>

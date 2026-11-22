@@ -164,10 +164,9 @@ export const TabBar: React.FC<{ tabs: Array<{ id: string; label: string; count?:
   <div className="flex gap-1 overflow-x-auto no-scrollbar border-b border-slate-100 dark:border-zinc-800 px-3">
     {tabs.map((t) => (
       <button key={t.id} onClick={() => onChange(t.id)}
-        className={`relative shrink-0 px-3 py-3 text-[13px] font-semibold transition-colors ${value === t.id ? 'text-pine dark:text-zinc-100' : 'text-slate-400 hover:text-slate-600 dark:hover:text-zinc-300'}`}>
+        className={`relative shrink-0 my-2 px-3 py-1.5 rounded-lg text-[13px] font-semibold transition-colors ${value === t.id ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-pine hover:bg-slate-50 dark:hover:bg-zinc-800'}`}>
         {t.label}
-        {t.count != null && <span className="ml-1.5 text-[11px] font-medium text-slate-400 tabular-nums">{t.count.toLocaleString()}</span>}
-        {value === t.id && <span className="absolute left-2 right-2 -bottom-px h-0.5 rounded-full bg-seafoam" />}
+        {t.count != null && <span className={`ml-1.5 text-[11px] font-medium tabular-nums ${value === t.id ? 'text-white/80' : 'text-slate-400'}`}>{t.count.toLocaleString()}</span>}
       </button>
     ))}
   </div>

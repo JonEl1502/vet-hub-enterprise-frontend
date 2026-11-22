@@ -302,7 +302,7 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
         <div className="flex bg-slate-100 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800">
           {SCOPES.map(s => (
             <button key={s.value} onClick={() => setScope(s.value)}
-              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${scope === s.value ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>
+              className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all ${scope === s.value ? 'bg-seafoam text-white shadow-md shadow-seafoam/20' : 'text-slate-600 dark:text-zinc-300 hover:text-slate-600'}`}>
               {s.label}
             </button>
           ))}
