@@ -581,9 +581,22 @@ export interface PortalCropPlot {
   plantedOn: string | null; expectedHarvestOn: string | null;
 }
 
+export interface FeedingWindow { key?: string; label: string; at: string }
 export interface PortalFeedingPlan {
   id: string; name: string; animalGroupName: string | null; feedType: string | null;
   quantityKg: number | null; frequency: string; timesPerDay: number; lastFedAt: string | null;
+  // Owner-made, store-fed plans (2026-11-22)
+  animalGroupId?: string | null; farmAnimalId?: string | null; farmAnimalName?: string | null;
+  ownerManaged?: boolean; stockItemId?: string | null; stockItemName?: string | null;
+  quantity?: number | null; unit?: string | null; baseUnit?: string | null;
+  rationBase?: number | null; perDayBase?: number | null; storeOnHand?: number | null; daysLeft?: number | null;
+  startsOn?: string | null; endsOn?: string | null; notes?: string | null;
+  windows?: FeedingWindow[];
+  today?: { windows: Array<FeedingWindow & { key: string; fed: boolean; due: boolean; fedAt: string | null }>; fedCount: number } | null;
+}
+export interface FeedingPlanInput {
+  name: string; stockItemId: string; quantity: number; unit: string; windows: FeedingWindow[];
+  animalGroupId?: string | null; farmAnimalId?: string | null; startsOn?: string | null; notes?: string | null;
 }
 
 export interface PortalProduceSchedule {
@@ -765,8 +778,14 @@ export const clientPortalAPI = {
     get(`/portal/me/farms/${farmId}/feeding`, { cache: false, ...options }),
 
   /** Omit quantityKg to log the plan's own ration — one tap in a field. */
-  logFeeding: (planId: string, data: { quantityKg?: number; notes?: string } = {}, options?: RequestOptions): Promise<ApiResponse<{ log: { id: string; fedAt: string; quantityKg: number | null } }>> =>
+  logFeeding: (planId: string, data: { quantityKg?: number; notes?: string; windowKey?: string } = {}, options?: RequestOptions): Promise<ApiResponse<{ log: { id: string; fedAt: string; quantityKg: number | null; ranShort?: boolean; storeLeft?: number; storeUnit?: string } }>> =>
     post(`/portal/me/feeding-plans/${planId}/logs`, data, { showError: true, ...options }),
+  createFeedingPlan: (farmId: string, data: FeedingPlanInput, options?: RequestOptions): Promise<ApiResponse<{ id: string }>> =>
+    post(`/portal/me/farms/${farmId}/feeding-plans`, data, { showError: true, ...options }),
+  updateFeedingPlan: (planId: string, data: FeedingPlanInput, options?: RequestOptions): Promise<ApiResponse<{ id: string }>> =>
+    patch(`/portal/me/feeding-plans/${planId}`, data, { showError: true, ...options }),
+  stopFeedingPlan: (planId: string, options?: RequestOptions): Promise<ApiResponse<{ id: string }>> =>
+    post(`/portal/me/feeding-plans/${planId}/stop`, {}, { showError: true, ...options }),
 
   getFarmProduce: (farmId: string, options?: RequestOptions): Promise<ApiResponse<{ schedules: PortalProduceSchedule[]; records: PortalProduceRecord[] }>> =>
     get(`/portal/me/farms/${farmId}/produce`, { cache: false, ...options }),

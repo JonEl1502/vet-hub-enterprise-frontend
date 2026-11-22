@@ -12,6 +12,7 @@
  * entries only the owner can make are the point of the screen.
  */
 import React, { useCallback, useEffect, useState } from 'react';
+import FeedingPlanForm from './FeedingPlanForm';
 import { useNavigate } from 'react-router-dom';
 import { Sprout, Milk, Wheat, Check, Loader2, CalendarClock, AlertTriangle, Plus, MapPin, Siren, Pencil, Building2, Search, X } from 'lucide-react';
 import {
@@ -129,13 +130,18 @@ const ClientFarms: React.FC = () => {
 
   useEffect(() => { loadFarm(activeId, isFull); }, [activeId, isFull, loadFarm]);
 
-  const logFeed = async (plan: PortalFeedingPlan) => {
-    setFeeding(plan.id);
+  // The plan form (new or edit) — a page in the shell, not a modal.
+  const [planForm, setPlanForm] = useState<PortalFeedingPlan | 'NEW' | null>(null);
+
+  const logFeed = async (plan: PortalFeedingPlan, windowKey?: string) => {
+    setFeeding(windowKey ? `${plan.id}:${windowKey}` : plan.id);
     try {
-      const res = await clientPortalAPI.logFeeding(plan.id, {});
+      const res = await clientPortalAPI.logFeeding(plan.id, windowKey ? { windowKey } : {});
       if (res.success && res.data?.log) {
-        setPlans((prev) => prev.map((p) => (p.id === plan.id ? { ...p, lastFedAt: res.data!.log.fedAt } : p)));
-        toast.success(`${plan.name} — fed`);
+        const l = res.data.log;
+        if (l.ranShort) toast.warning(`${plan.name} recorded — but the store did not have enough. Add what you bought under Store.`);
+        else toast.success(l.storeLeft != null ? `${plan.name} — fed. ${Math.round(l.storeLeft * 10) / 10} ${l.storeUnit === 'KG' ? 'kg' : l.storeUnit === 'L' ? 'L' : 'pcs'} left in the store.` : `${plan.name} — fed`);
+        loadFarm(activeId, isFull); // slots, store balance and days-left all move
       }
     } finally { setFeeding(null); }
   };
@@ -251,6 +257,18 @@ const ClientFarms: React.FC = () => {
     );
   }
 
+  if (planForm && activeId) {
+    return (
+      <FeedingPlanForm
+        farmId={activeId}
+        groups={groups}
+        plan={planForm === 'NEW' ? null : planForm}
+        onCancel={() => setPlanForm(null)}
+        onDone={() => { setPlanForm(null); loadFarm(activeId, isFull); }}
+      />
+    );
+  }
+
   return (
     <div className="space-y-5">
       {/* Farm switcher — only when there's more than one */}
@@ -350,50 +368,79 @@ const ClientFarms: React.FC = () => {
       {/* Feeding — the daily action, first. PAID (livestock:farms). */}
       {isFull && (
       <section>
-        <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2 flex items-center gap-1.5">
-          <Sprout size={13} /> Today's feeding
-        </h3>
+        <div className="flex items-center justify-between mb-2">
+          <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 flex items-center gap-1.5">
+            <Sprout size={13} /> Today's feeding
+          </h3>
+          <button className="text-[10px] font-black uppercase tracking-widest cp-accent-text flex items-center gap-1" onClick={() => setPlanForm('NEW')}>
+            <Plus size={12} /> New plan
+          </button>
+        </div>
         {plans.length === 0 ? (
-          <div className="cp-card text-center px-5 py-6 text-xs text-slate-400">No feeding plans set up yet.</div>
+          <div className="cp-card text-center px-5 py-6">
+            <p className="text-sm font-bold text-slate-700">Feed on a routine?</p>
+            <p className="mt-1 text-xs text-slate-500 max-w-sm mx-auto">
+              Set what you feed, how much and when — once. Then one tap marks each feed done and takes it off your store.
+            </p>
+            <button className="cp-btn mt-3 inline-flex items-center gap-1.5" onClick={() => setPlanForm('NEW')}><Plus size={14} /> Make a feeding plan</button>
+          </div>
         ) : (
-          <div className="space-y-2">
-            {plans.map((p) => (
-              <div key={p.id} className="cp-card p-3.5 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-bold text-slate-800 truncate">{p.name}</p>
-                  <p className="text-[11px] text-slate-500 truncate">
-                    {[p.animalGroupName, p.feedType, p.quantityKg != null ? `${p.quantityKg} kg` : null]
-                      .filter(Boolean).join(' · ')}
-                  </p>
-                  <p className={`text-[10px] mt-0.5 font-semibold ${fedToday(p.lastFedAt) ? 'text-emerald-600' : 'text-amber-600'}`}>
-                    Last fed {fmtWhen(p.lastFedAt)}
-                  </p>
-                  {/* Named feeding times (161). A slot only reads overdue once
-                      its time has passed, so the morning chip doesn't shout at
-                      an owner who feeds at six in the evening. */}
-                  {(p as any).today?.windows?.length > 0 && (
-                    <div className="mt-1 flex flex-wrap gap-1">
-                      {(p as any).today.windows.map((w: any) => (
-                        <span key={w.key}
-                          className={`px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider ${
-                            w.fed ? 'bg-emerald-50 text-emerald-600'
-                              : w.due ? 'bg-rose-50 text-rose-600'
-                              : 'bg-slate-100 text-slate-400'}`}>
-                          {w.fed ? '✓' : w.due ? '!' : '·'} {w.label}
-                        </span>
-                      ))}
+          <div className="cp-card overflow-hidden divide-y divide-slate-100">
+            {plans.map((p) => {
+              const unitWord = p.baseUnit === 'KG' ? 'kg' : p.baseUnit === 'L' ? 'L' : p.baseUnit === 'PCS' ? 'pcs' : '';
+              const target = p.farmAnimalName ?? p.animalGroupName ?? 'All animals';
+              const ration = p.quantity != null
+                ? `${p.quantity} ${p.unit && p.unit !== p.baseUnit ? (p.unit.startsWith('U_') ? 'units' : p.unit.toLowerCase()) : unitWord}${p.rationBase != null && p.unit !== p.baseUnit ? ` (${Math.round(p.rationBase * 100) / 100} ${unitWord})` : ''}`
+                : p.quantityKg != null ? `${p.quantityKg} kg` : null;
+              const slots = p.today?.windows ?? [];
+              return (
+                <div key={p.id} className="p-3.5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{p.name}</p>
+                      <p className="text-[11px] text-slate-500 truncate">
+                        {[target, p.stockItemName ?? p.feedType, ration ? `${ration} a feed` : null].filter(Boolean).join(' · ')}
+                      </p>
+                      {p.daysLeft != null && (
+                        <p className={`text-[10px] mt-0.5 font-semibold ${p.daysLeft <= 3 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                          Store lasts ~{p.daysLeft} {p.daysLeft === 1 ? 'day' : 'days'} on this plan
+                        </p>
+                      )}
+                      {!p.ownerManaged && <p className="text-[10px] mt-0.5 text-slate-400">Set by your vet</p>}
                     </div>
+                    {p.ownerManaged && (
+                      <button className="shrink-0 p-1.5 text-slate-400 hover:text-emerald-600" onClick={() => setPlanForm(p)} aria-label={`Edit ${p.name}`}>
+                        <Pencil size={14} />
+                      </button>
+                    )}
+                  </div>
+                  {/* One button per feeding time: done ✓, due now, or later. */}
+                  {slots.length > 0 ? (
+                    <div className="mt-2.5 flex flex-wrap gap-1.5">
+                      {slots.map((w) => {
+                        const busy = feeding === `${p.id}:${w.key}`;
+                        return (
+                          <button key={w.key} type="button" disabled={w.fed || busy}
+                            onClick={() => logFeed(p, w.key)}
+                            className={`px-3 py-2 rounded-xl text-[11px] font-bold flex items-center gap-1.5 border transition-transform active:scale-95 ${
+                              w.fed ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                                : w.due ? 'bg-amber-400 text-amber-950 border-amber-400 shadow-sm'
+                                : 'bg-white text-slate-600 border-slate-200 dark:bg-transparent'}`}>
+                            {busy ? <Loader2 size={12} className="animate-spin" /> : w.fed ? <Check size={12} /> : null}
+                            {w.label} · {w.at}{w.fed ? '' : w.due ? ' — feed now' : ''}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <button onClick={() => logFeed(p)} disabled={feeding === p.id}
+                      className="mt-2.5 px-3.5 py-2 rounded-xl bg-pine text-white text-[11px] font-bold flex items-center gap-1.5 disabled:opacity-50">
+                      {feeding === p.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Fed
+                    </button>
                   )}
                 </div>
-                <button
-                  onClick={() => logFeed(p)}
-                  disabled={feeding === p.id}
-                  className="shrink-0 px-3.5 py-2.5 rounded-xl bg-pine text-white text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5 disabled:opacity-50"
-                >
-                  {feeding === p.id ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />} Fed
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
