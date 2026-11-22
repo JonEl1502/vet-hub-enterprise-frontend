@@ -37,6 +37,8 @@ interface Props {
    * quote `visit.totalCost`, which lags every line change.
    */
   onBillChange?: (bill: Bill | null) => void;
+  /** "Go finish them": opens the first unfinished record (grooming, lab…). */
+  onOpenRecord?: (rec: { kind: string; name: string }) => void;
   /**
    * Arrived here from "approve the bill on the visit to invoice it" on a
    * Financials → Bills row. Pulse the action that actually moves the bill along
@@ -86,7 +88,7 @@ const KIND_LABEL: Record<string, string> = {
   SERVICE: 'Service', CONSUMABLE: 'Consumable', MEDICATION: 'Medication', OTHER: 'Other',
 };
 
-const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange, highlightAction, pulseNonce = 0, syncNonce = 0, beneathLines, onAddProcedure, onOpenClientPayments }) => {
+const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onBillChange, highlightAction, pulseNonce = 0, syncNonce = 0, beneathLines, onAddProcedure, onOpenClientPayments, onOpenRecord }) => {
   const { inventory } = useData() as any;
   const [bill, setBill] = React.useState<Bill | null>(null);
   const [loading, setLoading] = React.useState(true);
@@ -404,10 +406,10 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
         title: open.length === 1 ? '1 record is still open' : `${open.length} records are still open`,
         message: `${list}\n\nApproving locks the clinical record, so anything unfinished now stays unfinished. Finish them first — or bill anyway if the client is paying up front.`,
         confirmLabel: 'Bill anyway',
-        cancelLabel: 'Go finish them',
+        cancelLabel: open.length ? `Open ${open[0].kind.toLowerCase()}: ${open[0].name}` : 'Go finish them',
         variant: 'danger',
       });
-      if (!ok) return;
+      if (!ok) { if (open[0]) onOpenRecord?.(open[0]); return; }
       try {
         apply(await billsAPI.approve(visit.id, encounterId, { acknowledgeIncomplete: true }));
         toast.success('Bill approved');

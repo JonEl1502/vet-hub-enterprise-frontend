@@ -357,9 +357,12 @@ const VisitDetailInner: React.FC<Props> = ({
   // Invoice/Receipt tabs exist only once the bill has GENERATED an invoice —
   // if the selection points at a hidden tab, fall back to the Bill.
   const invoiceReady = (liveBill && !liveBill.editable && String(liveBill.status) !== 'VOID') || !!appointment.isPaid;
-  useEffect(() => {
-    if (!invoiceReady) setActiveBottomTab(t => (t === 'invoice' || t === 'receipt') ? 'bill' : t);
-  }, [invoiceReady]);
+  /** An invoice document exists (same test the tab list always used). */
+  const invoiceGenerated = !!((liveBill && ['INVOICED', 'PAID', 'RECONCILED'].includes(String(liveBill.status))) || appointment.isPaid);
+  // 2026-11-22: Invoice and Receipt are ALWAYS shown (user: "let's have the
+  // bill, invoice and receipt tabs visible"). Opened too early they say which
+  // step is missing and take you to it, so nothing bounces back any more.
+  void invoiceReady;
   const [stayForReport, setStayForReport] = useState<any | null>(null);
   useEffect(() => {
     let alive = true;
@@ -566,10 +569,10 @@ const VisitDetailInner: React.FC<Props> = ({
         title: open.length === 1 ? '1 record is still open' : `${open.length} records are still open`,
         message: `${list}\n\nApproving locks the clinical record, so anything unfinished now stays unfinished. Finish them first — or bill anyway if the client is paying up front.`,
         confirmLabel: 'Bill anyway',
-        cancelLabel: 'Go finish them',
+        cancelLabel: open.length ? `Open ${open[0].kind.toLowerCase()}: ${open[0].name}` : 'Go finish them',
         variant: 'danger',
       });
-      if (!ok) return;
+      if (!ok) { openUnfinishedRecord(open[0]); return; }
       try {
         const res2 = await billsAPI.approve(appointment.id, undefined, { acknowledgeIncomplete: true });
         if (res2?.success && res2.data?.bill) setLiveBill(res2.data.bill);
@@ -842,6 +845,18 @@ const VisitDetailInner: React.FC<Props> = ({
     else if (workflowTab === 'boardingGate') wiz.goTo('boardingAssessment');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workflowTab]);
+
+  /**
+   * "Go finish them" (user, 2026-11-22: "open the first one in the list"). The
+   * refusal names the unfinished records; the way out goes straight to the
+   * first one's page for THIS visit instead of leaving staff to hunt for it.
+   */
+  const RECORD_PAGE: Record<string, string> = { Grooming: 'grooming', Lab: 'laboratory', Imaging: 'imaging', Surgery: 'surgery' };
+  const openUnfinishedRecord = (rec?: { kind: string; name: string }) => {
+    const page = rec ? RECORD_PAGE[rec.kind] : undefined;
+    if (page && onOpenModule) onOpenModule(page, String(appointment.id));
+    else setWorkflowTab('clinical');
+  };
 
   // Journey navigation: clicking an event jumps to where it happened.
   //
@@ -5204,7 +5219,7 @@ const VisitDetailInner: React.FC<Props> = ({
               door. Diagnostics-only visits (auto-created from New lab/imaging)
               skip the clinical wizard entirely. */}
           {visitTabs.map(t => (
-            <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}>{t.label}</button>
+            <button key={t.id} onClick={() => setWorkflowTab(t.id as any)} className={`px-4 py-2 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${workflowTab === t.id ? 'bg-white dark:bg-zinc-800 text-pine dark:text-zinc-100 shadow-sm ring-1 ring-seafoam/30' : 'text-slate-600 dark:text-zinc-300 hover:text-pine hover:bg-white/60 dark:hover:bg-zinc-800/60'}`}>{t.label}</button>
           ))}
           {/* Badge only for auto-created diagnostics visits — transfers have a
               REAL Clinical Transfer tab now (the badge read as an unclickable
@@ -6789,14 +6804,13 @@ const VisitDetailInner: React.FC<Props> = ({
                          // count. ISSUED is deliberately absent: pay-first quotes
                          // a bill without producing an invoice document.
                          // `isPaid` keeps legacy pre-bill visits reachable.
-                         ...((liveBill && ['INVOICED', 'PAID', 'RECONCILED'].includes(String(liveBill.status))) || appointment.isPaid
-                           ? [
-                               { id: 'invoice', label: 'Invoice', icon: Printer },
-                               // Label follows the document the server will return:
-                               // a filled bill has a Receipt, a part-paid one a slip.
-                               { id: 'receipt', label: reconciliationState && !reconciliationState.settled ? 'Reconciliation' : 'Receipt', icon: Receipt },
-                             ]
-                           : []),
+                         // Always listed now (2026-11-22). Until their step is
+                         // reached they open a "do this first" card with a
+                         // button to that step, and wear a small lock.
+                         { id: 'invoice', label: 'Invoice', icon: Printer, pending: !invoiceGenerated },
+                         // Label follows the document the server will return:
+                         // a filled bill has a Receipt, a part-paid one a slip.
+                         { id: 'receipt', label: reconciliationState && !reconciliationState.settled ? 'Reconciliation' : 'Receipt', icon: Receipt, pending: !(appointment.isPaid || hasMoneyActivity) },
                        ]
                      : [
                          // Reports follow the visit's ENCOUNTERS (user,
@@ -6816,10 +6830,10 @@ const VisitDetailInner: React.FC<Props> = ({
                      <button
                        key={tab.id}
                        onClick={() => { reportTabPickedRef.current = true; setActiveBottomTab(tab.id as any); }}
-                       disabled={tab.id === 'receipt' && !appointment.isPaid && !hasMoneyActivity}
-                       className={`shrink-0 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeBottomTab === tab.id ? 'bg-white dark:bg-zinc-900 text-pine dark:text-zinc-100 shadow-md border border-seafoam/20 dark:border-seafoam/10' : 'text-slate-400 dark:text-zinc-500 hover:text-pine dark:hover:text-zinc-300 hover:bg-white/50 dark:hover:bg-zinc-900/50 disabled:opacity-20 disabled:cursor-not-allowed'}`}
+                       className={`shrink-0 flex items-center justify-center gap-2 py-2.5 px-4 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${activeBottomTab === tab.id ? 'bg-seafoam text-white shadow-md' : 'bg-white/70 dark:bg-zinc-900/60 text-slate-600 dark:text-zinc-300 border border-slate-200 dark:border-zinc-700 hover:text-pine hover:border-seafoam/50 dark:hover:text-zinc-100'}`}
                      >
-                        <tab.icon size={12} className={activeBottomTab === tab.id ? 'text-seafoam' : ''} /> {tab.label}
+                        <tab.icon size={12} className={activeBottomTab === tab.id ? 'text-white' : 'text-seafoam'} /> {tab.label}
+                        {(tab as any).pending && <Lock size={10} className={activeBottomTab === tab.id ? 'text-white/80' : 'text-slate-400'} />}
                      </button>
                    ))}
                 </div>
@@ -7257,6 +7271,7 @@ const VisitDetailInner: React.FC<Props> = ({
                          onOpenInvoice={() => setActiveBottomTab('invoice')}
                        />
                        <BillPanel
+                         onOpenRecord={openUnfinishedRecord}
                          visit={appointment}
                          currency={activeClinic.currency}
                          onCollect={openSettleModal}
@@ -7297,7 +7312,39 @@ const VisitDetailInner: React.FC<Props> = ({
                      </div>
                    )}
 
-                   {activeBottomTab === 'invoice' && (() => {
+                   {/* ── Step gates (2026-11-22) ─────────────────────────────
+                       Invoice and Receipt are always reachable; opened before
+                       their step they say what's missing and go there. */}
+                   {activeBottomTab === 'invoice' && !invoiceGenerated && (
+                     <DocStepGate
+                       title="No invoice yet"
+                       text={billStage === 'INVOICE'
+                         ? 'The bill is approved. Generate the invoice from it on the Bill tab.'
+                         : 'The invoice is made from an approved bill. Approve the bill first, then generate the invoice.'}
+                       action={billStage === 'INVOICE' ? 'Go to Generate invoice' : 'Go to Approve bill'}
+                       onAction={() => { setActiveBottomTab('bill'); setPulseBillAction(n => n + 1); }}
+                     />
+                   )}
+                   {activeBottomTab === 'receipt' && !(appointment.isPaid || hasMoneyActivity) && (
+                     invoiceGenerated || billStage === 'PAY_FIRST' ? (
+                       <DocStepGate
+                         title="No payment yet"
+                         text="A receipt is issued when the client pays. Take the payment and the receipt appears here."
+                         action="Take payment"
+                         onAction={() => { openSettleModal(); }}
+                       />
+                     ) : (
+                       <DocStepGate
+                         title="No receipt yet"
+                         text={billStage === 'INVOICE'
+                           ? 'Generate the invoice first, then take payment — the receipt follows the payment.'
+                           : 'Approve the bill and generate the invoice first, then take payment — the receipt follows the payment.'}
+                         action={billStage === 'INVOICE' ? 'Go to Generate invoice' : 'Go to Approve bill'}
+                         onAction={() => { setActiveBottomTab('bill'); setPulseBillAction(n => n + 1); }}
+                       />
+                     )
+                   )}
+                   {activeBottomTab === 'invoice' && invoiceGenerated && (() => {
                      // Resolve which currency the invoice prints in. Default
                      // = clinic currency; user can override via the picker.
                      const printCurrency = (invoiceCurrency || activeClinic.currency || 'KES').toUpperCase();
@@ -9442,3 +9489,17 @@ const VisitDetailInner: React.FC<Props> = ({
 };
 
 export default VisitDetailView;
+
+
+/** "Do this first" card for a document tab opened before its step (2026-11-22). */
+const DocStepGate: React.FC<{ title: string; text: string; action: string; onAction: () => void }> = ({ title, text, action, onAction }) => (
+  <div className="flex flex-col items-center text-center py-10 px-4">
+    <span className="w-14 h-14 rounded-2xl bg-amber-500/10 text-amber-600 grid place-items-center"><Lock size={22} /></span>
+    <p className="mt-3 text-[15px] font-black text-pine dark:text-zinc-100">{title}</p>
+    <p className="mt-1 text-[12px] text-slate-500 dark:text-zinc-400 max-w-sm">{text}</p>
+    <button type="button" onClick={onAction}
+      className="mt-4 flex items-center gap-2 px-5 py-2.5 rounded-xl bg-seafoam text-white text-[11px] font-black uppercase tracking-widest shadow-md shadow-seafoam/20 hover:brightness-110 active:scale-[0.98] transition">
+      {action} <ArrowRight size={14} />
+    </button>
+  </div>
+);
