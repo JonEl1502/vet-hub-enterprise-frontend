@@ -132,6 +132,7 @@ const ClientFarms: React.FC = () => {
 
   // The plan form (new or edit) — a page in the shell, not a modal.
   const [planForm, setPlanForm] = useState<PortalFeedingPlan | 'NEW' | null>(null);
+  const [storeTick, setStoreTick] = useState(0);
 
   const logFeed = async (plan: PortalFeedingPlan, windowKey?: string) => {
     setFeeding(windowKey ? `${plan.id}:${windowKey}` : plan.id);
@@ -142,6 +143,7 @@ const ClientFarms: React.FC = () => {
         if (l.ranShort) toast.warning(`${plan.name} recorded — but the store did not have enough. Add what you bought under Store.`);
         else toast.success(l.storeLeft != null ? `${plan.name} — fed. ${Math.round(l.storeLeft * 10) / 10} ${l.storeUnit === 'KG' ? 'kg' : l.storeUnit === 'L' ? 'L' : 'pcs'} left in the store.` : `${plan.name} — fed`);
         loadFarm(activeId, isFull); // slots, store balance and days-left all move
+        setStoreTick((t) => t + 1); // the Store card fetches its own balance
       }
     } finally { setFeeding(null); }
   };
@@ -362,7 +364,7 @@ const ClientFarms: React.FC = () => {
       )}
 
       {/* Store — what is on hand, and what is running low. Both rungs. */}
-      {active && <FarmRemindersCard farmId={active.id} clinicLinked={!!active.clinic} />}
+      {active && <FarmRemindersCard key={`store-${storeTick}`} farmId={active.id} clinicLinked={!!active.clinic} />}
       {active && <FarmStoreCard farmId={active.id} />}
 
       {/* Feeding — the daily action, first. PAID (livestock:farms). */}
@@ -390,7 +392,7 @@ const ClientFarms: React.FC = () => {
               const unitWord = p.baseUnit === 'KG' ? 'kg' : p.baseUnit === 'L' ? 'L' : p.baseUnit === 'PCS' ? 'pcs' : '';
               const target = p.farmAnimalName ?? p.animalGroupName ?? 'All animals';
               const ration = p.quantity != null
-                ? `${p.quantity} ${p.unit && p.unit !== p.baseUnit ? (p.unit.startsWith('U_') ? 'units' : p.unit.toLowerCase()) : unitWord}${p.rationBase != null && p.unit !== p.baseUnit ? ` (${Math.round(p.rationBase * 100) / 100} ${unitWord})` : ''}`
+                ? `${p.quantity} ${p.unitLabel ?? unitWord}${p.rationBase != null && p.unit !== p.baseUnit ? ` (${Math.round(p.rationBase * 100) / 100} ${unitWord})` : ''}`
                 : p.quantityKg != null ? `${p.quantityKg} kg` : null;
               const slots = p.today?.windows ?? [];
               return (

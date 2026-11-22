@@ -179,8 +179,9 @@ const FeedingPlanForm: React.FC<Props> = ({ farmId, groups, plan, onDone, onCanc
             ))}
           </div>
           <div className="mt-2 flex gap-2">
-            <input className="cp-input flex-1 min-w-0" placeholder="Another time — e.g. Night" value={customLabel} onChange={(e) => setCustomLabel(e.target.value)} />
-            <input className="cp-input w-28" type="time" value={customAt} onChange={(e) => setCustomAt(e.target.value)} />
+            {/* `.cp-input` is width:100%, so each field gets a sized wrapper. */}
+            <div className="flex-1 min-w-0"><input className="cp-input w-full" placeholder="Another time — e.g. Night" value={customLabel} onChange={(e) => setCustomLabel(e.target.value)} /></div>
+            <div className="w-32 shrink-0"><input className="cp-input w-full" type="time" value={customAt} onChange={(e) => setCustomAt(e.target.value)} /></div>
             <button type="button" className="cp-btn-ghost !px-3" onClick={addCustom} aria-label="Add feeding time"><Plus size={15} /></button>
           </div>
         </div>

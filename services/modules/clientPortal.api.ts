@@ -588,7 +588,7 @@ export interface PortalFeedingPlan {
   // Owner-made, store-fed plans (2026-11-22)
   animalGroupId?: string | null; farmAnimalId?: string | null; farmAnimalName?: string | null;
   ownerManaged?: boolean; stockItemId?: string | null; stockItemName?: string | null;
-  quantity?: number | null; unit?: string | null; baseUnit?: string | null;
+  quantity?: number | null; unit?: string | null; unitLabel?: string | null; baseUnit?: string | null;
   rationBase?: number | null; perDayBase?: number | null; storeOnHand?: number | null; daysLeft?: number | null;
   startsOn?: string | null; endsOn?: string | null; notes?: string | null;
   windows?: FeedingWindow[];
