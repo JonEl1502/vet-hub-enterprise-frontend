@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import CpBand from '../CpBand';
 import { Loader2, Receipt, Smartphone, CreditCard, CheckCircle2, Clock, ReceiptText } from 'lucide-react';
 import { format } from 'date-fns';
 import { clientPortalAPI, toast, PortalInvoice } from '../../../services';
@@ -22,7 +23,7 @@ const ClientInvoices: React.FC = () => {
 
   return (
     <div className="space-y-5 fade-in">
-      <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>Invoices</h1>
+      <CpBand icon={Receipt} title="Invoices" subtitle="What you owe your clinic, and the receipts for what you've paid." />
 
       <div className="cp-pill-tabs">
         <button className={`cp-pill-tab ${tab === 'invoices' ? 'cp-pill-active' : ''}`} onClick={() => setTab('invoices')}>

@@ -5,8 +5,9 @@
  * the farmer bought it in — kg, a 20/50/100 kg bag, a bale, litres.
  */
 import React, { useCallback, useEffect, useState } from 'react';
+import CpBand from '../CpBand';
 import { useNavigate } from 'react-router-dom';
-import { Plus, AlertTriangle, ArrowDownToLine, ClipboardCheck, Wheat } from 'lucide-react';
+import { Plus, AlertTriangle, ArrowDownToLine, ClipboardCheck, Wheat, Package } from 'lucide-react';
 import {
   clientPortalAPI, type PortalFarm, type FarmStockItem, type FarmStockMovement, type StockCategory,
 } from '../../../services/modules/clientPortal.api';
@@ -180,13 +181,12 @@ const ClientFarmStore: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h2 className="text-xl font-black text-slate-800 dark:text-zinc-100">Store</h2>
-          <p className="text-xs text-slate-500">Feed, salt, drugs and supplies on hand</p>
-        </div>
-        <button className="cp-btn !py-2 !px-3.5 !text-xs flex items-center gap-1.5" onClick={() => open({ kind: 'ADD' })}><Plus size={14} /> Add item</button>
-      </div>
+      <CpBand
+        icon={Package}
+        title="Store"
+        subtitle="Feed, salt, drugs and supplies on hand"
+        actions={<button className="cp-btn !py-2 !px-3.5 !text-xs flex items-center gap-1.5" onClick={() => open({ kind: 'ADD' })}><Plus size={14} /> Add item</button>}
+      />
 
       {farms.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1">

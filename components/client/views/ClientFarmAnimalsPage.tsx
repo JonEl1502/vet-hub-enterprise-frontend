@@ -7,8 +7,9 @@
  * things only).
  */
 import React, { useCallback, useEffect, useState } from 'react';
+import CpBand from '../CpBand';
 import { useNavigate } from 'react-router-dom';
-import { MapPin } from 'lucide-react';
+import { MapPin, Beef } from 'lucide-react';
 import {
   clientPortalAPI,
   type PortalFarm, type PortalAnimalGroup, type PortalHoldings,
@@ -63,15 +64,12 @@ const ClientFarmAnimalsPage: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="page-header text-lg font-black text-slate-800 dark:text-zinc-100">Animals</h2>
-        {active && (
-          <p className="text-[11px] text-slate-500 flex items-center gap-1">
-            <MapPin size={11} /> {active.name}
-            {active.county ? ` · ${active.county}` : ''}
-          </p>
-        )}
-      </div>
+      <CpBand
+        icon={Beef}
+        eyebrow={active ? <span className="inline-flex items-center gap-1"><MapPin size={11} /> {active.name}{active.county ? ` · ${active.county}` : ''}</span> : undefined}
+        title="Animals"
+        subtitle="Your herds and flocks, and each animal in them."
+      />
 
       {farms.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1">

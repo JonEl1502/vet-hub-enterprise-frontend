@@ -15,6 +15,7 @@
  * belongs beside the treatments it produces.
  */
 import React, { useCallback, useEffect, useState } from 'react';
+import CpBand from '../CpBand';
 import { useNavigate } from 'react-router-dom';
 import {
   Stethoscope, Building2, Phone, Mail, Search, Sparkles, X, MapPin, Siren, ShieldCheck,
@@ -385,14 +386,12 @@ const ClientFarmMedical: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-black text-slate-800 dark:text-zinc-100">Medical</h2>
-        {active && (
-          <p className="text-[11px] text-slate-500 flex items-center gap-1">
-            <MapPin size={11} /> {active.name}
-          </p>
-        )}
-      </div>
+      <CpBand
+        icon={Stethoscope}
+        eyebrow={active ? <span className="inline-flex items-center gap-1"><MapPin size={11} /> {active.name}</span> : undefined}
+        title="Medical"
+        subtitle="Treatments, what they cost, and the vets who've seen your animals."
+      />
 
       {farms.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1">

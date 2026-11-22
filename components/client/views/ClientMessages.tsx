@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import CpBand from '../CpBand';
 import { Send, Loader2, MessageCircle, Building2 } from 'lucide-react';
 import { format, formatDistanceToNow, isSameDay } from 'date-fns';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
@@ -56,7 +57,7 @@ const ClientMessages: React.FC = () => {
   if (clinics.length === 0) {
     return (
       <div className="space-y-5 fade-in">
-        <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>Messages</h1>
+        <CpBand icon={MessageCircle} title="Messages" subtitle="Talk to your clinic." />
         <div className="cp-card p-8 text-center">
           <MessageCircle className="w-8 h-8 cp-accent-text mx-auto mb-2" />
           <p className="text-sm cp-muted">Connect to a clinic to start a conversation.</p>
@@ -69,7 +70,7 @@ const ClientMessages: React.FC = () => {
 
   return (
     <div className="space-y-4 fade-in">
-      <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>Messages</h1>
+      <CpBand icon={MessageCircle} title="Messages" subtitle={activeClinic ? `With ${activeClinic.name}` : 'Talk to your clinic.'} />
 
       {/* Thread picker (only when >1 clinic) */}
       {clinics.length > 1 && (

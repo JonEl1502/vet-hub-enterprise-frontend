@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import CpBand from '../CpBand';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FileText, Building2, Loader2 } from 'lucide-react';
+import { Plus, FileText, Building2, Loader2, PawPrint } from 'lucide-react';
 import { clientPortalAPI, PortalClinic } from '../../../services';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
 import CpModal from '../CpModal';
@@ -24,11 +25,11 @@ const ClientPets: React.FC = () => {
 
   return (
     <div className="space-y-5 fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>My pets</h1>
-          <p className="cp-muted text-sm">{clinics.length} {clinics.length === 1 ? 'clinic' : 'clinics'} connected</p>
-        </div>
+      <CpBand
+        icon={PawPrint}
+        title="My pets"
+        subtitle={`${clinics.length} ${clinics.length === 1 ? 'clinic' : 'clinics'} connected`}
+        actions={<>
         {/* One primary action: connect first, then it's all about pets
             (extra clinics live in Settings → Advanced). */}
         {clinics.length === 0 ? (
@@ -40,7 +41,8 @@ const ClientPets: React.FC = () => {
             <Plus className="w-4 h-4" /> Add pet
           </button>
         )}
-      </div>
+        </>}
+      />
 
       {loading ? (
         <div className="py-12"><LoadingSpinner message="Loading..." /></div>

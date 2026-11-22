@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import CpBand from '../CpBand';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft, Plus, Search, MapPin, Tag, ShieldCheck, Store, Eye,
@@ -849,17 +850,12 @@ const ClientMarket: React.FC = () => {
         <ArrowLeft className="w-3.5 h-3.5" /> My farm
       </button>
 
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>Market</h1>
-          <p className="text-sm mt-0.5" style={{ color: 'var(--cp-ink-soft)' }}>
-            Animals and produce, from farms on VetHubCore.
-          </p>
-        </div>
-        <button className="cp-btn shrink-0 flex items-center gap-1.5" onClick={() => setSellOpen(true)}>
-          <Plus className="w-3.5 h-3.5" /> Sell
-        </button>
-      </div>
+      <CpBand
+        icon={Store}
+        title="Market"
+        subtitle="Animals and produce, from farms on VetHubCore."
+        actions={<button className="cp-btn shrink-0 flex items-center gap-1.5" onClick={() => setSellOpen(true)}><Plus className="w-3.5 h-3.5" /> Sell</button>}
+      />
 
       <div className="overflow-x-auto -mx-1 px-1">
         <div className="inline-flex min-w-max p-1 rounded-2xl border"

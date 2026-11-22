@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
+import CpBand from '../CpBand';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Building2, Camera, ChevronDown, ChevronRight, LogOut, Loader2, Plus, ShieldQuestion } from 'lucide-react';
+import { ArrowLeft, Building2, Camera, ChevronDown, ChevronRight, LogOut, Loader2, Plus, ShieldQuestion, UserRound } from 'lucide-react';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useClientPortal } from '../../../contexts/ClientPortalContext';
 import { PortalClinic, clientPortalAPI } from '../../../services';
@@ -62,7 +63,7 @@ const ClientSettings: React.FC = () => {
         <ArrowLeft className="w-3.5 h-3.5" /> Home
       </button>
 
-      <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>Account & settings</h1>
+      <CpBand icon={UserRound} title="Account & settings" subtitle="Your profile, clinics and how we reach you." />
 
       {/* Profile */}
       <div className="cp-card p-5 flex items-center gap-4">

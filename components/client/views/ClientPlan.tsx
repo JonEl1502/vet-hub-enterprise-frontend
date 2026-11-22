@@ -1,8 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import CpBand from '../CpBand';
 import { useNavigate } from 'react-router-dom';
 import {
-  ArrowLeft, Check, Loader2, Sprout, ExternalLink, CreditCard, Layers, Lock,
-} from 'lucide-react';
+  ArrowLeft, Check, Loader2, Sprout, ExternalLink, CreditCard, Layers, Lock, Sparkles } from 'lucide-react';
 import { clientPortalAPI, PortalCommunityAddOn, PortalPlan, PortalPlanState } from '../../../services';
 import { CLIENT_FEATURE_CATALOG } from '../../../services/modules/subscriptionPackages.api';
 import { KEY_LABEL, BASELINE_KEYS } from '../../../services/entitlements';
@@ -232,15 +232,12 @@ const ClientPlan: React.FC = () => {
         <ArrowLeft className="w-3.5 h-3.5" /> Home
       </button>
 
-      <div>
-        <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>Your plan</h1>
-        <p className="text-sm mt-1" style={{ color: 'var(--cp-ink-soft)' }}>
+      <CpBand icon={Sparkles} title="Your plan" subtitle={<>
           You are on <strong>{current?.packageName ?? 'Free'}</strong>
           {current?.state === 'ACTIVE' && current.expiresAt
             ? ` until ${new Date(current.expiresAt).toLocaleDateString()}`
             : ' — and always will be, unless you choose to upgrade'}.
-        </p>
-      </div>
+        </>} />
 
       {/* ── Tabs ─────────────────────────────────────────────────────────
           The clinic and supplier billing pages' own strip, in portal tokens

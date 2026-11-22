@@ -2061,3 +2061,19 @@ body {
 /* Horizontal chip rows that scroll without a visible bar (shop pages). */
 .no-scrollbar { scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* Portal page band (CpBand, 2026-11-22): the gold badge, and the band's own
+   action button in harvest gold so it never sits green-on-green. */
+.client-portal .cp-band-badge {
+  width: 2.75rem; height: 2.75rem; border-radius: 1rem; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #3a2a05;
+  background: linear-gradient(135deg, #f6cf62 0%, #d99a1c 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 8px 18px -10px rgba(217, 154, 28, 0.9);
+}
+.client-portal .cp-band .cp-btn {
+  background: linear-gradient(135deg, #f6cf62 0%, #e0a72a 100%);
+  color: #2e2104;
+  box-shadow: 0 8px 18px -10px rgba(217, 154, 28, 0.9);
+}
+.client-portal .cp-band .cp-btn:hover { background: linear-gradient(135deg, #f8d877 0%, #e6b03a 100%); }

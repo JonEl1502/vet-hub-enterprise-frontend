@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import CpBand from '../CpBand';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Loader2, CalendarDays, Bell, ChevronRight, CalendarCheck } from 'lucide-react';
 import { format, isFuture, differenceInCalendarDays } from 'date-fns';
@@ -107,10 +108,12 @@ const ClientVisits: React.FC = () => {
 
   return (
     <div className="space-y-5 fade-in">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <h1 className="text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>Appointments &amp; Visits</h1>
-        <button className="cp-btn" onClick={() => setBooking(true)}><Plus className="w-4 h-4" /> Book an appointment</button>
-      </div>
+      <CpBand
+        icon={CalendarDays}
+        title="Appointments & visits"
+        subtitle="Reminders from your clinic, what you've booked, and every visit so far."
+        actions={<button className="cp-btn" onClick={() => setBooking(true)}><Plus className="w-4 h-4" /> Book an appointment</button>}
+      />
 
       <div className="cp-pill-tabs">
         <button className={`cp-pill-tab ${tab === 'reminders' ? 'cp-pill-active' : ''}`} onClick={() => setParams({ tab: 'reminders' })}>
