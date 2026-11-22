@@ -249,6 +249,11 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   );
   // Onboard this appointment to the in-patient program (creates a linked
   // hospitalization so the bill, cert and receipt track together).
+  // Leaving Follow-up unlinks the previous visit — the banner goes and nothing
+  // is sent (2026-11-22). It used to stay linked behind a Consultation.
+  useEffect(() => {
+    if (!(encounterType === 'VET_VISIT' && visitType === 'FOLLOW_UP')) setParentApptId(null);
+  }, [encounterType, visitType]);
   const [onboardInpatient, setOnboardInpatient] = useState(false);
   // Walk-in = unscheduled arrival. A standalone visit-level toggle (next to
   // Timing) available for every encounter type.
@@ -354,14 +359,12 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
    */
   const UI_ENCOUNTERS: { value: string; label: string; icon: string }[] = [
     { value: 'VET_VISIT', label: 'Vet visit', icon: '🩺' },
-    { value: 'VACCINATION', label: 'Vaccination', icon: '💉' },
     { value: 'BOARDING', label: 'Boarding', icon: '🏠' },
     { value: 'GROOMING', label: 'Grooming', icon: '✂️' },
   ];
   const [encounterChip, setEncounterChip] = useState<string>(
     // Legacy nav params may still pass the retired pseudo/encounter chips.
     initialEncounterType === 'GROOMING' || initialEncounterType === 'BOARDING' ? initialEncounterType
-      : initialEncounterType === 'VACCINATION' && !initialParentApptId ? 'VACCINATION'
       : 'VET_VISIT'
   );
   // Additional encounters stacked on the SAME visit (UI-only): each adds its
@@ -1441,7 +1444,11 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       totalCost: totalCost + seedCost,
       leadStaffId: formData.leadStaffId,
       originReferralId: initialReferralId,
-      parentAppointmentId: parentApptId,
+      // Only a FOLLOW-UP is linked to an earlier visit (2026-11-22): picking
+      // Follow-up, choosing the previous visit, then switching to Consultation
+      // used to still send the link, so the "new" visit was saved as a
+      // follow-up to the old one.
+      parentAppointmentId: encounterType === 'VET_VISIT' && visitType === 'FOLLOW_UP' ? parentApptId : null,
       encounterType,
       // visitType only applies to vet visits; null for grooming/boarding/etc.
       visitType: encounterType === 'VET_VISIT' ? visitType : null,
@@ -1603,7 +1610,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       {/* Encounter type — frames the whole appointment; decides the workflow */}
       <div data-tour="appointment-encounter-type" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm mb-3">
         <p className="text-[9px] font-black text-seafoam uppercase tracking-widest mb-2">Visit type</p>
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        <div className="grid grid-cols-3 gap-2">
           {UI_ENCOUNTERS.map(et => (
             <button
               key={et.value}
@@ -1650,17 +1657,52 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
           </div>
         )}
 
-        {encounterChip === 'VACCINATION' ? (
-          <p className="text-[10px] text-slate-400 dark:text-zinc-500 mt-2 font-medium">
-            Vaccination visit — health check (weight, temperature, temperament), the vaccine and its batch, the next due date,
-            any other billables, then the vaccination certificate.
-          </p>
-        ) : encounterType === 'VET_VISIT' ? (
-          <div className="flex flex-wrap items-center gap-1.5 mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Consult type</span>
-            {/* Deworming is no longer a visit type here — it's handled as its own
-                service/module, not a vet-visit typing chip. */}
-            {VISIT_TYPES.filter(vt => vt.value !== 'DEWORMING' && vt.value !== 'VACCINATION').map(vt => (
+        {encounterType === 'VET_VISIT' ? (
+          <div className="mt-3 pt-3 border-t border-slate-100 dark:border-zinc-800 space-y-2">
+            {/* The three ways a vet visit is booked, as big tabs (user,
+                2026-11-22: "under consultation … normal / vacc / deworming").
+                Each runs its own workflow: Normal the full consult, Vaccination
+                the vaccine flow ending in the certificate, Deworming the
+                weigh–dose–next-due flow. Emergency and Follow-up are the rarer
+                kinds, kept as small chips under them. */}
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Consult type</span>
+            <div className="grid grid-cols-3 gap-2">
+              {([
+                { value: 'CONSULTATION', label: 'Normal', icon: '🩺' },
+                { value: 'VACCINATION', label: 'Vaccination', icon: '💉' },
+                { value: 'DEWORMING', label: 'Deworming', icon: '🪱' },
+              ] as const).map(t => {
+                const on = visitType === t.value || (t.value === 'CONSULTATION' && (visitType === 'EMERGENCY' || visitType === 'FOLLOW_UP' || !visitType));
+                const exact = visitType === t.value;
+                return (
+                  <button
+                    key={t.value}
+                    type="button"
+                    onClick={() => setVisitType(t.value as VisitType)}
+                    className={`flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wide border transition-all ${
+                      exact ? 'bg-seafoam text-white border-seafoam shadow-md shadow-seafoam/20'
+                      : on ? 'bg-seafoam/10 text-seafoam border-seafoam/40'
+                      : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
+                    }`}
+                  >
+                    <span>{t.icon}</span> {t.label}
+                  </button>
+                );
+              })}
+            </div>
+            {visitType === 'VACCINATION' && (
+              <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">
+                Health check (weight, temperature, temperament) → the vaccine and its batch → next due date → other billables → the vaccination certificate.
+              </p>
+            )}
+            {visitType === 'DEWORMING' && (
+              <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">
+                Weigh → the dewormer and dose → next due date → advice for the owner.
+              </p>
+            )}
+            <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Or</span>
+            {VISIT_TYPES.filter(vt => vt.value === 'EMERGENCY' || vt.value === 'FOLLOW_UP').map(vt => (
               <button
                 key={vt.value}
                 type="button"
@@ -1720,6 +1762,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                 nothing is lost, it just happens after the clinical decision
                 rather than before it. */
             }
+            </div>
           </div>
 
         ) : (

@@ -1,3 +1,4 @@
+import StaffWorkBand from './StaffWorkBand';
 import React from 'react';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useData } from '../../../../contexts/DataContext';
@@ -103,13 +104,10 @@ const RoleDashboard: React.FC<Props> = ({ onNavigate }) => {
       {/* The analytics band staff were missing (user, 2026-08-04) — the owner
           gets the clinic-wide pulse, this is the personal one: what THIS user
           was involved in and worked on over the picked day. */}
-      <StaffPulse
-        visits={visits}
-        range={range}
-        userId={user?.id}
-        scopeId={clinicCtx?.selectedClinicIds?.[0]}
-        roleLabel={roleLabel}
-      />
+      {/* Work for the period — the signed-in person's own (2026-11-22). */}
+      {clinicCtx?.selectedClinicIds?.[0] != null && (
+        <StaffWorkBand scopeId={clinicCtx.selectedClinicIds[0]} range={range} />
+      )}
 
       {/* Shared across every role: what the clinic is doing right now. */}
       <WorkInProgressStrip visits={visits} range={range} onOpen={(view, params) => onNavigate?.(view, params)} />

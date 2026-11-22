@@ -1,3 +1,5 @@
+import StaffWorkBand from './StaffWorkBand';
+import { summariesAPI } from '../../../../services/modules/summaries.api';
 import React from 'react';
 import { FileText, Receipt, CircleDollarSign, ChevronRight, Phone } from 'lucide-react';
 import {
@@ -70,6 +72,22 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
   const [reminders, setReminders] = React.useState<Reminder[]>([]);
   const { tasks, done, toggle } = useDayTasks('owner', TASKS);
 
+  // Money actually collected — the period, and month to date up to its end.
+  const [collected, setCollected] = React.useState<{ range: number; rangeCount: number; month: number; monthCount: number } | null>(null);
+  React.useEffect(() => {
+    if (scopeId == null) return;
+    let alive = true;
+    const monthStart = `${range.end.slice(0, 7)}-01`;
+    Promise.all([
+      summariesAPI.staffWork({ scopeId, start: range.start, end: range.end, userId: 'all' }, { silent: true } as any),
+      summariesAPI.staffWork({ scopeId, start: monthStart, end: range.end, userId: 'all' }, { silent: true } as any),
+    ]).then(([a, m]) => {
+      if (!alive || !a?.success || !m?.success) return;
+      setCollected({ range: a.data.collected, rangeCount: a.data.paymentsCount, month: m.data.collected, monthCount: m.data.paymentsCount });
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, [scopeId, range.start, range.end]);
+
   // Pet shop takings for the same day range (user, 2026-11-21: "add shop
   // sells stats"). Its own read — counter sales are not visits, so nothing
   // already loaded here knows about them.
@@ -110,15 +128,20 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
   const newClients = (clients || []).filter(c => inDayRange(range, (c as any).joinedAt || (c as any).createdAt));
   const awaitingPayment = today.filter(v => v.status === ApptStatus.PENDING_PAYMENT && !v.isPaid);
   const paidToday = today.filter(v => v.isPaid);
-  const revenueToday = paidToday.reduce((s, v) => s + Number(v.totalCost || 0), 0);
+  // MONEY COLLECTED in the period, from the ledger (2026-11-22). This summed
+  // the bills of visits SCHEDULED today that were fully paid — so the KES
+  // 4,193 taken today on earlier visits read as KES 0. Falls back to that old
+  // figure only until the server answers.
+  const visitRevenue = paidToday.reduce((s, v) => s + Number(v.totalCost || 0), 0);
+  const revenueToday = collected?.range ?? visitRevenue;
   const dueToday = awaitingPayment.reduce((s, v) => s + Number(v.totalCost || 0), 0);
-  const avgBill = paidToday.length ? revenueToday / paidToday.length : 0;
+  const avgBill = collected?.rangeCount ? revenueToday / collected.rangeCount : (paidToday.length ? visitRevenue / paidToday.length : 0);
 
   // Month to date, from the visits already loaded — a trend line, not the
   // ledger. Finance & BI is the authority on revenue; this is the pulse.
   const monthKey = range.start.slice(0, 7);
   const mtd = (visits || []).filter(v => v.isPaid && String(v.date || '').slice(0, 7) === monthKey);
-  const mtdRevenue = mtd.reduce((s, v) => s + Number(v.totalCost || 0), 0);
+  const mtdRevenue = collected?.month ?? mtd.reduce((s, v) => s + Number(v.totalCost || 0), 0);
 
   // "Awaiting approval / invoicing" = the bill queue that still needs a human.
   // On TODAY that is the whole queue, backlog included — a bill left unapproved
@@ -177,7 +200,8 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
       />
 
       {/* Conversion pulse — the day's numbers and conversion rates. */}
-      {scopeId != null && <ConversionPulse scopeId={scopeId} range={range} />}
+      {/* Work for the period — the whole clinic, or one person (2026-11-22). */}
+      {scopeId != null && <StaffWorkBand scopeId={scopeId} range={range} canPick currency={currency} />}
 
       {/* Same strip every role sees: what the clinic is doing right now. */}
       <WorkInProgressStrip visits={visits} range={range} onOpen={(view, params) => onNavigate?.(view, params)} />
@@ -202,11 +226,11 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
         },
         {
           label: range.isToday ? 'Revenue today' : 'Revenue', value: money(revenueToday),
-          tone: 'good', sub: `${paidToday.length} paid · ${range.label.toLowerCase()}`,
+          tone: 'good', sub: collected ? `${collected.rangeCount} payment${collected.rangeCount === 1 ? '' : 's'} · ${range.label.toLowerCase()}` : `${paidToday.length} paid · ${range.label.toLowerCase()}`,
         },
         {
           label: range.isToday ? 'Month to date' : 'That month', value: money(mtdRevenue),
-          tone: 'good', sub: `${mtd.length} paid visits`,
+          tone: 'good', sub: collected ? `${collected.monthCount} payments collected` : `${mtd.length} paid visits`,
         },
       ]} />
 
@@ -230,7 +254,7 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
           tone: needsAction.length ? 'warn' : 'default', sub: 'Raise · approve · invoice',
           onClick: () => onNavigate?.('revenue-desk'),
         },
-        { label: 'Average bill', value: money(avgBill), sub: `Per settled visit · ${range.label.toLowerCase()}` },
+        { label: 'Average payment', value: money(avgBill), sub: `Per payment · ${range.label.toLowerCase()}` },
         {
           label: 'Reminders due', value: reminders.length,
           tone: overdueReminders ? 'bad' : 'default', sub: `${overdueReminders} overdue`,

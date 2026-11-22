@@ -158,6 +158,20 @@ export const summariesAPI = {
   },
 
   /** Daily conversion pulse — visits done, booking→visit, reminder→visit, cross-sell. */
+  /**
+   * What a person (or the whole clinic, userId 'all'/omitted) DID in a period —
+   * the dashboard's work band. Staff always get their own; owners/managers may
+   * pick anyone.
+   */
+  staffWork: async (
+    opts: { scopeId: string | number; start: string; end: string; userId?: string | number | null },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<StaffWork>> => {
+    const q = new URLSearchParams({ scopeId: String(opts.scopeId), start: opts.start, end: opts.end });
+    if (opts.userId != null && opts.userId !== '') q.set('userId', String(opts.userId));
+    return get(`/summaries/staff-work?${q.toString()}`, { cache: false, ...options });
+  },
+
   conversions: async (
     // `start`/`end` are LOCAL YYYY-MM-DD (the dashboard day picker, 2026-08-04)
     // and replace the rolling `days` window server-side when both are given.
@@ -288,3 +302,24 @@ export const summariesAPI = {
   ): Promise<ApiResponse<SummaryBreakdownResponse>> =>
     get(`${ENDPOINTS.SUMMARIES.BASE}${buildQuery({ ...opts, breakdown: true })}`, { cache: true, ...options }),
 };
+
+
+export interface StaffWork {
+  window: { start: string; end: string; days: number };
+  userId: string | null;
+  canSeeOthers: boolean;
+  visitsBooked: number;
+  visitsLed: number;
+  visitsDone: number;
+  visitsInProgress: number;
+  appointmentsSet: number;
+  appointmentsConverted: number;
+  remindersSet: number;
+  remindersDue: number;
+  remindersConverted: number;
+  remindersClosed: number;
+  servicesAttended: number;
+  billsApproved: number;
+  paymentsCount: number;
+  collected: number;
+}
