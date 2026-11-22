@@ -271,15 +271,17 @@ const ClientFarms: React.FC = () => {
       )}
 
       {active && (
-        <div className="cp-card relative p-4 sm:p-5">
+        <div className="cp-hero relative p-4 sm:p-6 text-white overflow-hidden">
+          {/* The farm's own field band (user, 2026-11-22: "look like a farm
+              product … very beautiful"): the welcome is the hero, not a card. */}
           <div className="flex items-start justify-between gap-3 sm:pr-56">
             <div className="min-w-0 flex items-start gap-3">
-              <span className="cp-icon-btn hidden sm:inline-flex"><Sprout size={18} /></span>
+              <span className="hidden sm:inline-flex w-11 h-11 rounded-2xl items-center justify-center shrink-0 text-[#3a2a05] shadow-md" style={{ background: 'linear-gradient(135deg,#f6cf62,#d99a1c)' }}><Sprout size={20} /></span>
               <div className="min-w-0">
-                <p className="text-[10px] font-bold cp-muted">{greeting()}</p>
-                <h2 className="text-base font-black text-slate-800 truncate">{active.name}</h2>
+                <p className="text-[11px] font-semibold text-[#f2d58a]">{greeting()}</p>
+                <h2 className="text-lg sm:text-xl font-black text-white truncate">{active.name}</h2>
                 {(active.county || active.location) && (
-                  <p className="text-[11px] text-slate-500 flex items-center gap-1 mt-0.5">
+                  <p className="text-[11px] text-white/70 flex items-center gap-1 mt-0.5">
                     <MapPin size={11} /> {[active.county, active.location].filter(Boolean).join(' · ')}
                   </p>
                 )}
@@ -299,13 +301,13 @@ const ClientFarms: React.FC = () => {
             >
               {active.clinic ? (
                 <>
-                  <span className="block text-[10px] text-slate-400">Cared for by</span>
-                  <span className="text-[11px] font-bold text-slate-600 dark:text-zinc-300 group-hover:text-pine flex items-center gap-1 justify-end">
+                  <span className="block text-[10px] text-white/60">Cared for by</span>
+                  <span className="text-[11px] font-bold text-white group-hover:text-[#f2d58a] flex items-center gap-1 justify-end">
                     {active.clinic.name} <Pencil size={9} className="opacity-50" />
                   </span>
                 </>
               ) : (
-                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest cp-accent-text">
+                <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-[#f2d58a]">
                   <Building2 size={11} /> Connect a clinic
                 </span>
               )}
@@ -317,11 +319,11 @@ const ClientFarms: React.FC = () => {
               spread out on a phone where there is nothing else on the row.
               `cropPlotCount` is dropped on the free tier — a farmer with no
               crops module does not need a permanent zero. */}
-          <div className="mt-3 sm:mt-0 sm:absolute sm:right-5 sm:top-5 flex items-center justify-around sm:justify-end gap-5 sm:gap-6">
-            <div className="text-center"><p className="text-lg font-black text-slate-800 dark:text-zinc-100 leading-none">{active.headCount}</p><p className="text-[9px] uppercase tracking-widest text-slate-400 mt-1">Head</p></div>
-            <div className="text-center"><p className="text-lg font-black text-slate-800 dark:text-zinc-100 leading-none">{active.animalGroupCount}</p><p className="text-[9px] uppercase tracking-widest text-slate-400 mt-1">Kinds</p></div>
+          <div className="mt-3 sm:mt-0 sm:absolute sm:right-6 sm:top-6 flex items-center justify-around sm:justify-end gap-5 sm:gap-6">
+            <div className="text-center"><p className="text-2xl font-black text-white leading-none tabular-nums">{active.headCount}</p><p className="text-[9px] uppercase tracking-widest text-white/60 mt-1">Head</p></div>
+            <div className="text-center"><p className="text-2xl font-black text-white leading-none tabular-nums">{active.animalGroupCount}</p><p className="text-[9px] uppercase tracking-widest text-white/60 mt-1">Kinds</p></div>
             {isFull && (
-              <div className="text-center"><p className="text-lg font-black text-slate-800 dark:text-zinc-100 leading-none">{active.cropPlotCount}</p><p className="text-[9px] uppercase tracking-widest text-slate-400 mt-1">Plots</p></div>
+              <div className="text-center"><p className="text-2xl font-black text-white leading-none tabular-nums">{active.cropPlotCount}</p><p className="text-[9px] uppercase tracking-widest text-white/60 mt-1">Plots</p></div>
             )}
           </div>
         </div>
