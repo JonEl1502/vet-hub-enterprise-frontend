@@ -17,6 +17,7 @@ import RemindersApptsTab from '../shared/RemindersApptsTab';
 import { petsAPI, PetSnapshot, PetTimelineEntry } from '../../../services/modules/pets.api';
 import { uploadsAPI } from '../../../services/modules/uploads.api';
 import PetAvatar from '../shared/PetAvatar';
+import PetMedicalReportModal from './PetMedicalReportModal';
 import { clientsAPI } from '../../../services';
 import { toast } from '../../../services/utils/toast';
 import { remindersAPI, appointmentsAPI } from '../../../services';
@@ -37,7 +38,16 @@ import type { ClientBilling } from '../../../services/modules/clients.api';
  * inpatient, vaccination and deworming are all records of this patient, so they
  * are sub-views of a single tab rather than a row of competing top-level tabs.
  */
-type RecordSubTab = 'all' | 'history' | 'vaccinations' | 'deworming' | 'grooming' | 'boarding' | 'inpatient';
+type ReportKind = 'medical' | 'vaccination' | 'deworming' | 'grooming' | 'boarding' | 'inpatient';
+const REPORT_KINDS: { id: ReportKind; label: string; tone: string }[] = [
+  { id: 'medical', label: 'Medical', tone: 'bg-cyan/10 text-cyan border-cyan/20' },
+  { id: 'vaccination', label: 'Vaccination', tone: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20' },
+  { id: 'deworming', label: 'Deworming', tone: 'bg-lime-500/10 text-lime-700 border-lime-500/20' },
+  { id: 'grooming', label: 'Grooming', tone: 'bg-pink-500/10 text-pink-600 border-pink-500/20' },
+  { id: 'boarding', label: 'Boarding', tone: 'bg-amber-500/10 text-amber-600 border-amber-500/20' },
+  { id: 'inpatient', label: 'Inpatient', tone: 'bg-violet-500/10 text-violet-600 border-violet-500/20' },
+];
+type RecordSubTab = 'reports' | 'all' | 'history' | 'vaccinations' | 'deworming' | 'grooming' | 'boarding' | 'inpatient';
 
 const BEHAVIOUR_TRAITS =['Calm', 'Very happy', 'Likes petting', 'Well trained', 'Good with kids', 'Food motivated', 'Playful', 'Nervous', 'Anxious at vet', 'Aggressive', 'May bite', 'Hates nail trims', 'Vocal'];
 
@@ -126,7 +136,7 @@ const PetProfileView: React.FC<Props> = ({
     : initialTab === 'grooming' ? 'grooming'
     : initialTab === 'boarding' ? 'boarding'
     : initialTab === 'inpatient' ? 'inpatient'
-    : initialVisitId ? 'history' : 'all'
+    : initialVisitId ? 'history' : 'reports'
   );
   useEffect(() => {
     if (!initialVisitId) return;
@@ -178,11 +188,40 @@ const PetProfileView: React.FC<Props> = ({
     return () => { alive = false; };
   }, [pet.id]);
 
+  // Reports: every visit that has started, tagged with the kinds of record it
+  // holds. A visit can carry several (a vaccination plus a grooming add-on).
+  const reportRows = useMemo(() => {
+    const dewormedVisitIds = new Set(petDeworming.map((r: any) => String(r.appointmentId ?? '')));
+    return appointments
+      .filter(a => a.status !== ApptStatus.SCHEDULED && a.status !== ApptStatus.CANCELLED && String(a.status) !== 'NO_SHOW')
+      .map(a => {
+        const vt = String((a as any).visitType || '');
+        const cats = (a.tasks || []).map(t => lcCat(t.category) + ' ' + lcCat(t.name));
+        const kinds: ReportKind[] = [];
+        const isVacc = vt === 'VACCINATION' || a.encounterType === 'VACCINATION' || cats.some(c => c.includes('vacc'));
+        const isDeworm = vt === 'DEWORMING' || dewormedVisitIds.has(String(a.id)) || cats.some(c => c.includes('deworm'));
+        const isInpatient = !!a.hospitalizationId || vt === 'INPATIENT';
+        if (isMedicalVisit(a) && !isVacc && !isDeworm && !isInpatient) kinds.push('medical');
+        if (isVacc) kinds.push('vaccination');
+        if (isDeworm) kinds.push('deworming');
+        if (isGroomingVisit(a)) kinds.push('grooming');
+        if (isBoardingVisit(a)) kinds.push('boarding');
+        if (isInpatient) kinds.push('inpatient');
+        if (kinds.length === 0) kinds.push('medical');
+        return { visit: a, kinds };
+      })
+      .sort((x, y) => new Date(y.visit.date).getTime() - new Date(x.visit.date).getTime());
+  }, [appointments, petDeworming, isMedicalVisit, isGroomingVisit, isBoardingVisit]);
+
   // Boarding stays for this patient — feeds the Boarding record (kennel,
   // belongings log, feeding schedule, daily logs) + the printable report.
   const [petStays, setPetStays] = useState<any[]>([]);
   const [reportStay, setReportStay] = useState<any | null>(null);
   const [groomingReportVisit, setGroomingReportVisit] = useState<Visit | null>(null);
+  // Reports sub-tab (user, 2026-11-22): every report this patient has, one
+  // list, filtered by the TYPE of record.
+  const [reportFilter, setReportFilter] = useState<ReportKind | 'all'>('all');
+  const [medicalReportVisit, setMedicalReportVisit] = useState<Visit | null>(null);
   useEffect(() => {
     let alive = true;
     if (boardingVisits.length === 0) { setPetStays([]); return; }
@@ -1924,6 +1963,7 @@ const PetProfileView: React.FC<Props> = ({
                main tab bar above already scrolls; this now matches it. */
            <div className="flex gap-1 overflow-x-auto no-scrollbar bg-slate-50 dark:bg-zinc-900 p-1 rounded-xl border border-slate-200 dark:border-zinc-800 max-w-full mb-6">
              {([
+               { id: 'reports', label: 'Reports', icon: FileText },
                { id: 'all', label: 'All Visits', icon: Calendar },
                { id: 'history', label: 'Clinical Records', icon: Clipboard },
                { id: 'vaccinations', label: 'Vaccinations', icon: ShieldCheck },
@@ -1952,6 +1992,90 @@ const PetProfileView: React.FC<Props> = ({
              ))}
            </div>
         )}
+        {activeTab === 'records' && visitSubTab === 'reports' && (() => {
+          const counts = REPORT_KINDS.reduce((m, k) => ({ ...m, [k.id]: reportRows.filter(r => r.kinds.includes(k.id)).length }), {} as Record<ReportKind, number>);
+          const rows = reportFilter === 'all' ? reportRows : reportRows.filter(r => r.kinds.includes(reportFilter));
+          const clinicFor = (a: Visit) => activeClinic ?? clinics.find(c => Number(c.id) === Number(a.clinicId));
+          return (
+            <div className="space-y-4 animate-in fade-in slide-in-from-right-4">
+              {/* Filter by the type of record (user, 2026-11-22). */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Type of record</span>
+                {([{ id: 'all' as const, label: 'All', tone: '' }, ...REPORT_KINDS]).map(k => {
+                  const n = k.id === 'all' ? reportRows.length : counts[k.id];
+                  const on = reportFilter === k.id;
+                  return (
+                    <button key={k.id} type="button" onClick={() => setReportFilter(k.id)}
+                      className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wide border transition-all ${
+                        on ? 'bg-seafoam text-white border-seafoam shadow-sm' : 'bg-white dark:bg-zinc-900 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
+                      } ${n === 0 && !on ? 'opacity-50' : ''}`}>
+                      {k.label} <span className={on ? 'text-white/80' : 'text-slate-400'}>{n}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              {rows.length === 0 ? (
+                <div className="py-20 text-center border-4 border-dashed border-slate-100 dark:border-zinc-800 rounded-[3rem] opacity-30 uppercase font-black text-[10px] tracking-[0.2em]">
+                  {reportFilter === 'all' ? 'No reports yet' : `No ${REPORT_KINDS.find(k => k.id === reportFilter)?.label.toLowerCase()} reports yet`}
+                </div>
+              ) : (
+                <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm divide-y divide-slate-100 dark:divide-zinc-800 overflow-hidden">
+                  {rows.map(({ visit: a, kinds }) => {
+                    const shown = reportFilter === 'all' ? kinds : [reportFilter];
+                    const stay = petStays.find((s: any) => String(s.id) === String(a.boardingStayId ?? '') || String(s.appointmentId ?? '') === String(a.id));
+                    const medicalish = shown.some(k => k === 'medical' || k === 'vaccination' || k === 'deworming' || k === 'inpatient');
+                    const draft = a.status === ApptStatus.IN_PROGRESS;
+                    return (
+                      <div key={a.id} className="flex flex-wrap items-center gap-3 px-4 py-3 hover:bg-slate-50/60 dark:hover:bg-zinc-800/40">
+                        <div className="w-24 shrink-0">
+                          <p className="text-[12px] font-black text-pine dark:text-zinc-100">{formatDate(a.date)}</p>
+                          <p className="text-[9px] font-bold text-slate-400 uppercase">Visit #{getVisitNumber(a)}</p>
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1">
+                            {kinds.map(k => {
+                              const def = REPORT_KINDS.find(d => d.id === k)!;
+                              return <span key={k} className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded border ${def.tone}`}>{def.label}</span>;
+                            })}
+                            {draft && <span className="text-[8px] font-black uppercase px-1.5 py-0.5 rounded border bg-slate-100 dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700">In progress — draft</span>}
+                          </div>
+                          <p className="text-[11px] text-slate-500 dark:text-zinc-400 truncate mt-1">
+                            {(a.tasks || []).map(t => t.name).slice(0, 4).join(' · ') || 'No services recorded'}
+                            {a.assignedStaff ? ` — ${a.assignedStaff.name}` : ''}
+                          </p>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                          {medicalish && clinicFor(a) && (
+                            <button type="button" onClick={() => setMedicalReportVisit(a)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-seafoam text-white text-[9px] font-black uppercase tracking-wide hover:opacity-90">
+                              <FileText size={11} /> Medical report
+                            </button>
+                          )}
+                          {shown.includes('grooming') && (
+                            <button type="button" onClick={() => setGroomingReportVisit(a)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-pink-500/10 text-pink-600 border border-pink-500/20 text-[9px] font-black uppercase tracking-wide hover:bg-pink-500/20">
+                              <Smile size={11} /> Grooming report
+                            </button>
+                          )}
+                          {shown.includes('boarding') && stay && (
+                            <button type="button" onClick={() => setReportStay(stay)}
+                              className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-amber-500/10 text-amber-600 border border-amber-500/20 text-[9px] font-black uppercase tracking-wide hover:bg-amber-500/20">
+                              <Building2 size={11} /> Boarding report
+                            </button>
+                          )}
+                          {onViewAppointment && (
+                            <button type="button" onClick={() => onViewAppointment(a.id)} title="Open the visit"
+                              className="p-1.5 rounded-lg text-slate-400 hover:text-seafoam hover:bg-slate-100 dark:hover:bg-zinc-800"><ExternalLink size={13} /></button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })()}
         {activeTab === 'records' && visitSubTab === 'vaccinations' && renderVaccines()}
         {/* Deworming (088) — same standing as vaccinations: what was given, and
             what it made due next. */}
@@ -2689,6 +2813,15 @@ const PetProfileView: React.FC<Props> = ({
         </div>
       )}
 
+      {medicalReportVisit && (activeClinic ?? clinics.find(c => Number(c.id) === Number(medicalReportVisit.clinicId))) && (
+        <PetMedicalReportModal
+          visit={medicalReportVisit}
+          pet={pet}
+          client={owner ?? undefined}
+          clinic={(activeClinic ?? clinics.find(c => Number(c.id) === Number(medicalReportVisit.clinicId)))!}
+          onClose={() => setMedicalReportVisit(null)}
+        />
+      )}
       {/* Grooming Report (077) — per-workflow report for a grooming visit. */}
       {groomingReportVisit && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[800] flex items-center justify-center p-4 animate-in fade-in" onClick={() => setGroomingReportVisit(null)}>
