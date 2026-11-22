@@ -152,7 +152,7 @@ export type { User } from './modules/users.api';
 export type { Clinic } from './modules/clinics.api';
 export type { Client } from './modules/clients.api';
 export type { Pet } from './modules/pets.api';
-export type { Visit, Task, PaymentData } from './modules/appointments.api';
+export type { Visit, Task, PaymentData, FollowUpMissing, NeedsFollowUpVisit, NeedsFollowUpResponse } from './modules/appointments.api';
 export type { Transaction } from './modules/transactions.api';
 export type { MedicalRecord } from './modules/medicalRecords.api';
 export type { Category, CreateCategoryData, UpdateCategoryData } from './modules/categories.api';

@@ -55,6 +55,15 @@ interface Props {
   askAgainAt?: string;
   /** Set on a vaccination/deworming visit: the gate then also books the next appointment. */
   nextAppointment?: NextAppointmentRequirement | null;
+  /**
+   * Text of the secondary button that calls `onCancel`. The pre-receipt gate
+   * says "Take payment, set later" (owner, 2026-11-22: money first, then
+   * flag): that button takes the payment and the visit is flagged as needing
+   * follow-up. Defaults to "Cancel".
+   */
+  cancelLabel?: string;
+  /** The header ✕ — just close. Defaults to `onCancel`. */
+  onDismiss?: () => void;
   onCancel: () => void;
   // null = deceased bypass (finalize with no reminder). Otherwise one or more
   // drafts — "Add another reminder" lets grooming, a vaccination, and a
@@ -96,9 +105,11 @@ const reminderDayFor = (scheduled: Date) => {
  * or check-out raises this same gate, so skipping there defers rather than
  * drops. A deceased patient is the other bypass. Vaccination and deworming
  * visits also book the next appointment here (`nextAppointment`). The server
- * refuses the closing settle without these, so the gate is not the only check.
+ * never refuses a payment over this (owner, 2026-11-22: "money first, then
+ * flag"): the pre-receipt use offers "Take payment, set later", and a visit
+ * closed without its follow-up is flagged as needing it.
  */
-const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, encounterType, petDeceased, submitting, existing, askAgainAt, nextAppointment, onCancel, onConfirm }) => {
+const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, encounterType, petDeceased, submitting, existing, askAgainAt, nextAppointment, cancelLabel, onDismiss, onCancel, onConfirm }) => {
   const initialService = nextAppointment?.kind ?? defaultServiceFor(encounterType);
   const [serviceType, setServiceType] = useState<ReminderServiceType>(initialService);
   const [dueAt, setDueAt] = useState<string>(dateInDays(REMINDER_SERVICE_META[initialService].days));
@@ -176,7 +187,7 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
               <p className="text-[11px] text-white/80 font-medium">{petName} · {clientName}</p>
             </div>
           </div>
-          <button onClick={onCancel} disabled={submitting} className="p-1.5 rounded-lg hover:bg-white/15 disabled:opacity-50"><X size={18} /></button>
+          <button onClick={onDismiss ?? onCancel} disabled={submitting} aria-label="Close" className="p-1.5 rounded-lg hover:bg-white/15 disabled:opacity-50"><X size={18} /></button>
         </div>
 
         {petDeceased ? (
@@ -186,7 +197,7 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
               <p className="text-xs text-slate-500 dark:text-zinc-400 leading-relaxed">This patient is marked deceased, so no follow-up reminder is needed. The visit will be finalized and prior records remain visible.</p>
             </div>
             <div className="flex items-center justify-end gap-2">
-              <button onClick={onCancel} disabled={submitting} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50">Cancel</button>
+              <button onClick={onDismiss ?? onCancel} disabled={submitting} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50">Cancel</button>
               <button onClick={() => onConfirm(null)} disabled={submitting} className="flex items-center gap-2 px-5 py-2.5 bg-pine text-white rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-pine/90 active:scale-95 disabled:opacity-60">
                 {submitting ? <Loader2 size={14} className="animate-spin" /> : <ShieldAlert size={14} />} Finalize without reminder
               </button>
@@ -305,7 +316,7 @@ const FinalizeReminderGate: React.FC<Props> = ({ open, petName, clientName, enco
             </button>
 
             <div className="flex flex-wrap items-center justify-end gap-2 pt-1">
-              <button onClick={onCancel} disabled={submitting} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50">Cancel</button>
+              <button onClick={onCancel} disabled={submitting} className="px-4 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50">{cancelLabel ?? 'Cancel'}</button>
               {/* Skip (user, 2026-08-04) survives only while a stay is open:
                   the patient is not leaving, and discharge/check-out raise this
                   same gate. Owner's rule (2026-11-22) removed it everywhere

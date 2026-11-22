@@ -31,6 +31,7 @@ import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
 import { consumablesAPI, AppointmentConsumable, boardingAPI, inpatientAPI, labAPI, imagingAPI, clientsAPI, billsAPI, appointmentsAPI } from '../../../services';
+import type { FollowUpMissing } from '../../../services';
 import { serviceBundlesAPI, type ServiceBundle } from '../../../services/modules/serviceBundles.api';
 import { toast } from '../../../services/utils/toast';
 import { paymentGatewaysAPI } from '../../../services/modules/paymentGateways.api';
@@ -961,6 +962,25 @@ const VisitDetailInner: React.FC<Props> = ({
   const nextAppointmentReq: NextAppointmentRequirement | null = nextApptKind && !petIsDeceased
     ? { kind: nextApptKind, defaultDate: nextDueDefault, booked: nextBooking }
     : null;
+  /**
+   * "Needs follow-up" flag (owner, 2026-11-22: money first, then flag). The
+   * server computes it — paid/closed, pet alive, no open stay, and no reminder
+   * (or, vaccination/deworming, no next appointment). Read fresh: the visit
+   * payload in the store doesn't carry it.
+   */
+  const [followUpMissing, setFollowUpMissing] = useState<FollowUpMissing | null>(null);
+  const loadFollowUpMissing = useCallback(async () => {
+    if (!visitClosed) { setFollowUpMissing(null); return; }
+    try { setFollowUpMissing(await visitsAPI.followUpMissing(appointment.id)); } catch { /* non-fatal */ }
+  }, [appointment.id, visitClosed]);
+  useEffect(() => { loadFollowUpMissing(); }, [loadFollowUpMissing, appointment.status, appointment.isPaid]);
+  // The "set it now" gate on a closed visit asks only for what is missing.
+  const setNowRequirement: NextAppointmentRequirement | null = followUpMissing
+    ? (followUpMissing.nextAppointment && followUpMissing.kind && !petIsDeceased
+      ? { kind: followUpMissing.kind, defaultDate: nextDueDefault, booked: null }
+      : null)
+    : nextAppointmentReq;
+
   /** Book the next vaccination/deworming appointment from the gate. The server adds its 7-day reminder. */
   const createNextBooking = async (draft: NextBookingDraft): Promise<boolean> => {
     try {
@@ -4700,10 +4720,13 @@ const VisitDetailInner: React.FC<Props> = ({
         askAgainAt={(appointment as any).hospitalizationId ? 'at discharge'
           : (appointment as any).boardingStayId ? 'at check-out' : undefined}
         nextAppointment={nextAppointmentReq}
-        // Owner's rule (2026-11-22): cancelling no longer closes the visit
-        // without a follow-up. It backs out of THIS settle only; the server
-        // would refuse it anyway. A part payment is never routed here.
-        onCancel={() => { setPendingSettle(null); setShowPreReceiptReminder(false); }}
+        // Money first, then flag (owner, 2026-11-22): the gate asks first, but
+        // "Take payment, set later" takes the payment anyway — money never
+        // waits on the reminder (2026-07-30). The visit is then flagged as
+        // needing follow-up until someone sets it. ✕ backs out of the settle.
+        cancelLabel="Take payment, set later"
+        onCancel={() => { void proceedWithSettle(); }}
+        onDismiss={() => { setPendingSettle(null); setShowPreReceiptReminder(false); }}
         onConfirm={async (reminders, booking) => {
           // `reminders === null` is the deceased bypass or a stay's deferral.
           setGateSaving(true);
@@ -4712,6 +4735,7 @@ const VisitDetailInner: React.FC<Props> = ({
             if (reminders && !(await createVisitReminder(reminders))) return;
           } finally { setGateSaving(false); }
           await proceedWithSettle();
+          void loadFollowUpMissing();
         }}
       />
 
@@ -4724,7 +4748,9 @@ const VisitDetailInner: React.FC<Props> = ({
         petDeceased={petIsDeceased}
         submitting={gateSaving}
         existing={visitReminder}
-        nextAppointment={nextAppointmentReq}
+        // "Set it now" mode: saves the reminder(s) and booking only — this
+        // gate never takes a payment.
+        nextAppointment={setNowRequirement}
         onCancel={() => setShowReminderCreate(false)}
         onConfirm={async (reminders, booking) => {
           setGateSaving(true);
@@ -4732,6 +4758,7 @@ const VisitDetailInner: React.FC<Props> = ({
             if (booking && !(await createNextBooking(booking))) return;
             await createVisitReminder(reminders);
           } finally { setGateSaving(false); }
+          void loadFollowUpMissing();
         }}
       />
 
@@ -5512,6 +5539,26 @@ const VisitDetailInner: React.FC<Props> = ({
              supports it, and it keeps its navigation live (2026-08-04). */
           readOnly={!isEmergency || !canWriteClinical}
         />
+      )}
+
+      {/* Needs follow-up (owner, 2026-11-22): the visit closed — payment was
+          taken — without its reminder (or next appointment). Flag, don't block. */}
+      {followUpMissing && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 sm:gap-3 px-4 py-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+          <div className="min-w-0">
+            <p className="text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 flex items-center gap-1.5">
+              <AlertTriangle size={12} className="shrink-0" />
+              Follow-up not set — every visit ends with a reminder{followUpMissing.kind ? ' and the next appointment' : ''}
+            </p>
+            <p className="text-[10px] font-bold text-amber-700/80 dark:text-amber-300/80 mt-0.5">
+              Missing: {[followUpMissing.reminder && 'reminder', followUpMissing.nextAppointment && `next ${followUpMissing.kind === 'DEWORMING' ? 'deworming' : 'vaccination'} appointment`].filter(Boolean).join(' · ')}
+            </p>
+          </div>
+          <button onClick={() => setShowReminderCreate(true)}
+            className="shrink-0 flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-amber-500 text-white text-[10px] font-black uppercase tracking-widest hover:bg-amber-600 active:scale-[0.98] transition">
+            <Bell size={12} /> Set it now
+          </button>
+        </div>
       )}
 
       {/* Soft gate: nudge to stabilize first, but never block. */}

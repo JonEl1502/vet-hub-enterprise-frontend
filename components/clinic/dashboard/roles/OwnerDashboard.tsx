@@ -6,7 +6,7 @@ import {
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
 import { Visit, ApptStatus } from '../../../../types';
-import { billsAPI, remindersAPI, Reminder, petshopAPI } from '../../../../services';
+import { billsAPI, remindersAPI, Reminder, petshopAPI, visitsAPI } from '../../../../services';
 import type { PetshopSummary } from '../../../../services/modules/petshop.api';
 import { usePlanAccess } from '../../../../contexts/PlanAccessContext';
 import { BillQueueRow } from '../../../../services/modules/bills.api';
@@ -118,6 +118,17 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
     });
     return () => { alive = false; };
   }, []);
+
+  // Closed visits that ended without their follow-up (owner, 2026-11-22:
+  // money first, then flag). Last 90 days, so it ignores the day picker.
+  const [followUpCount, setFollowUpCount] = React.useState<number | null>(null);
+  React.useEffect(() => {
+    let alive = true;
+    visitsAPI.needsFollowUp({ silent: true } as any)
+      .then(r => { if (alive && r.success && r.data) setFollowUpCount(r.data.total); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [scopeId]);
 
   const today = visitsInRange(visits, range);
   const walkIns = today.filter(v => (v as any).isWalkIn);
@@ -259,6 +270,11 @@ const OwnerDashboard: React.FC<Props> = ({ onNavigate }) => {
           label: 'Reminders due', value: reminders.length,
           tone: overdueReminders ? 'bad' : 'default', sub: `${overdueReminders} overdue`,
           onClick: () => onNavigate?.('reminders'),
+        },
+        {
+          label: 'Needs follow-up', value: followUpCount ?? '—',
+          tone: followUpCount ? 'warn' : 'default', sub: 'No reminder set · last 90 days',
+          onClick: () => onNavigate?.('appointments', { needsFollowUp: true }),
         },
         {
           label: 'Stock alerts', value: stock.length,

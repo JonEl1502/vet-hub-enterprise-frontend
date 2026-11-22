@@ -7,6 +7,34 @@ import { ENDPOINTS } from '../api/config';
 import { RequestOptions, ApiResponse } from '../api/types';
 import { PaginationParams, PaginationMeta, buildPaginationQuery } from '../types/pagination';
 
+/** What a closed visit is still missing (server: bookingReminder.service). */
+export interface FollowUpMissing {
+  reminder: boolean;
+  nextAppointment: boolean;
+  kind: 'VACCINATION' | 'DEWORMING' | null;
+}
+
+export interface NeedsFollowUpVisit {
+  id: string;
+  petId: string;
+  clientId: string;
+  scheduledAt: string;
+  status: string;
+  visitType: string | null;
+  encounterType: string;
+  petName: string | null;
+  petSpecies: string | null;
+  clientName: string | null;
+  clientPhone: string | null;
+  missing: FollowUpMissing;
+}
+
+export interface NeedsFollowUpResponse {
+  visits: NeedsFollowUpVisit[];
+  total: number;
+  days: number;
+}
+
 /**
  * Visit data type
  */
@@ -132,6 +160,20 @@ export const visitsAPI = {
       cacheDuration: 30000, // Cache for 30 seconds
       ...options,
     });
+  },
+
+  /**
+   * Closed visits (last 90 days) that ended without their follow-up — no
+   * reminder, or for vaccination/deworming no next appointment. Owner's rule
+   * 2026-11-22: payment is never refused for this; the visit is flagged.
+   */
+  needsFollowUp: async (options?: RequestOptions): Promise<ApiResponse<NeedsFollowUpResponse>> =>
+    get('/appointments/needs-follow-up', { cache: false, ...options }),
+
+  /** Just this visit's follow-up flag, read fresh (the visit payload is cached). */
+  followUpMissing: async (id: number | string, options?: RequestOptions): Promise<FollowUpMissing | null> => {
+    const res: ApiResponse<{ appointment: any }> = await get(ENDPOINTS.APPOINTMENTS.BY_ID(Number(id)), { cache: false, ...options });
+    return (res.data?.appointment?.followUpMissing ?? null) as FollowUpMissing | null;
   },
 
   /**

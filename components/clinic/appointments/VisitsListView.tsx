@@ -2,13 +2,14 @@
 import { useRememberedRange } from '../../../hooks/useScrollMemory';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Visit, ApptStatus, Pet, User, Clinic } from '../../../types';
-import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope, X, Users, ListChecks, Clock, Activity, Wallet, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope, X, Users, ListChecks, Clock, Activity, Wallet, CheckCircle2, XCircle, AlertCircle, BellRing } from 'lucide-react';
 import StatStrip, { StatItem } from '../../shared/stats/StatStrip';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useData } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { userCan } from '../../../constants/permissions';
 import { visitsAPI } from '../../../services';
+import type { NeedsFollowUpVisit } from '../../../services';
 import { PaginationMeta } from '../../../services/types/pagination';
 import Pagination from '../../shared/common/Pagination';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
@@ -39,6 +40,8 @@ interface Props {
    * Without it the tile said 5 and the list it opened said none.
    */
   initialOpenOnly?: boolean;
+  /** Land with the "Needs follow-up" list open (owner dashboard tile). */
+  initialFollowUp?: boolean;
 }
 
 const VisitsListView: React.FC<Props> = ({
@@ -52,7 +55,8 @@ const VisitsListView: React.FC<Props> = ({
   onViewDetails,
   onEditAppointment,
   onDeleteAppointment,
-  initialOpenOnly
+  initialOpenOnly,
+  initialFollowUp
 }) => {
   const { user } = useAuth();
   /**
@@ -211,6 +215,22 @@ const VisitsListView: React.FC<Props> = ({
   // Rows the list works from: the server's answer for the picked range, else cache.
   const sourceRows = rangeRows ?? appointments;
 
+  /**
+   * Needs follow-up (owner, 2026-11-22: money first, then flag). Closed visits
+   * from the last 90 days that ended with no reminder — or, vaccination and
+   * deworming, no next appointment. Computed by the server, its own read: the
+   * date range and status tabs don't apply to it.
+   */
+  const [showFollowUp, setShowFollowUp] = useState(!!initialFollowUp);
+  const [followUp, setFollowUp] = useState<{ visits: NeedsFollowUpVisit[]; total: number } | null>(null);
+  useEffect(() => {
+    let alive = true;
+    visitsAPI.needsFollowUp({ silent: true } as any)
+      .then(r => { if (alive && r.success && r.data) setFollowUp({ visits: r.data.visits, total: r.data.total }); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [refreshKey]);
+
   // Stat tiles above the filters, hideable and remembered (user, 2026-11-22).
   const [showStats, setShowStats] = useState<boolean>(() => {
     try { return localStorage.getItem('vethub.visitStats.v1') !== '0'; } catch { return true; }
@@ -304,8 +324,9 @@ const VisitsListView: React.FC<Props> = ({
       { key: ApptStatus.COMPLETED, label: 'Completed', value: n(ApptStatus.COMPLETED), sub: 'closed', tone: 'pine', icon: CheckCircle2 },
       { key: ApptStatus.CANCELLED, label: 'Cancelled', value: n(ApptStatus.CANCELLED), sub: 'called off', tone: 'indigo', icon: XCircle },
       { key: 'unpaid', label: 'Unpaid', value: unpaid, sub: 'finished, not paid', tone: 'rose', icon: AlertCircle, filterable: false },
+      { key: 'NEEDS_FOLLOW_UP', label: 'Needs follow-up', value: followUp ? followUp.total : '—', sub: 'no reminder · last 90 days', tone: 'amber', icon: BellRing },
     ];
-  }, [baseFiltered]);
+  }, [baseFiltered, followUp]);
 
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [searchQuery, activeTab, dateRange, openOnly, advancedFilters]);
@@ -393,12 +414,58 @@ const VisitsListView: React.FC<Props> = ({
         {showStats && (
           <StatStrip
             items={visitStats}
-            active={activeTab === 'ALL' ? null : activeTab}
-            onSelect={k => setActiveTab((k && k !== 'ALL' ? k : 'ALL') as any)}
-            cols="grid-cols-2 sm:grid-cols-4 2xl:grid-cols-7"
+            active={showFollowUp ? 'NEEDS_FOLLOW_UP' : activeTab === 'ALL' ? null : activeTab}
+            onSelect={k => {
+              if (k === 'NEEDS_FOLLOW_UP') { setShowFollowUp(true); return; }
+              if (k === null && showFollowUp) { setShowFollowUp(false); return; }
+              setShowFollowUp(false);
+              setActiveTab((k && k !== 'ALL' ? k : 'ALL') as any);
+            }}
+            cols="grid-cols-2 sm:grid-cols-4 2xl:grid-cols-8"
           />
         )}
       </div>
+
+      {/* Needs follow-up list — opened from its tile or the owner dashboard. */}
+      {showFollowUp && (
+        <div className="bg-white dark:bg-zinc-900 border border-amber-200 dark:border-amber-800/60 rounded-xl overflow-hidden">
+          <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-amber-50 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800/60">
+            <div className="min-w-0">
+              <p className="text-[11px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-300 flex items-center gap-1.5"><BellRing size={12} /> Needs follow-up</p>
+              <p className="text-[10px] font-bold text-amber-700/80 dark:text-amber-300/80">Closed visits from the last 90 days with no reminder, or no next vaccination/deworming appointment.</p>
+            </div>
+            <button onClick={() => setShowFollowUp(false)} aria-label="Close" className="p-1.5 rounded-lg text-amber-700 hover:bg-amber-100 dark:hover:bg-amber-900/40 active:scale-95"><X size={14} /></button>
+          </div>
+          {followUp === null ? (
+            <div className="py-6 flex justify-center"><LoadingSpinner size="sm" /></div>
+          ) : followUp.visits.length === 0 ? (
+            <p className="py-6 text-center text-[11px] font-bold text-slate-400">Every closed visit has its follow-up set.</p>
+          ) : (
+            <ul className="divide-y divide-slate-100 dark:divide-zinc-800 max-h-[420px] overflow-y-auto overscroll-contain">
+              {followUp.visits.map(v => (
+                <li key={v.id}>
+                  <button onClick={() => onManageWorkflow(Number(v.id))}
+                    className="w-full flex items-center justify-between gap-3 px-4 py-2.5 text-left hover:bg-amber-50/50 dark:hover:bg-zinc-800/60 active:scale-[0.99] transition">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-pine dark:text-zinc-100 truncate">{v.petName || 'Patient'} <span className="font-medium text-slate-400">· {v.clientName || 'Client'}</span></p>
+                      <p className="text-[10px] font-bold text-slate-400 truncate">
+                        {formatDate(v.scheduledAt)} · #{v.id}{v.visitType ? ` · ${String(v.visitType).replace(/_/g, ' ').toLowerCase()}` : ''}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-1 shrink-0">
+                      {v.missing.reminder && <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-700 dark:text-amber-300 border border-amber-500/20">Reminder</span>}
+                      {v.missing.nextAppointment && <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-700 dark:text-rose-300 border border-rose-500/20">Next appt</span>}
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+          {followUp && followUp.total > followUp.visits.length && (
+            <p className="px-4 py-2 text-[10px] font-bold text-slate-400 border-t border-slate-100 dark:border-zinc-800">Showing the newest {followUp.visits.length} of {followUp.total}.</p>
+          )}
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="bg-slate-100 dark:bg-zinc-900 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">

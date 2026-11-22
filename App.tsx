@@ -2514,7 +2514,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
 
     switch (activeView) {
       case 'dashboard': return renderDashboard();
-      case 'appointments': return <VisitsListView pets={pets} clinics={store.clinics} allStaff={allStaff} onManageWorkflow={(id) => navigateTo('appointment-detail', { appointmentId: id })} onUpdateApptStatus={store.updateAppointmentStatus} onOpenBooking={() => navigateTo('new-appointment')} onProcessPayment={handleProcessPayment} onViewDetails={(id) => navigateTo('view-appointment', { appointmentId: id })} onEditAppointment={handleEditAppointment} onDeleteAppointment={handleDeleteAppointment} initialOpenOnly={!!currentNav.params?.openOnly} />;
+      case 'appointments': return <VisitsListView pets={pets} clinics={store.clinics} allStaff={allStaff} onManageWorkflow={(id) => navigateTo('appointment-detail', { appointmentId: id })} onUpdateApptStatus={store.updateAppointmentStatus} onOpenBooking={() => navigateTo('new-appointment')} onProcessPayment={handleProcessPayment} onViewDetails={(id) => navigateTo('view-appointment', { appointmentId: id })} onEditAppointment={handleEditAppointment} onDeleteAppointment={handleDeleteAppointment} initialOpenOnly={!!currentNav.params?.openOnly} initialFollowUp={!!currentNav.params?.needsFollowUp} />;
       case 'new-appointment':
         return <NewVisitView
           clients={clients}
