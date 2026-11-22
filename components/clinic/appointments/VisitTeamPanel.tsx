@@ -139,8 +139,8 @@ const VisitTeamPanel: React.FC<Props> = ({ visitId, readOnly }) => {
         encounterType: visitType?.encounterType || 'VET_VISIT',
         visitType: visitType?.visitType ?? undefined,
       });
-      if (r.success) { toast.success('Encounter added — assign the team below'); await load(); }
-    } catch (e: any) { toast.error(e?.message || 'Could not add the encounter'); }
+      if (r.success) { toast.success('Visit type added — assign the team below'); await load(); }
+    } catch (e: any) { toast.error(e?.message || 'Could not add the visit type'); }
     finally { setCreating(false); }
   };
 
@@ -185,7 +185,7 @@ const VisitTeamPanel: React.FC<Props> = ({ visitId, readOnly }) => {
       {encounters.length === 0 && (
         <div className="rounded-xl border border-dashed border-slate-200 dark:border-zinc-800 p-4 space-y-2.5">
           <p className="text-[11px] text-slate-500 dark:text-zinc-400 font-medium">
-            Staff are recorded against an <b>encounter</b> — the consult, the groom, the surgery —
+            Staff are recorded against a <b>visit type</b> — the consult, the groom, the surgery —
             because that is the unit the work happened in. This visit has none yet, so there is
             nothing to assign anyone to.
           </p>
@@ -229,7 +229,7 @@ const VisitTeamPanel: React.FC<Props> = ({ visitId, readOnly }) => {
                     type="button"
                     disabled={readOnly || busy}
                     onClick={() => makeLead(enc, String(s.userId))}
-                    title={s.isLead ? 'Lead for this encounter' : 'Make lead'}
+                    title={s.isLead ? 'Lead for this visit type' : 'Make lead'}
                     className={`shrink-0 ${s.isLead ? 'text-amber-500' : 'text-slate-300 dark:text-zinc-600 hover:text-amber-400'} disabled:cursor-not-allowed`}
                   >
                     <Star size={13} fill={s.isLead ? 'currentColor' : 'none'} />
@@ -242,7 +242,7 @@ const VisitTeamPanel: React.FC<Props> = ({ visitId, readOnly }) => {
                     <button
                       type="button" disabled={busy}
                       onClick={() => removeStaff(enc, String(s.userId))}
-                      title="Remove from this encounter"
+                      title="Remove from this visit type"
                       className="shrink-0 text-slate-300 dark:text-zinc-600 hover:text-rose-500 disabled:cursor-not-allowed"
                     >
                       <X size={13} />

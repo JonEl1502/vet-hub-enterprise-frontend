@@ -30,7 +30,7 @@ const SOURCE_LABEL: Record<string, string> = {
   imaging: 'Imaging', surgery: 'Surgery', grooming: 'Grooming',
   boarding: 'Boarding', inpatient: 'In-patient', vaccination: 'Vaccination',
   deworming: 'Deworming', triage: 'Triage', workflow: 'Workflow',
-  encounter: 'Encounter', reminder: 'Follow-up', record: 'Records',
+  encounter: 'Visit type', reminder: 'Follow-up', record: 'Records',
   visit: 'Visit', job: 'Partner', state: 'Status', note: 'Note',
 };
 

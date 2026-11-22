@@ -882,8 +882,8 @@ const BillPanel: React.FC<Props> = ({ visit, currency, onCollect, onChanged, onB
                 const split = await dialog.confirm({
                   title: 'Split invoices?',
                   message: hasStay
-                    ? 'Do you want to split invoices for the encounters of this visit? The clinical work is invoiced now; the boarding/inpatient stay keeps accruing on the open bill and is invoiced at discharge.'
-                    : 'Do you want to split invoices for the encounters of this visit? Clinical work and grooming each get their own invoice, payable separately.',
+                    ? 'Do you want to split invoices for the visit types of this visit? The clinical work is invoiced now; the boarding/inpatient stay keeps accruing on the open bill and is invoiced at discharge.'
+                    : 'Do you want to split invoices for the visit types of this visit? Clinical work and grooming each get their own invoice, payable separately.',
                   confirmLabel: 'Split — invoice clinical now',
                   cancelLabel: 'One invoice for everything',
                   variant: 'info',

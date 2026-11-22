@@ -367,7 +367,7 @@ const PatientRail: React.FC<Props> = ({ visit, pet, client, activeClinic, allApp
                   {(encounters?.length ?? 0) > 1 && r.encounterId && (() => {
                     const enc = encounters!.find(e => e.id === r.encounterId);
                     return enc ? (
-                      <span title="Which encounter this reminder came from"
+                      <span title="Which visit type this reminder came from"
                         className="shrink-0 px-1.5 py-0.5 rounded-md bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 text-[7px] font-black uppercase tracking-wider">
                         {encounterLabel(enc)}
                       </span>

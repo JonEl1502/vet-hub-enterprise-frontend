@@ -223,7 +223,7 @@ const ClinicStatsTab: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Visits by encounter — pie */}
         <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-          <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Visits by Encounter</h2>
+          <h2 className="text-sm font-black text-pine dark:text-zinc-100 uppercase tracking-tight mb-4">Visits by Visit Type</h2>
           {visitsByEncounter.length === 0 ? (
             <p className="text-slate-400 dark:text-zinc-600 text-sm text-center py-8">No visit data</p>
           ) : (

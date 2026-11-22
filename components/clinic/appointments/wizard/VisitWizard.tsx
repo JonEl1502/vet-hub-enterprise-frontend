@@ -560,7 +560,7 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
                       // — the picker was moved out of this row to the payment bar
                       // on 2026-08-02, so the advice was unfollowable from here
                       // (user, 2026-08-21: "where do i add and encounter?").
-                      ? "This visit's base workflow. Every visit runs one, so it cannot be removed — add a second one with ＋ Encounter beside this chip."
+                      ? "This visit's base workflow. Every visit runs one, so it cannot be removed — add a second one with ＋ Visit type beside this chip."
                       : active ? 'Active workflow' : 'Switch the active workflow — steps you completed in the other flow are kept'}
                     className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest transition-all ${
                       active

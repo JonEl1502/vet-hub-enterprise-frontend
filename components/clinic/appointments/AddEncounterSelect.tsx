@@ -72,10 +72,10 @@ const AddEncounterSelect: React.FC<Props> = ({ visit, availableEntries, onAdd, c
     <select
       value=""
       onChange={e => { const v = e.target.value as any; if (v) { onAdd(v); e.target.value = ''; } }}
-      title="Hand this patient on to another encounter type — its service & fee land on this bill"
+      title="Hand this patient on to another visit type — its service & fee land on this bill"
       className={`shrink-0 rounded-lg border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-slate-500 dark:text-zinc-400 font-black uppercase tracking-widest outline-none cursor-pointer hover:border-seafoam/50 transition-all ${compact ? 'px-2 py-1.5 text-[9px]' : 'px-2.5 py-2.5 text-[10px]'} ${className}`}
     >
-      <option value="">{compact ? '＋ Encounter' : '＋ Transfer / add encounter…'}</option>
+      <option value="">{compact ? '＋ Visit type' : '＋ Transfer / add visit type…'}</option>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   );

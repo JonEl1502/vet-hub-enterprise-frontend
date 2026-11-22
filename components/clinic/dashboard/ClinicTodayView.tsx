@@ -97,7 +97,7 @@ export const ConversionPulse: React.FC<{ scopeId: string | number; range?: Pulse
         <Block label="Reminders → visits"
           big={<>{t.remindersConverted}<span className="text-white/40 text-sm"> / {t.remindersDue}</span></>}
           sub={`${pct(t.remindersConverted, t.remindersDue)} converted · ${t.remindersClosed ?? 0} closed`} />
-        <Block label="Cross-sell" big={t.crossSell} sub={topPair ? `${topPair[0]} · ${topPair[1]}×` : 'encounters combined'} />
+        <Block label="Cross-sell" big={t.crossSell} sub={topPair ? `${topPair[0]} · ${topPair[1]}×` : 'visit types combined'} />
         {/* Patient checkouts (173) — boarding pickups + inpatient discharges with
             an expected release date: today / next 3 days / overdue. */}
         <Block
@@ -274,7 +274,7 @@ export const StaffTalliesCard: React.FC<{ scopeId: string | number; range?: Puls
           <p className="text-[11px] font-black text-pine dark:text-zinc-100 uppercase tracking-widest leading-none">
             Staff activity · {range && !range.isToday ? range.label : '7 days'}
           </p>
-          <p className="text-[10px] text-slate-400 mt-0.5">Encounters + service lines attended · fees are internal cost, never billed</p>
+          <p className="text-[10px] text-slate-400 mt-0.5">Visit types + service lines attended · fees are internal cost, never billed</p>
         </div>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">

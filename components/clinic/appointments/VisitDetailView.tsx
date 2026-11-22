@@ -936,7 +936,7 @@ const VisitDetailInner: React.FC<Props> = ({
       message: doomed.length
         ? `This deletes ${doomed.length} service${doomed.length === 1 ? '' : 's'} — ${doomed.map(t => t.name).join(', ')} — and ${doomed.length === 1 ? 'its charge' : 'their charges'} from the bill, along with any linked ${enc.label.toLowerCase()} record. This cannot be undone.`
         : `This removes the ${enc.label} workflow from the visit.`,
-      confirmLabel: 'Remove encounter',
+      confirmLabel: 'Remove visit type',
       cancelLabel: 'Keep',
       variant: 'danger',
     });
@@ -1025,7 +1025,7 @@ const VisitDetailInner: React.FC<Props> = ({
         await wiz.reloadEncounters();
         onRefreshDashboard?.();
         toast.error(
-          `${enc.label} is this visit's primary encounter, so it stays. Its services were removed — to change what the visit IS, add another encounter and make that one primary, or change the visit type.`,
+          `${enc.label} is this visit's main visit type, so it stays. Its services were removed — to change what the visit IS, add another visit type and make that one the main one.`,
           { duration: 9000 } as any,
         );
         return;
@@ -1064,7 +1064,7 @@ const VisitDetailInner: React.FC<Props> = ({
         return;
       }
       toast.success(`${enc.label} removed from this visit`);
-    } catch (e: any) { toast.error(e?.message || 'Failed to remove the encounter'); }
+    } catch (e: any) { toast.error(e?.message || 'Failed to remove the visit type'); }
   };
 
   const handleAddEncounter = (type: 'VET_VISIT' | 'VACCINATION' | 'GROOMING' | 'BOARDING' | 'HOSPITALIZATION') => setPendingTransfer(type);
@@ -1089,7 +1089,7 @@ const VisitDetailInner: React.FC<Props> = ({
       visitsAPI.addEncounter(appointment.id, rowSpecV)
         .then(() => wiz.reloadEncounters())
         .catch(() => {});
-      visitsAPI.addEvent(appointment.id, { label: `Transferred/added encounter: Vaccination — ${reason}`, kind: 'transfer' }).catch(() => {});
+      visitsAPI.addEvent(appointment.id, { label: `Transferred/added visit type: Vaccination — ${reason}`, kind: 'transfer' }).catch(() => {});
       wiz.emit(`Added Vaccination — ${reason}`, 'billing', true);
       toast.success('Vaccination added — pick the vaccine in its workflow step');
       return;
@@ -1164,7 +1164,7 @@ const VisitDetailInner: React.FC<Props> = ({
     // workflows (vet visit → grooming/boarding…) are tracked on the record,
     // not just in the local journey draft.
     visitsAPI.addEvent(appointment.id, {
-      label: `Transferred/added encounter: ${labels[type]} — ${reason}`,
+      label: `Transferred/added visit type: ${labels[type]} — ${reason}`,
       kind: 'transfer',
     }).catch(() => { /* non-fatal */ });
     // Adding a vet visit to a grooming/boarding visit means clinical work is
@@ -9350,14 +9350,14 @@ const VisitDetailInner: React.FC<Props> = ({
                     </button>
                     {goMenuEncounters.length > 0 && (
                       <>
-                        <p className="px-3 pt-2 pb-1 mt-1 border-t border-slate-100 dark:border-zinc-800 text-[8px] font-black uppercase tracking-widest text-slate-400">Transfer / add encounter</p>
+                        <p className="px-3 pt-2 pb-1 mt-1 border-t border-slate-100 dark:border-zinc-800 text-[8px] font-black uppercase tracking-widest text-slate-400">Transfer / add visit type</p>
                         {goMenuEncounters.map(o => (
                           <button
                             key={o.value}
                             type="button"
                             role="menuitem"
                             onClick={() => { handleAddEncounter(o.value); setShowGoMenu(false); }}
-                            title="Hand this patient on to another encounter type — its service & fee land on this bill"
+                            title="Hand this patient on to another visit type — its service & fee land on this bill"
                             className="w-full flex items-center gap-2 px-3 py-1.5 text-left text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-100 hover:bg-slate-50 dark:hover:bg-zinc-800"
                           >
                             <span className="truncate">{o.label}</span>
