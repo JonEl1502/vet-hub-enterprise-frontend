@@ -266,6 +266,9 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
   const KNOWN = new Set(['history', 'examination', 'assessment', 'diagnostics', 'diagnosis', 'treatment', 'communication', 'followUp']);
   const extraStages = templateStages.filter(st => !KNOWN.has(st.key) && customFacts(st.key).length > 0);
 
+  let secNo = 0;
+  const num = () => ++secNo;
+
   return (
     <div className="bg-white dark:bg-zinc-900 text-slate-800 dark:text-zinc-200 p-6 space-y-1">
       {/* Letterhead */}
@@ -299,6 +302,9 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
         </div>
       </div>
 
+      {/* Empty sections are left out (user, 2026-11-22: "if assessment did not
+          have any records … don't show them in the final report"), and the
+          ones that remain are numbered in the order they print. */}
       {/* Services — CLINICAL only (user, 2026-08-03: reports are per
           encounter, so grooming/boarding lines live on their own reports;
           this document carries the medical work). */}
@@ -312,99 +318,112 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
         ) : null;
       })()}
 
-      <SectionTitle>1 · History</SectionTitle>
-      <Body has={!!historyText || customFacts('history').length > 0}>
-        {historyText && <Narrative>{historyText}</Narrative>}
-        <Extras stageKey="history" />
-      </Body>
+      {(!!historyText || customFacts('history').length > 0) && (
+        <>
+          <SectionTitle>{num()} · History</SectionTitle>
+          {historyText && <Narrative>{historyText}</Narrative>}
+          <Extras stageKey="history" />
+        </>
+      )}
 
-      <SectionTitle>2 · Examination</SectionTitle>
-      <Body has={!!examText || groupedSystems.length > 0 || customFacts('examination').length > 0}>
-        {examText && <Narrative>{examText}</Narrative>}
-        {groupedSystems.length > 0 && (
-          <div className="mt-2 space-y-1.5">
-            {groupedSystems.map(g => (
-              <div key={g.name} className="break-inside-avoid">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{g.name}</p>
-                <div className="pl-3 space-y-0.5">
-                  {g.entries.map(e => (
-                    <p key={e.key} className="text-[12px] text-slate-800 dark:text-zinc-200">
-                      {/* A legacy untitled finding prints bare — see groupedSystems. */}
-                      {e.key === 'general' && g.entries.length === 1
-                        ? e.text.trim()
-                        : <><span className="font-bold">{e.label}</span> — {e.text.trim()}</>}
-                    </p>
-                  ))}
+      {(!!examText || groupedSystems.length > 0 || customFacts('examination').length > 0) && (
+        <>
+          <SectionTitle>{num()} · Examination</SectionTitle>
+          {examText && <Narrative>{examText}</Narrative>}
+          {groupedSystems.length > 0 && (
+            <div className="mt-2 space-y-1.5">
+              {groupedSystems.map(g => (
+                <div key={g.name} className="break-inside-avoid">
+                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">{g.name}</p>
+                  <div className="pl-3 space-y-0.5">
+                    {g.entries.map(e => (
+                      <p key={e.key} className="text-[12px] text-slate-800 dark:text-zinc-200">
+                        {/* A legacy untitled finding prints bare — see groupedSystems. */}
+                        {e.key === 'general' && g.entries.length === 1
+                          ? e.text.trim()
+                          : <><span className="font-bold">{e.label}</span> — {e.text.trim()}</>}
+                      </p>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-        <Extras stageKey="examination" />
-      </Body>
-
-      <SectionTitle>3 · Assessment</SectionTitle>
-      <Body has={!!assessText || customFacts('assessment').length > 0}>
-        {assessText && <Narrative>{assessText}</Narrative>}
-        <Extras stageKey="assessment" />
-      </Body>
-
-      <SectionTitle>4 · Diagnostics</SectionTitle>
-      <Body has={!!dgText || customFacts('diagnostics').length > 0 || diagRecs.lab.length > 0 || diagRecs.imaging.length > 0}>
-        {dgText && <Narrative>{dgText}</Narrative>}
-        {/* Actual results from the module records — including work a PARTNER
-            clinic performed and mirrored back on a transfer. */}
-        {diagRecs.imaging.map((r: any) => (
-          <p key={`img-${r.id}`} className="text-[11px] leading-relaxed text-slate-600 dark:text-zinc-400 mt-0.5">
-            <span className="font-bold text-slate-700 dark:text-zinc-300">{r.modality || 'Imaging'}{r.bodyPart ? ` — ${r.bodyPart}` : ''}</span>
-            {r.status ? ` · ${String(r.status).toLowerCase().replace(/_/g, ' ')}` : ''}
-            {r.externalSource ? ` · via ${r.externalSource}` : ''}
-            {r.findings ? ` — ${r.findings}` : ' — no findings recorded'}
-          </p>
-        ))}
-        {diagRecs.lab.map((r: any) => (
-          <p key={`lab-${r.id}`} className="text-[11px] leading-relaxed text-slate-600 dark:text-zinc-400 mt-0.5">
-            <span className="font-bold text-slate-700 dark:text-zinc-300">{r.panelName || 'Lab panel'}</span>
-            {r.status ? ` · ${String(r.status).toLowerCase().replace(/_/g, ' ')}` : ''}
-            {r.externalSource ? ` · via ${r.externalSource}` : ''}
-            {(r.interpretation || r.notes) ? ` — ${r.interpretation || r.notes}` : ''}
-          </p>
-        ))}
-        <Extras stageKey="diagnostics" />
-      </Body>
-
-      <SectionTitle>5 · Diagnosis</SectionTitle>
-      <Body has={!!dxText || customFacts('diagnosis').length > 0}>
-        {dxText && <Narrative>{dxText}</Narrative>}
-        <Extras stageKey="diagnosis" />
-      </Body>
-
-      <SectionTitle>6 · Treatment</SectionTitle>
-      <Body has={!!(txText || (tx.medications || []).length > 0 || customFacts('treatment').length > 0)}>
-        {txText && <Narrative>{txText}</Narrative>}
-        {(tx.medications || []).length > 0 && (
-          <table className="w-full text-[11px] mt-2">
-            <thead>
-              <tr className="text-left text-slate-400 uppercase tracking-wider text-[8px] font-black border-b border-slate-200 dark:border-zinc-700">
-                <th className="py-1 pr-2">Medication</th><th className="py-1 px-2">Dose</th><th className="py-1 px-2">Route</th><th className="py-1 px-2">Frequency</th><th className="py-1 pl-2">Duration</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(tx.medications || []).map((m: any, i: number) => (
-                <tr key={i} className="border-b border-slate-100 dark:border-zinc-800">
-                  <td className="py-1 pr-2 font-bold">{m.drug}</td><td className="py-1 px-2">{m.dose}</td><td className="py-1 px-2">{m.route}</td><td className="py-1 px-2">{m.frequency}</td><td className="py-1 pl-2">{m.duration}</td>
-                </tr>
               ))}
-            </tbody>
-          </table>
-        )}
-        <Extras stageKey="treatment" />
-      </Body>
+            </div>
+          )}
+          <Extras stageKey="examination" />
+        </>
+      )}
+
+      {(!!assessText || customFacts('assessment').length > 0) && (
+        <>
+          <SectionTitle>{num()} · Assessment</SectionTitle>
+          {assessText && <Narrative>{assessText}</Narrative>}
+          <Extras stageKey="assessment" />
+        </>
+      )}
+
+      {(!!dgText || customFacts('diagnostics').length > 0 || diagRecs.lab.length > 0 || diagRecs.imaging.length > 0) && (
+        <>
+          <SectionTitle>{num()} · Diagnostics</SectionTitle>
+          {dgText && <Narrative>{dgText}</Narrative>}
+          {/* Actual results from the module records — including work a PARTNER
+              clinic performed and mirrored back on a transfer. */}
+          {diagRecs.imaging.map((r: any) => (
+            <p key={`img-${r.id}`} className="text-[11px] leading-relaxed text-slate-600 dark:text-zinc-400 mt-0.5">
+              <span className="font-bold text-slate-700 dark:text-zinc-300">{r.modality || 'Imaging'}{r.bodyPart ? ` — ${r.bodyPart}` : ''}</span>
+              {r.status ? ` · ${String(r.status).toLowerCase().replace(/_/g, ' ')}` : ''}
+              {r.externalSource ? ` · via ${r.externalSource}` : ''}
+              {r.findings ? ` — ${r.findings}` : ' — no findings recorded'}
+            </p>
+          ))}
+          {diagRecs.lab.map((r: any) => (
+            <p key={`lab-${r.id}`} className="text-[11px] leading-relaxed text-slate-600 dark:text-zinc-400 mt-0.5">
+              <span className="font-bold text-slate-700 dark:text-zinc-300">{r.panelName || 'Lab panel'}</span>
+              {r.status ? ` · ${String(r.status).toLowerCase().replace(/_/g, ' ')}` : ''}
+              {r.externalSource ? ` · via ${r.externalSource}` : ''}
+              {(r.interpretation || r.notes) ? ` — ${r.interpretation || r.notes}` : ''}
+            </p>
+          ))}
+          <Extras stageKey="diagnostics" />
+        </>
+      )}
+
+      {(!!dxText || customFacts('diagnosis').length > 0) && (
+        <>
+          <SectionTitle>{num()} · Diagnosis</SectionTitle>
+          {dxText && <Narrative>{dxText}</Narrative>}
+          <Extras stageKey="diagnosis" />
+        </>
+      )}
+
+      {(!!(txText || (tx.medications || []).length > 0 || customFacts('treatment').length > 0)) && (
+        <>
+          <SectionTitle>{num()} · Treatment</SectionTitle>
+          {txText && <Narrative>{txText}</Narrative>}
+          {(tx.medications || []).length > 0 && (
+            <table className="w-full text-[11px] mt-2">
+              <thead>
+                <tr className="text-left text-slate-400 uppercase tracking-wider text-[8px] font-black border-b border-slate-200 dark:border-zinc-700">
+                  <th className="py-1 pr-2">Medication</th><th className="py-1 px-2">Dose</th><th className="py-1 px-2">Route</th><th className="py-1 px-2">Frequency</th><th className="py-1 pl-2">Duration</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(tx.medications || []).map((m: any, i: number) => (
+                  <tr key={i} className="border-b border-slate-100 dark:border-zinc-800">
+                    <td className="py-1 pr-2 font-bold">{m.drug}</td><td className="py-1 px-2">{m.dose}</td><td className="py-1 px-2">{m.route}</td><td className="py-1 px-2">{m.frequency}</td><td className="py-1 pl-2">{m.duration}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          <Extras stageKey="treatment" />
+        </>
+      )}
 
       {/* Deworming — status line + protocol, embedded from the deworming record. */}
       {(() => {
         const dewormed = (dewormingRecords || []).filter(d => d.status === 'ADMINISTERED' || d.dewormedAt);
         const isDewormVisit = (visit as any)?.visitType === 'DEWORMING' || (dewormingRecords || []).length > 0;
+        if (dewormed.length === 0 && !isDewormVisit) return null;
         return (
           <>
             <SectionTitle>Deworming</SectionTitle>
@@ -421,31 +440,35 @@ const MedicalReport: React.FC<Props> = ({ visit, pet, client, clinic, data, staf
                   ))}
                 </>
               ) : (
-                <Narrative>Status: {isDewormVisit ? 'Pending — not yet recorded' : 'Unknown'}</Narrative>
+                <Narrative>Status: Pending — not yet recorded</Narrative>
               )}
             </Body>
           </>
         );
       })()}
 
-      <SectionTitle>7 · Client Communication</SectionTitle>
-      <Body has={!!cmText || customFacts('communication').length > 0}>
-        {cmText && <Narrative>{cmText}</Narrative>}
-        {cm.signature && <p className="mt-1 text-[11px] font-bold text-slate-500 dark:text-zinc-400">Signed: {cm.signature}{cm.signedAt ? ` — ${formatDate(cm.signedAt)}` : ''}</p>}
-        <Extras stageKey="communication" />
-      </Body>
+      {(!!cmText || customFacts('communication').length > 0) && (
+        <>
+          <SectionTitle>{num()} · Client Communication</SectionTitle>
+          {cmText && <Narrative>{cmText}</Narrative>}
+          {cm.signature && <p className="mt-1 text-[11px] font-bold text-slate-500 dark:text-zinc-400">Signed: {cm.signature}{cm.signedAt ? ` — ${formatDate(cm.signedAt)}` : ''}</p>}
+          <Extras stageKey="communication" />
+        </>
+      )}
 
-      <SectionTitle>8 · Outcome &amp; Follow-up</SectionTitle>
-      <Body has={!!fuText || customFacts('followUp').length > 0}>
-        {fuText && <Narrative>{fuText}</Narrative>}
-        <Extras stageKey="followUp" />
-      </Body>
+      {(!!fuText || customFacts('followUp').length > 0) && (
+        <>
+          <SectionTitle>{num()} · Outcome &amp; Follow-up</SectionTitle>
+          {fuText && <Narrative>{fuText}</Narrative>}
+          <Extras stageKey="followUp" />
+        </>
+      )}
 
       {/* Stages this clinic added itself — reported in the order it laid them out. */}
-      {extraStages.map(st => (
+      {extraStages.filter(st => customFacts(st.key).length > 0).map(st => (
         <React.Fragment key={st.key}>
           <SectionTitle>{st.label}</SectionTitle>
-          <Body has><Extras stageKey={st.key} /></Body>
+          <Extras stageKey={st.key} />
         </React.Fragment>
       ))}
 
