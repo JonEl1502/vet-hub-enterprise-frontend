@@ -129,6 +129,14 @@ const AuthPages: React.FC<AuthProps> = ({ onLogin, onForgotPassword, onSignup, o
             <button onClick={onSupplierSignup} className="font-bold text-[#2EA1B8] hover:text-[#1C7A5B] transition-colors">Register as Supplier</button>
           </p>
         )}
+        {/* One door for everyone (user, 2026-11-22: "let everyone use just
+            vethubcore/login"). Clinics, suppliers, pet owners and farmers all
+            sign in above and land in their own app; only a NEW pet owner or
+            farmer needs the client sign-up. */}
+        <p className="text-sm text-[#144E35]/60">
+          Pet owner or farmer?{' '}
+          <a href={`/client/signup${window.location.search}`} className="font-bold text-[#4f9a2f] hover:text-[#144E35] transition-colors">Create your free account</a>
+        </p>
       </div>
     </div>
   );

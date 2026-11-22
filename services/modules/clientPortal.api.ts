@@ -357,9 +357,11 @@ export const ADMINISTERED_BY = [
 // ── Farm store (backend 316) ─────────────────────────────────────────────────
 export type StockCategory = 'FEED' | 'FORAGE' | 'SALT' | 'MINERAL' | 'WATER' | 'CALF_MILK' | 'DRUG' | 'SUPPLY';
 export type StockBaseUnit = 'KG' | 'L' | 'PCS';
+/** A farmer's own unit for one item: `size` base units in one; offered for buying, feeding or both. */
+export interface StockUnit { code: string; label: string; size: number; use: 'BUY' | 'DISPENSE' | 'BOTH' }
 export interface FarmStockItem {
   id: string; farmId: string; name: string; category: StockCategory; baseUnit: StockBaseUnit;
-  baleKg: number | null; quantity: number; minThreshold: number; low: boolean; empty: boolean;
+  baleKg: number | null; units?: StockUnit[]; quantity: number; minThreshold: number; low: boolean; empty: boolean;
   notes: string | null; updatedAt: string;
 }
 export interface FarmStockMovement {
@@ -885,9 +887,9 @@ export const clientPortalAPI = {
   // ── Farm store (316) ──
   listFarmStock: (farmId: string, options?: RequestOptions): Promise<ApiResponse<{ items: FarmStockItem[]; lowCount: number }>> =>
     get(`/portal/me/farms/${farmId}/stock`, { cache: false, silent: true, ...options }),
-  createFarmStockItem: (farmId: string, data: { name: string; category: StockCategory; baseUnit?: StockBaseUnit; baleKg?: number | null; minThreshold?: number | null }, options?: RequestOptions): Promise<ApiResponse<{ item: FarmStockItem }>> =>
+  createFarmStockItem: (farmId: string, data: { name: string; category: StockCategory; baseUnit?: StockBaseUnit; baleKg?: number | null; minThreshold?: number | null; units?: Partial<StockUnit>[] }, options?: RequestOptions): Promise<ApiResponse<{ item: FarmStockItem }>> =>
     post(`/portal/me/farms/${farmId}/stock/items`, data, { showError: true, ...options }),
-  updateFarmStockItem: (itemId: string, data: { name?: string; baleKg?: number | null; minThreshold?: number; isActive?: boolean }, options?: RequestOptions): Promise<ApiResponse<{ item: FarmStockItem }>> =>
+  updateFarmStockItem: (itemId: string, data: { name?: string; baleKg?: number | null; minThreshold?: number; isActive?: boolean; units?: Partial<StockUnit>[] }, options?: RequestOptions): Promise<ApiResponse<{ item: FarmStockItem }>> =>
     patch(`/portal/me/farm-stock/${itemId}`, data, { showError: true, ...options }),
   purchaseFarmStock: (itemId: string, data: { quantity: number; unit: string; amount?: number | null; vendorName?: string; date?: string }, options?: RequestOptions): Promise<ApiResponse<{ item: FarmStockItem }>> =>
     post(`/portal/me/farm-stock/${itemId}/purchase`, data, { showError: true, ...options }),

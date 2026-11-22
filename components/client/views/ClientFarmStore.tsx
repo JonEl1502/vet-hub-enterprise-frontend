@@ -7,15 +7,15 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import CpBand from '../CpBand';
 import { useNavigate } from 'react-router-dom';
-import { Plus, AlertTriangle, ArrowDownToLine, ClipboardCheck, Wheat, Package } from 'lucide-react';
+import { Plus, AlertTriangle, ArrowDownToLine, ClipboardCheck, Wheat, Package, Ruler, Trash2 } from 'lucide-react';
 import {
-  clientPortalAPI, type PortalFarm, type FarmStockItem, type FarmStockMovement, type StockCategory,
+  clientPortalAPI, type PortalFarm, type FarmStockItem, type FarmStockMovement, type StockCategory, type StockUnit,
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import CpModal from '../CpModal';
 import CpPage from '../CpPage';
 import { Chip, onEnter, localToday } from './AnimalRecordForms';
-import { STOCK_CATEGORIES, catOf, unitChoices, fmtQty, packHint } from './farmStock';
+import { STOCK_CATEGORIES, catOf, unitChoices, fmtQty, packHint, baseWord } from './farmStock';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 /** The store as a short list for the farm home: what is low first, then the rest. */
@@ -69,7 +69,7 @@ export const FarmStoreCard: React.FC<{ farmId: string }> = ({ farmId }) => {
   );
 };
 
-type Dialog = { kind: 'ADD' } | { kind: 'STOCK'; item: FarmStockItem } | { kind: 'COUNT'; item: FarmStockItem } | { kind: 'HISTORY'; item: FarmStockItem } | null;
+type Dialog = { kind: 'ADD' } | { kind: 'STOCK'; item: FarmStockItem } | { kind: 'COUNT'; item: FarmStockItem } | { kind: 'HISTORY'; item: FarmStockItem } | { kind: 'UNITS'; item: FarmStockItem } | null;
 
 const ClientFarmStore: React.FC = () => {
   const [farms, setFarms] = useState<PortalFarm[]>([]);
@@ -91,6 +91,8 @@ const ClientFarmStore: React.FC = () => {
   const [vendor, setVendor] = useState('');
   const [baleKg, setBaleKg] = useState('');
   const [history, setHistory] = useState<FarmStockMovement[] | null>(null);
+  // units editor rows
+  const [unitRows, setUnitRows] = useState<{ code?: string; label: string; size: string; use: StockUnit['use'] }[]>([]);
 
   useEffect(() => {
     clientPortalAPI.getMyFarms({ showError: false }).then((r) => {
@@ -108,6 +110,7 @@ const ClientFarmStore: React.FC = () => {
     setDialog(d); setQty(''); setPrice(''); setVendor(''); setBaleKg('');
     if (d && 'item' in d) setUnit(d.item.baseUnit);
     if (d?.kind === 'ADD') { setName(''); setCat('FEED'); setMin(''); }
+    if (d?.kind === 'UNITS') setUnitRows((d.item.units ?? []).map((u) => ({ code: u.code, label: u.label, size: String(u.size), use: u.use })));
     if (d?.kind === 'HISTORY') {
       setHistory(null);
       clientPortalAPI.farmStockMovements(d.item.id).then((r) => setHistory(r.success && r.data ? r.data.movements : []));
@@ -122,6 +125,19 @@ const ClientFarmStore: React.FC = () => {
         name: name.trim(), category: cat, baseUnit: catOf(cat).unit, minThreshold: min === '' ? null : Number(min),
       });
       if (r.success && r.data) { setDialog(null); load(); open({ kind: 'STOCK', item: r.data.item }); }
+    } finally { setSaving(false); }
+  };
+
+  const saveUnits = async (item: FarmStockItem) => {
+    const rows = unitRows.filter((r) => r.label.trim() || r.size);
+    for (const r of rows) {
+      if (!r.label.trim()) { toast.error('Name each unit — "Bag (70 kg)", "Scoop"'); return; }
+      if (!(Number(r.size) > 0)) { toast.error(`How many ${baseWord(item.baseUnit)} in one "${r.label}"?`); return; }
+    }
+    setSaving(true);
+    try {
+      const r = await clientPortalAPI.updateFarmStockItem(item.id, { units: rows.map((x) => ({ code: x.code, label: x.label.trim(), size: Number(x.size), use: x.use })) });
+      if (r.success) { toast.success('Units saved'); setDialog(null); load(); }
     } finally { setSaving(false); }
   };
 
@@ -163,10 +179,10 @@ const ClientFarmStore: React.FC = () => {
     );
   }
 
-  const unitRow = (item: FarmStockItem) => (
+  const unitRow = (item: FarmStockItem, purpose: 'BUY' | 'ANY' = 'ANY') => (
     <>
       <div className="flex flex-wrap gap-1.5">
-        {unitChoices(item).map((u) => <Chip key={u.code} active={unit === u.code} onClick={() => setUnit(u.code)}>{u.label}</Chip>)}
+        {unitChoices(item, purpose).map((u) => <Chip key={u.code} active={unit === u.code} onClick={() => setUnit(u.code)}>{u.label}</Chip>)}
       </div>
       {needsBale(item) && (
         <div className="mt-2">
@@ -228,6 +244,9 @@ const ClientFarmStore: React.FC = () => {
                   <button className="cp-btn-ghost flex-1 !py-2 !text-[11px] flex items-center justify-center gap-1.5" onClick={() => open({ kind: 'COUNT', item: i })}>
                     <ClipboardCheck size={13} /> Count it
                   </button>
+                  <button className="cp-btn-ghost !py-2 !px-3 !text-[11px] flex items-center justify-center gap-1.5" onClick={() => open({ kind: 'UNITS', item: i })} title="How you buy it and how you feed it">
+                    <Ruler size={13} /> Units{i.units?.length ? ` · ${i.units.length}` : ''}
+                  </button>
                 </div>
               </div>
             ))}
@@ -265,7 +284,7 @@ const ClientFarmStore: React.FC = () => {
               <label className="cp-label">How much did you get?</label>
               <input className="cp-input w-full text-center text-2xl font-black tabular-nums" type="number" inputMode="decimal" min="0" step="0.1" placeholder="0"
                 value={qty} autoFocus onChange={(e) => setQty(e.target.value)} onKeyDown={onEnter(() => submitStock(dialog.item))} />
-              <div className="mt-2">{unitRow(dialog.item)}</div>
+              <div className="mt-2">{unitRow(dialog.item, 'BUY')}</div>
             </div>
             <div className="grid grid-cols-2 gap-2">
               <div>
@@ -291,6 +310,49 @@ const ClientFarmStore: React.FC = () => {
               value={qty} autoFocus onChange={(e) => setQty(e.target.value)} onKeyDown={onEnter(() => submitCount(dialog.item))} />
             {unitRow(dialog.item)}
             <button className="cp-btn w-full" disabled={saving} onClick={() => submitCount(dialog.item)}>{saving ? 'Saving…' : 'Set balance'}</button>
+          </div>
+        </CpModal>
+      )}
+
+      {dialog?.kind === 'UNITS' && (
+        <CpModal title={`Units for ${dialog.item.name}`} onClose={() => setDialog(null)}>
+          <div className="space-y-3">
+            <p className="text-xs text-slate-500 leading-relaxed">
+              The store counts {dialog.item.name} in <b>{baseWord(dialog.item.baseUnit)}</b>. Add the units you <b>buy</b> it in
+              (a 70 kg bag) and the units you <b>feed</b> it in (a scoop, a tin). Each one is converted to {baseWord(dialog.item.baseUnit)},
+              so feeding always comes off the right balance.
+              {dialog.item.baseUnit === 'KG' && ' Grams are always there for feeding.'}
+              {dialog.item.baseUnit === 'L' && ' Millilitres are always there for feeding.'}
+            </p>
+            {unitRows.length === 0 && <p className="text-[11px] text-slate-400 italic">No units of your own yet.</p>}
+            {unitRows.map((r, i) => (
+              <div key={i} className="rounded-xl border border-slate-200 dark:border-zinc-700 p-2.5 space-y-2">
+                <div className="flex gap-2">
+                  <input className="cp-input flex-1 min-w-0" placeholder="Name — Bag, Scoop, Tin" value={r.label}
+                    onChange={(e) => setUnitRows((rs) => rs.map((x, j) => (j === i ? { ...x, label: e.target.value } : x)))} />
+                  <button type="button" className="p-2 text-slate-400 hover:text-rose-500" aria-label="Remove unit"
+                    onClick={() => setUnitRows((rs) => rs.filter((_, j) => j !== i))}><Trash2 size={15} /></button>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-slate-500">
+                  <span className="shrink-0">One is</span>
+                  <input className="cp-input w-24 text-center tabular-nums" type="number" inputMode="decimal" min="0" step="any" placeholder="0" value={r.size}
+                    onChange={(e) => setUnitRows((rs) => rs.map((x, j) => (j === i ? { ...x, size: e.target.value } : x)))} />
+                  <span className="shrink-0">{baseWord(dialog.item.baseUnit)}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {([['BUY', 'For buying'], ['DISPENSE', 'For feeding'], ['BOTH', 'Both']] as const).map(([v, l]) => (
+                    <Chip key={v} active={r.use === v} onClick={() => setUnitRows((rs) => rs.map((x, j) => (j === i ? { ...x, use: v } : x)))}>{l}</Chip>
+                  ))}
+                </div>
+              </div>
+            ))}
+            {unitRows.length < 8 && (
+              <button type="button" className="cp-btn-ghost w-full !py-2 !text-xs flex items-center justify-center gap-1.5"
+                onClick={() => setUnitRows((rs) => [...rs, { label: '', size: '', use: 'DISPENSE' }])}>
+                <Plus size={13} /> Add a unit
+              </button>
+            )}
+            <button className="cp-btn w-full" disabled={saving} onClick={() => saveUnits(dialog.item)}>{saving ? 'Saving…' : 'Save units'}</button>
           </div>
         </CpModal>
       )}

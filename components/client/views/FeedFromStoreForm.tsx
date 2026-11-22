@@ -14,7 +14,7 @@ import {
 } from '../../../services/modules/clientPortal.api';
 import { toast } from '../../../services';
 import { Chip, WhenRow, SubmitButton, onEnter, localToday } from './AnimalRecordForms';
-import { STOCK_CATEGORIES, catOf, unitChoices, fmtQty } from './farmStock';
+import { STOCK_CATEGORIES, catOf, unitChoices, fmtQty, unitSize, trim } from './farmStock';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 
 const TIMES = [
@@ -67,15 +67,22 @@ const FeedFromStoreForm: React.FC<Props> = ({ farmId, groups, animals, isFull, a
   useEffect(() => {
     if (!item) return;
     const remembered = lastUnit(item.id);
-    const allowed = unitChoices(item).map((u) => u.code);
+    const allowed = unitChoices(item, 'DISPENSE').map((u) => u.code);
     setUnit(remembered && allowed.includes(remembered) ? remembered : item.baseUnit);
   }, [item?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const needsBale = unit === 'BALE' && item && !item.baleKg;
   const n = qty === '' ? null : Number(qty);
+  // What one of the chosen unit is in the store's own unit, and what is on hand
+  // in the chosen unit (user, 2026-11-22: feeding is picked from the store, in
+  // the units you feed with, and cannot go past what the store holds).
+  const size = item ? (unit === 'BALE' && needsBale ? Number(baleKg) || null : unitSize(item, unit)) : null;
+  const wantBase = n != null && size ? n * size : null;
+  const onHandInUnit = item && size ? item.quantity / size : null;
+  const over = item != null && wantBase != null && wantBase > item.quantity + 1e-9;
   const valid = !!item && n != null && Number.isFinite(n) && n > 0
     && (who !== 'GROUP' || !!groupId) && (who !== 'ANIMAL' || !!animalId)
-    && (!needsBale || Number(baleKg) > 0);
+    && (!needsBale || Number(baleKg) > 0) && !over;
 
   const addItem = async () => {
     const name = newName.trim();
@@ -108,7 +115,7 @@ const FeedFromStoreForm: React.FC<Props> = ({ farmId, groups, animals, isFull, a
       if (r.success && r.data) {
         try { localStorage.setItem(`vh:feedunit:${item.id}`, unit); } catch { /* fine */ }
         if (r.data.ranShort) toast.warning(`Recorded — but your store showed ${fmtQty(item)}. Add what you bought so the balance stays right.`);
-        else toast.success(`Fed ${n} ${unitChoices(item).find((u) => u.code === unit)?.label ?? ''} of ${item.name}`.replace(/\s+/g, ' '));
+        else toast.success(`Fed ${n} ${unitChoices(item, 'DISPENSE').find((u) => u.code === unit)?.label ?? ''} of ${item.name}`.replace(/\s+/g, ' '));
         onDone();
       }
     } finally { setSaving(false); }
@@ -173,8 +180,17 @@ const FeedFromStoreForm: React.FC<Props> = ({ farmId, groups, animals, isFull, a
           <input id="feed-store-qty" className="cp-input w-full text-center text-2xl font-black tabular-nums" type="number" inputMode="decimal"
             min="0" step="0.1" placeholder="0" value={qty} onChange={(e) => setQty(e.target.value)} onKeyDown={onEnter(submit)} />
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {unitChoices(item).map((u) => <Chip key={u.code} active={unit === u.code} onClick={() => setUnit(u.code)}>{u.label}</Chip>)}
+            {unitChoices(item, 'DISPENSE').map((u) => <Chip key={u.code} active={unit === u.code} onClick={() => setUnit(u.code)}>{u.label}</Chip>)}
           </div>
+          {onHandInUnit != null && !item.empty && (
+            <p className={`mt-2 text-[11px] ${over ? 'text-rose-600 font-semibold' : 'text-slate-500'}`}>
+              {over
+                ? <>Only {trim(onHandInUnit)} {unitChoices(item, 'DISPENSE').find((u) => u.code === unit)?.label ?? ''} left in the store ({fmtQty(item)}). Add what you bought under Store first.</>
+                : <>In the store: {fmtQty(item)}{unit !== item.baseUnit ? <> = {trim(onHandInUnit)} × {unitChoices(item, 'DISPENSE').find((u) => u.code === unit)?.label ?? ''}</> : null}
+                    {wantBase != null && unit !== item.baseUnit && <> · this feeding is {trim(wantBase)} {item.baseUnit === 'KG' ? 'kg' : item.baseUnit === 'L' ? 'L' : 'pcs'}</>}</>}
+            </p>
+          )}
+          <p className="mt-1 text-[10px] text-slate-400">Feed in your own units (a scoop, a tin) — set them under Store → Units.</p>
           {needsBale && (
             <div className="mt-2">
               <label className="cp-label">How many kg in one bale?</label>

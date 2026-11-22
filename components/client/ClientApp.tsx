@@ -5,7 +5,6 @@ import { ClientPortalProvider } from '../../contexts/ClientPortalContext';
 import ToastContainer from '../shared/common/ToastContainer';
 import LoadingSpinner from '../shared/common/LoadingSpinner';
 import ClientLayout from './ClientLayout';
-import ClientLogin from './auth/ClientLogin';
 import VerifyOTPPage from '../shared/auth/VerifyOTPPage';
 import ClientSignup from './auth/ClientSignup';
 import ClientAcceptInvite from './auth/ClientAcceptInvite';
@@ -70,7 +69,9 @@ const ClientApp: React.FC = () => {
   return (
     <>
       <Routes>
-        <Route path="login" element={isClient ? <Navigate to="/client" replace /> : <ClientLogin />} />
+        {/* One login page for everyone (2026-11-22): /client/login forwards to
+            /login, keeping ?clinic= from a scanned QR so sign-up still knows it. */}
+        <Route path="login" element={isClient ? <Navigate to="/client" replace /> : <Navigate to={`/login${window.location.search}`} replace />} />
         <Route path="signup" element={isClient ? <Navigate to="/client" replace /> : <ClientSignup />} />
         <Route path="accept-invite" element={<ClientAcceptInvite />} />
 
@@ -83,10 +84,10 @@ const ClientApp: React.FC = () => {
             every signed-in user, and a CLIENT simply never sees a composer. */}
         <Route
           path="community"
-          element={isClient ? <ClientCommunity /> : <Navigate to="/client/login" replace />}
+          element={isClient ? <ClientCommunity /> : <Navigate to="/login" replace />}
         />
 
-        <Route element={isClient ? <ProtectedShell /> : <Navigate to="/client/login" replace />}>
+        <Route element={isClient ? <ProtectedShell /> : <Navigate to="/login" replace />}>
           <Route index element={<ClientDashboard />} />
           <Route path="farm" element={<ClientFarms />} />
           {/* 264 — the named-animal register. Its own route so it can be the
