@@ -4,7 +4,7 @@ import {
   Home, PawPrint, CalendarDays, MessageCircle, Receipt, CalendarPlus, Sprout, Beef,
   Stethoscope, UserRound,
   Settings, LogOut, Sun, Moon, Monitor, ChevronDown, Sparkles, Users,
-  type LucideIcon, Store, Package, Wheat, Milk, LayoutGrid,
+  type LucideIcon, Store, Package, Wheat, Milk, LayoutGrid, Coins,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useThemeMode, type ThemeMode } from '../../hooks/useThemeMode';
@@ -15,7 +15,8 @@ import { usePortalMode } from './usePortalMode';
 import PortalSideChooser from './PortalSideChooser';
 import { useFarmerPlan } from './useFarmerPlan';
 import { useNoAutofill } from './useNoAutofill';
-import QuickRecordWheel, { type WheelAction } from './QuickRecordWheel';
+import BrandMarkBtn from '../shared/common/BrandMark';
+import { FarmMoreSheet, FarmRecordSheet, type SheetTile } from './FarmSheets';
 
 /**
  * 288 — COMMUNITY IS FREE TO READ, SO IT IS IN BOTH NAVS.
@@ -176,11 +177,17 @@ const ClientLayout: React.FC = () => {
 
   // What the centre button offers. Each one lands on the farm page with the
   // matching record form already open (see ClientFarmRecords' `?record=`).
-  const wheelActions: WheelAction[] = [
-    { id: 'feed', label: 'Feeding', icon: Wheat, tone: 'bg-amber-400 text-amber-950', onSelect: () => navigate('/client/farm?record=FEED') },
-    { id: 'produce', label: 'Produce', icon: Milk, tone: 'bg-emerald-400 text-emerald-950', onSelect: () => navigate('/client/farm?record=MILK_SALE') },
-    { id: 'expense', label: 'Expense', icon: Receipt, tone: 'bg-rose-400 text-rose-950', onSelect: () => navigate('/client/farm?record=EXPENSE') },
+  // The centre button's sheet: the same five records the farm page offers.
+  const [recordOpen, setRecordOpen] = useState(false);
+  useEffect(() => { setRecordOpen(false); }, [pathname]);
+  const recordTiles: SheetTile[] = [
+    { key: 'FEED', label: 'Fed them', hint: 'Feed from your store', icon: Wheat, tone: ['#fdf1d6', '#a86a12'], onSelect: () => navigate('/client/farm?record=FEED') },
+    { key: 'MILK_SALE', label: 'Milk & produce', hint: 'What came off the farm', icon: Milk, tone: ['#e0f0fb', '#1f6fa3'], onSelect: () => navigate('/client/farm?record=MILK_SALE') },
+    { key: 'LIVESTOCK_SALE', label: 'Sold', hint: 'An animal or anything else', icon: Coins, tone: ['#e3f3d8', '#3c7d22'], onSelect: () => navigate('/client/farm?record=LIVESTOCK_SALE') },
+    { key: 'MEDICATION', label: 'Treatment', hint: 'Medicine, dewormer, spray', icon: Stethoscope, tone: ['#fde4e4', '#b23a3a'], onSelect: () => navigate('/client/farm?record=MEDICATION') },
+    { key: 'EXPENSE', label: 'Expense', hint: 'Anything you paid for', icon: Receipt, tone: ['#efe6fb', '#6b3fb0'], onSelect: () => navigate('/client/farm?record=EXPENSE') },
   ];
+  const MORE_TONES: [string, string][] = [['#e3f3d8', '#3c7d22'], ['#fdf1d6', '#a86a12'], ['#e0f0fb', '#1f6fa3'], ['#efe6fb', '#6b3fb0'], ['#fde4e4', '#b23a3a'], ['#e1f4ef', '#1f7a62']];
   const barLeft = FARM_NAV.filter((t) => FARM_BAR_LEFT.includes(t.to));
   const barRight = FARM_NAV.filter((t) => FARM_BAR_RIGHT.includes(t.to));
   const moreTabs = FARM_NAV.filter((t) => FARM_MORE.includes(t.to));
@@ -438,7 +445,11 @@ const ClientLayout: React.FC = () => {
             ))}
 
             <div className="flex-1 h-[52px] flex items-center justify-center">
-              <QuickRecordWheel actions={wheelActions} />
+              <button type="button" onClick={() => setRecordOpen(true)} aria-label="Record something" aria-expanded={recordOpen}
+                className="cp-logo-mark w-14 h-14 rounded-2xl flex items-center justify-center -translate-y-6 border-4 active:scale-90 transition-transform"
+                style={{ borderColor: 'var(--cp-surface)' }}>
+                <span className="block w-full h-full p-2"><BrandMarkBtn variant="v2" title="" /></span>
+              </button>
             </div>
 
             {barRight.map(({ to, end, label, icon: Icon }) => (
@@ -462,25 +473,16 @@ const ClientLayout: React.FC = () => {
           </nav>
 
           {moreOpen && (
-            <div className="md:hidden fixed inset-0 z-30" onClick={() => setMoreOpen(false)}>
-              <div className="absolute right-2 w-56 rounded-2xl border p-1.5 shadow-2xl animate-in fade-in zoom-in-95 slide-in-from-bottom-2 duration-200 origin-bottom-right"
-                   style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 64px)', background: 'var(--cp-surface)', borderColor: 'var(--cp-border)' }}
-                   onClick={(e) => e.stopPropagation()}>
-                {moreTabs.map(({ to, label, icon: Icon }) => (
-                  <NavLink key={to} to={to} onClick={() => setMoreOpen(false)}
-                           className={({ isActive }) =>
-                             `relative flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-bold transition-colors ${isActive ? 'cp-tab-on' : 'hover:bg-black/5'}`}>
-                    <Icon className="w-5 h-5" />
-                    {label}
-                    {badgeFor(to) > 0 && (
-                      <span className="ml-auto min-w-5 h-5 px-1 rounded-full text-white text-[10px] flex items-center justify-center"
-                            style={{ background: 'var(--cp-accent)' }}>{badgeFor(to)}</span>
-                    )}
-                  </NavLink>
-                ))}
-              </div>
-            </div>
+            <FarmMoreSheet
+              name={displayName}
+              sub={holdings?.planName ? `${holdings.planName} plan` : undefined}
+              initial={initial}
+              tiles={moreTabs.map((t, i) => ({ key: t.to, label: t.label, icon: t.icon, to: t.to, tone: MORE_TONES[i % MORE_TONES.length], badge: badgeFor(t.to) }))}
+              onClose={() => setMoreOpen(false)}
+              onSettings={() => { setMoreOpen(false); navigate('/client/settings'); }}
+            />
           )}
+          {recordOpen && <FarmRecordSheet tiles={recordTiles} onClose={() => setRecordOpen(false)} />}
         </>
       ) : (
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-20 flex border-t"

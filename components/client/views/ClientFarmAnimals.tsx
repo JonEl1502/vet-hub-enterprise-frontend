@@ -14,7 +14,7 @@
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Plus, Search, Scale, Sparkles, ChevronRight, Loader2, Baby, Milk, X, Tag, Pencil, Utensils, Droplet,
+  Plus, Search, Scale, Sparkles, ChevronRight, Loader2, Baby, Milk, X, Tag, Pencil, Utensils, Droplet, Lock,
 } from 'lucide-react';
 import {
   clientPortalAPI, FARM_SPECIES,
@@ -358,30 +358,11 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
     );
   }
 
-  // ── Farm side is on, but naming is a Farmer-plan feature ──────────────────
+  // ── Free tier: the GROUPS are visible, their details are the plan ─────────
+  // (user, 2026-11-22: "I should be able to see the groups without seeing the
+  // details of the groups"). Opening one sells the plan instead of a blank 403.
   if (tier === 'BASIC') {
-    return (
-      <div className="cp-card p-5 sm:p-6">
-        <Sparkles size={20} className="cp-accent-text" />
-        <p className="mt-2 text-sm font-black text-slate-800 dark:text-zinc-100">
-          Name your animals on the Farmer plan
-        </p>
-        <p className="mt-1 text-xs text-slate-500 leading-relaxed max-w-lg">
-          Your herds and flocks stay free either way. Naming an individual animal —
-          with its own breed, sex, tag number and weight history — is a Farmer-plan
-          feature.
-        </p>
-        <ul className="mt-3 grid gap-1.5 sm:grid-cols-2 text-[11px] text-slate-600 dark:text-zinc-300">
-          {['Name, breed, sex, age and tag number', 'Weight history over time',
-            'Feeding plans, produce and vet visits', 'Full record history'].map((f) => (
-            <li key={f} className="flex items-start gap-1.5">
-              <span className="mt-1 w-1 h-1 rounded-full bg-current shrink-0 opacity-50" />{f}
-            </li>
-          ))}
-        </ul>
-        <button className="cp-btn mt-4" onClick={onUpgrade}>See the farm plans</button>
-      </div>
-    );
+    return <FreeGroups groups={groups} onUpgrade={onUpgrade} />;
   }
 
   /**
@@ -1066,3 +1047,70 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
 };
 
 export default ClientFarmAnimals;
+
+/** The free-tier Animals screen: every group with its count; details on the plan. */
+const FreeGroups: React.FC<{ groups: Props['groups']; onUpgrade: () => void }> = ({ groups, onUpgrade }) => {
+  const [opened, setOpened] = useState<Props['groups'][number] | null>(null);
+  return (
+    <div className="space-y-4">
+      {groups.length === 0 ? (
+        <div className="cp-card p-6 text-center text-sm text-slate-500">
+          No animal groups yet. Add your cows, goats or chickens from <b>My Farm</b>.
+        </div>
+      ) : (
+        <div className="cp-card overflow-hidden">
+          <div className="px-4 py-2.5 flex items-center justify-between border-b border-slate-100">
+            <span className="text-[11px] font-semibold text-slate-500">{groups.length} {groups.length === 1 ? 'group' : 'groups'}</span>
+            <span className="text-[11px] font-black text-slate-800 dark:text-zinc-100 tabular-nums">
+              {groups.reduce((n, g) => n + Number(g.headCount || 0), 0)} head in all
+            </span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-px bg-slate-100">
+            {groups.map((g) => {
+              const on = opened?.id === g.id;
+              return (
+                <button key={g.id} type="button" onClick={() => setOpened(on ? null : g)}
+                  className={`text-left p-4 bg-[var(--cp-surface)] hover:bg-black/[0.02] transition-colors ${on ? 'ring-2 ring-inset ring-emerald-500/50' : ''}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-slate-800 truncate">{g.name}</p>
+                      <p className="text-[11px] text-slate-500 truncate">{[g.species, g.breed].filter(Boolean).join(' · ')}</p>
+                    </div>
+                    <div className="text-right shrink-0">
+                      <p className="text-2xl font-black text-slate-800 dark:text-zinc-100 leading-none tabular-nums">{g.headCount}</p>
+                      <p className="text-[9px] uppercase tracking-widest text-slate-400 mt-1">{speciesConfig(g.species).headNoun}</p>
+                    </div>
+                  </div>
+                  <p className="mt-2.5 text-[10px] font-bold cp-accent-text flex items-center gap-1">
+                    <Lock size={10} /> Each animal, weights and history on Farmer plan
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+      <div className="cp-card p-5 sm:p-6">
+        <Sparkles size={20} className="cp-accent-text" />
+        <p className="mt-2 text-sm font-black text-slate-800 dark:text-zinc-100">
+          {opened ? `See every animal in ${opened.name}` : 'See inside each group on the Farmer plan'}
+        </p>
+        <p className="mt-1 text-xs text-slate-500 leading-relaxed max-w-lg">
+          Your groups and their counts stay free. Opening a group to each animal —
+          its name, breed, sex, tag number and weight history — is a Farmer-plan feature.
+        </p>
+        <ul className="mt-3 grid gap-1.5 sm:grid-cols-2 text-[11px] text-slate-600 dark:text-zinc-300">
+          {['Name, breed, sex, age and tag number', 'Weight history over time',
+            'Feeding plans, produce and vet visits', 'Full record history'].map((f) => (
+            <li key={f} className="flex items-start gap-1.5">
+              <span className="mt-1 w-1 h-1 rounded-full bg-current shrink-0 opacity-50" />{f}
+            </li>
+          ))}
+        </ul>
+        <button className="cp-btn mt-4" onClick={onUpgrade}>See the farm plans</button>
+      </div>
+    </div>
+  );
+};
+

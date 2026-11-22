@@ -2077,3 +2077,13 @@ body {
   box-shadow: 0 8px 18px -10px rgba(217, 154, 28, 0.9);
 }
 .client-portal .cp-band .cp-btn:hover { background: linear-gradient(135deg, #f8d877 0%, #e6b03a 100%); }
+
+/* Portal bottom sheets (FarmSheets, 2026-11-22). Real keyframes: the
+   `animate-in` utilities do nothing here (no tailwindcss-animate). */
+@keyframes cpSheetIn { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes cpBackdropIn { from { opacity: 0; } to { opacity: 1; } }
+@keyframes cpTileIn { from { opacity: 0; transform: translateY(8px) scale(0.96); } to { opacity: 1; transform: none; } }
+.cp-sheet-in { animation: cpSheetIn 260ms cubic-bezier(.22,.7,.2,1) both; }
+.cp-backdrop-in { animation: cpBackdropIn 200ms ease both; }
+.cp-tile-in { animation: cpTileIn 260ms cubic-bezier(.22,.7,.2,1) both; }
+@media (prefers-reduced-motion: reduce) { .cp-sheet-in, .cp-backdrop-in, .cp-tile-in { animation: none; } }

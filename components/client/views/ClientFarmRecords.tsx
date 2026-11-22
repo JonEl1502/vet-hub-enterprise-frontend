@@ -103,6 +103,20 @@ const ITEM_HINTS: Record<string, string> = {
  * hairline) rather than a different colour, so the four stay distinguishable
  * from each other without any of them shouting.
  */
+/** Which ledger categories each Record tile totals. */
+const TILE_CATS: Record<string, string[]> = {
+  FEED: ['FEED'],
+  MILK_SALE: ['MILK_SALE', 'EGG_SALE', 'PRODUCE_SALE'],
+  LIVESTOCK_SALE: ['LIVESTOCK_SALE'],
+  MEDICATION: ['MEDICATION', 'PEST_CONTROL'],
+};
+/** A tinted wash per tile, so the four read apart at a glance instead of as four white boxes. */
+const TILE_WASH: Record<string, string> = {
+  amber: 'bg-amber-50 border-amber-200 text-amber-950 dark:bg-amber-500/10 dark:border-amber-500/25 dark:text-amber-50',
+  sky: 'bg-sky-50 border-sky-200 text-sky-950 dark:bg-sky-500/10 dark:border-sky-500/25 dark:text-sky-50',
+  emerald: 'bg-emerald-50 border-emerald-200 text-emerald-950 dark:bg-emerald-500/10 dark:border-emerald-500/25 dark:text-emerald-50',
+  rose: 'bg-rose-50 border-rose-200 text-rose-950 dark:bg-rose-500/10 dark:border-rose-500/25 dark:text-rose-50',
+};
 const TONES: Record<string, string> = {
   amber: 'bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-400/10 dark:text-amber-300 dark:border-amber-400/25',
   sky: 'bg-sky-50 text-sky-700 border-sky-200 dark:bg-sky-400/10 dark:text-sky-300 dark:border-sky-400/25',
@@ -817,23 +831,42 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
 
       {/* ── The four actions ─────────────────────────────────────────────── */}
       <section className="min-w-0 lg:col-start-1 lg:row-start-1">
-        <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">Record</h3>
+        <h3 className="text-xs font-black uppercase tracking-widest text-slate-500 mb-2">
+          Record what happened
+          <span className="ml-1.5 normal-case tracking-normal font-semibold text-slate-400">
+            · totals for {summary?.windowDays ? `the last ${summary.windowDays} days` : 'all time'}
+          </span>
+        </h3>
         {/* 2-up on a phone, 4-up from `md`. At full width each of these was a
             ~700px slab for a one-line action. */}
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4 gap-2 lg:gap-2.5">
-          {SHEETS.map(({ key, label, icon: Icon, tone, hint }) => (
-            <button
-              key={key}
-              onClick={() => openSheet(key)}
-              className="cp-card rounded-2xl p-3.5 text-left transition-transform active:scale-[0.98] flex flex-col gap-1.5"
-            >
-              <span className={`cp-icon-chip border ${TONES[tone]}`}>
-                <Icon size={18} />
-              </span>
-              <p className="mt-0.5 text-sm font-black">{label}</p>
-              <p className="text-[10px] opacity-70 leading-tight">{hint}</p>
-            </button>
-          ))}
+          {SHEETS.map(({ key, label, icon: Icon, tone, hint }) => {
+            // Numbers on the tiles (user, 2026-11-22: "the cards in farmer side
+            // are also just white, so let's give them some numbers").
+            const cats = TILE_CATS[key] ?? [key];
+            const rows = (summary?.byCategory ?? []).filter((c) => cats.includes(c.category));
+            const money = rows.reduce((n, c) => n + Number(c.amount || 0), 0);
+            const times = rows.reduce((n, c) => n + Number(c.count || 0), 0);
+            return (
+              <button
+                key={key}
+                onClick={() => openSheet(key)}
+                className={`rounded-2xl border p-3.5 text-left transition-transform active:scale-[0.98] flex flex-col gap-1.5 h-full ${TILE_WASH[tone]}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className={`cp-icon-chip border ${TONES[tone]}`}>
+                    <Icon size={18} />
+                  </span>
+                  <span className="text-right leading-none">
+                    <span className="block text-[17px] font-black tabular-nums">{money > 0 ? KES(money) : '—'}</span>
+                    <span className="block mt-1 text-[10px] font-semibold opacity-70">{times} {times === 1 ? 'record' : 'records'}</span>
+                  </span>
+                </div>
+                <p className="mt-0.5 text-sm font-black">{label}</p>
+                <p className="text-[10px] opacity-70 leading-tight">{hint}</p>
+              </button>
+            );
+          })}
         </div>
       </section>
 
@@ -866,7 +899,14 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-2 lg:gap-1.5">
+          // One card holding every group (user, 2026-11-22: "one card
+          // encompassing the detailed cards"), a divided row per group.
+          <div className="cp-card overflow-hidden">
+            <div className="px-3.5 py-2.5 flex items-center justify-between border-b border-slate-100">
+              <span className="text-[11px] font-semibold text-slate-500">{groups.length} {groups.length === 1 ? 'group' : 'groups'}</span>
+              <span className="text-[11px] font-black text-slate-800 dark:text-zinc-100 tabular-nums">{groups.reduce((n, g) => n + Number(g.headCount || 0), 0)} head in all</span>
+            </div>
+            <div className="divide-y divide-slate-100">
             {groups.map((g) => {
               const gcfg = speciesConfig(g.species);
               const chips = [
@@ -885,7 +925,7 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
                   tabIndex={0}
                   onClick={() => setDetailGroup(g)}
                   onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailGroup(g); } }}
-                  className="cp-card p-3.5 cursor-pointer transition-colors hover:border-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                  className="p-3.5 cursor-pointer transition-colors hover:bg-black/[0.03] dark:hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-emerald-500/40"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -928,8 +968,9 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
                 </div>
               );
             })}
+            </div>
             {atGroupLimit && (
-              <p className="text-[10px] text-slate-400 text-center pt-1">
+              <p className="text-[10px] text-slate-400 text-center px-3 py-2 border-t border-slate-100">
                 Free covers {groupLimit} kinds of animal. Upgrade to add more.
               </p>
             )}
