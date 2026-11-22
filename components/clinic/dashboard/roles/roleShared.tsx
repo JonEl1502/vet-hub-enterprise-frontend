@@ -155,7 +155,8 @@ const NEUTRAL: SoftTone[] = ['sky', 'violet', 'indigo', 'teal', 'emerald'];
 export const StatRow: React.FC<{ stats: StatDef[] }> = ({ stats }) => {
   let n = 0;
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
+    // A seventh tile gets its own column rather than wrapping alone (2026-11-22).
+    <div className={`grid grid-cols-2 sm:grid-cols-3 ${stats.length >= 7 ? 'lg:grid-cols-4 xl:grid-cols-7' : 'xl:grid-cols-6'} gap-3`}>
       {stats.map(s => {
         const tone = MEANING[s.tone || 'default'] ?? NEUTRAL[n++ % NEUTRAL.length];
         return <SoftTile key={s.label} compact label={s.label} value={s.value} sub={s.sub} tone={tone} icon={s.icon} onClick={s.onClick} />;
