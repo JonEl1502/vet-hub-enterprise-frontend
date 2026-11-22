@@ -5,6 +5,7 @@ import {
   CircleDollarSign, Clock, CheckCircle2, Ban, ArrowRight, X,
 } from 'lucide-react';
 import PageHeader from '../../shared/common/PageHeader';
+import { SoftTile, type SoftTone } from '../../shared/stats/ColorTiles';
 import { useClinic } from '../../../contexts/ClinicContext';
 import { invoicesAPI } from '../../../services';
 import revenueDeskAPI, {
@@ -103,14 +104,13 @@ const TONE_TEXT: Record<string, string> = {
 
 const StatTile: React.FC<{
   label: string; value: string; sub?: string; tone?: 'warn' | 'bad' | 'good';
-}> = ({ label, value, sub, tone }) => (
-  <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5 min-w-0">
-    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 truncate">{label}</p>
-    <p className={`mt-1 text-lg font-black tabular-nums truncate ${tone ? TONE_TEXT[tone] : 'text-pine dark:text-zinc-100'}`}>
-      {value}
-    </p>
-    {sub && <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500 truncate">{sub}</p>}
-  </div>
+  /** Colour when no status tone applies — neighbours differ (user, 2026-11-22). */
+  color?: SoftTone;
+}> = ({ label, value, sub, tone, color = 'sky' }) => (
+  <SoftTile
+    compact label={label} value={value} sub={sub}
+    tone={tone === 'warn' ? 'amber' : tone === 'bad' ? 'rose' : tone === 'good' ? 'emerald' : color}
+  />
 );
 
 const StatusPill: React.FC<{ status: string }> = ({ status }) => (
@@ -293,39 +293,39 @@ const RevenueDeskPage: React.FC<Props> = ({ onOpenVisit }) => {
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
           <StatTile
             label="Needs action" value={String(bs?.needsActionCount ?? 0)}
-            sub={money(bs?.needsActionAmount ?? 0)} tone={bs?.needsActionCount ? 'warn' : undefined}
+            sub={money(bs?.needsActionAmount ?? 0)} tone={bs?.needsActionCount ? 'warn' : undefined} color="sky"
           />
           <StatTile
             label="Pending approval" value={String(bs?.byStatus?.PENDING_REVIEW?.count ?? 0)}
             sub={money(bs?.byStatus?.PENDING_REVIEW?.amount ?? 0)}
-            tone={bs?.byStatus?.PENDING_REVIEW?.count ? 'warn' : undefined}
+            tone={bs?.byStatus?.PENDING_REVIEW?.count ? 'warn' : undefined} color="teal"
           />
           <StatTile
             label="Approved · to invoice" value={String(bs?.awaitingInvoiceCount ?? 0)}
-            sub={money(bs?.awaitingInvoiceAmount ?? 0)}
+            sub={money(bs?.awaitingInvoiceAmount ?? 0)} color="violet"
           />
           <StatTile
             label="Invoiced" value={String(bs?.byStatus?.INVOICED?.count ?? 0)}
-            sub={money(bs?.byStatus?.INVOICED?.amount ?? 0)}
+            sub={money(bs?.byStatus?.INVOICED?.amount ?? 0)} color="indigo"
           />
-          <StatTile label="Total billed" value={money(bs?.totalAmount ?? 0)} sub={`${bs?.totalCount ?? 0} bills`} />
+          <StatTile label="Total billed" value={money(bs?.totalAmount ?? 0)} sub={`${bs?.totalCount ?? 0} bills`} color="pine" />
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3">
           <StatTile
             label="Outstanding" value={money(is?.outstandingAmount ?? 0)}
-            sub="Open + part paid" tone={is?.outstandingAmount ? 'warn' : undefined}
+            sub="Open + part paid" tone={is?.outstandingAmount ? 'warn' : undefined} color="sky"
           />
           <StatTile
             label="Overdue" value={String(is?.overdueCount ?? 0)}
-            sub={money(is?.overdueAmount ?? 0)} tone={is?.overdueCount ? 'bad' : undefined}
+            sub={money(is?.overdueAmount ?? 0)} tone={is?.overdueCount ? 'bad' : undefined} color="indigo"
           />
           <StatTile label="Collected" value={money(is?.collectedAmount ?? 0)} sub="Against these invoices" tone="good" />
           <StatTile
             label="Paid in full" value={String(is?.byStatus?.PAID?.count ?? 0)}
-            sub={money(is?.byStatus?.PAID?.amount ?? 0)}
+            sub={money(is?.byStatus?.PAID?.amount ?? 0)} color="teal"
           />
-          <StatTile label="Total invoiced" value={money(is?.totalAmount ?? 0)} sub={`${is?.totalCount ?? 0} invoices`} />
+          <StatTile label="Total invoiced" value={money(is?.totalAmount ?? 0)} sub={`${is?.totalCount ?? 0} invoices`} color="pine" />
         </div>
       )}
 

@@ -16,6 +16,7 @@ import { subscriptionPackagesAPI, type SubscriptionPackagePlan } from '../../../
 import { useDisplayCurrency } from '../../../contexts/DisplayCurrencyContext';
 import { toast, dialog } from '../../../services';
 import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
+import { SOFT } from '../../shared/stats/ColorTiles';
 
 const CHANNELS: AdminChannel[] = ['LIPANA', 'MPESA', 'PESAPAL', 'PAYSTACK'];
 const STATUSES: AdminStatus[] = ['SUCCESS', 'PENDING', 'FAILED', 'CANCELLED', 'EXPIRED'];
@@ -196,12 +197,12 @@ const SubscriptionPaymentsAdminPage: React.FC = () => {
                 ? `$${aggregates.totalSuccessAmountUsd.toFixed(2)}`
                 : `${displayCurrency} ${(aggregates as any).totalSuccessAmountKes?.toLocaleString(undefined, { maximumFractionDigits: 0 }) ?? '—'}`
             }
-            icon={<DollarSign size={14}/>}
-            tone="emerald"
+            icon={<DollarSign size={18}/>}
+            tone="pine"
           />
-          <Kpi label="Successful" value={aggregates.successCount.toLocaleString()} icon={<CheckCircle2 size={14}/>} tone="emerald" />
-          <Kpi label="Pending" value={aggregates.pendingCount.toLocaleString()} icon={<Hourglass size={14}/>} tone="amber" />
-          <Kpi label="Failed / Cancelled" value={aggregates.failedCount.toLocaleString()} icon={<AlertTriangle size={14}/>} tone="rose" />
+          <Kpi label="Successful" value={aggregates.successCount.toLocaleString()} icon={<CheckCircle2 size={18}/>} tone="emerald" />
+          <Kpi label="Pending" value={aggregates.pendingCount.toLocaleString()} icon={<Hourglass size={18}/>} tone="amber" />
+          <Kpi label="Failed / Cancelled" value={aggregates.failedCount.toLocaleString()} icon={<AlertTriangle size={18}/>} tone="rose" />
         </div>
       )}
 
@@ -377,18 +378,15 @@ const StatusPill: React.FC<{ status: string }> = ({ status }) => (
   }`}>{status}</span>
 );
 
-const Kpi: React.FC<{ label: string; value: string; icon: React.ReactNode; tone: 'emerald' | 'amber' | 'rose' }> = ({ label, value, icon, tone }) => {
-  const toneCls = {
-    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-700 dark:text-emerald-300',
-    amber:   'bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-300',
-    rose:    'bg-rose-50 dark:bg-rose-900/20 text-rose-700 dark:text-rose-300',
-  }[tone];
+const Kpi: React.FC<{ label: string; value: string; icon: React.ReactNode; tone: 'emerald' | 'amber' | 'rose' | 'pine' }> = ({ label, value, icon, tone }) => {
+  const t = SOFT[tone];
   return (
-    <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-      <div className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider ${toneCls}`}>
-        {icon} {label}
-      </div>
-      <p className="mt-2 text-2xl font-black text-pine dark:text-zinc-100">{value}</p>
+    <div className={`rounded-2xl border p-4 flex items-center gap-3.5 min-w-0 ${t.tile}`}>
+      <span className={`w-11 h-11 rounded-xl grid place-items-center shadow-sm shrink-0 ${t.icon}`}>{icon}</span>
+      <span className="min-w-0 flex-1">
+        <span className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 truncate">{label}</span>
+        <span className={`block mt-1 text-[24px] font-black leading-none tabular-nums truncate ${t.num}`}>{value}</span>
+      </span>
     </div>
   );
 };

@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { HeartPulse, TrendingUp, TrendingDown, Wallet as WalletIcon, Receipt } from 'lucide-react';
 import PageHeader from '../../shared/common/PageHeader';
+import { SoftTile, toneFromClass, type SoftTone } from '../../shared/stats/ColorTiles';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
 import { summariesAPI, ProfitAndLoss, CashFlow } from '../../../services/modules/summaries.api';
 import { receivablesAPI, ArAgeing } from '../../../services/modules/receivables.api';
@@ -27,16 +28,9 @@ const rangeForLast = (days: number) => {
   return { from, to };
 };
 
-const StatCard: React.FC<{ label: string; value: string; tone: string; icon: React.ElementType; sub?: string }> =
-  ({ label, value, tone, icon: Icon, sub }) => (
-    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon size={14} className={tone} />
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-      </div>
-      <p className={`text-xl font-black ${tone}`}>{value}</p>
-      {sub && <p className="text-[10px] text-slate-400 mt-0.5">{sub}</p>}
-    </div>
+const StatCard: React.FC<{ label: string; value: string; tone: string; icon: React.ElementType; sub?: string; color?: SoftTone }> =
+  ({ label, value, tone, icon, sub, color }) => (
+    <SoftTile compact label={label} value={value} sub={sub} icon={icon as any} tone={color ?? toneFromClass(tone) ?? 'sky'} />
   );
 
 const FinancialHealthView: React.FC<Props> = ({ clinicId }) => {
@@ -124,7 +118,7 @@ const FinancialHealthView: React.FC<Props> = ({ clinicId }) => {
           <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-4 sm:p-8 shadow-sm">
             <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-3">Liquidity</p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              <StatCard label="Cash on hand" value={money(cashBalance)} tone="text-pine dark:text-zinc-100" icon={WalletIcon} />
+              <StatCard label="Cash on hand" value={money(cashBalance)} tone="text-pine dark:text-zinc-100" icon={WalletIcon} color="pine" />
               <StatCard label="Cash in (range)" value={money(cf?.totals.cashIn ?? 0)} tone="text-emerald-600" icon={TrendingUp} />
               <StatCard label="Cash out (range)" value={money(cf?.totals.cashOut ?? 0)} tone="text-rose-500" icon={TrendingDown} />
             </div>
@@ -139,6 +133,7 @@ const FinancialHealthView: React.FC<Props> = ({ clinicId }) => {
                 value={cashToArRatio === null ? '—' : `${cashToArRatio}×`}
                 tone="text-pine dark:text-zinc-100"
                 icon={WalletIcon}
+                color="sky"
                 sub="Cash on hand per KES owed"
               />
             </div>

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { Send, Loader2 } from 'lucide-react';
+import { Send, Loader2, Inbox, Hourglass, TrendingUp, Wallet } from 'lucide-react';
 import { visitJobsAPI, VisitJob } from '../../../services/modules/visitJobs.api';
+import { SoftTile } from '../../shared/stats/ColorTiles';
 
 /**
  * Partner-REQUEST stats (user, 2026-08-02) — the new cross-clinic visit-job
@@ -61,33 +62,12 @@ const B2BJobsStats: React.FC<Props> = ({ activeClinicIds, startStr, endStr, curr
         )}
       </div>
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="compact-card">
-          <p className="card-subtitle mb-1">Total Requests</p>
-          <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tighter">{mine.length}</h3>
-        </div>
-        <div className="compact-card">
-          <p className="card-subtitle mb-1">Incoming</p>
-          <h3 className="text-xl font-black text-emerald-600 tracking-tighter">{incoming.length}</h3>
-        </div>
-        <div className="compact-card">
-          <p className="card-subtitle mb-1">Outgoing</p>
-          <h3 className="text-xl font-black text-cyan tracking-tighter">{outgoing.length}</h3>
-        </div>
-        <div className="compact-card">
-          <p className="card-subtitle mb-1">Awaiting Action</p>
-          <h3 className="text-xl font-black text-amber-600 tracking-tighter">{awaiting.length}</h3>
-          <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">Price / accept pending</p>
-        </div>
-        <div className="compact-card">
-          <p className="card-subtitle mb-1">Earned</p>
-          <h3 className="text-xl font-black text-emerald-600 font-mono tracking-tighter">{currency} {earned.toLocaleString()}</h3>
-          <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">Completed incoming jobs</p>
-        </div>
-        <div className="compact-card">
-          <p className="card-subtitle mb-1">Paid Out</p>
-          <h3 className="text-xl font-black text-amber-600 font-mono tracking-tighter">{currency} {paid.toLocaleString()}</h3>
-          <p className="text-[8px] text-slate-400 font-bold uppercase mt-1">Completed outgoing jobs</p>
-        </div>
+        <SoftTile compact tone="violet" icon={Send} label="Total Requests" value={mine.length} />
+        <SoftTile compact tone="sky" icon={Inbox} label="Incoming" value={incoming.length} />
+        <SoftTile compact tone="indigo" icon={Send} label="Outgoing" value={outgoing.length} />
+        <SoftTile compact tone={awaiting.length ? 'amber' : 'teal'} icon={Hourglass} label="Awaiting Action" value={awaiting.length} sub="Price / accept pending" />
+        <SoftTile compact tone="pine" icon={TrendingUp} label="Earned" value={`${currency} ${earned.toLocaleString()}`} sub="Completed incoming jobs" />
+        <SoftTile compact tone="amber" icon={Wallet} label="Paid Out" value={`${currency} ${paid.toLocaleString()}`} sub="Completed outgoing jobs" />
       </div>
     </div>
   );

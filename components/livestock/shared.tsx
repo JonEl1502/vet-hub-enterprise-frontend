@@ -18,6 +18,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Plus, X, Loader2, Sprout } from 'lucide-react';
 import type { Farm } from '../../services/modules/livestock.api';
+import { SoftTile, type SoftTone } from '../shared/stats/ColorTiles';
 
 export const SPECIES = ['CATTLE', 'GOAT', 'SHEEP', 'POULTRY', 'PIG', 'RABBIT', 'FISH', 'CAMEL', 'DONKEY', 'OTHER'];
 export const PURPOSES = ['DAIRY', 'MEAT', 'LAYERS', 'BROILERS', 'BREEDING', 'WOOL', 'DRAUGHT', 'OTHER'];
@@ -270,12 +271,12 @@ export const Card: React.FC<{ children: React.ReactNode; onClick?: () => void }>
   </div>
 );
 
-export const Stat: React.FC<{ label: string; value: string | number; hint?: string }> = ({ label, value, hint }) => (
-  <div className="cp-card p-4">
-    <p className="text-[10px] font-black uppercase tracking-widest cp-muted">{label}</p>
-    <p className="mt-1 text-2xl font-black" style={{ color: 'var(--cp-ink)' }}>{value}</p>
-    {hint && <p className="text-[11px] cp-muted mt-0.5">{hint}</p>}
-  </div>
+export const Stat: React.FC<{
+  label: string; value: string | number; hint?: string;
+  /** Colour by meaning (user, 2026-11-22: every stat card coloured). */
+  tone?: SoftTone; icon?: React.ComponentType<any>;
+}> = ({ label, value, hint, tone = 'sky', icon }) => (
+  <SoftTile label={label} value={value} sub={hint} tone={tone} icon={icon} />
 );
 
 export const fmtDate = (d?: string | null) =>

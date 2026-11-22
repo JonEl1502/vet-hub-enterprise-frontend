@@ -6,6 +6,7 @@ import { ArrowLeft, Calendar, DollarSign, CheckCircle2, FileText, Receipt, Steth
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { SERVICE_CATEGORIES } from '../../../constants';
 import { AppointmentMedicationRecord } from '../../../types';
+import { SOFT } from '../../shared/stats/ColorTiles';
 
 interface Props {
   appointment: Visit;
@@ -105,22 +106,22 @@ const VisitReadOnlyView: React.FC<Props> = ({ appointment, pet, clinic, client, 
 
       {/* Stats Row */}
       <div className="grid grid-cols-3 gap-2">
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3">
+        <div className={`border rounded-xl p-3 ${SOFT.sky.tile}`}>
           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1"><Calendar size={10}/> Status</p>
-          <p className="text-xs font-black text-pine dark:text-zinc-100 uppercase">{appointment.status.replace('_', ' ')}</p>
+          <p className={`text-xs font-black uppercase ${SOFT.sky.num}`}>{appointment.status.replace('_', ' ')}</p>
           <div className="mt-1.5 h-1.5 bg-slate-100 dark:bg-zinc-700 rounded-full overflow-hidden">
             <div className="h-full bg-seafoam transition-all" style={{ width: `${progress}%` }} />
           </div>
           <p className="text-[8px] text-slate-400 font-bold mt-0.5">{progress}% done</p>
         </div>
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3">
+        <div className={`border rounded-xl p-3 ${SOFT[appointment.isPaid ? 'pine' : 'amber'].tile}`}>
           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1"><DollarSign size={10}/> Total</p>
-          <p className="text-base font-black font-mono text-pine dark:text-zinc-100">{clinic.currency} {appointment.totalCost.toLocaleString()}</p>
+          <p className={`text-base font-black font-mono ${SOFT[appointment.isPaid ? 'pine' : 'amber'].num}`}>{clinic.currency} {appointment.totalCost.toLocaleString()}</p>
           <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">{appointment.paymentMethod || 'Unpaid'}</p>
         </div>
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3">
+        <div className={`border rounded-xl p-3 ${SOFT.violet.tile}`}>
           <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1 flex items-center gap-1"><Stethoscope size={10}/> Services</p>
-          <p className="text-base font-black text-pine dark:text-zinc-100">{appointment.tasks.length}</p>
+          <p className={`text-base font-black ${SOFT.violet.num}`}>{appointment.tasks.length}</p>
           <p className="text-[8px] font-bold text-slate-400 uppercase mt-0.5">{new Set(appointment.tasks.map(t => t.category)).size} categories</p>
         </div>
       </div>

@@ -10,6 +10,7 @@ import type { InventoryItem } from '../../../services/modules/inventory.api';
 import type { StockMovement } from '../../../services/modules/stockMovements.api';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { localYMD } from '../../../services/utils/dateFormatter';
+import { SoftTile, type SoftTone } from '../../shared/stats/ColorTiles';
 
 interface DispenseLine { item: InventoryItem; qty: number; unitPrice: number }
 interface Props { activeClinic?: { id: number | string; currency?: string } }
@@ -263,15 +264,12 @@ const PharmacyView: React.FC<Props> = ({ activeClinic }) => {
           {/* Summary tiles */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[
-              { label: 'Medications', value: stats.count.toLocaleString(), icon: Pill, tone: 'text-seafoam' },
-              { label: 'Low / out of stock', value: stats.low.toLocaleString(), icon: TrendingDown, tone: 'text-amber-500' },
-              { label: 'Expiring ≤30d', value: stats.expiring.toLocaleString(), icon: AlertTriangle, tone: 'text-rose-500' },
-              { label: 'Stock value', value: `${currency} ${Math.round(stats.value).toLocaleString()}`, icon: Wallet, tone: 'text-pine dark:text-zinc-100' },
+              { label: 'Medications', value: stats.count.toLocaleString(), icon: Pill, tone: 'text-seafoam', soft: 'sky' as SoftTone },
+              { label: 'Low / out of stock', value: stats.low.toLocaleString(), icon: TrendingDown, tone: 'text-amber-500', soft: (stats.low > 0 ? 'amber' : 'violet') as SoftTone },
+              { label: 'Expiring ≤30d', value: stats.expiring.toLocaleString(), icon: AlertTriangle, tone: 'text-rose-500', soft: (stats.expiring > 0 ? 'rose' : 'indigo') as SoftTone },
+              { label: 'Stock value', value: `${currency} ${Math.round(stats.value).toLocaleString()}`, icon: Wallet, tone: 'text-pine dark:text-zinc-100', soft: 'pine' as SoftTone },
             ].map(s => (
-              <div key={s.label} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5">
-                <div className="flex items-center gap-1.5 text-[9px] font-black uppercase tracking-widest text-slate-400"><s.icon size={12} /> {s.label}</div>
-                <p className={`text-xl font-black mt-1 ${s.tone}`}>{s.value}</p>
-              </div>
+              <SoftTile key={s.label} compact tone={s.soft} icon={s.icon} label={s.label} value={s.value} />
             ))}
           </div>
 

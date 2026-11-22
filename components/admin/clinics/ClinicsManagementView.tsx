@@ -14,6 +14,7 @@ import { Power, Loader2, ShieldCheck, Clock, PawPrint, CircleDollarSign, UserChe
 import { ResponsiveContainer, PieChart, Pie, Cell, Legend, Tooltip as RTooltip, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 import AdminPageHeader from '../shared/AdminPageHeader';
 import ClinicSearchDropdown from '../../shared/layout/sidebar/ClinicSearchDropdown';
+import { SOFT, type SoftTone } from '../../shared/stats/ColorTiles';
 
 interface ClinicsManagementViewProps {
   /**
@@ -361,14 +362,14 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
            *    rather than inventing one.
            */
           const tiles = [
-            { key: 'total' as const, label: 'Total', value: fmt(metrics?.clinics.total ?? stats.total), icon: Building2, tone: 'text-blue-500 bg-blue-500/10' },
-            { key: 'active' as const, label: 'Active', value: fmt(metrics?.clinics.active ?? stats.active), icon: CheckCircle, tone: 'text-green-500 bg-green-500/10' },
-            { key: 'inactive' as const, label: 'Inactive', value: fmt(metrics?.clinics.inactive ?? stats.inactive), icon: XCircle, tone: 'text-red-500 bg-red-500/10' },
-            { key: 'verifications' as const, label: 'Verified', value: fmt(metrics?.clinics.verified), icon: ShieldCheck, tone: 'text-emerald-500 bg-emerald-500/10' },
-            { key: 'verifications' as const, label: 'Pending', value: fmt(metrics?.clinics.pending), icon: Clock, tone: 'text-amber-500 bg-amber-500/10' },
-            { key: null, label: 'Clients', value: fmt(metrics?.totals?.clients), icon: Users, tone: 'text-cyan-500 bg-cyan-500/10' },
-            { key: null, label: 'Pets', value: fmt(metrics?.totals?.pets), icon: PawPrint, tone: 'text-fuchsia-500 bg-fuchsia-500/10' },
-            { key: null, label: 'MRR', value: fmt(metrics?.subscriptions.mrr), icon: CircleDollarSign, tone: 'text-pine bg-pine/10 dark:text-zinc-200 dark:bg-zinc-100/10' },
+            { key: 'total' as const, label: 'Total', value: fmt(metrics?.clinics.total ?? stats.total), icon: Building2, tone: 'text-blue-500 bg-blue-500/10', soft: 'sky' as SoftTone },
+            { key: 'active' as const, label: 'Active', value: fmt(metrics?.clinics.active ?? stats.active), icon: CheckCircle, tone: 'text-green-500 bg-green-500/10', soft: 'emerald' as SoftTone },
+            { key: 'inactive' as const, label: 'Inactive', value: fmt(metrics?.clinics.inactive ?? stats.inactive), icon: XCircle, tone: 'text-red-500 bg-red-500/10', soft: 'rose' as SoftTone },
+            { key: 'verifications' as const, label: 'Verified', value: fmt(metrics?.clinics.verified), icon: ShieldCheck, tone: 'text-emerald-500 bg-emerald-500/10', soft: 'pine' as SoftTone },
+            { key: 'verifications' as const, label: 'Pending', value: fmt(metrics?.clinics.pending), icon: Clock, tone: 'text-amber-500 bg-amber-500/10', soft: 'amber' as SoftTone },
+            { key: null, label: 'Clients', value: fmt(metrics?.totals?.clients), icon: Users, tone: 'text-cyan-500 bg-cyan-500/10', soft: 'teal' as SoftTone },
+            { key: null, label: 'Pets', value: fmt(metrics?.totals?.pets), icon: PawPrint, tone: 'text-fuchsia-500 bg-fuchsia-500/10', soft: 'violet' as SoftTone },
+            { key: null, label: 'MRR', value: fmt(metrics?.subscriptions.mrr), icon: CircleDollarSign, tone: 'text-pine bg-pine/10 dark:text-zinc-200 dark:bg-zinc-100/10', soft: 'indigo' as SoftTone },
           ];
           const drillList = tileDrill
             ? clinics
@@ -385,21 +386,22 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
                 const isList = t.key === 'total' || t.key === 'active' || t.key === 'inactive';
                 const isNav = t.key === 'verifications';
                 const open = isList && tileDrill === t.key;
+                const c = SOFT[t.soft];
                 const inner = (
                   <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${t.tone}`}>
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${c.icon}`}>
                       <t.icon size={20} />
                     </div>
                     <div className="min-w-0 text-left">
                       <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 truncate">{t.label}</p>
-                      <p className="text-xl font-black text-pine dark:text-zinc-100">{t.value}</p>
+                      <p className={`text-xl font-black tabular-nums ${c.num}`}>{t.value}</p>
                     </div>
                     {(isList || isNav) && <ChevronRight size={14} className={`ml-auto shrink-0 text-slate-300 dark:text-zinc-600 transition-transform ${open ? 'rotate-90' : ''}`} />}
                   </div>
                 );
                 if (!isList && !isNav) {
                   return (
-                    <div key={t.label} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">{inner}</div>
+                    <div key={t.label} className={`border rounded-2xl p-4 ${c.tile}`}>{inner}</div>
                   );
                 }
                 return (
@@ -408,7 +410,7 @@ const ClinicsManagementView: React.FC<ClinicsManagementViewProps> = ({ onNavigat
                     type="button"
                     onClick={() => isNav ? onNavigate?.('admin-verifications') : setTileDrill(open ? null : (t.key as 'total' | 'active' | 'inactive'))}
                     title={isNav ? 'Open the verification queue' : `Show the clinics behind ${t.label.toLowerCase()}`}
-                    className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 transition-all hover:border-seafoam active:scale-[0.98] ${open ? 'border-seafoam' : 'border-slate-200 dark:border-zinc-800'}`}
+                    className={`border rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] ${c.tile} ${c.ring} ${open ? '!border-seafoam' : ''}`}
                   >
                     {inner}
                   </button>

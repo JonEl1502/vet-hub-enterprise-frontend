@@ -11,6 +11,7 @@ import { ClientBilling, ClientAttachment } from '../../../services/modules/clien
 import { PetshopSaleRecord } from '../../../services/modules/petshop.api';
 import RevenueStatusChip, { revenueStatusOf } from '../shared/RevenueStatusChip';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import { SOFT, type SoftTone } from '../../shared/stats/ColorTiles';
 
 /**
  * Client → Payments tab, account-hub layout (user reference design, 2026-08-02).
@@ -1170,27 +1171,27 @@ export const AccountStatCards: React.FC<{
 
   const cards = [
     {
-      label: petKey ? 'Balance On This Patient' : 'Current Balance', icon: Wallet, chip: 'bg-rose-500/10 text-rose-500',
-      value: money(outstanding, currency), valueCls: outstanding > 0 ? 'text-rose-500' : 'text-pine dark:text-zinc-100',
+      label: petKey ? 'Balance On This Patient' : 'Current Balance', icon: Wallet, tone: (outstanding > 0 ? 'rose' : 'emerald') as SoftTone,
+      value: money(outstanding, currency),
       sub: openCount > 0 ? `From ${openCount} bill${openCount === 1 ? '' : 's'}` : 'Nothing outstanding',
       onClick: outstanding > 0 ? onSettle : undefined,
     },
     {
-      label: petKey ? 'Owner Credit' : 'Credit Available', icon: PiggyBank, chip: 'bg-emerald-500/10 text-emerald-500',
-      value: money(credit, currency), valueCls: 'text-pine dark:text-zinc-100',
+      label: petKey ? 'Owner Credit' : 'Credit Available', icon: PiggyBank, tone: 'emerald' as SoftTone,
+      value: money(credit, currency),
       sub: petKey ? `On ${client.name}'s account`
         : client.maxDebt != null ? `Credit Limit: ${money(client.maxDebt, currency)}` : 'No credit limit set',
       onClick: onTopUp,
       cta: 'receive payment',
     },
-    { label: 'Total Billed', icon: FileText, chip: 'bg-indigo-500/10 text-indigo-500',
-      value: money(billed12, currency), valueCls: 'text-pine dark:text-zinc-100', sub: 'Last 12 months' },
-    { label: 'Total Paid', icon: Banknote, chip: 'bg-seafoam/10 text-seafoam',
-      value: money(paid12, currency), valueCls: 'text-pine dark:text-zinc-100', sub: 'Last 12 months' },
+    { label: 'Total Billed', icon: FileText, tone: 'indigo' as SoftTone,
+      value: money(billed12, currency), sub: 'Last 12 months' },
+    { label: 'Total Paid', icon: Banknote, tone: 'pine' as SoftTone,
+      value: money(paid12, currency), sub: 'Last 12 months' },
     {
-      label: 'Payment Reliability', icon: TrendingUp, chip: 'bg-emerald-500/10 text-emerald-500',
+      label: 'Payment Reliability', icon: TrendingUp,
+      tone: (reliability == null ? 'sky' : reliability >= 90 ? 'emerald' : reliability >= 70 ? 'teal' : reliability >= 50 ? 'amber' : 'rose') as SoftTone,
       value: reliability == null ? '—' : `${reliability} %`,
-      valueCls: reliability != null && reliability >= 90 ? 'text-emerald-600 dark:text-emerald-400' : 'text-pine dark:text-zinc-100',
       sub: reliability == null ? 'No history' : reliability >= 90 ? 'Excellent' : reliability >= 70 ? 'Good' : reliability >= 50 ? 'Fair' : 'Poor',
     },
   ];
@@ -1199,17 +1200,18 @@ export const AccountStatCards: React.FC<{
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
       {cards.map(card => {
         const Tag: any = card.onClick ? 'button' : 'div';
+        const t = SOFT[card.tone];
         return (
           <Tag key={card.label} onClick={card.onClick}
             title={card.onClick ? 'Settle the outstanding invoices' : undefined}
-            className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 flex items-start gap-3 text-left w-full ${
-              card.onClick ? 'cursor-pointer hover:border-seafoam hover:shadow-md transition-all active:scale-[0.99]' : ''
+            className={`border rounded-2xl p-4 flex items-start gap-3 text-left w-full ${t.tile} ${
+              card.onClick ? `cursor-pointer hover:-translate-y-0.5 hover:shadow-md transition-all active:scale-[0.99] ${t.ring}` : ''
             }`}>
-            <div className={`p-2.5 rounded-xl shrink-0 ${card.chip}`}><card.icon size={16} /></div>
+            <div className={`w-10 h-10 grid place-items-center rounded-xl shrink-0 shadow-sm ${t.icon}`}><card.icon size={17} /></div>
             <div className="min-w-0">
-              <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest mb-1">{card.label}</p>
-              <p className={`text-base font-black font-mono leading-tight truncate ${card.valueCls}`}>{card.value}</p>
-              <p className="text-[9px] font-bold text-slate-400 mt-0.5">
+              <p className="text-[9px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-widest mb-1">{card.label}</p>
+              <p className={`text-base font-black font-mono leading-tight truncate ${t.num}`}>{card.value}</p>
+              <p className="text-[9px] font-bold text-slate-500 dark:text-zinc-400 mt-0.5">
                 {card.sub}{card.onClick ? ` · click to ${(card as any).cta ?? 'settle'}` : ''}
               </p>
             </div>

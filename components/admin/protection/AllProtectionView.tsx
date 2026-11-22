@@ -4,6 +4,7 @@ import { get } from '../../../services/api/client';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import AdminPageHeader, { AdminPage } from '../shared/AdminPageHeader';
+import { SoftTile, type SoftTone } from '../../shared/stats/ColorTiles';
 
 interface ClinicRow {
   clientId: string; clinicId: string; clinicName: string;
@@ -73,16 +74,12 @@ const AllProtectionView: React.FC<{ onBack?: () => void }> = ({ onBack }) => {
           {/* Summary tiles */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {[
-              { label: 'Owners with debt', value: data.summary.withDebt, icon: Users, tone: 'text-amber-500' },
-              { label: 'Total outstanding', value: `KES ${data.summary.totalOutstanding.toLocaleString()}`, icon: Wallet, tone: 'text-rose-500' },
-              { label: 'Debt-jumpers', value: data.summary.debtJumpers, icon: AlertTriangle, tone: 'text-rose-600' },
-              { label: 'Multi-clinic owners', value: data.summary.multiClinic, icon: Users, tone: 'text-seafoam' },
+              { label: 'Owners with debt', value: data.summary.withDebt, icon: Users, tone: 'text-amber-500', soft: 'amber' as SoftTone },
+              { label: 'Total outstanding', value: `KES ${data.summary.totalOutstanding.toLocaleString()}`, icon: Wallet, tone: 'text-rose-500', soft: 'rose' as SoftTone },
+              { label: 'Debt-jumpers', value: data.summary.debtJumpers, icon: AlertTriangle, tone: 'text-rose-600', soft: 'violet' as SoftTone },
+              { label: 'Multi-clinic owners', value: data.summary.multiClinic, icon: Users, tone: 'text-seafoam', soft: 'sky' as SoftTone },
             ].map(t => (
-              <div key={t.label} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
-                <t.icon size={16} className={`${t.tone} mb-2`} />
-                <p className="text-xl font-black text-pine dark:text-zinc-100">{t.value}</p>
-                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{t.label}</p>
-              </div>
+              <SoftTile key={t.label} compact tone={t.soft} icon={t.icon} label={t.label} value={t.value} />
             ))}
           </div>
 

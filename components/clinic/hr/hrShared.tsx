@@ -1,4 +1,5 @@
 import React from 'react';
+import { SoftTile, toneFromClass, type SoftTone } from '../../shared/stats/ColorTiles';
 import type {
   HrContractType, HrEmploymentStatus, HrLeaveStatus, HrAttendanceStatus,
 } from '../../../services/modules/hr.api';
@@ -141,14 +142,13 @@ export const Card: React.FC<{ children: React.ReactNode; className?: string }> =
   </div>
 );
 
-export const Stat: React.FC<{ label: string; value: React.ReactNode; tone?: string; hint?: string }> =
-  ({ label, value, tone = 'text-pine dark:text-zinc-100', hint }) => (
-    <Card className="p-4">
-      <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 mb-1">{label}</p>
-      <p className={`text-2xl font-black ${tone}`}>{value}</p>
-      {hint && <p className="mt-0.5 text-[9px] font-bold text-slate-400">{hint}</p>}
-    </Card>
-  );
+export const Stat: React.FC<{
+  label: string; value: React.ReactNode; tone?: string; hint?: string;
+  /** Tile colour by meaning (user, 2026-11-22); falls back to `tone`'s hue. */
+  color?: SoftTone; icon?: React.ComponentType<any>;
+}> = ({ label, value, tone, hint, color, icon }) => (
+  <SoftTile label={label} value={value} sub={hint} icon={icon} tone={color ?? toneFromClass(tone) ?? 'sky'} />
+);
 
 export const Field: React.FC<{ label: string; children: React.ReactNode; className?: string }> =
   ({ label, children, className = '' }) => (

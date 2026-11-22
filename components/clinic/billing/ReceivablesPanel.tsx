@@ -10,8 +10,9 @@
  */
 import React, { useEffect, useState } from 'react';
 import ContactDialog from '../../shared/common/ContactDialog';
-import { TrendingUp, TrendingDown, Loader2, Phone, AlertTriangle } from 'lucide-react';
+import { TrendingUp, TrendingDown, Loader2, Phone, AlertTriangle, Scale } from 'lucide-react';
 import { receivablesAPI, type ArAgeing, type SupplierApRow } from '../../../services/modules/receivables.api';
+import { SoftTile } from '../../shared/stats/ColorTiles';
 
 /**
  * Open a debtor straight on their UNPAID invoices — `client-profile` with
@@ -73,27 +74,10 @@ const ReceivablesPanel: React.FC<Props> = ({ currency = 'KES' }) => {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-            <TrendingUp size={12} className="text-emerald-500" /> Owed to you
-          </p>
-          <p className="mt-1 text-xl font-black text-pine dark:text-zinc-100">{money(owedToUs)}</p>
-          <p className="text-[11px] text-slate-400">{ageing?.clients.length ?? 0} client(s)</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
-            <TrendingDown size={12} className="text-rose-500" /> You owe suppliers
-          </p>
-          <p className="mt-1 text-xl font-black text-pine dark:text-zinc-100">{money(weOwe)}</p>
-          <p className="text-[11px] text-slate-400">{ap?.suppliers.length ?? 0} supplier(s)</p>
-        </div>
-        <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Net position</p>
-          <p className={`mt-1 text-xl font-black ${net >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
-            {net < 0 ? `− ${money(Math.abs(net))}` : money(net)}
-          </p>
-          <p className="text-[11px] text-slate-400">if everything settled today</p>
-        </div>
+        <SoftTile tone="emerald" icon={TrendingUp} label="Owed to you" value={money(owedToUs)} sub={`${ageing?.clients.length ?? 0} client(s)`} />
+        <SoftTile tone="amber" icon={TrendingDown} label="You owe suppliers" value={money(weOwe)} sub={`${ap?.suppliers.length ?? 0} supplier(s)`} />
+        <SoftTile tone={net >= 0 ? 'pine' : 'rose'} icon={Scale} label="Net position"
+          value={net < 0 ? `− ${money(Math.abs(net))}` : money(net)} sub="if everything settled today" />
       </div>
 
       {/* Ageing buckets */}

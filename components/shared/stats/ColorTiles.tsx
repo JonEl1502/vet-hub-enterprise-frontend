@@ -32,6 +32,28 @@ export const SOFT: Record<SoftTone, { tile: string; icon: string; num: string; r
 export const CYCLE: SoftTone[] = ['pine', 'sky', 'violet', 'amber', 'indigo', 'teal', 'rose', 'emerald'];
 export const toneAt = (i: number): SoftTone => CYCLE[i % CYCLE.length];
 
+/**
+ * Reads an older text-colour class ("text-amber-600", "text-pine …") as a tile
+ * tone, so a tile that used to colour only its number keeps its meaning when
+ * it becomes a coloured tile. Null when the class names no hue.
+ */
+export const toneFromClass = (cls?: string | null): SoftTone | null => {
+  if (!cls) return null;
+  const hues: [RegExp, SoftTone][] = [
+    [/\b(?:text|bg)-(?:rose|red)-/, 'rose'],
+    [/\b(?:text|bg)-(?:amber|orange|yellow)-/, 'amber'],
+    [/\b(?:text|bg)-(?:emerald|green)-/, 'emerald'],
+    [/\b(?:text|bg)-(?:violet|purple|fuchsia)-/, 'violet'],
+    [/\b(?:text|bg)-(?:sky|blue|cyan)-/, 'sky'],
+    [/\b(?:text|bg)-indigo-/, 'indigo'],
+    [/\b(?:text|bg)-(?:teal|seafoam)\b/, 'teal'],
+    [/\b(?:text|bg)-teal-/, 'teal'],
+    [/\b(?:text|bg)-pine\b/, 'pine'],
+  ];
+  for (const [re, t] of hues) if (re.test(cls)) return t;
+  return null;
+};
+
 export const GRADIENT: Record<GradientTone, { bg: string; text: string; sub: string; chip: string }> = {
   pine:   { bg: 'bg-gradient-to-br from-[#0f3d29] via-[#144E35] to-[#1f7a52]', text: 'text-white',     sub: 'text-emerald-100/80', chip: 'bg-white/15 text-white' },
   ocean:  { bg: 'bg-gradient-to-br from-[#0c4a6e] via-[#0369a1] to-[#0ea5e9]', text: 'text-white',     sub: 'text-sky-100/80',     chip: 'bg-white/15 text-white' },

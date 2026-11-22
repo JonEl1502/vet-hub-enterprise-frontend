@@ -50,6 +50,7 @@ import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import { supplierStripeAPI, SupplierBillingInfo } from '../../../services/modules/stripe.api';
 import { supplierPaymentGatewaysAPI } from '../../../services/modules/paymentGateways.api';
 import type { PaymentProvider as GatewayProvider } from '../../../services/modules/paymentGateways.api';
+import { SOFT } from '../../shared/stats/ColorTiles';
 
 interface SupplierInfo {
   id: string;
@@ -1269,10 +1270,10 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
         </div>
 
         {/* Growth rate */}
-        <div className="compact-card flex flex-col justify-between hover:border-seafoam transition-all">
+        <div className={`border rounded-2xl p-4 shadow-sm flex flex-col justify-between transition-all ${SOFT.sky.tile} ${SOFT.sky.ring}`}>
           <div>
             <p className="card-subtitle mb-1">Growth Rate</p>
-            <h3 className="text-xl font-black text-pine dark:text-zinc-100 tracking-tight">—</h3>
+            <h3 className={`text-xl font-black tracking-tight ${SOFT.sky.num}`}>—</h3>
           </div>
           <div className="h-16 w-full mt-3">
             <ResponsiveContainer width="100%" height="100%">
@@ -1284,7 +1285,7 @@ const SupplierWallet: React.FC<Props> = ({ supplier }) => {
         </div>
 
         {/* Wallet status */}
-        <div className="compact-card flex flex-col justify-between hover:border-seafoam transition-all">
+        <div className={`border rounded-2xl p-4 shadow-sm flex flex-col justify-between transition-all ${SOFT.violet.tile} ${SOFT.violet.ring}`}>
           <div>
             <p className="card-subtitle mb-1">Wallet Status</p>
             <div className="flex items-center gap-2 mt-1">

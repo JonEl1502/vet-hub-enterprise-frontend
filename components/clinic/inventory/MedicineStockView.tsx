@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { Pill, Search, AlertCircle, Calendar, Package, TrendingDown, Filter, Download, RefreshCw, X } from 'lucide-react';
 import { inventoryAPI, stockMovementsAPI, InventoryItem } from '../../../services';
+import { SoftTile } from '../../shared/stats/ColorTiles';
 
 interface Props {
   clinicId: number;
@@ -150,53 +151,12 @@ const MedicineStockView: React.FC<Props> = ({ clinicId }) => {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Package size={16} className="text-slate-400" />
-            <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Total</p>
-          </div>
-          <p className="text-2xl font-black text-pine dark:text-zinc-100">{stats.total}</p>
-        </div>
-
-        <div className="bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Package size={16} className="text-emerald-600 dark:text-emerald-400" />
-            <p className="text-[8px] font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest">In Stock</p>
-          </div>
-          <p className="text-2xl font-black text-emerald-700 dark:text-emerald-400">{stats.inStock}</p>
-        </div>
-
-        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <TrendingDown size={16} className="text-amber-600 dark:text-amber-400" />
-            <p className="text-[8px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Low Stock</p>
-          </div>
-          <p className="text-2xl font-black text-amber-700 dark:text-amber-400">{stats.lowStock}</p>
-        </div>
-
-        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertCircle size={16} className="text-red-600 dark:text-red-400" />
-            <p className="text-[8px] font-bold text-red-600 dark:text-red-400 uppercase tracking-widest">Out of Stock</p>
-          </div>
-          <p className="text-2xl font-black text-red-700 dark:text-red-400">{stats.outOfStock}</p>
-        </div>
-
-        <div className="bg-orange-50 dark:bg-orange-950/20 border border-orange-200 dark:border-orange-800 rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <Calendar size={16} className="text-orange-600 dark:text-orange-400" />
-            <p className="text-[8px] font-bold text-orange-600 dark:text-orange-400 uppercase tracking-widest">Expiring Soon</p>
-          </div>
-          <p className="text-2xl font-black text-orange-700 dark:text-orange-400">{stats.expiringSoon}</p>
-        </div>
-
-        <div className="bg-slate-50 dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 rounded-2xl p-4">
-          <div className="flex items-center gap-2 mb-2">
-            <AlertCircle size={16} className="text-slate-600 dark:text-zinc-400" />
-            <p className="text-[8px] font-bold text-slate-600 dark:text-zinc-400 uppercase tracking-widest">Expired</p>
-          </div>
-          <p className="text-2xl font-black text-slate-700 dark:text-zinc-400">{stats.expired}</p>
-        </div>
+        <SoftTile compact tone="sky" icon={Package} label="Total" value={stats.total} />
+        <SoftTile compact tone="emerald" icon={Package} label="In Stock" value={stats.inStock} />
+        <SoftTile compact tone="amber" icon={TrendingDown} label="Low Stock" value={stats.lowStock} />
+        <SoftTile compact tone="rose" icon={AlertCircle} label="Out of Stock" value={stats.outOfStock} />
+        <SoftTile compact tone="amber" icon={Calendar} label="Expiring Soon" value={stats.expiringSoon} />
+        <SoftTile compact tone="rose" icon={AlertCircle} label="Expired" value={stats.expired} />
       </div>
 
       {/* Filters */}

@@ -11,6 +11,7 @@ import { summariesAPI } from '../../../services/modules/summaries.api';
 import { localYMD } from '../../../services/utils/dateFormatter';
 import type { ClinicStats } from '../../../services/modules/summaries.api';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import { SOFT, type SoftTone } from '../../shared/stats/ColorTiles';
 
 type Range = { start: Date | null; end: Date | null };
 // LOCAL calendar date — toISOString() shifts EAT midnight to the previous
@@ -34,6 +35,11 @@ const METRICS: MetricDef[] = [
   { key: 'transactions', label: 'Transactions', icon: Receipt, group: 'finance' },
   { key: 'revenue', label: 'Revenue', icon: CircleDollarSign, money: true, group: 'finance' },
 ];
+/** Each metric keeps one colour wherever it shows (user, 2026-11-22). */
+const METRIC_TONE: Record<string, SoftTone> = {
+  appointments: 'sky', reminders: 'amber', visits: 'violet', newClients: 'indigo', newPatients: 'teal',
+  inpatient: 'rose', boarding: 'sky', surgeries: 'violet', transactions: 'indigo', revenue: 'pine',
+};
 const DEFAULT_HIGHLIGHT: MetricKey[] = ['appointments', 'reminders', 'visits', 'newClients', 'newPatients', 'inpatient', 'boarding', 'surgeries'];
 
 const ClinicStatistics: React.FC<{ clinicId?: string | number; currency?: string; scopes?: { id: string | number; name?: string }[] }> = ({ clinicId, currency = 'KES', scopes }) => {
@@ -142,19 +148,20 @@ const ClinicStatistics: React.FC<{ clinicId?: string | number; currency?: string
   const Card: React.FC<{ m: MetricDef; small?: boolean }> = ({ m, small }) => {
     const d = delta(m.key);
     const v = stats ? (stats[m.key] as number) : 0;
+    const t = SOFT[METRIC_TONE[m.key] ?? 'sky'];
     return (
-      <div className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm ${small ? 'p-3' : 'p-4'}`}>
+      <div className={`border rounded-2xl shadow-sm ${t.tile} ${small ? 'p-3' : 'p-4'}`}>
         <div className="flex items-center justify-between gap-2">
-          <span className={`flex items-center justify-center rounded-xl bg-seafoam/10 text-seafoam ${small ? 'w-7 h-7' : 'w-9 h-9'}`}><m.icon size={small ? 14 : 18} /></span>
+          <span className={`flex items-center justify-center rounded-xl shadow-sm ${t.icon} ${small ? 'w-7 h-7' : 'w-9 h-9'}`}><m.icon size={small ? 14 : 18} /></span>
           {d && (
             <span className={`flex items-center gap-0.5 text-[9px] font-black ${d.diff > 0 ? 'text-emerald-500' : d.diff < 0 ? 'text-rose-500' : 'text-slate-400'}`}>
               {d.diff > 0 ? <ArrowUp size={10} /> : d.diff < 0 ? <ArrowDown size={10} /> : <Minus size={10} />} {Math.abs(d.pct)}%
             </span>
           )}
         </div>
-        <p className={`font-black text-pine dark:text-zinc-100 mt-2 ${small ? 'text-lg' : 'text-2xl'}`}>{fmt(m, v)}</p>
-        <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">{m.label}</p>
-        {d && <p className="text-[8px] text-slate-400 mt-0.5">{d.diff >= 0 ? '+' : ''}{m.money ? `${currency} ${d.diff.toLocaleString()}` : d.diff.toLocaleString()} vs compare</p>}
+        <p className={`font-black mt-2 tabular-nums ${t.num} ${small ? 'text-lg' : 'text-2xl'}`}>{fmt(m, v)}</p>
+        <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mt-0.5">{m.label}</p>
+        {d && <p className="text-[8px] text-slate-500 dark:text-zinc-400 mt-0.5">{d.diff >= 0 ? '+' : ''}{m.money ? `${currency} ${d.diff.toLocaleString()}` : d.diff.toLocaleString()} vs compare</p>}
       </div>
     );
   };

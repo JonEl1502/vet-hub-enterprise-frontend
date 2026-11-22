@@ -14,6 +14,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { UserRole } from '../../../types';
 import StatusToggle from '../common/StatusToggle';
 import { SEARCH_MIN_CHARS } from '../../../constants/search';
+import { SoftTile, type SoftTone } from '../stats/ColorTiles';
 
 interface Props {
   onViewSupplier: (supplierId: number) => void;
@@ -519,22 +520,12 @@ const SuppliersHubView: React.FC<Props> = ({ onViewSupplier }) => {
       {/* Stats */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
-          { label: 'Total Suppliers', value: suppliers.length, icon: Building2, color: 'text-blue-500', bg: 'bg-blue-500/5' },
-          { label: 'Active', value: suppliers.filter(s => s.isActive).length, icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-500/5' },
-          { label: 'Products', value: Object.values(supplierProducts).flat().length, icon: Package, color: 'text-purple-500', bg: 'bg-purple-500/5' },
-          { label: 'Categories', value: categories.length - 1, icon: Filter, color: 'text-amber-500', bg: 'bg-amber-500/5' },
+          { label: 'Total Suppliers', value: suppliers.length, icon: Building2, color: 'text-blue-500', bg: 'bg-blue-500/5', soft: 'sky' as SoftTone },
+          { label: 'Active', value: suppliers.filter(s => s.isActive).length, icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-500/5', soft: 'emerald' as SoftTone },
+          { label: 'Products', value: Object.values(supplierProducts).flat().length, icon: Package, color: 'text-purple-500', bg: 'bg-purple-500/5', soft: 'violet' as SoftTone },
+          { label: 'Categories', value: categories.length - 1, icon: Filter, color: 'text-amber-500', bg: 'bg-amber-500/5', soft: 'indigo' as SoftTone },
         ].map((stat, idx) => (
-          <div key={idx} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
-            <div className="flex items-center gap-3">
-              <div className={`p-2 rounded-xl ${stat.bg}`}>
-                <stat.icon className={stat.color} size={16} />
-              </div>
-              <div>
-                <p className="text-xl font-black text-pine dark:text-zinc-100">{stat.value}</p>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
-              </div>
-            </div>
-          </div>
+          <SoftTile key={idx} compact tone={stat.soft} icon={stat.icon} label={stat.label} value={stat.value} />
         ))}
       </div>
 

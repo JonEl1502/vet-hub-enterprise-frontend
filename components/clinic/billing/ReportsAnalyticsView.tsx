@@ -18,6 +18,7 @@ import { receivablesAPI, ArAgeing } from '../../../services/modules/receivables.
 import { supplierApAPI, SupplierInvoice } from '../../../services/modules/supplierAp.api';
 import { walletAPI, Wallet as WalletT } from '../../../services/modules/wallet.api';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import { SOFT, toneFromClass } from '../../shared/stats/ColorTiles';
 
 /**
  * Finance → Reports & Analytics — the BI dashboard (user reference design,
@@ -392,7 +393,7 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
 
   // ── KPI cards ────────────────────────────────────────────────────────────
   const kpis = [
-    { label: 'Total Revenue', value: money(revenue), icon: Landmark, chip: 'bg-emerald-500/10 text-emerald-500', delta: compareOn ? pctDelta(revenue, prevTotals?.revenue ?? 0) : null, prev: compareOn ? prevTotals?.revenue : undefined, cmpValue: money(prevTotals?.revenue ?? 0) },
+    { label: 'Total Revenue', value: money(revenue), icon: Landmark, chip: 'bg-pine/10 text-pine', delta: compareOn ? pctDelta(revenue, prevTotals?.revenue ?? 0) : null, prev: compareOn ? prevTotals?.revenue : undefined, cmpValue: money(prevTotals?.revenue ?? 0) },
     { label: 'Total Expenses', value: money(expenses), icon: Receipt, chip: 'bg-rose-500/10 text-rose-500', delta: compareOn ? pctDelta(expenses, prevTotals?.expenses ?? 0) : null, prev: compareOn ? prevTotals?.expenses : undefined, cmpValue: money(prevTotals?.expenses ?? 0), badDeltaUp: true },
     { label: 'Net Profit', value: money(netProfit), icon: CircleDollarSign, chip: 'bg-purple-500/10 text-purple-500', delta: compareOn ? pctDelta(netProfit, prevTotals?.netProfit ?? 0) : null, prev: compareOn ? prevTotals?.netProfit : undefined, cmpValue: money(prevTotals?.netProfit ?? (((prevTotals?.revenue ?? 0) - (prevTotals?.expenses ?? 0)))) },
     { label: 'Cash Balance', value: walletsUnavailable ? '—' : money(cashBalance), icon: Wallet, chip: 'bg-sky-500/10 text-sky-500', delta: null, prev: undefined, cmpValue: null, pointInTime: true },
@@ -541,13 +542,15 @@ const ReportsAnalyticsView: React.FC<Props> = ({ clinicId, onNavigate }) => {
             {kpis.map((k, ki) => {
               const up = (k.delta ?? 0) >= 0;
               const good = k.delta == null ? true : (k as any).badDeltaUp ? !up : up;
+              // The chip's hue becomes the whole tile's colour (user, 2026-11-22).
+              const t = SOFT[toneFromClass(k.chip) ?? 'sky'];
               return (
-                <div key={k.label} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5 ${ki < 3 ? 'sm:col-span-2' : 'sm:col-span-3'}`}>
+                <div key={k.label} className={`border rounded-2xl p-3.5 ${t.tile} ${ki < 3 ? 'sm:col-span-2' : 'sm:col-span-3'}`}>
                   <div className="flex items-center gap-2 mb-2">
-                    <span className={`p-2 rounded-xl ${k.chip}`}><k.icon size={14} /></span>
-                    <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest leading-tight">{k.label}</p>
+                    <span className={`p-2 rounded-xl shadow-sm ${t.icon}`}><k.icon size={14} /></span>
+                    <p className="text-[8px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-widest leading-tight">{k.label}</p>
                   </div>
-                  <p className="text-base font-black font-mono text-pine dark:text-zinc-100 leading-tight truncate" title={k.value}>{k.value}</p>
+                  <p className={`text-base font-black font-mono leading-tight truncate ${t.num}`} title={k.value}>{k.value}</p>
                   {/* When comparing, BOTH totals are shown with the window each
                       belongs to. A lone "70.3% from KES 19,050" made the reader
                       guess which dates the second figure covered — and never

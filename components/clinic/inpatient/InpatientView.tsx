@@ -10,6 +10,7 @@ import DefaultRateEditor from '../shared/DefaultRateEditor';
 import AdmitInpatientModal from './AdmitInpatientModal';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import OwnerContact from '../shared/OwnerContact';
+import { SoftTile, SOFT, type SoftTone } from '../../shared/stats/ColorTiles';
 
 const daysIn = (admittedAt: string) => Math.max(0, calendarDaysBetween(admittedAt)) + 1;
 
@@ -168,18 +169,16 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
           the ward right now, or how much work is waiting on them. After the
           migration that gap was stark: 124 shown, all of them historical. */}
       <div ref={drillRef} className="relative grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 max-w-2xl">
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 sm:p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-slate-400"><Stethoscope size={15} /><span className="text-[9px] font-black uppercase tracking-widest">In the ward</span></div>
-          <p className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 mt-1">{wardCounts.admitted}</p>
-        </div>
+        <SoftTile compact tone="violet" icon={Stethoscope} label="In the ward" value={wardCounts.admitted} />
         {([
-          { key: 'tasks' as const, label: 'Tasks due', icon: ClipboardCheck, total: wardCounts.tasksDue, tone: 'text-amber-600 dark:text-amber-400', ring: 'border-amber-400' },
-          { key: 'meds' as const, label: 'Meds due', icon: Pill, total: wardCounts.medsDue, tone: 'text-rose-600 dark:text-rose-400', ring: 'border-rose-400' },
+          { key: 'tasks' as const, label: 'Tasks due', icon: ClipboardCheck, total: wardCounts.tasksDue, tone: 'text-amber-600 dark:text-amber-400', ring: 'border-amber-400', soft: 'amber' as SoftTone, idle: 'sky' as SoftTone },
+          { key: 'meds' as const, label: 'Meds due', icon: Pill, total: wardCounts.medsDue, tone: 'text-rose-600 dark:text-rose-400', ring: 'border-rose-400', soft: 'rose' as SoftTone, idle: 'teal' as SoftTone },
         ]).map(card => {
           const open = drill === card.key;
           // ⚠️ Only a card with work behind it opens. A drill-down onto an
           // empty list teaches people the control is broken.
           const clickable = card.total > 0;
+          const t = SOFT[card.total > 0 ? card.soft : card.idle];
           return (
             <button
               key={card.key}
@@ -187,16 +186,16 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
               disabled={!clickable}
               onClick={() => setDrill(open ? null : card.key)}
               title={clickable ? `Show the ${card.total} patient${card.total === 1 ? '' : 's'} behind this number` : 'Nothing due'}
-              className={`text-left bg-white dark:bg-zinc-900 border rounded-2xl p-3 sm:p-4 shadow-sm transition-all ${
-                open ? card.ring : 'border-slate-200 dark:border-zinc-800'
-              } ${clickable ? 'hover:border-seafoam cursor-pointer active:scale-[0.98]' : 'cursor-default'}`}
+              className={`text-left border rounded-2xl p-3 sm:p-4 shadow-sm transition-all ${t.tile} ${
+                open ? card.ring : ''
+              } ${clickable ? `hover:-translate-y-0.5 hover:shadow-md cursor-pointer active:scale-[0.98] ${t.ring}` : 'cursor-default'}`}
             >
-              <div className="flex items-center gap-2 text-slate-400">
-                <card.icon size={15} />
+              <div className="flex items-center gap-2 text-slate-500 dark:text-zinc-400">
+                <span className={`w-7 h-7 rounded-lg grid place-items-center shadow-sm shrink-0 ${t.icon}`}><card.icon size={14} /></span>
                 <span className="text-[9px] font-black uppercase tracking-widest flex-1">{card.label}</span>
                 {clickable && <ChevronRight size={13} className={`transition-transform ${open ? 'rotate-90' : ''}`} />}
               </div>
-              <p className={`text-2xl sm:text-3xl font-black mt-1 ${card.total > 0 ? card.tone : 'text-pine dark:text-zinc-100'}`}>{card.total}</p>
+              <p className={`text-2xl sm:text-3xl font-black mt-1 tabular-nums ${t.num}`}>{card.total}</p>
             </button>
           );
         })}

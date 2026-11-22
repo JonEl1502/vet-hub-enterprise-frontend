@@ -10,6 +10,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import { supplierBiAPI, SupplierBiReport } from '../../../services/modules/supplierBi.api';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import { SOFT, type SoftTone } from '../../shared/stats/ColorTiles';
 
 /**
  * 298 — business intelligence for the supplier side.
@@ -151,11 +152,11 @@ const SupplierAnalyticsView: React.FC<{ setView?: (v: string) => void }> = ({ se
   const mixTotal = h.counterRevenue + h.wholesaleRevenue;
 
   const KPI: React.FC<{
-    label: string; value: string; delta?: number | null; foot?: string;
-  }> = ({ label, value, delta, foot }) => (
-    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
-      <div className="text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</div>
-      <div className="text-2xl font-black text-pine dark:text-zinc-100 mt-1 tabular-nums">{value}</div>
+    label: string; value: string; delta?: number | null; foot?: string; tone?: SoftTone;
+  }> = ({ label, value, delta, foot, tone = 'sky' }) => (
+    <div className={`border rounded-2xl p-4 shadow-sm ${SOFT[tone].tile}`}>
+      <div className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">{label}</div>
+      <div className={`text-2xl font-black mt-1 tabular-nums ${SOFT[tone].num}`}>{value}</div>
       <div className="mt-1.5">{delta !== undefined ? <Delta value={delta} /> : <span className="text-[10px] font-bold text-slate-400">{foot}</span>}</div>
       {delta !== undefined && foot && <div className="text-[10px] font-bold text-slate-400 mt-0.5">{foot}</div>}
     </div>
@@ -196,13 +197,13 @@ const SupplierAnalyticsView: React.FC<{ setView?: (v: string) => void }> = ({ se
 
       {/* ── Headline ──────────────────────────────────────────────────────── */}
       <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
-        <KPI label="Revenue" value={money(h.revenue)} delta={h.revenueDelta}
+        <KPI tone="pine" label="Revenue" value={money(h.revenue)} delta={h.revenueDelta}
              foot={`${exact(h.counterRevenue)} counter · ${exact(h.wholesaleRevenue)} wholesale`} />
-        <KPI label="Gross profit" value={money(h.grossProfit)} delta={h.grossProfitDelta}
+        <KPI tone="emerald" label="Gross profit" value={money(h.grossProfit)} delta={h.grossProfitDelta}
              foot={`${h.marginPct.toFixed(1)}% margin · counter sales only`} />
-        <KPI label="Transactions" value={h.transactions.toLocaleString()} delta={h.transactionsDelta}
+        <KPI tone="sky" label="Transactions" value={h.transactions.toLocaleString()} delta={h.transactionsDelta}
              foot={`${h.units.toLocaleString()} units moved`} />
-        <KPI label="Average sale" value={money(h.avgOrderValue)} delta={h.avgOrderValueDelta} />
+        <KPI tone="violet" label="Average sale" value={money(h.avgOrderValue)} delta={h.avgOrderValueDelta} />
       </div>
 
       {/* ── Trend ─────────────────────────────────────────────────────────── */}
@@ -347,13 +348,13 @@ const SupplierAnalyticsView: React.FC<{ setView?: (v: string) => void }> = ({ se
 
       {/* ── Stock ─────────────────────────────────────────────────────────── */}
       <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
-        <KPI label="Stock at cost" value={money(data.stock.valuation.atCost)}
+        <KPI tone="indigo" label="Stock at cost" value={money(data.stock.valuation.atCost)}
              foot={`${data.stock.valuation.skus} SKUs · ${data.stock.valuation.units.toLocaleString()} units`} />
-        <KPI label="Stock at retail" value={money(data.stock.valuation.atRetail)}
+        <KPI tone="teal" label="Stock at retail" value={money(data.stock.valuation.atRetail)}
              foot={`${exact(data.stock.valuation.atRetail - data.stock.valuation.atCost)} of margin on the shelf`} />
-        <KPI label="Asleep" value={money(data.stock.dead.reduce((s, d) => s + d.tiedUp, 0))}
+        <KPI tone="rose" label="Asleep" value={money(data.stock.dead.reduce((s, d) => s + d.tiedUp, 0))}
              foot={`${data.stock.dead.length} lines sold nothing this window`} />
-        <KPI label="Expiring in 90d" value={money(data.stock.expiring.reduce((s, e) => s + e.value, 0))}
+        <KPI tone="amber" label="Expiring in 90d" value={money(data.stock.expiring.reduce((s, e) => s + e.value, 0))}
              foot={`${data.stock.expiring.length} batches`} />
       </div>
 

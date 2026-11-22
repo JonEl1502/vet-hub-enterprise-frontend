@@ -4,6 +4,7 @@ import {
   RefreshCw, TrendingDown, Wallet, Layers, ShoppingCart,
 } from 'lucide-react';
 import { supplierStockAPI, type SupplierStockRow, type SupplierMovement } from '../../../services';
+import { SOFT, toneFromClass, type SoftTone } from '../../shared/stats/ColorTiles';
 
 /**
  * THE SUPPLIER'S STOCKROOM OVERVIEW — the clinic's Inventory Dashboard, for a
@@ -37,17 +38,22 @@ const MOVEMENT_META: Record<string, { label: string; up: boolean }> = {
 
 const Stat: React.FC<{
   label: string; value: React.ReactNode; icon: React.ComponentType<any>; tone?: string; hint?: string;
-}> = ({ label, value, icon: Icon, tone, hint }) => (
-  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-3 flex items-center gap-3" title={hint}>
-    <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${tone || 'bg-seafoam/10 text-seafoam'}`}>
-      <Icon size={16} />
+  /** Tile colour when `tone` names no status hue (user, 2026-11-22). */
+  color?: SoftTone;
+}> = ({ label, value, icon: Icon, tone, hint, color = 'sky' }) => {
+  const t = SOFT[toneFromClass(tone) ?? color];
+  return (
+    <div className={`border rounded-xl p-3 flex items-center gap-3 ${t.tile}`} title={hint}>
+      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${t.icon}`}>
+        <Icon size={16} />
+      </div>
+      <div className="min-w-0">
+        <p className="text-[8px] font-black text-slate-500 dark:text-zinc-400 uppercase tracking-widest truncate">{label}</p>
+        <p className={`text-base font-black leading-tight truncate tabular-nums ${t.num}`}>{value}</p>
+      </div>
     </div>
-    <div className="min-w-0">
-      <p className="text-[8px] font-black text-slate-400 uppercase tracking-widest truncate">{label}</p>
-      <p className="text-base font-black text-pine dark:text-zinc-100 leading-tight truncate">{value}</p>
-    </div>
-  </div>
-);
+  );
+};
 
 interface Props {
   branchId: string;
@@ -141,9 +147,9 @@ const SupplierInventoryDashboard: React.FC<Props> = ({ branchId, currency = 'KES
       {!collapsed && (
         <>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
-            <Stat label="Stock lines" value={summary.lines.toLocaleString()} icon={Layers} />
+            <Stat label="Stock lines" value={summary.lines.toLocaleString()} icon={Layers} color="sky" />
             <Stat
-              label="Value at cost" value={money(summary.atCost)} icon={Wallet}
+              label="Value at cost" value={money(summary.atCost)} icon={Wallet} color="pine"
               hint="What is tied up on the shelf — quantity × buy price."
             />
             <Stat
@@ -158,27 +164,27 @@ const SupplierInventoryDashboard: React.FC<Props> = ({ branchId, currency = 'KES
               tone={summary.marginPct <= 0 ? 'bg-rose-500/10 text-rose-500' : 'bg-seafoam/10 text-seafoam'}
               hint="Margin of sale across everything on the shelf, at today's prices."
             />
-            <Stat label="Units on hand" value={summary.units.toLocaleString()} icon={PackageCheck} />
+            <Stat label="Units on hand" value={summary.units.toLocaleString()} icon={PackageCheck} color="indigo" />
 
             <Stat
               label="Low stock" value={String(summary.low)} icon={TrendingDown}
-              tone={summary.low ? 'bg-amber-500/10 text-amber-500' : undefined}
+              tone={summary.low ? 'bg-amber-500/10 text-amber-500' : undefined} color="violet"
             />
             <Stat
               label="Out of stock" value={String(summary.out)} icon={AlertTriangle}
-              tone={summary.out ? 'bg-rose-500/10 text-rose-500' : undefined}
+              tone={summary.out ? 'bg-rose-500/10 text-rose-500' : undefined} color="teal"
             />
             <Stat
               label="Expired" value={String(summary.expired)} icon={AlertTriangle}
-              tone={summary.expired ? 'bg-rose-500/10 text-rose-500' : undefined}
+              tone={summary.expired ? 'bg-rose-500/10 text-rose-500' : undefined} color="indigo"
             />
             <Stat
               label="Expiring ≤30d" value={String(expiring)} icon={Clock}
-              tone={expiring ? 'bg-amber-500/10 text-amber-500' : undefined}
+              tone={expiring ? 'bg-amber-500/10 text-amber-500' : undefined} color="sky"
             />
             <Stat
               label="To reorder" value={String(reorder.length)} icon={ShoppingCart}
-              tone={reorder.length ? 'bg-amber-500/10 text-amber-500' : undefined}
+              tone={reorder.length ? 'bg-amber-500/10 text-amber-500' : undefined} color="violet"
             />
           </div>
 

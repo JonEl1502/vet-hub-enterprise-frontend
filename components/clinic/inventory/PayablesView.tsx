@@ -23,6 +23,7 @@ import supplierApAPI, {
   type SupplierApSummaryRow, type SupplierBalance, type SupplierInvoice, type PayableOrder,
 } from '../../../services/modules/supplierAp.api';
 import { toast } from '../../../services/utils/toast';
+import { SoftTile, type SoftTone } from '../../shared/stats/ColorTiles';
 
 interface Props { currency?: string }
 
@@ -40,18 +41,11 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 /** One headline figure. */
-const Tile: React.FC<{ label: string; value: string; hint?: string; tone?: 'default' | 'warn' | 'due' }> = ({
-  label, value, hint, tone = 'default',
+const Tile: React.FC<{ label: string; value: string; hint?: string; tone?: 'default' | 'warn' | 'due'; color?: SoftTone }> = ({
+  label, value, hint, tone = 'default', color = 'sky',
 }) => (
-  <div className={`${cardCls} p-4`}>
-    <p className={labelCls}>{label}</p>
-    <p className={`mt-1 text-xl font-black font-mono tabular-nums ${
-      tone === 'warn' ? 'text-rose-600 dark:text-rose-400'
-        : tone === 'due' ? 'text-amber-600 dark:text-amber-400'
-          : 'text-pine dark:text-zinc-100'
-    }`}>{value}</p>
-    {hint && <p className="mt-0.5 text-[10px] font-bold text-slate-400">{hint}</p>}
-  </div>
+  <SoftTile compact label={label} value={value} sub={hint}
+    tone={tone === 'warn' ? 'rose' : tone === 'due' ? 'amber' : color} />
 );
 
 const PayablesView: React.FC<Props> = ({ currency = 'KES' }) => {
@@ -140,10 +134,10 @@ const PayablesView: React.FC<Props> = ({ currency = 'KES' }) => {
 
       {/* Headline position */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
-        <Tile label="Total owed" value={money(summary?.total ?? 0, currency)} hint={`${summary?.suppliers.length ?? 0} supplier(s)`} />
-        <Tile label="Invoiced" value={money(balance?.invoiced ?? 0, currency)} hint={selectedId ? 'this supplier — billed, unpaid' : 'select a supplier'} />
+        <Tile label="Total owed" value={money(summary?.total ?? 0, currency)} hint={`${summary?.suppliers.length ?? 0} supplier(s)`} color="violet" />
+        <Tile label="Invoiced" value={money(balance?.invoiced ?? 0, currency)} hint={selectedId ? 'this supplier — billed, unpaid' : 'select a supplier'} color="indigo" />
         <Tile label="Received, not billed" value={money(balance?.grni ?? 0, currency)} hint={selectedId ? 'no invoice to pay against yet' : 'select a supplier'} tone="due" />
-        <Tile label="Overdue" value={money(balance?.overdue ?? 0, currency)} hint={selectedId ? 'past the due date' : 'select a supplier'} tone={(balance?.overdue ?? 0) > 0 ? 'warn' : 'default'} />
+        <Tile label="Overdue" value={money(balance?.overdue ?? 0, currency)} hint={selectedId ? 'past the due date' : 'select a supplier'} tone={(balance?.overdue ?? 0) > 0 ? 'warn' : 'default'} color="teal" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 items-start">

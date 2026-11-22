@@ -1,6 +1,7 @@
 import React from 'react';
 import { HardDrive, Loader2, AlertTriangle, Database, Cloud, RefreshCw } from 'lucide-react';
 import { clinicSubscriptionAPI, StorageUsage } from '../../../services/modules/clinicSubscription.api';
+import { SOFT } from '../../shared/stats/ColorTiles';
 
 /**
  * STORAGE USAGE — what the clinic has actually uploaded, against what it pays for.
@@ -63,13 +64,13 @@ const StorageUsageTab: React.FC<Props> = ({ clinicId }) => {
   return (
     <div className="space-y-4">
       {/* Headline — used vs plan */}
-      <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 sm:p-5">
+      <div className={`rounded-2xl border p-4 sm:p-5 ${SOFT.indigo.tile}`}>
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
               <HardDrive size={11} /> Storage used
             </p>
-            <p className="mt-1 text-2xl font-black text-pine dark:text-zinc-100 font-mono">
+            <p className={`mt-1 text-2xl font-black font-mono ${SOFT.indigo.num}`}>
               {fmtBytes(data.totalBytes)}
               {data.limitGb != null && (
                 <span className="text-sm font-bold text-slate-400"> / {data.limitGb} GB</span>
@@ -112,22 +113,22 @@ const StorageUsageTab: React.FC<Props> = ({ clinicId }) => {
           is not in a bucket, it is in the database, slowing every query that
           reads the column and inflating every backup. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-3.5">
+        <div className={`rounded-xl border p-3.5 ${SOFT.sky.tile}`}>
           <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
             <Cloud size={11} /> Object storage
           </p>
-          <p className="mt-1 text-lg font-black text-pine dark:text-zinc-100 font-mono">{fmtBytes(data.objectBytes)}</p>
+          <p className={`mt-1 text-lg font-black font-mono ${SOFT.sky.num}`}>{fmtBytes(data.objectBytes)}</p>
           <p className="text-[10px] font-bold text-slate-400">{data.objectFiles} file{data.objectFiles === 1 ? '' : 's'}</p>
         </div>
         <div className={`rounded-xl border p-3.5 ${
           data.inlineBytes > 0
             ? 'border-amber-300 dark:border-amber-900/60 bg-amber-50 dark:bg-amber-950/20'
-            : 'border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900'
+            : SOFT.teal.tile
         }`}>
           <p className="text-[9px] font-black uppercase tracking-widest text-amber-600 dark:text-amber-400 flex items-center gap-1.5">
             <Database size={11} /> Inside the database
           </p>
-          <p className="mt-1 text-lg font-black text-pine dark:text-zinc-100 font-mono">{fmtBytes(data.inlineBytes)}</p>
+          <p className={`mt-1 text-lg font-black font-mono ${data.inlineBytes > 0 ? SOFT.amber.num : SOFT.teal.num}`}>{fmtBytes(data.inlineBytes)}</p>
           <p className="text-[10px] font-bold text-slate-400">{data.inlineFiles} file{data.inlineFiles === 1 ? '' : 's'} stored as base64</p>
           {data.inlineBytes > 0 && (
             <p className="mt-1.5 text-[10px] font-bold text-amber-600/90 dark:text-amber-400/90 leading-relaxed">

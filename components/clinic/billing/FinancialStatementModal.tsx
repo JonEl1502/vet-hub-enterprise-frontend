@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import { X, FileText, BarChart3 } from 'lucide-react';
 import { summariesAPI, ProfitAndLoss, CashFlow } from '../../../services/modules/summaries.api';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import { SOFT, toneFromClass } from '../../shared/stats/ColorTiles';
 
 /**
  * Profit & Loss / Cash Flow — the two "Quick Reports" pills that used to fall
@@ -46,12 +47,15 @@ const Row: React.FC<{ label: string; value: string; muted?: boolean; bold?: bool
     </div>
   );
 
-const Stat: React.FC<{ label: string; value: string; tone: string }> = ({ label, value, tone }) => (
-  <div className="rounded-xl bg-slate-50 dark:bg-zinc-800/60 px-3 py-2">
-    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-    <p className={`text-sm font-black ${tone}`}>{value}</p>
-  </div>
-);
+const Stat: React.FC<{ label: string; value: string; tone: string }> = ({ label, value, tone }) => {
+  const t = SOFT[toneFromClass(tone) ?? 'sky'];
+  return (
+    <div className={`rounded-xl border px-3 py-2 ${t.tile}`}>
+      <p className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">{label}</p>
+      <p className={`text-sm font-black ${t.num}`}>{value}</p>
+    </div>
+  );
+};
 
 const PnlBody: React.FC<{ data: ProfitAndLoss; money: (n: number) => string }> = ({ data, money }) => (
   <div className="space-y-4">

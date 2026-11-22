@@ -4,6 +4,7 @@ import {
 } from 'lucide-react';
 import { digestAPI, type DigestSettings, type DigestData, type DigestRow } from '../../../services/modules/digest.api';
 import { toast } from '../../../services';
+import { SOFT, type SoftTone } from '../../shared/stats/ColorTiles';
 
 /**
  * DAILY SUMMARY — one email per clinic, each evening.
@@ -34,20 +35,17 @@ const dayLabel = (key: string) => {
   return d.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short', timeZone: 'UTC' });
 };
 
-const Tile: React.FC<{ value: number; label: string; tone?: 'neutral' | 'good' | 'warn' }> = ({ value, label, tone = 'neutral' }) => (
-  <div className={`rounded-xl px-2.5 py-2 text-center ${
-    tone === 'warn'
-      ? 'bg-amber-50 dark:bg-amber-950/30'
-      : tone === 'good'
-        ? 'bg-seafoam/10 dark:bg-seafoam/15'
-        : 'bg-slate-50 dark:bg-zinc-800/60'
-  }`}>
-    <p className={`text-lg font-black leading-none ${
-      tone === 'warn' ? 'text-amber-600 dark:text-amber-400' : tone === 'good' ? 'text-seafoam' : 'text-pine dark:text-zinc-100'
-    }`}>{value}</p>
-    <p className="text-[8px] font-black uppercase tracking-widest text-slate-400 dark:text-zinc-500 mt-1">{label}</p>
-  </div>
-);
+const Tile: React.FC<{ value: number; label: string; tone?: 'neutral' | 'good' | 'warn'; color?: SoftTone }> = ({ value, label, tone = 'neutral', color = 'sky' }) => {
+  // Coloured by meaning (user, 2026-11-22): good is green, warn amber, the
+  // neutral counts each keep their own hue so the row reads at a glance.
+  const t = SOFT[tone === 'warn' ? 'amber' : tone === 'good' ? 'emerald' : color];
+  return (
+    <div className={`rounded-xl border px-2.5 py-2 text-center ${t.tile}`}>
+      <p className={`text-lg font-black leading-none tabular-nums ${t.num}`}>{value}</p>
+      <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mt-1">{label}</p>
+    </div>
+  );
+};
 
 const RowList: React.FC<{ rows: DigestRow[]; total: number; empty: string }> = ({ rows, total, empty }) => {
   if (!rows.length) return <p className="text-[11px] font-semibold italic text-slate-400 dark:text-zinc-600">{empty}</p>;
@@ -297,12 +295,12 @@ const DailySummaryTab: React.FC = () => {
               <CalendarDays size={10} className="inline mb-0.5 mr-1" />Today · {dayLabel(data.today)}
             </p>
             <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5">
-              <Tile value={data.recap.visitsTotal} label="Visits" />
+              <Tile value={data.recap.visitsTotal} label="Visits" color="sky" />
               <Tile value={data.recap.completed} label="Done" tone="good" />
-              <Tile value={data.recap.inProgress} label="Open" tone={data.recap.inProgress ? 'warn' : 'neutral'} />
-              <Tile value={data.recap.awaitingPayment} label="To pay" tone={data.recap.awaitingPayment ? 'warn' : 'neutral'} />
-              <Tile value={data.recap.neverArrived} label="No-show" />
-              <Tile value={data.recap.remindersMissed} label="Rem. left" tone={data.recap.remindersMissed ? 'warn' : 'neutral'} />
+              <Tile value={data.recap.inProgress} label="Open" tone={data.recap.inProgress ? 'warn' : 'neutral'} color="violet" />
+              <Tile value={data.recap.awaitingPayment} label="To pay" tone={data.recap.awaitingPayment ? 'warn' : 'neutral'} color="teal" />
+              <Tile value={data.recap.neverArrived} label="No-show" color={data.recap.neverArrived ? 'rose' : 'indigo'} />
+              <Tile value={data.recap.remindersMissed} label="Rem. left" tone={data.recap.remindersMissed ? 'warn' : 'neutral'} color="indigo" />
             </div>
             <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
@@ -326,11 +324,11 @@ const DailySummaryTab: React.FC = () => {
               <Sunrise size={10} className="inline mb-0.5 mr-1" />Tomorrow · {dayLabel(data.tomorrow)}
             </p>
             <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5">
-              <Tile value={data.outlook.appointments} label="Appts" />
-              <Tile value={data.outlook.scheduledVisits} label="Booked" />
-              <Tile value={data.outlook.checkouts} label="Going home" />
-              <Tile value={data.outlook.staying} label="In overnight" />
-              <Tile value={data.outlook.remindersDue} label="Rem. due" />
+              <Tile value={data.outlook.appointments} label="Appts" color="sky" />
+              <Tile value={data.outlook.scheduledVisits} label="Booked" color="violet" />
+              <Tile value={data.outlook.checkouts} label="Going home" color="emerald" />
+              <Tile value={data.outlook.staying} label="In overnight" color="indigo" />
+              <Tile value={data.outlook.remindersDue} label="Rem. due" color="amber" />
             </div>
             <div className="mt-2 grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>

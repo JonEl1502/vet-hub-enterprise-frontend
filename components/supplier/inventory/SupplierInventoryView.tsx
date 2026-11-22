@@ -11,6 +11,7 @@ import { useSupplierBranch } from '../../../contexts/SupplierBranchContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import PageHeader from '../../shared/common/PageHeader';
+import { SoftTile, type SoftTone } from '../../shared/stats/ColorTiles';
 import UpgradeGate from '../../shared/common/UpgradeGate';
 import SupplierInventoryDashboard from './SupplierInventoryDashboard';
 import ReceiveStockModal from './ReceiveStockModal';
@@ -238,10 +239,10 @@ const SupplierInventoryView: React.FC<Props> = ({ setView, canManage = true }) =
 
       {/* The four numbers */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <Stat label="Stock lines" value={String(summary.lines)} icon={Package} />
-        <Stat label="Low stock" value={String(summary.low)} icon={TrendingDown} tone={summary.low ? 'warn' : undefined} />
-        <Stat label="Out of stock" value={String(summary.out)} icon={AlertTriangle} tone={summary.out ? 'bad' : undefined} />
-        <Stat label="Stock value at cost" value={money(summary.value)} icon={Layers} />
+        <Stat label="Stock lines" value={String(summary.lines)} icon={Package} color="sky" />
+        <Stat label="Low stock" value={String(summary.low)} icon={TrendingDown} tone={summary.low ? 'warn' : undefined} color="violet" />
+        <Stat label="Out of stock" value={String(summary.out)} icon={AlertTriangle} tone={summary.out ? 'bad' : undefined} color="indigo" />
+        <Stat label="Stock value at cost" value={money(summary.value)} icon={Layers} color="pine" />
       </div>
 
       {/* Tabs */}
@@ -468,19 +469,10 @@ const SupplierInventoryView: React.FC<Props> = ({ setView, canManage = true }) =
   );
 };
 
-const Stat: React.FC<{ label: string; value: string; icon: React.FC<any>; tone?: 'warn' | 'bad' }> = ({
-  label, value, icon: Icon, tone,
+const Stat: React.FC<{ label: string; value: string; icon: React.FC<any>; tone?: 'warn' | 'bad'; color?: SoftTone }> = ({
+  label, value, icon, tone, color = 'sky',
 }) => (
-  <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3.5">
-    <div className="flex items-center gap-1.5 mb-1">
-      <Icon size={13} className={tone === 'bad' ? 'text-red-500' : tone === 'warn' ? 'text-amber-500' : 'text-seafoam'} />
-      <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">{label}</p>
-    </div>
-    <p className={`text-lg font-black tabular-nums ${
-      tone === 'bad' ? 'text-red-500' : tone === 'warn' ? 'text-amber-600' : 'text-pine dark:text-zinc-100'}`}>
-      {value}
-    </p>
-  </div>
+  <SoftTile compact label={label} value={value} icon={icon} tone={tone === 'bad' ? 'rose' : tone === 'warn' ? 'amber' : color} />
 );
 
 export default SupplierInventoryView;

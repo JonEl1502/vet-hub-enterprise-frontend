@@ -41,6 +41,7 @@ import {
 } from 'recharts';
 import { formatDate, formatTime, formatDateTime, localYMD } from '../../../services/utils/dateFormatter';
 import ReceivablesPanel from './ReceivablesPanel';
+import { SOFT } from '../../shared/stats/ColorTiles';
 
 interface Props {
   onViewTransaction?: (transactionId: string) => void;
@@ -455,24 +456,18 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
           whileHover={{ scale: 1.02 }}
-          className={`bg-white dark:bg-zinc-900 border-2 rounded-[2rem] p-6 shadow-sm transition-all ${
-            metrics.totalRevenue >= 0
-              ? 'border-teal-200 dark:border-teal-800 hover:border-teal-300'
-              : 'border-red-200 dark:border-red-800 hover:border-red-300'
+          className={`border rounded-[2rem] p-6 shadow-sm transition-all ${
+            metrics.totalRevenue >= 0 ? `${SOFT.teal.tile} ${SOFT.teal.ring}` : `${SOFT.rose.tile} ${SOFT.rose.ring}`
           }`}
         >
           <div className="flex items-center justify-between mb-3">
             <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest">Revenue</p>
-            <div className={`p-2 rounded-lg ${
-              metrics.totalRevenue >= 0
-                ? 'bg-teal-50 dark:bg-teal-900/20 text-teal-500'
-                : 'bg-red-50 dark:bg-red-900/20 text-red-500'
-            }`}>
+            <div className={`p-2 rounded-lg shadow-sm ${metrics.totalRevenue >= 0 ? SOFT.teal.icon : SOFT.rose.icon}`}>
               {metrics.totalRevenue >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
             </div>
           </div>
           <h3 className={`text-3xl font-black tracking-tighter ${
-            metrics.totalRevenue >= 0 ? 'text-teal-600' : 'text-red-600'
+            metrics.totalRevenue >= 0 ? SOFT.teal.num : SOFT.rose.num
           }`}>
             {currency} {metrics.totalRevenue.toLocaleString()}
           </h3>
@@ -508,24 +503,18 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
           whileHover={{ scale: 1.02 }}
-          className={`bg-white dark:bg-zinc-900 border-2 rounded-[2rem] p-6 shadow-sm transition-all ${
-            metrics.totalExpenses >= 0
-              ? 'border-orange-200 dark:border-orange-800 hover:border-orange-300'
-              : 'border-red-200 dark:border-red-800 hover:border-red-300'
+          className={`border rounded-[2rem] p-6 shadow-sm transition-all ${
+            metrics.totalExpenses >= 0 ? `${SOFT.amber.tile} ${SOFT.amber.ring}` : `${SOFT.rose.tile} ${SOFT.rose.ring}`
           }`}
         >
           <div className="flex items-center justify-between mb-3">
             <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest">Total Expense</p>
-            <div className={`p-2 rounded-lg ${
-              metrics.totalExpenses >= 0
-                ? 'bg-orange-50 dark:bg-orange-900/20 text-orange-500'
-                : 'bg-red-50 dark:bg-red-900/20 text-red-500'
-            }`}>
+            <div className={`p-2 rounded-lg shadow-sm ${metrics.totalExpenses >= 0 ? SOFT.amber.icon : SOFT.rose.icon}`}>
               {metrics.totalExpenses >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
             </div>
           </div>
           <h3 className={`text-3xl font-black tracking-tighter ${
-            metrics.totalExpenses >= 0 ? 'text-orange-600' : 'text-red-600'
+            metrics.totalExpenses >= 0 ? SOFT.amber.num : SOFT.rose.num
           }`}>
             {currency} {Math.abs(metrics.totalExpenses).toLocaleString()}
           </h3>
@@ -568,24 +557,18 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.1 }}
           whileHover={{ scale: 1.02 }}
-          className={`bg-white dark:bg-zinc-900 border-2 rounded-[2rem] p-6 shadow-sm transition-all ${
-            metrics.netProfit >= 0
-              ? 'border-emerald-200 dark:border-emerald-800 hover:border-emerald-300'
-              : 'border-red-200 dark:border-red-800 hover:border-red-300'
+          className={`border rounded-[2rem] p-6 shadow-sm transition-all ${
+            metrics.netProfit >= 0 ? `${SOFT.emerald.tile} ${SOFT.emerald.ring}` : `${SOFT.rose.tile} ${SOFT.rose.ring}`
           }`}
         >
           <div className="flex items-center justify-between mb-3">
             <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest">Net Profit</p>
-            <div className={`p-2 rounded-lg ${
-              metrics.netProfit >= 0
-                ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-500'
-                : 'bg-red-50 dark:bg-red-900/20 text-red-500'
-            }`}>
+            <div className={`p-2 rounded-lg shadow-sm ${metrics.netProfit >= 0 ? SOFT.emerald.icon : SOFT.rose.icon}`}>
               {metrics.netProfit >= 0 ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
             </div>
           </div>
           <h3 className={`text-3xl font-black tracking-tighter ${
-            metrics.netProfit >= 0 ? 'text-emerald-600' : 'text-red-600'
+            metrics.netProfit >= 0 ? SOFT.emerald.num : SOFT.rose.num
           }`}>
             {currency} {Math.abs(metrics.netProfit).toLocaleString()}
           </h3>
@@ -600,11 +583,11 @@ const FinanceView: React.FC<Props> = ({ onViewTransaction, dateRange, onDateRang
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, delay: 0.15 }}
           whileHover={{ scale: 1.02 }}
-          className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-[2rem] p-6 shadow-sm hover:border-seafoam transition-all"
+          className={`border rounded-[2rem] p-6 shadow-sm transition-all ${SOFT.sky.tile} ${SOFT.sky.ring}`}
         >
           <div className="flex items-center justify-between mb-3">
             <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest">Payment Status</p>
-            <div className="p-2 bg-slate-50 dark:bg-zinc-800 rounded-lg text-slate-400">
+            <div className={`p-2 rounded-lg shadow-sm ${SOFT.sky.icon}`}>
               <Receipt size={18} />
             </div>
           </div>

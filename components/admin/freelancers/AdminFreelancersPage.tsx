@@ -10,6 +10,7 @@ import { clinicsAPI, usersAPI, freelancerCategoriesAPI, toast, dialog, type Free
 import StatusToggle from '../../shared/common/StatusToggle';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import AdminPageHeader from '../shared/AdminPageHeader';
+import { SOFT, type SoftTone } from '../../shared/stats/ColorTiles';
 
 interface Freelancer {
   id: string;
@@ -233,13 +234,13 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
     return [...m.entries()].map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count).slice(0, 8);
   }, [list]);
 
-  const tiles: Array<{ key: Drill | null; label: string; value: number; icon: React.ElementType; tone: string }> = [
-    { key: 'all', label: 'Total', value: stats.total, icon: UserRound, tone: 'text-blue-500 bg-blue-500/10' },
-    { key: 'active', label: 'Active', value: stats.active, icon: CheckCircle, tone: 'text-green-500 bg-green-500/10' },
-    { key: 'inactive', label: 'Inactive', value: stats.inactive, icon: XCircle, tone: 'text-red-500 bg-red-500/10' },
-    { key: 'business', label: 'Own business', value: stats.business, icon: Briefcase, tone: 'text-amber-500 bg-amber-500/10' },
-    { key: 'assigned', label: 'Working with clinics', value: stats.assigned, icon: Link2, tone: 'text-cyan-500 bg-cyan-500/10' },
-    { key: null, label: 'Services offered', value: stats.services, icon: Layers, tone: 'text-fuchsia-500 bg-fuchsia-500/10' },
+  const tiles: Array<{ key: Drill | null; label: string; value: number; icon: React.ElementType; tone: string; soft: SoftTone }> = [
+    { key: 'all', label: 'Total', value: stats.total, icon: UserRound, tone: 'text-blue-500 bg-blue-500/10', soft: 'sky' as SoftTone },
+    { key: 'active', label: 'Active', value: stats.active, icon: CheckCircle, tone: 'text-green-500 bg-green-500/10', soft: 'emerald' as SoftTone },
+    { key: 'inactive', label: 'Inactive', value: stats.inactive, icon: XCircle, tone: 'text-red-500 bg-red-500/10', soft: 'rose' as SoftTone },
+    { key: 'business', label: 'Own business', value: stats.business, icon: Briefcase, tone: 'text-amber-500 bg-amber-500/10', soft: 'violet' as SoftTone },
+    { key: 'assigned', label: 'Working with clinics', value: stats.assigned, icon: Link2, tone: 'text-cyan-500 bg-cyan-500/10', soft: 'teal' as SoftTone },
+    { key: null, label: 'Services offered', value: stats.services, icon: Layers, tone: 'text-fuchsia-500 bg-fuchsia-500/10', soft: 'indigo' as SoftTone },
   ];
 
   return (
@@ -284,27 +285,28 @@ const AdminFreelancersPage: React.FC<{ onNavigate?: (view: string, params?: any)
       <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         {tiles.map(t => {
           const on = t.key !== null && drill === t.key && tab === 'directory';
+          const c = SOFT[t.soft];
           const inner = (
             <div className="flex items-center gap-3">
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${t.tone}`}>
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${c.icon}`}>
                 <t.icon size={20} />
               </div>
               <div className="min-w-0 text-left">
                 <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400 truncate">{t.label}</p>
-                <p className="text-xl font-black text-pine dark:text-zinc-100">{loading && list.length === 0 ? '—' : t.value.toLocaleString()}</p>
+                <p className={`text-xl font-black tabular-nums ${c.num}`}>{loading && list.length === 0 ? '—' : t.value.toLocaleString()}</p>
               </div>
             </div>
           );
           return t.key === null ? (
             <button key={t.label} type="button" onClick={() => onNavigate?.('freelancer-categories')}
               title="Manage the services freelancers can offer"
-              className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 transition-all hover:border-seafoam">
+              className={`border rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] ${c.tile} ${c.ring}`}>
               {inner}
             </button>
           ) : (
             <button key={t.label} type="button"
               onClick={() => { setTab('directory'); setDrill(t.key as Drill); }}
-              className={`bg-white dark:bg-zinc-900 border rounded-2xl p-4 transition-all hover:border-seafoam active:scale-[0.98] ${on ? 'border-seafoam' : 'border-slate-200 dark:border-zinc-800'}`}>
+              className={`border rounded-2xl p-4 transition-all hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] ${c.tile} ${c.ring} ${on ? '!border-seafoam' : ''}`}>
               {inner}
             </button>
           );

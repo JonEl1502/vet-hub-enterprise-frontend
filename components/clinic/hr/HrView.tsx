@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   Users, CalendarOff, CalendarDays, UserCheck, AlertTriangle,
-  BadgeCheck, ShieldAlert, Briefcase, Wallet } from 'lucide-react';
+  BadgeCheck, ShieldAlert, Briefcase, Wallet, Hourglass } from 'lucide-react';
 import PageHeader from '../../shared/common/PageHeader';
 import { useAuth } from '../../../contexts/AuthContext';
 import { hrAPI, HrOverview } from '../../../services/modules/hr.api';
@@ -99,12 +99,12 @@ const Overview: React.FC<{ onGo: (t: Tab) => void }> = ({ onGo }) => {
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Stat label="Headcount" value={data.headcount} hint="Attached to this clinic" />
-        <Stat label="On duty today" value={data.onDutyToday} hint="Rostered shifts" />
+        <Stat label="Headcount" value={data.headcount} hint="Attached to this clinic" color="indigo" icon={Users} />
+        <Stat label="On duty today" value={data.onDutyToday} hint="Rostered shifts" color="emerald" icon={UserCheck} />
         <Stat label="Off today" value={data.offToday.length}
-          tone={data.offToday.length ? 'text-violet-500' : undefined} hint="Approved leave" />
+          color={data.offToday.length ? 'violet' : 'sky'} icon={CalendarOff} hint="Approved leave" />
         <Stat label="Awaiting decision" value={data.pendingLeave}
-          tone={data.pendingLeave ? 'text-amber-600' : undefined} hint="Leave requests" />
+          color={data.pendingLeave ? 'amber' : 'teal'} icon={Hourglass} hint="Leave requests" />
       </div>
 
       {/* The gap between "attached to the clinic" and "has an employment file"

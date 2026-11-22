@@ -8,6 +8,7 @@ import { useData } from '../../../contexts/DataContext';
 import { useStaff } from '../../../contexts/StaffContext';
 import { boardingAPI, inpatientAPI } from '../../../services';
 import DateRangePicker, { DateRange } from '../../shared/common/DateRangePicker';
+import { SoftTile, toneFromClass } from '../../shared/stats/ColorTiles';
 
 /**
  * Clinic → Stats (first tab): the operational headline numbers — clients
@@ -170,7 +171,7 @@ const ClinicStatsTab: React.FC = () => {
     { icon: Dog, label: 'Patients', value: stats.pets, tone: 'text-amber-500' },
     { icon: BriefcaseMedical, label: 'Staff', value: stats.staff, tone: 'text-indigo-500' },
     { icon: CalendarClock, label: dateRange ? 'Visits in range' : 'Visits (all time)', value: stats.visits, tone: 'text-emerald-500' },
-    { icon: Stethoscope, label: 'Inpatient', value: stats.inpatientNow, sub: `${stats.inpatientInRange} ${dateRange ? 'admitted in range' : 'all time'}`, tone: 'text-rose-500' },
+    { icon: Stethoscope, label: 'Inpatient', value: stats.inpatientNow, sub: `${stats.inpatientInRange} ${dateRange ? 'admitted in range' : 'all time'}`, tone: 'text-violet-500' },
     { icon: Home, label: 'Boarding', value: stats.boardingNow, sub: `${stats.boardingInRange} ${dateRange ? 'checked in, in range' : 'all time'}`, tone: 'text-sky-500' },
   ];
 
@@ -191,12 +192,8 @@ const ClinicStatsTab: React.FC = () => {
 
       <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-3">
         {tiles.map(t => (
-          <div key={t.label} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
-            <t.icon size={16} className={t.tone} />
-            <p className="text-2xl font-black text-pine dark:text-zinc-100 mt-2">{t.value.toLocaleString()}</p>
-            <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mt-0.5">{t.label}</p>
-            {t.sub && <p className="text-[9px] font-bold text-seafoam mt-0.5">{t.sub}</p>}
-          </div>
+          <SoftTile key={t.label} compact icon={t.icon as any} label={t.label}
+            value={t.value.toLocaleString()} sub={t.sub} tone={toneFromClass(t.tone) ?? 'sky'} />
         ))}
       </div>
 

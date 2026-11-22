@@ -13,6 +13,7 @@ import { SignupsTimeseriesRow } from '../../../services/modules/platformMetrics.
 import { useClinic } from '../../../contexts/ClinicContext';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import AdminPageHeader from '../shared/AdminPageHeader';
+import { SOFT, GRADIENT, type SoftTone, type GradientTone } from '../../shared/stats/ColorTiles';
 
 /**
  * SUPER_ADMIN's one dashboard (user, 2026-10-28): every side of the platform —
@@ -121,14 +122,15 @@ const PlatformDashboard: React.FC<{ onNavigate?: (view: string, params?: any) =>
           value={fmtMoney(metrics.subscriptions.totalEverPaid)}
           sub={`${metrics.subscriptions.activeCount} active subs`}
           icon={<TrendingUp size={18} />}
-          accent="emerald"
+          accent="pine"
+          gradient="pine"
         />
         <KpiCard
           label="Total Clinics"
           value={fmt(metrics.clinics.total)}
           sub={`${metrics.clinics.active} active · ${metrics.clinics.inactive} inactive`}
           icon={<Building2 size={18} />}
-          accent="seafoam"
+          accent="sky"
           onClick={onNavigate ? () => onNavigate('clinics') : undefined}
         />
         <KpiCard
@@ -136,7 +138,7 @@ const PlatformDashboard: React.FC<{ onNavigate?: (view: string, params?: any) =>
           value={fmt(metrics.suppliers.total)}
           sub={`${metrics.suppliers.active} active`}
           icon={<Truck size={18} />}
-          accent="amber"
+          accent="violet"
           onClick={onNavigate ? () => onNavigate('admin-suppliers') : undefined}
         />
         <KpiCard
@@ -159,21 +161,22 @@ const PlatformDashboard: React.FC<{ onNavigate?: (view: string, params?: any) =>
             value={fmtMoney(metrics.subscriptions.mrr)}
             sub="Sum of amountPaid across active subs"
             icon={<Wallet size={18} />}
-            accent="emerald"
+            accent="pine"
+            gradient="ocean"
           />
           <KpiCard
             label="Total Clients"
             value={fmt(metrics.totals.clients)}
             sub="Across every clinic"
             icon={<Users size={18} />}
-            accent="seafoam"
+            accent="sky"
           />
           <KpiCard
             label="Total Pets"
             value={fmt(metrics.totals.pets)}
             sub="Across every clinic"
             icon={<Dog size={18} />}
-            accent="amber"
+            accent="teal"
           />
         </div>
       )}
@@ -189,14 +192,15 @@ const PlatformDashboard: React.FC<{ onNavigate?: (view: string, params?: any) =>
               value={fmtMoney(market.orders.gmv)}
               sub={`${fmt(market.orders.total)} counted orders`}
               icon={<TrendingUp size={18} />}
-              accent="emerald"
+              accent="pine"
+              gradient="violet"
             />
             <KpiCard
               label="Orders"
               value={fmt(market.orders.total)}
               sub={`${market.orders.fulfilled} fulfilled · ${market.orders.open} open`}
               icon={<Receipt size={18} />}
-              accent="seafoam"
+              accent="sky"
             />
             <KpiCard
               label="Products"
@@ -210,7 +214,7 @@ const PlatformDashboard: React.FC<{ onNavigate?: (view: string, params?: any) =>
               value={fmt(market.suppliers.active)}
               sub={`${market.suppliers.inactive} inactive${market.suppliers.pending != null ? ` · ${market.suppliers.pending} pending` : ''}`}
               icon={<Truck size={18} />}
-              accent="amber"
+              accent="teal"
               onClick={onNavigate ? () => onNavigate('admin-suppliers') : undefined}
             />
           </div>
@@ -406,7 +410,10 @@ interface KpiCardProps {
   value: string;
   sub: string;
   icon: React.ReactNode;
-  accent: 'emerald' | 'seafoam' | 'amber' | 'indigo';
+  /** Soft tile colour, chosen by what the figure means. */
+  accent: SoftTone;
+  /** Headline money figures render as the deep gradient card instead. */
+  gradient?: GradientTone;
   /** Click-through to that side's own dashboard page. */
   onClick?: () => void;
 }
@@ -418,34 +425,31 @@ const SectionLabel: React.FC<{ icon: React.ReactNode; label: string }> = ({ icon
   </div>
 );
 
-const KpiCard: React.FC<KpiCardProps> = ({ label, value, sub, icon, accent, onClick }) => {
-  // Uniform card chrome — accent lives only on the icon badge so every tile is
-  // the same shape/size; the grid + h-full keeps widths and heights equal.
-  const iconAccent: Record<string, string> = {
-    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600',
-    seafoam: 'bg-seafoam/10 text-seafoam',
-    amber: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600',
-    indigo: 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600',
-  };
+const KpiCard: React.FC<KpiCardProps> = ({ label, value, sub, icon, accent, gradient, onClick }) => {
+  // Coloured like the supplier dashboard (user, 2026-11-22): money figures get
+  // the gradient card, counts a tinted wash in the tone of what they count.
+  const g = gradient ? GRADIENT[gradient] : null;
+  const t = SOFT[accent];
   return (
     <div
       onClick={onClick}
       role={onClick ? 'button' : undefined}
       tabIndex={onClick ? 0 : undefined}
       onKeyDown={onClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } } : undefined}
-      className={`h-full flex flex-col bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm transition-all ${
-        onClick ? 'cursor-pointer hover:border-seafoam hover:shadow-md' : ''
-      }`}>
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-black uppercase tracking-widest truncate pr-2">{label}</p>
-        <div className={`p-2 rounded-lg shrink-0 ${iconAccent[accent]}`}>{icon}</div>
+      className={`relative overflow-hidden h-full flex flex-col rounded-2xl p-5 transition-all ${
+        g ? `${g.bg} ${g.text} shadow-lg shadow-slate-900/10` : `border shadow-sm ${t.tile}`
+      } ${onClick ? `cursor-pointer hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] ${g ? '' : t.ring}` : ''}`}>
+      {g && <span className="absolute -right-10 -top-10 w-36 h-36 rounded-full bg-white/10" />}
+      <div className="relative flex items-center justify-between mb-3">
+        <p className={`text-[10px] font-black uppercase tracking-wider truncate pr-2 ${g ? g.sub : 'text-slate-500 dark:text-zinc-400'}`}>{label}</p>
+        <div className={`w-9 h-9 rounded-xl grid place-items-center shrink-0 shadow-sm ${g ? g.chip : t.icon}`}>{icon}</div>
       </div>
-      <h3 className="text-2xl font-black text-pine dark:text-zinc-100 tracking-tighter font-mono truncate">
+      <h3 className={`relative text-2xl font-black tracking-tight tabular-nums truncate ${g ? '' : t.num}`}>
         {value}
       </h3>
-      <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest mt-2">{sub}</p>
+      <p className={`relative text-[10px] font-bold uppercase tracking-wider mt-2 ${g ? g.sub : 'text-slate-500 dark:text-zinc-400'}`}>{sub}</p>
       {onClick && (
-        <p className="text-[9px] font-black text-seafoam uppercase tracking-widest mt-2 flex items-center gap-0.5">
+        <p className={`relative text-[10px] font-black uppercase tracking-wider mt-2 flex items-center gap-0.5 ${g ? g.sub : t.num}`}>
           Open dashboard <ChevronRight size={10} />
         </p>
       )}

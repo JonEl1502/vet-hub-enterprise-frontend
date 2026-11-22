@@ -11,6 +11,7 @@ import AdmitBoardingModal from './AdmitBoardingModal';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import OwnerContact from '../shared/OwnerContact';
 import { petMetaLine } from '../../../utils/pet';
+import { SoftTile } from '../../shared/stats/ColorTiles';
 
 const daysIn = (dropOffAt: string) => Math.max(0, calendarDaysBetween(dropOffAt)) + 1;
 const vaccinesOk = (vc: Record<string, boolean>) => Object.keys(vc || {}).length > 0 && Object.values(vc).every(Boolean);
@@ -128,14 +129,8 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenSt
 
       {/* Occupancy cards */}
       <div className="grid grid-cols-2 gap-2 sm:gap-3 max-w-md">
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 sm:p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-slate-400"><BedDouble size={15} /><span className="text-[9px] font-black uppercase tracking-widest">Active stays</span></div>
-          <p className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 mt-1">{occupancy.activeStays}</p>
-        </div>
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm">
-          <div className="flex items-center gap-2 text-slate-400"><CalendarClock size={15} /><span className="text-[9px] font-black uppercase tracking-widest">Pickups today</span></div>
-          <p className="text-2xl sm:text-3xl font-black text-pine dark:text-zinc-100 mt-1">{occupancy.pickupsDueToday}</p>
-        </div>
+        <SoftTile compact tone="violet" icon={BedDouble} label="Active stays" value={occupancy.activeStays} />
+        <SoftTile compact tone={occupancy.pickupsDueToday > 0 ? 'amber' : 'sky'} icon={CalendarClock} label="Pickups today" value={occupancy.pickupsDueToday} />
       </div>
 
       <ListFilterBar search={search} onSearch={setSearch} dateRange={dateRange} onDateRange={setDateRange} statuses={STATUSES} status={status} onStatus={setStatus} />

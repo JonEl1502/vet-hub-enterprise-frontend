@@ -11,6 +11,7 @@ import {
   InventoryItem, StockMovement, Supplier, StockMovementType
 } from '../../../services';
 import { toast } from '../../../services';
+import { SoftTile, type SoftTone } from '../../shared/stats/ColorTiles';
 
 // Helper function to safely convert rating to number
 const getRatingAsNumber = (rating: any): number => {
@@ -187,23 +188,13 @@ const StockManagerView: React.FC<Props> = ({ clinicId }) => {
       {/* Stats Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         {[
-          { label: 'Total Items', value: stats.total, icon: Package, color: 'text-blue-500', bg: 'bg-blue-500/5' },
-          { label: 'Low Stock', value: stats.lowStock, icon: AlertTriangle, color: 'text-amber-500', bg: 'bg-amber-500/5' },
-          { label: 'Out of Stock', value: stats.outOfStock, icon: Trash2, color: 'text-red-500', bg: 'bg-red-500/5' },
-          { label: 'Expired', value: stats.expired, icon: Archive, color: 'text-gray-500', bg: 'bg-gray-500/5' },
-          { label: 'Total Value', value: `KES ${stats.totalValue.toLocaleString()}`, icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-500/5' },
+          { label: 'Total Items', value: stats.total, icon: Package, color: 'text-blue-500', bg: 'bg-blue-500/5', soft: 'sky' as SoftTone },
+          { label: 'Low Stock', value: stats.lowStock, icon: AlertTriangle, color: 'text-amber-500', bg: 'bg-amber-500/5', soft: 'amber' as SoftTone },
+          { label: 'Out of Stock', value: stats.outOfStock, icon: Trash2, color: 'text-red-500', bg: 'bg-red-500/5', soft: 'rose' as SoftTone },
+          { label: 'Expired', value: stats.expired, icon: Archive, color: 'text-gray-500', bg: 'bg-gray-500/5', soft: 'violet' as SoftTone },
+          { label: 'Total Value', value: `KES ${stats.totalValue.toLocaleString()}`, icon: TrendingUp, color: 'text-green-500', bg: 'bg-green-500/5', soft: 'pine' as SoftTone },
         ].map((stat, idx) => (
-          <div key={idx} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center gap-4">
-              <div className={`p-3 rounded-xl ${stat.bg}`}>
-                <stat.icon className={stat.color} size={20} />
-              </div>
-              <div>
-                <p className="text-2xl font-black text-pine dark:text-zinc-100">{stat.value}</p>
-                <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">{stat.label}</p>
-              </div>
-            </div>
-          </div>
+          <SoftTile key={idx} tone={stat.soft} icon={stat.icon} label={stat.label} value={stat.value} />
         ))}
       </div>
 

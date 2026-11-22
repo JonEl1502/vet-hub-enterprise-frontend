@@ -3,6 +3,7 @@ import { Home, Stethoscope, Scissors, BedDouble, Syringe, CalendarClock, BellRin
 import { Visit, ApptStatus } from '../../../../types';
 import { remindersAPI, Reminder } from '../../../../services';
 import { visitsInRange, hasCategory, inDayRange, DayRange } from './roleShared';
+import { SOFT, toneFromClass } from '../../../shared/stats/ColorTiles';
 
 /**
  * "Today's work in progress" — the one strip every role sees, so a groomer and
@@ -149,16 +150,16 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
             <Tag
               key={b.key}
               {...(onOpen ? { type: 'button', onClick: () => onOpen(b.view, { openOnly: true }), title: `Open ${b.label}` } : {})}
-              className={`rounded-2xl border border-slate-100 dark:border-zinc-800 p-3 text-left transition-all ${
-                onOpen ? 'hover:border-seafoam cursor-pointer' : ''
+              className={`rounded-2xl border p-3 text-left transition-all ${SOFT[toneFromClass(b.tint) ?? 'sky'].tile} ${
+                onOpen ? `hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${SOFT[toneFromClass(b.tint) ?? 'sky'].ring}` : ''
               }`}
             >
-              <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest mb-2 ${b.tint}`}>
+              <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest mb-2 ${SOFT[toneFromClass(b.tint) ?? 'sky'].icon}`}>
                 <b.icon size={11} /> {b.label}
               </span>
               <div className="flex items-end gap-3">
                 <span className="min-w-0">
-                  <span className="block text-xl font-black leading-none tabular-nums text-pine dark:text-zinc-100">{startedToday.length}</span>
+                  <span className={`block text-xl font-black leading-none tabular-nums ${SOFT[toneFromClass(b.tint) ?? 'sky'].num}`}>{startedToday.length}</span>
                   <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Total</span>
                 </span>
                 <span className="min-w-0">
@@ -190,16 +191,16 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
           return (
             <Tag
               {...(onOpen ? { type: 'button', onClick: () => onOpen('reminders'), title: 'Open reminders' } : {})}
-              className={`rounded-2xl border border-slate-100 dark:border-zinc-800 p-3 text-left transition-all ${
-                onOpen ? 'hover:border-seafoam cursor-pointer' : ''
+              className={`rounded-2xl border p-3 text-left transition-all ${SOFT.teal.tile} ${
+                onOpen ? `hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${SOFT.teal.ring}` : ''
               }`}
             >
-              <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest mb-2 text-seafoam bg-seafoam/10">
+              <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest mb-2 ${SOFT.teal.icon}`}>
                 <BellRing size={11} /> Reminders
               </span>
               <div className="flex items-end gap-3">
                 <span className="min-w-0">
-                  <span className="block text-xl font-black leading-none tabular-nums text-pine dark:text-zinc-100">{reminders.length}</span>
+                  <span className={`block text-xl font-black leading-none tabular-nums ${SOFT.teal.num}`}>{reminders.length}</span>
                   <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Due</span>
                 </span>
                 <span className="min-w-0">

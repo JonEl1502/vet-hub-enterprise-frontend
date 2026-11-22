@@ -1,6 +1,6 @@
 /** Farm dashboard — herd, feed and produce status at a glance. */
 import React, { useEffect, useState } from 'react';
-import { LayoutDashboard, AlertTriangle, CalendarClock, UtensilsCrossed } from 'lucide-react';
+import { LayoutDashboard, AlertTriangle, CalendarClock, UtensilsCrossed, Tractor, Beef, Sprout, ClipboardList } from 'lucide-react';
 import { livestockAPI, type LivestockDashboard, type LivestockAlerts } from '../../services/modules/livestock.api';
 import LoadingSpinner from '../shared/common/LoadingSpinner';
 import { LivestockPage, Stat, EmptyState, fmtDate } from './shared';
@@ -44,11 +44,11 @@ const LivestockDashboardView: React.FC = () => {
   return (
     <LivestockPage title="Farm Dashboard" subtitle="Herd, feed and produce at a glance" icon={LayoutDashboard}>
       <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-        <Stat label="Farms" value={data.farms} />
-        <Stat label="Total head" value={data.totalHead.toLocaleString()} hint={`${data.animalGroups} groups`} />
-        <Stat label="Crop plots" value={data.cropPlots} />
-        <Stat label="Feeding plans" value={data.activeFeedingPlans} hint="active" />
-        <Stat label="Produce due" value={data.produceDue.length} hint="today or overdue" />
+        <Stat label="Farms" value={data.farms} tone="pine" icon={Tractor} />
+        <Stat label="Total head" value={data.totalHead.toLocaleString()} hint={`${data.animalGroups} groups`} tone="sky" icon={Beef} />
+        <Stat label="Crop plots" value={data.cropPlots} tone="teal" icon={Sprout} />
+        <Stat label="Feeding plans" value={data.activeFeedingPlans} hint="active" tone="violet" icon={ClipboardList} />
+        <Stat label="Produce due" value={data.produceDue.length} hint="today or overdue" tone={data.produceDue.length > 0 ? 'amber' : 'indigo'} icon={CalendarClock} />
       </div>
 
       <section>
