@@ -11,6 +11,8 @@ import AdmitInpatientModal from './AdmitInpatientModal';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import OwnerContact from '../shared/OwnerContact';
 import { SoftTile, SOFT, type SoftTone } from '../../shared/stats/ColorTiles';
+import TintCard from '../../shared/stats/TintCard';
+import { DoorOpen } from 'lucide-react';
 
 const daysIn = (admittedAt: string) => Math.max(0, calendarDaysBetween(admittedAt)) + 1;
 
@@ -128,6 +130,7 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
       admitted: admittedRows.length,
       tasksDue: admittedRows.reduce((n, h) => n + (due[h.id]?.tasksDue ?? 0), 0),
       medsDue: admittedRows.reduce((n, h) => n + (due[h.id]?.medsDue ?? 0), 0),
+      discharged: rows.filter(h => h.status === 'DISCHARGED').length,
     };
   }, [rows, due]);
 
@@ -168,8 +171,8 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
           filter fact — it says nothing about how many animals are actually in
           the ward right now, or how much work is waiting on them. After the
           migration that gap was stark: 124 shown, all of them historical. */}
-      <div ref={drillRef} className="relative grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3 max-w-2xl">
-        <SoftTile compact tone="violet" icon={Stethoscope} label="In the ward" value={wardCounts.admitted} />
+      <div ref={drillRef} className="relative grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+        <SoftTile compact tone="violet" icon={Stethoscope} label="In the ward" value={wardCounts.admitted} sub="admitted now" />
         {([
           { key: 'tasks' as const, label: 'Tasks due', icon: ClipboardCheck, total: wardCounts.tasksDue, tone: 'text-amber-600 dark:text-amber-400', ring: 'border-amber-400', soft: 'amber' as SoftTone, idle: 'sky' as SoftTone },
           { key: 'meds' as const, label: 'Meds due', icon: Pill, total: wardCounts.medsDue, tone: 'text-rose-600 dark:text-rose-400', ring: 'border-rose-400', soft: 'rose' as SoftTone, idle: 'teal' as SoftTone },
@@ -199,6 +202,7 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
             </button>
           );
         })}
+        <SoftTile compact tone="indigo" icon={DoorOpen} label="Discharged" value={wardCounts.discharged} sub="all time" onClick={() => setStatus('DISCHARGED')} />
 
         {drill && (() => {
           /**
@@ -278,8 +282,12 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
           {filtered.map(h => {
             const counts = due[h.id];
             const isActive = h.status === 'ADMITTED';
+            // Card colour = what the patient needs now: meds due rose, tasks
+            // due amber, nothing due pine; discharged stays plain.
+            const cardTone: SoftTone | null = !isActive ? null
+              : counts?.medsDue ? 'rose' : counts?.tasksDue ? 'amber' : 'pine';
             return (
-              <button key={h.id} onClick={() => onOpenChart?.(h.id)} className="text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm hover:border-seafoam transition-all">
+              <TintCard key={h.id} tone={cardTone} onClick={() => onOpenChart?.(h.id)}>
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <span className="flex items-center gap-2 min-w-0">
                     <span className="text-xl shrink-0">{h.pet?.species === 'Cat' ? '🐱' : '🐶'}</span>
@@ -317,7 +325,7 @@ const InpatientView: React.FC<InpatientViewProps> = ({ onOpenAppointment, onOpen
                     </span>
                   )}
                 </div>
-              </button>
+              </TintCard>
             );
           })}
         </div>

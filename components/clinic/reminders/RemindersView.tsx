@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
-import { BellRing, Loader2, CalendarPlus, Check, X, Search, AlertCircle, CheckCircle2, PhoneCall, ExternalLink, MoreVertical, CheckCheck } from 'lucide-react';
+import { BellRing, Loader2, CalendarPlus, Check, X, Search, AlertCircle, CheckCircle2, PhoneCall, ExternalLink, MoreVertical, CheckCheck, ListChecks, Clock, CalendarCheck, Stethoscope, Ban, Unlink } from 'lucide-react';
+import StatStrip, { StatItem } from '../../shared/stats/StatStrip';
 import toast from 'react-hot-toast';
 import { remindersAPI, appointmentsAPI, Reminder, ReminderScope, ReminderServiceType, REMINDER_SERVICE_META, dialog } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
@@ -76,6 +77,8 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
   // All bookings (for the manual "attach existing appointment" picker).
   const [allBookings, setAllBookings] = useState<any[]>([]);
   const [attachFor, setAttachFor] = useState<Reminder | null>(null);
+  // Stat tile the list is narrowed to (null = all). Client-side only.
+  const [statFilter, setStatFilter] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -111,18 +114,63 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
     if (r) setDetail(r);
   }, [focusId, reminders]);
 
-  const filtered = useMemo(() => {
+  // Search + date only — the stat tiles count this set, so the tiles don't
+  // collapse to one figure when a tile is selected.
+  const searched = useMemo(() => {
     const q = search.trim().toLowerCase();
-    const base = reminders.filter(r => {
+    return reminders.filter(r => {
       if (q && !`${r.pet?.name ?? ''} ${r.client?.name ?? ''} ${r.title ?? ''}`.toLowerCase().includes(q)) return false;
       if (!inRange(r.dueAt, dateRange)) return false;
       return true;
     });
+  }, [reminders, search, dateRange]);
+
+  /**
+   * Which bucket(s) a reminder falls in for the stat tiles (user, 2026-11-22:
+   * "which ones have visits attached, so that we can know which ones are
+   * broken"). "Converted" = a visit is linked (bookedAppointmentId). "Broken"
+   * = a visit is linked but the server returned no such visit, or that visit
+   * was cancelled — the reminder looks handled while nothing will happen.
+   */
+  const isConverted = (r: Reminder) => !!r.bookedAppointmentId;
+  const isBroken = (r: Reminder) => !!r.bookedAppointmentId && (!r.bookedAppointment || String(r.bookedAppointment.status).toUpperCase() === 'CANCELLED');
+  const matchesStat = (r: Reminder, key: string | null): boolean => {
+    switch (key) {
+      case null: case 'total': return true;
+      case 'pending': return r.status === 'PENDING' && !r.bookedAppointmentId && !bookingByReminder[r.id];
+      case 'overdue': return isOverdue(r);
+      case 'booked': return r.status === 'PENDING' && !r.bookedAppointmentId && !!bookingByReminder[r.id];
+      case 'converted': return isConverted(r);
+      case 'done': return r.status === 'DONE';
+      case 'dismissed': return r.status === 'DISMISSED';
+      case 'broken': return isBroken(r);
+      default: return true;
+    }
+  };
+
+  const filtered = useMemo(() => {
+    const base = searched.filter(r => matchesStat(r, statFilter));
     // Uncompleted always on top, nearest due date first (today up top);
     // handled ones follow in the same date order.
     const rank = (r: Reminder) => (r.status === 'PENDING' ? 0 : 1);
     return [...base].sort((a, b) => rank(a) - rank(b) || +new Date(a.dueAt) - +new Date(b.dueAt));
-  }, [reminders, search, dateRange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searched, statFilter, bookingByReminder]);
+
+  const statItems: StatItem[] = useMemo(() => {
+    const n = (k: string) => searched.filter(r => matchesStat(r, k)).length;
+    return [
+      { key: 'total', label: 'Total', value: searched.length, sub: 'in this view', tone: 'sky', icon: ListChecks, filterable: false },
+      { key: 'pending', label: 'Pending', value: n('pending'), sub: 'not booked yet', tone: 'amber', icon: Clock },
+      { key: 'overdue', label: 'Overdue', value: n('overdue'), sub: 'past due, open', tone: 'rose', icon: AlertCircle },
+      { key: 'booked', label: 'Booked', value: n('booked'), sub: 'appointment made', tone: 'violet', icon: CalendarCheck },
+      { key: 'converted', label: 'Converted', value: n('converted'), sub: 'visit attached', tone: 'pine', icon: Stethoscope },
+      { key: 'done', label: 'Done', value: n('done'), sub: 'completed', tone: 'emerald', icon: CheckCircle2 },
+      { key: 'dismissed', label: 'Dismissed', value: n('dismissed'), sub: 'closed unbooked', tone: 'indigo', icon: Ban },
+      { key: 'broken', label: 'Broken', value: n('broken'), sub: 'visit missing / cancelled', tone: 'rose', icon: Unlink },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searched, bookingByReminder]);
 
   /**
    * A follow-up PLAN is many reminders sharing one `groupId` (backend 134) —
@@ -318,6 +366,9 @@ const RemindersView: React.FC<Props> = ({ onOpenAppointment, onOpenBookings, foc
             className="w-full pl-9 pr-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
         </div>
       </div>
+
+      {/* Stat tiles — click one to narrow the list, click again to clear. */}
+      {!loading && <StatStrip items={statItems} active={statFilter} onSelect={setStatFilter} />}
 
       {/* List */}
       {loading ? (

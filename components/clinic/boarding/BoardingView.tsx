@@ -11,7 +11,9 @@ import AdmitBoardingModal from './AdmitBoardingModal';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import OwnerContact from '../shared/OwnerContact';
 import { petMetaLine } from '../../../utils/pet';
-import { SoftTile } from '../../shared/stats/ColorTiles';
+import { SoftTile, type SoftTone } from '../../shared/stats/ColorTiles';
+import TintCard from '../../shared/stats/TintCard';
+import { DoorOpen } from 'lucide-react';
 
 const daysIn = (dropOffAt: string) => Math.max(0, calendarDaysBetween(dropOffAt)) + 1;
 const vaccinesOk = (vc: Record<string, boolean>) => Object.keys(vc || {}).length > 0 && Object.values(vc).every(Boolean);
@@ -128,9 +130,11 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenSt
       </div>
 
       {/* Occupancy cards */}
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 max-w-md">
-        <SoftTile compact tone="violet" icon={BedDouble} label="Active stays" value={occupancy.activeStays} />
-        <SoftTile compact tone={occupancy.pickupsDueToday > 0 ? 'amber' : 'sky'} icon={CalendarClock} label="Pickups today" value={occupancy.pickupsDueToday} />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+        <SoftTile compact tone="violet" icon={BedDouble} label="Active stays" value={occupancy.activeStays} sub="in care now" onClick={() => setStatus('ADMITTED')} />
+        <SoftTile compact tone={occupancy.pickupsDueToday > 0 ? 'amber' : 'sky'} icon={CalendarClock} label="Pickups today" value={occupancy.pickupsDueToday} sub="going home" />
+        <SoftTile compact tone="rose" icon={ShieldAlert} label="Vaccine check" value={stays.filter(s => s.status === 'ADMITTED' && !vaccinesOk(s.vaccineChecklist)).length} sub="incomplete, in care" />
+        <SoftTile compact tone="indigo" icon={DoorOpen} label="Checked out" value={stays.filter(s => s.status === 'CHECKED_OUT').length} sub="all time" onClick={() => setStatus('CHECKED_OUT')} />
       </div>
 
       <ListFilterBar search={search} onSearch={setSearch} dateRange={dateRange} onDateRange={setDateRange} statuses={STATUSES} status={status} onStatus={setStatus} />
@@ -147,7 +151,9 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenSt
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {filtered.map(s => (
-            <button key={s.id} onClick={() => onOpenStay?.(s.id)} className="text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm hover:border-seafoam transition-all">
+            // Card colour: in care teal, in care with the vaccine check open
+            // amber, checked out plain.
+            <TintCard key={s.id} tone={(s.status === 'ADMITTED' ? (!vaccinesOk(s.vaccineChecklist) ? 'amber' : 'teal') : null) as SoftTone | null} onClick={() => onOpenStay?.(s.id)}>
               <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="flex items-center gap-2 min-w-0">
                   <span className="text-xl shrink-0">{s.pet?.species === 'Cat' ? '🐱' : '🐶'}</span>
@@ -187,7 +193,7 @@ const BoardingView: React.FC<BoardingViewProps> = ({ onOpenAppointment, onOpenSt
               {s.status === 'ADMITTED' && !vaccinesOk(s.vaccineChecklist) && (
                 <p className="mt-2 flex items-center gap-1 text-[9px] font-bold text-amber-600 dark:text-amber-400"><ShieldAlert size={11} /> Vaccine check incomplete</p>
               )}
-            </button>
+            </TintCard>
           ))}
         </div>
       )}

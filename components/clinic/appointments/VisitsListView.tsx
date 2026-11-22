@@ -2,7 +2,8 @@
 import { useRememberedRange } from '../../../hooks/useScrollMemory';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { Visit, ApptStatus, Pet, User, Clinic } from '../../../types';
-import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope, X, Users } from 'lucide-react';
+import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope, X, Users, ListChecks, Clock, Activity, Wallet, CheckCircle2, XCircle, AlertCircle } from 'lucide-react';
+import StatStrip, { StatItem } from '../../shared/stats/StatStrip';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useData } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -210,8 +211,19 @@ const VisitsListView: React.FC<Props> = ({
   // Rows the list works from: the server's answer for the picked range, else cache.
   const sourceRows = rangeRows ?? appointments;
 
-  // Client-side filtering
-  const filtered = useMemo(() => {
+  // Stat tiles above the filters, hideable and remembered (user, 2026-11-22).
+  const [showStats, setShowStats] = useState<boolean>(() => {
+    try { return localStorage.getItem('vethub.visitStats.v1') !== '0'; } catch { return true; }
+  });
+  const toggleStats = () => setShowStats(v => {
+    const n = !v;
+    try { localStorage.setItem('vethub.visitStats.v1', n ? '1' : '0'); } catch { /* private mode */ }
+    return n;
+  });
+
+  // Client-side filtering. `baseFiltered` applies everything EXCEPT the status
+  // tab, so the stat tiles count every status of the rows on screen.
+  const baseFiltered = useMemo(() => {
     const adv = advancedFilters;
     const startStr = dateRange.start ? toClinicDateStr(new Date(dateRange.start)) : null;
     const endStr = dateRange.end ? toClinicDateStr(new Date(dateRange.end)) : null;
@@ -225,7 +237,6 @@ const VisitsListView: React.FC<Props> = ({
           if (startStr && s < startStr) return false;
           if (endStr && s > endStr) return false;
         }
-        if (activeTab !== 'ALL' && appt.status !== activeTab) return false;
         if (searchQuery) {
           const q = searchQuery.toLowerCase();
           const matchPet = (appt as any).pet?.name?.toLowerCase().includes(q);
@@ -262,7 +273,12 @@ const VisitsListView: React.FC<Props> = ({
         if (adv.dateRange.start && s < toClinicDateStr(new Date(adv.dateRange.start))) return false;
         if (adv.dateRange.end && s > toClinicDateStr(new Date(adv.dateRange.end))) return false;
         return true;
-      })
+      });
+  }, [sourceRows, dateRange, searchQuery, openOnly, advancedFilters]);
+
+  const filtered = useMemo(() => {
+    return baseFiltered
+      .filter(appt => activeTab === 'ALL' || appt.status === activeTab)
       .sort((a, b) => {
         const statusRank = (appt: typeof a) => {
           if (appt.status === 'PENDING_PAYMENT') return 0;
@@ -274,7 +290,22 @@ const VisitsListView: React.FC<Props> = ({
         // Within same group: descending by date (future/latest first)
         return new Date(b.date).getTime() - new Date(a.date).getTime();
       });
-  }, [sourceRows, dateRange, activeTab, searchQuery, openOnly, advancedFilters]);
+  }, [baseFiltered, activeTab]);
+
+  const visitStats: StatItem[] = useMemo(() => {
+    const n = (st: ApptStatus) => baseFiltered.filter(a => a.status === st).length;
+    // Finished work not yet paid for (cancelled visits owe nothing).
+    const unpaid = baseFiltered.filter(a => !a.isPaid && (a.status === ApptStatus.COMPLETED || a.status === ApptStatus.PENDING_PAYMENT)).length;
+    return [
+      { key: 'ALL', label: 'Total', value: baseFiltered.length, sub: 'in this view', tone: 'sky', icon: ListChecks },
+      { key: ApptStatus.SCHEDULED, label: 'Scheduled', value: n(ApptStatus.SCHEDULED), sub: 'waiting', tone: 'amber', icon: Clock },
+      { key: ApptStatus.IN_PROGRESS, label: 'In progress', value: n(ApptStatus.IN_PROGRESS), sub: 'being seen', tone: 'violet', icon: Activity },
+      { key: ApptStatus.PENDING_PAYMENT, label: 'Pending payment', value: n(ApptStatus.PENDING_PAYMENT), sub: 'ready to bill', tone: 'teal', icon: Wallet },
+      { key: ApptStatus.COMPLETED, label: 'Completed', value: n(ApptStatus.COMPLETED), sub: 'closed', tone: 'pine', icon: CheckCircle2 },
+      { key: ApptStatus.CANCELLED, label: 'Cancelled', value: n(ApptStatus.CANCELLED), sub: 'called off', tone: 'indigo', icon: XCircle },
+      { key: 'unpaid', label: 'Unpaid', value: unpaid, sub: 'finished, not paid', tone: 'rose', icon: AlertCircle, filterable: false },
+    ];
+  }, [baseFiltered]);
 
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [searchQuery, activeTab, dateRange, openOnly, advancedFilters]);
@@ -349,6 +380,25 @@ const VisitsListView: React.FC<Props> = ({
             <p className="page-subheader mt-1">Enterprise scheduling and visit orchestration</p>
           </div> */}
 
+
+      {/* Visit stats — click a tile to filter by that status. Hideable. */}
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">Visit stats</p>
+          <button type="button" onClick={toggleStats}
+            className="text-[10px] font-bold text-seafoam hover:underline active:scale-95 transition">
+            {showStats ? 'Hide' : 'Show'}
+          </button>
+        </div>
+        {showStats && (
+          <StatStrip
+            items={visitStats}
+            active={activeTab === 'ALL' ? null : activeTab}
+            onSelect={k => setActiveTab((k && k !== 'ALL' ? k : 'ALL') as any)}
+            cols="grid-cols-2 sm:grid-cols-4 2xl:grid-cols-7"
+          />
+        )}
+      </div>
 
       {/* Filter Tabs */}
       <div className="bg-slate-100 dark:bg-zinc-900 p-3 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">

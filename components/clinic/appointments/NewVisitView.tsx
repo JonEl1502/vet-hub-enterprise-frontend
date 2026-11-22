@@ -132,6 +132,10 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     try { return localStorage.getItem('vethub.bookStartNow.v1') !== '0'; } catch { return true; }
   });
   const [isHouseCall, setIsHouseCall] = useState(false);
+  // The time is "confirmed" once the user clicks Now (user, 2026-11-22). Until
+  // then the Now control and the scheduled time pulse; picking a different
+  // time un-confirms it and the pulse returns.
+  const [timeConfirmed, setTimeConfirmed] = useState(false);
 
   // Get parent appointment information if this is a follow-up
   const parentAppointment = useMemo(() => {
@@ -1513,10 +1517,10 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // Shared Book controls — reused by the top-of-scheduling button and the
   // sticky bottom action bar so the primary action is never missed.
   const startNowToggle = (
-    <label className="flex items-center gap-2 cursor-pointer select-none shrink-0">
+    <label className={`flex items-center gap-2 cursor-pointer select-none shrink-0 px-2 py-1 -mx-2 -my-1 ${timeConfirmed ? '' : 'time-flash'}`}>
       <span className="text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Start now</span>
       <button type="button" role="switch" aria-checked={startNowPref}
-        onClick={() => setStartNowPref(v => { const n = !v; try { localStorage.setItem('vethub.bookStartNow.v1', n ? '1' : '0'); } catch { /* private mode */ } return n; })}
+        onClick={() => { setTimeConfirmed(true); setStartNowPref(v => { const n = !v; try { localStorage.setItem('vethub.bookStartNow.v1', n ? '1' : '0'); } catch { /* private mode */ } return n; }); }}
         className={`w-9 h-5 rounded-full transition-all relative shrink-0 ${startNowPref ? 'bg-pine dark:bg-emerald-500' : 'bg-slate-200 dark:bg-zinc-700'}`}>
         <span className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-all ${startNowPref ? 'left-[18px]' : 'left-0.5'}`} />
       </button>
@@ -1610,19 +1614,19 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       {/* Encounter type — frames the whole appointment; decides the workflow */}
       <div data-tour="appointment-encounter-type" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm mb-3">
         <p className="text-[9px] font-black text-seafoam uppercase tracking-widest mb-2">Visit type</p>
-        <div className="grid grid-cols-3 gap-2 max-w-2xl">
+        <div className="grid grid-cols-3 gap-2 w-full">
           {UI_ENCOUNTERS.map(et => (
             <button
               key={et.value}
               type="button"
               onClick={() => handleEncounterChip(et.value)}
-              className={`flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-black uppercase tracking-wide transition-all border text-center ${
+              className={`flex items-center justify-center gap-2 px-3 py-3 rounded-xl text-[12px] sm:text-[13px] font-black uppercase tracking-wide transition-all border text-center active:scale-[0.98] ${
                 encounterChip === et.value
                   ? 'bg-pine text-white border-pine dark:bg-zinc-100 dark:text-pine'
                   : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
               }`}
             >
-              <span className="shrink-0">{et.icon}</span> <span className="truncate">{et.label}</span>
+              <span className="shrink-0 text-[18px] leading-none">{et.icon}</span> <span className="truncate">{et.label}</span>
             </button>
           ))}
         </div>
@@ -1641,7 +1645,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                   key={chip}
                   type="button"
                   onClick={() => toggleExtra(chip)}
-                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border ${
+                  className={`flex items-center justify-center gap-1.5 px-5 py-1.5 min-w-[140px] rounded-lg text-[10px] font-black uppercase tracking-wide transition-all border ${
                     on
                       ? 'bg-seafoam text-white border-seafoam'
                       : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-dashed border-slate-300 dark:border-zinc-700 hover:border-seafoam'
@@ -1925,7 +1929,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                     <button
                       type="button"
                       onClick={() => setShowWalkInModal(true)}
-                      className="flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-seafoam to-cyan-600 text-white rounded-2xl font-bold text-xs uppercase tracking-wide shadow-md hover:shadow-lg transition-all active:scale-95 whitespace-nowrap shrink-0"
+                      className="ring-glow-white flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-seafoam to-cyan-600 text-white rounded-2xl font-bold text-xs uppercase tracking-wide hover:brightness-110 transition-all active:scale-95 whitespace-nowrap shrink-0"
                     >
                       <UserPlus size={16} />
                       New Client
@@ -2602,7 +2606,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                      in a card of its own under the picker. It was the same date
                      and time shown twice on one screen. */}
                  {formData.apptDate && (
-                   <p className="flex-1 text-center text-[12px] font-black text-pine dark:text-zinc-100 truncate">
+                   <p className={`flex-1 text-center text-[12px] font-black text-pine dark:text-zinc-100 truncate px-2 py-0.5 ${timeConfirmed ? '' : 'time-flash'}`}>
                      {new Date(formData.apptDate + 'T' + (formData.apptTime || '00:00')).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                      {formData.apptTime && <span className="text-seafoam"> · {formData.apptTime}</span>}
                    </p>
@@ -2625,9 +2629,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                    })()}
                    {isWalkIn && <span className="px-2 py-0.5 rounded-lg bg-amber-100 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[9px] font-black uppercase tracking-widest">🚶 Walk-in — arriving now</span>}
                    <button type="button"
-                     onClick={() => { const n = new Date(); setFormData({ ...formData, apptDate: localDay(n), apptTime: n.toTimeString().slice(0, 5) }); }}
+                     onClick={() => { const n = new Date(); setFormData({ ...formData, apptDate: localDay(n), apptTime: n.toTimeString().slice(0, 5) }); setTimeConfirmed(true); }}
                      title="Set to today, right now"
-                     className="px-2.5 py-1 rounded-lg border border-seafoam/40 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all">
+                     className={`px-2.5 py-1 rounded-lg border border-seafoam/40 text-seafoam text-[9px] font-black uppercase tracking-widest hover:bg-seafoam hover:text-white transition-all ${timeConfirmed ? '' : 'time-flash'}`}>
                      ⏱ Now
                    </button>
                  </div>
@@ -2639,6 +2643,8 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                 onDateTimeChange={(date) => {
                   const dateStr = localDay(date);
                   const timeStr = date.toTimeString().slice(0, 5);
+                  // A different slot from the one shown un-confirms the time.
+                  if (dateStr !== formData.apptDate || timeStr !== formData.apptTime) setTimeConfirmed(false);
                   setFormData({...formData, apptDate: dateStr, apptTime: timeStr});
                 }}
                 existingAppointments={appointments || []}
@@ -2688,7 +2694,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                     <div className="p-2 bg-seafoam/10 rounded-lg"><Calendar size={14} className="text-seafoam" /></div>
                     <div className="flex-1 min-w-0">
                       <p className="text-[8px] font-bold text-slate-400 uppercase tracking-widest">Scheduled</p>
-                      <p className="text-[11px] font-black text-pine dark:text-zinc-100">{formData.apptDate} <span className="text-seafoam">@ {formData.apptTime}</span></p>
+                      <p className={`text-[11px] font-black text-pine dark:text-zinc-100 inline-block px-1.5 -mx-1.5 ${timeConfirmed ? '' : 'time-flash'}`}>{formData.apptDate} <span className="text-seafoam">@ {formData.apptTime}</span></p>
                     </div>
                  </div>
                  {/* Staff summary: lead + assigned */}

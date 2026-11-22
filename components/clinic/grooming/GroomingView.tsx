@@ -1,5 +1,7 @@
 import React, { useMemo, useState, useEffect, useRef } from 'react';
-import { Scissors, Plus, CreditCard } from 'lucide-react';
+import { Scissors, Plus, CreditCard, Clock, Activity, CheckCircle2, AlertCircle } from 'lucide-react';
+import { SoftTile, type SoftTone } from '../../shared/stats/ColorTiles';
+import TintCard from '../../shared/stats/TintCard';
 import { useData } from '../../../contexts/DataContext';
 import { Visit } from '../../../types';
 import { formatDate } from '../../../services/utils/dateFormatter';
@@ -74,6 +76,19 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   }, [appointments, status, search, dateRange, pets, clients]);
 
+  // Stat strip: every grooming visit in the date/search window, by the same
+  // derived status the cards show.
+  const groomStats = useMemo(() => {
+    const all = appointments.filter((a: Visit) => a.encounterType === 'GROOMING' || (a.tasks || []).some((t: any) => String(t.category || '').toLowerCase().includes('groom')))
+      .filter((a: Visit) => inRange(a.date, dateRange));
+    const by = (s: string) => all.filter((a: Visit) => deriveVisitStatus(a, ['groom']) === s).length;
+    return {
+      scheduled: by('SCHEDULED'), inProgress: by('IN_PROGRESS'), completed: by('COMPLETED'),
+      unpaid: all.filter((a: Visit) => !a.isPaid && String(a.status) !== 'CANCELLED' && deriveVisitStatus(a, ['groom']) === 'COMPLETED').length,
+    };
+  }, [appointments, dateRange]);
+  const GROOM_TONE: Record<string, SoftTone | null> = { SCHEDULED: 'sky', IN_PROGRESS: 'amber', COMPLETED: null };
+
   // Full-page record replaces the whole list while open (was a drawer).
   // NOTE: this early return must come AFTER every hook above — an early
   // return between hooks changes the hook count and crashes React (#300).
@@ -116,6 +131,13 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
         <button onClick={() => setAdmitOpen(true)} className="flex items-center gap-2 px-4 py-2.5 bg-seafoam text-white rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg shadow-seafoam/20 hover:bg-seafoam/90 active:scale-95"><Plus size={14} /> New grooming</button>
       </div>
 
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-3">
+        <SoftTile compact tone="sky" icon={Clock} label="Scheduled" value={groomStats.scheduled} sub="not started" onClick={() => setStatus('SCHEDULED')} />
+        <SoftTile compact tone="amber" icon={Activity} label="In progress" value={groomStats.inProgress} sub="on the table" onClick={() => setStatus('SCHEDULED')} />
+        <SoftTile compact tone="pine" icon={CheckCircle2} label="Completed" value={groomStats.completed} sub="done" onClick={() => setStatus('COMPLETED')} />
+        <SoftTile compact tone="rose" icon={AlertCircle} label="Unpaid" value={groomStats.unpaid} sub="done, not paid" />
+      </div>
+
       <ListFilterBar search={search} onSearch={setSearch} dateRange={dateRange} onDateRange={setDateRange} statuses={STATUSES} status={status} onStatus={setStatus} />
 
       {grooms.length === 0 ? (
@@ -127,7 +149,7 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {grooms.map(a => (
-            <button key={a.id} onClick={() => setOpenId(a.id)} className="text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm hover:border-seafoam transition-all">
+            <TintCard key={a.id} tone={(() => { const ds = deriveVisitStatus(a, ['groom']); return ds === 'COMPLETED' && !a.isPaid ? 'rose' : GROOM_TONE[ds]; })()} onClick={() => setOpenId(a.id)}>
               <div className="flex items-center justify-between gap-2 mb-2">
                 <span className="flex items-center gap-2 min-w-0">
                   <span className="text-xl shrink-0">✂️</span>
@@ -152,7 +174,7 @@ const GroomingView: React.FC<Props> = ({ onOpenAppointment, onNew, openForAppoin
                 <span>{formatDate(a.date)} · {a.tasks?.length ?? 0} service{(a.tasks?.length ?? 0) === 1 ? '' : 's'}</span>
                 <span className={`flex items-center gap-0.5 ${a.isPaid ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}><CreditCard size={11} /> {Number(a.totalCost).toLocaleString()}{a.isPaid ? '' : ' due'}</span>
               </div>
-            </button>
+            </TintCard>
           ))}
         </div>
       )}

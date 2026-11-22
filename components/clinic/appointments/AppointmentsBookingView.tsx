@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
-import { CalendarClock, Plus, Loader2, Trash2, Search, Clock, ArrowRight, BellRing, ExternalLink, Link2, MoreVertical } from 'lucide-react';
+import { CalendarClock, Plus, Loader2, Trash2, Search, Clock, ArrowRight, BellRing, ExternalLink, Link2, MoreVertical, ListChecks, CalendarCheck, Stethoscope, Repeat, XCircle, UserX, Unlink } from 'lucide-react';
+import StatStrip, { StatItem } from '../../shared/stats/StatStrip';
 import toast from 'react-hot-toast';
 import { useData } from '../../../contexts/DataContext';
 import { appointmentsAPI, remindersAPI, Appointment, dialog } from '../../../services';
@@ -83,9 +84,11 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
      */
     if (status === 'website') { setLoading(false); return; }
     setLoading(true);
-    try { const res = await appointmentsAPI.list(status === 'all' ? {} : { status }); if (res.success && res.data) setRecords(res.data.appointments); }
+    // Always the whole list; the status tab / stat tile narrows it client-side
+    // so the stat tiles can count every status at once (2026-11-22).
+    try { const res = await appointmentsAPI.list({}); if (res.success && res.data) setRecords(res.data.appointments); }
     catch (e) { console.error(e); } finally { setLoading(false); }
-  }, [status]);
+  }, [status === 'website']); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { load(); }, [load]);
 
   // Live refresh: a portal booking request pings over SSE → refetch the list.
@@ -134,7 +137,17 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
   const petMeta = (a: Appointment) => petMetaLine(petOf(a));
   const clientName = (a: Appointment) => clients.find((c: any) => String(c.id) === String(a.clientId))?.name || '';
 
-  const filtered = useMemo(() => {
+  /**
+   * "Broken" (user, 2026-11-22: "which ones have visits attached, so that we
+   * can know which ones are broken"): a booking marked CONVERTED with no visit
+   * linked, or a visit linked to a booking that isn't CONVERTED.
+   */
+  const isBroken = (a: Appointment) => (a.status === 'CONVERTED') !== !!a.convertedVisitId;
+  const matchesStatus = (a: Appointment, key: string) =>
+    key === 'all' ? true : key === 'broken' ? isBroken(a) : a.status === key;
+
+  // Date + search only — what the stat tiles count.
+  const searched = useMemo(() => {
     const q = search.trim().toLowerCase();
     let list = records;
     // Date filter — by SCHEDULED date, so the list can answer "what's booked
@@ -142,6 +155,28 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
     if (dateRange?.start) list = list.filter(a => new Date(a.scheduledAt) >= new Date(dateRange.start));
     if (dateRange?.end) { const end = new Date(dateRange.end); end.setHours(23, 59, 59, 999); list = list.filter(a => new Date(a.scheduledAt) <= end); }
     if (q) list = list.filter(a => `${petName(a)} ${clientName(a)} ${a.note ?? ''}`.toLowerCase().includes(q));
+    return list;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [records, search, pets, clients, dateRange]);
+
+  const statItems: StatItem[] = useMemo(() => {
+    const n = (k: string) => searched.filter(a => matchesStatus(a, k)).length;
+    const withVisit = searched.filter(a => a.status === 'CONVERTED' && a.convertedVisitId).length;
+    return [
+      { key: 'all', label: 'Total', value: searched.length, sub: 'in this view', tone: 'sky', icon: ListChecks },
+      { key: 'REQUESTED', label: 'Requested', value: n('REQUESTED'), sub: 'awaiting confirm', tone: 'amber', icon: Clock },
+      { key: 'CONFIRMED', label: 'Confirmed', value: n('CONFIRMED'), sub: 'on the schedule', tone: 'teal', icon: CalendarCheck },
+      { key: 'CONVERTED', label: 'Converted', value: n('CONVERTED'), sub: `${withVisit} with visit attached`, tone: 'pine', icon: Stethoscope },
+      { key: 'RESCHEDULED', label: 'Rescheduled', value: n('RESCHEDULED'), sub: 'moved', tone: 'violet', icon: Repeat },
+      { key: 'CANCELLED', label: 'Cancelled', value: n('CANCELLED'), sub: 'called off', tone: 'indigo', icon: XCircle },
+      { key: 'NO_SHOW', label: 'No-show', value: n('NO_SHOW'), sub: 'never arrived', tone: 'amber', icon: UserX },
+      { key: 'broken', label: 'Broken', value: n('broken'), sub: 'status / visit link mismatch', tone: 'rose', icon: Unlink },
+    ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searched]);
+
+  const filtered = useMemo(() => {
+    const list = searched.filter(a => matchesStatus(a, status));
     // Actionable bookings first; CONVERTED sink below them; cancelled/no-show last.
     const rank = (a: Appointment) =>
       a.status === 'CONVERTED' ? 1 : (a.status === 'CANCELLED' || a.status === 'NO_SHOW') ? 2 : 0;
@@ -156,7 +191,8 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
       rank(a) - rank(b)
       || (rank(a) === 0 ? dayBucket(a) - dayBucket(b) : 0)
       || +new Date(a.scheduledAt) - +new Date(b.scheduledAt));
-  }, [records, search, pets, clients, dateRange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searched, status]);
 
   const setStatusOf = async (a: Appointment, next: AppointmentStatus) => {
     setBusyId(a.id);
@@ -281,6 +317,11 @@ const AppointmentsBookingView: React.FC<Props> = ({ onStartVisit, onOpenVisit, o
         <div className="relative flex-1 min-w-[180px]"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" /><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search patient, client, note" className="w-full pl-9 pr-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" /></div>
         </>}
       </div>
+
+      {/* Stat tiles — click to filter by that status (click again for all). */}
+      {status !== 'website' && !loading && (
+        <StatStrip items={statItems} active={status === 'all' ? null : status} onSelect={k => setStatus(k && k !== 'all' ? k : 'all')} />
+      )}
 
       {/* Site Connect (269): the website inbox replaces the list wholesale.
           A request is not a booking, so it never appears as a card among them. */}
