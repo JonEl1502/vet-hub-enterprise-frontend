@@ -669,9 +669,6 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
           aside={<div className="space-y-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
-                <p className="text-[11px] cp-muted truncate">
-                  {[g.species, g.breed].filter(Boolean).join(' · ')}
-                </p>
                 {g.housing && <p className="text-[11px] cp-muted mt-0.5 truncate">{g.housing}</p>}
               </div>
               <div className="shrink-0 text-right">
