@@ -22,6 +22,9 @@ export interface Appointment {
   sourceDetail: string | null;
   originReminderId: string | null;
   convertedVisitId: string | null;
+  /** The visit this booking was made from (follow-up chain, next vaccination/deworming). */
+  parentVisitId?: string | null;
+  visitType?: string | null;
   createdAt: string;
   updatedAt: string;
 }

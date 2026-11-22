@@ -30,7 +30,7 @@ import { subscribePendingRequests } from '../../../services/api/client';
 import type { Wallet as WalletData } from '../../../services';
 import { VaccinationRecord } from '../../../services/modules/vaccinations.api';
 import { appointmentMedicationsAPI, AppointmentMedication } from '../../../services/modules/appointmentMedications.api';
-import { consumablesAPI, AppointmentConsumable, boardingAPI, inpatientAPI, labAPI, imagingAPI, clientsAPI, billsAPI } from '../../../services';
+import { consumablesAPI, AppointmentConsumable, boardingAPI, inpatientAPI, labAPI, imagingAPI, clientsAPI, billsAPI, appointmentsAPI } from '../../../services';
 import { serviceBundlesAPI, type ServiceBundle } from '../../../services/modules/serviceBundles.api';
 import { toast } from '../../../services/utils/toast';
 import { paymentGatewaysAPI } from '../../../services/modules/paymentGateways.api';
@@ -48,7 +48,7 @@ import VaccinationPanel from './VaccinationPanel';
 import EmergencyTriagePanel from '../triage/EmergencyTriagePanel';
 import AdmitInpatientModal from '../inpatient/AdmitInpatientModal';
 import AdmitBoardingModal from '../boarding/AdmitBoardingModal';
-import FinalizeReminderGate, { ReminderDraft } from './FinalizeReminderGate';
+import FinalizeReminderGate, { ReminderDraft, NextBookingDraft, NextAppointmentRequirement } from './FinalizeReminderGate';
 import ConsumablePicker from '../shared/ConsumablePicker';
 import AppliedProcedurePanel from '../shared/AppliedProcedurePanel';
 import { ServiceInjectProvider } from '../shared/ServiceInjectContext';
@@ -775,8 +775,10 @@ const VisitDetailInner: React.FC<Props> = ({
   // while the reminder is asked, so the payment resumes with exactly what the
   // cashier confirmed rather than being re-derived from state that may have moved.
   const [showPreReceiptReminder, setShowPreReceiptReminder] = useState(false);
+  // Saving the gate's booking/reminders before the settle resumes.
+  const [gateSaving, setGateSaving] = useState(false);
   const [pendingSettle, setPendingSettle] = useState<
-    { paymentMethod: string; discountType?: 'PERCENTAGE' | 'FIXED'; discountValue?: number; walletId: string | null } | null
+    { paymentMethod: string; discountType?: 'PERCENTAGE' | 'FIXED'; discountValue?: number; walletId: string | null; amountPaid?: number; useCredit?: number } | null
   >(null);
   // Full-width workflow tabs: Emergency Triage (leads on emergency visits) ·
   // Clinical Workflow · Categories & Services · Records & Billing.
@@ -911,6 +913,73 @@ const VisitDetailInner: React.FC<Props> = ({
     } catch { /* non-fatal */ }
   }, [appointment.id, appointment.petId]);
   useEffect(() => { loadVisitReminder(); }, [loadVisitReminder, appointment.status, appointment.isPaid]);
+
+  /**
+   * Owner's rule (2026-11-22): a vaccination or deworming visit ends with the
+   * next appointment BOOKED (and the visit's reminder). Same test the server's
+   * close guard uses (bookingReminder.service.assertVisitCanClose): visitType,
+   * or the legacy VACCINATION encounter type.
+   */
+  const nextApptKind: 'VACCINATION' | 'DEWORMING' | null =
+    ((appointment as any).visitType === 'VACCINATION' || appointment.encounterType === 'VACCINATION') ? 'VACCINATION'
+    : (appointment as any).visitType === 'DEWORMING' ? 'DEWORMING' : null;
+  // A future, active booking for this pet tied to this visit, or made since it started.
+  const [nextBooking, setNextBooking] = useState<{ scheduledAt: string } | null>(null);
+  // The record's next-due date — the default for the booking.
+  const [nextDueDefault, setNextDueDefault] = useState<string | null>(null);
+  const loadNextBooking = useCallback(async () => {
+    if (!nextApptKind || !appointment.petId) { setNextBooking(null); return; }
+    try {
+      const res = await appointmentsAPI.list({ petId: appointment.petId });
+      const since = (appointment as any).createdAt ? new Date((appointment as any).createdAt).getTime() : NaN;
+      const now = Date.now();
+      const hit = (res.data?.appointments || [])
+        .filter(b => ['REQUESTED', 'CONFIRMED', 'RESCHEDULED'].includes(b.status) && new Date(b.scheduledAt).getTime() > now)
+        .find(b => String(b.parentVisitId ?? '') === String(appointment.id) || (Number.isFinite(since) && new Date(b.createdAt).getTime() >= since));
+      setNextBooking(hit ? { scheduledAt: hit.scheduledAt } : null);
+    } catch { /* non-fatal: the server guard still decides */ }
+  }, [nextApptKind, appointment.id, appointment.petId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { loadNextBooking(); }, [loadNextBooking, appointment.status]);
+  // Re-read when a gate opens: the vaccination panel can book the next dose
+  // itself mid-visit, and the gate must not ask for a second booking.
+  useEffect(() => { if (showPreReceiptReminder || showReminderCreate) loadNextBooking(); }, [showPreReceiptReminder, showReminderCreate]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!nextApptKind) return;
+    const pickEarliest = (dates: (string | null | undefined)[]) =>
+      dates.filter((d): d is string => !!d).map(d => d.slice(0, 10)).sort()[0] ?? null;
+    if (nextApptKind === 'VACCINATION') {
+      vaccinationsAPI.getByAppointment(appointment.id.toString())
+        .then(records => setNextDueDefault(pickEarliest(records.map(r => r.nextDueAt))))
+        .catch(() => {});
+    } else {
+      dewormingAPI.list({ appointmentId: appointment.id.toString() })
+        .then(res => setNextDueDefault(pickEarliest((res.data?.records || []).map(r => r.nextDueAt))))
+        .catch(() => {});
+    }
+  }, [nextApptKind, appointment.id, appointment.status]);
+  const petIsDeceased = pets.find(p => p.id === appointment.petId)?.isAlive === false;
+  const nextAppointmentReq: NextAppointmentRequirement | null = nextApptKind && !petIsDeceased
+    ? { kind: nextApptKind, defaultDate: nextDueDefault, booked: nextBooking }
+    : null;
+  /** Book the next vaccination/deworming appointment from the gate. The server adds its 7-day reminder. */
+  const createNextBooking = async (draft: NextBookingDraft): Promise<boolean> => {
+    try {
+      const res = await appointmentsAPI.create({
+        clientId: String(appointment.clientId), petId: String(appointment.petId),
+        scheduledAt: draft.scheduledAt,
+        encounterType: 'VET_VISIT', visitType: nextApptKind,
+        parentVisitId: String(appointment.id),
+        source: 'FRONT_DESK',
+        note: `Next ${nextApptKind === 'DEWORMING' ? 'deworming' : 'vaccination'}, booked at the close of visit #${appointment.id}`,
+      });
+      if (!(res.success && res.data?.appointment)) return false;
+      setNextBooking({ scheduledAt: res.data.appointment.scheduledAt });
+      return true;
+    } catch (e: any) {
+      toast.error(e?.message || 'Failed to book the next appointment');
+      return false;
+    }
+  };
   // Transfer/extend the visit to another encounter type mid-workflow: the
   // encounter's entry service (clinic-configured fee, else catalog price)
   // lands on THIS visit — one bill carries everything. Module records sync
@@ -1246,8 +1315,8 @@ const VisitDetailInner: React.FC<Props> = ({
     />
   );
 
-  const createVisitReminder = async (drafts: ReminderDraft[] | null) => {
-    if (!drafts || drafts.length === 0) { setShowReminderCreate(false); return; }
+  const createVisitReminder = async (drafts: ReminderDraft[] | null): Promise<boolean> => {
+    if (!drafts || drafts.length === 0) { setShowReminderCreate(false); return true; }
     // Only the first draft can update a reminder this visit already has; every
     // draft after it (grooming + a vaccination + deworming, say) is a new
     // reminder, tied together with a groupId when there's more than one.
@@ -1258,7 +1327,7 @@ const VisitDetailInner: React.FC<Props> = ({
         const res = await remindersAPI.update(visitReminder.id, {
           serviceType: first.serviceType as any, title: first.title, notes: first.notes, dueAt: first.dueAt,
         });
-        if (!(res.success && res.data?.reminder)) { toast.error('Failed to save reminder'); return; }
+        if (!(res.success && res.data?.reminder)) { toast.error('Failed to save reminder'); return false; }
         setVisitReminder(res.data.reminder);
       } else {
         const res = await remindersAPI.create({
@@ -1268,7 +1337,7 @@ const VisitDetailInner: React.FC<Props> = ({
           originAppointmentId: appointment.id,
           ...(groupId ? { groupId } : {}),
         });
-        if (!(res.success && res.data?.reminder)) { toast.error('Failed to save reminder'); return; }
+        if (!(res.success && res.data?.reminder)) { toast.error('Failed to save reminder'); return false; }
         setVisitReminder(res.data.reminder);
       }
       let ok = 1;
@@ -1284,7 +1353,8 @@ const VisitDetailInner: React.FC<Props> = ({
       }
       toast.success(ok > 1 ? `${ok} reminders saved` : 'Reminder saved');
       setShowReminderCreate(false);
-    } catch (e: any) { toast.error(e?.message || 'Failed to save reminder'); }
+      return true;
+    } catch (e: any) { toast.error(e?.message || 'Failed to save reminder'); return false; }
   };
   // Per-service consumables popover (hover card) + image viewer popover.
   const [consumablesTask, setConsumablesTask] = useState<number | null>(null);
@@ -3187,25 +3257,39 @@ const VisitDetailInner: React.FC<Props> = ({
     setPendingSettle(null);
     setShowPreReceiptReminder(false);
     if (!args) return;
-    settlingLockRef.current = true;
-    setIsSettlingBill(true);
-    try {
-      await onProcessPayment(appointment.id, args.paymentMethod, args.discountType, args.discountValue, args.walletId);
-      toast.success('Bill settled successfully.');
-      await onRefreshDashboard?.();
-    } catch (error: any) {
-      toast.error(error?.message || 'Failed to settle bill');
-    } finally {
-      settlingLockRef.current = false;
-      setIsSettlingBill(false);
-    }
+    // Resume the SAME settle the cashier confirmed — gateway, account
+    // collection or settle-in-full — now that the follow-up is in place.
+    await handleSettleBill(args.paymentMethod, args.discountType, args.discountValue, args.walletId, args.amountPaid, args.useCredit, { skipGate: true });
   };
 
-  const handleSettleBill = async (paymentMethod: string, discountType?: 'PERCENTAGE' | 'FIXED', discountValue?: number, walletId?: string | null, amountPaid?: number, useCredit?: number) => {
+  /**
+   * Does closing this visit still need the pre-receipt gate? Owner's rule
+   * (2026-11-22): no visit closes without a reminder, and a vaccination or
+   * deworming visit not without the next appointment booked either.
+   */
+  const closeNeedsGate = !visitReminder || (!!nextAppointmentReq && !nextAppointmentReq.booked);
+
+  const handleSettleBill = async (
+    paymentMethod: string, discountType?: 'PERCENTAGE' | 'FIXED', discountValue?: number, walletId?: string | null, amountPaid?: number, useCredit?: number,
+    opts: { skipGate?: boolean; closesVisit?: boolean } = {},
+  ) => {
     // Re-entry guard — covers (a) rapid Confirm-button double-clicks, and
     // (b) the gateway path which used to return without setting the React
     // settling state, leaving the button live during the STK push.
     if (settlingLockRef.current || isSettlingBill) {
+      return;
+    }
+
+    // The reminder question, asked BEFORE the receipt because that is the last
+    // point the client is still present — and only when this payment CLOSES
+    // the visit. It used to sit after the gateway and account-collection
+    // branches, so an M-Pesa push or a settle with a reference closed the
+    // visit without ever asking. A PART payment leaves the visit open and is
+    // never gated: money that doesn't close the visit doesn't wait on this.
+    if (!opts.skipGate && opts.closesVisit !== false && closeNeedsGate) {
+      setShowSettleModal(false);
+      setPendingSettle({ paymentMethod, discountType, discountValue, walletId: walletId ?? null, amountPaid, useCredit });
+      setShowPreReceiptReminder(true);
       return;
     }
     settlingLockRef.current = true;
@@ -3284,20 +3368,7 @@ const VisitDetailInner: React.FC<Props> = ({
       return;
     }
 
-    // The reminder question, moved here from the finalize gate. Asked BEFORE the
-    // receipt because that is the last point the client is still present — and
-    // only when the visit has none, so it is asked once per visit rather than at
-    // every part payment.
-    // ⚠️ It does NOT gate the payment. Taking money must never depend on a
-    // clinical follow-up decision; the previous gate did, and that is precisely
-    // what made this flow feel hard. If the vet cancels, the payment proceeds.
-    if (!visitReminder) {
-      setPendingSettle({ paymentMethod, discountType, discountValue, walletId: walletId ?? null });
-      setShowPreReceiptReminder(true);
-      settlingLockRef.current = false;
-      setIsSettlingBill(false);
-      return;
-    }
+    // (The pre-receipt reminder gate now runs at the top of this function.)
 
     try {
       // Must await — handleProcessPayment in App.tsx writes via fetch then
@@ -4468,6 +4539,9 @@ const VisitDetailInner: React.FC<Props> = ({
                         ? cashWanted
                         : undefined,
                       creditApplied > 0.005 ? creditApplied : undefined,
+                      // Settling less than is due leaves the visit open — a
+                      // part payment is never held for the follow-up gate.
+                      { closesVisit: !(hasTyped && settlingNow < combinedDue - 0.005) },
                     );
                   }}
                   disabled={isSettlingBill}
@@ -4618,17 +4692,25 @@ const VisitDetailInner: React.FC<Props> = ({
         petName={appointment.pet?.name ?? 'Patient'}
         clientName={appointment.client?.name ?? 'Client'}
         encounterType={appointment.encounterType}
-        petDeceased={pets.find(p => p.id === appointment.petId)?.isAlive === false}
-        submitting={isSettlingBill}
+        petDeceased={petIsDeceased}
+        submitting={isSettlingBill || gateSaving}
         existing={visitReminder}
         // An open stay means the patient is NOT leaving — discharge/check-out
         // raise this same gate, so skipping here genuinely defers to it.
         askAgainAt={(appointment as any).hospitalizationId ? 'at discharge'
           : (appointment as any).boardingStayId ? 'at check-out' : undefined}
-        onCancel={() => { void proceedWithSettle(); }}
-        onConfirm={async (reminders) => {
-          // Best-effort: a reminder that fails to save must not block the money.
-          if (reminders) { try { await createVisitReminder(reminders); } catch { /* surfaced by createVisitReminder */ } }
+        nextAppointment={nextAppointmentReq}
+        // Owner's rule (2026-11-22): cancelling no longer closes the visit
+        // without a follow-up. It backs out of THIS settle only; the server
+        // would refuse it anyway. A part payment is never routed here.
+        onCancel={() => { setPendingSettle(null); setShowPreReceiptReminder(false); }}
+        onConfirm={async (reminders, booking) => {
+          // `reminders === null` is the deceased bypass or a stay's deferral.
+          setGateSaving(true);
+          try {
+            if (booking && !(await createNextBooking(booking))) return;
+            if (reminders && !(await createVisitReminder(reminders))) return;
+          } finally { setGateSaving(false); }
           await proceedWithSettle();
         }}
       />
@@ -4639,11 +4721,18 @@ const VisitDetailInner: React.FC<Props> = ({
         petName={appointment.pet?.name ?? 'Patient'}
         clientName={appointment.client?.name ?? 'Client'}
         encounterType={appointment.encounterType}
-        petDeceased={pets.find(p => p.id === appointment.petId)?.isAlive === false}
-        submitting={false}
+        petDeceased={petIsDeceased}
+        submitting={gateSaving}
         existing={visitReminder}
+        nextAppointment={nextAppointmentReq}
         onCancel={() => setShowReminderCreate(false)}
-        onConfirm={(reminders) => createVisitReminder(reminders)}
+        onConfirm={async (reminders, booking) => {
+          setGateSaving(true);
+          try {
+            if (booking && !(await createNextBooking(booking))) return;
+            await createVisitReminder(reminders);
+          } finally { setGateSaving(false); }
+        }}
       />
 
       {/* Per-service consumables now render INLINE in the service card's
