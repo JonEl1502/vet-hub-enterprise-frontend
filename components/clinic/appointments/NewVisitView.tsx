@@ -1610,13 +1610,13 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       {/* Encounter type — frames the whole appointment; decides the workflow */}
       <div data-tour="appointment-encounter-type" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl p-4 shadow-sm mb-3">
         <p className="text-[9px] font-black text-seafoam uppercase tracking-widest mb-2">Visit type</p>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-3 gap-2 max-w-2xl">
           {UI_ENCOUNTERS.map(et => (
             <button
               key={et.value}
               type="button"
               onClick={() => handleEncounterChip(et.value)}
-              className={`flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl text-[10px] sm:text-[11px] font-black uppercase tracking-wide transition-all border text-center ${
+              className={`flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-lg text-[10px] sm:text-[11px] font-black uppercase tracking-wide transition-all border text-center ${
                 encounterChip === et.value
                   ? 'bg-pine text-white border-pine dark:bg-zinc-100 dark:text-pine'
                   : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
@@ -1665,8 +1665,9 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                 the vaccine flow ending in the certificate, Deworming the
                 weigh–dose–next-due flow. Emergency and Follow-up are the rarer
                 kinds, kept as small chips under them. */}
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Consult type</span>
-            <div className="grid grid-cols-3 gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Consult type</span>
+            <div className="inline-flex rounded-lg border border-slate-200 dark:border-zinc-700 overflow-hidden">
               {([
                 { value: 'CONSULTATION', label: 'Normal', icon: '🩺' },
                 { value: 'VACCINATION', label: 'Vaccination', icon: '💉' },
@@ -1679,16 +1680,26 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                     key={t.value}
                     type="button"
                     onClick={() => setVisitType(t.value as VisitType)}
-                    className={`flex items-center justify-center gap-1.5 px-2 py-2.5 rounded-xl text-[11px] font-black uppercase tracking-wide border transition-all ${
-                      exact ? 'bg-seafoam text-white border-seafoam shadow-md shadow-seafoam/20'
-                      : on ? 'bg-seafoam/10 text-seafoam border-seafoam/40'
-                      : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 border-slate-200 dark:border-zinc-700 hover:border-seafoam'
+                    className={`flex items-center gap-1.5 px-3.5 py-1.5 text-[10px] font-black uppercase tracking-wide border-l first:border-l-0 border-slate-200 dark:border-zinc-700 transition-all whitespace-nowrap ${
+                      exact ? 'bg-seafoam text-white'
+                      : on ? 'bg-seafoam/10 text-seafoam'
+                      : 'bg-slate-50 dark:bg-zinc-800 text-slate-600 dark:text-zinc-300 hover:text-seafoam'
                     }`}
                   >
                     <span>{t.icon}</span> {t.label}
                   </button>
                 );
               })}
+            </div>
+            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest ml-1">or</span>
+            {VISIT_TYPES.filter(vt => vt.value === 'EMERGENCY' || vt.value === 'FOLLOW_UP').map(vt => (
+              <button key={vt.value} type="button" onClick={() => setVisitType(vt.value)}
+                className={`px-3.5 py-1.5 rounded-lg border text-[10px] font-black uppercase tracking-wide transition-all whitespace-nowrap ${visitType === vt.value
+                  ? (vt.value === 'EMERGENCY' ? 'bg-rose-600 text-white border-rose-600' : 'bg-indigo-600 text-white border-indigo-600')
+                  : (vt.value === 'EMERGENCY' ? 'bg-rose-50 text-rose-700 border-rose-200 hover:border-rose-400 dark:bg-rose-500/10 dark:text-rose-300 dark:border-rose-500/30' : 'bg-indigo-50 text-indigo-700 border-indigo-200 hover:border-indigo-400 dark:bg-indigo-500/10 dark:text-indigo-300 dark:border-indigo-500/30')}`}>
+                {vt.icon} {vt.label}
+              </button>
+            ))}
             </div>
             {visitType === 'VACCINATION' && (
               <p className="text-[10px] text-slate-500 dark:text-zinc-400 font-medium">
@@ -1700,20 +1711,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
                 Weigh → the dewormer and dose → next due date → advice for the owner.
               </p>
             )}
-            <div className="flex flex-wrap items-center gap-1.5">
-            <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest mr-1">Or</span>
-            {VISIT_TYPES.filter(vt => vt.value === 'EMERGENCY' || vt.value === 'FOLLOW_UP').map(vt => (
-              <button
-                key={vt.value}
-                type="button"
-                onClick={() => setVisitType(vt.value)}
-                className={`px-2.5 py-1 rounded-lg text-[10px] font-bold transition-all ${
-                  visitType === vt.value ? 'bg-seafoam text-white' : 'bg-slate-100 dark:bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-seafoam'
-                }`}
-              >
-                {vt.icon} {vt.label}
-              </button>
-            ))}
+            <div className="hidden">
             {/* Hospitalization is NOT a visit type and is NOT offered at
                 registration — a consultation escalates to inpatient from the
                 visit workflow toolbar (next to Escalate to Emergency). */}
