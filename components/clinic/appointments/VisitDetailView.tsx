@@ -3823,14 +3823,21 @@ const VisitDetailInner: React.FC<Props> = ({
                     the one figure the whole panel is about scrolled away while
                     you typed. Subtotal/discount ride above it, small. */}
                 <div className="ml-auto mr-3 text-right leading-tight">
-                  {(alreadyPaid > 0.005 || discountAmount > 0) && (
+                  {/* Part paid: say the WHOLE story — bill, paid, what's left
+                      (user, 2026-11-22: "Total 600" next to a 2,000 bill with
+                      1,400 paid read as a contradiction). */}
+                  {alreadyPaid > 0.005 ? (
                     <p className="text-[8px] font-black text-white/50 uppercase tracking-widest">
-                      {alreadyPaid > 0.005 ? 'Balance due' : 'Subtotal'} {curSym} {fmtMoney(settleBase)}
+                      Bill {curSym} {fmtMoney(reconciliationState?.finalAmount ?? appointment.totalCost)} · Paid {curSym} {fmtMoney(alreadyPaid)}
                       {discountAmount > 0 && <> · Less {curSym} {fmtMoney(discountAmount)}</>}
+                    </p>
+                  ) : discountAmount > 0 && (
+                    <p className="text-[8px] font-black text-white/50 uppercase tracking-widest">
+                      Subtotal {curSym} {fmtMoney(settleBase)} · Less {curSym} {fmtMoney(discountAmount)}
                     </p>
                   )}
                   <p className="text-[8px] font-black text-white/50 uppercase tracking-widest">
-                    {settleAlso.size > 0 ? `Total · ${settleAlso.size + 1} invoices` : 'Total'}
+                    {settleAlso.size > 0 ? `Total · ${settleAlso.size + 1} invoices` : alreadyPaid > 0.005 ? 'Balance to pay' : 'Total'}
                   </p>
                   <p className="text-lg font-black text-cyan tracking-tight font-mono">{curSym} {fmtMoney(combinedDue)}</p>
                 </div>
@@ -4196,12 +4203,12 @@ const VisitDetailInner: React.FC<Props> = ({
                     <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Amount paid</p>
                     <button type="button" onClick={() => setSettleAmountPaid('')}
                       className={`text-[9px] font-black uppercase tracking-widest ${settleAmountPaid.trim() === '' ? 'text-seafoam' : 'text-slate-400 hover:text-seafoam'}`}>
-                      Paying in full
+                      {alreadyPaid > 0.005 ? 'Paying the balance' : 'Paying in full'}
                     </button>
                   </div>
                   <input
                     type="number" min="0" step="any" inputMode="decimal"
-                    placeholder={`${curSym} ${fmtMoney(combinedDue)} — full`}
+                    placeholder={`${curSym} ${fmtMoney(combinedDue)} — ${alreadyPaid > 0.005 ? 'the balance' : 'full'}`}
                     value={settleAmountPaid}
                     onChange={e => setSettleAmountPaid(e.target.value)}
                     className="w-full px-3 py-2 bg-slate-50 dark:bg-zinc-950 border border-slate-300 dark:border-zinc-700 rounded-lg text-[13px] font-mono text-right text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
