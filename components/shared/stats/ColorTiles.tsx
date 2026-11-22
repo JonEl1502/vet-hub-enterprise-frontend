@@ -79,7 +79,7 @@ export const SoftTile: React.FC<SoftProps> = ({ label, value, sub, tone, icon: I
   return (
     <Tag
       {...(onClick ? { type: 'button', onClick } : {})}
-      className={`relative text-left rounded-2xl border ${compact ? 'p-3.5' : 'p-4'} flex items-center gap-3.5 min-w-0 transition-all ${t.tile} ${
+      className={`relative h-full text-left rounded-2xl border ${compact ? 'p-3.5' : 'p-4'} flex items-start gap-3.5 min-w-0 transition-all ${t.tile} ${
         onClick ? `hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] ${t.ring}` : ''
       }`}
     >
@@ -91,7 +91,9 @@ export const SoftTile: React.FC<SoftProps> = ({ label, value, sub, tone, icon: I
       <span className="min-w-0 flex-1">
         <span className="block text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-zinc-400 truncate">{label}</span>
         <span className={`block mt-1 ${compact ? 'text-[20px]' : 'text-[24px]'} font-black leading-none tabular-nums truncate ${t.num}`}>{value}</span>
-        {sub != null && sub !== '' && <span className="block mt-1.5 text-[11px] font-semibold text-slate-500 dark:text-zinc-400 truncate">{sub}</span>}
+        {/* Always rendered, so a tile without a sub-line keeps the same three
+            rows (label · figure · sub) as its neighbours (2026-11-22). */}
+        <span className="block mt-1.5 text-[11px] font-semibold text-slate-500 dark:text-zinc-400 truncate">{sub != null && sub !== '' ? sub : '\u00a0'}</span>
       </span>
       {action && <span className="self-start shrink-0">{action}</span>}
     </Tag>

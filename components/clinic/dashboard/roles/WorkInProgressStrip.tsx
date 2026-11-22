@@ -127,7 +127,10 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
       <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-3">
         {range && !range.isToday ? `Work in progress · ${range.label}` : "Today's work in progress"}
       </p>
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
+      {/* Every card has the same three rows (user, 2026-11-22): the title on
+          top, the figures in the middle, a footer line at the bottom — and the
+          same size, whether or not it has a footer to show. */}
+      <div className="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 items-stretch">
         {BLOCKS.map(b => {
           // Started today (or on the picked day) — the number the strip's own
           // title promises. Carried-over (still open from before today) is
@@ -140,80 +143,88 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
           const waiting = mine.filter(v => v.status === ApptStatus.SCHEDULED).length;
           const done = mine.filter(v =>
             v.status === ApptStatus.COMPLETED || v.status === ApptStatus.PENDING_PAYMENT).length;
-          const Tag: any = onOpen ? 'button' : 'div';
+          const tone = SOFT[toneFromClass(b.tint) ?? 'sky'];
           // These counts include visits opened on EARLIER days, so the page they
           // open must not then hide them behind a today-onwards date filter —
           // the tile said 5 and the list it opened said none (user,
           // 2026-08-19). `openOnly` tells the visits list to ignore dates and
           // show every unfinished visit.
           return (
-            <Tag
+            <WipCard
               key={b.key}
-              {...(onOpen ? { type: 'button', onClick: () => onOpen(b.view, { openOnly: true }), title: `Open ${b.label}` } : {})}
-              className={`rounded-2xl border p-3 text-left transition-all ${SOFT[toneFromClass(b.tint) ?? 'sky'].tile} ${
-                onOpen ? `hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${SOFT[toneFromClass(b.tint) ?? 'sky'].ring}` : ''
-              }`}
-            >
-              <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest mb-2 ${SOFT[toneFromClass(b.tint) ?? 'sky'].icon}`}>
-                <b.icon size={11} /> {b.label}
-              </span>
-              <div className="flex items-end gap-3">
-                <span className="min-w-0">
-                  <span className={`block text-xl font-black leading-none tabular-nums ${SOFT[toneFromClass(b.tint) ?? 'sky'].num}`}>{startedToday.length}</span>
-                  <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Total</span>
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-black leading-none tabular-nums text-amber-600 dark:text-amber-400">{active}</span>
-                  <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Active</span>
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-black leading-none tabular-nums text-slate-400">{waiting}</span>
-                  <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Waiting</span>
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-sm font-black leading-none tabular-nums text-emerald-600 dark:text-emerald-400">{done}</span>
-                  <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Done</span>
-                </span>
-              </div>
-              {carriedOver.length > 0 && (
-                <p className="mt-2 pt-2 border-t border-dashed border-slate-100 dark:border-zinc-800 text-[9px] font-bold text-slate-400">
-                  +{carriedOver.length} more from before today
-                </p>
-              )}
-            </Tag>
+              tone={tone}
+              icon={b.icon}
+              label={b.label}
+              onClick={onOpen ? () => onOpen(b.view, { openOnly: true }) : undefined}
+              figures={[
+                { value: startedToday.length, label: 'Total', cls: tone.num, big: true },
+                { value: active, label: 'Active', cls: 'text-amber-600 dark:text-amber-400' },
+                { value: waiting, label: 'Waiting', cls: 'text-slate-500 dark:text-zinc-400' },
+                { value: done, label: 'Done', cls: 'text-emerald-600 dark:text-emerald-400' },
+              ]}
+              footer={carriedOver.length > 0 ? `+${carriedOver.length} more from before today` : 'Nothing carried over'}
+              footerMuted={carriedOver.length === 0}
+            />
           );
         })}
 
         {/* Reminders — not a visit, so no Active/Waiting/Done breakdown; just
-            what's due and how much of that is already overdue. */}
-        {(() => {
-          const Tag: any = onOpen ? 'button' : 'div';
-          return (
-            <Tag
-              {...(onOpen ? { type: 'button', onClick: () => onOpen('reminders'), title: 'Open reminders' } : {})}
-              className={`rounded-2xl border p-3 text-left transition-all ${SOFT.teal.tile} ${
-                onOpen ? `hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${SOFT.teal.ring}` : ''
-              }`}
-            >
-              <span className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest mb-2 ${SOFT.teal.icon}`}>
-                <BellRing size={11} /> Reminders
-              </span>
-              <div className="flex items-end gap-3">
-                <span className="min-w-0">
-                  <span className={`block text-xl font-black leading-none tabular-nums ${SOFT.teal.num}`}>{reminders.length}</span>
-                  <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Due</span>
-                </span>
-                <span className="min-w-0">
-                  <span className={`block text-sm font-black leading-none tabular-nums ${overdueReminders ? 'text-rose-500' : 'text-slate-400'}`}>{overdueReminders}</span>
-                  <span className="block text-[8px] font-black uppercase tracking-widest text-slate-400 mt-0.5">Overdue</span>
-                </span>
-              </div>
-            </Tag>
-          );
-        })()}
+            what's due and how much of that is already overdue. Same frame. */}
+        <WipCard
+          tone={SOFT.teal}
+          icon={BellRing}
+          label="Reminders"
+          onClick={onOpen ? () => onOpen('reminders') : undefined}
+          figures={[
+            { value: reminders.length, label: 'Due', cls: SOFT.teal.num, big: true },
+            { value: overdueReminders, label: 'Overdue', cls: overdueReminders ? 'text-rose-500' : 'text-slate-500 dark:text-zinc-400' },
+          ]}
+          footer={overdueReminders > 0 ? `${overdueReminders} need a call today` : 'All on time'}
+          footerMuted={overdueReminders === 0}
+        />
       </div>
     </div>
   );
 };
 
 export default WorkInProgressStrip;
+
+
+/** One work-in-progress card: title row, figures row, footer row — fixed frame. */
+const WipCard: React.FC<{
+  tone: { tile: string; icon: string; num: string; ring: string };
+  icon: React.ComponentType<any>;
+  label: string;
+  onClick?: () => void;
+  figures: { value: number; label: string; cls: string; big?: boolean }[];
+  footer: string;
+  footerMuted?: boolean;
+}> = ({ tone, icon: Icon, label, onClick, figures, footer, footerMuted }) => {
+  const Tag: any = onClick ? 'button' : 'div';
+  return (
+    <Tag
+      {...(onClick ? { type: 'button', onClick, title: `Open ${label}` } : {})}
+      className={`h-full min-h-[136px] rounded-2xl border p-3 text-left flex flex-col transition-all ${tone.tile} ${
+        onClick ? `hover:-translate-y-0.5 hover:shadow-md cursor-pointer ${tone.ring}` : ''
+      }`}
+    >
+      {/* Top: the title */}
+      <span className={`self-start inline-flex items-center gap-1.5 px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest ${tone.icon}`}>
+        <Icon size={11} /> {label}
+      </span>
+      {/* Middle: the figures, on one baseline in four equal slots */}
+      <div className="flex-1 grid grid-cols-4 items-end gap-1 py-3">
+        {figures.map(f => (
+          <span key={f.label} className="min-w-0">
+            <span className={`block ${f.big ? 'text-xl' : 'text-sm'} font-black leading-none tabular-nums ${f.cls}`}>{f.value}</span>
+            <span className="block text-[8px] font-black uppercase tracking-wider text-slate-400 mt-1 truncate">{f.label}</span>
+          </span>
+        ))}
+      </div>
+      {/* Bottom: the footer line — always there, so every card is the same size */}
+      <p className={`pt-2 border-t border-dashed border-slate-200/70 dark:border-zinc-700 text-[9px] font-bold truncate ${footerMuted ? 'text-slate-300 dark:text-zinc-600' : 'text-slate-500 dark:text-zinc-400'}`}>
+        {footer}
+      </p>
+    </Tag>
+  );
+};

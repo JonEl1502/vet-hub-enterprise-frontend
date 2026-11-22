@@ -57,7 +57,7 @@ const InventoryDashboard: React.FC<{ currency?: string; refreshKey?: number; onV
   const money = (n: number) => `${currency} ${Number(n || 0).toLocaleString()}`;
 
   if (loading && !data) {
-    return <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">{Array.from({ length: 10 }).map((_, i) => <div key={i} className="h-[88px] rounded-2xl bg-slate-100 dark:bg-zinc-800/60 animate-pulse" />)}</div>;
+    return <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">{Array.from({ length: 6 }).map((_, i) => <div key={i} className="h-[88px] rounded-2xl bg-slate-100 dark:bg-zinc-800/60 animate-pulse" />)}</div>;
   }
   if (!data) return null;
 
@@ -73,18 +73,36 @@ const InventoryDashboard: React.FC<{ currency?: string; refreshKey?: number; onV
 
       {!collapsed && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-            <Stat label="Products" value={data.productsCount.toLocaleString()} icon={Boxes}
-              action={onViewProducts ? { label: 'View', onClick: onViewProducts } : undefined} />
-            <Stat label="Inventory value" value={money(data.inventoryValue)} icon={Wallet} tone="bg-emerald-500/10 text-emerald-600" />
-            <Stat label="Today's consumption" value={money(data.todaysConsumption)} icon={ArrowDownRight} tone="bg-indigo-500/10 text-indigo-500" />
-            <Stat label="Supplier payable" value={money(data.supplierPayable)} icon={ClipboardList} tone="bg-amber-500/10 text-amber-600" />
-            <Stat label="Pending POs" value={data.pendingPOs} icon={ClipboardList} color="violet" />
-            <Stat label="Awaiting deliveries" value={data.awaitingDeliveries} icon={Truck} color="teal" />
-            <Stat label="Low stock" value={data.lowStock} icon={AlertTriangle} tone="bg-amber-500/10 text-amber-600" />
-            <Stat label="Out of stock" value={data.outOfStock} icon={AlertTriangle} tone="bg-rose-500/10 text-rose-600" />
-            <Stat label="Expired" value={data.expired} icon={Clock} tone="bg-rose-500/10 text-rose-600" />
-            <Stat label="Expiring this month" value={data.expiringThisMonth} icon={Clock} tone="bg-amber-500/10 text-amber-600" />
+          {/* Three groups, three to a row (user, 2026-11-22: "use grid 3 …
+              declutter them, they are too crowded"). Ten tiles in one 5-wide
+              block read as a wall; grouped, each row answers one question. */}
+          <div className="space-y-5">
+            <section>
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2 px-0.5">Stock</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Stat label="Products" value={data.productsCount.toLocaleString()} icon={Boxes}
+                  action={onViewProducts ? { label: 'View', onClick: onViewProducts } : undefined} />
+                <Stat label="Inventory value" value={money(data.inventoryValue)} icon={Wallet} tone="bg-emerald-500/10 text-emerald-600" />
+                <Stat label="Today's consumption" value={money(data.todaysConsumption)} icon={ArrowDownRight} tone="bg-indigo-500/10 text-indigo-500" />
+              </div>
+            </section>
+            <section>
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2 px-0.5">Purchasing</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <Stat label="Supplier payable" value={money(data.supplierPayable)} icon={ClipboardList} tone="bg-amber-500/10 text-amber-600" />
+                <Stat label="Pending POs" value={data.pendingPOs} icon={ClipboardList} color="violet" />
+                <Stat label="Awaiting deliveries" value={data.awaitingDeliveries} icon={Truck} color="teal" />
+              </div>
+            </section>
+            <section>
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-2 px-0.5">Alerts</p>
+              <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <Stat label="Low stock" value={data.lowStock} icon={AlertTriangle} tone="bg-amber-500/10 text-amber-600" />
+                <Stat label="Out of stock" value={data.outOfStock} icon={AlertTriangle} tone="bg-rose-500/10 text-rose-600" />
+                <Stat label="Expired" value={data.expired} icon={Clock} tone="bg-rose-500/10 text-rose-600" />
+                <Stat label="Expiring this month" value={data.expiringThisMonth} icon={Clock} tone="bg-amber-500/10 text-amber-600" />
+              </div>
+            </section>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
