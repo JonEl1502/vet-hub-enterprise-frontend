@@ -110,6 +110,8 @@ const TILE_CATS: Record<string, string[]> = {
   LIVESTOCK_SALE: ['LIVESTOCK_SALE'],
   MEDICATION: ['MEDICATION', 'PEST_CONTROL'],
 };
+/** What the tile's money is — feeding from the store moves stock, not money, so 'Fed them' shows feed BOUGHT. */
+const TILE_MONEY_WORD: Record<string, string> = { FEED: 'spent on feed', MILK_SALE: 'earned', LIVESTOCK_SALE: 'earned', MEDICATION: 'spent' };
 /** A tinted wash per tile, so the four read apart at a glance instead of as four white boxes. */
 const TILE_WASH: Record<string, string> = {
   amber: 'bg-amber-50 border-amber-200 text-amber-950 dark:bg-amber-500/10 dark:border-amber-500/25 dark:text-amber-50',
@@ -655,8 +657,16 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
       // Already loaded for the ledger below — no second request to open a herd.
       const mine = entries.filter((e) => e.animalGroupId === g.id);
       return (
-        <CpPage title={g.name} onBack={() => setDetailGroup(null)} maxWidth="46rem">
-          <div className="space-y-4">
+        <CpPage
+          title={g.name}
+          subtitle={[g.species, g.breed].filter(Boolean).join(' · ')}
+          onBack={() => setDetailGroup(null)}
+          maxWidth="46rem"
+          // Desktop (user, 2026-11-22: "look at how it looks when someone clicks
+          // … one of the my animal groups"): the herd's numbers stand in a side
+          // column, the records take the main width, instead of one narrow
+          // column with half the screen empty beside it.
+          aside={<div className="space-y-4">
             <div className="flex items-start justify-between gap-4">
               <div className="min-w-0">
                 <p className="text-[11px] cp-muted truncate">
@@ -683,6 +693,9 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
                 </div>
               </div>
             )}
+          </div>}
+        >
+          <div className="space-y-4">
 
             <div>
               <div className="flex items-baseline justify-between gap-3 mb-1.5">
@@ -858,8 +871,8 @@ const ClientFarmRecords: React.FC<Props> = ({ farmId, groups, onGroupsChanged, t
                     <Icon size={18} />
                   </span>
                   <span className="text-right leading-none">
-                    <span className="block text-[17px] font-black tabular-nums">{money > 0 ? KES(money) : '—'}</span>
-                    <span className="block mt-1 text-[10px] font-semibold opacity-70">{times} {times === 1 ? 'record' : 'records'}</span>
+                    <span className="block text-[17px] font-black tabular-nums">{KES(money)}</span>
+                    <span className="block mt-1 text-[10px] font-semibold opacity-70">{TILE_MONEY_WORD[key]}{times > 0 ? ` · ${times}×` : ''}</span>
                   </span>
                 </div>
                 <p className="mt-0.5 text-sm font-black">{label}</p>
