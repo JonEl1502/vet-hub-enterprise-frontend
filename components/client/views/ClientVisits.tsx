@@ -51,7 +51,7 @@ const ReminderRow: React.FC<{ r: PortalReminder; onOpenVisit: (id: string) => vo
     : days < 0
     ? { text: `${Math.abs(days)}d overdue`, style: { background: '#fdecea', color: '#c0392b' } }
     : days === 0
-    ? { text: 'today', style: { background: '#fdeee6', color: '#df6f44' } }
+    ? { text: 'today', style: { background: '#fdf1d6', color: '#a86a12' } }
     : { text: `in ${days}d`, style: { background: '#eaf5ef', color: '#1C7A5B' } };
 
   return (

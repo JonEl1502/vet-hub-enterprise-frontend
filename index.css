@@ -288,23 +288,25 @@ body {
 }
 
 /* =========================================================================
- * Pet-owner portal — "clienty" warm theme.
- * A warmer, friendlier variant of the brand: keeps the pine/seafoam identity
- * for text and structure but warms the surfaces (sand/cream) and adds a coral
- * accent for CTAs. Scoped under .client-portal so it never leaks into the
+ * Client portal — farm-produce theme (user, 2026-11-22: "make it look like a
+ * farm product … very beautiful"; the sand-and-coral palette read as off).
+ * Deep field green for chrome and ink, fresh leaf green for actions, harvest
+ * gold for the brand badge and the sun glow, wheat paper for the canvas.
+ * Was: "clienty" warm theme.
+ * Scoped under .client-portal so it never leaks into the
  * staff app. Spacing stays moderate (not airy) per design direction.
  * ======================================================================= */
 .client-portal {
-  --cp-bg: #f7f2ea;          /* warm sand canvas */
+  --cp-bg: #f6f3e7;          /* wheat paper canvas */
   --cp-surface: #ffffff;     /* cards */
-  --cp-surface-2: #fbf6ef;   /* subtle warm fill (inputs, chips) */
-  --cp-border: #ece3d6;      /* warm hairline */
-  --cp-ink: #1f3d39;         /* pine-ish, on-brand */
-  --cp-muted: #8a8077;       /* warm grey text */
-  --cp-accent: #ef855a;      /* warm coral CTA */
-  --cp-accent-dark: #df6f44;
-  --cp-accent-soft: #fdeee6; /* coral tint background */
-  --cp-seafoam: #1C7A5B;     /* brand teal, kept for secondary accents */
+  --cp-surface-2: #f2f5e8;   /* pale sage fill (inputs, chips) */
+  --cp-border: #e1e6d0;      /* sage hairline */
+  --cp-ink: #1f3a22;         /* deep field green */
+  --cp-muted: #6e7a5f;       /* sage grey text */
+  --cp-accent: #4f9a2f;      /* fresh leaf green CTA */
+  --cp-accent-dark: #3c7d22;
+  --cp-accent-soft: #e9f4dd; /* leaf tint background */
+  --cp-seafoam: #2f7d32;     /* field green, secondary accents */
   min-height: 100vh;
   background: var(--cp-bg);
   color: var(--cp-ink);
@@ -315,16 +317,16 @@ body {
    one design system, not a copy. Unlike the portal it sits INSIDE the clinic
    shell, so it is a rounded sand panel, not a full-viewport page. */
 .farm-skin {
-  --cp-bg: #f7f2ea;
+  --cp-bg: #f6f3e7;
   --cp-surface: #ffffff;
-  --cp-surface-2: #fbf6ef;
-  --cp-border: #ece3d6;
-  --cp-ink: #1f3d39;
-  --cp-muted: #8a8077;
-  --cp-accent: #ef855a;
-  --cp-accent-dark: #df6f44;
-  --cp-accent-soft: #fdeee6;
-  --cp-seafoam: #1C7A5B;
+  --cp-surface-2: #f2f5e8;
+  --cp-border: #e1e6d0;
+  --cp-ink: #1f3a22;
+  --cp-muted: #6e7a5f;
+  --cp-accent: #4f9a2f;
+  --cp-accent-dark: #3c7d22;
+  --cp-accent-soft: #e9f4dd;
+  --cp-seafoam: #2f7d32;
   background: var(--cp-bg);
   color: var(--cp-ink);
   border-radius: 1.5rem;
@@ -348,19 +350,19 @@ body {
 }
 .farm-skin textarea.field-input { padding-top: 0.6rem; padding-bottom: 0.6rem; }
 .farm-skin .field-input:focus,
-.farm-skin .field-select:focus { border-color: var(--cp-accent); box-shadow: 0 0 0 3px rgba(239, 133, 90, 0.15); }
+.farm-skin .field-select:focus { border-color: var(--cp-accent); box-shadow: 0 0 0 3px rgba(79, 154, 47, 0.15); }
 .farm-skin .field-label {
   display: block; font-size: 0.78rem; font-weight: 700; letter-spacing: 0.025em;
   text-transform: uppercase; color: var(--cp-muted); margin-bottom: 0.4rem;
 }
 .dark :is(.client-portal, .farm-skin) {
-  --cp-bg: #17120e;
-  --cp-surface: #211b16;
-  --cp-surface-2: #1b1612;
-  --cp-border: #322a22;
-  --cp-ink: #f3ece3;
-  --cp-muted: #a89c8e;
-  --cp-accent-soft: #2a1c14;
+  --cp-bg: #10150d;
+  --cp-surface: #182017;
+  --cp-surface-2: #141b12;
+  --cp-border: #2b3626;
+  --cp-ink: #edf1e4;
+  --cp-muted: #9ba98c;
+  --cp-accent-soft: #1e2c17;
 }
 
 /* ── Dark-mode calibration for the portal ──────────────────────────────────
@@ -387,7 +389,7 @@ body {
 .dark :is(.client-portal, .farm-skin) .text-slate-500,
 .dark :is(.client-portal, .farm-skin) .text-slate-400 { color: var(--cp-muted); }
 
-/* Surfaces: a white panel on a #17120e page is a hole, not a card. */
+/* Surfaces: a white panel on a #10150d page is a hole, not a card. */
 .dark :is(.client-portal, .farm-skin) .bg-white,
 .dark :is(.client-portal, .farm-skin) .bg-slate-50,
 .dark :is(.client-portal, .farm-skin) .bg-slate-100 { background-color: var(--cp-surface-2); }
@@ -399,7 +401,7 @@ body {
   background: var(--cp-surface);
   border: 1px solid var(--cp-border);
   border-radius: 1.25rem;
-  box-shadow: 0 1px 2px rgba(31, 61, 57, 0.04), 0 8px 24px -16px rgba(31, 61, 57, 0.18);
+  box-shadow: 0 1px 2px rgba(31, 58, 34, 0.04), 0 8px 24px -16px rgba(31, 58, 34, 0.18);
 }
 :is(.client-portal, .farm-skin) .cp-card-soft {
   background: var(--cp-surface-2);
@@ -455,7 +457,7 @@ body {
 :is(.client-portal, .farm-skin) textarea.cp-input { height: auto; padding: 0.6rem 0.85rem; resize: none; font-weight: 500; }
 :is(.client-portal, .farm-skin) select.cp-input { cursor: pointer; appearance: none; }
 :is(.client-portal, .farm-skin) .cp-input::placeholder { color: var(--cp-muted); font-weight: 500; }
-:is(.client-portal, .farm-skin) .cp-input:focus { border-color: var(--cp-accent); box-shadow: 0 0 0 3px rgba(239, 133, 90, 0.15); }
+:is(.client-portal, .farm-skin) .cp-input:focus { border-color: var(--cp-accent); box-shadow: 0 0 0 3px rgba(79, 154, 47, 0.15); }
 
 /* ⚠️ Was 0.72rem — legible on a wide monitor, genuinely tiny-and-shouty on a
    phone (user: "less tiny all-caps"). Bumped size and eased the tracking;
@@ -539,16 +541,17 @@ body {
 /* Portal chrome — pine gradient topnav + card nav rail */
 :is(.client-portal, .farm-skin) .cp-topnav {
   background:
-    radial-gradient(52rem 26rem at 108% -40%, rgba(239, 133, 90, 0.35), transparent 55%),
-    radial-gradient(40rem 22rem at -10% 130%, rgba(28, 122, 91, 0.45), transparent 60%),
-    linear-gradient(115deg, #1c3a35 0%, #1f4a41 60%, #226352 100%);
+    repeating-linear-gradient(104deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 18px),
+    radial-gradient(52rem 26rem at 108% -40%, rgba(242, 193, 78, 0.35), transparent 55%),
+    radial-gradient(40rem 22rem at -10% 130%, rgba(47, 125, 50, 0.45), transparent 60%),
+    linear-gradient(115deg, #1b3520 0%, #24502a 60%, #33702f 100%);
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 12px 32px -20px rgba(23, 51, 46, 0.65);
-  color: #f7f2ea;
+  box-shadow: 0 12px 32px -20px rgba(20, 45, 22, 0.65);
+  color: #f6f3e7;
 }
 /* ⚠️ Dark mode only — in light mode the pine header already sits on a warm
-   cream body (#f7f2ea) and reads fine. In dark mode it sat on a near-black
-   warm-brown body (#17120e) as a flat, disconnected green block (user,
+   cream body (#f6f3e7) and reads fine. In dark mode it sat on a near-black
+   warm-brown body (#10150d) as a flat, disconnected green block (user,
    2026-09-28: "clashes with the dark-brown body"). Rather than losing the
    green identity, the gradient now starts FROM the body's own dark tone on
    the left and resolves into the same pine/coral it always was — the header
@@ -556,20 +559,20 @@ body {
    same convention as the rest of this file's dark-mode calibration block. */
 .dark :is(.client-portal, .farm-skin) .cp-topnav {
   background:
-    radial-gradient(52rem 26rem at 108% -40%, rgba(239, 133, 90, 0.28), transparent 55%),
-    radial-gradient(40rem 22rem at -10% 130%, rgba(28, 122, 91, 0.32), transparent 60%),
-    linear-gradient(115deg, #14100c 0%, #1a352f 45%, #1f4a41 100%);
+    radial-gradient(52rem 26rem at 108% -40%, rgba(242, 193, 78, 0.28), transparent 55%),
+    radial-gradient(40rem 22rem at -10% 130%, rgba(47, 125, 50, 0.32), transparent 60%),
+    linear-gradient(115deg, #0e130c 0%, #1b3520 45%, #24502a 100%);
   border-bottom: 1px solid var(--cp-border);
 }
 :is(.client-portal, .farm-skin) .cp-logo-mark {
-  background: linear-gradient(135deg, #f79b70 0%, #e56a3c 100%);
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 16px -8px rgba(229, 106, 60, 0.8);
+  background: linear-gradient(135deg, #f2c14e 0%, #d99a1c 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35), 0 8px 16px -8px rgba(217, 154, 28, 0.8);
 }
 :is(.client-portal, .farm-skin) .cp-topnav-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  color: #f7f2ea;
+  color: #f6f3e7;
   background: rgba(255, 255, 255, 0.09);
   border: 1px solid rgba(255, 255, 255, 0.22);
   border-radius: 0.9rem;
@@ -586,7 +589,7 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #f2926b, #e2653a);
+  background: linear-gradient(135deg, #5fae3a, #3c7d22);
   color: #fff;
   font-weight: 800;
   font-size: 0.85rem;
@@ -597,7 +600,7 @@ body {
   background: var(--cp-surface);
   border: 1px solid var(--cp-border);
   border-radius: 1.25rem;
-  box-shadow: 0 1px 2px rgba(31, 61, 57, 0.04), 0 14px 30px -24px rgba(31, 61, 57, 0.35);
+  box-shadow: 0 1px 2px rgba(31, 58, 34, 0.04), 0 14px 30px -24px rgba(31, 58, 34, 0.35);
 }
 :is(.client-portal, .farm-skin) .cp-rail-link {
   display: flex;
@@ -625,37 +628,38 @@ body {
 }
 :is(.client-portal, .farm-skin) .cp-rail-link:hover .cp-rail-icon { background: var(--cp-accent-soft); color: var(--cp-accent-dark); }
 :is(.client-portal, .farm-skin) .cp-rail-link.cp-rail-active {
-  background: linear-gradient(135deg, #f2926b 0%, #e2653a 100%);
+  background: linear-gradient(135deg, #5fae3a 0%, #3c7d22 100%);
   color: #fff;
-  box-shadow: 0 12px 22px -12px rgba(226, 101, 58, 0.75);
+  box-shadow: 0 12px 22px -12px rgba(60, 125, 34, 0.75);
 }
 :is(.client-portal, .farm-skin) .cp-rail-link.cp-rail-active .cp-rail-icon { background: rgba(255, 255, 255, 0.2); color: #fff; }
 :is(.client-portal, .farm-skin) .cp-rail-link.cp-rail-active .cp-chip { background: #fff; color: var(--cp-accent-dark); }
 
 :is(.client-portal, .farm-skin) .cp-rail-promo {
   background:
-    radial-gradient(9rem 7rem at 115% -20%, rgba(239, 133, 90, 0.5), transparent 60%),
-    linear-gradient(140deg, #1f4a41 0%, #1c7a5b 100%);
+    radial-gradient(9rem 7rem at 115% -20%, rgba(242, 193, 78, 0.5), transparent 60%),
+    linear-gradient(140deg, #24502a 0%, #2f7d32 100%);
   border-radius: 1rem;
-  color: #f3f9f4;
+  color: #f4f8ec;
   padding: 0.9rem;
-  box-shadow: 0 14px 26px -18px rgba(28, 122, 91, 0.8);
+  box-shadow: 0 14px 26px -18px rgba(47, 125, 50, 0.8);
 }
 :is(.client-portal, .farm-skin) .cp-rail-promo .cp-btn { width: 100%; padding: 0.5rem 0.9rem; font-size: 0.8rem; }
 
 :is(.client-portal, .farm-skin) .cp-hero {
   background:
-    radial-gradient(30rem 16rem at 112% -30%, rgba(239, 133, 90, 0.4), transparent 60%),
-    radial-gradient(24rem 14rem at -8% 120%, rgba(28, 122, 91, 0.5), transparent 62%),
-    linear-gradient(120deg, #1c3a35 0%, #1f4a41 55%, #226352 100%);
+    repeating-linear-gradient(104deg, rgba(255, 255, 255, 0.035) 0 1px, transparent 1px 18px),
+    radial-gradient(30rem 16rem at 112% -30%, rgba(242, 193, 78, 0.4), transparent 60%),
+    radial-gradient(24rem 14rem at -8% 120%, rgba(47, 125, 50, 0.5), transparent 62%),
+    linear-gradient(120deg, #1b3520 0%, #24502a 55%, #33702f 100%);
   border-radius: 1.4rem;
-  box-shadow: 0 18px 36px -24px rgba(23, 51, 46, 0.7);
+  box-shadow: 0 18px 36px -24px rgba(20, 45, 22, 0.7);
 }
 :is(.client-portal, .farm-skin) .cp-hero-btn {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  color: #f7f2ea;
+  color: #f6f3e7;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 0.9rem;
@@ -675,7 +679,7 @@ body {
   flex-shrink: 0;
   background: var(--cp-accent);
   color: #fff;
-  box-shadow: 0 8px 14px -8px rgba(226, 101, 58, 0.8);
+  box-shadow: 0 8px 14px -8px rgba(60, 125, 34, 0.8);
   transition: background 0.18s ease;
 }
 :is(.client-portal, .farm-skin) .cp-icon-btn:hover { background: var(--cp-accent-dark); }
@@ -707,9 +711,9 @@ body {
 }
 :is(.client-portal, .farm-skin) .cp-pill-tab:hover { color: var(--cp-ink); }
 :is(.client-portal, .farm-skin) .cp-pill-tab.cp-pill-active {
-  background: linear-gradient(135deg, #f2926b 0%, #e2653a 100%);
+  background: linear-gradient(135deg, #5fae3a 0%, #3c7d22 100%);
   color: #fff;
-  box-shadow: 0 8px 14px -8px rgba(226, 101, 58, 0.7);
+  box-shadow: 0 8px 14px -8px rgba(60, 125, 34, 0.7);
 }
 
 :is(.client-portal, .farm-skin) .cp-timeline { position: relative; padding-left: 1.4rem; }
@@ -756,7 +760,7 @@ body {
   width: 2rem;
   height: 3px;
   border-radius: 999px;
-  background: linear-gradient(90deg, #f2926b, #e2653a);
+  background: linear-gradient(90deg, #5fae3a, #3c7d22);
 }
 
 /* Stacked filter card — the advanced-filters panel slides out from UNDERNEATH

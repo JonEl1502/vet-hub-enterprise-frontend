@@ -177,7 +177,7 @@ const ClientPetProfile: React.FC = () => {
         </div>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
           {vaccineDue > 0 && (
-            <span className="text-[11px] font-black px-2.5 py-1.5 rounded-lg" style={{ background: '#fdeee6', color: '#df6f44' }}>
+            <span className="text-[11px] font-black px-2.5 py-1.5 rounded-lg" style={{ background: '#fdf1d6', color: '#a86a12' }}>
               💉 {vaccineDue} vaccine{vaccineDue > 1 ? 's' : ''} due soon
             </span>
           )}
@@ -305,7 +305,7 @@ const VaccinationsTab: React.FC<{ vaccinations: any[]; onPrint: () => void }> = 
     if (!v.expiryDate) return null;
     const days = differenceInCalendarDays(new Date(v.expiryDate), new Date());
     if (days < 0) return <span className="text-[10px] font-black px-2 py-1 rounded-lg" style={{ background: '#fdecea', color: '#c0392b' }}>expired</span>;
-    if (days <= 30) return <span className="text-[10px] font-black px-2 py-1 rounded-lg" style={{ background: '#fdeee6', color: '#df6f44' }}>due in {days}d</span>;
+    if (days <= 30) return <span className="text-[10px] font-black px-2 py-1 rounded-lg" style={{ background: '#fdf1d6', color: '#a86a12' }}>due in {days}d</span>;
     return null;
   };
   return (

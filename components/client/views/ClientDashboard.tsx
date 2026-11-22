@@ -41,7 +41,7 @@ const ClientDashboard: React.FC = () => {
   const dueTone = (dueAt: string) => {
     const days = differenceInCalendarDays(new Date(dueAt), new Date());
     if (days < 0) return { text: `${Math.abs(days)}d overdue`, style: { background: '#fdecea', color: '#c0392b' } };
-    if (days === 0) return { text: 'today', style: { background: '#fdeee6', color: '#df6f44' } };
+    if (days === 0) return { text: 'today', style: { background: '#fdf1d6', color: '#a86a12' } };
     return { text: `in ${days}d`, style: { background: '#eaf5ef', color: '#1C7A5B' } };
   };
 
