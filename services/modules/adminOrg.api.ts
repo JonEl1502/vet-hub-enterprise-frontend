@@ -12,6 +12,12 @@ export interface OrgWarning {
 
 export interface RecordPage<T = any> { rows: T[]; total: number; page: number; pageSize: number }
 
+export interface AccountHit {
+  kind: 'CLINIC' | 'SUPPLIER' | 'CLIENT';
+  id: string; name: string; phone: string | null; email: string | null; hint: string | null;
+  isActive: boolean; currency: string | null; shell: string | null;
+}
+
 export interface ClinicSummary {
   id: string;
   currency: string;
@@ -48,6 +54,9 @@ const qs = (o: Record<string, any>) => {
 };
 
 export const adminOrgAPI = {
+  /** Find a clinic, supplier or client by name, phone or email (Give access). */
+  search: (q: string): Promise<ApiResponse<{ clinics: AccountHit[]; suppliers: AccountHit[]; clients: AccountHit[] }>> =>
+    get(`/admin/orgs/search?q=${encodeURIComponent(q)}`, { cache: false } as any),
   clinicSummary: (id: string | number): Promise<ApiResponse<ClinicSummary>> =>
     get(`/admin/orgs/clinics/${id}/summary`, { cache: false }),
   clinicRecords: (id: string | number, kind: string, q: { page?: number; search?: string; status?: string }): Promise<ApiResponse<RecordPage>> =>

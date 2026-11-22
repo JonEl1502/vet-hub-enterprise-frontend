@@ -11,6 +11,7 @@ import {
   type GrantSource,
 } from '../../../services/modules/entitlementGrants.api';
 import { bundleRulesAPI, type BundleRule } from '../../../services/modules/bundleRules.api';
+import GiveAccessPanel from './GiveAccessPanel';
 
 /**
  * 284 + 285 — the admin surface for entitlements that did NOT come from a plan.
@@ -71,6 +72,8 @@ const GrantsAndBundlesAdminPage: React.FC = () => {
   const [grants, setGrants] = useState<EntitlementGrant[] | null>(null);
   const [loadingGrants, setLoadingGrants] = useState(false);
   const [draft, setDraft] = useState({ featureKey: '', source: 'ADMIN' as GrantSource, days: '', reason: '' });
+  // Set by Give access: look the picked account up once kind/id have landed.
+  const [pendingLookup, setPendingLookup] = useState(false);
 
   const lookup = useCallback(async () => {
     if (!subjectId.trim()) return;
@@ -117,6 +120,8 @@ const GrantsAndBundlesAdminPage: React.FC = () => {
       lookup();
     }
   };
+
+  useEffect(() => { if (pendingLookup) { setPendingLookup(false); lookup(); } }, [pendingLookup, lookup]);
 
   const revoke = async (g: EntitlementGrant) => {
     try {
@@ -214,6 +219,10 @@ const GrantsAndBundlesAdminPage: React.FC = () => {
           </button>
         }
       />
+
+      {/* Find the account by name/phone, then give a complimentary plan, a
+          recorded paid plan, or single features (2026-11-22). */}
+      <GiveAccessPanel onPickForFeatures={(k, id) => { setKind(k); setSubjectId(id); setPendingLookup(true); }} />
 
       <div className="grid gap-5 xl:grid-cols-2">
         {/* ── GRANTS ─────────────────────────────────────────────────────── */}
