@@ -18,14 +18,14 @@ export type SoftTone = 'violet' | 'emerald' | 'sky' | 'rose' | 'amber' | 'pine' 
 export type GradientTone = 'pine' | 'ocean' | 'gold' | 'violet';
 
 export const SOFT: Record<SoftTone, { tile: string; icon: string; num: string; ring: string }> = {
-  violet:  { tile: 'bg-violet-50 dark:bg-violet-500/10 border-violet-100 dark:border-violet-500/20',     icon: 'bg-violet-500 text-white',  num: 'text-violet-700 dark:text-violet-300',   ring: 'hover:border-violet-300' },
-  emerald: { tile: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20', icon: 'bg-emerald-600 text-white', num: 'text-emerald-700 dark:text-emerald-300', ring: 'hover:border-emerald-300' },
-  sky:     { tile: 'bg-sky-50 dark:bg-sky-500/10 border-sky-100 dark:border-sky-500/20',                 icon: 'bg-sky-500 text-white',     num: 'text-sky-700 dark:text-sky-300',         ring: 'hover:border-sky-300' },
-  rose:    { tile: 'bg-rose-50 dark:bg-rose-500/10 border-rose-100 dark:border-rose-500/20',             icon: 'bg-rose-500 text-white',    num: 'text-rose-700 dark:text-rose-300',       ring: 'hover:border-rose-300' },
-  amber:   { tile: 'bg-amber-50 dark:bg-amber-500/10 border-amber-100 dark:border-amber-500/20',         icon: 'bg-amber-500 text-white',   num: 'text-amber-700 dark:text-amber-300',     ring: 'hover:border-amber-300' },
-  pine:    { tile: 'bg-emerald-50 dark:bg-emerald-500/10 border-emerald-100 dark:border-emerald-500/20', icon: 'bg-[#144E35] text-white',   num: 'text-[#144E35] dark:text-emerald-300',   ring: 'hover:border-emerald-300' },
-  indigo:  { tile: 'bg-indigo-50 dark:bg-indigo-500/10 border-indigo-100 dark:border-indigo-500/20',     icon: 'bg-indigo-500 text-white',  num: 'text-indigo-700 dark:text-indigo-300',   ring: 'hover:border-indigo-300' },
-  teal:    { tile: 'bg-teal-50 dark:bg-teal-500/10 border-teal-100 dark:border-teal-500/20',             icon: 'bg-teal-500 text-white',    num: 'text-teal-700 dark:text-teal-300',       ring: 'hover:border-teal-300' },
+  violet:  { tile: 'bg-violet-100 dark:bg-violet-500/20 border-violet-300 dark:border-violet-500/40',     icon: 'bg-violet-500 text-white',  num: 'text-violet-700 dark:text-violet-300',   ring: 'hover:border-violet-400' },
+  emerald: { tile: 'bg-emerald-100 dark:bg-emerald-500/20 border-emerald-300 dark:border-emerald-500/40', icon: 'bg-emerald-600 text-white', num: 'text-emerald-700 dark:text-emerald-300', ring: 'hover:border-emerald-400' },
+  sky:     { tile: 'bg-sky-100 dark:bg-sky-500/20 border-sky-300 dark:border-sky-500/40',                 icon: 'bg-sky-500 text-white',     num: 'text-sky-700 dark:text-sky-300',         ring: 'hover:border-sky-400' },
+  rose:    { tile: 'bg-rose-100 dark:bg-rose-500/20 border-rose-300 dark:border-rose-500/40',             icon: 'bg-rose-500 text-white',    num: 'text-rose-700 dark:text-rose-300',       ring: 'hover:border-rose-400' },
+  amber:   { tile: 'bg-amber-100 dark:bg-amber-500/20 border-amber-300 dark:border-amber-500/40',         icon: 'bg-amber-500 text-white',   num: 'text-amber-700 dark:text-amber-300',     ring: 'hover:border-amber-400' },
+  pine:    { tile: 'bg-emerald-100 dark:bg-emerald-500/20 border-emerald-300 dark:border-emerald-500/40', icon: 'bg-[#144E35] text-white',   num: 'text-[#144E35] dark:text-emerald-300',   ring: 'hover:border-emerald-400' },
+  indigo:  { tile: 'bg-indigo-100 dark:bg-indigo-500/20 border-indigo-300 dark:border-indigo-500/40',     icon: 'bg-indigo-500 text-white',  num: 'text-indigo-700 dark:text-indigo-300',   ring: 'hover:border-indigo-400' },
+  teal:    { tile: 'bg-teal-100 dark:bg-teal-500/20 border-teal-300 dark:border-teal-500/40',             icon: 'bg-teal-500 text-white',    num: 'text-teal-700 dark:text-teal-300',       ring: 'hover:border-teal-400' },
 };
 
 /** The order tiles take colours in when a row gives none. */
@@ -94,7 +94,7 @@ export const SoftTile: React.FC<SoftProps> = ({ label, value, sub, tone, icon: I
   return (
     <Tag
       {...(onClick ? { type: 'button', onClick } : {})}
-      className={`relative h-full text-left rounded-2xl border ${compact ? 'p-3.5' : 'p-4'} flex items-start gap-3.5 min-w-0 transition-all ${t.tile} ${
+      className={`relative w-full h-full text-left rounded-2xl border ${compact ? 'p-3.5' : 'p-4'} flex items-start gap-3.5 min-w-0 transition-all ${t.tile} ${
         onClick ? `hover:-translate-y-0.5 hover:shadow-md active:scale-[0.98] ${t.ring}` : ''
       }`}
     >

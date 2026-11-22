@@ -32,7 +32,7 @@ const StatStrip: React.FC<Props> = ({ items, active, onSelect, cols = 'grid-cols
       const canFilter = !!onSelect && it.filterable !== false;
       const on = canFilter && active === it.key;
       return (
-        <div key={it.key} className={`rounded-2xl transition-shadow ${on ? 'ring-2 ring-seafoam ring-offset-2 ring-offset-white dark:ring-offset-zinc-950' : ''}`}>
+        <div key={it.key} className={`h-full min-w-0 rounded-2xl transition-shadow ${on ? 'ring-2 ring-seafoam ring-offset-2 ring-offset-white dark:ring-offset-zinc-950' : ''}`}>
           <SoftTile
             compact
             label={it.label}

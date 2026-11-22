@@ -133,8 +133,7 @@ const RecordPaidSubscriptionDialog: React.FC<Props> = ({ ownerKind, ownerId, own
   const problem = useMemo(() => {
     if (!form.packageId) return 'Pick the package they paid for.';
     if (!(Number(form.amount) > 0)) return 'Enter the amount that was actually received.';
-    if (!form.reference.trim()) return 'A payment reference is required — it is the proof.';
-    if (form.reason.trim().length < 10) return 'Give a reason of at least 10 characters. This is the audit trail.';
+    if (!form.reference.trim() && form.channel !== 'CASH') return 'Add the payment reference (M-Pesa code, bank ref) — it is the proof.';
     return null;
   }, [form]);
 
@@ -149,9 +148,12 @@ const RecordPaidSubscriptionDialog: React.FC<Props> = ({ ownerKind, ownerId, own
         amount: Number(form.amount),
         currency: form.currency,
         channel: form.channel,
-        reference: form.reference.trim(),
+        reference: (form.reference.trim() || `CASH-${form.paidAt}-${Date.now().toString(36).toUpperCase()}`),
         paidAt: form.paidAt || undefined,
-        reason: form.reason.trim(),
+        // No hand-written note (user, 2026-11-22: "I don't want us to use
+        // log"). The record still says what happened, written for them.
+        reason: form.reason.trim().length >= 10 ? form.reason.trim()
+          : `Recorded by hand: ${form.channel} payment of ${form.currency} ${form.amount} on ${form.paidAt}${chosen ? ` for ${chosen.name}` : ''}.`,
       });
       if (res.success) {
         toast.success(`Recorded — ${ownerName} is now on ${chosen?.name ?? 'the package'}`);
@@ -193,22 +195,36 @@ const RecordPaidSubscriptionDialog: React.FC<Props> = ({ ownerKind, ownerId, own
         </div>
 
         <div>
-          <label className={label}>Package they paid for</label>
-          <select className={field} value={form.packageId} onChange={(e) => set('packageId', e.target.value)}>
-            <option value="">Choose a package…</option>
-            {([['Plans', false], ['Add-ons', true]] as const).map(([group, addon]) => {
-              const list = packages.filter((p) => !!p.isAddon === addon);
-              return list.length === 0 ? null : (
-                <optgroup key={group} label={group}>
-                  {list.map((p) => (
-                    <option key={p.id} value={String(p.id)}>
-                      {p.name} — {p.currency || 'KES'} {Number(p.price ?? p.amount ?? 0).toLocaleString()}
-                    </option>
-                  ))}
-                </optgroup>
-              );
-            })}
-          </select>
+          {/* Only this account's plans (user, 2026-11-22: "if it is a
+              customer … show me only plans for customers"). fitsOwner already
+              filters by audience; the heading says so out loud. */}
+          <label className={label}>
+            Plans for {ownerKind === 'CLIENT' ? 'clients & farmers' : ownerKind === 'SUPPLIER' ? 'suppliers' : (ownerShell && FREELANCER_SHELLS.includes(String(ownerShell).toUpperCase()) ? 'freelancers' : 'clinics')}
+          </label>
+          {packages.length === 0 ? (
+            <p className="text-xs text-slate-400 py-2 flex items-center gap-2"><Loader2 size={12} className="animate-spin" /> Loading plans…</p>
+          ) : ([['Plans', false], ['Add-ons', true]] as const).map(([group, addon]) => {
+            const list = packages.filter((p) => !!p.isAddon === addon);
+            return list.length === 0 ? null : (
+              <div key={group} className="mb-2.5">
+                <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{group}</p>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5">
+                  {list.map((p) => {
+                    const on = String(p.id) === form.packageId;
+                    return (
+                      <button key={p.id} type="button" onClick={() => set('packageId', String(p.id))}
+                        className={`text-left px-3 py-2 rounded-xl border transition-all ${on
+                          ? 'bg-seafoam/10 border-seafoam ring-2 ring-seafoam/30'
+                          : 'bg-slate-50 dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 hover:border-seafoam'}`}>
+                        <span className="block text-[12px] font-black text-pine dark:text-zinc-100 truncate">{p.name}</span>
+                        <span className="block text-[10px] font-mono text-slate-500 dark:text-zinc-400">{p.currency || 'KES'} {Number(p.price ?? p.amount ?? 0).toLocaleString()}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
         <div className="grid grid-cols-2 gap-2">
@@ -233,7 +249,7 @@ const RecordPaidSubscriptionDialog: React.FC<Props> = ({ ownerKind, ownerId, own
           </div>
           <div className="col-span-2">
             <label className={label}>Payment reference (the proof)</label>
-            <input className={field} value={form.reference} onChange={(e) => set('reference', e.target.value)} placeholder="M-Pesa code, slip no., bank ref" />
+            <input className={field} value={form.reference} onChange={(e) => set('reference', e.target.value)} placeholder={form.channel === 'CASH' ? 'Cash slip no. (optional)' : 'M-Pesa code, bank ref'} />
           </div>
         </div>
 
@@ -242,19 +258,6 @@ const RecordPaidSubscriptionDialog: React.FC<Props> = ({ ownerKind, ownerId, own
           <input className={field} type="date" value={form.paidAt} onChange={(e) => set('paidAt', e.target.value)} />
         </div>
 
-        <div>
-          <label className={label}>Why this is being recorded by hand</label>
-          <textarea
-            className={`${field} min-h-[72px] resize-y`}
-            value={form.reason}
-            onChange={(e) => set('reason', e.target.value)}
-            placeholder="e.g. Paid KES 15 by M-Pesa on 10 Sept, receipt SFH4K2L9. Checkout errored before the attempt was created; confirmed against the till statement."
-          />
-          <p className="mt-1 text-[10px] text-slate-400 dark:text-zinc-500">
-            Stored on the payment record with your name. It is how anyone later tells this
-            from a plan given away for free.
-          </p>
-        </div>
 
         {problem && (
           <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 text-amber-700 dark:text-amber-300">
