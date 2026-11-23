@@ -14,6 +14,7 @@ import {
   ProcedureStage, ProcItemType, ProcQtyBasis, ProcedurePreview,
 } from '../../../services';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
+import { PROC_FLAG_CHIPS } from '../../../services/modules/procedureTemplates.api';
 import QtyUnitControl, { costPerSellUnit } from '../shared/QtyUnitControl';
 
 interface Props {
@@ -65,6 +66,9 @@ const DEFAULT_STAGES: ProcedureStage[] = [
 
 // Suggested kinds for the type badge — free text, clinics can type their own.
 const PROC_TYPES = ['Laboratory', 'Imaging', 'Surgery', 'Dental', 'Therapy', 'Vaccination', 'Deworming', 'Grooming', 'General'];
+
+/** A stable key that links a preset to its lines across saves. */
+const newPresetKey = () => `p${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 const EMPTY: Draft = {
   name: '', description: '', code: '', type: '', categoryId: '', species: [], defaultDurationMin: '',
@@ -136,13 +140,15 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
   const [pickSearch, setPickSearch] = useState('');
   const [pickFocused, setPickFocused] = useState(false);
   const [componentFilter, setComponentFilter] = useState<'ALL' | ProcItemType>('ALL');
+  /** Which preset new components go into — '' = every case (2026-11-23). */
+  const [buildFor, setBuildFor] = useState('');
   const [feeName, setFeeName] = useState('');
   const [feeConsultant, setFeeConsultant] = useState('');
   const [feeAmount, setFeeAmount] = useState('');
 
   // Example-patient tester (rules tab)
   const [testWeight, setTestWeight] = useState('');
-  const [testFlags, setTestFlags] = useState<{ inHeat: boolean; pregnant: boolean; emergency: boolean; outOfHours: boolean; custom: string[] }>({ inHeat: false, pregnant: false, emergency: false, outOfHours: false, custom: [] });
+  const [testFlags, setTestFlags] = useState<Record<string, any> & { custom: string[] }>({ custom: [] });
   const [testResult, setTestResult] = useState<ProcedurePreview | null>(null);
   const [testing, setTesting] = useState(false);
 
@@ -174,6 +180,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
             customName: i.customName, stageKey: i.stageKey, qtyBasis: i.qtyBasis, quantity: i.quantity,
             priceOverride: i.priceOverride, billable: i.billable, deductStock: i.deductStock,
             optional: i.optional, consultantName: i.consultantName, sortOrder: i.sortOrder,
+            presetKey: i.presetKey ?? null, hiddenFor: i.hiddenFor ?? [],
             // Staff attribution (106) — without these the editor would reopen
             // a saved recipe with its attending staff blanked out.
             staffUserId: (i as any).staffUserId ?? null,
@@ -186,7 +193,8 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
             costPrice: (i as any).costPerSellUnit ?? null,
             stock: i.availableQuantity, basePrice: i.effectivePrice,
           })),
-          pricingRules: t.pricingRules.map(r => ({ ...r })),
+          // Every rule is a preset now (2026-11-23): give older ones a key so lines can attach.
+          pricingRules: t.pricingRules.map(r => ({ ...r, effects: { ...(r.effects ?? {}), key: r.effects?.key || newPresetKey() } })),
         });
       }
     } catch (e: any) { toast.error(e?.message || 'Failed to load procedure'); }
@@ -268,7 +276,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
     setDraft(d => ({
       ...d,
       items: [...d.items, {
-        key: nextKey(), itemType: 'STAFF' as ProcItemType, serviceId: null, inventoryItemId: null,
+        key: nextKey(), presetKey: buildFor || null, itemType: 'STAFF' as ProcItemType, serviceId: null, inventoryItemId: null,
         customName: null, stageKey: null, qtyBasis: 'FIXED' as ProcQtyBasis, quantity: 1,
         priceOverride: null,
         // Never billable: attendance does not change what the client pays.
@@ -292,7 +300,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
     setDraft(d => ({
       ...d,
       items: [...d.items, {
-        key: nextKey(), itemType, serviceId: String(s.id), inventoryItemId: null, customName: null,
+        key: nextKey(), presetKey: buildFor || null, itemType, serviceId: String(s.id), inventoryItemId: null, customName: null,
         stageKey: null, qtyBasis: 'FIXED' as ProcQtyBasis, quantity: 1, priceOverride: null,
         billable: true, deductStock: false, optional: itemType === 'LAB' || itemType === 'IMAGING',
         consultantName: null, name: s.name, unit: null, stock: null,
@@ -307,7 +315,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
     setDraft(d => ({
       ...d,
       items: [...d.items, {
-        key: nextKey(), itemType, serviceId: null, inventoryItemId: String(i.id), customName: null,
+        key: nextKey(), presetKey: buildFor || null, itemType, serviceId: null, inventoryItemId: String(i.id), customName: null,
         stageKey: null, qtyBasis: 'FIXED' as ProcQtyBasis, quantity: 1, priceOverride: null,
         billable: i.billable !== false, deductStock: true, optional: false, consultantName: null,
         name: i.name,
@@ -327,7 +335,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
     setDraft(d => ({
       ...d,
       items: [...d.items, {
-        key: nextKey(), itemType: 'FEE', serviceId: null, inventoryItemId: null,
+        key: nextKey(), presetKey: buildFor || null, itemType: 'FEE', serviceId: null, inventoryItemId: null,
         customName: feeName.trim() || 'Consultant fee', stageKey: null, qtyBasis: 'FIXED' as ProcQtyBasis,
         quantity: 1, priceOverride: feeAmount !== '' ? Number(feeAmount) : 0, billable: true, deductStock: false,
         optional: false, consultantName: feeConsultant.trim() || null,
@@ -370,13 +378,14 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
     return unit * qty;
   };
   const totals = useMemo(() => {
+    // Every-case price: preset-only lines are priced when the preset applies.
     const groups: Record<string, number> = {};
     let subtotal = 0;
     // Staff cost is tracked SEPARATELY and never folded into the client's
     // total — attendance doesn't change what the client pays.
     let staffCost = 0;
     let staffCount = 0;
-    for (const i of draft.items) {
+    for (const i of draft.items.filter(i => !(i as any).presetKey)) {
       if (i.itemType === 'STAFF') {
         if (!i.optional) { staffCost += Number(i.staffFee ?? 0); staffCount += 1; }
         continue;
@@ -392,9 +401,22 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
   }, [draft.items, draft.discount]);
 
   const filteredItems = useMemo(() =>
-    componentFilter === 'ALL' ? draft.items : draft.items.filter(i =>
-      componentFilter === 'LAB' ? (i.itemType === 'LAB' || i.itemType === 'IMAGING') : i.itemType === componentFilter),
-    [draft.items, componentFilter]);
+    draft.items
+      .filter(i => !(i as any).presetKey || (buildFor && (i as any).presetKey === buildFor))
+      .filter(i => componentFilter === 'ALL' ? true
+        : componentFilter === 'LAB' ? (i.itemType === 'LAB' || i.itemType === 'IMAGING') : i.itemType === componentFilter),
+    [draft.items, componentFilter, buildFor]);
+  const presetList = draft.pricingRules.filter(r => r.effects?.key);
+  const presetName = (k: string) => presetList.find(r => r.effects.key === k)?.name || 'preset';
+  const toggleHidden = (key: string, preset: string) => setDraft(d => ({
+    ...d,
+    items: d.items.map(i => {
+      if (i.key !== key) return i;
+      const h = new Set<string>((i as any).hiddenFor ?? []);
+      h.has(preset) ? h.delete(preset) : h.add(preset);
+      return { ...i, hiddenFor: [...h] } as any;
+    }),
+  }));
 
   // ------------------------------------------------------------------- rules
   const patchRule = (idx: number, patch: Partial<ProcedurePricingRule>) =>
@@ -403,8 +425,17 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
     setDraft(d => ({ ...d, pricingRules: d.pricingRules.map((r, i) => i === idx ? { ...r, conditions: { ...r.conditions, ...cond } } : r) }));
   const patchRuleEff = (idx: number, eff: Partial<ProcedurePricingRule['effects']>) =>
     setDraft(d => ({ ...d, pricingRules: d.pricingRules.map((r, i) => i === idx ? { ...r, effects: { ...r.effects, ...eff } } : r) }));
-  const addRule = () => setDraft(d => ({ ...d, pricingRules: [...d.pricingRules, { name: 'New rule', enabled: true, conditions: {}, effects: {} }] }));
-  const removeRule = (idx: number) => setDraft(d => ({ ...d, pricingRules: d.pricingRules.filter((_, i) => i !== idx) }));
+  const addRule = () => setDraft(d => ({ ...d, pricingRules: [...d.pricingRules, { name: 'New preset', enabled: true, conditions: {}, effects: { key: newPresetKey() } }] }));
+  const addPreset = addRule;
+  // Removing a preset removes its own lines and its leave-outs with it.
+  const removeRule = (idx: number) => setDraft(d => {
+    const key = d.pricingRules[idx]?.effects?.key;
+    return {
+      ...d,
+      pricingRules: d.pricingRules.filter((_, i) => i !== idx),
+      items: key ? d.items.filter(i => (i as any).presetKey !== key).map(i => ({ ...i, hiddenFor: ((i as any).hiddenFor ?? []).filter((k: string) => k !== key) } as any)) : d.items,
+    };
+  });
 
   const runTest = async () => {
     if (!savedId) { toast.error('Save the procedure first — the tester quotes the saved version'); return; }
@@ -472,6 +503,8 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
           consultantName: i.consultantName ?? null,
           staffUserId: i.staffUserId ?? null,
           staffFee: i.staffFee != null ? Number(i.staffFee) : null,
+          presetKey: (i as any).presetKey ?? null,
+          hiddenFor: (i as any).hiddenFor ?? [],
           sortOrder: idx,
         })),
         pricingRules: draft.pricingRules.map((r, idx) => ({ ...r, sortOrder: idx })),
@@ -523,7 +556,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
   const TABS: Array<{ id: Tab; label: string }> = [
     { id: 'details', label: '1. Details' },
     { id: 'components', label: `2. Components (${draft.items.length})` },
-    { id: 'rules', label: `3. Rules & Pricing (${draft.pricingRules.length})` },
+    { id: 'rules', label: `3. Presets (${draft.pricingRules.length})` },
     { id: 'workflow', label: '4. Protocol Workflow' },
     { id: 'summary', label: '5. Summary' },
   ];
@@ -635,6 +668,29 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
 
           {tab === 'components' && (
             <div className="space-y-4">
+              {/* PRESETS (2026-11-23): the same procedure, set up per case. */}
+              <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-3 space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200">Building for</p>
+                <div className="flex flex-wrap gap-1.5">
+                  <button type="button" onClick={() => setBuildFor('')}
+                    className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border ${buildFor === '' ? 'bg-pine text-white border-pine' : 'bg-slate-50 dark:bg-zinc-800 text-slate-500 border-slate-200 dark:border-zinc-700'}`}>
+                    Every case
+                  </button>
+                  {presetList.map(r => (
+                    <button key={r.effects.key} type="button" onClick={() => setBuildFor(r.effects.key!)}
+                      className={`px-3 py-1.5 rounded-xl text-[11px] font-bold border ${buildFor === r.effects.key ? 'bg-amber-500 text-white border-amber-500' : 'bg-amber-50 dark:bg-amber-500/10 text-amber-700 border-amber-200 dark:border-amber-500/30'}`}>
+                      {r.name || 'Preset'} · {draft.items.filter(i => (i as any).presetKey === r.effects.key).length} added
+                    </button>
+                  ))}
+                  <button type="button" onClick={() => { addPreset(); setTab('rules'); }}
+                    className="px-3 py-1.5 rounded-xl text-[11px] font-bold border border-dashed border-amber-400 text-amber-700">+ New preset</button>
+                </div>
+                <p className="text-[11px] text-slate-500">
+                  {buildFor
+                    ? <>Components you add now are only used when <b>{presetName(buildFor)}</b> applies. On an every-case line, tick <b>Leave out</b> to drop it in this preset (to change a quantity: leave the line out and add it again here).</>
+                    : <>Every-case components are in every version of this procedure. Make a preset (e.g. <i>Over 25 kg</i>, <i>Ill</i>, <i>Pregnant</i>) to add or leave out lines for that case.</>}
+                </p>
+              </div>
               {/* Add component */}
               <fieldset disabled={isGlobal} className="contents">
               <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
@@ -756,6 +812,14 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className={`flex items-center gap-1 px-2 py-1 rounded-lg text-[8px] font-black uppercase tracking-widest border ${TYPE_STYLE[i.itemType].chip}`}>{TYPE_STYLE[i.itemType].icon} {TYPE_STYLE[i.itemType].label}</span>
                         <span className="text-sm font-black text-pine dark:text-zinc-100 truncate">{i.name}{i.consultantName ? ` — ${i.consultantName}` : ''}</span>
+                        {(i as any).presetKey && <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase bg-amber-500/10 text-amber-700 border border-amber-500/30">Only in {presetName((i as any).presetKey)}</span>}
+                        {!(i as any).presetKey && ((i as any).hiddenFor ?? []).length > 0 && !buildFor && <span className="px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase bg-slate-100 dark:bg-zinc-800 text-slate-500">Left out in {((i as any).hiddenFor as string[]).map(presetName).join(', ')}</span>}
+                        {!(i as any).presetKey && buildFor && (
+                          <button type="button" onClick={() => toggleHidden(i.key, buildFor)}
+                            className={`px-2 py-1 rounded-lg text-[9px] font-black uppercase border ${((i as any).hiddenFor ?? []).includes(buildFor) ? 'bg-rose-500/10 text-rose-600 border-rose-500/30' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
+                            {((i as any).hiddenFor ?? []).includes(buildFor) ? 'Left out here' : 'Leave out'}
+                          </button>
+                        )}
                         {i.stock != null && <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black ${Number(i.stock) > 0 ? 'bg-emerald-500/10 text-emerald-600' : 'bg-rose-500/10 text-rose-500'}`}>Stock: {i.stock} {i.unit}</span>}
                         <span className="ml-auto flex items-center">
                           <button type="button" title="Move up"
@@ -861,10 +925,10 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
             <div className="space-y-4">
               <fieldset disabled={isGlobal} className="contents">
               <div className="flex items-center justify-between">
-                <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 flex items-center gap-2"><Zap size={13} className="text-amber-500" /> Dynamic pricing rules</p>
-                <button onClick={addRule} className="flex items-center gap-1.5 px-3 py-2 bg-pine text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-pine/90"><Plus size={12} /> Add rule</button>
+                <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 flex items-center gap-2"><Zap size={13} className="text-amber-500" /> Presets — the same procedure for different cases</p>
+                <button onClick={addRule} className="flex items-center gap-1.5 px-3 py-2 bg-pine text-white rounded-xl font-black text-[9px] uppercase tracking-widest hover:bg-pine/90"><Plus size={12} /> Add preset</button>
               </div>
-              {draft.pricingRules.length === 0 && <p className="text-[11px] text-slate-400 text-center py-4">No rules — the procedure prices as the flat sum of its components. Add rules like "In heat +2,000" or "Over 25kg +1,500".</p>}
+              {draft.pricingRules.length === 0 && <p className="text-[11px] text-slate-400 text-center py-4">No presets — the procedure is the same for every patient. Add presets like "Over 25 kg", "Ill / infected", "Pregnant" or "On heat": each can add its own lines, leave lines out, and add a fee. They switch on by themselves from the patient's weight, age and sex, or when staff tick the condition on the visit.</p>}
               {draft.pricingRules.map((r, idx) => (
                 <div key={idx} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-3">
                   <div className="flex items-center gap-2">
@@ -880,11 +944,17 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                     <div><label className="field-label">Weight ≥ (kg)</label><input type="number" className="field-input" value={r.conditions.weightMinKg ?? ''} onChange={e => patchRuleCond(idx, { weightMinKg: e.target.value === '' ? undefined : Number(e.target.value) })} /></div>
                     <div><label className="field-label">Weight &lt; (kg)</label><input type="number" className="field-input" value={r.conditions.weightMaxKg ?? ''} onChange={e => patchRuleCond(idx, { weightMaxKg: e.target.value === '' ? undefined : Number(e.target.value) })} /></div>
                     <div><label className="field-label">Age ≥ (months)</label><input type="number" className="field-input" value={r.conditions.ageMinMonths ?? ''} onChange={e => patchRuleCond(idx, { ageMinMonths: e.target.value === '' ? undefined : Number(e.target.value) })} /></div>
+                    <div><label className="field-label">Age &lt; (months)</label><input type="number" className="field-input" value={r.conditions.ageMaxMonths ?? ''} onChange={e => patchRuleCond(idx, { ageMaxMonths: e.target.value === '' ? undefined : Number(e.target.value) })} /></div>
+                    <div><label className="field-label">Sex</label>
+                      <select className="field-input" value={r.conditions.sex ?? ''} onChange={e => patchRuleCond(idx, { sex: e.target.value || undefined })}>
+                        <option value="">Any</option><option value="M">Male</option><option value="F">Female</option>
+                      </select>
+                    </div>
                   </div>
                   <div className="flex flex-wrap gap-1.5">
-                    {([['inHeat', 'In heat'], ['pregnant', 'Pregnant'], ['emergency', 'Emergency'], ['outOfHours', 'Out of hours']] as const).map(([k, label]) => (
-                      <button key={k} type="button" onClick={() => patchRuleCond(idx, { [k]: r.conditions[k] ? undefined : true } as any)}
-                        className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider border ${r.conditions[k] ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
+                    {PROC_FLAG_CHIPS.map(([k, label]) => (
+                      <button key={k} type="button" onClick={() => patchRuleCond(idx, { [k]: (r.conditions as any)[k] ? undefined : true } as any)}
+                        className={`px-3 py-1.5 rounded-xl text-[9px] font-black uppercase tracking-wider border ${(r.conditions as any)[k] ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
                         {label}
                       </button>
                     ))}
@@ -896,8 +966,22 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                       placeholder="e.g. Obese"
                     />
                   </div>
+                  {r.effects?.key && (() => {
+                    const added = draft.items.filter(i => (i as any).presetKey === r.effects.key);
+                    const left = draft.items.filter(i => !(i as any).presetKey && ((i as any).hiddenFor ?? []).includes(r.effects.key));
+                    return (
+                      <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-100 dark:border-zinc-800">
+                        <p className="text-[11px] text-slate-500 flex-1 min-w-[200px]">
+                          <b className="text-pine dark:text-zinc-100">Lines:</b> {added.length ? `adds ${added.map(i => i.name).join(', ')}` : 'adds nothing'}
+                          {left.length ? ` · leaves out ${left.map(i => i.name).join(', ')}` : ''}
+                        </p>
+                        <button type="button" onClick={() => { setBuildFor(r.effects.key!); setTab('components'); }}
+                          className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-wider bg-amber-500 text-white">Edit lines</button>
+                      </div>
+                    );
+                  })()}
                   <div className="flex flex-wrap items-end gap-3 pt-1 border-t border-slate-100 dark:border-zinc-800">
-                    <div><label className="field-label">Adjustment ({currency})</label><input type="number" className="field-input w-32" value={r.effects.feeAmount ?? ''} onChange={e => patchRuleEff(idx, { feeAmount: e.target.value === '' ? undefined : Number(e.target.value), feePercent: e.target.value === '' ? r.effects.feePercent : undefined })} placeholder="2000" /></div>
+                    <div><label className="field-label">Extra fee, optional ({currency})</label><input type="number" className="field-input w-32" value={r.effects.feeAmount ?? ''} onChange={e => patchRuleEff(idx, { feeAmount: e.target.value === '' ? undefined : Number(e.target.value), feePercent: e.target.value === '' ? r.effects.feePercent : undefined })} placeholder="2000" /></div>
                     <div><label className="field-label">or % of subtotal</label><input type="number" className="field-input w-28" value={r.effects.feePercent ?? ''} onChange={e => patchRuleEff(idx, { feePercent: e.target.value === '' ? undefined : Number(e.target.value), feeAmount: e.target.value === '' ? r.effects.feeAmount : undefined })} placeholder="10" /></div>
                     <div className="flex-1 min-w-[180px]"><label className="field-label">Invoice line label</label><input className="field-input" value={r.effects.label ?? ''} onChange={e => patchRuleEff(idx, { label: e.target.value || undefined })} placeholder="Heat cycle surcharge" /></div>
                   </div>
@@ -910,7 +994,7 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                 <p className="text-[10px] font-black uppercase tracking-widest text-pine dark:text-zinc-200 flex items-center gap-2"><Calculator size={13} className="text-seafoam" /> Example patient — test the quote</p>
                 <div className="flex flex-wrap items-end gap-2">
                   <div><label className="field-label">Weight (kg)</label><input type="number" min={0} className="field-input w-28" value={testWeight} onChange={e => setTestWeight(e.target.value)} placeholder="18" /></div>
-                  {([['inHeat', 'In heat'], ['pregnant', 'Pregnant'], ['emergency', 'Emergency'], ['outOfHours', 'Out of hours']] as const).map(([k, label]) => (
+                  {PROC_FLAG_CHIPS.map(([k, label]) => (
                     <button key={k} type="button" onClick={() => setTestFlags(f => ({ ...f, [k]: !f[k] }))}
                       className={`px-3 py-2 rounded-xl text-[9px] font-black uppercase tracking-wider border ${testFlags[k] ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
                       {label}
@@ -930,6 +1014,11 @@ const ProcedureEditorPage: React.FC<Props> = ({ templateId, seed, currency = 'KE
                 {testResult && (
                   <div className="bg-slate-50 dark:bg-zinc-950/40 rounded-xl p-3 space-y-1 text-[11px]">
                     <div className="flex justify-between font-bold text-slate-500"><span>Components subtotal</span><span>{currency} {testResult.subtotal.toLocaleString()}</span></div>
+                    {(testResult.presets ?? []).filter(x => x.active).length > 0 && (
+                      <div className="flex flex-wrap gap-1 pb-1">
+                        {(testResult.presets ?? []).filter(x => x.active).map(x => <span key={x.key} className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase bg-amber-500/10 text-amber-700">Preset: {x.name}</span>)}
+                      </div>
+                    )}
                     {testResult.adjustments.map(a => <div key={a.ruleId} className="flex justify-between text-amber-600 font-bold"><span>{a.name}</span><span>+ {currency} {a.amount.toLocaleString()}</span></div>)}
                     {testResult.discount > 0 && <div className="flex justify-between text-emerald-600 font-bold"><span>Discount</span><span>− {currency} {testResult.discount.toLocaleString()}</span></div>}
                     <div className="flex justify-between font-black text-pine dark:text-zinc-100 text-sm pt-1 border-t border-slate-200 dark:border-zinc-800"><span>Estimated total</span><span>{currency} {testResult.total.toLocaleString()}</span></div>

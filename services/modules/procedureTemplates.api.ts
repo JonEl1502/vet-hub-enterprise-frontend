@@ -16,7 +16,22 @@ export type ProcQtyBasis = 'FIXED' | 'PER_KG' | 'MANUAL';
 
 export interface ProcedureStage { key: string; label: string; }
 
-export interface ProcedureFlags { inHeat?: boolean; pregnant?: boolean; emergency?: boolean; outOfHours?: boolean; /** Staff-typed conditions (2026-11-21). */ custom?: string[]; }
+export interface ProcedureFlags {
+  inHeat?: boolean; pregnant?: boolean; emergency?: boolean; outOfHours?: boolean;
+  lactating?: boolean; ill?: boolean; infected?: boolean; obese?: boolean; aggressive?: boolean; brachycephalic?: boolean;
+  /** Staff-typed conditions (2026-11-21). */ custom?: string[];
+}
+export type ProcFlagKey = Exclude<keyof ProcedureFlags, 'custom'>;
+/**
+ * The patient states a procedure PRESET can turn on (2026-11-23, a vet: "by
+ * weight … if it was ill … pregnant, on heat"). Same list in the editor, the
+ * tester and the visit — one place to add the next one.
+ */
+export const PROC_FLAG_CHIPS: Array<[ProcFlagKey, string]> = [
+  ['ill', 'Ill / unwell'], ['infected', 'Infected'], ['pregnant', 'Pregnant'], ['inHeat', 'On heat'],
+  ['lactating', 'Lactating'], ['obese', 'Overweight'], ['aggressive', 'Aggressive / needs sedation'],
+  ['brachycephalic', 'Flat-faced'], ['emergency', 'Emergency'], ['outOfHours', 'Out of hours'],
+];
 
 export interface ProcedureTemplateItem {
   id: string;
@@ -34,6 +49,10 @@ export interface ProcedureTemplateItem {
   deductStock: boolean;
   optional: boolean;
   consultantName: string | null;
+  /** Preset this line belongs to (only in that preset); null = every case. */
+  presetKey?: string | null;
+  /** Presets that leave this every-case line out. */
+  hiddenFor?: string[];
   sortOrder: number;
   unit: string | null;
   availableQuantity: number | null;
@@ -58,10 +77,14 @@ export interface ProcedurePricingRule {
     pregnant?: boolean;
     emergency?: boolean;
     outOfHours?: boolean;
+    lactating?: boolean; ill?: boolean; infected?: boolean; obese?: boolean; aggressive?: boolean; brachycephalic?: boolean;
+    /** 'M' | 'F' — the pet's sex. */
+    sex?: string;
     /** The clinic's own typed conditions — every one must apply (2026-11-21). */
     custom?: string[];
   };
-  effects: { feeAmount?: number; feePercent?: number; label?: string };
+  /** `key` makes the rule a PRESET that can add or leave out lines (2026-11-23). */
+  effects: { feeAmount?: number; feePercent?: number; label?: string; key?: string };
   sortOrder?: number;
 }
 
@@ -143,6 +166,8 @@ export interface ProcedurePreview {
   serviceLines: Array<{ templateItemId: string; itemType: ProcItemType; stageKey: string | null; serviceId: string | null; name: string; category: string; price: number; billable: boolean; listPrice: number }>;
   productLines: Array<{ templateItemId: string; itemType: ProcItemType; stageKey: string | null; inventoryItemId: string; name: string; unit: string; quantity: number; unitPrice: number; lineTotal: number; billable: boolean; deductStock: boolean; manual: boolean; batchNumber: string | null }>;
   adjustments: Array<{ ruleId: string; name: string; amount: number }>;
+  /** Every preset on the procedure and whether it applied to this patient. */
+  presets?: Array<{ key: string; name: string; active: boolean }>;
   optional: ProcedureTemplateItem[];
   skipped: Array<{ itemId: string; name: string; reason: string }>;
   subtotal: number;

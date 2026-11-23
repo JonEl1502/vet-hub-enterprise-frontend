@@ -4,6 +4,7 @@ import { ClipboardList, Loader2, Trash2, Check, CheckSquare, Square, Zap, AlertT
 import toast from 'react-hot-toast';
 import { procedureTemplatesAPI, consumablesAPI, visitsAPI, ProcedureApplication, ProcedureTemplate, dialog } from '../../../services';
 import QtyUnitControl from './QtyUnitControl';
+import { PROC_FLAG_CHIPS } from '../../../services/modules/procedureTemplates.api';
 
 interface Props {
   appointmentId: string | number;
@@ -57,7 +58,7 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
   const [applying, setApplying] = useState(false);
   const [openStages, setOpenStages] = useState<Record<string, boolean>>({});
   // Local re-quote inputs, keyed by application id.
-  const [quote, setQuote] = useState<Record<string, { weight: string; inHeat: boolean; pregnant: boolean; emergency: boolean; outOfHours: boolean; custom: string[] }>>({});
+  const [quote, setQuote] = useState<Record<string, { weight: string; custom: string[] } & Record<string, any>>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -227,7 +228,7 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
     try {
       const res = await procedureTemplatesAPI.reevaluate(app.id, {
         weightKg: q?.weight ? Number(q.weight) : undefined,
-        flags: q ? { inHeat: q.inHeat, pregnant: q.pregnant, emergency: q.emergency, outOfHours: q.outOfHours, custom: q.custom } : undefined,
+        flags: q ? { ...Object.fromEntries(PROC_FLAG_CHIPS.map(([k]) => [k, !!q[k]])), custom: q.custom } : undefined,
       });
       if (res.success) { toast.success('Pricing re-evaluated'); replaceApp(res.data?.application); onChanged?.(); }
     } catch (e: any) { if (!(await offerUnlock(e))) toast.error(e?.message || 'Re-evaluation failed'); }
@@ -321,10 +322,9 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
     finally { setBusy(null); }
   };
 
-  const quoteFor = (app: ProcedureApplication) => quote[app.id] ?? {
+  const quoteFor = (app: ProcedureApplication): { weight: string; custom: string[] } & Record<string, any> => quote[app.id] ?? {
     weight: app.weightKg != null ? String(app.weightKg) : '',
-    inHeat: !!app.flags?.inHeat, pregnant: !!app.flags?.pregnant,
-    emergency: !!app.flags?.emergency, outOfHours: !!app.flags?.outOfHours,
+    ...Object.fromEntries(PROC_FLAG_CHIPS.map(([k]) => [k, !!(app.flags as any)?.[k]])),
     custom: app.flags?.custom ?? [],
   };
   const setQuoteFor = (appId: string, patch: Partial<ReturnType<typeof quoteFor>>) =>
@@ -473,7 +473,7 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
                 <p className="text-[9px] text-slate-400 font-medium">
                   Applied {new Date(app.createdAt).toLocaleDateString()}
                   {app.weightKg != null ? ` · ${app.weightKg} kg` : ''}
-                  {Object.entries(app.flags ?? {}).filter(([k, v]) => k !== 'custom' && v).map(([k]) => ` · ${k === 'inHeat' ? 'in heat' : k === 'outOfHours' ? 'out of hours' : k}`).join('')}{(app.flags?.custom ?? []).map(c => ` · ${c.toLowerCase()}`).join('')}
+                  {Object.entries(app.flags ?? {}).filter(([k, v]) => k !== 'custom' && v).map(([k]) => ` · ${(PROC_FLAG_CHIPS.find(([x]) => x === k)?.[1] ?? k).toLowerCase()}`).join('')}{(app.flags?.custom ?? []).map(c => ` · ${c.toLowerCase()}`).join('')}
                 </p>
               </div>
               <span className="text-sm font-black text-pine dark:text-zinc-100 shrink-0">{currency} {total.toLocaleString()}</span>
@@ -711,7 +711,9 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
                     onChange={e => setQuoteFor(app.id, { weight: e.target.value })}
                     className="w-24 px-2.5 py-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-lg text-[11px] font-bold text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam"
                   />
-                  {([['inHeat', 'In heat'], ['pregnant', 'Pregnant'], ['emergency', 'Emergency'], ['outOfHours', 'After hours']] as const).map(([k, label]) => (
+                  {/* Ticking a condition can switch a PRESET on — Re-evaluate then
+                      rebuilds the procedure's lines for that case (2026-11-23). */}
+                  {PROC_FLAG_CHIPS.map(([k, label]) => (
                     <button key={k} type="button" onClick={() => setQuoteFor(app.id, { [k]: !q[k] } as any)}
                       className={`px-2.5 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider border ${q[k] ? 'bg-amber-500/10 text-amber-600 border-amber-500/30' : 'bg-slate-50 dark:bg-zinc-800 text-slate-400 border-slate-200 dark:border-zinc-700'}`}>
                       {label}
