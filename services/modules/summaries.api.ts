@@ -163,6 +163,15 @@ export const summariesAPI = {
    * the dashboard's work band. Staff always get their own; owners/managers may
    * pick anyone.
    */
+  /** One period's visits: by status, paid / part-paid / unpaid, and money (2026-11-23). */
+  visits: async (
+    opts: { clinicIds: Array<string | number>; start: string; end: string },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<VisitSummary>> => {
+    const q = new URLSearchParams({ clinicIds: opts.clinicIds.join(','), start: opts.start, end: opts.end });
+    return get(`/summaries/visits?${q.toString()}`, { cache: false, ...options });
+  },
+
   staffWork: async (
     opts: { scopeId: string | number; start: string; end: string; userId?: string | number | null },
     options?: RequestOptions,
@@ -303,6 +312,11 @@ export const summariesAPI = {
     get(`${ENDPOINTS.SUMMARIES.BASE}${buildQuery({ ...opts, breakdown: true })}`, { cache: true, ...options }),
 };
 
+
+export interface VisitSummary {
+  total: number; scheduled: number; inProgress: number; pendingPayment: number; completed: number; cancelled: number;
+  paid: number; partPaid: number; unpaid: number; billed: number; collected: number; owed: number;
+}
 
 export interface StaffWork {
   window: { start: string; end: string; days: number };

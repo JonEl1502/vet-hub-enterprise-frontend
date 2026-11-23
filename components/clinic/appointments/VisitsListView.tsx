@@ -1,10 +1,13 @@
 
 import { useRememberedRange } from '../../../hooks/useScrollMemory';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import BranchTag from '../../shared/common/BranchTag';
 import { Visit, ApptStatus, Pet, User, Clinic } from '../../../types';
 import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope, X, Users, ListChecks, Clock, Activity, Wallet, CheckCircle2, XCircle, AlertCircle, BellRing } from 'lucide-react';
 import StatStrip, { StatItem } from '../../shared/stats/StatStrip';
+import VisitsCompare from './VisitsCompare';
+import { summariesAPI } from '../../../services/modules/summaries.api';
+import type { VisitSummary } from '../../../services/modules/summaries.api';
+import { useClinic } from '../../../contexts/ClinicContext';
 import { formatDate, formatTime } from '../../../services/utils/dateFormatter';
 import { useData } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
@@ -313,6 +316,22 @@ const VisitsListView: React.FC<Props> = ({
       });
   }, [baseFiltered, activeTab]);
 
+  // Part paid comes from the money tables, so the server counts it for the
+  // page's period (2026-11-23). The compare panel uses the same endpoint.
+  const { selectedClinicIds } = useClinic() as any;
+  const scopeIds: string[] = (selectedClinicIds || []).map(String);
+  const [periodSummary, setPeriodSummary] = useState<VisitSummary | null>(null);
+  const [showCompare, setShowCompare] = useState(false);
+  const listCurrency: string = (clinics || []).find((c: any) => scopeIds.includes(String(c.id)))?.currency || 'KES';
+  useEffect(() => {
+    if (!startISO || !endISO || !scopeIds.length) { setPeriodSummary(null); return; }
+    let alive = true;
+    summariesAPI.visits({ clinicIds: scopeIds, start: startISO, end: endISO }, { silent: true } as any)
+      .then(r => { if (alive) setPeriodSummary(r.success && r.data ? r.data : null); })
+      .catch(() => { if (alive) setPeriodSummary(null); });
+    return () => { alive = false; };
+  }, [startISO, endISO, scopeIds.join(','), refreshKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const visitStats: StatItem[] = useMemo(() => {
     const n = (st: ApptStatus) => baseFiltered.filter(a => a.status === st).length;
     // Finished work not yet paid for (cancelled visits owe nothing).
@@ -325,9 +344,10 @@ const VisitsListView: React.FC<Props> = ({
       { key: ApptStatus.COMPLETED, label: 'Completed', value: n(ApptStatus.COMPLETED), sub: 'closed', tone: 'pine', icon: CheckCircle2 },
       { key: ApptStatus.CANCELLED, label: 'Cancelled', value: n(ApptStatus.CANCELLED), sub: 'called off', tone: 'indigo', icon: XCircle },
       { key: 'unpaid', label: 'Unpaid', value: unpaid, sub: 'finished, not paid', tone: 'rose', icon: AlertCircle, filterable: false },
+      { key: 'partPaid', label: 'Part paid', value: periodSummary ? periodSummary.partPaid : '—', sub: periodSummary ? `${listCurrency} ${Math.round(periodSummary.owed).toLocaleString()} still owed` : 'pick a date range', tone: 'violet', icon: Wallet, filterable: false },
       { key: 'NEEDS_FOLLOW_UP', label: 'Needs follow-up', value: followUp ? followUp.total : '—', sub: 'no reminder · last 90 days', tone: 'amber', icon: BellRing },
     ];
-  }, [baseFiltered, followUp]);
+  }, [baseFiltered, followUp, periodSummary, listCurrency]);
 
   // Reset page when filters change
   useEffect(() => { setCurrentPage(1); }, [searchQuery, activeTab, dateRange, openOnly, advancedFilters]);
@@ -407,10 +427,16 @@ const VisitsListView: React.FC<Props> = ({
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 dark:text-zinc-500">Visit stats</p>
-          <button type="button" onClick={toggleStats}
-            className="text-[10px] font-bold text-seafoam hover:underline active:scale-95 transition">
-            {showStats ? 'Hide' : 'Show'}
-          </button>
+          <span className="flex items-center gap-3">
+            <button type="button" onClick={() => setShowCompare(v => !v)}
+              className={`text-[10px] font-bold hover:underline active:scale-95 transition ${showCompare ? 'text-pine dark:text-zinc-100' : 'text-seafoam'}`}>
+              {showCompare ? 'Close compare' : 'Compare periods'}
+            </button>
+            <button type="button" onClick={toggleStats}
+              className="text-[10px] font-bold text-seafoam hover:underline active:scale-95 transition">
+              {showStats ? 'Hide' : 'Show'}
+            </button>
+          </span>
         </div>
         {showStats && (
           <StatStrip
@@ -422,8 +448,11 @@ const VisitsListView: React.FC<Props> = ({
               setShowFollowUp(false);
               setActiveTab((k && k !== 'ALL' ? k : 'ALL') as any);
             }}
-            cols="grid-cols-2 sm:grid-cols-4 2xl:grid-cols-8"
+            cols="grid-cols-2 sm:grid-cols-3 xl:grid-cols-9"
           />
+        )}
+        {showCompare && (
+          <VisitsCompare clinicIds={scopeIds} current={dateRange} currency={listCurrency} onClose={() => setShowCompare(false)} />
         )}
       </div>
 
@@ -808,7 +837,7 @@ const VisitsListView: React.FC<Props> = ({
                                 <p className="text-slate-400 dark:text-zinc-600 text-[9px] font-bold font-mono leading-none">#{appt.petId || pet?.id}</p>
                               </div>
                               <div className="min-w-0">
-                                <p className="text-pine dark:text-zinc-100 font-black text-sm leading-tight">{appt.pet?.name || pet?.name} <BranchTag clinicId={(appt as any).clinicId} className="align-middle ml-1" /></p>
+                                <p className="text-pine dark:text-zinc-100 font-black text-sm leading-tight">{appt.pet?.name || pet?.name}</p>
                                 {petMetaLine(pet || appt.pet) && <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-bold uppercase tracking-wide truncate max-w-[130px]">{petMetaLine(pet || appt.pet)}</p>}
                                 <p className="text-seafoam dark:text-zinc-500 text-[9px] font-bold mt-0.5 truncate max-w-[130px]">{appt.client?.name || 'Unknown'}</p>
                                 {/* Owning clinic/branch — only when multiple clinics are in scope. */}
