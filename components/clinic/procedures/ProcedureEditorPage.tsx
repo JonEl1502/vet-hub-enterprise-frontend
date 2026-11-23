@@ -90,9 +90,9 @@ const SPAY_SEED: Partial<Draft> = {
     { key: 's4', itemType: 'FEE', customName: 'Recovery & monitoring', name: 'Recovery & monitoring', stageKey: 'recovery', qtyBasis: 'FIXED', quantity: 1, priceOverride: 1000, basePrice: 1000, billable: true, deductStock: false, optional: false },
   ] as DraftItem[],
   pricingRules: [
-    { name: 'In heat', enabled: true, conditions: { inHeat: true }, effects: { feeAmount: 2000, label: 'Heat cycle surcharge' } },
-    { name: 'Pregnant', enabled: true, conditions: { pregnant: true }, effects: { feeAmount: 3000, label: 'Pregnancy surcharge' } },
-    { name: 'Large dog (>25kg)', enabled: true, conditions: { weightMinKg: 25 }, effects: { feeAmount: 1500, label: 'Weight adjustment' } },
+    { name: 'In heat', enabled: true, conditions: { inHeat: true }, effects: { key: 'heat', feeAmount: 2000, label: 'Heat cycle surcharge' } },
+    { name: 'Pregnant', enabled: true, conditions: { pregnant: true }, effects: { key: 'pregnant', feeAmount: 3000, label: 'Pregnancy surcharge' } },
+    { name: 'Large dog (>25kg)', enabled: true, conditions: { weightMinKg: 25 }, effects: { key: 'large', feeAmount: 1500, label: 'Weight adjustment' } },
   ],
 };
 
