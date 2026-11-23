@@ -39,6 +39,8 @@ import { CommunityAccessGateProvider } from './CommunityAccessGate';
 interface Props {
   /** Leaves Community for the clinic app, at the view the user came from. */
   onBackToWork: () => void;
+  /** Opened in its own tab — no 'Back to work' button (2026-11-23). */
+  hideBack?: boolean;
   /** Jumps straight to a work view from the "Your clinic" section. */
   onGoToWorkView: (view: string) => void;
   /** Billing page id differs per audience, so the router supplies it (288). */
@@ -75,7 +77,7 @@ const YOURS: Array<{ key: string; label: string; icon: any }> = [
 ];
 
 const CommunityApp: React.FC<Props> = ({
-  onBackToWork, onGoToWorkView, onGoToBilling, onOrder,
+  onBackToWork, onGoToWorkView, onGoToBilling, onOrder, hideBack,
   waitingCount, workspaceName, workLinks = [],
 }) => {
   const { user } = useAuth();
@@ -309,7 +311,7 @@ const CommunityApp: React.FC<Props> = ({
 
           {/* THE WAY OUT. A bordered pill, not a text link — it is the one
               control that leaves, and it names where it returns to. */}
-          <button
+          {!hideBack && <button
             onClick={onBackToWork}
             className="flex shrink-0 items-center gap-2.5 rounded-xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-[#1A1814] py-1.5 pl-2.5 pr-3 shadow-sm hover:border-seafoam group"
           >
@@ -325,7 +327,7 @@ const CommunityApp: React.FC<Props> = ({
                 {waitingCount} waiting
               </span>
             )}
-          </button>
+          </button>}
 
           {/* Who you are posting AS. The clinic shell carries this and its
               absence here made Community read like a different login. */}

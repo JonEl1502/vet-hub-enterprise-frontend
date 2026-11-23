@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import BranchTag from '../../shared/common/BranchTag';
 import { motion } from 'framer-motion';
 import { ApptStatus, Clinic, Pet } from '../../../types';
 import { Search, Calendar, Plus, ShieldCheck, Users, Phone, Mail, CalendarPlus, CalendarClock, BellPlus, Edit, Trash2, MoreVertical, RefreshCw, X, Loader2, Filter, ChevronDown, AlertTriangle, ArrowRightLeft, Stethoscope } from 'lucide-react';
@@ -755,6 +756,7 @@ const PetsView: React.FC<Props> = ({ clinics, onViewPet, onGenerateAiSummary, lo
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <h3 className="card-title text-sm truncate leading-tight">{pet.name}</h3>
+                            <BranchTag clinicId={(pet as any).clinicId} />
                             <button
                               onClick={(e) => { e.stopPropagation(); onViewPet(pet.id, 'vaccines'); }}
                               className="p-0.5 bg-indigo-50 dark:bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 rounded border border-indigo-100 dark:border-indigo-500/20 hover:scale-110 transition-transform"

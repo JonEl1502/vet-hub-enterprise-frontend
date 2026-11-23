@@ -1,6 +1,7 @@
 
 import { useRememberedRange } from '../../../hooks/useScrollMemory';
 import React, { useState, useMemo, useRef, useEffect } from 'react';
+import BranchTag from '../../shared/common/BranchTag';
 import { Visit, ApptStatus, Pet, User, Clinic } from '../../../types';
 import { CreditCard, MoreVertical, Eye, Workflow, Edit, Trash2, Calendar as CalendarIcon, List, RefreshCw, Home, Building2, RotateCcw, ClipboardList, Layers, Stethoscope, X, Users, ListChecks, Clock, Activity, Wallet, CheckCircle2, XCircle, AlertCircle, BellRing } from 'lucide-react';
 import StatStrip, { StatItem } from '../../shared/stats/StatStrip';
@@ -807,7 +808,7 @@ const VisitsListView: React.FC<Props> = ({
                                 <p className="text-slate-400 dark:text-zinc-600 text-[9px] font-bold font-mono leading-none">#{appt.petId || pet?.id}</p>
                               </div>
                               <div className="min-w-0">
-                                <p className="text-pine dark:text-zinc-100 font-black text-sm leading-tight">{appt.pet?.name || pet?.name}</p>
+                                <p className="text-pine dark:text-zinc-100 font-black text-sm leading-tight">{appt.pet?.name || pet?.name} <BranchTag clinicId={(appt as any).clinicId} className="align-middle ml-1" /></p>
                                 {petMetaLine(pet || appt.pet) && <p className="text-slate-400 dark:text-zinc-500 text-[9px] font-bold uppercase tracking-wide truncate max-w-[130px]">{petMetaLine(pet || appt.pet)}</p>}
                                 <p className="text-seafoam dark:text-zinc-500 text-[9px] font-bold mt-0.5 truncate max-w-[130px]">{appt.client?.name || 'Unknown'}</p>
                                 {/* Owning clinic/branch — only when multiple clinics are in scope. */}

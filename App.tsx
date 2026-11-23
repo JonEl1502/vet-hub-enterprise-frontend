@@ -3510,6 +3510,7 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
       {activeView === 'community' ? (
         <CommunityApp
           onBackToWork={() => (navStack.length > 1 ? goBack() : navigateTo('dashboard'))}
+          hideBack
           onGoToWorkView={(v) => navigateTo(v)}
           onGoToBilling={() => navigateTo(
             String(user?.role) === 'SUPPLIER' ? 'supplier-billing' : 'billing',
@@ -3588,7 +3589,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         ) : (
           <Sidebar
             activeView={activeView}
-            setView={(v) => navigateTo(v)}
+            setView={(v) => {
+              // Community opens in its OWN browser tab (user, 2026-11-23: "open
+              // community in new tab, no back button") — the work stays where
+              // it was in this one.
+              if (v === 'community') { window.open(`/app/community${window.location.search}`, '_blank', 'noopener'); return; }
+              navigateTo(v);
+            }}
             clinic={firstActiveClinic}
             onClinicSwitch={() => {}}
             role={user?.role as UserRole || UserRole.VET}

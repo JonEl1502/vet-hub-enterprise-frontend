@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
+import BranchTag from '../../shared/common/BranchTag';
 import { motion } from 'framer-motion';
 import { ApptStatus, Client, FULL_ACCESS_ROLES, UserRole } from '../../../types';
 import { Transaction } from '../../../services/modules/transactions.api';
@@ -1005,6 +1006,7 @@ const ClientsView: React.FC<ClientsViewProps> = ({ transactions, onViewClient, o
                         <div className="min-w-0">
                           <div className="flex items-center gap-1.5 flex-wrap">
                             <h3 className="text-base font-semibold text-slate-800 dark:text-white truncate">{String(client.name || '')}</h3>
+                            <BranchTag clinicId={(client as any).clinicId} />
                             {hasFullAccess && (
                               <span className={`px-1.5 py-0.5 rounded-md text-[8px] font-black uppercase tracking-widest ${tier.cls}`}>{tier.label}</span>
                             )}
