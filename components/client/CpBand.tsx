@@ -2,32 +2,33 @@ import React, { ReactNode } from 'react';
 import type { LucideIcon } from 'lucide-react';
 
 /**
- * The top of every portal screen: a field-green band with the page's name
- * (user, 2026-11-22: "look like a farm product … very beautiful", then "go
- * further" into the inner screens). It wears the same crop-row hero as the
- * farm home, so moving between screens feels like one product instead of a
- * plain title over plain cards.
+ * The top of a portal screen.
  *
- * `.cp-band` styles a `.cp-btn` inside it harvest gold, so a screen's main
- * action can sit in the band without a green button on a green ground.
+ * 2026-11-23 (user): the page's NAME now lives in the top bar as a breadcrumb
+ * under the brand ("My Farm › Store"), so the green title card that sat above
+ * every screen is gone. What is left is the one thing the card still carried:
+ * a line of context and the screen's main action, as a slim row. `title` and
+ * `icon` are kept on the props so call sites don't change; the title is only
+ * read by screen readers.
  */
 const CpBand: React.FC<{
   title: ReactNode;
   subtitle?: ReactNode;
-  /** Small gold line above the title — the section or a greeting. */
   eyebrow?: ReactNode;
   icon?: LucideIcon;
   actions?: ReactNode;
-}> = ({ title, subtitle, eyebrow, icon: Icon, actions }) => (
-  <div className="cp-hero cp-band relative overflow-hidden text-white px-4 py-4 sm:px-6 sm:py-5 flex items-center gap-3 sm:gap-4 flex-wrap">
-    {Icon && <span className="cp-band-badge"><Icon className="w-5 h-5" /></span>}
-    <div className="min-w-0 flex-1">
-      {eyebrow && <p className="text-[11px] font-semibold text-[#f2d58a] truncate">{eyebrow}</p>}
-      <h1 className="text-xl sm:text-2xl font-black text-white leading-tight truncate">{title}</h1>
-      {subtitle && <div className="mt-0.5 text-xs sm:text-sm text-white/75">{subtitle}</div>}
+}> = ({ title, subtitle, eyebrow, actions }) => {
+  if (!subtitle && !eyebrow && !actions) return <h1 className="sr-only">{title}</h1>;
+  return (
+    <div className="flex items-center gap-3 flex-wrap">
+      <h1 className="sr-only">{title}</h1>
+      <div className="min-w-0 flex-1">
+        {eyebrow && <p className="text-[11px] font-semibold cp-accent-text truncate">{eyebrow}</p>}
+        {subtitle && <div className="text-xs cp-muted">{subtitle}</div>}
+      </div>
+      {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
     </div>
-    {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
-  </div>
-);
+  );
+};
 
 export default CpBand;

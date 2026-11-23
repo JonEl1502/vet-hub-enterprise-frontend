@@ -1048,9 +1048,18 @@ const ClientFarmAnimals: React.FC<Props> = ({ farmId, groups, tier, onChanged, o
 
 export default ClientFarmAnimals;
 
-/** The free-tier Animals screen: every group with its count; details on the plan. */
+/**
+ * The free-tier Animals screen: every group with its count. Opening one shows a
+ * snackbar just above the bottom bar (user, 2026-11-23: "prompt them with a
+ * snack bar … you need to be in Farmer Plus or Farmer Pro to view that").
+ */
 const FreeGroups: React.FC<{ groups: Props['groups']; onUpgrade: () => void }> = ({ groups, onUpgrade }) => {
-  const [opened, setOpened] = useState<Props['groups'][number] | null>(null);
+  const [snack, setSnack] = useState<string | null>(null);
+  useEffect(() => {
+    if (!snack) return;
+    const t = window.setTimeout(() => setSnack(null), 4500);
+    return () => window.clearTimeout(t);
+  }, [snack]);
   return (
     <div className="space-y-4">
       {groups.length === 0 ? (
@@ -1066,51 +1075,45 @@ const FreeGroups: React.FC<{ groups: Props['groups']; onUpgrade: () => void }> =
             </span>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-px bg-slate-100">
-            {groups.map((g) => {
-              const on = opened?.id === g.id;
-              return (
-                <button key={g.id} type="button" onClick={() => setOpened(on ? null : g)}
-                  className={`text-left p-4 bg-[var(--cp-surface)] hover:bg-black/[0.02] transition-colors ${on ? 'ring-2 ring-inset ring-emerald-500/50' : ''}`}>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="text-sm font-bold text-slate-800 truncate">{g.name}</p>
-                      <p className="text-[11px] text-slate-500 truncate">{[g.species, g.breed].filter(Boolean).join(' · ')}</p>
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-2xl font-black text-slate-800 dark:text-zinc-100 leading-none tabular-nums">{g.headCount}</p>
-                      <p className="text-[9px] uppercase tracking-widest text-slate-400 mt-1">{speciesConfig(g.species).headNoun}</p>
-                    </div>
+            {groups.map((g) => (
+              <button key={g.id} type="button" onClick={() => setSnack(g.name)}
+                className="text-left p-4 bg-[var(--cp-surface)] hover:bg-black/[0.02] active:scale-[0.99] transition">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-bold text-slate-800 truncate">{g.name}</p>
+                    <p className="text-[11px] text-slate-500 truncate">{[g.species, g.breed].filter(Boolean).join(' · ')}</p>
                   </div>
-                  <p className="mt-2.5 text-[10px] font-bold cp-accent-text flex items-center gap-1">
-                    <Lock size={10} /> Each animal, weights and history on Farmer plan
-                  </p>
-                </button>
-              );
-            })}
+                  <div className="text-right shrink-0">
+                    <p className="text-2xl font-black text-slate-800 dark:text-zinc-100 leading-none tabular-nums">{g.headCount}</p>
+                    <p className="text-[9px] uppercase tracking-widest text-slate-400 mt-1">{speciesConfig(g.species).headNoun}</p>
+                  </div>
+                </div>
+                <p className="mt-2.5 text-[10px] font-bold cp-accent-text flex items-center gap-1">
+                  <Lock size={10} /> Each animal on Farmer Plus or Farmer Pro
+                </p>
+              </button>
+            ))}
           </div>
         </div>
       )}
 
-      <div className="cp-card p-5 sm:p-6">
-        <Sparkles size={20} className="cp-accent-text" />
-        <p className="mt-2 text-sm font-black text-slate-800 dark:text-zinc-100">
-          {opened ? `See every animal in ${opened.name}` : 'See inside each group on the Farmer plan'}
-        </p>
-        <p className="mt-1 text-xs text-slate-500 leading-relaxed max-w-lg">
-          Your groups and their counts stay free. Opening a group to each animal —
-          its name, breed, sex, tag number and weight history — is a Farmer-plan feature.
-        </p>
-        <ul className="mt-3 grid gap-1.5 sm:grid-cols-2 text-[11px] text-slate-600 dark:text-zinc-300">
-          {['Name, breed, sex, age and tag number', 'Weight history over time',
-            'Feeding plans, produce and vet visits', 'Full record history'].map((f) => (
-            <li key={f} className="flex items-start gap-1.5">
-              <span className="mt-1 w-1 h-1 rounded-full bg-current shrink-0 opacity-50" />{f}
-            </li>
-          ))}
-        </ul>
-        <button className="cp-btn mt-4" onClick={onUpgrade}>See the farm plans</button>
-      </div>
+      {snack && (
+        <div role="status" aria-live="polite"
+          className="fixed left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1.5rem)] max-w-md md:bottom-6 cp-tile-in"
+          style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 74px)' }}>
+          <div className="flex items-center gap-3 rounded-2xl px-4 py-3 shadow-2xl text-white" style={{ background: '#1b3520' }}>
+            <Lock size={16} className="shrink-0 text-[#f2d58a]" />
+            <p className="flex-1 min-w-0 text-[12px] font-semibold leading-snug">
+              You need <b>Farmer Plus</b> or <b>Farmer Pro</b> to view the animals in {snack}.
+            </p>
+            <button type="button" onClick={() => { setSnack(null); onUpgrade(); }}
+              className="shrink-0 px-3 py-1.5 rounded-xl text-[11px] font-bold text-[#2e2104]"
+              style={{ background: 'linear-gradient(135deg,#f6cf62,#e0a72a)' }}>
+              See plans
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
-

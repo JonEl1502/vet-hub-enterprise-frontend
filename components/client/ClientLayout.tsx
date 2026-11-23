@@ -194,6 +194,28 @@ const ClientLayout: React.FC = () => {
   const moreActive = moreTabs.some((t) => pathname === t.to || pathname.startsWith(`${t.to}/`));
   const moreBadge = moreTabs.reduce((n, t) => n + badgeFor(t.to), 0);
 
+  /** The breadcrumb under the brand. Farm screens sit under "My Farm". */
+  const crumbs = (() => {
+    const farm = mode === 'FARM';
+    const map: Array<[RegExp, string[]]> = [
+      [/^\/client\/farm\/animals/, ['My Farm', 'My Animals']],
+      [/^\/client\/farm\/store/, ['My Farm', 'Store']],
+      [/^\/client\/farm\/medical/, ['My Farm', 'Medical']],
+      [/^\/client\/farm\/?$/, ['My Farm']],
+      [/^\/client\/market/, farm ? ['My Farm', 'Market'] : ['Market']],
+      [/^\/client\/pets\/.+/, ['My Pets', 'Pet']],
+      [/^\/client\/pets/, ['My Pets']],
+      [/^\/client\/appointments\/.+/, ['Visits', 'Visit']],
+      [/^\/client\/appointments/, ['Visits']],
+      [/^\/client\/messages/, ['Messages']],
+      [/^\/client\/community/, ['Community']],
+      [/^\/client\/invoices/, ['Invoices']],
+      [/^\/client\/settings/, ['Profile']],
+      [/^\/client\/plan/, ['Your plan']],
+    ];
+    return map.find(([re]) => re.test(pathname))?.[1] ?? [farm ? 'My Farm' : 'Home'];
+  })();
+
   const displayName = user?.name || user?.email || '';
   const initial = displayName.trim().charAt(0).toUpperCase() || '?';
 
@@ -231,11 +253,23 @@ const ClientLayout: React.FC = () => {
           a sticky navbar then spans only the viewport while the body does not,
           which is exactly what the user screenshotted. */}
       <header className="cp-topnav shrink-0 z-20 flex items-center justify-between gap-2 px-4 sm:px-6 h-16">
-        <div className="flex items-center gap-2.5 font-black text-lg min-w-0">
+        {/* Brand on top, where you are underneath (user, 2026-11-23: the page
+            name moves up here as a breadcrumb, instead of a card on every page). */}
+        <div className="flex items-center gap-2.5 min-w-0">
           <span className="cp-logo-mark w-9 h-9 rounded-xl flex items-center justify-center p-1 shrink-0">
             <BrandMark variant="v2" title="VetHubCore" />
           </span>
-          <span className="truncate">VetHubCore</span>
+          <span className="min-w-0 leading-none">
+            <span className="block text-[15px] font-black truncate">VetHubCore</span>
+            <span className="mt-1 flex items-center gap-1 text-[11px] font-semibold text-[#f2d58a] truncate" aria-label="You are here">
+              {crumbs.map((c, i) => (
+                <React.Fragment key={c}>
+                  {i > 0 && <span className="opacity-60">›</span>}
+                  <span className={i === crumbs.length - 1 ? '' : 'opacity-75'}>{c}</span>
+                </React.Fragment>
+              ))}
+            </span>
+          </span>
         </div>
         <div className="flex items-center gap-2 sm:gap-3 min-w-0">
           {/* Pets ⇄ Farm — shown only to an account that holds both, so a

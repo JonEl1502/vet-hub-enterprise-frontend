@@ -69,6 +69,15 @@ export const FarmStoreCard: React.FC<{ farmId: string }> = ({ farmId }) => {
   );
 };
 
+/** The store's tabs (user, 2026-11-23): feeds, salts, liquids and other consumables. */
+const STORE_TABS: Array<{ key: string; label: string; cats: string[] }> = [
+  { key: 'ALL', label: 'All', cats: [] },
+  { key: 'FEEDS', label: 'Feeds', cats: ['FEED', 'FORAGE'] },
+  { key: 'SALTS', label: 'Salts & minerals', cats: ['SALT', 'MINERAL'] },
+  { key: 'LIQUIDS', label: 'Liquids', cats: ['WATER', 'CALF_MILK'] },
+  { key: 'OTHER', label: 'Other consumables', cats: ['DRUG', 'SUPPLY'] },
+];
+
 type Dialog = { kind: 'ADD' } | { kind: 'STOCK'; item: FarmStockItem } | { kind: 'COUNT'; item: FarmStockItem } | { kind: 'HISTORY'; item: FarmStockItem } | { kind: 'UNITS'; item: FarmStockItem } | null;
 
 const ClientFarmStore: React.FC = () => {
@@ -78,6 +87,7 @@ const ClientFarmStore: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [dialog, setDialog] = useState<Dialog>(null);
+  const [tab, setTab] = useState('ALL');
   const navigate = useNavigate();
 
   // add item
@@ -193,16 +203,56 @@ const ClientFarmStore: React.FC = () => {
     </>
   );
 
-  const groupsByCat = STOCK_CATEGORIES.map((c) => ({ c, rows: items.filter((i) => i.category === c.key) })).filter((g) => g.rows.length);
+  const activeTab = STORE_TABS.find((t) => t.key === tab) ?? STORE_TABS[0];
+  const shown = tab === 'ALL' ? items : items.filter((i) => activeTab.cats.includes(i.category));
+  const groupsByCat = STOCK_CATEGORIES.map((c) => ({ c, rows: shown.filter((i) => i.category === c.key) })).filter((g) => g.rows.length);
 
   return (
     <div className="space-y-4">
-      <CpBand
-        icon={Package}
-        title="Store"
-        subtitle="Feed, salt, drugs and supplies on hand"
-        actions={<button className="cp-btn !py-2 !px-3.5 !text-xs flex items-center gap-1.5" onClick={() => open({ kind: 'ADD' })}><Plus size={14} /> Add item</button>}
-      />
+      <CpBand title="Store" />
+
+      {/* What the store holds, in three numbers (user, 2026-11-23: "a
+          statistics tab showing total feed by weight or litres … or total
+          items in store"). */}
+      {items.length > 0 && (() => {
+        const kg = items.filter((i) => i.baseUnit === 'KG' && (i.category === 'FEED' || i.category === 'FORAGE')).reduce((n, i) => n + i.quantity, 0);
+        const litres = items.filter((i) => i.baseUnit === 'L').reduce((n, i) => n + i.quantity, 0);
+        const low = items.filter((i) => i.low || i.empty).length;
+        const tiles: Array<[string, string, string, string]> = [
+          ['Feed by weight', `${Math.round(kg * 10) / 10} kg`, 'bg-amber-50 border-amber-200 text-amber-950 dark:bg-amber-500/10 dark:border-amber-500/25 dark:text-amber-50', 'feeds and forage'],
+          ['Liquids', `${Math.round(litres * 10) / 10} L`, 'bg-sky-50 border-sky-200 text-sky-950 dark:bg-sky-500/10 dark:border-sky-500/25 dark:text-sky-50', 'water, calf milk'],
+          ['Items in store', String(items.length), 'bg-emerald-50 border-emerald-200 text-emerald-950 dark:bg-emerald-500/10 dark:border-emerald-500/25 dark:text-emerald-50', low ? `${low} low or out` : 'all stocked'],
+        ];
+        return (
+          <div className="grid grid-cols-3 gap-2">
+            {tiles.map(([label, value, tone, sub]) => (
+              <div key={label} className={`rounded-2xl border p-3 h-full ${tone}`}>
+                <p className="text-[10px] font-bold uppercase tracking-wide opacity-70 truncate">{label}</p>
+                <p className="mt-1 text-lg sm:text-xl font-black tabular-nums leading-none">{value}</p>
+                <p className="mt-1 text-[10px] font-semibold opacity-70 truncate">{sub}</p>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* Feeds · Salts · Liquids · Other consumables, with Add beside them. */}
+      <div className="flex items-center gap-2">
+        <div className="flex-1 min-w-0 overflow-x-auto no-scrollbar">
+          <div className="inline-flex min-w-max p-1 rounded-2xl border" style={{ background: 'var(--cp-surface-2)', borderColor: 'var(--cp-border)' }}>
+            {STORE_TABS.map((t) => {
+              const n = t.key === 'ALL' ? items.length : items.filter((i) => t.cats.includes(i.category)).length;
+              return (
+                <button key={t.key} type="button" onClick={() => setTab(t.key)}
+                  className={`px-3.5 py-1.5 rounded-xl text-[12px] font-semibold whitespace-nowrap transition-colors ${tab === t.key ? 'bg-[var(--cp-accent)] text-white shadow-sm' : 'cp-muted hover:text-[var(--cp-ink)]'}`}>
+                  {t.label}{n > 0 ? <span className="ml-1 opacity-70">{n}</span> : null}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <button className="cp-btn !py-2 !px-3.5 !text-xs flex items-center gap-1.5 shrink-0" onClick={() => open({ kind: 'ADD' })}><Plus size={14} /> Add item</button>
+      </div>
 
       {farms.length > 1 && (
         <div className="flex gap-2 overflow-x-auto pb-1">
@@ -219,6 +269,11 @@ const ClientFarmStore: React.FC = () => {
           <p className="mt-2 text-sm font-black text-slate-800 dark:text-zinc-100">Nothing in the store yet</p>
           <p className="text-[11px] text-slate-500 mt-1 max-w-xs mx-auto leading-relaxed">Add dairy meal, hay, salt — whatever you feed. When you record a feeding it comes off the balance.</p>
           <button className="cp-btn mt-4" onClick={() => open({ kind: 'ADD' })}>Add your first item</button>
+        </div>
+      ) : groupsByCat.length === 0 ? (
+        <div className="cp-card px-5 py-8 text-center text-xs text-slate-500">
+          Nothing under {activeTab.label.toLowerCase()} yet.
+          <button className="cp-btn mt-3 mx-auto flex items-center gap-1.5" onClick={() => open({ kind: 'ADD' })}><Plus size={14} /> Add item</button>
         </div>
       ) : groupsByCat.map(({ c, rows }) => (
         <section key={c.key}>
