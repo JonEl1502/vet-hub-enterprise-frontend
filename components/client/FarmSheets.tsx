@@ -101,27 +101,43 @@ export const FarmMoreSheet: React.FC<{
   </Sheet>
 );
 
-/** RECORD — the centre button. Big labelled tiles, two across. */
-export const FarmRecordSheet: React.FC<{ tiles: SheetTile[]; onClose: () => void }> = ({ tiles, onClose }) => (
-  <Sheet onClose={onClose} label="Record something">
-    <div className="px-5 pt-2 pb-3">
-      <p className="text-[16px] font-bold">Record something</p>
-      <p className="text-[12px] cp-muted">What just happened on the farm?</p>
-    </div>
-    <div className="grid grid-cols-2 gap-2.5 px-4 pb-4">
-      {tiles.map((t, i) => (
-        <button key={t.key} type="button" onClick={() => { onClose(); t.onSelect?.(); }}
-          className={`flex items-center gap-3 p-3 rounded-2xl border text-left active:scale-95 transition-transform cp-tile-in ${i === tiles.length - 1 && tiles.length % 2 ? 'col-span-2' : ''}`}
-          style={{ animationDelay: `${50 + i * 40}ms`, borderColor: 'var(--cp-border)', background: 'var(--cp-surface-2)' }}>
-          <span className="w-11 h-11 rounded-xl flex items-center justify-center shrink-0" style={{ background: t.tone[0], color: t.tone[1] }}>
-            <t.icon size={21} />
-          </span>
-          <span className="min-w-0">
-            <span className="block text-[13px] font-bold leading-tight">{t.label}</span>
-            {t.hint && <span className="block text-[11px] cp-muted leading-snug mt-0.5">{t.hint}</span>}
-          </span>
-        </button>
-      ))}
-    </div>
-  </Sheet>
-);
+/**
+ * RECORD — the centre button (user, 2026-11-23: "it should not open a bottom
+ * sheet. It should just open icons … in a grid of 2 … its background should be
+ * very transparent"). Round icons with their names float in two columns just
+ * above the bar, over a barely-there backdrop, so the farm page stays visible.
+ */
+export const FarmRecordSheet: React.FC<{ tiles: SheetTile[]; onClose: () => void }> = ({ tiles, onClose }) => {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', k);
+    return () => window.removeEventListener('keydown', k);
+  }, [onClose]);
+  return createPortal(
+    <div className="md:hidden fixed inset-0 z-[60]" role="dialog" aria-label="Record something" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/10 cp-backdrop-in" />
+      <div
+        className="absolute inset-x-0 flex justify-center px-6"
+        style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 96px)' }}
+      >
+        <div className="grid grid-cols-2 gap-x-10 gap-y-4" onClick={(e) => e.stopPropagation()}>
+          {tiles.map((t, i) => (
+            <button key={t.key} type="button" onClick={() => { onClose(); t.onSelect?.(); }}
+              className={`flex flex-col items-center gap-1.5 active:scale-90 transition-transform cp-tile-in ${i === tiles.length - 1 && tiles.length % 2 ? 'col-span-2' : ''}`}
+              style={{ animationDelay: `${(tiles.length - 1 - i) * 40}ms` }}>
+              <span className="w-14 h-14 rounded-full flex items-center justify-center shadow-lg"
+                style={{ background: t.tone[0], color: t.tone[1], boxShadow: '0 8px 20px -8px rgba(0,0,0,0.45)' }}>
+                <t.icon size={24} />
+              </span>
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-bold leading-tight"
+                style={{ background: 'color-mix(in srgb, var(--cp-surface) 85%, transparent)', color: 'var(--cp-ink)' }}>
+                {t.label}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
+    </div>,
+    document.querySelector('.client-portal') ?? document.body,
+  );
+};
