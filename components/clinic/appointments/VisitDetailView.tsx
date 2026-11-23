@@ -1,5 +1,6 @@
 
 import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
+import { askUnfinishedRecords } from '../shared/unfinishedRecords';
 import { petSexLabel } from '../../../utils/pet';
 import LoadingSpinner from '../../shared/common/LoadingSpinner';
 import { createPortal } from 'react-dom';
@@ -566,15 +567,10 @@ const VisitDetailInner: React.FC<Props> = ({
         toast.error(e?.message || 'Something went wrong');
         return;
       }
-      const list = open.map(r => `• ${r.kind}: ${r.name} — ${r.status}`).join('\n');
-      const ok = await dialog.confirm({
-        title: open.length === 1 ? '1 record is still open' : `${open.length} records are still open`,
-        message: `${list}\n\nApproving locks the clinical record, so anything unfinished now stays unfinished. Finish them first — or bill anyway if the client is paying up front.`,
-        confirmLabel: 'Bill anyway',
-        cancelLabel: open.length ? `Open ${open[0].kind.toLowerCase()}: ${open[0].name}` : 'Go finish them',
-        variant: 'danger',
-      });
-      if (!ok) { openUnfinishedRecord(open[0]); return; }
+      // Every open record gets its own way in (2026-11-23).
+      const choice = await askUnfinishedRecords(open);
+      if (choice.action === 'open') { openUnfinishedRecord(choice.rec); return; }
+      if (choice.action === 'close') return;
       try {
         const res2 = await billsAPI.approve(appointment.id, undefined, { acknowledgeIncomplete: true });
         if (res2?.success && res2.data?.bill) setLiveBill(res2.data.bill);
