@@ -37,7 +37,18 @@ interface Props {
   onClose: () => void;
 }
 
-const VisitsCompare: React.FC<Props> = ({ clinicIds, current, currency, onClose }) => {
+const VisitsCompare: React.FC<Props> = ({ clinicIds, current: rawCurrent, currency, onClose }) => {
+  // An open-ended range ("from today on", ending 2099) has no meaningful
+  // length to compare against — it made "previous period" reach back to 1953.
+  // Anything ending more than a year out is compared up to today.
+  const current: DateRange = React.useMemo(() => {
+    const farOut = Date.now() + 366 * 86400000;
+    if (rawCurrent.start && rawCurrent.end && new Date(rawCurrent.end).getTime() > farOut) {
+      const today = dayEnd(new Date());
+      return { start: rawCurrent.start, end: new Date(rawCurrent.start) > today ? dayEnd(new Date(rawCurrent.start)) : today };
+    }
+    return rawCurrent;
+  }, [rawCurrent.start?.toString(), rawCurrent.end?.toString()]); // eslint-disable-line react-hooks/exhaustive-deps
   const [other, setOther] = useState<DateRange | null>(null);
   const [a, setA] = useState<VisitSummary | null>(null);
   const [b, setB] = useState<VisitSummary | null>(null);
