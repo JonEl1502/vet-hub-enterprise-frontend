@@ -1098,10 +1098,12 @@ const FreeGroups: React.FC<{ groups: Props['groups']; onUpgrade: () => void }> =
       )}
 
       {snack && (
+        // Centred by a full-width wrapper, NOT translate-x: the slide-in
+        // animation sets `transform` and would undo a translate centring.
         <div role="status" aria-live="polite"
-          className="fixed left-1/2 -translate-x-1/2 z-40 w-[calc(100%-1.5rem)] max-w-md md:bottom-6 cp-tile-in"
+          className="fixed inset-x-0 z-40 flex justify-center px-3 pointer-events-none md:bottom-6"
           style={{ bottom: 'calc(env(safe-area-inset-bottom, 0px) + 74px)' }}>
-          <div className="flex items-center gap-3 rounded-2xl px-4 py-3 shadow-2xl text-white" style={{ background: '#1b3520' }}>
+          <div className="pointer-events-auto w-full max-w-md flex items-center gap-3 rounded-2xl px-4 py-3 shadow-2xl text-white cp-tile-in" style={{ background: '#1b3520' }}>
             <Lock size={16} className="shrink-0 text-[#f2d58a]" />
             <p className="flex-1 min-w-0 text-[12px] font-semibold leading-snug">
               You need <b>Farmer Plus</b> or <b>Farmer Pro</b> to view the animals in {snack}.
