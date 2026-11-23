@@ -448,7 +448,7 @@ const VisitsListView: React.FC<Props> = ({
               setShowFollowUp(false);
               setActiveTab((k && k !== 'ALL' ? k : 'ALL') as any);
             }}
-            cols="grid-cols-2 sm:grid-cols-3 xl:grid-cols-9"
+            cols="grid-cols-2 sm:grid-cols-3 lg:grid-cols-5"
           />
         )}
         {showCompare && (
