@@ -582,3 +582,15 @@ export function defaultAudienceForRole(role: string, org?: OrgContext): Audience
     default:               return 'clinic';
   }
 }
+
+/**
+ * Every page id the clinic menu can open (leaves, incl. sub-items and the
+ * billable / procurement groups). App.canAccess uses it to apply a role's
+ * sidebar allow-list to deep links too (2026-11-23).
+ */
+export const CLINIC_MENU_PAGE_IDS: Set<string> = (() => {
+  const out = new Set<string>();
+  const walk = (items: MenuItem[]) => items.forEach(i => (i.subItems?.length ? walk(i.subItems) : out.add(i.id)));
+  walk(CLINIC_ITEMS); walk([BILLABLE_ITEMS_MENU, INVENTORY_PROCUREMENT_MENU]);
+  return out;
+})();

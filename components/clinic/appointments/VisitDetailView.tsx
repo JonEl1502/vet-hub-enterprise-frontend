@@ -79,6 +79,7 @@ import { useKeyboardShortcuts } from '../../../hooks/useKeyboardShortcuts';
 import KeyboardShortcutsHelp from '../../shared/common/KeyboardShortcutsHelp';
 import { useData } from '../../../contexts/DataContext';
 import { useAuth } from '../../../contexts/AuthContext';
+import { MONEY_DESK_ROLES, MONEY_DESK_VISIT_TABS } from '../../../constants/roles';
 import ErrorDialog from '../../shared/common/ErrorDialog';
 import { can } from '../../../constants/modulePermissions';
 
@@ -1833,6 +1834,11 @@ const VisitDetailInner: React.FC<Props> = ({
   // holds `clinical:view` without `clinical:edit`, so the clinical tabs render
   // read-only for them. Mirrored on every clinical write route server-side.
   const canWriteClinical = can(currentUser, 'clinical:edit');
+  const isMoneyDesk = MONEY_DESK_ROLES.has(String(currentUser?.role));
+  // A desk user who lands on a clinical tab is moved to the bill.
+  useEffect(() => {
+    if (isMoneyDesk && !MONEY_DESK_VISIT_TABS.has(workflowTab)) setWorkflowTab('billing');
+  }, [isMoneyDesk, workflowTab]);
   useEffect(() => {
     if (!appointment.clinicId || !canManageGateways) { setGatewayConfigs([]); return; }
     paymentGatewaysAPI.list(appointment.clinicId, { showError: false })
@@ -4600,7 +4606,11 @@ const VisitDetailInner: React.FC<Props> = ({
                It exists only while a payment is open — switching away closes it,
                so the strip goes back to normal until Settle invoice is pressed
                again ("if user switches from it it shhould close"). */
-            ...(showSettleModal ? [{ id: 'settle', label: `💳 ${billStage === 'PAY_FIRST' ? 'Collect Payment' : 'Settle Invoice'}` }] : [])];
+            ...(showSettleModal ? [{ id: 'settle', label: `💳 ${billStage === 'PAY_FIRST' ? 'Collect Payment' : 'Settle Invoice'}` }] : [])]
+    // Front office and billing see the money side only (user, 2026-11-23):
+    // bill, invoice, receipt, payment, partners and follow-up — never the
+    // clinical workflow, records and reports, triage or admission.
+    .filter(t => !isMoneyDesk || MONEY_DESK_VISIT_TABS.has(t.id));
 
   // The "Go to" menu: every tab, then the documents inside Bill & Invoice, then
   // the hand-offs that used to take up room on the bar itself.
@@ -4619,10 +4629,10 @@ const VisitDetailInner: React.FC<Props> = ({
         go: () => goToBill('receipt'),
       },
     ] : []),
-    { id: 'doc-report', label: 'Medical report', icon: FileText, active: workflowTab === 'records' && activeBottomTab === 'report', go: () => { setWorkflowTab('records'); setActiveBottomTab('report'); } },
-    { id: 'doc-meds', label: 'Meds & consumables', icon: Pill, active: workflowTab === 'records' && activeBottomTab === 'medications', go: () => { setWorkflowTab('records'); setActiveBottomTab('medications'); } },
+    ...(isMoneyDesk ? [] : [{ id: 'doc-report', label: 'Medical report', icon: FileText, active: workflowTab === 'records' && activeBottomTab === 'report', go: () => { setWorkflowTab('records'); setActiveBottomTab('report'); } },
+    { id: 'doc-meds', label: 'Meds & consumables', icon: Pill, active: workflowTab === 'records' && activeBottomTab === 'medications', go: () => { setWorkflowTab('records'); setActiveBottomTab('medications'); } }]),
   ];
-  const goMenuEncounters = appointment.isPaid ? [] : addEncounterOptions(appointment, wiz.availableEntries);
+  const goMenuEncounters = appointment.isPaid || isMoneyDesk ? [] : addEncounterOptions(appointment, wiz.availableEntries);
 
   return (
     <div ref={billBarRootRef} className="space-y-6 animate-in slide-in-from-bottom-2 duration-300 pb-20">

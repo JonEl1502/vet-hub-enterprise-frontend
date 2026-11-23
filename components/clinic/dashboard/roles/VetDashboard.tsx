@@ -2,6 +2,7 @@ import React from 'react';
 import { Stethoscope, Scissors, BedDouble, AlertTriangle, Plus, FlaskConical, ChevronRight } from 'lucide-react';
 import { Visit, ApptStatus } from '../../../../types';
 import { remindersAPI, Reminder } from '../../../../services';
+import { appointmentsAPI } from '../../../../services/modules/appointmentBookings.api';
 import { formatTime } from '../../../../services/utils/dateFormatter';
 import {
   StatRow, RoleCard, EmptyNote, QueueColumn, QueueRow,
@@ -45,6 +46,25 @@ const VetDashboard: React.FC<Props> = ({ visits, currency, vetUserId, onNavigate
       .catch(() => { /* alerts panel just stays light */ });
     return () => { alive = false; };
   }, []);
+
+  // BOOKED FOR YOU (2026-11-23): the front office books a patient for a
+  // doctor; it lands here with its time, and refreshes the moment the alert
+  // arrives. REQUESTED = the front office has not confirmed it yet.
+  const [booked, setBooked] = React.useState<any[]>([]);
+  const loadBooked = React.useCallback(() => {
+    if (!vetUserId) return;
+    const day = range?.start ?? new Date().toISOString().slice(0, 10);
+    const end = range?.end ?? day;
+    appointmentsAPI.list({ leadStaffId: vetUserId, from: new Date(`${day}T00:00:00`).toISOString(), to: new Date(`${end}T23:59:59`).toISOString(), withNames: true }, { silent: true } as any)
+      .then((r: any) => { if (r?.success) setBooked((r.data?.appointments || []).filter((b: any) => ['REQUESTED', 'CONFIRMED', 'RESCHEDULED'].includes(String(b.status)))); })
+      .catch(() => {});
+  }, [vetUserId, range?.start, range?.end]);
+  React.useEffect(() => { loadBooked(); }, [loadBooked]);
+  React.useEffect(() => {
+    const on = (e: any) => { const t = e?.detail?.type; if (t === 'booking.assigned' || t === 'visit.assigned' || t === 'booking.updated') loadBooked(); };
+    window.addEventListener('vethub:stream', on);
+    return () => window.removeEventListener('vethub:stream', on);
+  }, [loadBooked]);
 
   const today = visitsInRange(visits, range);
   // "Mine" when the visit names this vet as lead; otherwise the whole day.
@@ -153,6 +173,28 @@ const VetDashboard: React.FC<Props> = ({ visits, currency, vetUserId, onNavigate
           )}
         </RoleCard>
       </div>
+
+      {vetUserId && (
+        <RoleCard title="Booked for you" subtitle={`${booked.length} ${booked.length === 1 ? 'booking' : 'bookings'} · by the front office`}>
+          {booked.length === 0 ? <EmptyNote>No bookings for you {range?.isToday === false ? 'in this period' : 'today'}</EmptyNote> : (
+            <div className="space-y-1.5">
+              {booked.map((b: any) => (
+                <button key={b.id} type="button" onClick={() => onNavigate?.('appointment-bookings')}
+                  className="w-full flex items-center gap-3 px-2.5 py-2 rounded-xl border border-slate-100 dark:border-zinc-800 hover:border-seafoam transition-all text-left">
+                  <span className="shrink-0 w-16 text-[10px] font-black tabular-nums text-slate-400">{formatTime(b.scheduledAt)}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-black text-pine dark:text-zinc-100 truncate">{b.petName ?? 'Patient'}{b.clientName ? ` · ${b.clientName}` : ''}</span>
+                    <span className="block text-[9px] font-bold text-slate-400 truncate">{String(b.visitType || b.encounterType || 'VET_VISIT').replace(/_/g, ' ').toLowerCase()}{b.note ? ` · ${b.note}` : ''}</span>
+                  </span>
+                  <span className={`shrink-0 px-2 py-0.5 rounded-md text-[9px] font-black uppercase ${String(b.status) === 'CONFIRMED' ? 'bg-emerald-500/10 text-emerald-600' : 'bg-amber-500/10 text-amber-600'}`}>
+                    {String(b.status) === 'CONFIRMED' ? 'Confirmed' : String(b.status) === 'RESCHEDULED' ? 'Moved' : 'To confirm'}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+        </RoleCard>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 items-start">
         <RoleCard title="Today's schedule" subtitle="In time order" className="xl:col-span-2">

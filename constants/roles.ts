@@ -54,6 +54,26 @@ export const isPlatformAdmin = (role?: string | null): boolean =>
 export const FRONT_DESK_ROLES = new Set<string>([UserRole.FRONT_OFFICE, UserRole.RECEPTIONIST]);
 /** Sidebar groups the front desk never sees, whatever else they are granted. */
 export const DESK_HIDDEN_MENUS = new Set(['farm_menu', 'billable_menu']);
+/**
+ * Roles that run the DESK and the MONEY, not the clinical record (user,
+ * 2026-11-23: "front office … they do not go to see the workflow … someone
+ * else who only handles billing … only sees the bills"). On a visit they see
+ * Bill & Invoice, Settle, Shares & Partners and Follow-up — never the clinical
+ * workflow, records and reports, triage or admission.
+ */
+export const MONEY_DESK_ROLES = new Set<string>([UserRole.FRONT_OFFICE, UserRole.RECEPTIONIST, UserRole.CASHIER, UserRole.ACCOUNTANT]);
+/** Visit tabs those roles may open. */
+export const MONEY_DESK_VISIT_TABS = new Set(['billing', 'settle', 'partnerbill', 'shares', 'followup', 'transfer']);
+/**
+ * Roles whose sidebar is an ALLOW-LIST (user, 2026-11-23: groomers get
+ * "grooming, dashboard, reminders, appointment and visits" and nothing else —
+ * no emergency, inpatient, petshop, pharmacy, inventory, partners, farm,
+ * finance, clinic management or billing). Enforced in the sidebar AND in
+ * App.canAccess, because hiding a menu entry is not access control.
+ */
+export const ROLE_MENU_ALLOW: Partial<Record<string, Set<string>>> = {
+  [UserRole.GROOMER]: new Set(['dashboard', 'reminders', 'appointment-bookings', 'appointments', 'grooming']),
+};
 /** Procurement pages. Hidden from the desk unless the owner grants Suppliers. */
 export const PROCUREMENT_VIEWS = new Set(['purchase-orders', 'purchase-order-detail', 'purchase-order-form', 'payables', 'suppliers', 'supplier-detail']);
 

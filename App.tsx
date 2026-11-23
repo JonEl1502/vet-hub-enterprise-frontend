@@ -172,7 +172,8 @@ import OwnerDashboard from './components/clinic/dashboard/roles/OwnerDashboard';
 // Grouped module permissions — "access page + create/edit/delete", named the
 // way the sidebar names the page (user, 2026-08-04).
 import { VIEW_TO_MODULE, canOpenView, can } from './constants/modulePermissions';
-import { FRONT_DESK_ROLES } from './constants/roles';
+import { FRONT_DESK_ROLES, ROLE_MENU_ALLOW, MONEY_DESK_ROLES } from './constants/roles';
+import { CLINIC_MENU_PAGE_IDS } from './components/shared/layout/sidebar/menus';
 import LoadingSpinner from './components/shared/common/LoadingSpinner';
 import TourOverlay from './components/shared/common/tours/TourOverlay';
 import TourMenu from './components/shared/common/tours/TourMenu';
@@ -805,6 +806,13 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
   const [isDeletingTask, setIsDeletingTask] = useState(false);
 
   const [isCreatingAppointment, setIsCreatingAppointment] = useState(false);
+  /** Front office just created a visit — the confirmation overlay (2026-11-23). */
+  const [deskCreated, setDeskCreated] = useState<{ count: number; doctor: string | null } | null>(null);
+  useEffect(() => {
+    if (!deskCreated) return;
+    const t = window.setTimeout(() => setDeskCreated(null), 3500);
+    return () => window.clearTimeout(t);
+  }, [deskCreated]);
   const [isUpdatingAppointment, setIsUpdatingAppointment] = useState(false);
 
   // Purchase Order state
@@ -2260,6 +2268,12 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
     const hasFullAccess = FULL_ACCESS_ROLES.includes(role);
     const hasPerm = (perm: string) => hasFullAccess || perms.includes(perm);
 
+    // Allow-list roles (groomer, 2026-11-23): a menu page outside their list is
+    // closed even by deep link. Detail pages (a visit, a client) are not menu
+    // pages and stay reachable from the work they are given.
+    const allow = ROLE_MENU_ALLOW[String(role)];
+    if (allow && CLINIC_MENU_PAGE_IDS.has(view) && !allow.has(view)) return false;
+
     // Emergency is full access — reachable by every clinic user, always.
     if (view === 'emergency') return true;
 
@@ -2610,7 +2624,8 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                 else toast.success(`Group visit registered — ${createdIds.length} animals${owners > 1 ? ` across ${owners} owners (billed separately)` : ''}, one visit each.`);
                 await refreshAppointments();
                 // Open the first animal's workflow (Book & Start) or the list.
-                if (appointmentData.startNow) navigateTo('appointment-detail', { appointmentId: Number(createdIds[0]) });
+                if (MONEY_DESK_ROLES.has(String(user?.role))) { setDeskCreated({ count: createdIds.length, doctor: appointmentData.leadStaffName ?? null }); navigateTo('dashboard'); }
+                else if (appointmentData.startNow) navigateTo('appointment-detail', { appointmentId: Number(createdIds[0]) });
                 else navigateTo('appointments');
                 return;
               }
@@ -2630,7 +2645,11 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
                 await refreshAppointments();
                 stashWorkflowPick(newVisitId); stashGateCheck(newVisitId); void applyPickedProcedure(newVisitId);
                 // Book & Start → straight into the new visit's clinical workflow.
-                if (appointmentData.startNow && newVisitId) navigateTo('appointment-detail', { appointmentId: Number(newVisitId) });
+                // Front office / billing (user, 2026-11-23): their job ends at
+                // creating the visit — a confirmation, then back to the
+                // dashboard. The doctor picks it up from their queue.
+                if (MONEY_DESK_ROLES.has(String(user?.role))) { setDeskCreated({ count: 1, doctor: appointmentData.leadStaffName ?? null }); navigateTo('dashboard'); }
+                else if (appointmentData.startNow && newVisitId) navigateTo('appointment-detail', { appointmentId: Number(newVisitId) });
                 else navigateTo('appointments');
               } else {
                 console.error('❌ Failed to create appointment:', response.message);
@@ -3774,6 +3793,20 @@ const App: React.FC<AppProps> = ({ initialAuthView = 'landing' }) => {
         warning={deleteDialogConfig?.warning}
         tone={deleteDialogConfig?.tone}
       />
+
+      {/* Front office: visit created → confirmation, already back on the dashboard. */}
+      {deskCreated && (
+        <div className="fixed inset-0 z-[900] flex items-center justify-center p-4 bg-black/40 backdrop-blur-[2px]" onClick={() => setDeskCreated(null)} role="dialog" aria-label="Visit created">
+          <div className="w-full max-w-sm rounded-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 shadow-2xl p-6 text-center" onClick={e => e.stopPropagation()}>
+            <div className="mx-auto w-14 h-14 rounded-full bg-emerald-500/15 text-emerald-600 flex items-center justify-center text-2xl">✓</div>
+            <p className="mt-3 text-base font-black text-pine dark:text-zinc-100">{deskCreated.count > 1 ? `${deskCreated.count} visits created` : 'Visit created'}</p>
+            <p className="mt-1 text-sm text-slate-500 dark:text-zinc-400">
+              {deskCreated.doctor ? <>Sent to <b>{deskCreated.doctor}</b>'s queue — they have been alerted.</> : 'It is in the queue for the clinical team.'}
+            </p>
+            <button type="button" onClick={() => setDeskCreated(null)} className="mt-4 w-full py-2.5 rounded-xl bg-pine text-white text-sm font-bold">Back to dashboard</button>
+          </div>
+        </div>
+      )}
 
       {/* Tour overlay + module picker */}
       <TourOverlay />

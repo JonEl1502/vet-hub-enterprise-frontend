@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Plus, Loader2, X, Search, Play } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useReferenceData } from '../../../contexts/ReferenceDataContext';
+import { useStaff } from '../../../contexts/StaffContext';
 import { appointmentsAPI, visitsAPI, Appointment } from '../../../services';
 import { VISIT_TYPES } from '../../../types';
 import UpcomingForPet from '../shared/UpcomingForPet';
@@ -104,6 +105,13 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
   const [visitType, setVisitType] = useState(rawPrefillEncounter === 'VACCINATION' ? 'VACCINATION' : 'CONSULTATION');
   const [isHouseCall, setIsHouseCall] = useState(rawPrefillEncounter === 'HOUSE_CALL');
   const [note, setNote] = useState(prefill?.note ?? '');
+  // Which doctor it is for (2026-11-23): the booking lands in their queue and
+  // they are alerted. Clinical staff only — the desk is not a doctor.
+  const { staff } = useStaff() as any;
+  const doctors = useMemo(() => ((staff || []) as any[])
+    .filter(u => ['VET', 'CLINIC_OWNER', 'VET_NURSE', 'GROOMER', 'FREELANCER', 'STAFF', 'MANAGER'].includes(String(u.role)))
+    .map(u => ({ id: String(u.id), name: u.name || [u.profile?.firstName, u.profile?.surname].filter(Boolean).join(' ') || u.email, role: String(u.role || '').replace(/_/g, ' ').toLowerCase() })), [staff]);
+  const [leadStaffId, setLeadStaffId] = useState<string>((prefill as any)?.leadStaffId ? String((prefill as any).leadStaffId) : '');
   // Attribution chips → sourceDetail ("Other" opens a free-text input).
   const [attribution, setAttribution] = useState<string>('');
   const [attributionOther, setAttributionOther] = useState('');
@@ -179,6 +187,7 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
         ...(encounterType === 'VET_VISIT' ? { visitType } : {}),
         ...(isHouseCall ? { isHouseCall: true } : {}),
         note: note || undefined, stagedItems,
+        ...(leadStaffId ? { leadStaffId } : {}),
         ...(attribution ? { sourceDetail: attribution === 'Other' ? (attributionOther.trim() || 'Other') : attribution } : {}),
         ...(gateCheck ? { gateCheck } : {}),
         ...(source ? { source } : {}),
@@ -332,6 +341,13 @@ const AppointmentCreateModal: React.FC<Props> = ({ pets, clients, onClose, onSav
           {attribution === 'Other' && (
             <input className={`${fieldCls} mt-2`} placeholder="Where did they hear about you?" value={attributionOther} onChange={e => setAttributionOther(e.target.value)} />
           )}
+        </div>
+        <div>
+          <label className={labelCls}>For which doctor</label>
+          <select className={fieldCls} value={leadStaffId} onChange={e => setLeadStaffId(e.target.value)}>
+            <option value="">Not assigned yet</option>
+            {doctors.map(d => <option key={d.id} value={d.id}>{d.name} · {d.role}</option>)}
+          </select>
         </div>
         <div><label className={labelCls}>Note</label><textarea rows={2} className={fieldCls} value={note} onChange={e => setNote(e.target.value)} placeholder="What is this appointment for?" /></div>
         <div className="flex gap-2 pt-1">

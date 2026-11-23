@@ -291,6 +291,9 @@ export const DataProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       else if (e.type === 'booking.requested') toast('📅 New booking request from the portal');
       else if (e.type === 'farm.reminder') toast('🌾 A farm client has an animal coming up');
       else if (e.type === 'farm.invite') toast('🌾 A farmer asked your clinic to join Farms');
+      // The front office sent this doctor a patient (2026-11-23).
+      else if (e.type === 'visit.assigned') toast('🩺 A new patient is in your queue');
+      else if (e.type === 'booking.assigned') toast('📅 A patient was booked for you');
     });
     return close;
     // eslint-disable-next-line react-hooks/exhaustive-deps

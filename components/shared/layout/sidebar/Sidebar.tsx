@@ -16,7 +16,7 @@ import { navViewFor } from './navParent';
 import ClinicSearchDropdown from './ClinicSearchDropdown';
 import { ROLE_DASHBOARD_ROLES } from '../../../clinic/dashboard/roles/RoleDashboard';
 import { canOpenView } from '../../../../constants/modulePermissions';
-import { FRONT_DESK_ROLES, DESK_HIDDEN_MENUS, PROCUREMENT_VIEWS } from '../../../../constants/roles';
+import { FRONT_DESK_ROLES, DESK_HIDDEN_MENUS, PROCUREMENT_VIEWS, ROLE_MENU_ALLOW } from '../../../../constants/roles';
 import SupplierSearchDropdown from './SupplierSearchDropdown';
 import { useClinic } from '../../../../contexts/ClinicContext';
 import { staffScopeAPI, resolveCategoryMenuId, CATEGORY_GATED_MENU_IDS } from '../../../../services';
@@ -384,9 +384,13 @@ const SectionBlock: React.FC<SectionBlockProps> = ({
   const isDesk = FRONT_DESK_ROLES.has(String(role));
   const deskOk = (id: string) => !isDesk
     || (!DESK_HIDDEN_MENUS.has(id) && (!PROCUREMENT_VIEWS.has(id) || customPermissions.includes('VIEW_SUPPLIERS')));
+  // Allow-list roles (groomer): only their own pages, in every section.
+  const allow = ROLE_MENU_ALLOW[String(role)];
+  const allowOk = (id: string) => !allow || allow.has(id);
   const visible = sectionItems
     .filter(i => hasPerm(i.requiredPerm))
     .filter(i => deskOk(i.id))
+    .filter(i => i.subItems?.length ? true : allowOk(i.id))
     .filter(i => inScope(i.id))
     // `roles` on a sub-item is a HARD role gate, not a permission one: it exists
     // for pages whose server route is narrower than the audience that can see
@@ -396,7 +400,7 @@ const SectionBlock: React.FC<SectionBlockProps> = ({
           ...i,
           subItems: i.subItems
             // Sell the lock, never hide it: a page the plan lacks stays, locked.
-            .filter(s => moduleOk(s.id) && deskOk(s.id) && (!s.roles || s.roles.includes(role)))
+            .filter(s => moduleOk(s.id) && deskOk(s.id) && allowOk(s.id) && (!s.roles || s.roles.includes(role)))
             .map(s => (planOk(s.id) ? s : { ...s, locked: true })),
         }
       : (planOk(i.id) ? i : { ...i, locked: true })))

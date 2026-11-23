@@ -18,6 +18,7 @@ import { mergeGatePatch } from './wizard/gatePatch';
 import { loadVisitFees, entryFeeFor, loadVisitFeeMeta, HOUSE_CALL_DISTANCE_KEY, VISIT_FEE_CATEGORY } from '../shared/visitFees';
 import PetAvatar from '../shared/PetAvatar';
 import { useAuth } from '../../../contexts/AuthContext';
+import { MONEY_DESK_ROLES } from '../../../constants/roles';
 
 interface TaskMedication {
   id: string;
@@ -563,7 +564,11 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
   // colleague, and every staff tally inherited that. Falls back to the old
   // order (first VET → owner → anyone) for a user who isn't clinical staff,
   // e.g. the front desk booking on someone's behalf — they still pick manually.
+  // Front office / billing (2026-11-23): they never lead a visit — nothing is
+  // pre-picked, and the doctor must be chosen before the visit is created.
+  const isDeskUser = MONEY_DESK_ROLES.has(String(currentUser?.role));
   const defaultLeadStaffId = useMemo(() => {
+    if (isDeskUser) return null;
     const me = availableStaff.find(s => String(s.id) === String(currentUser?.id));
     if (me) return me.id;
     const vet = availableStaff.find(s => s.role === 'VET');
@@ -571,7 +576,7 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     const owner = availableStaff.find(s => s.role === 'CLINIC_OWNER');
     if (owner) return owner.id;
     return availableStaff[0]?.id ?? null;
-  }, [availableStaff, currentUser?.id]);
+  }, [availableStaff, currentUser?.id, isDeskUser]);
 
   const [formData, setFormData] = useState({
     clientName: '',
@@ -1258,6 +1263,11 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
     if (submittingRef.current) return;
     // A follow-up must pair with the visit it follows — otherwise the chain
     // (reminders, parent linkage, history) has nothing to hang off.
+    // The front office books FOR a doctor — the queue and the alert need one.
+    if (isDeskUser && !formData.leadStaffId) {
+      toast.error('Pick the doctor this visit is for (Lead Staff) — they get it in their queue.');
+      return;
+    }
     if (encounterType === 'VET_VISIT' && visitType === 'FOLLOW_UP' && !parentApptId) {
       toast.error('Pick the visit this follow-up pairs with (see "Follow-up to which visit?")');
       return;
@@ -1447,6 +1457,8 @@ const NewVisitView: React.FC<Props> = ({ clients, pets, appointments = [], onSav
       tasks,
       totalCost: totalCost + seedCost,
       leadStaffId: formData.leadStaffId,
+      // For the front office's "sent to Dr X's queue" confirmation.
+      leadStaffName: availableStaff.find(st => String(st.id) === String(formData.leadStaffId))?.name ?? null,
       originReferralId: initialReferralId,
       // Only a FOLLOW-UP is linked to an earlier visit (2026-11-22): picking
       // Follow-up, choosing the previous visit, then switching to Consultation

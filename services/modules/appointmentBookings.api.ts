@@ -32,10 +32,15 @@ export interface Appointment {
 const BASE = '/appointment-bookings';
 
 export const appointmentsAPI = {
-  list: (params: { petId?: string | number; status?: string } = {}, options?: RequestOptions): Promise<ApiResponse<{ appointments: Appointment[] }>> => {
+  list: (params: { petId?: string | number; status?: string; leadStaffId?: string | number; from?: string; to?: string; withNames?: boolean } = {}, options?: RequestOptions): Promise<ApiResponse<{ appointments: (Appointment & { petName?: string | null; clientName?: string | null })[] }>> => {
     const q = new URLSearchParams();
     if (params.petId != null) q.set('petId', String(params.petId));
     if (params.status) q.set('status', params.status);
+    // A doctor's own day (2026-11-23).
+    if (params.leadStaffId != null) q.set('leadStaffId', String(params.leadStaffId));
+    if (params.from) q.set('from', params.from);
+    if (params.to) q.set('to', params.to);
+    if (params.withNames) q.set('withNames', 'true');
     const qs = q.toString();
     return get(`${BASE}${qs ? `?${qs}` : ''}`, { cache: false, ...options });
   },
