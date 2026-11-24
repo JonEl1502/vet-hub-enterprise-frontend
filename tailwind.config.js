@@ -32,6 +32,21 @@ export default {
         cream: '#F6F4EF',
         mist: '#CFE6D8',
         cyan: { ...twColors.cyan, DEFAULT: '#2EA1B8' },
+        /**
+         * DARK MODE, LIFTED (user, 2026-11-24: "the dark mode is just way too
+         * dark … reduce the blackness"). Dark mode is built from zinc 700–950
+         * (~2,600 uses: page = 950, cards = 900, chips = 800, borders = 700),
+         * so lifting those four shades lifts every dark screen at once — a
+         * soft charcoal instead of near-black, with the same steps between
+         * page, card and chip. 50–600 (text, light mode) are untouched.
+         */
+        zinc: {
+          ...twColors.zinc,
+          700: '#454b53',
+          800: '#33383e',
+          900: '#272b30',
+          950: '#1d2024',
+        },
       },
       fontFamily: {
         // Hanken Grotesk = body/long-form/tables; Sora = display/headings/UI.

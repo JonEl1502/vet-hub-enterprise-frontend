@@ -4837,18 +4837,6 @@ const VisitDetailInner: React.FC<Props> = ({
           </div>
         </div>
 
-        {/* Mirrors the "Open Workflow" button on Visit Details — same shape and
-            placement, pointing the other way, so the two views are a round trip. */}
-        {onOpenDetails && (
-          <button
-            onClick={() => handleNavigationWithCheck(onOpenDetails)}
-            title="Visit Details"
-            className="shrink-0 flex items-center gap-2 px-2.5 sm:px-3 py-2 bg-seafoam hover:bg-seafoam/90 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
-          >
-            <ReceiptText size={13} />
-            <span className="hidden sm:inline">Visit Details</span>
-          </button>
-        )}
       </header>
 
       {/* Follow-up Timeline Banner - Show for all appointments in a follow-up chain */}
@@ -5004,23 +4992,12 @@ const VisitDetailInner: React.FC<Props> = ({
       <div data-tour="appt-overview" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden">
         {/* Top Section: Patient Info and Visit Details */}
         <div className="px-4 py-3 bg-gradient-to-br from-pine to-pine/90 text-white relative overflow-hidden">
-          <div className="absolute top-0 right-0 p-4 opacity-10"><Stethoscope size={60}/></div>
-          {/* Encounter-type badge — makes the appointment's service line explicit.
-              Flows on its own right-aligned line on mobile (so it can't overlap the
-              owner cell); pins to the top-right corner from md up. */}
-          <div className="relative z-20 mb-2 ml-auto w-max flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm text-[9px] font-black uppercase tracking-widest">
-            {(() => {
-              // Legacy encounter values (pre-077) that no longer sit in the
-              // 3-type picker still need an accurate badge.
-              const et = appointment.encounterType || 'VET_VISIT';
-              const meta = ENCOUNTER_TYPES.find(e => e.value === et)
-                || (et === 'VACCINATION' ? { icon: '💉', label: 'Vaccination' } : et === 'RETAIL' ? { icon: '🛍️', label: 'Retail' } : ENCOUNTER_TYPES[0]);
-              return <><span>{meta.icon}</span>{meta.label}</>;
-            })()}
-            {appointment.encounterType === 'VET_VISIT' && appointment.visitType ? <span className="text-white/70">· {appointment.visitType.replace('_', ' ')}</span> : null}
-          </div>
-
-          <div data-tour="appt-patient" className="relative z-10 grid grid-cols-2 md:grid-cols-4 gap-x-4 gap-y-2">
+          <div className="absolute top-0 right-0 p-3 opacity-10 pointer-events-none"><Stethoscope size={44}/></div>
+          {/* Header, tightened (user, 2026-11-24): no clinic name (we know the
+              clinic), the date and time sit with the total, and the visit type
+              rides above the Visit summary button in the last column — one row,
+              no badge line overhanging above it. */}
+          <div data-tour="appt-patient" className="relative z-10 grid grid-cols-2 md:grid-cols-[1.2fr_1.2fr_1fr_auto] items-center gap-x-4 gap-y-2">
             {/* Patient Info — real profile photo when one exists; the visit's
                 embedded pet covers transfer visits (pet not in local store). */}
             <div className="flex items-center gap-2 min-w-0">
@@ -5064,26 +5041,47 @@ const VisitDetailInner: React.FC<Props> = ({
               </div>
             )}
 
-            {/* Clinic + Date */}
-            <div className="flex items-center gap-2 min-w-0">
-              <Calendar size={18} className="text-seafoam shrink-0" />
-              <div className="min-w-0">
-                <p className="text-white/60 text-[8px] font-black uppercase tracking-widest leading-none mb-0.5">Clinic · Scheduled</p>
-                <p className="text-sm font-black uppercase truncate leading-tight">{activeClinic.name}</p>
-                <p className="text-seafoam text-[9px] font-bold">{formatDate(appointment.date)} · {formatTime(appointment.date)}</p>
-              </div>
-            </div>
-
             {/* Total Cost */}
             <div className="flex items-center gap-2">
               <Receipt size={18} className="text-emerald-400 shrink-0" />
               <div>
                 <p className="text-white/60 text-[8px] font-black uppercase tracking-widest leading-none mb-0.5">Total Bill</p>
                 <p className="text-emerald-400 font-black text-base font-mono leading-tight">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
-                <span className={`inline-block px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest ${appointment.isPaid ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
-                  {appointment.isPaid ? `Paid · ${appointment.paymentMethod}` : 'Pending'}
-                </span>
+                <p className="text-[9px] font-bold text-white/70 flex items-center gap-1.5 mt-0.5">
+                  <span className={`inline-block px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest ${appointment.isPaid ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
+                    {appointment.isPaid ? `Paid · ${appointment.paymentMethod}` : 'Pending'}
+                  </span>
+                  <span className="text-seafoam">{formatDate(appointment.date)} · {formatTime(appointment.date)}</span>
+                </p>
               </div>
+            </div>
+
+            {/* Visit type, then the way to the summary. */}
+            <div className="col-span-2 md:col-span-1 flex md:flex-col items-center md:items-end justify-between gap-1.5">
+          {/* Encounter-type badge — makes the appointment's service line explicit.
+              Flows on its own right-aligned line on mobile (so it can't overlap the
+              owner cell); pins to the top-right corner from md up. */}
+          <div className="relative z-20 w-max flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-white/15 backdrop-blur-sm text-[9px] font-black uppercase tracking-widest">
+            {(() => {
+              // Legacy encounter values (pre-077) that no longer sit in the
+              // 3-type picker still need an accurate badge.
+              const et = appointment.encounterType || 'VET_VISIT';
+              const meta = ENCOUNTER_TYPES.find(e => e.value === et)
+                || (et === 'VACCINATION' ? { icon: '💉', label: 'Vaccination' } : et === 'RETAIL' ? { icon: '🛍️', label: 'Retail' } : ENCOUNTER_TYPES[0]);
+              return <><span>{meta.icon}</span>{meta.label}</>;
+            })()}
+            {appointment.encounterType === 'VET_VISIT' && appointment.visitType ? <span className="text-white/70">· {appointment.visitType.replace('_', ' ')}</span> : null}
+          </div>
+
+              {onOpenDetails && (
+                <button
+                  onClick={() => handleNavigationWithCheck(onOpenDetails)}
+                  title="Visit summary"
+                  className="shrink-0 flex items-center gap-1.5 px-3 py-1.5 bg-white text-pine hover:bg-white/90 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all active:scale-95 shadow-sm"
+                >
+                  <ReceiptText size={12} /> Visit summary
+                </button>
+              )}
             </div>
           </div>
 
@@ -5092,7 +5090,7 @@ const VisitDetailInner: React.FC<Props> = ({
               card and half a header of empty blue (user, 2026-08-21: "should we
               extend this to the end"). One column now, so the bill card and its
               Finalize → Bill → Invoice → Settle track run the full width. */}
-          <div className="relative z-10 mt-3 grid grid-cols-1 gap-2 border-t border-white/10 pt-3">
+          <div className="relative z-10 mt-2.5 grid grid-cols-1 gap-2 border-t border-white/10 pt-2.5">
             {/* Bill card. On a CLINICAL_TRANSFER visit (168) the whole billing
                 surface is suppressed — the provider is paid via the job's
                 escrow payout at the requester's settlement; billing the
