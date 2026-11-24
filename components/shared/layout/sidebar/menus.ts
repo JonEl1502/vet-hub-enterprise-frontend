@@ -204,22 +204,13 @@ const CLINIC_ITEMS: MenuItem[] = [
   { id: 'appointment-bookings', label: 'Appointments', icon: CalendarClock },
   { id: 'appointments', label: 'Visits', icon: CalendarClock },
   { id: 'emergency',    label: 'Emergency',    icon: Siren },
-  /**
-   * INPATIENT holds the clinical work behind it (user, 2026-11-24: "take the
-   * items in medical — surgery, laboratory, imaging — put them under
-   * inpatient"). The old Medical group is gone; the view ids are unchanged.
-   */
-  {
-    id: 'inpatient_menu',
-    label: 'Inpatient',
-    icon: Stethoscope,
-    subItems: [
-      { id: 'inpatient',  label: 'Inpatient',  icon: Stethoscope },
-      { id: 'surgery',    label: 'Surgery',    icon: Slice },
-      { id: 'laboratory', label: 'Laboratory', icon: FlaskConical },
-      { id: 'imaging',    label: 'Imaging',    icon: ScanLine },
-    ],
-  },
+  { id: 'inpatient',    label: 'Inpatient',    icon: Stethoscope },
+  // Surgery, Laboratory and Imaging stand on their own, right after Inpatient
+  // (user, 2026-11-24: "each one independent and after inpatient … without
+  // the drop down"). The old Medical group is gone; view ids are unchanged.
+  { id: 'surgery',      label: 'Surgery',      icon: Slice },
+  { id: 'laboratory',   label: 'Laboratory',   icon: FlaskConical },
+  { id: 'imaging',      label: 'Imaging',      icon: ScanLine },
   { id: 'boarding',     label: 'Boarding',     icon: Home },
   { id: 'grooming',     label: 'Grooming',     icon: Scissors },
   { id: 'petshop',      label: 'Petshop',      icon: ShoppingCart },
