@@ -204,22 +204,25 @@ const CLINIC_ITEMS: MenuItem[] = [
   { id: 'appointment-bookings', label: 'Appointments', icon: CalendarClock },
   { id: 'appointments', label: 'Visits', icon: CalendarClock },
   { id: 'emergency',    label: 'Emergency',    icon: Siren },
-  { id: 'inpatient',    label: 'Inpatient',    icon: Stethoscope },
-  { id: 'boarding',     label: 'Boarding',     icon: Home },
-  { id: 'grooming',     label: 'Grooming',     icon: Scissors },
+  /**
+   * INPATIENT holds the clinical work behind it (user, 2026-11-24: "take the
+   * items in medical — surgery, laboratory, imaging — put them under
+   * inpatient"). The old Medical group is gone; the view ids are unchanged.
+   */
   {
-    id: 'medical_menu',
-    label: 'Medical',
+    id: 'inpatient_menu',
+    label: 'Inpatient',
     icon: Stethoscope,
     subItems: [
+      { id: 'inpatient',  label: 'Inpatient',  icon: Stethoscope },
       { id: 'surgery',    label: 'Surgery',    icon: Slice },
       { id: 'laboratory', label: 'Laboratory', icon: FlaskConical },
       { id: 'imaging',    label: 'Imaging',    icon: ScanLine },
     ],
   },
+  { id: 'boarding',     label: 'Boarding',     icon: Home },
+  { id: 'grooming',     label: 'Grooming',     icon: Scissors },
   { id: 'petshop',      label: 'Petshop',      icon: ShoppingCart },
-  // 324 — the public pet shop page (vethubcore.com/shop/<slug>).
-  { id: 'shop-page',    label: 'Shop page',    icon: Store },
   { id: 'pharmacy',     label: 'Pharmacy',     icon: Pill },
   {
     id: 'inventory_menu',
@@ -248,7 +251,6 @@ const CLINIC_ITEMS: MenuItem[] = [
   // (applyBillableItemsLayout) by these two groups: the vet collaborator's
   // Products / Services / Procedures / Packages taxonomy plus a procurement
   // rump. Internal view ids stay stable — only labels/grouping change.
-  { id: 'referrals', label: 'Partners', icon: Repeat, requiredPerm: 'VIEW_REFERRALS' },
   /**
    * FARM — for a CLINIC that serves farm clients.
    *
@@ -345,6 +347,10 @@ const CLINIC_ITEMS: MenuItem[] = [
       // beside Broadcasts because both are outward-facing communication.
       { id: 'wa-enquiries', label: 'WhatsApp Enquiries', icon: MessageCircle },
       { id: 'import-data', label: 'Import Data',     icon: Upload },
+      // Moved in from the top level (user, 2026-11-24): the public shop page
+      // (324) and Partners are set-up-once pages, not day-to-day ones.
+      { id: 'shop-page',   label: 'Shop page',       icon: Store },
+      { id: 'referrals',   label: 'Partners',        icon: Repeat, requiredPerm: 'VIEW_REFERRALS' },
     ],
   },
   // Billing is its own entry now (user, 2026-11-21: "move billing outside of

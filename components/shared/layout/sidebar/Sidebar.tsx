@@ -400,7 +400,7 @@ const SectionBlock: React.FC<SectionBlockProps> = ({
           ...i,
           subItems: i.subItems
             // Sell the lock, never hide it: a page the plan lacks stays, locked.
-            .filter(s => moduleOk(s.id) && deskOk(s.id) && allowOk(s.id) && (!s.roles || s.roles.includes(role)))
+            .filter(s => hasPerm(s.requiredPerm) && moduleOk(s.id) && deskOk(s.id) && allowOk(s.id) && (!s.roles || s.roles.includes(role)))
             .map(s => (planOk(s.id) ? s : { ...s, locked: true })),
         }
       : (planOk(i.id) ? i : { ...i, locked: true })))
