@@ -34,6 +34,7 @@ export interface ServiceArt { from: string; to: string; Icon: ArtIcon }
 
 const RULES: Array<[RegExp, ServiceArt]> = [
   [/dent|teeth|tooth|scal(e|ing)|polish|extract|oral/, { from: '#0f766e', to: '#14b8a6', Icon: Tooth }],
+  [/cardi|heart|blood pressure|\becg\b|\bekg\b|holter|echocardio/, { from: '#9f1239', to: '#fb7185', Icon: Heart }],
   [/x-?ray|radiograph/, { from: '#1e293b', to: '#475569', Icon: Xray }],
   [/ultra ?sound|scan|imaging|\bct\b|mri|echo/, { from: '#312e81', to: '#6366f1', Icon: ScanLine }],
   [/vaccin|rabies|booster|dhpp|kennel cough|bordetella|lepto/, { from: '#047857', to: '#22c55e', Icon: Syringe }],
