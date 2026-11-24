@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { serviceArt } from '../services/serviceArt';
 import { createPortal } from 'react-dom';
 import { Loader2, RefreshCw, Tags, Layers, Plus, Package, Search, X } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -25,6 +26,9 @@ const SCOPES: { value: 'ALL' | 'GENERAL' | 'CUSTOM'; label: string; hint: string
  * price-override field. Saves are per-row, debounced — there's no big
  * "Save All" button.
  */
+/** The Catalog scope & categories card is switched off on purpose (user, 2026-11-24). */
+const SHOW_SCOPE_CARD = false;
+
 const ClinicCatalogTab: React.FC = () => {
   // Grouped page permissions (user, 2026-08-04) — the Services module.
   const { user } = useAuth();
@@ -92,15 +96,19 @@ const ClinicCatalogTab: React.FC = () => {
     };
   }, []);
 
+  // Search (user, 2026-11-24: "just show the services … add a search").
+  const [query, setQuery] = useState('');
   const grouped = useMemo(() => {
+    const q = query.trim().toLowerCase();
     const m = new Map<string, CatalogService[]>();
     for (const s of services) {
+      if (q && ![s.name, s.description, s.categoryName].some((x) => String(x || '').toLowerCase().includes(q))) continue;
       const key = s.categoryName || 'Uncategorised';
       if (!m.has(key)) m.set(key, []);
       m.get(key)!.push(s);
     }
     return Array.from(m.entries()).sort(([a], [b]) => a.localeCompare(b));
-  }, [services]);
+  }, [services, query]);
 
   const setLocal = (id: string, patch: Partial<CatalogService>) => {
     setServices((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)));
@@ -223,7 +231,10 @@ const ClinicCatalogTab: React.FC = () => {
 
   return (
     <div className="space-y-4 animate-in slide-in-from-bottom-4">
-      {/* Catalog scope + categories */}
+      {/* Catalog scope + categories — HIDDEN (user, 2026-11-24: a doctor said
+          the categories are not needed here, "just show the services"). Kept
+          in the code, switched off, so it can come back without a rewrite. */}
+      {SHOW_SCOPE_CARD && (
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl shadow-sm p-4 sm:p-5 space-y-4">
         <div className="flex items-center gap-3">
           <div className="p-2 bg-violet-500 text-white rounded-xl shadow-lg shadow-violet-500/20"><Layers size={18} /></div>
@@ -266,6 +277,7 @@ const ClinicCatalogTab: React.FC = () => {
           </div>
         </div>
       </div>
+      )}
 
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl overflow-hidden shadow-sm">
         <div className="p-4 sm:p-5 border-b border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-slate-50/50 dark:bg-zinc-800/30">
@@ -278,7 +290,12 @@ const ClinicCatalogTab: React.FC = () => {
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
+            <div className="relative">
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+              <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search services…"
+                className="w-56 pl-8 pr-3 py-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-sm text-pine dark:text-zinc-100 focus:outline-none focus:ring-2 focus:ring-seafoam" />
+            </div>
             <button
               type="button"
               onClick={load}
@@ -332,6 +349,7 @@ const ClinicCatalogTab: React.FC = () => {
                     const math = productMath(products);
                     const basePrice = Number(s.priceEffective ?? s.defaultPrice ?? 0);
                     const billsAt = basePrice + math.sub;
+                    const art = serviceArt(s.name, s.categoryName);
                     return (
                       <div
                         key={s.id}
@@ -340,19 +358,23 @@ const ClinicCatalogTab: React.FC = () => {
                         onClick={() => setDetailFor(s.id)}
                         onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setDetailFor(s.id); } }}
                         title="Open to set the price, attach products and choose where it shows"
-                        className={`group text-left rounded-xl border p-3 cursor-pointer transition-all focus:outline-none focus:ring-2 focus:ring-seafoam/40 ${
-                          s.enabled
-                            ? 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 hover:border-seafoam hover:shadow-md'
-                            : 'bg-slate-50/60 dark:bg-zinc-800/20 border-slate-100 dark:border-zinc-800 hover:border-slate-300'
+                        // A picture of the service behind a dark scrim, the text on top
+                        // (user, 2026-11-24). Same in light and dark mode.
+                        style={{ backgroundImage: `linear-gradient(135deg, ${art.from}, ${art.to})` }}
+                        className={`group relative overflow-hidden text-left rounded-xl p-3 cursor-pointer transition-all text-white focus:outline-none focus:ring-2 focus:ring-seafoam/60 hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.99] ${
+                          s.enabled ? 'shadow-sm' : 'grayscale opacity-60 hover:opacity-80'
                         }`}
                       >
+                        <art.Icon size={112} strokeWidth={1.4} className="absolute -right-4 -bottom-5 text-white/25 pointer-events-none" />
+                        <span className="absolute inset-0 bg-gradient-to-r from-black/60 via-black/35 to-black/0 pointer-events-none" />
+                        <div className="relative z-10">
                         <div className="flex items-start gap-2">
                           <div className="min-w-0 flex-1">
-                            <p className={`text-sm font-bold leading-snug ${s.enabled ? 'text-pine dark:text-zinc-100' : 'text-slate-400 dark:text-zinc-600 line-through'}`}>
+                            <p className={`text-sm font-bold leading-snug text-white drop-shadow-sm ${s.enabled ? '' : 'line-through'}`}>
                               {s.name}
                             </p>
                             {s.description && (
-                              <p className="text-[11px] text-slate-400 truncate mt-0.5">{s.description}</p>
+                              <p className="text-[11px] text-white/75 truncate mt-0.5">{s.description}</p>
                             )}
                           </div>
                           {/* The switch stays ON the card and does not open it. */}
@@ -363,19 +385,19 @@ const ClinicCatalogTab: React.FC = () => {
                               onChange={(e) => onToggle(s.id, e.target.checked)}
                               className="sr-only peer"
                             />
-                            <span className="w-9 h-5 bg-slate-300 dark:bg-zinc-700 rounded-full relative transition-colors peer-checked:bg-seafoam after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform peer-checked:after:translate-x-4" />
+                            <span className="w-9 h-5 bg-white/30 rounded-full relative transition-colors peer-checked:bg-seafoam after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:w-4 after:h-4 after:bg-white after:rounded-full after:transition-transform peer-checked:after:translate-x-4" />
                           </label>
                         </div>
 
                         <div className="mt-2.5 flex items-end justify-between gap-2">
                           <div className="min-w-0">
-                            <p className="text-[8px] font-black uppercase tracking-widest text-slate-400">Bills at</p>
-                            <p className="text-base font-black font-mono text-pine dark:text-zinc-100 tabular-nums leading-tight">
+                            <p className="text-[8px] font-black uppercase tracking-widest text-white/70">Bills at</p>
+                            <p className="text-base font-black font-mono text-white tabular-nums leading-tight drop-shadow-sm">
                               {currency} {billsAt.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                             </p>
                             {/* Only say what the card's headline figure hides. */}
                             {(overridden || math.sub > 0) && (
-                              <p className="text-[9px] font-bold text-slate-400 truncate">
+                              <p className="text-[9px] font-bold text-white/75 truncate">
                                 {overridden ? `overridden · default ${currency} ${Number(s.defaultPrice ?? 0).toLocaleString()}` : `service ${currency} ${basePrice.toLocaleString()}`}
                                 {math.sub > 0 ? ` + products ${currency} ${math.sub.toLocaleString(undefined, { maximumFractionDigits: 2 })}` : ''}
                               </p>
@@ -383,18 +405,19 @@ const ClinicCatalogTab: React.FC = () => {
                           </div>
                           <div className="flex items-center gap-1.5 shrink-0">
                             {savingId === s.id && <Loader2 size={12} className="animate-spin text-seafoam" />}
-                            {justSaved && savingId !== s.id && <span className="text-[9px] font-black text-emerald-500 uppercase">saved</span>}
+                            {justSaved && savingId !== s.id && <span className="text-[9px] font-black text-white uppercase">saved</span>}
                             {products.length > 0 && (
-                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-seafoam/10 border border-seafoam/30 text-seafoam text-[9px] font-black" title={`${products.length} product${products.length === 1 ? '' : 's'} auto-billed with this service`}>
+                              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-white/20 border border-white/30 text-white text-[9px] font-black" title={`${products.length} product${products.length === 1 ? '' : 's'} auto-billed with this service`}>
                                 <Package size={10} />{products.length}
                               </span>
                             )}
                             {svcScope.length > 0 && (
-                              <span className="px-1.5 py-0.5 rounded-full bg-violet-500/10 border border-violet-500/30 text-violet-600 dark:text-violet-400 text-[9px] font-black" title={`Shows only in: ${svcScope.join(', ')}`}>
+                              <span className="px-1.5 py-0.5 rounded-full bg-white/20 border border-white/30 text-white text-[9px] font-black" title={`Shows only in: ${svcScope.join(', ')}`}>
                                 {svcScope.length} area{svcScope.length === 1 ? '' : 's'}
                               </span>
                             )}
                           </div>
+                        </div>
                         </div>
                       </div>
                     );
@@ -402,7 +425,10 @@ const ClinicCatalogTab: React.FC = () => {
                 </div>
               </div>
             ))}
-            {!loading && grouped.length === 0 && (
+            {!loading && grouped.length === 0 && query.trim() !== '' && (
+              <div className="py-12 text-center text-sm text-slate-500">No service matches “{query}”.</div>
+            )}
+            {!loading && grouped.length === 0 && query.trim() === '' && (
               <div className="py-16 text-center">
                 <p className="text-sm font-bold text-slate-500">No services in the catalog yet.</p>
                 <p className="text-xs text-slate-400 mt-1">Run scripts/seed-catalog.js to seed defaults.</p>
