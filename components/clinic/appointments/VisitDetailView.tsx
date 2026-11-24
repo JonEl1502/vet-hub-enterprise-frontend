@@ -4982,8 +4982,8 @@ const VisitDetailInner: React.FC<Props> = ({
           <Lock size={13} className="text-amber-600 shrink-0" />
           <p className="min-w-0 text-[11px] font-bold text-amber-700 dark:text-amber-400 leading-snug">
             <span className="font-black uppercase tracking-widest">Visit locked</span>
-            <span className="hidden sm:inline"> — paid by {appointment.paymentMethod}. Contact the clinic owner to make changes.</span>
-            <span className="sm:hidden"> · paid by {appointment.paymentMethod}</span>
+            <span className="hidden sm:inline"> — paid{appointment.paymentMethod ? ` by ${String(appointment.paymentMethod).replace(/_/g, ' ').toLowerCase()}` : ''}. Contact the clinic owner to make changes.</span>
+            {appointment.paymentMethod && <span className="sm:hidden"> · paid by {String(appointment.paymentMethod).replace(/_/g, ' ').toLowerCase()}</span>}
           </p>
         </div>
       )}
@@ -5049,7 +5049,7 @@ const VisitDetailInner: React.FC<Props> = ({
                 <p className="text-emerald-400 font-black text-base font-mono leading-tight">{activeClinic.currency} {appointment.totalCost.toLocaleString()}</p>
                 <p className="text-[9px] font-bold text-white/70 flex items-center gap-1.5 mt-0.5">
                   <span className={`inline-block px-1.5 py-0.5 rounded text-[7px] font-black uppercase tracking-widest ${appointment.isPaid ? 'bg-emerald-500/20 text-emerald-300' : 'bg-amber-500/20 text-amber-300'}`}>
-                    {appointment.isPaid ? `Paid · ${appointment.paymentMethod}` : 'Pending'}
+                    {appointment.isPaid ? `Paid${appointment.paymentMethod ? ` · ${String(appointment.paymentMethod).replace(/_/g, ' ')}` : ''}` : 'Pending'}
                   </span>
                   <span className="text-seafoam">{formatDate(appointment.date)} · {formatTime(appointment.date)}</span>
                 </p>
@@ -5105,7 +5105,7 @@ const VisitDetailInner: React.FC<Props> = ({
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[9px] font-black uppercase tracking-widest text-white/60 flex items-center gap-1.5"><Receipt size={11} /> Bill</span>
                 <span className={`px-2 py-0.5 rounded-lg text-[8px] font-black uppercase tracking-widest ${appointment.isPaid ? 'bg-emerald-500/20 text-emerald-200' : isFinalized ? 'bg-amber-500/20 text-amber-200' : 'bg-white/10 text-white/70'}`}>
-                  {appointment.isPaid ? `Settled · ${appointment.paymentMethod}` : billStageLabel}
+                  {appointment.isPaid ? `Settled${appointment.paymentMethod ? ` · ${String(appointment.paymentMethod).replace(/_/g, ' ')}` : ''}` : billStageLabel}
                 </span>
               </div>
 
