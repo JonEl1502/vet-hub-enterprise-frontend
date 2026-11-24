@@ -75,8 +75,12 @@ const FREELANCER_SHELLS = ['GROOMING', 'WALKING'];
 export const fitsOwner = (p: any, kind: Props['ownerKind'], shell?: string | null) => {
   const aud: string[] = Array.isArray(p.audiences) ? p.audiences : [];
   const s = shell ? String(shell).toUpperCase() : null;
+  // A CLIENT (pet owner / farmer) buys CLIENT plans only — Free, Farmer Plus,
+  // Farmer Pro — and no add-ons (user, 2026-11-24). LIVESTOCK plans
+  // (Smallholder, Farm, Estate) are for livestock CLINICS, not clients.
+  if (kind === 'CLIENT' && p.isAddon) return false;
   const want = kind === 'SUPPLIER' ? ['SUPPLIER']
-    : kind === 'CLIENT' ? ['CLIENT', 'LIVESTOCK']
+    : kind === 'CLIENT' ? ['CLIENT']
     : s && FREELANCER_SHELLS.includes(s) ? ['FREELANCER'] : ['CLINIC'];
   // Audience only: a package's `shell` is the shell it MOVES the org into
   // (286), not who may buy it, so it must not filter here.
