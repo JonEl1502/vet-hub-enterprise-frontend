@@ -4,9 +4,7 @@
 FROM node:24-alpine AS build
 WORKDIR /app
 ARG VITE_API_URL
-ARG GEMINI_API_KEY
 ENV VITE_API_URL=$VITE_API_URL
-ENV GEMINI_API_KEY=$GEMINI_API_KEY
 COPY package*.json ./
 # Survive flaky/contended registry connectivity on the build host (the VPS is
 # shared, so npm fetches can ECONNRESET under concurrent builds).
