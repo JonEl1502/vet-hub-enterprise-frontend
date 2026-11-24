@@ -163,6 +163,15 @@ export const summariesAPI = {
    * the dashboard's work band. Staff always get their own; owners/managers may
    * pick anyone.
    */
+  /** What the inpatient ward and the boarding kennels need now (2026-11-24). */
+  ward: async (
+    opts: { clinicIds: Array<string | number>; end: string },
+    options?: RequestOptions,
+  ): Promise<ApiResponse<WardSummary>> => {
+    const q = new URLSearchParams({ clinicIds: opts.clinicIds.join(','), end: opts.end });
+    return get(`/summaries/ward?${q.toString()}`, { cache: false, ...options });
+  },
+
   /** One period's visits: by status, paid / part-paid / unpaid, and money (2026-11-23). */
   visits: async (
     opts: { clinicIds: Array<string | number>; start: string; end: string },
@@ -312,6 +321,11 @@ export const summariesAPI = {
     get(`${ENDPOINTS.SUMMARIES.BASE}${buildQuery({ ...opts, breakdown: true })}`, { cache: true, ...options }),
 };
 
+
+export interface WardSummary {
+  inpatient: { inWard: number; medsDue: number; feedingDue: number; dischargeDue: number };
+  boarding: { inStay: number; feedingDue: number; medsDue: number; pickupDue: number };
+}
 
 export interface VisitSummary {
   total: number; scheduled: number; inProgress: number; pendingPayment: number; completed: number; cancelled: number;

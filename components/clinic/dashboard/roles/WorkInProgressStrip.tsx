@@ -4,6 +4,9 @@ import { Visit, ApptStatus } from '../../../../types';
 import { remindersAPI, Reminder } from '../../../../services';
 import { visitsInRange, hasCategory, inDayRange, DayRange } from './roleShared';
 import { GRAD_FOR, toneFromClass, SoftTone } from '../../../shared/stats/ColorTiles';
+import { summariesAPI } from '../../../../services/modules/summaries.api';
+import type { WardSummary } from '../../../../services/modules/summaries.api';
+import { useClinic } from '../../../../contexts/ClinicContext';
 
 /**
  * "Today's work in progress" — the one strip every role sees, so a groomer and
@@ -122,6 +125,23 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
   }, [showingToday, range?.start, range?.end]);
   const overdueReminders = reminders.filter(r => new Date(r.dueAt).getTime() < Date.now()).length;
 
+  // The wards' own needs (2026-11-24): meds and feeding due now, and who goes
+  // home by the end of the picked range — instead of "waiting", which means
+  // nothing for an animal already in a kennel or a ward bed.
+  const { selectedClinicIds } = useClinic() as any;
+  const ids: string[] = (selectedClinicIds || []).map(String);
+  const [ward, setWard] = React.useState<WardSummary | null>(null);
+  React.useEffect(() => {
+    if (!ids.length) return;
+    let alive = true;
+    const end = range?.end ? new Date(`${range.end}T23:59:59`) : (() => { const d = new Date(); d.setHours(23, 59, 59, 999); return d; })();
+    summariesAPI.ward({ clinicIds: ids, end: end.toISOString() }, { silent: true } as any)
+      .then(r => { if (alive && r.success && r.data) setWard(r.data); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [ids.join(','), range?.end]); // eslint-disable-line react-hooks/exhaustive-deps
+  const goingHomeWord = range && !range.isToday ? 'in this period' : 'today';
+
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4">
       <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400 mb-3">
@@ -158,14 +178,28 @@ const WorkInProgressStrip: React.FC<Props> = ({ visits, onOpen, range }) => {
               icon={b.icon}
               label={b.label}
               onClick={onOpen ? () => onOpen(b.view, { openOnly: true }) : undefined}
-              figures={[
+              figures={b.key === 'inpatient' && ward ? [
+                { value: ward.inpatient.inWard, label: 'In ward', big: true },
+                { value: ward.inpatient.medsDue, label: 'Meds due' },
+                { value: ward.inpatient.feedingDue, label: 'Feeding due' },
+                { value: ward.inpatient.dischargeDue, label: 'Discharge' },
+              ] : b.key === 'boarding' && ward ? [
+                { value: ward.boarding.inStay, label: 'In stay', big: true },
+                { value: ward.boarding.feedingDue, label: 'Feeding due' },
+                { value: ward.boarding.medsDue, label: 'Meds due' },
+                { value: ward.boarding.pickupDue, label: 'Pick-up' },
+              ] : [
                 { value: startedToday.length, label: 'Total', big: true },
                 { value: active, label: 'Active' },
                 { value: waiting, label: 'Waiting' },
                 { value: done, label: 'Done' },
               ]}
-              footer={carriedOver.length > 0 ? `+${carriedOver.length} more from before today` : 'Nothing carried over'}
-              footerMuted={carriedOver.length === 0}
+              footer={b.key === 'inpatient' && ward
+                ? (ward.inpatient.dischargeDue > 0 ? `${ward.inpatient.dischargeDue} to discharge ${goingHomeWord}` : `No discharges due ${goingHomeWord}`)
+                : b.key === 'boarding' && ward
+                  ? (ward.boarding.pickupDue > 0 ? `${ward.boarding.pickupDue} to check out ${goingHomeWord}` : `No check-outs due ${goingHomeWord}`)
+                  : carriedOver.length > 0 ? `+${carriedOver.length} more from before today` : 'Nothing carried over'}
+              footerMuted={b.key === 'inpatient' && ward ? ward.inpatient.dischargeDue === 0 : b.key === 'boarding' && ward ? ward.boarding.pickupDue === 0 : carriedOver.length === 0}
             />
           );
         })}

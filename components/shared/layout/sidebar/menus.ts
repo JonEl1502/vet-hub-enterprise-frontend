@@ -64,6 +64,8 @@ export interface MenuSubItem {
   id: string;
   label: string;
   icon: LucideIcon;
+  /** A permission token this entry needs, like a top-level item's (2026-11-24). */
+  requiredPerm?: string;
   /**
    * Restrict this entry to specific roles. Absent = visible to everyone who can
    * see the audience at all, which is the normal case.
