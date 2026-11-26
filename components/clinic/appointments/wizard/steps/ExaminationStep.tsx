@@ -27,11 +27,25 @@ const SYSTEMS: { slug: string; label: string }[] = [
   { slug: 'lymphNodes', label: 'Lymph nodes' },
 ];
 
-const ExaminationStep: React.FC<StepProps> = ({ data, setData, pet, emit, visibleFields }) => {
+const ExaminationStep: React.FC<StepProps> = ({ data, setData, pet, emit, visibleFields, vitalsSeed, visit }) => {
   // undefined → no template governs this stage, so everything renders.
   const show = showsField(visibleFields);
   const sysKeys = SYSTEMS.map(x => `sys.${x.slug}`);
   const d = data || {};
+  // Carry temperature and weight forward from the entry step (vaccination
+  // gate, vet check, admission). Blank fields only, once — never over a value
+  // somebody typed here.
+  const seeded = React.useRef(false);
+  const closed = ['COMPLETED', 'CLOSED', 'CANCELLED'].includes(String((visit as any)?.status || '').toUpperCase());
+  React.useEffect(() => {
+    if (seeded.current || closed || !vitalsSeed) return;
+    const patch: any = {};
+    if (vitalsSeed.temperature && String(d.temperature ?? '').trim() === '') patch.temperature = vitalsSeed.temperature;
+    if (vitalsSeed.weight && String(d.weight ?? '').trim() === '') patch.weight = vitalsSeed.weight;
+    seeded.current = true;
+    if (Object.keys(patch).length) setData(patch);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vitalsSeed?.temperature, vitalsSeed?.weight, closed]);
   const systems: Record<string, SystemValue> = d.systems || {};
   const setSystem = (name: string, patch: any) =>
     setData({ systems: { ...systems, [name]: { ...(systems[name] || {}), ...patch } } });

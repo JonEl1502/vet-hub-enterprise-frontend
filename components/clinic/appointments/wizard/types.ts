@@ -81,6 +81,13 @@ export interface StepProps {
    * is neither.
    */
   gateSeed?: any;
+  /**
+   * Temperature and weight already taken at THIS visit's entry step
+   * (vaccination, vet check, admission gate). Examination seeds its own blank
+   * fields from these once, so a nurse who weighed the dog at the vaccination
+   * gate is not asked again two steps later (user, 2026-11-26).
+   */
+  vitalsSeed?: { temperature?: string; weight?: string };
   emit: (label: string, kind?: JourneyKind, auto?: boolean) => void;
   goServices?: () => void; // jump to the bill (was: the Categories & Services tab)
   addService?: () => void; // open the Add Services drawer in place

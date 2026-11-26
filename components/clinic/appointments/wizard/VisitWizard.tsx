@@ -309,6 +309,19 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
       }
       return undefined;
     })(),
+    vitalsSeed: (() => {
+      const D: any = state.data || {};
+      const pick = (...vals: any[]) => {
+        for (const v of vals) { const t = String(v ?? '').trim(); if (t !== '' && Number(t) > 0) return t; }
+        return undefined;
+      };
+      const vac = D.vaccinationAssessment || {}, vc = D.vetCheck || {};
+      const gates = ['admission', 'boardingAssessment', 'groomingAssessment'].map(k => D?.[k]?.intake?.gate?.intakeWeight);
+      return {
+        temperature: pick(vac.temperature, vc.temperature),
+        weight: pick(vac.intakeWeight, vac.weight, vc.weight, ...gates),
+      };
+    })(),
     emit,
     goServices,
     addService: onAddService,
@@ -327,6 +340,9 @@ const VisitWizardInner: React.FC<Props> = ({ visit, pet, client, staff, activeCl
     patientWeightKg: (() => {
       const typed = Number((state.data as any)?.examination?.weight);
       if (Number.isFinite(typed) && typed > 0) return typed;
+      // Weighed at the vaccination gate but Examination not opened yet.
+      const atEntry = Number((state.data as any)?.vaccinationAssessment?.intakeWeight ?? (state.data as any)?.vaccinationAssessment?.weight);
+      if (Number.isFinite(atEntry) && atEntry > 0) return atEntry;
       const onRecord = Number((pet as any)?.weightValue ?? (pet as any)?.weight);
       return Number.isFinite(onRecord) && onRecord > 0 ? onRecord : null;
     })(),

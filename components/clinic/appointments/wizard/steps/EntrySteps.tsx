@@ -116,8 +116,10 @@ const FORMS: Record<string, EntryFormDef> = {
        */
       { kind: 'gate', key: 'gate', label: 'Vaccination gate', span: 2 },
       { kind: 'seg', key: 'healthyToday', label: 'Healthy today', options: ['Yes', 'No', 'Unsure'] },
-      { kind: 'input', key: 'temperature', label: 'Temperature (°C)', type: 'number', placeholder: '38.5' },
-      { kind: 'input', key: 'weight', label: 'Weight (kg)', type: 'number' },
+      { kind: 'input', key: 'temperature', label: 'Temperature (°C)', type: 'number' },
+      // No separate Weight field here: the gate's INTAKE WEIGHT above is the
+      // visit weight, and Examination picks it up (user, 2026-11-26 — the
+      // dog was weighed once and asked three times).
       // Temperament sits with weight and temperature: the clinic's spec asks for
       // all three at the vaccination triage (2026-11-21), and it tells whoever
       // holds the animal for the jab whether a muzzle comes out first.
