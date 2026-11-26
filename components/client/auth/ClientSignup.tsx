@@ -42,6 +42,7 @@ const ClientSignup: React.FC = () => {
   const createAccount = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    if (form.phone.replace(/\D/g, '').length < 9) { setError('Enter a valid phone number.'); return; }
     if (form.password.length < 8) { setError('Password must be at least 8 characters.'); return; }
     setBusy(true);
     try {
@@ -50,7 +51,7 @@ const ClientSignup: React.FC = () => {
         password: form.password,
         firstName: form.firstName.trim(),
         surname: form.surname.trim(),
-        phone: form.phone.trim() || undefined,
+        phone: form.phone.trim(),
       });
       await signup(res.data); // sets session
       // Scanned in at a clinic — join it and go, no directory search.
@@ -120,8 +121,8 @@ const ClientSignup: React.FC = () => {
           <input className="cp-input" type="email" autoComplete="email" value={form.email} onChange={set('email')} required />
         </div>
         <div>
-          <label className="cp-label">Phone <span className="font-normal lowercase">(optional)</span></label>
-          <input className="cp-input" type="tel" value={form.phone} onChange={set('phone')} />
+          <label className="cp-label">Phone</label>
+          <input className="cp-input" type="tel" autoComplete="tel" inputMode="tel" placeholder="e.g. 0712 345 678" value={form.phone} onChange={set('phone')} required />
         </div>
         <div>
           <label className="cp-label">Password</label>
