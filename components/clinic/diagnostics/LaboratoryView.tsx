@@ -3,6 +3,7 @@ import ListFilterBar, { inRange } from '../shared/ListFilterBar';
 import { DateRange } from '../../shared/common/DateRangePicker';
 import { FlaskConical, Plus, Loader2, Trash2, X, Search, ExternalLink, Building2, Share2, FileText, Upload, Clock } from 'lucide-react';
 import ShareWithClinics from '../shared/ShareWithClinics';
+import DiagGroupCard from './DiagGroupCard';
 import PartnerPicker from '../shared/PartnerPicker';
 import LabRecordPage from './LabRecordPage';
 import { recordSharingAPI, visitsAPI, dialog } from '../../../services';
@@ -38,6 +39,8 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
   const [dateRange, setDateRange] = useState<DateRange | null>(null);
   const [editing, setEditing] = useState<any | null>(null);
   const [sharing, setSharing] = useState<LabRecord | null>(null);
+  // Share from a card applies to every record on it.
+  const [shareGroup, setShareGroup] = useState<string[]>([]);
   // Full-page record detail (was a right-side drawer) — better space for
   // markers, attachments and result entry.
   const [pageRecId, setPageRecId] = useState<string | null>(null);
@@ -329,54 +332,22 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
           : (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
               {grouped.map(g => (
-                <div key={g.key} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2.5 shadow-sm">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{g.pet}</p>
-                      {petMetaFor(g.petId) && <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide truncate">{petMetaFor(g.petId)}</p>}
-                      <p className="text-[10px] text-slate-400 flex items-center gap-1"><Clock size={10} /> {formatDate(g.date)}{g.records.length > 1 ? ` · ${g.records.length} tests` : ''}</p>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5">
-                    {g.records.map(r => (
-                      <div key={r.id} onClick={() => setPageRecId(r.id)} className="w-full text-left bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 rounded-xl px-3 py-2 hover:border-seafoam transition-all cursor-pointer">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="min-w-0 flex-1">
-                            <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{r.panelName}</span>
-                            <span className="flex items-center gap-1.5 mt-0.5">
-                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider ${r.status === 'RESULTED' ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-100 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{r.status?.toLowerCase()}</span>
-                              {isIncoming(r) && (
-                               <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-400 inline-flex items-center gap-0.5">
-                                 📥 From {r.clinicName || 'partner clinic'}
-                               </span>
-                             )}
-                             {/* Source badge: internal · sent-out-awaiting · external results in. */}
-                             {r.source === 'EXTERNAL' ? (
-                               r.status !== 'RESULTED' ? (
-                                 <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 inline-flex items-center gap-0.5">
-                                   <Building2 size={8} /> Sent to {r.externalSource || 'partner'} · awaiting
-                                 </span>
-                               ) : (
-                                 <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-indigo-100 text-indigo-600 dark:bg-indigo-950/40 dark:text-indigo-400 inline-flex items-center gap-0.5">
-                                   <Building2 size={8} /> External · {r.externalSource || 'lab'} ✓
-                                 </span>
-                               )
-                             ) : (
-                               <span className="px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider bg-slate-100 text-slate-500 dark:bg-zinc-800 dark:text-zinc-400">Internal</span>
-                             )}
-                              {r.markers.length > 0 && <span className="text-[8px] text-slate-400">{r.markers.length} marker{r.markers.length === 1 ? '' : 's'}</span>}
-                            </span>
-                          </span>
-                          <div className="flex gap-0.5 shrink-0">
-                            {r.appointmentId && <button onClick={(e) => { e.stopPropagation(); onOpenAppointment?.(r.appointmentId!); }} title="Open visit" className="p-1 rounded-lg text-slate-400 hover:text-seafoam"><ExternalLink size={12} /></button>}
-                            <button onClick={(e) => { e.stopPropagation(); setSharing(r); }} title="Share with partner clinics" className={`p-1 rounded-lg hover:text-seafoam ${r.allowedClinicIds && r.allowedClinicIds.length > 0 ? 'text-seafoam' : 'text-slate-400'}`}><Share2 size={12} /></button>
-                            <button onClick={(e) => { e.stopPropagation(); remove(r); }} className="p-1 rounded-lg text-slate-400 hover:text-rose-500"><Trash2 size={12} /></button>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+                <DiagGroupCard
+                  key={g.key}
+                  pet={g.pet}
+                  petMeta={petMetaFor(g.petId)}
+                  date={g.date}
+                  incomingFrom={g.records.some(isIncoming) ? ((g.records.find(isIncoming) as any)?.clinicName || 'partner clinic') : null}
+                  items={g.records.map((r: any) => ({
+                    id: String(r.id),
+                    label: r.panelName,
+                    done: r.status === 'RESULTED',
+                    internal: r.source !== 'EXTERNAL',
+                    shared: !!(r.allowedClinicIds && r.allowedClinicIds.length),
+                  }))}
+                  onOpenItem={id => setPageRecId(id as any)}
+                  onShare={() => { setSharing(g.records[0]); setShareGroup(g.records.map((r: any) => String(r.id))); }}
+                />
               ))}
             </div>
           )}
@@ -385,7 +356,12 @@ const LaboratoryView: React.FC<Props> = ({ onOpenAppointment, openForAppointment
 
       {sharing && (
         <ShareWithClinics recordType="lab" recordId={sharing.id} allowedClinicIds={sharing.allowedClinicIds}
-          onClose={() => setSharing(null)} onSaved={(ids) => { setRecords(rs => rs.map(x => x.id === sharing.id ? { ...x, allowedClinicIds: ids } : x)); }} />
+          onClose={() => setSharing(null)} onSaved={(ids) => {
+            const all = new Set([String(sharing.id), ...shareGroup]);
+            setRecords(rs => rs.map(x => all.has(String(x.id)) ? { ...x, allowedClinicIds: ids } : x));
+            shareGroup.filter(id => id !== String(sharing.id)).forEach(id => { recordSharingAPI.setShares('lab', id, ids).catch(() => toast.error('Could not share one of the records')); });
+            setShareGroup([]);
+          }} />
       )}
     </div>
   );

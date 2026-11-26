@@ -8,6 +8,7 @@ import { useClinic } from '../../../contexts/ClinicContext';
 import { imagingAPI, ImagingRecord, ImagingImage, ImagingModality, DiagSource } from '../../../services';
 import { formatDate } from '../../../services/utils/dateFormatter';
 import ShareWithClinics from '../shared/ShareWithClinics';
+import DiagGroupCard from './DiagGroupCard';
 import PartnerPicker from '../shared/PartnerPicker';
 import { recordSharingAPI, visitsAPI, dialog } from '../../../services';
 import { useStaff } from '../../../contexts/StaffContext';
@@ -45,6 +46,8 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
   const vets = useMemo(() => (staff || []).filter((s: any) => ['VET', 'STAFF', 'CLINIC_OWNER'].includes(s.role)), [staff]);
   const [records, setRecords] = useState<ImagingRecord[]>([]);
   const [sharing, setSharing] = useState<ImagingRecord | null>(null);
+  // Share from a card applies to every record on it.
+  const [shareGroup, setShareGroup] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [modality, setModality] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -358,35 +361,22 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
           : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {grouped.map(g => (
-                <div key={g.key} className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 shadow-sm space-y-2.5">
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="min-w-0">
-                      <p className="text-sm font-black text-pine dark:text-zinc-100 truncate">{g.pet}</p>
-                      {petMetaFor(g.petId) && <p className="text-[9px] font-bold text-slate-400 dark:text-zinc-500 uppercase tracking-wide truncate">{petMetaFor(g.petId)}</p>}
-                    </div>
-                    <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest shrink-0">{g.records.length} stud{g.records.length === 1 ? 'y' : 'ies'}</span>
-                  </div>
-                  <div className="space-y-1.5">
-                    {g.records.map(r => (
-                      <button key={r.id} onClick={() => setPageRecId(r.id)} className="w-full text-left bg-slate-50 dark:bg-zinc-950/40 border border-slate-100 dark:border-zinc-800 rounded-xl px-3 py-2 hover:border-seafoam transition-all">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="min-w-0">
-                            <span className="block text-xs font-bold text-pine dark:text-zinc-100 truncate">{MODALITIES.find(m => m.value === r.modality)?.label ?? r.modality}{r.bodyPart ? ` · ${r.bodyPart}` : ''}</span>
-                            <span className="text-[9px] text-slate-400 flex items-center gap-1">{r.studyDate ? formatDate(r.studyDate) : formatDate(r.createdAt)}{r.images?.length > 0 ? ` · ${r.images.length} img` : ''}{isIncoming(r) && <span className="inline-flex items-center gap-0.5 text-violet-600 font-black">📥 From {r.clinicName || 'partner'}</span>}{r.source === 'EXTERNAL' && (r.status && r.status !== 'COMPLETED'
-                              ? <span className="inline-flex items-center gap-0.5 text-amber-600"><Building2 size={9} /> Sent to {r.externalSource || 'partner'} · awaiting</span>
-                              : <span className="inline-flex items-center gap-0.5 text-indigo-500"><Building2 size={9} /> {r.externalSource || 'External'} ✓</span>)}</span>
-                          </span>
-                          <span className="flex items-center gap-1 shrink-0">
-                            {r.status && <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${r.status === 'COMPLETED' ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400' : 'bg-amber-50 text-amber-600 dark:bg-amber-950/40 dark:text-amber-400'}`}>{r.status.toLowerCase().replace('_', ' ')}</span>}
-                            {r.appointmentId && <span onClick={(e) => { e.stopPropagation(); onOpenAppointment?.(r.appointmentId!); }} title="Open visit" className="p-1 rounded text-slate-400 hover:text-seafoam cursor-pointer"><ExternalLink size={12} /></span>}
-                            <span onClick={(e) => { e.stopPropagation(); setSharing(r); }} title="Share" className={`p-1 rounded hover:text-seafoam cursor-pointer ${r.allowedClinicIds && r.allowedClinicIds.length > 0 ? 'text-seafoam' : 'text-slate-400'}`}><Share2 size={12} /></span>
-                            <span onClick={(e) => { e.stopPropagation(); remove(r); }} title="Delete" className="p-1 rounded text-slate-400 hover:text-rose-500 cursor-pointer"><Trash2 size={12} /></span>
-                          </span>
-                        </div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
+                <DiagGroupCard
+                  key={g.key}
+                  pet={g.pet}
+                  petMeta={petMetaFor(g.petId)}
+                  date={(g.records[0] as any)?.studyDate || (g.records[0] as any)?.createdAt}
+                  incomingFrom={g.records.some(isIncoming) ? ((g.records.find(isIncoming) as any)?.clinicName || 'partner clinic') : null}
+                  items={g.records.map((r: any) => ({
+                    id: String(r.id),
+                    label: `${MODALITIES.find(m => m.value === r.modality)?.label ?? r.modality}${r.bodyPart ? ` · ${r.bodyPart}` : ''}`,
+                    done: r.status === 'COMPLETED',
+                    internal: r.source !== 'EXTERNAL',
+                    shared: !!(r.allowedClinicIds && r.allowedClinicIds.length),
+                  }))}
+                  onOpenItem={id => setPageRecId(id as any)}
+                  onShare={() => { setSharing(g.records[0]); setShareGroup(g.records.map((r: any) => String(r.id))); }}
+                />
               ))}
             </div>
           )}
@@ -397,7 +387,12 @@ const ImagingView: React.FC<Props> = ({ onOpenAppointment, openForAppointmentId 
 
       {sharing && (
         <ShareWithClinics recordType="imaging" recordId={sharing.id} allowedClinicIds={sharing.allowedClinicIds}
-          onClose={() => setSharing(null)} onSaved={(ids) => { setRecords(rs => rs.map(x => x.id === sharing.id ? { ...x, allowedClinicIds: ids } : x)); }} />
+          onClose={() => setSharing(null)} onSaved={(ids) => {
+            const all = new Set([String(sharing.id), ...shareGroup]);
+            setRecords(rs => rs.map(x => all.has(String(x.id)) ? { ...x, allowedClinicIds: ids } : x));
+            shareGroup.filter(id => id !== String(sharing.id)).forEach(id => { recordSharingAPI.setShares('imaging', id, ids).catch(() => toast.error('Could not share one of the records')); });
+            setShareGroup([]);
+          }} />
       )}
     </div>
   );
