@@ -77,6 +77,14 @@ const VisitsListView: React.FC<Props> = ({
     return a?.paymentMethod || 'Paid';
   };
 
+  // A click anywhere on a row or card opens the visit (user, 2026-11-26) —
+  // except on its own buttons, links, inputs and the actions menu.
+  const openFromRow = (e: React.MouseEvent, id: number | string) => {
+    const t = e.target as HTMLElement;
+    if (t.closest('button, a, input, select, textarea, label, [role="menu"], [data-no-row-open]')) return;
+    if (window.getSelection()?.toString()) return; // selecting text, not opening
+    onManageWorkflow(Number(id));
+  };
   const canCreateVisit = userCan(user, 'create_appointments');
   const canEditVisit = userCan(user, 'edit_appointments');
   const canDeleteVisit = userCan(user, 'delete_appointments');
@@ -812,7 +820,8 @@ const VisitsListView: React.FC<Props> = ({
                       return (
                         <tr
                           key={appt.id}
-                          className={`group transition-colors duration-150 ${statusRowBg[appt.status] || ''} ${statusBorderR[appt.status] || ''} hover:bg-slate-50/60 dark:hover:bg-zinc-800/30`}
+                          onClick={e => openFromRow(e, appt.id)}
+                          className={`group cursor-pointer transition-colors duration-150 ${statusRowBg[appt.status] || ''} ${statusBorderR[appt.status] || ''} hover:bg-slate-50/60 dark:hover:bg-zinc-800/30`}
                         >
                           {/* Patient */}
                           <td className="px-5 py-4">
@@ -1080,7 +1089,7 @@ const VisitsListView: React.FC<Props> = ({
                   [ApptStatus.CANCELLED]: 'border-l-[3px] border-l-red-400',
                 };
                 return (
-                  <div key={appt.id} className={`bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg shadow-slate-200/30 dark:shadow-none overflow-visible ${statusBorderL[appt.status] || ''}`}>
+                  <div key={appt.id} onClick={e => openFromRow(e, appt.id)} className={`cursor-pointer bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg shadow-slate-200/30 dark:shadow-none overflow-visible ${statusBorderL[appt.status] || ''}`}>
                     {/* Card Header */}
                     <div className="bg-slate-50 dark:bg-zinc-800/50 px-4 py-3 border-b border-slate-200 dark:border-zinc-800">
                       <div className="flex items-start gap-3">

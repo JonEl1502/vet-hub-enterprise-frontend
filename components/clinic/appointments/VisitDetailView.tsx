@@ -4631,7 +4631,7 @@ const VisitDetailInner: React.FC<Props> = ({
   const goMenuEncounters = appointment.isPaid || isMoneyDesk ? [] : addEncounterOptions(appointment, wiz.availableEntries);
 
   return (
-    <div ref={billBarRootRef} className="space-y-6 animate-in slide-in-from-bottom-2 duration-300 pb-20">
+    <div ref={billBarRootRef} className="space-y-3 animate-in slide-in-from-bottom-2 duration-300 pb-20">
       {/* Pay-gate before boarding/in-patient (spec 7b): settle in full first;
           owner/manager may override for a health danger — recorded + flagged. */}
       {payGate && (
@@ -4970,29 +4970,23 @@ const VisitDetailInner: React.FC<Props> = ({
 
 
 
-      {/* Lock Banner for Paid Visits */}
-      {/* ⚠️ A STATUS NOTE, NOT A HERO CARD (user, 2026-08-21: "Visit locked msg
-          card too big on both desktop n mobile"). At `p-5` with a 24px icon in
-          its own tinted tile and a two-line paragraph, it was the tallest thing
-          on the page — on a phone it pushed the patient header, the bill and the
-          tabs below the fold, on every visit that had been paid. It says one
-          thing and it should cost one line to say it. */}
-      {appointment.isPaid && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl px-3 py-2 flex items-center gap-2 animate-in fade-in">
-          <Lock size={13} className="text-amber-600 shrink-0" />
-          <p className="min-w-0 text-[11px] font-bold text-amber-700 dark:text-amber-400 leading-snug">
-            <span className="font-black uppercase tracking-widest">Visit locked</span>
-            <span className="hidden sm:inline"> — paid{appointment.paymentMethod ? ` by ${String(appointment.paymentMethod).replace(/_/g, ' ').toLowerCase()}` : ''}. Contact the clinic owner to make changes.</span>
-            {appointment.paymentMethod && <span className="sm:hidden"> · paid by {String(appointment.paymentMethod).replace(/_/g, ' ').toLowerCase()}</span>}
-          </p>
-        </div>
-      )}
+      {/* The locked note now sits INSIDE the header card (user, 2026-11-26). */}
 
       {/* Combined Patient Info, Date/Time, and Progress Header Card */}
       <div data-tour="appt-overview" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-lg overflow-hidden">
         {/* Top Section: Patient Info and Visit Details */}
         <div className="px-4 py-3 bg-gradient-to-br from-pine to-pine/90 text-white relative overflow-hidden">
           <div className="absolute top-0 right-0 p-3 opacity-10 pointer-events-none"><Stethoscope size={44}/></div>
+          {appointment.isPaid && (
+            <div className="relative z-10 mb-2.5 flex items-center gap-2 rounded-lg bg-amber-400/15 border border-amber-300/30 px-2.5 py-1.5">
+              <Lock size={12} className="text-amber-300 shrink-0" />
+              <p className="min-w-0 text-[11px] font-bold text-amber-100 leading-snug">
+                <span className="font-black uppercase tracking-widest text-amber-300">Visit locked</span>
+                <span className="hidden sm:inline"> — paid{appointment.paymentMethod ? ` by ${String(appointment.paymentMethod).replace(/_/g, ' ').toLowerCase()}` : ''}. Contact the clinic owner to make changes.</span>
+                {appointment.paymentMethod && <span className="sm:hidden"> · paid by {String(appointment.paymentMethod).replace(/_/g, ' ').toLowerCase()}</span>}
+              </p>
+            </div>
+          )}
           {/* Header, tightened (user, 2026-11-24): no clinic name (we know the
               clinic), the date and time sit with the total, and the visit type
               rides above the Visit summary button in the last column — one row,
