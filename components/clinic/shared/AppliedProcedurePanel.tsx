@@ -11,6 +11,10 @@ interface Props {
   // Scope to the application anchored on ONE service task (module pages).
   // Omit to show every procedure applied to the visit.
   taskId?: string | number | null;
+  /** The anchoring service's name. Recipes applied from the visit wizard carry
+   *  no taskId, so on the surgery page a neutering recipe never showed next to
+   *  the neutering record (user, 2026-11-26). Matched by name as a fallback. */
+  taskName?: string | null;
   billLocked?: boolean;
   currency?: string;
   onChanged?: () => void;
@@ -50,7 +54,7 @@ interface Props {
  * lines, recommended (optional) diagnostics to tick on, skipped-item
  * warnings, and a weight/flags re-quote. All mutations are pre-settle only.
  */
-const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLocked = false, currency = 'KES', onChanged, refreshKey, pickerOpen, onPickerOpenChange, onRequestUnlock, canUnlock, billPaid }) => {
+const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, taskName, billLocked = false, currency = 'KES', onChanged, refreshKey, pickerOpen, onPickerOpenChange, onRequestUnlock, canUnlock, billPaid }) => {
   const [apps, setApps] = useState<ProcedureApplication[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
@@ -66,12 +70,16 @@ const AppliedProcedurePanel: React.FC<Props> = ({ appointmentId, taskId, billLoc
       const res = await procedureTemplatesAPI.listApplications(appointmentId);
       if (res.success && res.data?.applications) {
         const all = res.data.applications;
-        setApps(taskId != null ? all.filter(a => String(a.taskId) === String(taskId)) : all);
+        const nm = String(taskName || '').trim().toLowerCase();
+        setApps(taskId != null ? all.filter(a =>
+          String(a.taskId) === String(taskId)
+          || (a.tasks || []).some(t => String(t.id) === String(taskId))
+          || (a.taskId == null && !!nm && String(a.templateName || '').trim().toLowerCase() === nm)) : all);
       }
     } catch (e) { console.error('Failed to load procedure applications', e); }
     finally { setLoading(false); }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [appointmentId, taskId, refreshKey]);
+  }, [appointmentId, taskId, taskName, refreshKey]);
   useEffect(() => { load(); }, [load]);
 
   useEffect(() => {

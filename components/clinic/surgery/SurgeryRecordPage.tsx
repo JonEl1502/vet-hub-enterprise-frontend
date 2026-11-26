@@ -222,39 +222,40 @@ const SurgeryRecordPage: React.FC<Props> = ({ recordId, onBack, onOpenAppointmen
       {loading && !rec ? (
         <div className="flex items-center justify-center py-20"><LoadingSpinner size="md" /></div>
       ) : rec ? (
-        <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_300px] gap-4 items-start">
           {/* MAIN — clinical narrative */}
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
+            {/* ONE card: the procedure's components and steps first, then the
+                narrative — two columns, so the page reads across instead of
+                scrolling down (user, 2026-11-26). */}
             <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-5 space-y-4 shadow-sm">
+              {rec.appointmentId && rec.taskId && (
+                <AppliedProcedurePanel
+                  appointmentId={rec.appointmentId}
+                  taskId={rec.taskId}
+                  taskName={rec.serviceName}
+                  billLocked={billFinalized}
+                  onChanged={load}
+                />
+              )}
               {locked ? (
-                <>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <Detail label="Anesthesia" value={rec.anesthesia} />
+                  <Detail label="Complications" value={rec.complications} />
                   <Detail label="Procedure notes" value={rec.procedureNotes} />
                   <Detail label="Findings" value={rec.findings} />
-                  <Detail label="Complications" value={rec.complications} />
-                  <Detail label="Post-op instructions" value={rec.postOpInstructions} />
-                </>
+                  <div className="md:col-span-2"><Detail label="Post-op instructions" value={rec.postOpInstructions} /></div>
+                </div>
               ) : (
-                <>
-                  <div><label className={labelCls}>Anesthesia</label><textarea className={fieldCls} rows={2} value={rec.anesthesia ?? ''} onChange={e => patch({ anesthesia: e.target.value })} placeholder="Agent, dose, monitoring" /></div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div><label className={labelCls}>Anesthesia</label><textarea className={fieldCls} rows={3} value={rec.anesthesia ?? ''} onChange={e => patch({ anesthesia: e.target.value })} placeholder="Agent, dose, monitoring" /></div>
+                  <div><label className={labelCls}>Complications</label><textarea className={fieldCls} rows={3} value={rec.complications ?? ''} onChange={e => patch({ complications: e.target.value })} placeholder="None" /></div>
                   <div><label className={labelCls}>Procedure notes</label><textarea className={fieldCls} rows={4} value={rec.procedureNotes ?? ''} onChange={e => patch({ procedureNotes: e.target.value })} placeholder="Approach, technique, steps" /></div>
-                  <div><label className={labelCls}>Findings</label><textarea className={fieldCls} rows={3} value={rec.findings ?? ''} onChange={e => patch({ findings: e.target.value })} /></div>
-                  <div><label className={labelCls}>Complications</label><textarea className={fieldCls} rows={2} value={rec.complications ?? ''} onChange={e => patch({ complications: e.target.value })} placeholder="None" /></div>
-                  <div><label className={labelCls}>Post-op instructions</label><textarea className={fieldCls} rows={2} value={rec.postOpInstructions ?? ''} onChange={e => patch({ postOpInstructions: e.target.value })} placeholder="Rest, meds, recheck, suture removal" /></div>
-                </>
+                  <div><label className={labelCls}>Findings</label><textarea className={fieldCls} rows={4} value={rec.findings ?? ''} onChange={e => patch({ findings: e.target.value })} /></div>
+                  <div className="md:col-span-2"><label className={labelCls}>Post-op instructions</label><textarea className={fieldCls} rows={2} value={rec.postOpInstructions ?? ''} onChange={e => patch({ postOpInstructions: e.target.value })} placeholder="Rest, meds, recheck, suture removal" /></div>
+                </div>
               )}
             </section>
-
-            {/* Applied procedure recipe — stage checklist, recommended
-                diagnostics, weight/flags re-quote (Billable Items wave M3). */}
-            {rec.appointmentId && rec.taskId && (
-              <AppliedProcedurePanel
-                appointmentId={rec.appointmentId}
-                taskId={rec.taskId}
-                billLocked={billFinalized}
-                onChanged={load}
-              />
-            )}
 
             {/* Medications & consumables used — deduct stock (fractional ok) +
                 bill, scoped to this surgery service. Locked records show none. */}

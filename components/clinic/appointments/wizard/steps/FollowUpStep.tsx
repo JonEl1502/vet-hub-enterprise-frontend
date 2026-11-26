@@ -1,5 +1,5 @@
 import React from 'react';
-import { CalendarClock, Bell, HeartPulse, ClipboardCheck } from 'lucide-react';
+import { CalendarClock, Bell, HeartPulse, ClipboardCheck, ChevronDown } from 'lucide-react';
 import { StepProps } from '../types';
 import { Section, L, Seg, CheckGrid, ListEditor, showsField, showsAny } from '../fields';
 
@@ -22,6 +22,7 @@ const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit, visible
   const show = showsField(visibleFields);
   const d = data || {};
   const reminders: ReminderRow[] = d.reminders || [];
+  const [outcomeOpen, setOutcomeOpen] = React.useState<boolean>(!!(d.currentOutcome || d.closeOutcome || d.outcomeNotes));
   const [draft, setDraft] = React.useState<ReminderRow>({ title: '', description: '', dueDate: '', assignTo: '' });
 
   const addReminder = () => {
@@ -36,20 +37,6 @@ const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit, visible
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
-        {showsAny(visibleFields, ['currentOutcome','closeOutcome','outcomeNotes']) && (
-      <Section icon={HeartPulse} title="Current Outcome">
-          {show('currentOutcome') && <L label="Outcome at end of consultation">
-            <Seg options={OUTCOME} value={d.currentOutcome} onChange={v => setData({ currentOutcome: v })} />
-          </L>}
-          {show('closeOutcome') && <L label="Outcome when visit is closed">
-            <Seg options={CLOSE_OUTCOME} value={d.closeOutcome} onChange={v => { setData({ closeOutcome: v }); if (v) emit(`Visit outcome — ${v.toLowerCase()}`, 'milestone', true); }} />
-          </L>}
-          {show('outcomeNotes') && <L label="Outcome notes">
-            <textarea className="field-textarea" rows={2} placeholder="Notes on outcome…" value={d.outcomeNotes ?? ''} onChange={e => setData({ outcomeNotes: e.target.value })} />
-          </L>}
-        </Section>
-      )}
-
         {/* Next visit is just another reminder point — no separate card.
             Reception creates the real reminders / books the appointment from
             the Follow-up Plan card in the rail. */}
@@ -88,9 +75,8 @@ const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit, visible
         </p>
       </Section>
       )}
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-start">
+      <div className="space-y-4">
         {show('carePlan') && (
       <Section icon={ClipboardCheck} title="Care Plan">
           <ListEditor
@@ -106,6 +92,37 @@ const FollowUpStep: React.FC<StepProps> = ({ data, setData, staff, emit, visible
         </Section>
       )}
       </div>
+      </div>
+
+      {/* Today's outcome — full width, last, folded away: the clinic rarely
+          fills it (user, 2026-11-26). Opens on its own when it has a value. */}
+      {showsAny(visibleFields, ['currentOutcome','closeOutcome','outcomeNotes']) && (
+        <div className="rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+          <button type="button" onClick={() => setOutcomeOpen(o => !o)}
+            className="w-full flex items-center gap-2 px-4 py-3 text-left">
+            <HeartPulse size={13} className="text-slate-400" />
+            <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-zinc-400">Today's outcome</span>
+            {(d.currentOutcome || d.closeOutcome) && (
+              <span className="text-[10px] font-bold text-seafoam">{[d.currentOutcome, d.closeOutcome].filter(Boolean).join(' · ')}</span>
+            )}
+            <span className="ml-auto text-[9px] font-bold text-slate-400">{outcomeOpen ? 'Hide' : 'Optional — tap to record'}</span>
+            <ChevronDown size={14} className={`text-slate-400 transition-transform ${outcomeOpen ? 'rotate-180' : ''}`} />
+          </button>
+          {outcomeOpen && (
+            <div className="px-4 pb-4 grid grid-cols-1 lg:grid-cols-3 gap-4">
+              {show('currentOutcome') && <L label="Outcome at end of consultation">
+                <Seg options={OUTCOME} value={d.currentOutcome} onChange={v => setData({ currentOutcome: v })} />
+              </L>}
+              {show('closeOutcome') && <L label="Outcome when visit is closed">
+                <Seg options={CLOSE_OUTCOME} value={d.closeOutcome} onChange={v => { setData({ closeOutcome: v }); if (v) emit(`Visit outcome — ${v.toLowerCase()}`, 'milestone', true); }} />
+              </L>}
+              {show('outcomeNotes') && <L label="Outcome notes">
+                <textarea className="field-textarea" rows={3} placeholder="Notes on outcome…" value={d.outcomeNotes ?? ''} onChange={e => setData({ outcomeNotes: e.target.value })} />
+              </L>}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 };
