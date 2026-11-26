@@ -1,5 +1,5 @@
 import React from 'react';
-import { ShieldCheck } from 'lucide-react';
+import { ShieldCheck, Plus, Search } from 'lucide-react';
 import { VACCINES, hasVaccineRecorded } from '../../../constants/vaccines';
 import { useFeature } from '../../../contexts/PlanAccessContext';
 import { Award, Lock, Syringe } from 'lucide-react';
@@ -152,6 +152,19 @@ const AdmissionGate: React.FC<Props> = ({
   const toggle = (k: string) =>
     onChange({ vaccines: { ...(value.vaccines || {}), [k]: !(value.vaccines || {})[k] } });
 
+  // "+ Add": vaccines past the first three live in a searchable list.
+  const [addOpen, setAddOpen] = React.useState(false);
+  const [addQ, setAddQ] = React.useState('');
+  const [shownExtra, setShownExtra] = React.useState<string[]>([]);
+  const addRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    if (!addOpen) return;
+    const close = (e: MouseEvent) => { if (addRef.current && !addRef.current.contains(e.target as Node)) setAddOpen(false); };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, [addOpen]);
+  const hiddenVaccines = VACCINES.filter((v, i) => !(i < 3 || (value.vaccines || {})[v.key] || dates[v.key] || shownExtra.includes(v.key)));
+
   const shell = required
     ? 'bg-amber-50/60 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30'
     : 'bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800';
@@ -184,9 +197,12 @@ const AdmissionGate: React.FC<Props> = ({
       )}
 
       <div>
-        <label className="field-label">Vaccination check{required ? ' *' : ''}</label>
-        <div className="flex flex-wrap gap-2">
-          {VACCINES.map(v => {
+        <label className="field-label">Vaccination check <span className="normal-case tracking-normal font-bold text-slate-400">(vaccinations already given)</span>{required ? ' *' : ''}</label>
+        <div className="flex flex-wrap gap-2 items-center">
+          {/* The first three, plus anything ticked or on record. The rest sit
+              behind "+ Add" in a searchable list (user, 2026-11-26: fourteen
+              chips was a wall). */}
+          {VACCINES.filter((v, i) => i < 3 || (value.vaccines || {})[v.key] || dates[v.key] || shownExtra.includes(v.key)).map(v => {
             const on = !!(value.vaccines || {})[v.key];
             return (
               <button
@@ -205,6 +221,35 @@ const AdmissionGate: React.FC<Props> = ({
               </button>
             );
           })}
+          {hiddenVaccines.length > 0 && (
+            <div className="relative" ref={addRef}>
+              <button type="button" onClick={() => { setAddOpen(o => !o); setAddQ(''); }}
+                className="inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-black border border-dashed border-emerald-300 dark:border-emerald-800 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 transition-all">
+                <Plus size={12} /> Add
+              </button>
+              {addOpen && (
+                <div className="absolute z-30 mt-1 left-0 w-64 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 shadow-xl p-2">
+                  <div className="flex items-center gap-1.5 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-zinc-800">
+                    <Search size={12} className="text-slate-400 shrink-0" />
+                    <input autoFocus value={addQ} onChange={e => setAddQ(e.target.value)} placeholder="Search vaccines…"
+                      className="w-full bg-transparent text-[12px] font-bold outline-none text-slate-700 dark:text-zinc-200" />
+                  </div>
+                  <div className="max-h-56 overflow-y-auto mt-1">
+                    {hiddenVaccines.filter(v => v.label.toLowerCase().includes(addQ.trim().toLowerCase())).map(v => (
+                      <button key={v.key} type="button"
+                        onClick={() => { setShownExtra(x => [...x, v.key]); if (!(value.vaccines || {})[v.key]) toggle(v.key); setAddOpen(false); }}
+                        className="w-full text-left px-2 py-1.5 rounded-lg text-[12px] font-bold text-slate-600 dark:text-zinc-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30">
+                        {v.label}
+                      </button>
+                    ))}
+                    {hiddenVaccines.every(v => !v.label.toLowerCase().includes(addQ.trim().toLowerCase())) && (
+                      <p className="px-2 py-2 text-[11px] font-bold text-slate-400">No vaccine matches.</p>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
         {/* Something IS verified — offer the certificate. Gated: issuing
             certificates is a paid capability, and the gate itself stays fully

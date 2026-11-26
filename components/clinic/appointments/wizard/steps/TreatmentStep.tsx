@@ -554,6 +554,27 @@ const TreatmentStep: React.FC<StepProps> = ({ visit, pet, data, setData, emit, r
       )}
       {show('medications') && txTab === 'medications' && (
       <Section icon={Pill} title="Medications & Items Used (deducts stock · bills)">
+        {/* What procedures on this visit already used — same stock, same bill,
+            so it shows here rather than only inside the procedure card
+            (user, 2026-11-26). Vaccines go to the Vaccinations tab instead. */}
+        {(() => {
+          const isV = (x: any) => /vaccin|immuni/i.test(String(x || ''));
+          const fromProc = ((visit as any).medications || []).filter((m: any) =>
+            m.procedureApplicationId && !isV(m.inventoryItem?.category) && !isV(m.inventoryItem?.name));
+          if (!fromProc.length) return null;
+          return (
+            <div className="rounded-xl border border-slate-200 dark:border-zinc-800 p-3 space-y-1.5">
+              <p className="text-[9px] font-black uppercase tracking-widest text-slate-400">From procedures on this visit · stock deducted</p>
+              {fromProc.map((m: any) => (
+                <div key={m.id} className="flex items-center justify-between gap-2 text-[12px]">
+                  <span className="font-bold text-slate-700 dark:text-zinc-200 truncate">{m.inventoryItem?.name || 'Item'}</span>
+                  <span className="text-[11px] font-bold text-slate-400 shrink-0">×{Number(m.quantity)}{m.inventoryItem?.unit ? ` ${m.inventoryItem.unit}` : ''}</span>
+                </div>
+              ))}
+              <p className="text-[9px] font-bold text-slate-400">Edit these on the Procedures tab.</p>
+            </div>
+          );
+        })()}
         {marCount > 0 && (
           <p className="text-[10px] font-bold text-slate-400 dark:text-zinc-500">
             {marCount} medication{marCount === 1 ? '' : 's'} already recorded on this visit's MAR (Records &amp; Billing → Medications).

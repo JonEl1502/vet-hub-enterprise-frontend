@@ -28,7 +28,7 @@ const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString
  * DEWORMING reminder), view the patient's deworming timeline, and print a
  * deworming certificate.
  */
-const DewormingStep: React.FC<StepProps> = ({ visit, pet, emit, refreshVisit }) => {
+const DewormingStep: React.FC<StepProps> = ({ visit, pet, emit, refreshVisit, currency, patientWeightKg }) => {
   const { inventory, ensureInventory } = useData() as any;
   useEffect(() => { ensureInventory?.(); }, [ensureInventory]);
 
@@ -37,7 +37,8 @@ const DewormingStep: React.FC<StepProps> = ({ visit, pet, emit, refreshVisit }) 
   const [loading, setLoading] = useState(true);
   const [busyId, setBusyId] = useState<string | null>(null);
 
-  const petWeight = (pet as any).weightValue ?? (pet as any).weight ?? '';
+  // This visit's weight (vaccination gate / Examination) before the record's.
+  const petWeight = patientWeightKg ?? (pet as any).weightValue ?? (pet as any).weight ?? '';
   const [draft, setDraft] = useState({
     productName: '', itemId: '' as string, activeIngredient: '', wormType: 'Broad-spectrum',
     weightKg: petWeight ? String(petWeight).replace(/[^0-9.]/g, '') : '', doseGiven: '', route: 'PO (oral)',
@@ -62,8 +63,44 @@ const DewormingStep: React.FC<StepProps> = ({ visit, pet, emit, refreshVisit }) 
       if (t.species?.length && sp && !t.species.some((x: string) => x.toLowerCase() === sp)) return false;
       const hay = `${t.categoryName || ''} ${t.name || ''}`.toLowerCase();
       return /deworm|anthelmintic|wormer/.test(hay);
-    });
+    })
+      // The clinic's own copy and the VetHub default can share a name — the
+      // picker showed "Deworming (Dog)" twice (user, 2026-11-26). Keep the
+      // clinic's own; fall back to the default only when there is none.
+      .filter((t: any, _i: number, all: any[]) => t.clinicId != null
+        || !all.some((o: any) => o.clinicId != null && String(o.name).trim().toLowerCase() === String(t.name).trim().toLowerCase()));
   }, [protocols, pet]);
+
+  // The protocol picked, shown as what it is: a PROCEDURE, its lines, and
+  // what each line charges (user, 2026-11-26: "show that it is a procedure…
+  // show the charge and the billable charge").
+  const [picked, setPicked] = useState<any | null>(null);
+  const [billedProc, setBilledProc] = useState<string | null>(null);
+  const [billing, setBilling] = useState(false);
+  const lineAmt = (i: any) => Number(i.priceOverride ?? i.effectivePrice ?? 0) * (Number(i.quantity) || 1);
+  const pickedTotal = picked ? (picked.items || []).filter((i: any) => i.billable !== false).reduce((a: number, i: any) => a + lineAmt(i), 0) : 0;
+  const fmtMoney = (n: number) => `${currency || 'KES'} ${Math.round(n).toLocaleString()}`;
+  const billProtocol = async () => {
+    if (!picked) return;
+    setBilling(true);
+    try {
+      const res = await procedureTemplatesAPI.apply(picked.id, {
+        appointmentId: visit.id,
+        ...(draft.weightKg ? { weightKg: Number(draft.weightKg) } : patientWeightKg != null ? { weightKg: patientWeightKg } : {}),
+      });
+      if (res.success) {
+        setBilledProc(String(picked.id));
+        // The procedure has now drawn the dewormer from stock and billed it.
+        // Drop the record's stock link so "Administer" does not take a
+        // second dose off the shelf.
+        setDraft(d => ({ ...d, itemId: '' }));
+        emit(`Procedure billed — ${picked.name}${res.data?.total != null ? ` · ${fmtMoney(Number(res.data.total))}` : ''}`, 'billing', true);
+        toast.success('Added to the bill');
+        refreshVisit?.();
+      }
+    } catch (e: any) { toast.error(e?.message || 'Could not add the procedure'); }
+    finally { setBilling(false); }
+  };
 
   // Taking a protocol fills the product and its stock link, and its own
   // interval when it carries one. It does NOT deduct — that stays the explicit
@@ -173,12 +210,53 @@ const DewormingStep: React.FC<StepProps> = ({ visit, pet, emit, refreshVisit }) 
               onChange={e => {
                 const t = dewormProtocols.find((x: any) => String(x.id) === e.target.value);
                 e.target.value = '';
-                if (t) applyProtocol(t);
+                if (t) { applyProtocol(t); setPicked(t); setBilledProc(null); }
               }}
             >
-              <option value="">Use a deworming protocol…</option>
-              {dewormProtocols.map((t: any) => <option key={t.id} value={String(t.id)}>{t.name}</option>)}
+              <option value="">Use a deworming protocol (from Procedures)…</option>
+              {dewormProtocols.map((t: any) => {
+                const total = (t.items || []).filter((i: any) => i.billable !== false).reduce((a: number, i: any) => a + lineAmt(i), 0);
+                return <option key={t.id} value={String(t.id)}>{t.name} · Procedure{t.clinicId == null ? ' (VetHub default)' : ''} · {fmtMoney(total)}</option>;
+              })}
             </select>
+          )}
+          {picked && (
+            <div className="rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 p-3 space-y-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-violet-100 text-violet-700 dark:bg-violet-950/40 dark:text-violet-300">Procedure</span>
+                <span className="text-[12px] font-black text-slate-700 dark:text-zinc-100">{picked.name}</span>
+                <span className="text-[10px] font-bold text-slate-400">{picked.clinicId == null ? 'VetHub default' : 'Your clinic'} · Inventory &amp; Billables → Procedures</span>
+                <button type="button" onClick={() => setPicked(null)} className="ml-auto text-[10px] font-bold text-slate-400 hover:text-slate-600">Hide</button>
+              </div>
+              <div className="divide-y divide-slate-100 dark:divide-zinc-800">
+                {(picked.items || []).map((i: any) => {
+                  const isItem = !!i.inventoryItemId;
+                  return (
+                    <div key={i.id} className="flex items-center gap-2 py-1.5 text-[11px]">
+                      <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-widest ${isItem ? 'bg-amber-100 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300' : 'bg-sky-100 text-sky-700 dark:bg-sky-950/40 dark:text-sky-300'}`}>
+                        {isItem ? 'Item' : 'Service'}
+                      </span>
+                      <span className="font-bold text-slate-700 dark:text-zinc-200 truncate flex-1">{i.customName || i.name}{Number(i.quantity) !== 1 ? ` ×${Number(i.quantity)}` : ''}</span>
+                      <span className={`font-black shrink-0 ${i.billable === false ? 'text-slate-400 line-through' : 'text-slate-700 dark:text-zinc-100'}`}>{fmtMoney(lineAmt(i))}</span>
+                      {i.billable === false && <span className="text-[9px] font-bold text-slate-400">not billed</span>}
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Billable total</span>
+                <span className="text-[13px] font-black text-seafoam">{fmtMoney(pickedTotal)}</span>
+                {billedProc === String(picked.id) ? (
+                  <span className="ml-auto inline-flex items-center gap-1 text-[10px] font-black text-emerald-600"><Check size={12} /> On the bill</span>
+                ) : (
+                  <button type="button" disabled={billing} onClick={billProtocol}
+                    className="ml-auto inline-flex items-center gap-1 h-8 px-3 rounded-lg bg-seafoam text-white text-[10px] font-black uppercase tracking-widest hover:bg-pine disabled:opacity-50">
+                    {billing ? <Loader2 size={12} className="animate-spin" /> : <Plus size={12} />} Add to bill
+                  </button>
+                )}
+              </div>
+              <p className="text-[9px] font-bold text-slate-400">Recording the deworming alone does not bill it. "Add to bill" puts these lines on the visit and draws the item from stock once.</p>
+            </div>
           )}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2 items-end">
             <L label="Dewormer" className="col-span-2">

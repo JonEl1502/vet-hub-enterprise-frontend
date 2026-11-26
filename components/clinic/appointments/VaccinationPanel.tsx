@@ -125,8 +125,15 @@ const VaccinationPanel: React.FC<Props> = ({ appointment, petId, onSaved }) => {
       let recs = await vaccinationsAPI.getByAppointment(String(appointment.id));
       // Safety net: if the visit has vaccination tasks but no records yet
       // (sync hasn't run), generate them so the list isn't empty.
-      if (backfill && recs.length === 0) {
-        const hasVaccTask = (appointment.tasks || []).some((t: any) => /vaccin|immuni/i.test(t.category || ''));
+      // Re-run whenever the visit carries vaccine lines, not only when the list
+      // is empty: a procedure applied mid-visit (e.g. a vaccination package)
+      // adds tasks/items AFTER the first records exist, and the backend
+      // generator is incremental — it only creates what is missing
+      // (user, 2026-11-26: procedure vaccines must show under Vaccinations).
+      if (backfill) {
+        const isV = (x: any) => /vaccin|immuni/i.test(String(x || ''));
+        const hasVaccTask = (appointment.tasks || []).some((t: any) => isV(t.category))
+          || ((appointment as any).medications || []).some((m: any) => isV(m.inventoryItem?.category) || isV(m.inventoryItem?.name));
         if (hasVaccTask) { try { await vaccinationsAPI.createFromAppointment(String(appointment.id)); recs = await vaccinationsAPI.getByAppointment(String(appointment.id)); } catch { /* non-fatal */ } }
       }
       setRecords(recs);
@@ -134,7 +141,9 @@ const VaccinationPanel: React.FC<Props> = ({ appointment, petId, onSaved }) => {
     finally { setLoaded(true); }
   };
 
-  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [appointment.id]);
+  // Reload when the visit's lines change (a procedure or package was applied).
+  const lineSig = `${(appointment.tasks || []).map((t: any) => t.id).join(',')}|${((appointment as any).medications || []).map((m: any) => m.id).join(',')}`;
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [appointment.id, lineSig]);
 
   const setGiven = async (rec: VaccinationRecord, given: boolean) => {
     if (locked) return;
