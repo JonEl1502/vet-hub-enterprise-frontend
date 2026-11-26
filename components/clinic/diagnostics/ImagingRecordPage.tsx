@@ -12,6 +12,9 @@ import UpgradeGate from '../../shared/common/UpgradeGate';
 import { visitJobsAPI, VisitJob } from '../../../services/modules/visitJobs.api';
 import { Send } from 'lucide-react';
 import { useData } from '../../../contexts/DataContext';
+import { useAuth } from '../../../contexts/AuthContext';
+import { dialog } from '../../../services';
+import { Trash2 } from 'lucide-react';
 import { petMetaLine } from '../../../utils/pet';
 
 interface Props {
@@ -46,6 +49,10 @@ const downscale = (file: File, max = 1100, quality = 0.72): Promise<string> => n
  * while the visit is still open; once billed it's frozen for good.
  */
 const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenAppointment }) => {
+  // Delete is the clinic owner's alone (user, 2026-11-26) — the server
+  // enforces the same rule; this only hides the button from everyone else.
+  const { user: authUser } = useAuth();
+  const isOwner = ['CLINIC_OWNER', 'SUPER_ADMIN'].includes(String((authUser as any)?.role || ''));
   // Sibling records: every imaging study on the SAME visit, tabbed. The prop
   // record stays the fallback; switching tabs only changes `currentId`.
   const [siblings, setSiblings] = useState<ImagingRecord[]>([record]);
@@ -331,6 +338,17 @@ const ImagingRecordPage: React.FC<Props> = ({ record, onBack, onChanged, onOpenA
       <RecordActionBar
         hint={billLocked ? 'Bill settled — record locked' : (dirty ? 'Unsaved changes' : undefined)}
         actions={[
+          ...(isOwner && !billLocked ? [{
+            key: 'delete', label: 'Delete', icon: Trash2,
+            onClick: async () => {
+              const ok = await dialog.confirmDelete({ title: 'Delete imaging study', message: 'This permanently removes the record and its results.', entityName: (current.modality || "Imaging study") });
+              if (!ok) return;
+              try {
+                const res = await imagingAPI.remove(current.id);
+                if (res.success) { toast.success('Deleted'); onChanged?.(); onBack(); }
+              } catch (e: any) { toast.error(e?.message || 'Could not delete'); }
+            },
+          }] : []),
           ...(currentAppt?.id != null && onOpenAppointment ? [{
             key: 'visit', label: 'Linked appointment', icon: ExternalLink, tone: 'seafoam' as const,
             onClick: () => onOpenAppointment(String(currentAppt.id), false),
