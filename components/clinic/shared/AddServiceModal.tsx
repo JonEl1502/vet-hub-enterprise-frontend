@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import { X, Plus, Package, Search, Loader2 } from 'lucide-react';
 import servicesAPI, { Service, ServiceProduct } from '../../../services/modules/services.api';
 import { useData } from '../../../contexts/DataContext';
-import QtyUnitControl, { sellUnitOf } from './QtyUnitControl';
+import QtyUnitControl, { sellUnitOf, isSplitUnit } from './QtyUnitControl';
 
 /**
  * Create a service — shared by the Billable Items → Services catalog and
@@ -28,7 +28,13 @@ interface Props {
 const AddServiceModal: React.FC<Props> = ({ categories, defaultCategoryId, currency = 'KES', onClose, onCreated }) => {
   const { inventory } = useData();
   const [name, setName] = React.useState('');
-  const [categoryId, setCategoryId] = React.useState(defaultCategoryId ?? '');
+  // "General" leads the list and is the default pick (user, 2026-11-27).
+  const isGeneral = (c: { name: string }) => c.name.trim().toLowerCase() === 'general';
+  const orderedCategories = React.useMemo(
+    () => [...categories.filter(isGeneral), ...categories.filter(c => !isGeneral(c))],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [categories]);
+  const [categoryId, setCategoryId] = React.useState(defaultCategoryId ?? categories.find(isGeneral)?.id ?? '');
   const [description, setDescription] = React.useState('');
   const [defaultPrice, setDefaultPrice] = React.useState('');
   const [products, setProducts] = React.useState<ServiceProduct[]>([]);
@@ -113,7 +119,7 @@ const AddServiceModal: React.FC<Props> = ({ categories, defaultCategoryId, curre
             <label className="field-label">Category</label>
             <select className="field-select" value={categoryId} onChange={e => setCategoryId(e.target.value)} required>
               <option value="">Select a category</option>
-              {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              {orderedCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
             </select>
           </div>
 
@@ -147,7 +153,7 @@ const AddServiceModal: React.FC<Props> = ({ categories, defaultCategoryId, curre
                     <Package size={10} className="shrink-0" />
                     <span className="truncate max-w-[160px]">{p.name}</span>
                     {(() => { const it = (inventory || []).find((x: any) => String(x.id) === p.inventoryItemId); return it ? (
-                      <QtyUnitControl compact item={it} value={Number(p.qty) || 1} onChange={(sellQty) => setQty(p.inventoryItemId, sellQty)} />
+                      <QtyUnitControl compact allowStockUnit item={it} value={Number(p.qty) || 1} onChange={(sellQty) => setQty(p.inventoryItemId, sellQty)} />
                     ) : (
                       <>
                         <input type="number" min={0} step="any" value={p.qty}
@@ -161,6 +167,18 @@ const AddServiceModal: React.FC<Props> = ({ categories, defaultCategoryId, curre
                 ))}
               </div>
             )}
+
+            {/* An item with no dispensing unit can only be attached whole —
+                say so, so "Vials" is not mistaken for a broken unit picker. */}
+            {products.map(p => {
+              const it: any = (inventory || []).find((x: any) => String(x.id) === p.inventoryItemId);
+              if (!it || isSplitUnit(it)) return null;
+              return (
+                <p key={`u-${p.inventoryItemId}`} className="text-[10px] text-slate-400 dark:text-zinc-500 px-1">
+                  {it.name} is sold whole by the {String(it.unit || 'unit')}. To attach part of one (e.g. mL), set a dispensing unit and pack size on the item in Products.
+                </p>
+              );
+            })}
 
             <div className="relative">
               <Search size={12} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />

@@ -64,6 +64,15 @@ interface Props {
   className?: string;
   compact?: boolean;      // chip-sized (catalog product chips)
   disabled?: boolean;
+  /**
+   * Offer the PURCHASE unit too (user, 2026-11-27: "the main pre-select will be
+   * the dispensing one, and the other option will be the purchasing quantity").
+   * Only on a genuinely split item (1 Vial = 10 mL). The dispensing unit is
+   * always the default; picking the purchase unit only changes what you TYPE
+   * in — the value handed back is still in dispensing units (qty × pack), and
+   * the equivalence is printed next to the box so nothing multiplies silently.
+   */
+  allowStockUnit?: boolean;
 }
 
 /**
@@ -80,13 +89,16 @@ interface Props {
  * in question. You are dispensing in the unit the item is billed in — so type
  * the number, and the container equivalence is shown as plain text beside it.
  */
-const QtyUnitControl: React.FC<Props> = ({ item, value, onChange, className = '', compact = false, disabled = false }) => {
+const QtyUnitControl: React.FC<Props> = ({ item, value, onChange, className = '', compact = false, disabled = false, allowStockUnit = false }) => {
   const sell = sellUnitOf(item);
   const stock = String(item?.unit ?? '').trim();
   const pack = Number(item?.packSize ?? 0);
   const split = isSplitUnit(item) && !!stock && Number.isFinite(pack) && pack > 1;
 
   const clamp = (n: number) => Math.min(MAX_SELL_QTY, Math.max(0, n));
+  const [inStock, setInStock] = React.useState(false);
+  const useStock = allowStockUnit && split && inStock;
+  const shown = useStock ? value / pack : value;
 
   const inputCls = compact
     ? 'w-16 bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 py-0.5 text-center text-pine dark:text-zinc-100 outline-none text-[10px]'
@@ -101,15 +113,32 @@ const QtyUnitControl: React.FC<Props> = ({ item, value, onChange, className = ''
          * stored value kept 3, so a typed 0.254 sat in the field as "0.25" and
          * charged 15.24 instead of 15.
          */
-        value={Number.isFinite(value) ? Number(value.toFixed(3)) : ''}
+        value={Number.isFinite(shown) ? Number(shown.toFixed(3)) : ''}
         onChange={e => {
           const n = Number(e.target.value);
-          if (Number.isFinite(n)) onChange(Math.round(clamp(n) * 1000) / 1000);
+          if (!Number.isFinite(n)) return;
+          const sellUnits = useStock ? n * pack : n;
+          onChange(Math.round(clamp(sellUnits) * 1000) / 1000);
         }}
         className={inputCls}
         title={split ? `Billed per ${sell}; 1 ${stock} = ${pack} ${sell}` : undefined}
       />
-      <span className={compact ? 'text-[10px] text-slate-500' : 'text-xs font-bold text-pine dark:text-zinc-100'}>{sell}</span>
+      {allowStockUnit && split ? (
+        <select value={inStock ? 'stock' : 'sell'} disabled={disabled}
+          onChange={e => setInStock(e.target.value === 'stock')}
+          title="Dispensing unit by default; switch to the purchase unit to enter whole packs"
+          className={compact
+            ? 'bg-white dark:bg-zinc-900 border border-seafoam/30 rounded px-1 py-0.5 text-[10px] text-pine dark:text-zinc-100 outline-none'
+            : 'field-select !w-auto !py-1 text-xs'}>
+          <option value="sell">{sell} (dispensing)</option>
+          <option value="stock">{stock} (purchase)</option>
+        </select>
+      ) : (
+        <span className={compact ? 'text-[10px] text-slate-500' : 'text-xs font-bold text-pine dark:text-zinc-100'}>{sell}</span>
+      )}
+      {useStock && (
+        <span className="text-[9px] font-bold text-slate-400 whitespace-nowrap">= {Number(value.toFixed(3))} {sell}</span>
+      )}
       {split && !compact && (
         <span className="text-[9px] font-bold text-slate-400 whitespace-nowrap">1 {stock} = {pack} {sell}</span>
       )}
