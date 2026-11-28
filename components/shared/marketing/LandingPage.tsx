@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { partnerTypeAPI, type FeaturedClinic } from '../../../services/modules/partnerType.api';
+import FeatureScenes from './FeatureScenes';
 import { motion, AnimatePresence, useScroll, useTransform, useInView, useReducedMotion } from 'framer-motion';
 import desktopImg from '../../../assets/device-desktop.png';
 import tabletImg from '../../../assets/device-tablet.png';
@@ -691,50 +692,21 @@ const TrustConfidence: React.FC = () => (
 );
 
 // ── MODULES ──────────────────────────────────────────────────────────────────
-const Modules: React.FC = () => {
-  const mods = [
-    { icon: Building2,   title: 'Multi-clinic',     desc: 'Manage all your branches from one dashboard — staff, inventory, records.' },
-    { icon: Calendar,    title: 'Smart scheduling', desc: 'Drag-and-drop calendar with conflict detection and automated reminders.' },
-    { icon: Package,     title: 'Inventory',        desc: 'Track stock, set reorder points, manage batches and expiry dates.' },
-    { icon: Users,       title: 'Client portal',    desc: 'Pet owners view records, book visits, and message your team.' },
-    { icon: BarChart3,   title: 'Analytics',        desc: 'Real-time insights into revenue, staff efficiency, and appointments.' },
-    { icon: ShieldCheck, title: 'Security',         desc: 'Enterprise-grade access control with role-based permissions.' },
-  ];
-  return (
-    <section id="modules" className="scroll-mt-24 md:scroll-mt-28 relative py-24 md:py-32 bg-white overflow-hidden">
-      <ParallaxSectionBg src={WARM_MODULES_BG} tone="light" />
-      <div className="relative z-10 max-w-[1280px] mx-auto px-6">
-        <SectionHeading
-          eyebrow="Platform"
-          title={<>Every room in the clinic.<br /><span className="text-[#5c616d]">One system.</span></>}
-          sub="Six tightly integrated modules, designed for the way veterinary teams actually work."
-        />
-        <div className="mt-14 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {mods.map((m, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, y: 18 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5, ease: EASE, delay: i * 0.06 }}
-              whileHover={{ y: -4 }}
-              className="group bg-[#f6f7f8] hover:bg-white rounded-[1.25rem] p-8 border border-transparent hover:border-[#ebecef] hover:shadow-[0_.5rem_1rem_.125rem_rgba(65,70,82,0.08)] transition-all duration-200 ease-[cubic-bezier(.65,0,.35,1)] cursor-pointer"
-            >
-              <div className="w-12 h-12 rounded-xl bg-[#1C7A5B] text-white flex items-center justify-center mb-6 group-hover:scale-105 transition-transform duration-200">
-                <m.icon size={22} />
-              </div>
-              <h3 className="text-xl font-black text-[#144E35] mb-2 tracking-tight">{m.title}</h3>
-              <p className="text-[#5c616d] text-[15px] leading-relaxed">{m.desc}</p>
-              <div className="mt-5 inline-flex items-center gap-1.5 text-[13px] font-bold text-[#1C7A5B] opacity-0 group-hover:opacity-100 transition-opacity">
-                Learn more <ArrowRight size={14} />
-              </div>
-            </motion.div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-};
+// One row per job, each a real photo with the same live screen on desktop,
+// tablet and phone (user, 2026-11-28 — the Rekodi "Everything in one place"
+// design). Replaced six icon cards.
+const Modules: React.FC = () => (
+  <section id="modules" className="scroll-mt-24 md:scroll-mt-28 relative py-24 md:py-32 bg-white overflow-x-clip">
+    <div className="relative z-10 max-w-[1280px] mx-auto px-6">
+      <SectionHeading
+        eyebrow="Platform"
+        title={<>Every room in the clinic.<br /><span className="text-[#5c616d]">One system.</span></>}
+        sub="From the front desk to the ward — the same record on the desktop at the counter, the tablet on the rounds and the phone in your pocket."
+      />
+      <FeatureScenes />
+    </div>
+  </section>
+);
 
 // ── PLATFORMS (DEVICES) ──────────────────────────────────────────────────────
 const Platforms: React.FC = () => (
