@@ -15,7 +15,10 @@
  */
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Check } from 'lucide-react';
+import {
+  Check, ChevronLeft, ChevronRight, Building2, ShoppingBag, MessagesSquare, FlaskConical, Scissors,
+  Pill, Wallet, BellRing, Award, ClipboardList, Tractor, Truck, Share2, BarChart3, UserCog, Sparkles,
+} from 'lucide-react';
 
 const EASE = [0.65, 0, 0.35, 1] as const;
 
@@ -152,5 +155,70 @@ const FeatureScenes: React.FC = () => (
     })}
   </div>
 );
+
+
+/**
+ * MORE FEATURES — a sideways-scrolling strip after the six scenes
+ * (user, 2026-11-28: "a horizontal scroll … multi-clinic, pet shop, VetHubCore
+ * Community"). Snap scrolling with swipe on phones; arrow buttons on desktop.
+ */
+const MORE = [
+  { icon: Building2,     title: 'Multi-clinic',            desc: 'Every branch on one login: staff, stock and records per branch, or all together.' },
+  { icon: ShoppingBag,   title: 'Pet shop',                desc: 'Sell food, toys and accessories at the counter from the same stock the clinic uses.' },
+  { icon: MessagesSquare,title: 'VetHubCore Community',    desc: 'Ask other vets, share cases and find referrals in a community built for the profession.' },
+  { icon: FlaskConical,  title: 'Laboratory & imaging',    desc: 'In-house or sent-out tests, X-ray and ultrasound, filed on the patient.' },
+  { icon: Scissors,      title: 'Surgery',                 desc: 'Procedure recipes with drugs, consumables and fees, priced by weight.' },
+  { icon: Pill,          title: 'Pharmacy & stock',        desc: 'Buy in packs, dispense in tablets or mL, with batches and expiry tracked.' },
+  { icon: Wallet,        title: 'Billing & payments',      desc: 'Bills build as you work. Card, mobile money or cash, part payments included.' },
+  { icon: BellRing,      title: 'Reminders',               desc: 'Every visit ends with the next one booked: vaccines, deworming and rechecks.' },
+  { icon: Award,         title: 'Certificates',            desc: 'Vaccination, birth and death certificates, printed from the record.' },
+  { icon: ClipboardList, title: 'Procedure presets',       desc: 'One procedure, many versions: by weight, pregnancy or the patient\'s condition.' },
+  { icon: Tractor,       title: 'Farms & livestock',       desc: 'Herds, flocks and feeding plans for farm vets and the farmers they serve.' },
+  { icon: Truck,         title: 'Suppliers & orders',      desc: 'Purchase orders, deliveries and what you owe, straight into stock.' },
+  { icon: Share2,        title: 'Partners & referrals',    desc: 'Share a record with a partner clinic or lab in two taps, and see who opened it.' },
+  { icon: BarChart3,     title: 'Finance & reports',       desc: 'Revenue, part-paid and unpaid visits, compared period against period.' },
+  { icon: UserCog,       title: 'Staff & roles',           desc: 'Front desk, vets, groomers and cashiers each see only what they need.' },
+  { icon: Sparkles,      title: 'AI assist',               desc: 'Ask questions about your practice and draft notes, inside the app.' },
+];
+
+export const MoreFeatures: React.FC = () => {
+  const track = React.useRef<HTMLDivElement>(null);
+  const nudge = (dir: 1 | -1) => {
+    const el = track.current; if (!el) return;
+    el.scrollBy({ left: dir * Math.max(280, el.clientWidth * 0.8), behavior: 'smooth' });
+  };
+  return (
+    <div className="mt-24 sm:mt-32">
+      <div className="flex items-end justify-between gap-4">
+        <div>
+          <p className="text-[12px] font-bold uppercase tracking-[0.18em] text-[#1C7A5B]">And there is more</p>
+          <h3 className="mt-2 text-3xl md:text-4xl font-black tracking-tight text-[#144E35]">Everything else a practice needs.</h3>
+        </div>
+        <div className="hidden md:flex gap-2 shrink-0">
+          <button type="button" aria-label="Scroll features left" onClick={() => nudge(-1)}
+            className="w-11 h-11 rounded-full border border-[#dfe3e6] bg-white text-[#144E35] flex items-center justify-center hover:border-[#1C7A5B] hover:text-[#1C7A5B] active:scale-95 transition">
+            <ChevronLeft size={18} />
+          </button>
+          <button type="button" aria-label="Scroll features right" onClick={() => nudge(1)}
+            className="w-11 h-11 rounded-full border border-[#dfe3e6] bg-white text-[#144E35] flex items-center justify-center hover:border-[#1C7A5B] hover:text-[#1C7A5B] active:scale-95 transition">
+            <ChevronRight size={18} />
+          </button>
+        </div>
+      </div>
+      <div ref={track}
+        className="mt-8 -mx-6 px-6 flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-px-6 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ overscrollBehaviorX: 'contain' }}>
+        {MORE.map(f => (
+          <div key={f.title}
+            className="snap-start shrink-0 w-[78%] sm:w-[300px] bg-[#f6f7f8] hover:bg-white rounded-[1.25rem] p-7 border border-transparent hover:border-[#ebecef] hover:shadow-[0_.5rem_1rem_.125rem_rgba(65,70,82,0.08)] transition-all duration-200">
+            <div className="w-12 h-12 rounded-xl bg-[#1C7A5B] text-white flex items-center justify-center mb-5"><f.icon size={22} /></div>
+            <h4 className="text-lg font-black text-[#144E35] tracking-tight">{f.title}</h4>
+            <p className="mt-2 text-[#5c616d] text-[15px] leading-relaxed">{f.desc}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
 
 export default FeatureScenes;

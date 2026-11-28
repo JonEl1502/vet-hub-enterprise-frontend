@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { partnerTypeAPI, type FeaturedClinic } from '../../../services/modules/partnerType.api';
-import FeatureScenes from './FeatureScenes';
+import FeatureScenes, { MoreFeatures } from './FeatureScenes';
 import { motion, AnimatePresence, useScroll, useTransform, useInView, useReducedMotion } from 'framer-motion';
 import desktopImg from '../../../assets/device-desktop.png';
 import tabletImg from '../../../assets/device-tablet.png';
@@ -704,6 +704,7 @@ const Modules: React.FC = () => (
         sub="From the front desk to the ward — the same record on the desktop at the counter, the tablet on the rounds and the phone in your pocket."
       />
       <FeatureScenes />
+      <MoreFeatures />
     </div>
   </section>
 );
@@ -1370,7 +1371,8 @@ export default function LandingPage({ onLogin, onRegister, onDemo, onPricing, on
       {/* <TrustConfidence /> */}
       <Modules />
       <Platforms />
-      <Integrations />
+      {/* Hidden 2026-11-28 (user): the "Connects to the tools your clinic already uses" strip. */}
+      {/* <Integrations /> */}
       {/* Real-data Clinics + Suppliers showcases hidden until we have data.
           Re-enable by uncommenting these and restoring the #clinics /
           #suppliers nav links above. The component definitions are kept
